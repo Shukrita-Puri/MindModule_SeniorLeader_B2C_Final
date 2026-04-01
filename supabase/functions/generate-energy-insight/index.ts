@@ -51,7 +51,7 @@ Time-Specific Language Rules:
 - Morning (6-12): "seize window", "peak window available", "prepare for day ahead"
 - Afternoon (12-18): "protect energy", "sustain focus", "manage dip"
 - Evening (18-22): "transition", "consolidate", "ground", "wind down", "prepare for tomorrow"
-- NEVER use "high-stakes ahead" or "decisions ahead" in evening (18-22)—work day is over
+- NEVER use "high-stakes ahead" or "decisions ahead" in evening (18-22)–work day is over
 - Evening focus: grounding, consolidation, preparation for rest (NOT work-oriented language)
 
 Recommendation Constraints (CRITICAL):
@@ -66,7 +66,7 @@ Critical Rules:
 - Maximum 20-25 words
 - Generate UNIFIED insight that includes: [State observation]. [Context if relevant]. Recommended: [specific action].
 - DO NOT repeat the balance score number (they see it)
-- Avoid technical jargon like "activation" or "downregulation"—use plain executive language
+- Avoid technical jargon like "activation" or "downregulation"–use plain executive language
 - When calendar/wearable data present, reference it as final context before recommendation
 - Executive-appropriate, action-oriented tone
 

@@ -3,7 +3,7 @@
  * 
  * Authenticates user via Auth0 JWT, gets/creates Stripe customer,
  * creates a Stripe Checkout Session with 7-day trial.
- * Accepts optional referralCode — validates and stores in Stripe session metadata.
+ * Accepts optional referralCode – validates and stores in Stripe session metadata.
  * 
  * Uses environment-based Stripe mode selection via _shared/stripe-config.ts.
  */
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // REFERRAL CODE VALIDATION (no attribution here — just validate for Stripe metadata)
+    // REFERRAL CODE VALIDATION (no attribution here – just validate for Stripe metadata)
     // Attribution happens in stripe-webhook on checkout.session.completed
     // ═══════════════════════════════════════════════════════════
     let validatedReferralCode: string | null = null;

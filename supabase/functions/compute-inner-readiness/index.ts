@@ -89,7 +89,7 @@ function getTierLabel(tier: string): string {
 
 // ==================== 3-LAYER CONTEXT STATEMENTS ====================
 
-// Layer 1: Base statements (outcome × timeOfDay) — 15 combinations
+// Layer 1: Base statements (outcome × timeOfDay) – 15 combinations
 const BASE_STATEMENTS: Record<string, Record<string, string>> = {
   overwhelmed: {
     morning: "Your nervous system is activated before the day has begun. Regulation is your first priority.",
@@ -98,8 +98,8 @@ const BASE_STATEMENTS: Record<string, Record<string, string>> = {
   },
   drained: {
     morning: "Your reserves are low coming into the day. Your system is running a recovery deficit.",
-    afternoon: "Real energy depletion — not a mindset issue. Your body is asking for restoration.",
-    evening: "Your system has given what it had today. The signal is clear — recovery is needed.",
+    afternoon: "Real energy depletion – not a mindset issue. Your body is asking for restoration.",
+    evening: "Your system has given what it had today. The signal is clear – recovery is needed.",
   },
   scattered: {
     morning: "Your cognition is fragmented at the start of the day. Grounding before action is the fastest route to clarity.",
@@ -121,7 +121,7 @@ const BASE_STATEMENTS: Record<string, Record<string, string>> = {
 // Tier-based fallback statements (no check-in)
 const TIER_FALLBACK_STATEMENTS: Record<string, Record<string, string>> = {
   depleted: {
-    morning: "Recovery signals detected — your system is in a low-reserve state.",
+    morning: "Recovery signals detected – your system is in a low-reserve state.",
     afternoon: "Low reserves mid-day. Your system is running below baseline.",
     evening: "Your system needs genuine recovery tonight.",
   },
@@ -242,15 +242,15 @@ function getLayer3Text(
         : `${sampleDays} days of HRV data`;
 
     if (divergenceFlag === 'MASKED_HIGH') {
-      parts.push(`Your HRV is reading ${absDeviation}% below ${baselineLabel} — your physiological load is higher than your felt state suggests.`);
+      parts.push(`Your HRV is reading ${absDeviation}% below ${baselineLabel} – your physiological load is higher than your felt state suggests.`);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      parts.push(`Your HRV is reading ${absDeviation}% above ${baselineLabel} — your body is more recovered than you currently feel.`);
+      parts.push(`Your HRV is reading ${absDeviation}% above ${baselineLabel} – your body is more recovered than you currently feel.`);
     } else if (absDeviation < 5) {
-      parts.push("Your HRV is steady at baseline — your body and mind are reading the same signal.");
+      parts.push("Your HRV is steady at baseline – your body and mind are reading the same signal.");
     } else if (hrvDeviation > 0) {
-      parts.push(`Your HRV is tracking ${absDeviation}% above ${baselineLabel} — your physiological state is consistent with how you feel.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% above ${baselineLabel} – your physiological state is consistent with how you feel.`);
     } else {
-      parts.push(`Your HRV is tracking ${absDeviation}% below ${baselineLabel} — a slight physiological dip, worth noting.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% below ${baselineLabel} – a slight physiological dip, worth noting.`);
     }
 
     // Phase 2: Sustained deficit warning (feature-flagged OFF)
@@ -391,7 +391,7 @@ serve(async (req) => {
       // Mode 1: No wearable
       score = Math.round(feltScore * 0.55 + irScore * 0.30 + circadianScore * 0.15);
     } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High — scale wearable weight by confidence
+      // Mode 3: Masked High – scale wearable weight by confidence
       const wW = 0.35 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10; // circadian stays 0.10
       score = Math.round(feltScore * (remainder * 0.55) + irScore * (remainder * 0.45) + wearableScore * wW + circadianScore * 0.10);

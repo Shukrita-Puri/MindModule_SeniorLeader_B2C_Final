@@ -55,11 +55,11 @@ interface CalendarEvent {
 }
 
 interface PlanRequest {
-  // Verified server-side — NOT from client
+  // Verified server-side – NOT from client
   userId: string;
   // Only client-supplied field
   timezoneOffset: number;
-  // ALL below are server-fetched — populated inside generateMasteryPlan
+  // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
   outerReadinessPhrase: string;
@@ -639,7 +639,7 @@ function applyCalendarOverrides(
         m.align.focus = 'grounding';
       }
     } else if ((load === 'heavy' || load === 'extreme') && (tier === 'strong' || tier === 'peak')) {
-      // Sustained capacity — keep align but ensure regulate present
+      // Sustained capacity – keep align but ensure regulate present
       if (!m.regulate) {
         m.regulate = { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'composure' };
       }
@@ -696,7 +696,7 @@ function generateCalendarMessage(
   if (timeOfDay === 'afternoon') {
     if (load === 'extreme' || load === 'heavy') return `Dense Day (${count} meetings, ${hrsLabel})`;
     if (load === 'moderate') return `Moderate Day (${count} meetings)`;
-    return null; // Light afternoon — no special callout
+    return null; // Light afternoon – no special callout
   }
   // Evening
   if (load === 'extreme') return `Deep Recovery (${count} meetings today, ${hrsLabel})`;
@@ -870,7 +870,7 @@ const JIT_THRESHOLD_UNIFIED = 55;
 // Silent gap (6-24h) and selection-only (>48h): scored but not surfaced.
 function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'silent' | 'selection_only' {
   if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
-  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap — do not surface
+  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap – do not surface
   if (minutesUntil <= 2880) return 'touch1';           // 24-48h: coach + think
   return 'selection_only';                              // >48h: scored but not surfaced
 }
@@ -990,7 +990,7 @@ async function getPreScoredEvents(
         const minutesUntil = Math.floor((eventStart.getTime() - now.getTime()) / (1000 * 60));
         if (minutesUntil < 0) continue;
 
-        // Educational non-organizer hard gate — completely block, no override
+        // Educational non-organizer hard gate – completely block, no override
         const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
         const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || ''));
         const isOrganizer = matchingEvent?.isOrganizer ?? false;
@@ -1009,7 +1009,7 @@ async function getPreScoredEvents(
         const touchLabel = actionWindow === 'touch1' ? 'touch_1' : 'touch_2';
         const dismissedHorizons: string[] = row.dismissed_horizons || [];
         if (dismissedHorizons.includes(touchLabel)) {
-          console.log(`[generate-mastery-plan] Bridge: skipping "${row.event_title}" — ${touchLabel} dismissed`);
+          console.log(`[generate-mastery-plan] Bridge: skipping "${row.event_title}" – ${touchLabel} dismissed`);
           continue;
         }
 
@@ -1104,11 +1104,11 @@ function buildEnrichedContextDescription(
 
   // Bucket-driven reasoning
   if (bucket === 'recalibrate') {
-    parts.push('High inner-state demand detected — regulate before this');
+    parts.push('High inner-state demand detected – regulate before this');
   } else if (bucket === 'clarity') {
-    parts.push('Decision or relationship stakes ahead — sharpen your approach');
+    parts.push('Decision or relationship stakes ahead – sharpen your approach');
   } else if (bucket === 'renewal') {
-    parts.push('Transition moment — sustain energy and identity');
+    parts.push('Transition moment – sustain energy and identity');
   }
 
   // Coach memory signal
@@ -1132,7 +1132,7 @@ function buildEnrichedContextDescription(
 
   // Urgency
   if (minutesUntil <= 30) {
-    parts.push('starting very soon — prepare now');
+    parts.push('starting very soon – prepare now');
   } else if (minutesUntil <= 60) {
     parts.push(`in ${minutesUntil} minutes`);
   } else if (minutesUntil < 1440) {
@@ -1153,20 +1153,20 @@ function buildEnrichedContextDescription(
 
   // Confidence-framed closing
   if (confidenceScore >= 70) {
-    return parts.join(' — ') + '. Prepare with targeted practice.';
+    return parts.join(' – ') + '. Prepare with targeted practice.';
   } else if (confidenceScore >= 40) {
-    return `Before your ${row.event_title || 'event'} — ` + parts.join(' — ') + '.';
+    return `Before your ${row.event_title || 'event'} – ` + parts.join(' – ') + '.';
   } else if (confidenceScore >= 20) {
-    return `Worth preparing for this? ` + parts.join(' — ') + '.';
+    return `Worth preparing for this? ` + parts.join(' – ') + '.';
   }
 
   return parts.length > 0
-    ? parts.join(' — ') + '. Prepare with targeted practice.'
+    ? parts.join(' – ') + '. Prepare with targeted practice.'
     : `${row.event_title || 'Upcoming event'}. Prepare with targeted practice.`;
 }
 
 /**
- * Legacy scoring — kept as fallback when jit_event_context has no recent data.
+ * Legacy scoring – kept as fallback when jit_event_context has no recent data.
  * Enforces: noise filter, two-touch action windows, unified ≥55 threshold,
  * and Dim A≥10 + Dim B≥8 floor guards.
  */
@@ -1254,7 +1254,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
         const avgDev = correlation.avgHRVDeviation;
         hrvCorrelation = { eventType: evtType, avgDeviation: avgDev, historicalCount: correlation.count };
         const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
-        if (avgDev > 20) { score += 25; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds strongly to these.`; }
+        if (avgDev > 20) { score += 25; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events – your system responds strongly to these.`; }
         else if (avgDev > 15) { score += 20; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events.`; }
         else if (avgDev > 10) { score += 12; hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline).`; }
         else if (avgDev < -10) { score -= 5; }
@@ -1266,7 +1266,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     else if (minutesUntil < 1440) { const hours = Math.floor(minutesUntil / 60); timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`; }
     else { const days = Math.ceil(minutesUntil / 1440); timePill = `In ${days} day${days > 1 ? 's' : ''}`; }
 
-    // ═══ CONTEXT DESCRIPTION — HIDE IF LOW CONFIDENCE ═══
+    // ═══ CONTEXT DESCRIPTION – HIDE IF LOW CONFIDENCE ═══
     // Only show context if dimA + dimB signals are strong enough
     let contextDescription = '';
     if (dimA + dimB >= 22) {
@@ -1278,15 +1278,15 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       } else if ((event.attendeesCount || 0) > 5) {
         contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
       }
-      // Removed: generic "You're organizing this event" — not a justifiable context reason
-      if (minutesUntil <= 30) contextParts.push(`starting very soon — prepare now`);
+      // Removed: generic "You're organizing this event" – not a justifiable context reason
+      if (minutesUntil <= 30) contextParts.push(`starting very soon – prepare now`);
       else if (minutesUntil <= 60) contextParts.push(`in ${minutesUntil} minutes`);
       else if (minutesUntil < 1440) contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
       else contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
       if (!event.isRecurring && (event.attendeesCount || 0) > 3) contextParts.push(`non-recurring high-visibility event`);
       if (hrvContextPart) contextParts.push(hrvContextPart);
       contextDescription = contextParts.length > 0
-        ? contextParts.join(' — ') + '. Prepare with targeted practice.'
+        ? contextParts.join(' – ') + '. Prepare with targeted practice.'
         : '';
     }
 
@@ -1366,7 +1366,7 @@ function calculateContentScore(
   if (content.structured_tags?.goalTags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
   else if (content.tags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
 
-  // Onboarding signal boosts — full weight when no dynamic signals exist, decayed otherwise
+  // Onboarding signal boosts – full weight when no dynamic signals exist, decayed otherwise
   const onboardingFullWeight = !hasFavorites && !hasCoachInsights;
   const priorityBoost = onboardingFullWeight ? 15 : 5;
   const pressureBoost = onboardingFullWeight ? 8 : 3;
@@ -1491,7 +1491,7 @@ function getCoachPromptForContext(
   // Evening: ALWAYS include
   if (timeOfDay === 'evening') {
     return {
-      prompt: "A managed close. What's one thing you did right today? Share your small win — and what's one thing worth carrying into tomorrow, and one thing worth leaving here?",
+      prompt: "A managed close. What's one thing you did right today? Share your small win – and what's one thing worth carrying into tomorrow, and one thing worth leaving here?",
       title: 'Tiny Win and Reflection'
     };
   }
@@ -1502,7 +1502,7 @@ function getCoachPromptForContext(
     if (tier === 'depleted' || tier === 'managing') {
       if (patternInsight && patternInsight.count >= 3) {
         return {
-          prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper — what's been weighing on you?`,
+          prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper – what's been weighing on you?`,
           title: 'Pattern Check-in'
         };
       }
@@ -1520,7 +1520,7 @@ function getCoachPromptForContext(
     // Strong/peak: include only if consecutive low pattern, high pressure, or coach favourite
     if (patternInsight && patternInsight.count >= 3) {
       return {
-        prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper — what's been weighing on you?`,
+        prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper – what's been weighing on you?`,
         title: 'Pattern Check-in'
       };
     }
@@ -1532,7 +1532,7 @@ function getCoachPromptForContext(
         };
       }
       return {
-        prompt: "You're at your best. What does making the most of today actually look like — specifically?",
+        prompt: "You're at your best. What does making the most of today actually look like – specifically?",
         title: 'Morning Precision'
       };
     }
@@ -1544,7 +1544,7 @@ function getCoachPromptForContext(
         };
       }
       return {
-        prompt: "You're at your best. What does making the most of today actually look like — specifically?",
+        prompt: "You're at your best. What does making the most of today actually look like – specifically?",
         title: 'Morning Precision'
       };
     }
@@ -1629,15 +1629,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     if (recoveryTrigger?.triggered) {
       console.log(`[generate-mastery-plan] RECOVERY DAY TRIGGERED: ${recoveryTrigger.reason}`);
       // When enabled, this will force a recovery-only plan
-      // For now, just log — full implementation activates in Phase 2
+      // For now, just log – full implementation activates in Phase 2
     }
   }
 
-  // 0. Server-side upstream queries — ALL signals derived here (trust gap closed)
-  // Calendar events — next 48h (only if connection is active)
+  // 0. Server-side upstream queries – ALL signals derived here (trust gap closed)
+  // Calendar events – next 48h (only if connection is active)
   let rawCalendarEvents: any[] = [];
   try {
-    // Gate on active connection — stale events must not power plan after disconnect
+    // Gate on active connection – stale events must not power plan after disconnect
     const { data: calConn } = await supabaseClient
       .from('calendar_connections')
       .select('is_active')
@@ -1708,7 +1708,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.calendarPressure = 'none';
   }
 
-  // Check-in data — prioritize current time window, fall back to latest
+  // Check-in data – prioritize current time window, fall back to latest
   try {
     const timeOfDay = getTimeOfDay(req.timezoneOffset);
     const today = new Date().toISOString().split('T')[0];
@@ -1799,7 +1799,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     }));
   } catch { req.coachInsights = []; }
 
-  // Completed today — from daily_ritual_completions (current period only)
+  // Completed today – from daily_ritual_completions (current period only)
   try {
     const today = new Date().toISOString().split('T')[0];
     const currentPeriod = getTimeOfDay(req.timezoneOffset);
@@ -1813,7 +1813,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.completedToday = ritual?.completed_practice_ids || [];
   } catch { req.completedToday = []; }
 
-  // Favorites — from user_favorites
+  // Favorites – from user_favorites
   try {
     const { data: favs } = await supabaseClient
       .from('user_favorites')
@@ -1822,7 +1822,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.favorites = (favs || []).map((f: any) => f.content_id);
   } catch { req.favorites = []; }
 
-  // Outer readiness — call compute-outer-readiness server-to-server
+  // Outer readiness – call compute-outer-readiness server-to-server
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -1896,7 +1896,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // 3. Fetch HRV × Calendar correlations
   const hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
 
-  // 4. Score calendar events — bridge to new pipeline (jit_event_context) with legacy fallback
+  // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
   const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
   // Filter out 3+ skipped types
   const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
@@ -1939,7 +1939,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     console.log(`[generate-mastery-plan] Two-touch: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} score=${topEvent.score} minutesUntil=${topEvent.minutesUntil}`);
 
     if (actionWindow === 'touch2') {
-      // ═══ TOUCH 2 (0-6h): BODY PREP — somatic-first, 3-5 min max ═══
+      // ═══ TOUCH 2 (0-6h): BODY PREP – somatic-first, 3-5 min max ═══
       // Primary: somatic/breathing regulation practice (gentle, micro/short)
       const somaticSpec: ModuleSpec = { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'micro', focus: 'composure' };
       const somaticContent = selectContent(enrichedContent, somaticSpec, req, pendingCommitments);
@@ -1986,7 +1986,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         reasoning: 'Quick check-in if you need it'
       });
     } else {
-      // ═══ TOUCH 1 (24-48h): THINK PREP — coach primary, framework, 5-8 min ═══
+      // ═══ TOUCH 1 (24-48h): THINK PREP – coach primary, framework, 5-8 min ═══
       // Primary: coach card (prepare type) as main CTA
       preEventModules.push({
         type: 'prepare',
@@ -2036,7 +2036,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       }
     }
 
-    // ═══ ENRICH CONTEXT — Coach Memory + HRV as Lead Context ═══
+    // ═══ ENRICH CONTEXT – Coach Memory + HRV as Lead Context ═══
     let enrichedContextDescription = topEvent.contextDescription || '';
     const eventTitleLower = (topEvent.event.title || '').toLowerCase();
     const eventTitleShort = topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event';
@@ -2055,17 +2055,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       patternMatched = scenarioKeywords.some(kw => patternState.includes(kw));
     }
 
-    // Aggressively replace context — coach memory and HRV take priority over generic text
+    // Aggressively replace context – coach memory and HRV take priority over generic text
     if (relevantCommitment && patternMatched) {
-      enrichedContextDescription = `You discussed this with your coach and a pattern has been noted — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+      enrichedContextDescription = `You discussed this with your coach and a pattern has been noted – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     } else if (relevantCommitment) {
-      enrichedContextDescription = `You discussed this with your coach — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+      enrichedContextDescription = `You discussed this with your coach – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     } else if (patternMatched) {
-      enrichedContextDescription = `Your coach has noted a pattern here — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+      enrichedContextDescription = `Your coach has noted a pattern here – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     } else if (topEvent.hrvCorrelation && Math.abs(topEvent.hrvCorrelation.avgDeviation) > 10 && !enrichedContextDescription) {
       // HRV as lead context when no coach signals and context is empty
       const canonicalLabel = CANONICAL_TAGS[topEvent.hrvCorrelation.eventType] || topEvent.hrvCorrelation.eventType;
-      enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+      enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     }
 
     if (preEventModules.length > 0) {
@@ -2109,7 +2109,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
-  // Calendar-context density overrides — adjust module focus/intensity based on actual calendar load
+  // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
   const calendarMessage = generateCalendarMessage(calendarContext, timeOfDay);
@@ -2142,7 +2142,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const todModules: any[] = [];
   const moduleOrder: ('regulate' | 'align' | 'prepare' | 'integrate')[] = ['regulate', 'align', 'prepare', 'integrate'];
 
-  // Filter out content already used in JIT plan — computed once, used by all modules
+  // Filter out content already used in JIT plan – computed once, used by all modules
   const todCandidates = jitContentIds.size > 0
     ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
     : enrichedContent;
@@ -2350,7 +2350,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authentication — verify JWT and extract userId
+    // Authentication – verify JWT and extract userId
     let userId: string;
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) {
@@ -2371,7 +2371,7 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting — 30s cooldown per user+period
+    // Rate limiting – 30s cooldown per user+period
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
@@ -2386,7 +2386,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Only timezoneOffset comes from client — all other signals are server-derived
+    // Only timezoneOffset comes from client – all other signals are server-derived
     const planReq: PlanRequest = {
       userId,
       timezoneOffset: clientTimezoneOffset,

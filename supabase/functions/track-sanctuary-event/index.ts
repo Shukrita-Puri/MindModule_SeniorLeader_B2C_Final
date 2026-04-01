@@ -31,7 +31,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Event type is passed through directly — DB constraint expects: session_complete, session_start, session_pause, session_skip
+    // Event type is passed through directly – DB constraint expects: session_complete, session_start, session_pause, session_skip
     const mappedEventType = eventData.eventType;
 
     // Insert sanctuary event
@@ -86,7 +86,7 @@ serve(async (req) => {
 
       if (sessionError) {
         console.error('[track-sanctuary-event] practice_sessions insert error:', sessionError);
-        // Non-fatal — sanctuary_events is the primary record
+        // Non-fatal – sanctuary_events is the primary record
       } else {
         practiceSessionId = session?.id || null;
       }

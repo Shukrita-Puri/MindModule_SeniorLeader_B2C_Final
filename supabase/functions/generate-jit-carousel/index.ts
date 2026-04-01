@@ -105,7 +105,7 @@ serve(async (req) => {
         .filter(c => c.score > 0)
         .sort((a, b) => b.score - a.score);
 
-      // Take top candidate (deterministic — first by score)
+      // Take top candidate (deterministic – first by score)
       if (candidates.length > 0) {
         const selected = candidates[0];
         usedIds.add(selected.id);

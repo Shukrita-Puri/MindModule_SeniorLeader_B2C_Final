@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
           console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
           results.errors++;
         } else {
-          results.inserted++;  // upsert — counted as write
+          results.inserted++;  // upsert – counted as write
         }
       }
 

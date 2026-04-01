@@ -18,14 +18,14 @@ interface ArchetypeResult {
 
 function resolveArchetypeFromScores(er: number, fr: number, en: number): ArchetypeResult {
   if (er >= 65 && en >= 55)
-    return { id: "grounded-leader", title: "The Grounded Master", leanOn: "Stability and presence — you lead from a centered place.", watchFor: "Over-reliance on composure when renewal is needed." };
+    return { id: "grounded-leader", title: "The Grounded Master", leanOn: "Stability and presence – you lead from a centered place.", watchFor: "Over-reliance on composure when renewal is needed." };
   if (en >= 65 && er >= 50)
-    return { id: "resilient-performer", title: "The Resilient Performer", leanOn: "Recovery capacity — you absorb impact and bounce back.", watchFor: "Pushing through when regulation would serve you better." };
+    return { id: "resilient-performer", title: "The Resilient Performer", leanOn: "Recovery capacity – you absorb impact and bounce back.", watchFor: "Pushing through when regulation would serve you better." };
   if (fr >= 65 && er >= 45)
-    return { id: "clear-thinker", title: "The Clear Thinker", leanOn: "Mental clarity — you cut through complexity with precision.", watchFor: "Over-thinking when action or rest is what's needed." };
+    return { id: "clear-thinker", title: "The Clear Thinker", leanOn: "Mental clarity – you cut through complexity with precision.", watchFor: "Over-thinking when action or rest is what's needed." };
   if (er >= 60 && fr < 50)
-    return { id: "intensity-driver", title: "The Intensity Driver", leanOn: "Directed force — you channel intensity into focused action.", watchFor: "Intensity without clarity can fragment your focus." };
-  return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
+    return { id: "intensity-driver", title: "The Intensity Driver", leanOn: "Directed force – you channel intensity into focused action.", watchFor: "Intensity without clarity can fragment your focus." };
+  return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility – you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
 // Map legacy archetype IDs → v2 keys
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
   const t0 = Date.now();
 
   try {
-    // Auth — shared JWT verification
+    // Auth – shared JWT verification
     const tAuth = Date.now();
     const userId = await verifyAuth0JWT(req.headers.get("authorization"));
     stepTimer("auth", tAuth);
@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
     checkIns.forEach((c: any) => checkinByDate.set(c.checkin_date, c.outcome?.toLowerCase() || ""));
 
     // ──────────────────────────────────────────
-    // EVOLVED SCORES — MULTI-SIGNAL MODEL
+    // EVOLVED SCORES – MULTI-SIGNAL MODEL
     // ──────────────────────────────────────────
 
     // --- Recalibration signals ---
@@ -473,11 +473,11 @@ Deno.serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work — regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice — just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
+                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
               },
               {
                 role: "user",
-                content: `Data:\n- Archetype: ${archEvStr}\n- Dimension shifts: ${dimensionDeltaStr}\n- Friction: ${frictionLabel} (${frictionPct}%) — trend: ${trendDirection}\n- Recurring themes: ${themesStr || "none yet"}\n- Coach strength: ${coachStrength || "none yet"}\n- Coach friction: ${coachFriction || "none yet"}\n\nName the pattern.`,
+                content: `Data:\n- Archetype: ${archEvStr}\n- Dimension shifts: ${dimensionDeltaStr}\n- Friction: ${frictionLabel} (${frictionPct}%) – trend: ${trendDirection}\n- Recurring themes: ${themesStr || "none yet"}\n- Coach strength: ${coachStrength || "none yet"}\n- Coach friction: ${coachFriction || "none yet"}\n\nName the pattern.`,
               },
             ],
             tools: [{
@@ -528,7 +528,7 @@ Deno.serve(async (req) => {
     if (hasCalendar) parts.push("calendar data");
     let dataSourceNote = `Based on ${parts.join(", ")} over 30 days`;
     if (!hasWearable && !hasCalendar && totalCheckins < 15) {
-      dataSourceNote += " — connect your wearable and calendar for richer insights";
+      dataSourceNote += " – connect your wearable and calendar for richer insights";
     }
 
     // ── Build weekData (last 7 days with daily outcomes) ──
@@ -617,7 +617,7 @@ Deno.serve(async (req) => {
         currentScores,
         scoreDeltas,
         scoresSource: hasEnoughForCurrent ? (totalCheckins >= 7 ? "evolved" : "onboarding") : null,
-        scoresNote: hasEnoughForCurrent && totalCheckins < 7 ? "Preliminary — baseline from onboarding. Deltas will refine as you check in." : null,
+        scoresNote: hasEnoughForCurrent && totalCheckins < 7 ? "Preliminary – baseline from onboarding. Deltas will refine as you check in." : null,
         frictionPct,
         frictionLabel,
         trendDirection,
@@ -666,24 +666,24 @@ function generateFallbackObservation(
     const abs = { r: Math.abs(deltas.recalibration), c: Math.abs(deltas.clarity), n: Math.abs(deltas.renewal) };
     if (abs.r >= abs.c && abs.r >= abs.n) {
       return deltas.recalibration > 0
-        ? "Your regulation is strengthening — you're returning to center faster when pressure rises."
-        : "Regulation is slipping — you're staying activated longer when pressure hits.";
+        ? "Your regulation is strengthening – you're returning to center faster when pressure rises."
+        : "Regulation is slipping – you're staying activated longer when pressure hits.";
     }
     if (abs.c >= abs.r && abs.c >= abs.n) {
       return deltas.clarity > 0
-        ? "Your clarity is sharpening — you're cutting through complexity with more precision."
-        : "Clarity is fragmenting — competing demands are pulling your focus.";
+        ? "Your clarity is sharpening – you're cutting through complexity with more precision."
+        : "Clarity is fragmenting – competing demands are pulling your focus.";
     }
     return deltas.renewal > 0
-      ? "Your renewal capacity is building — you're recovering faster and sustaining better."
-      : "Renewal is under strain — recovery isn't keeping pace with demand.";
+      ? "Your renewal capacity is building – you're recovering faster and sustaining better."
+      : "Renewal is under strain – recovery isn't keeping pace with demand.";
   }
 
   const trendPhrase = trend === "improving" ? "Your readiness has been trending upward this week"
     : trend === "declining" ? "Your readiness has been trending downward this week"
     : "Your readiness has been stable this week";
 
-  if (frictionPct > 50) return `${trendPhrase}, but friction states have appeared in more than half your check-ins — a pattern worth examining.`;
+  if (frictionPct > 50) return `${trendPhrase}, but friction states have appeared in more than half your check-ins – a pattern worth examining.`;
   if (frictionPct > 25) return `${trendPhrase}, with moderate friction appearing in about a quarter of your check-ins.`;
-  return `${trendPhrase}, with low friction across your check-ins — your regulation is holding.`;
+  return `${trendPhrase}, with low friction across your check-ins – your regulation is holding.`;
 }

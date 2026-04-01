@@ -10,7 +10,7 @@ const corsHeaders = {
 
 function getServerTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
   const hour = new Date().getUTCHours();
-  // Default to UTC — client can pass session_period to override
+  // Default to UTC – client can pass session_period to override
   if (hour >= 5 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 18) return 'afternoon';
   return 'evening';
@@ -249,7 +249,7 @@ serve(async (req) => {
             ? 'partial'
             : 'skipped';
 
-        // 5. Upsert in ONE call — now keyed on (user_id, ritual_date, session_period)
+        // 5. Upsert in ONE call – now keyed on (user_id, ritual_date, session_period)
         const { data, error } = await supabase
           .from('daily_ritual_completions')
           .upsert(updateData, { onConflict: 'user_id,ritual_date,session_period' })

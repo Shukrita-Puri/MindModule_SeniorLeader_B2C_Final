@@ -87,7 +87,7 @@ serve(async (req) => {
       .map(msg => messages.find(m => m.content.toLowerCase() === msg)?.content || msg);
 
     const accountabilityHint = detectedAccountability.length > 0
-      ? `\nACCOUNTABILITY LANGUAGE DETECTED — the user explicitly asked to be held accountable in these messages. Treat each as a commitment:\n${detectedAccountability.map(m => `- "${m}"`).join('\n')}\n`
+      ? `\nACCOUNTABILITY LANGUAGE DETECTED – the user explicitly asked to be held accountable in these messages. Treat each as a commitment:\n${detectedAccountability.map(m => `- "${m}"`).join('\n')}\n`
       : '';
 
     // Build commitment context for AI

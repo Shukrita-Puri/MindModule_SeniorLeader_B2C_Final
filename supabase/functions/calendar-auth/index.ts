@@ -214,7 +214,7 @@ serve(async (req) => {
 
       // CRITICAL: Warn if no refresh token (Google only sends it on first consent)
       if (!tokens.refresh_token) {
-        console.warn('[calendar-auth] ⚠️ no_refresh_token_on_connect — user may have previously consented without revocation. Token refresh will not be possible.');
+        console.warn('[calendar-auth] ⚠️ no_refresh_token_on_connect – user may have previously consented without revocation. Token refresh will not be possible.');
       }
 
       const encKeyB64 = Deno.env.get('TOKEN_ENC_KEY_B64');
@@ -225,7 +225,7 @@ serve(async (req) => {
       // Encrypt access token (with its own IV)
       const { ivB64: accessIv, ctB64: accessTokenEnc } = await encryptJson({ token: tokens.access_token }, encKeyB64);
       
-      // Encrypt refresh token separately (with its own IV) — only if present
+      // Encrypt refresh token separately (with its own IV) – only if present
       let refreshTokenEnc: string | null = null;
       let refreshIv: string | null = null;
       if (tokens.refresh_token) {

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user already has a referral code — .maybeSingle() since may not exist
+    // Check if user already has a referral code – .maybeSingle() since may not exist
     const { data: existing } = await db
       .from("user_referrals")
       .select("referral_code, referral_link, total_signups, total_conversions")
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       }
       referralCode = `MM-${initials}-1MP-${randomSuffix}`;
 
-      // Check for collision — .maybeSingle() since we expect no match
+      // Check for collision – .maybeSingle() since we expect no match
       const { data: collision } = await db
         .from("user_referrals")
         .select("referral_code")

@@ -39,7 +39,7 @@ What to look for: Behavioral strengths the COACH observed (not self-reported by 
 Format: One sentence, second person ("You..."), under 20 words, behaviorally specific.
 Examples:
 - "Your composure in high-stakes moments is your most reliable resource."
-- "You regulate yourself mid-conversation — that's real strength."
+- "You regulate yourself mid-conversation – that's real strength."
 Criteria: Must be behavioral (what they DO), not aspirational. Must be specific.
 Return as: { "type": "strength", "content": "...", "confidence": 0.7-1.0, "pattern_area": "recalibration|clarity|renewal", "meta_skill": "..." }
 
@@ -47,29 +47,29 @@ Return as: { "type": "strength", "content": "...", "confidence": 0.7-1.0, "patte
 What to look for: Recurring patterns or friction points the COACH observed.
 Format: One sentence, second person ("You..."), under 20 words, specific and non-judgmental.
 Examples:
-- "You tend to over-function when others struggle — that costs you."
-- "You deflect when questioned — that creates distance."
+- "You tend to over-function when others struggle – that costs you."
+- "You deflect when questioned – that creates distance."
 Criteria: Must be behavioral and correctable. Framed as "pattern to notice" not "flaw to fix".
 Return as: { "type": "growth_area", "content": "...", "confidence": 0.7-1.0, "pattern_area": "recalibration|clarity|renewal", "meta_skill": "..." }
 
-## 3. COMMITMENT — Specific actions the user said they would take.
+## 3. COMMITMENT – Specific actions the user said they would take.
 Include check_in_days: 3 for practice-based, 7 for behavior change.
 
-## 4. PATTERN_OBSERVED — Recurring behaviors the coach noticed.
+## 4. PATTERN_OBSERVED – Recurring behaviors the coach noticed.
 
-## 5. PREFERENCE — Practices or approaches the user found helpful.
+## 5. PREFERENCE – Practices or approaches the user found helpful.
 
-## 6. GOAL — Stated objectives or development areas.
+## 6. GOAL – Stated objectives or development areas.
 
-## 7. CHALLENGE — Self-reported difficulties.
+## 7. CHALLENGE – Self-reported difficulties.
 
-## 8. BREAKTHROUGH — Significant moments of insight or shift.
+## 8. BREAKTHROUGH – Significant moments of insight or shift.
 
-## 9. TRIGGER — Specific situations that activate them emotionally.
+## 9. TRIGGER – Specific situations that activate them emotionally.
 
-## 10. RESISTANCE — What they avoid or deflect from.
+## 10. RESISTANCE – What they avoid or deflect from.
 
-## 11. FEEDBACK — Reactions to practices or advice.
+## 11. FEEDBACK – Reactions to practices or advice.
 
 For each insight, provide:
 - type: one of the above types

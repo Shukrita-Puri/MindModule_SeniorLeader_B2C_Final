@@ -53,8 +53,8 @@ Self-Regulation mastery includes: self-awareness, focus, discipline, mindfulness
 Tone: Strategic, pattern-focused, executive-appropriate
 
 Examples:
-- "Your morning peak (9-11am) is consistent—leverage this for ${growthPriority}. Afternoon dips suggest pre-emptive centering at 2pm could protect decision quality. Your ${archetype} pattern thrives on front-loaded focus work."
-- "Ritual completion at ${weeklyCompletionRate}% shows commitment. Peak detected at ${peakWindows?.[0]}—protect this window for hardest decisions. Your emotional regulation work is building baseline from ${baselineScore} to ${currentScore}."
+- "Your morning peak (9-11am) is consistent–leverage this for ${growthPriority}. Afternoon dips suggest pre-emptive centering at 2pm could protect decision quality. Your ${archetype} pattern thrives on front-loaded focus work."
+- "Ritual completion at ${weeklyCompletionRate}% shows commitment. Peak detected at ${peakWindows?.[0]}–protect this window for hardest decisions. Your emotional regulation work is building baseline from ${baselineScore} to ${currentScore}."
 
 Generate insight:`;
 

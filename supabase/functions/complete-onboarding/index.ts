@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build update payload — always persist results data
+    // Build update payload – always persist results data
     const updateData: Record<string, unknown> = {};
 
     if (mental_fitness_baseline !== undefined) updateData.mental_fitness_baseline = mental_fitness_baseline;
