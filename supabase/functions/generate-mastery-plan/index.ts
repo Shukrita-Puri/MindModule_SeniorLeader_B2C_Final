@@ -2695,9 +2695,7 @@ Deno.serve(async (req) => {
       wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
     };
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    // supabaseClient already created above for fingerprint
 
     const plan = await generateMasteryPlan(planReq, supabaseClient);
 
