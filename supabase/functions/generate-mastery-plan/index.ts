@@ -2608,14 +2608,15 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting – 30s cooldown per user+period
+    // Rate limiting – 30s cooldown per user+period+state fingerprint
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
+    const forceRefresh = body.forceRefresh === true;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
     const cacheKey = `${userId}:${currentPeriod}`;
     const cached = rateLimitMap.get(cacheKey);
-    if (cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
+    if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
       console.log(`[generate-mastery-plan] Rate limited: ${userId} period=${currentPeriod} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
