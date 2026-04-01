@@ -216,6 +216,84 @@ function getDayContext(dayOfWeek: number): DayContext {
   if (dayOfWeek === 0) return 'sunday';
   return 'weekday';
 }
+
+// ==================== CONTEXT SUFFIX BUILDER ====================
+// Generates 1–2 sentence dynamic suffix from calendar events + wearable data.
+// Appended to static tier×load×pressure context strings for all time periods.
+function buildContextSuffix(
+  todayHighStakes: string[] | undefined,
+  eventCount: number | undefined,
+  wearable: WearableContext | null | undefined,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+): string {
+  const parts: string[] = [];
+
+  // Calendar suffix
+  if (todayHighStakes && todayHighStakes.length > 0) {
+    if (todayHighStakes.length === 1) {
+      parts.push(`Your calendar includes ${todayHighStakes[0]}.`);
+    } else {
+      parts.push(`Your calendar includes ${todayHighStakes[0]} and ${todayHighStakes[1]}.`);
+    }
+  } else if (eventCount && eventCount >= 4) {
+    parts.push(`${eventCount} meetings today with tight gaps between them.`);
+  }
+
+  // Wearable suffix
+  if (wearable) {
+    if (timeOfDay === 'morning' && wearable.poorSleep) {
+      const detail = wearable.sleepScore
+        ? `sleep score: ${wearable.sleepScore}`
+        : wearable.sleepDuration
+        ? `${Math.round(wearable.sleepDuration / 60)} hours of sleep`
+        : 'incomplete recovery';
+      parts.push(`Your recovery overnight was incomplete (${detail}).`);
+    } else if (wearable.hrElevated) {
+      parts.push("Your heart rate ran high recently — your body is carrying more than your calendar shows.");
+    } else if (wearable.hrvElevated) {
+      parts.push("Your HRV is signalling accumulated strain.");
+    } else if (wearable.sleepScore && wearable.sleepScore >= 75 && !wearable.hrElevated && !wearable.hrvElevated) {
+      parts.push("Your body is well-recovered and ready for what's ahead.");
+    }
+  }
+
+  if (parts.length === 0) return '';
+  return ' ' + parts.join(' ');
+}
+
+// ==================== AFTERNOON CONTEXT BUILDER ====================
+// Adds afternoon-specific awareness: accumulated strain + remaining demands
+function buildAfternoonContext(
+  todayHighStakes: string[] | undefined,
+  eventCount: number | undefined,
+  wearable: WearableContext | null | undefined,
+  baseContext: string,
+): string {
+  const parts: string[] = [];
+
+  if (wearable?.hrElevated) {
+    parts.push("Your heart rate has been elevated through a dense morning.");
+  } else if (wearable?.hrvElevated) {
+    parts.push("Your HRV is showing accumulated strain from the morning.");
+  }
+
+  if (todayHighStakes && todayHighStakes.length > 0) {
+    const eventRef = todayHighStakes.length === 1
+      ? todayHighStakes[0]
+      : `${todayHighStakes[0]} and ${todayHighStakes[1]}`;
+    if (parts.length > 0) {
+      parts.push(`The afternoon's demands — including ${eventRef} — need a leader who paces, not pushes.`);
+    } else {
+      parts.push(`${eventRef} is ahead this afternoon.`);
+    }
+  } else if (eventCount && eventCount >= 4) {
+    parts.push(`${eventCount} meetings today — pace the remaining hours deliberately.`);
+  }
+
+  if (parts.length === 0) return baseContext;
+  return baseContext + ' ' + parts.join(' ');
+}
+
 // ==================== WEEKDAY EVENING THEME BUILDER ====================
 function buildWeekdayEveningTheme(
   tier: EnergyTier,
@@ -294,14 +372,22 @@ function buildWeekdayEveningTheme(
   return { phrase: defaultPhrase || "Close before tomorrow.", context: defaultContext || "Tonight is about release, not review.", driver: 'evening' };
 }
 
-// ==================== MORNING THEME BUILDER (sleep/recovery-aware) ====================
+// ==================== MORNING THEME BUILDER (sleep/recovery + calendar-aware) ====================
 function buildMorningTheme(
   tier: EnergyTier,
   wearable?: WearableContext | null,
   defaultPhrase?: string,
   defaultContext?: string,
+  todayHighStakes?: string[],
+  eventCount?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
-  if (wearable?.poorSleep) {
+  const hasHighStakes = todayHighStakes && todayHighStakes.length > 0;
+  const eventRef = hasHighStakes
+    ? todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`
+    : null;
+
+  // Priority 1: Poor sleep + high-stakes events today
+  if (wearable?.poorSleep && hasHighStakes) {
     const sleepDetail = wearable.sleepScore
       ? `(sleep score: ${wearable.sleepScore})`
       : wearable.sleepDuration
@@ -310,36 +396,124 @@ function buildMorningTheme(
     if (tier === 'depleted') {
       return {
         phrase: "Pace from the start.",
-        context: `Recovery overnight was incomplete ${sleepDetail}. Your system is starting in deficit — every early commitment costs more today. Protect the first hours and deploy carefully.`,
+        context: `Recovery overnight was incomplete ${sleepDetail}, and you have ${eventRef} today. Your system is starting in deficit — pace the opening and deploy carefully where it counts.`,
         driver: 'morning',
       };
     }
     if (tier === 'managing') {
       return {
         phrase: "Start steady, not strong.",
-        context: `Recovery overnight was incomplete ${sleepDetail}. Your operating baseline is lower than usual — a steady opening protects the capacity you'll need for what matters later.`,
+        context: `Recovery overnight was incomplete ${sleepDetail}, and ${eventRef} is ahead. Your operating baseline is lower than usual — a steady opening protects the capacity you'll need for what matters later.`,
         driver: 'morning',
       };
     }
     if (tier === 'strong') {
       return {
         phrase: "Guard the morning window.",
-        context: `Your readiness is above baseline despite incomplete recovery overnight ${sleepDetail}. That advantage is more fragile than usual — protect it through the morning's first demands.`,
+        context: `Your readiness is above baseline despite incomplete recovery overnight ${sleepDetail}. With ${eventRef} ahead, that advantage is more fragile than usual — protect it through the morning's first demands.`,
         driver: 'morning',
       };
     }
     // peak
     return {
       phrase: "Protect the peak carefully.",
-      context: `Peak readiness despite a shorter recovery window ${sleepDetail}. This state may not sustain through a full day — deploy it where it matters most, not where it's spent first.`,
+      context: `Peak readiness despite a shorter recovery window ${sleepDetail}. ${eventRef} is ahead — this state may not sustain through a full day. Deploy it where it matters most, not where it's spent first.`,
       driver: 'morning',
     };
   }
 
+  // Priority 2: Good recovery + high-stakes events today
+  if (hasHighStakes && wearable && !wearable.poorSleep && !wearable.hrvElevated) {
+    if (tier === 'depleted') {
+      return {
+        phrase: "Pace from the start.",
+        context: `${eventRef} is ahead today and your reserves are low despite adequate rest. Every early commitment costs more — protect your capacity for the moments that matter.`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'managing') {
+      return {
+        phrase: "Set a sustainable pace.",
+        context: `Adequate recovery and ${eventRef} ahead. Your operating baseline is solid enough — a steady opening protects the capacity you'll need later.`,
+        driver: 'morning',
+      };
+    }
+    // strong/peak
+    return {
+      phrase: tier === 'peak' ? "Protect the peak." : "Protect the window.",
+      context: `Well-recovered and ${eventRef} is ahead. Your readiness is genuine — protect it through the morning's first demands.`,
+      driver: 'morning',
+    };
+  }
+
+  // Priority 3: Poor sleep only (no high-stakes events)
+  if (wearable?.poorSleep) {
+    const sleepDetail = wearable.sleepScore
+      ? `(sleep score: ${wearable.sleepScore})`
+      : wearable.sleepDuration
+      ? `(${Math.round(wearable.sleepDuration / 60)} hours)`
+      : '';
+    // Add event count density note if available
+    const densityNote = eventCount && eventCount >= 4
+      ? ` ${eventCount} meetings today — pace through the volume deliberately.`
+      : '';
+    if (tier === 'depleted') {
+      return {
+        phrase: "Pace from the start.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your system is starting in deficit — every early commitment costs more today. Protect the first hours and deploy carefully.${densityNote}`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'managing') {
+      return {
+        phrase: "Start steady, not strong.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your operating baseline is lower than usual — a steady opening protects the capacity you'll need for what matters later.${densityNote}`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'strong') {
+      return {
+        phrase: "Guard the morning window.",
+        context: `Your readiness is above baseline despite incomplete recovery overnight ${sleepDetail}. That advantage is more fragile than usual — protect it through the morning's first demands.${densityNote}`,
+        driver: 'morning',
+      };
+    }
+    // peak
+    return {
+      phrase: "Protect the peak carefully.",
+      context: `Peak readiness despite a shorter recovery window ${sleepDetail}. This state may not sustain through a full day — deploy it where it matters most, not where it's spent first.${densityNote}`,
+      driver: 'morning',
+    };
+  }
+
+  // Priority 4: HRV elevated strain (no poor sleep)
   if (wearable?.hrvElevated) {
+    const calendarNote = hasHighStakes
+      ? ` ${eventRef} is ahead — pace your approach.`
+      : eventCount && eventCount >= 4
+      ? ` ${eventCount} meetings ahead — pace through the volume.`
+      : '';
     return {
       phrase: defaultPhrase || "Ease into the day.",
-      context: `Your HRV is signalling accumulated strain from recent days. ${defaultContext || "How you pace the opening hours determines your capacity through the rest of the day."}`,
+      context: `Your HRV is signalling accumulated strain from recent days. ${defaultContext || "How you pace the opening hours determines your capacity through the rest of the day."}${calendarNote}`,
+      driver: 'morning',
+    };
+  }
+
+  // Priority 5: High-stakes events but no wearable data
+  if (hasHighStakes) {
+    return {
+      phrase: defaultPhrase || "Start with presence.",
+      context: `${eventRef} is ahead today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
+      driver: 'morning',
+    };
+  }
+
+  // Priority 6: Dense calendar but no wearable / no stakes
+  if (eventCount && eventCount >= 4) {
+    return {
+      phrase: defaultPhrase || "Start with presence.",
+      context: `${eventCount} meetings today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
       driver: 'morning',
     };
   }
@@ -359,33 +533,42 @@ function getTheme(
   tomorrowPressure?: CalendarLevel | null,
   tomorrowHighStakes?: string[],
   wearable?: WearableContext | null,
+  todayHighStakes?: string[],
+  eventCount?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount);
   }
 
   const timeOfDay = getTimeOfDay(hour);
   const dayCtx = getDayContext(dayOfWeek);
 
+  // Build dynamic context suffix for all tier×load×pressure entries
+  const suffix = buildContextSuffix(todayHighStakes, eventCount, wearable, timeOfDay);
+
   // DEPLETED TIER
   if (tier === 'depleted') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "One thing at a time.", context: "A heavy and high-stakes calendar is meeting a leader running below full capacity. What genuinely requires your full presence today, and what can be held or delegated?", driver: 'pressure+load' };
+      return { phrase: "One thing at a time.", context: "A heavy and high-stakes calendar is meeting a leader running below full capacity. What genuinely requires your full presence today, and what can be held or delegated?" + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Protect what matters.", context: "Significant stakes ahead with a manageable schedule. The space exists to be selective. Where you spend your capacity today determines the quality of your most important moments.", driver: 'pressure+load' };
+      return { phrase: "Protect what matters.", context: "Significant stakes ahead with a manageable schedule. The space exists to be selective. Where you spend your capacity today determines the quality of your most important moments." + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Reserve for the moment.", context: "High stakes on a light schedule, a rare alignment. Your recovery window today is also your preparation window.", driver: 'pressure' };
+      return { phrase: "Reserve for the moment.", context: "High stakes on a light schedule, a rare alignment. Your recovery window today is also your preparation window." + suffix, driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Navigate, don't absorb.", context: "A dense calendar without the high-stakes pressure of your hardest days. Steady passage through the volume is the goal, not deep engagement with each moment.", driver: 'load' };
+      return { phrase: "Navigate, don't absorb.", context: "A dense calendar without the high-stakes pressure of your hardest days. Steady passage through the volume is the goal, not deep engagement with each moment." + suffix, driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Move through gently.", context: "High volume without high stakes. The risk today is volume draining what little reserve you have. Move through rather than absorb.", driver: 'load' };
+      return { phrase: "Move through gently.", context: "High volume without high stakes. The risk today is volume draining what little reserve you have. Move through rather than absorb." + suffix, driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending. Each recovery window between engagements is worth protecting.", driver: 'load' };
+      return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending. Each recovery window between engagements is worth protecting." + suffix, driver: 'load' };
     if (load === 'low')
-      return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery.", driver: 'load' };
+      return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery." + suffix, driver: 'load' };
     if (timeOfDay === 'morning')
-      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.");
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.";
+      return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -403,27 +586,31 @@ function getTheme(
       return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.");
     }
-    return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today.", driver: 'state' };
+    return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today." + suffix, driver: 'state' };
   }
 
   // MANAGING TIER
   if (tier === 'managing') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader. Steadiness through the full weight of the day is both the challenge and the achievement.", driver: 'pressure+load' };
+      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader. Steadiness through the full weight of the day is both the challenge and the achievement." + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule. You have the capacity to show up well for what matters most today.", driver: 'pressure+load' };
+      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule. You have the capacity to show up well for what matters most today." + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule. Your operating capacity is well-matched to the important moments today if you protect the space around them.", driver: 'pressure' };
+      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule. Your operating capacity is well-matched to the important moments today if you protect the space around them." + suffix, driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing. Sustainable engagement through the full day rather than peaks and drops.", driver: 'load' };
+      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing. Sustainable engagement through the full day rather than peaks and drops." + suffix, driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Ride the rhythm.", context: "High volume without high stakes. A day to move steadily through rather than push against.", driver: 'load' };
+      return { phrase: "Ride the rhythm.", context: "High volume without high stakes. A day to move steadily through rather than push against." + suffix, driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity. A well-matched day for consistent, quality output.", driver: 'load' };
+      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity. A well-matched day for consistent, quality output." + suffix, driver: 'load' };
     if (load === 'low')
-      return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today.", driver: 'load' };
+      return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today." + suffix, driver: 'load' };
     if (timeOfDay === 'morning')
-      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.");
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = "The full shape of the day is ahead. How you pace the remaining hours determines whether you finish well.";
+      return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -440,27 +627,31 @@ function getTheme(
       return buildWeekdayEveningTheme('managing', tomorrowHighStakes, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.");
     }
-    return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of the day.", driver: 'state' };
+    return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of the day." + suffix, driver: 'state' };
   }
 
   // STRONG TIER
   if (tier === 'strong') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader. A day where your readiness is genuinely being asked for.", driver: 'pressure+load' };
+      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader. A day where your readiness is genuinely being asked for." + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule. You have both the capacity and the space to bring your best to the moments that count.", driver: 'pressure+load' };
+      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule. You have both the capacity and the space to bring your best to the moments that count." + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover. Conditions that allow your strongest leadership to show up fully.", driver: 'pressure' };
+      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover. Conditions that allow your strongest leadership to show up fully." + suffix, driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes. Your above-baseline capacity is what keeps quality consistent across the full day.", driver: 'load' };
+      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes. Your above-baseline capacity is what keeps quality consistent across the full day." + suffix, driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Move with confidence.", context: "High volume meets strong capacity. A day you can move through with assurance rather than caution.", driver: 'load' };
+      return { phrase: "Move with confidence.", context: "High volume meets strong capacity. A day you can move through with assurance rather than caution." + suffix, driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day. The conditions are there to go deep on what matters rather than wide across everything.", driver: 'load' };
+      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day. The conditions are there to go deep on what matters rather than wide across everything." + suffix, driver: 'load' };
     if (load === 'low')
-      return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
+      return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward." + suffix, driver: 'load' };
     if (timeOfDay === 'morning')
-      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.");
+      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = "Strong readiness through the afternoon. How you use the remaining hours determines how much of this advantage you carry into close.";
+      return { phrase: "Sustain the advantage.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -477,26 +668,30 @@ function getTheme(
       return buildWeekdayEveningTheme('strong', tomorrowHighStakes, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.");
     }
-    return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing.", driver: 'state' };
+    return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing." + suffix, driver: 'state' };
   }
 
   // PEAK TIER
   if (pressure === 'high' && load === 'high')
-    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness. A genuine high-leverage day where your leadership capacity is fully called upon.", driver: 'pressure+load' };
+    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness. A genuine high-leverage day where your leadership capacity is fully called upon." + suffix, driver: 'pressure+load' };
   if (pressure === 'high' && load === 'medium')
-    return { phrase: "Execute with precision.", context: "High stakes on a focused schedule. Conditions for your sharpest, most decisive leadership are fully in place.", driver: 'pressure+load' };
+    return { phrase: "Execute with precision.", context: "High stakes on a focused schedule. Conditions for your sharpest, most decisive leadership are fully in place." + suffix, driver: 'pressure+load' };
   if (pressure === 'high' && load === 'low')
-    return { phrase: "Seize the high ground.", context: "Your highest readiness meeting your most important moments with space to prepare. Rare and powerful conditions.", driver: 'pressure' };
+    return { phrase: "Seize the high ground.", context: "Your highest readiness meeting your most important moments with space to prepare. Rare and powerful conditions." + suffix, driver: 'pressure' };
   if (pressure === 'medium' && load === 'high')
-    return { phrase: "Channel the capacity.", context: "A full calendar meeting your fullest state. Directing that capacity with precision prevents diffusion across the volume.", driver: 'load' };
+    return { phrase: "Channel the capacity.", context: "A full calendar meeting your fullest state. Directing that capacity with precision prevents diffusion across the volume." + suffix, driver: 'load' };
   if (load === 'high' && pressure === 'low')
-    return { phrase: "Move with full confidence.", context: "High volume, full capacity. A day to move through with assurance and presence across the full schedule.", driver: 'load' };
+    return { phrase: "Move with full confidence.", context: "High volume, full capacity. A day to move through with assurance and presence across the full schedule." + suffix, driver: 'load' };
   if (load === 'medium')
-    return { phrase: "Depth and precision.", context: "Selective demands meeting peak readiness. Conditions for the quality of leadership that defines your best days.", driver: 'load' };
+    return { phrase: "Depth and precision.", context: "Selective demands meeting peak readiness. Conditions for the quality of leadership that defines your best days." + suffix, driver: 'load' };
   if (load === 'low')
-    return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
+    return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work." + suffix, driver: 'load' };
   if (timeOfDay === 'morning')
-    return buildMorningTheme('peak', wearable, "Protect the peak.", "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.");
+    return buildMorningTheme('peak', wearable, "Protect the peak.", "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", todayHighStakes, eventCount);
+  if (timeOfDay === 'afternoon') {
+    const base = "Full readiness through the afternoon. A window that is both rare and perishable. How you invest the remaining hours determines how much you carry into close.";
+    return { phrase: "Channel the peak.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+  }
   if (timeOfDay === 'evening') {
     if (dayCtx === 'sunday') {
       const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -513,15 +708,28 @@ function getTheme(
     return buildWeekdayEveningTheme('peak', tomorrowHighStakes, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.");
   }
-  return { phrase: "Own your optimal state.", context: "Full readiness is present. The priority is protecting that state through the full shape of what the day holds.", driver: 'state' };
+  return { phrase: "Own your optimal state.", context: "Full readiness is present. The priority is protecting that state through the full shape of what the day holds." + suffix, driver: 'state' };
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+
+  // Build wearable-only suffix for no-calendar contexts
+  const wearableSuffix = wearable
+    ? (timeOfDay === 'morning' && wearable.poorSleep
+      ? ` Your recovery overnight was incomplete${wearable.sleepScore ? ` (sleep score: ${wearable.sleepScore})` : ''}.`
+      : wearable.hrElevated
+      ? ' Your heart rate ran high recently — your body is carrying accumulated strain.'
+      : wearable.hrvElevated
+      ? ' Your HRV is signalling accumulated strain.'
+      : wearable.sleepScore && wearable.sleepScore >= 75 && !wearable.hrElevated && !wearable.hrvElevated
+      ? ' Your body is well-recovered and ready for what\'s ahead.'
+      : '')
+    : '';
 
   if (tier === 'depleted') {
     if (lateEvening) {
@@ -534,10 +742,17 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
       return buildMorningTheme('depleted', wearable, score <= 25 ? "Begin with stillness." : "Protect your reserves.",
         score <= 25
           ? "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual."
-          : "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.");
+          : "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.",
+        todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = score <= 25
+        ? "Leading from a deeply depleted state through the afternoon. Every remaining interaction carries a higher cost than usual."
+        : "Below-baseline readiness shapes every remaining interaction. How much you spend on what's left is the decision that matters.";
+      return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (score <= 25)
-      return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
-    return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
+      return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual." + wearableSuffix, driver: 'state' };
+    return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now." + wearableSuffix, driver: 'state' };
   }
   if (tier === 'managing') {
     if (lateEvening) {
@@ -550,10 +765,17 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
       return buildMorningTheme('managing', wearable, score <= 49 ? "Operate with care." : "Steady and selective.",
         score <= 49
           ? "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment."
-          : "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.");
+          : "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.",
+        todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = score <= 49
+        ? "Operational but not at full capacity. The afternoon calls for selective investment of your leadership presence rather than broad deployment."
+        : "Baseline readiness is holding. You have capacity to show up well for what remains if you're deliberate about where it goes.";
+      return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (score <= 49)
-      return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
-    return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
+      return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment." + wearableSuffix, driver: 'state' };
+    return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes." + wearableSuffix, driver: 'state' };
   }
   if (tier === 'strong') {
     if (lateEvening) {
@@ -566,10 +788,17 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
       return buildMorningTheme('strong', wearable, score <= 69 ? "Lead with confidence." : "Invest your advantage.",
         score <= 69
           ? "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you."
-          : "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.");
+          : "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.",
+        todayHighStakes, eventCount);
+    if (timeOfDay === 'afternoon') {
+      const base = score <= 69
+        ? "Above-baseline readiness through the afternoon is a real asset. Your presence and judgment are working well for you."
+        : "Strong readiness through the afternoon. The question is where that advantage is most worth directing in the remaining hours.";
+      return { phrase: "Sustain the advantage.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
     if (score <= 69)
-      return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you.", driver: 'state' };
-    return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.", driver: 'state' };
+      return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you." + wearableSuffix, driver: 'state' };
+    return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing." + wearableSuffix, driver: 'state' };
   }
   // Peak
   if (lateEvening) {
@@ -582,10 +811,17 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     return buildMorningTheme('peak', wearable, score <= 89 ? "Bring your full presence." : "Own your peak.",
       score <= 89
         ? "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest."
-        : "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.");
+        : "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.",
+      todayHighStakes, eventCount);
+  if (timeOfDay === 'afternoon') {
+    const base = score <= 89
+      ? "Full readiness through the afternoon. Your capacity for complex decisions and high-stakes leadership is at its highest in the remaining hours."
+      : "Exceptional readiness is present through the afternoon. A rare state that is worth both using fully and protecting deliberately.";
+    return { phrase: "Channel the peak.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+  }
   if (score <= 89)
-    return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
-  return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
+    return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest." + wearableSuffix, driver: 'state' };
+  return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately." + wearableSuffix, driver: 'state' };
 }
 
 // ==================== LEAN ON / WATCH FOR ====================
@@ -965,6 +1201,67 @@ interface LeanOnWatchForResult {
   recoveryDayTriggered?: boolean;
 }
 
+// Build daytime context enrichment suffix for leanOn/watchFor
+function buildDaytimeLeanOnSuffix(
+  todayHighStakes: string[] | undefined,
+  wearable: WearableContext | null | undefined,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+): string {
+  if (timeOfDay === 'evening') return ''; // Evening has its own enrichment
+  const parts: string[] = [];
+
+  if (wearable) {
+    if (timeOfDay === 'morning' && wearable.poorSleep) {
+      parts.push(`Your body started the day with incomplete recovery${wearable.sleepScore ? ` (sleep score: ${wearable.sleepScore})` : ''}.`);
+    } else if (wearable.hrElevated) {
+      parts.push(`Your body carried a heavy ${timeOfDay === 'morning' ? 'night' : 'morning'} — elevated heart rate through back-to-back demands.`);
+    } else if (wearable.hrvElevated) {
+      parts.push('Your HRV is signalling accumulated strain from recent days.');
+    }
+  }
+
+  if (todayHighStakes && todayHighStakes.length > 0) {
+    const eventRef = todayHighStakes.length === 1 ? todayHighStakes[0] : `${todayHighStakes[0]} and ${todayHighStakes[1]}`;
+    if (timeOfDay === 'morning') {
+      parts.push(`${eventRef} is ahead — your readiness for it is genuine.`);
+    } else {
+      parts.push(`${eventRef} ${timeOfDay === 'afternoon' ? 'is still ahead' : 'was today'} — pace your approach.`);
+    }
+  }
+
+  if (parts.length === 0) return '';
+  return '\n\n_' + parts.join(' ') + '_';
+}
+
+function buildDaytimeWatchForSuffix(
+  todayHighStakes: string[] | undefined,
+  wearable: WearableContext | null | undefined,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+): string {
+  if (timeOfDay === 'evening') return ''; // Evening has its own enrichment
+  const parts: string[] = [];
+
+  if (todayHighStakes && todayHighStakes.length > 0) {
+    const eventRef = todayHighStakes[0];
+    if (timeOfDay === 'morning') {
+      parts.push(`Spending your recovery advantage before ${eventRef} this ${timeOfDay}.`);
+    } else {
+      parts.push(`Over-preparing for ${eventRef} when your body is already signalling what it needs.`);
+    }
+  }
+
+  if (wearable) {
+    if (wearable.hrElevated || wearable.hrvElevated) {
+      parts.push('Pushing through the volume when your body is already signalling strain.');
+    } else if (timeOfDay === 'morning' && wearable.poorSleep) {
+      parts.push('Opening at full intensity when your recovery was incomplete.');
+    }
+  }
+
+  if (parts.length === 0) return '';
+  return ' ' + parts[0]; // Single most relevant watchFor suffix
+}
+
 function getLeanOnWatchFor(
   tier: EnergyTier,
   archetype: string | null,
@@ -982,9 +1279,12 @@ function getLeanOnWatchFor(
   tomorrowHighStakes: string[],
   wearableContext: WearableContext | null,
   wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
+  todayHighStakes?: string[],
+  eventCount?: number,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
+  const timeOfDay = getTimeOfDay(hour);
 
   // Compute coach insight age + tier
   let coachDaysOld = 0;
@@ -995,6 +1295,12 @@ function getLeanOnWatchFor(
     coachDaysOld = Math.floor((Date.now() - new Date(coachInsightCreatedAt).getTime()) / 86400000);
     coachTier = getCoachInsightTier(coachDaysOld);
   }
+
+  // Determine if daytime has context worth enriching
+  const hasDaytimeContext = timeOfDay !== 'evening' && (
+    (todayHighStakes && todayHighStakes.length > 0) ||
+    (wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated || wearableContext.poorSleep))
+  );
 
   // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
   if (ENABLE_WEARABLE_RECOVERY_TRIGGER && wearableRecovery?.triggered) {
@@ -1016,23 +1322,27 @@ function getLeanOnWatchFor(
     return { ...getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'evening-recovery-override' };
   }
 
-  // ── P1a: Coach insights ≤3 days (recent) — no age label ──
+  // ── P1a: Coach insights ≤3 days (recent) — no age label, enriched with daytime context ──
   if (hasCoachBoth && coachTier === 'recent') {
+    const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
     return {
-      leanOn: coachStrength!,
-      watchFor: coachGrowth!,
+      leanOn: coachStrength! + leanOnSuffix,
+      watchFor: coachGrowth! + watchForSuffix,
       source: 'coach-insights-recent',
       coachInsightAge: coachDaysOld,
     };
   }
 
-  // ── P1b: Coach insights 4-7 days (grace) — use if no C×C contradiction ──
+  // ── P1b: Coach insights 4-7 days (grace) — use if no C×C contradiction, enriched ──
   if (hasCoachBoth && coachTier === 'grace') {
     const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
     if (!hasContradiction) {
+      const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
       return {
-        leanOn: coachStrength!,
-        watchFor: coachGrowth!,
+        leanOn: coachStrength! + leanOnSuffix,
+        watchFor: coachGrowth! + watchForSuffix,
         source: 'coach-insights-grace',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
@@ -1044,35 +1354,48 @@ function getLeanOnWatchFor(
   const ccMod = getCCModifier(clarity, confidence);
   if (ccMod) {
     if (hasCoachBoth && coachTier === 'contextual') {
-      const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_`;
+      const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_${leanOnSuffix}`;
       return {
         leanOn: enrichedLeanOn,
-        watchFor: ccMod.watchFor,
+        watchFor: ccMod.watchFor + (hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : ''),
         source: 'cc-modifier-with-context',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
       };
     }
-    return { ...ccMod, source: 'cc-modifier' };
+    const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    return { leanOn: ccMod.leanOn + leanOnSuffix, watchFor: ccMod.watchFor + watchForSuffix, source: 'cc-modifier' };
   }
 
   // ── Partial coach: mix with other priorities (any non-archived tier) ──
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    return { leanOn: coachStrength, watchFor, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+    const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    return { leanOn: coachStrength + leanOnSuffix, watchFor: watchFor + watchForSuffix, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    return { leanOn, watchFor: coachGrowth, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
+    const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    return { leanOn: leanOn + leanOnSuffix, watchFor: coachGrowth + watchForSuffix, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
-  // ── P4: Archetype × Tier ──
+  // ── P4: Archetype × Tier — enriched with daytime context ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
-    return { ...archetypeMatrix[archetype][tier], source: 'archetype-tier' };
+    const base = archetypeMatrix[archetype][tier];
+    const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    return { leanOn: base.leanOn + leanOnSuffix, watchFor: base.watchFor + watchForSuffix, source: 'archetype-tier' };
   }
 
-  // ── P5: Tier fallback ──
-  return { ...tierFallbacks[tier], source: 'tier-fallback' };
+  // ── P5: Tier fallback — enriched with daytime context ──
+  const base = tierFallbacks[tier];
+  const leanOnSuffix = hasDaytimeContext ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+  const watchForSuffix = hasDaytimeContext ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+  return { leanOn: base.leanOn + leanOnSuffix, watchFor: base.watchFor + watchForSuffix, source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
@@ -1207,6 +1530,7 @@ serve(async (req) => {
     const tomorrowLoad: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.load : null;
     const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
     const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
+    const todayHighStakes: string[] = calendarResult.highStakesEvents || [];
 
     // ── Fetch wearable data (always — mornings use sleep, evenings use HR/HRV) ──
     let wearableContext: WearableContext | null = null;
@@ -1257,12 +1581,14 @@ serve(async (req) => {
       calendarEventCount: calendarResult.eventCount,
       calendarLoad,
       calendarPressure,
+      todayHighStakes,
       tomorrowLoad,
       tomorrowPressure,
       tomorrowHighStakes,
       wearablePresent: !!wearableContext,
       wearableHRE: wearableContext?.hrElevated,
       wearableHRVE: wearableContext?.hrvElevated,
+      wearablePoorSleep: wearableContext?.poorSleep,
       hour,
       dayOfWeek,
     }));
@@ -1298,7 +1624,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
@@ -1307,6 +1633,7 @@ serve(async (req) => {
       driver: theme.driver,
       hasCalendar,
       calendarState: calendarResult.state,
+      todayHighStakes,
       fallbackReason: !hasCalendar ? (calendarResult.state === 'not_connected' ? 'no_calendar_connection' : calendarResult.state === 'connected_no_events' ? 'connected_no_upcoming_events' : 'unknown') : null,
     }));
     
@@ -1334,7 +1661,8 @@ serve(async (req) => {
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
       calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
-      tomorrowHighStakes, wearableContext, wearableRecovery
+      tomorrowHighStakes, wearableContext, wearableRecovery,
+      todayHighStakes, calendarResult.eventCount
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
@@ -1381,6 +1709,7 @@ serve(async (req) => {
       coachInsightAge: leanOnResult.coachInsightAge,
       dataSources,
       calendarState: calendarResult.state,
+      todayHighStakes,
     }));
 
     return new Response(JSON.stringify(result), {
