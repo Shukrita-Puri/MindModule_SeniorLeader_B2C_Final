@@ -80,6 +80,7 @@ interface MasteryPlanResponse {
     totalDuration: number;
     progressTracked: boolean;
     calendarMessage?: string;
+    planBrief?: string;
   };
   calendarPills: CalendarPill[];
   preEventPlan: PreEventPlan | null;
