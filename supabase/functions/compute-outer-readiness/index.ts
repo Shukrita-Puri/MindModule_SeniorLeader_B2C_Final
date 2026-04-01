@@ -133,7 +133,6 @@ async function getServerCalendarMetrics(
 ): Promise<CalendarMetricsResult> {
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
-  // Apply day offset (0 = today, 1 = tomorrow)
   const targetDay = new Date(userNow);
   targetDay.setUTCDate(targetDay.getUTCDate() + dayOffset);
 
@@ -146,7 +145,6 @@ async function getServerCalendarMetrics(
   const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
   const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
 
-  // Check connection status first
   const { data: conn } = await db
     .from('calendar_connections')
     .select('is_active')
@@ -155,12 +153,12 @@ async function getServerCalendarMetrics(
     .maybeSingle();
 
   if (!conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected', highStakesEvents: [] };
   }
 
   const { data: events, error } = await db
     .from('calendar_events')
-    .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
+    .select('start_time, end_time, is_organizer, attendees_count, is_recurring, title')
     .eq('user_id', userId)
     .gte('start_time', startUTC.toISOString())
     .lte('start_time', endUTC.toISOString());
@@ -173,10 +171,25 @@ async function getServerCalendarMetrics(
 
   if (eventList.length > 0) {
     const metrics = computeCalendarMetrics(eventList);
-    return { ...metrics, eventCount: eventList.length, state: 'active' };
+
+    // Identify high-stakes events by title
+    const highStakesEvents: string[] = [];
+    for (const e of eventList) {
+      const att = e.attendees_count || 0;
+      const start = new Date(e.start_time);
+      const end = new Date(e.end_time);
+      const dur = (end.getTime() - start.getTime()) / 60000;
+      const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
+      if (isHighStakes && e.title) {
+        highStakesEvents.push(e.title);
+      }
+      if (highStakesEvents.length >= 2) break;
+    }
+
+    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
+  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [] };
 }
 
 // ==================== TIME HELPERS ====================
