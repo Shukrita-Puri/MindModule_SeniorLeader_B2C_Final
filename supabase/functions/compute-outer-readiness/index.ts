@@ -663,7 +663,7 @@ function buildMorningTheme(
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasHighStakes = todayHighStakes && todayHighStakes.length > 0;
   const eventRef = hasHighStakes
-    ? todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`
+    ? todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`
     : null;
 
   // RHR morning note (added to relevant contexts)
