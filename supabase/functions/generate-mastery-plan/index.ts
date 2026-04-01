@@ -2614,16 +2614,52 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting – 30s cooldown per user+period+state fingerprint
+    // Rate limiting – 30s cooldown per user+state fingerprint (not just period)
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     const forceRefresh = body.forceRefresh === true;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
-    const cacheKey = `${userId}:${currentPeriod}`;
-    const cached = rateLimitMap.get(cacheKey);
+
+    // Build state fingerprint from latest check-in + completions for cache key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+    let stateFingerprint = `${userId}:${currentPeriod}`;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [checkinSnap, ritualSnap] = await Promise.all([
+        supabaseClient.from('daily_checkins')
+          .select('timestamp, outcome, energy_balance, clarity_level, confidence_level')
+          .eq('user_id', userId)
+          .eq('checkin_date', today)
+          .eq('time_window', currentPeriod)
+          .maybeSingle(),
+        supabaseClient.from('daily_ritual_completions')
+          .select('updated_at, completed_practice_ids')
+          .eq('user_id', userId)
+          .eq('ritual_date', today)
+          .eq('session_period', currentPeriod)
+          .maybeSingle(),
+      ]);
+      const ci = checkinSnap.data;
+      const ri = ritualSnap.data;
+      stateFingerprint = [
+        userId, currentPeriod,
+        ci?.timestamp || 'none',
+        ci?.outcome || 'none',
+        ci?.energy_balance ?? 'none',
+        ci?.clarity_level ?? 'none',
+        ci?.confidence_level ?? 'none',
+        ri?.updated_at || 'none',
+        (ri?.completed_practice_ids || []).join(',') || 'none',
+      ].join(':');
+    } catch { /* fallback to userId:period */ }
+
+    const cached = rateLimitMap.get(stateFingerprint);
     if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
-      console.log(`[generate-mastery-plan] Rate limited: ${userId} period=${currentPeriod} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      console.log(`[generate-mastery-plan] Rate limited: ${userId} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
