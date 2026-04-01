@@ -70,7 +70,7 @@ const StrategicIntentionCard = () => {
 
         {/* Context line */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
-          {brief.context}
+          <TextWithEventEmphasis text={brief.context} />
         </p>
 
         {/* Coach Insight Age Label */}
