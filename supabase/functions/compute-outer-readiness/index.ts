@@ -481,7 +481,7 @@ function buildWeekdayEveningTheme(
       // peak
       return {
         phrase: "Finish at your best.",
-        context: `${pastLabel ? `${pastLabel} navigated at peak readiness. ` : ''}${remainingHighStakes![0]} is still ahead – this state is rare, finish at your best where it counts.${sleepNote}${rhrNote}`,
+        context: `${pastLabel ? `${pastLabel} navigated at peak readiness. ` : ''}'${remainingHighStakes![0]}' is still ahead – this state is rare, finish at your best where it counts.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
