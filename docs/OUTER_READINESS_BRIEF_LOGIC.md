@@ -234,7 +234,7 @@ The `sync-calendar` function syncs events from **start of today (user's local mi
 - A full 7-day rolling window is maintained
 - The delete-and-replace strategy won't lose today's earlier meetings
 
-Sync cadence: 6-hour intervals via pg_cron scheduled function.
+Sync cadence: 6-hour intervals via pg_cron scheduled function. The scheduled sync resolves each user's `timezone_offset` from the `profiles` table and passes it to `sync-calendar`, ensuring local midnight is used even without an active client session.
 
 ---
 

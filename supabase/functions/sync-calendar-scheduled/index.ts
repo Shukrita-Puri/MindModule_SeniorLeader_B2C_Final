@@ -30,6 +30,19 @@ serve(async (req) => {
       throw connError;
     }
 
+    // Fetch timezone_offset for all connected users in one query
+    const userIds = [...new Set((connections || []).map(c => c.user_id))];
+    const tzMap: Record<string, number> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await serviceClient
+        .from('profiles')
+        .select('id, timezone_offset')
+        .in('id', userIds);
+      for (const p of profiles || []) {
+        tzMap[p.id] = p.timezone_offset ?? 0;
+      }
+    }
+
     const total = connections?.length || 0;
     console.log('[sync-calendar-scheduled] Found', total, 'active connections');
 
@@ -54,6 +67,7 @@ serve(async (req) => {
             provider: conn.provider,
             _internalUserId: conn.user_id,
             _internalKey: serviceRoleKey,
+            timezoneOffset: tzMap[conn.user_id] ?? 0,
           }),
         });
 
