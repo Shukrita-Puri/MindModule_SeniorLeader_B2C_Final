@@ -514,9 +514,9 @@ function buildWeekdayEveningTheme(
   const meetingLabel = filteredTotal > 0 ? `${filteredTotal} meeting${filteredTotal !== 1 ? 's' : ''}` : null;
   let todaySummary = '';
   if (hadHeavyDay && bodyStressed && hasTodayStakes) {
-    todaySummary = `You carried a demanding day – ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : todayHighStakes![0]} with your heart rate elevated throughout.`;
+    todaySummary = `You carried a demanding day – ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : `'${todayHighStakes![0]}'`} with your heart rate elevated throughout.`;
   } else if (hadHeavyDay && hasTodayStakes) {
-    todaySummary = `You navigated ${todayHighStakes![0]} and a full calendar today.`;
+    todaySummary = `You navigated '${todayHighStakes![0]}' and a full calendar today.`;
   } else if (hadHeavyDay && meetingLabel) {
     todaySummary = `You navigated a dense calendar – ${meetingLabel} with tight gaps.`;
   } else if (bodyStressed) {
