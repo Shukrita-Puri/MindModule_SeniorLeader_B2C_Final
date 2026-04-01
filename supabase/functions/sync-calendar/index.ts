@@ -93,7 +93,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Load connection — only active
+    // Load connection – only active
     const { data: connection, error: connErr } = await serviceClient
       .from('calendar_connections')
       .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_enc_v')
@@ -121,7 +121,7 @@ serve(async (req) => {
         const dec = await decryptJson(connection.access_token_enc, connection.token_iv, encKeyB64) as { token: string };
         accessToken = dec.token;
       } catch (e) {
-        console.error('[sync-calendar] access_token_decrypt_failed — will attempt refresh', e);
+        console.error('[sync-calendar] access_token_decrypt_failed – will attempt refresh', e);
       }
     }
 
@@ -131,7 +131,7 @@ serve(async (req) => {
     const needsRefresh = !accessToken || (expiresAt && now.getTime() >= expiresAt.getTime() - REFRESH_BUFFER_MS);
 
     if (needsRefresh) {
-      console.log('[sync-calendar] token_refresh_start — expires:', expiresAt?.toISOString(), 'has_access:', !!accessToken);
+      console.log('[sync-calendar] token_refresh_start – expires:', expiresAt?.toISOString(), 'has_access:', !!accessToken);
 
       // Decrypt refresh token using refresh_token_iv, falling back to token_iv for legacy rows
       let refreshToken: string | null = null;
@@ -183,14 +183,14 @@ serve(async (req) => {
           token_expires_at: newExpiresAt,
         };
 
-        // Only rotate refresh token if Google returns a new one — preserve existing otherwise
+        // Only rotate refresh token if Google returns a new one – preserve existing otherwise
         if (refreshData.refresh_token) {
           const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
           updatePayload.refresh_token_enc = newRefreshEnc;
           updatePayload.refresh_token_iv = newRefreshIv;
-          console.log('[sync-calendar] token_refresh_success — rotated refresh token');
+          console.log('[sync-calendar] token_refresh_success – rotated refresh token');
         } else {
-          console.log('[sync-calendar] token_refresh_success — kept existing refresh token');
+          console.log('[sync-calendar] token_refresh_success – kept existing refresh token');
         }
 
         await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
@@ -221,7 +221,7 @@ serve(async (req) => {
     // This ensures past events from today are always captured, not just future ones.
     const startOfTodayUTC = new Date(now);
     startOfTodayUTC.setUTCHours(0, 0, 0, 0);
-    // If timezoneOffset was passed, adjust — fall back to UTC midnight
+    // If timezoneOffset was passed, adjust – fall back to UTC midnight
     const timezoneOffset = body.timezoneOffset ?? 0;
     const syncWindowStart = new Date(startOfTodayUTC.getTime() + timezoneOffset * 60000);
     const syncWindowEnd = new Date(syncWindowStart.getTime() + 8 * 24 * 60 * 60 * 1000); // 8 days to cover full 7-day rolling window
@@ -309,7 +309,7 @@ serve(async (req) => {
       }
     }
 
-    // Logistic noise keywords — events that should never drive insights or JIT plans
+    // Logistic noise keywords – events that should never drive insights or JIT plans
     const LOGISTIC_KEYWORDS = [
       'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
       'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
@@ -326,7 +326,7 @@ serve(async (req) => {
       let eventType = 'meeting';
       let isHighStakes = false;
 
-      // Check logistic first — before any other classification
+      // Check logistic first – before any other classification
       const isLogistic = LOGISTIC_KEYWORDS.some(kw => title.includes(kw)) || LOGISTIC_PATTERN.test(event.title);
       if (isLogistic) { eventType = 'logistic'; isHighStakes = false; }
       else if (title.includes('board') || title.includes('executive')) { eventType = 'board-meeting'; isHighStakes = true; }
