@@ -357,23 +357,25 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
+        
+        // Prune stale completed_practice_ids: only retain IDs that exist in the NEW plan
+        const existingRitual = await getTodayRitual(currentPeriod);
+        const existingCompleted = existingRitual?.completed_practice_ids || [];
+        const prunedCompleted = existingCompleted.filter(id => moduleIds.includes(id));
+        
         await upsertRitual({
           ritual_date: todayDate,
           recommended_practice_ids: moduleIds,
           recommended_practices_count: moduleIds.length,
+          completed_practice_ids: prunedCompleted,
+          completion_status: prunedCompleted.length >= moduleIds.length && prunedCompleted.length > 0 ? 'full' : prunedCompleted.length > 0 ? 'partial' : 'skipped',
           session_period: planResponse.timeOfDayPlan.period
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
         sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`);
-        console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length });
+        console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length, prunedCompleted: prunedCompleted.length });
       }
-
-      setRitualStatus(prev => ({
-        ...prev,
-        totalCount: planResponse.timeOfDayPlan.modules.length,
-        status: prev.completedCount >= planResponse.timeOfDayPlan.modules.length && prev.completedCount > 0 ? 'completed' : prev.completedCount > 0 ? 'partial' : 'not_started'
-      }));
     } catch (error) {
       console.error('Error loading plan:', error);
     }
