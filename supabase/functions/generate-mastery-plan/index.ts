@@ -2244,7 +2244,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: spec.focus,
             intensity: spec.intensity,
             isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getModuleReasoning(moduleType, spec.focus),
+            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
             required: spec.required,
             thumbnailUrl: fallbackItem.thumbnail_url
           });
