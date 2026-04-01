@@ -2370,16 +2370,61 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
   return topCandidates[idx]?.content || null;
 }
 
-function getModuleReasoning(moduleType: string, focus: string): string {
-  const reasons: Record<string, string> = {
-    composure: 'Restore calm and emotional regulation',
-    grounding: 'Anchor your attention and center yourself',
-    focus: 'Sharpen concentration and clarity',
-    confidence: 'Build presence and self-assurance',
-    release: 'Let go of tension and mental clutter',
-    restore: 'Replenish depleted energy reserves'
-  };
-  return reasons[focus] || 'Support your current state';
+function getContextualReasoning(
+  moduleType: string,
+  focus: string,
+  innerReadinessTier: string,
+  checkInOutcome: string,
+  calendarLoad: string,
+  timeOfDay: 'morning' | 'afternoon' | 'evening'
+): string {
+  const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
+  const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
+  const isEvening = timeOfDay === 'evening';
+  const isStrong = innerReadinessTier === 'strong' || innerReadinessTier === 'peak';
+
+  // Context-aware reasoning per focus area
+  if (focus === 'composure') {
+    if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
+    if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
+    return 'This practice anchors your composure so you show up grounded, not reactive';
+  }
+  if (focus === 'release') {
+    if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
+    if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
+    if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
+    return 'Clear mental clutter so your next decision comes from clarity, not residue';
+  }
+  if (focus === 'grounding') {
+    if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
+    if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
+    return 'This practice anchors your attention so you\'re fully present for what\'s next';
+  }
+  if (focus === 'focus') {
+    if (isDense) return 'With a dense calendar, this narrows your attention to what genuinely matters next';
+    if (isDepleted) return 'When depleted, targeted focus prevents you from spreading thin';
+    return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
+  }
+  if (focus === 'confidence') {
+    if (isStrong) return 'Your readiness is high – this practice channels that into visible, confident presence';
+    if (isDepleted) return 'Even when drained, this practice reconnects you to your leadership presence';
+    return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
+  }
+  if (focus === 'restore') {
+    if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
+    if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
+    return 'Top up your reserves now so you have capacity for what remains';
+  }
+
+  // Fallback by module type
+  if (moduleType === 'integrate') {
+    if (isEvening) return 'Capture what went well today and close with intention – this prevents rumination overnight';
+    return 'Integrate what you\'ve practised into how you show up next';
+  }
+  if (moduleType === 'prepare') {
+    return 'Prepare your mindset for what\'s coming – arrive ready, not reactive';
+  }
+  return 'This practice supports your current state and what lies ahead';
 }
 
 // ==================== HANDLER ====================
