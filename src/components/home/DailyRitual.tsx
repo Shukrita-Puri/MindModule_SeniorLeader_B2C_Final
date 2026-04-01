@@ -516,12 +516,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   }
 
   const rawModules = plan?.timeOfDayPlan?.modules || [];
-  // Sort: incomplete first, completed last — preserves original order within each group
-  const activeModules = [...rawModules].sort((a, b) => {
-    const aCompleted = completedPracticeIds.includes(a.contentId) ? 1 : 0;
-    const bCompleted = completedPracticeIds.includes(b.contentId) ? 1 : 0;
-    return aCompleted - bCompleted;
-  });
+  // Filter out completed practices entirely – only show outstanding work
+  const activeModules = rawModules.filter(m => !completedPracticeIds.includes(m.contentId));
 
   if (activeModules.length === 0 && !loading) {
     return (
