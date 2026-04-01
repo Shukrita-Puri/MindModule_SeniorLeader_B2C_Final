@@ -1552,14 +1552,18 @@ function generateCoachCard(
   tier: string,
   patternInsight: any,
   eventTitle?: string,
-  minutesUntil?: number
+  minutesUntil?: number,
+  stateHash?: string,
 ): any | null {
+  // State-versioned ID: ensures completions from a prior state don't suppress new coach work
+  const stateSegment = stateHash ? `:${stateHash.substring(0, 8)}` : '';
+
   // COACH INCLUSION RULES
   if (type === 'prepare') {
     // Pre-event: always include
     if (eventTitle) {
       return {
-        id: 'coach-prepare',
+        id: `coach-prepare${stateSegment}`,
         type: 'prepare',
         label: 'Prepare',
         protocolType: 'Self Mastery Coach',
@@ -1572,7 +1576,7 @@ function generateCoachCard(
     }
     // Afternoon: only with executive scenario (caller handles this)
     return {
-      id: 'coach-prepare',
+      id: `coach-prepare${stateSegment}`,
       type: 'prepare',
       label: 'Prepare',
       protocolType: 'Self Mastery Coach',
@@ -1588,7 +1592,7 @@ function generateCoachCard(
   if (type === 'integrate') {
     // Evening: ALWAYS included with Tiny Wins
     return {
-      id: 'coach-integrate',
+      id: `coach-integrate${stateSegment}`,
       type: 'integrate',
       label: 'Integrate',
       protocolType: 'Self Mastery Coach',
