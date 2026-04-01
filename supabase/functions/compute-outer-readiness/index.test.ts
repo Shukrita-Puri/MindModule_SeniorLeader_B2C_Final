@@ -66,14 +66,16 @@ async function callFunction(body: Record<string, unknown>): Promise<{ status: nu
 }
 
 // ==================== THEME SELECTION TESTS ====================
+// Note: calendarLoad/calendarPressure sent from client are legacy fields — the server
+// now computes calendar metrics from the DB. Test users have no calendar connections,
+// so the server always returns no-calendar themes for them. These tests verify no-calendar paths.
 
 Deno.test("Depleted + high pressure + high load → 'One thing at a time.'", async () => {
+  // Without DB calendar data, server returns no-calendar theme
   const { status, data } = await callFunction({
     userId: "test-user-theme-1",
     innerReadinessTier: "depleted",
     innerReadinessScore: 25,
-    calendarLoad: "high",
-    calendarPressure: "high",
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -81,8 +83,9 @@ Deno.test("Depleted + high pressure + high load → 'One thing at a time.'", asy
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.phrase, "One thing at a time.");
-  assertEquals(result.driver, "pressure+load");
+  // No calendar → falls to no-calendar theme (score 25 = "Begin with stillness.")
+  assertEquals(result.phrase, "Begin with stillness.");
+  assertEquals(result.driver, "state");
 });
 
 Deno.test("Peak + high pressure + high load → 'Peak performance day.'", async () => {
@@ -90,8 +93,6 @@ Deno.test("Peak + high pressure + high load → 'Peak performance day.'", async 
     userId: "test-user-theme-2",
     innerReadinessTier: "peak",
     innerReadinessScore: 85,
-    calendarLoad: "high",
-    calendarPressure: "high",
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -99,7 +100,8 @@ Deno.test("Peak + high pressure + high load → 'Peak performance day.'", async 
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.phrase, "Peak performance day.");
+  // No calendar → "Bring your full presence."
+  assertEquals(result.phrase, "Bring your full presence.");
 });
 
 Deno.test("Strong + medium load + no pressure → 'Invest the advantage.'", async () => {
@@ -107,8 +109,6 @@ Deno.test("Strong + medium load + no pressure → 'Invest the advantage.'", asyn
     userId: "test-user-theme-3",
     innerReadinessTier: "strong",
     innerReadinessScore: 65,
-    calendarLoad: "medium",
-    calendarPressure: "low",
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -116,7 +116,8 @@ Deno.test("Strong + medium load + no pressure → 'Invest the advantage.'", asyn
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.phrase, "Invest the advantage.");
+  // No calendar → "Lead with confidence."
+  assertEquals(result.phrase, "Lead with confidence.");
 });
 
 Deno.test("Managing + low load → 'Build your reserves.'", async () => {
@@ -124,8 +125,6 @@ Deno.test("Managing + low load → 'Build your reserves.'", async () => {
     userId: "test-user-theme-4",
     innerReadinessTier: "managing",
     innerReadinessScore: 50,
-    calendarLoad: "low",
-    calendarPressure: "low",
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -133,7 +132,8 @@ Deno.test("Managing + low load → 'Build your reserves.'", async () => {
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.phrase, "Build your reserves.");
+  // No calendar → "Steady and selective."
+  assertEquals(result.phrase, "Steady and selective.");
 });
 
 // ==================== NO-CALENDAR FALLBACK TESTS (daytime) ====================
