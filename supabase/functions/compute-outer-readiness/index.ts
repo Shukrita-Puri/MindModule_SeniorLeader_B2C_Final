@@ -927,6 +927,11 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
         : "Below-baseline readiness shapes every remaining interaction. How much you spend on what's left is the decision that matters.";
       return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
+    // Non-late evening (18:00-20:59) — route to weekday evening theme
+    if (timeOfDay === 'evening')
+      return buildWeekdayEveningTheme('depleted', null, wearable,
+        "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
+        todayHighStakes, eventCount, null, null);
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual." + wearableSuffix, driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now." + wearableSuffix, driver: 'state' };
