@@ -53,6 +53,7 @@ interface WearableContext {
   sleepDuration: number | null;
   hrvElevated: boolean; // HRV significantly below baseline
   hrElevated: boolean;  // Peak HR notably high (>100 or >120% of RHR)
+  poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
@@ -293,6 +294,59 @@ function buildWeekdayEveningTheme(
   return { phrase: defaultPhrase || "Close before tomorrow.", context: defaultContext || "Tonight is about release, not review.", driver: 'evening' };
 }
 
+// ==================== MORNING THEME BUILDER (sleep/recovery-aware) ====================
+function buildMorningTheme(
+  tier: EnergyTier,
+  wearable?: WearableContext | null,
+  defaultPhrase?: string,
+  defaultContext?: string,
+): { phrase: string; context: string; driver: ThemeDriver } {
+  if (wearable?.poorSleep) {
+    const sleepDetail = wearable.sleepScore
+      ? `(sleep score: ${wearable.sleepScore})`
+      : wearable.sleepDuration
+      ? `(${Math.round(wearable.sleepDuration / 60)} hours)`
+      : '';
+    if (tier === 'depleted') {
+      return {
+        phrase: "Pace from the start.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your system is starting in deficit — every early commitment costs more today. Protect the first hours and deploy carefully.`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'managing') {
+      return {
+        phrase: "Start steady, not strong.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your operating baseline is lower than usual — a steady opening protects the capacity you'll need for what matters later.`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'strong') {
+      return {
+        phrase: "Guard the morning window.",
+        context: `Your readiness is above baseline despite incomplete recovery overnight ${sleepDetail}. That advantage is more fragile than usual — protect it through the morning's first demands.`,
+        driver: 'morning',
+      };
+    }
+    // peak
+    return {
+      phrase: "Protect the peak carefully.",
+      context: `Peak readiness despite a shorter recovery window ${sleepDetail}. This state may not sustain through a full day — deploy it where it matters most, not where it's spent first.`,
+      driver: 'morning',
+    };
+  }
+
+  if (wearable?.hrvElevated) {
+    return {
+      phrase: defaultPhrase || "Ease into the day.",
+      context: `Your HRV is signalling accumulated strain from recent days. ${defaultContext || "How you pace the opening hours determines your capacity through the rest of the day."}`,
+      driver: 'morning',
+    };
+  }
+
+  return { phrase: defaultPhrase || "Start with presence.", context: defaultContext || "The opening of the day sets the tone for everything that follows.", driver: 'morning' };
+}
+
 
 function getTheme(
   tier: EnergyTier,
@@ -308,7 +362,7 @@ function getTheme(
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable);
   }
 
   const timeOfDay = getTimeOfDay(hour);
@@ -331,7 +385,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -369,7 +423,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -406,7 +460,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
+      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -442,7 +496,7 @@ function getTheme(
   if (load === 'low')
     return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
   if (timeOfDay === 'morning')
-    return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
+    return buildMorningTheme('peak', wearable, "Protect the peak.", "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.");
   if (timeOfDay === 'evening') {
     if (dayCtx === 'sunday') {
       const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -463,16 +517,24 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
+  const timeOfDay = getTimeOfDay(hour);
+  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
 
   if (tier === 'depleted') {
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Rest before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'state' };
-      return { phrase: "Let the day close.", context: "Your system has already given what it had. The most important thing now is genuine release and recovery.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Your ${wearable!.hrElevated ? 'heart rate ran high' : 'HRV shows strain'} through today — the cool-down is physical, not just mental.` : '';
+      return { phrase: "Let the day close.", context: `Your system has already given what it had. The most important thing now is genuine release and recovery.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('depleted', wearable, score <= 25 ? "Begin with stillness." : "Protect your reserves.",
+        score <= 25
+          ? "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual."
+          : "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.");
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
@@ -481,8 +543,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'state' };
-      return { phrase: "Close the day cleanly.", context: "Operational capacity has served its purpose today. A clean close now protects tomorrow's opening state.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Your body is also signalling strain — a deliberate physical wind-down tonight supports tomorrow's recovery.` : '';
+      return { phrase: "Close the day cleanly.", context: `Operational capacity has served its purpose today. A clean close now protects tomorrow's opening state.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('managing', wearable, score <= 49 ? "Operate with care." : "Steady and selective.",
+        score <= 49
+          ? "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment."
+          : "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.");
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
@@ -491,8 +559,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday.", driver: 'state' };
-      return { phrase: "Protect tomorrow's advantage.", context: "Above-baseline readiness at this hour is worth protecting through deliberate wind-down rather than spending.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Despite above-baseline readiness, your ${wearable!.hrElevated ? 'heart rate' : 'HRV'} is signalling the body needs recovery — honour that tonight.` : '';
+      return { phrase: "Protect tomorrow's advantage.", context: `Above-baseline readiness at this hour is worth protecting through deliberate wind-down rather than spending.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('strong', wearable, score <= 69 ? "Lead with confidence." : "Invest your advantage.",
+        score <= 69
+          ? "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you."
+          : "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.");
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you.", driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.", driver: 'state' };
@@ -501,8 +575,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
   if (lateEvening) {
     if (dayCtx === 'sunday')
       return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'state' };
-    return { phrase: "Wind down deliberately.", context: "Peak activation at this hour needs a deliberate transition. Your nervous system needs the wind-down even when your mind doesn't.", driver: 'state' };
+    const bodyNote = bodyStressed ? ` Your body is telling a different story to your mind — honour the physical signal with a genuine wind-down.` : '';
+    return { phrase: "Wind down deliberately.", context: `Peak activation at this hour needs a deliberate transition. Your nervous system needs the wind-down even when your mind doesn't.${bodyNote}`, driver: 'state' };
   }
+  if (timeOfDay === 'morning')
+    return buildMorningTheme('peak', wearable, score <= 89 ? "Bring your full presence." : "Own your peak.",
+      score <= 89
+        ? "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest."
+        : "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.");
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
@@ -1128,40 +1208,42 @@ serve(async (req) => {
     const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
     const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
 
-    // ── Fetch wearable data for evening context ──
+    // ── Fetch wearable data (always — mornings use sleep, evenings use HR/HRV) ──
     let wearableContext: WearableContext | null = null;
-    if (isEvening) {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { data: wearableRow } = await db
-          .from('wearable_data')
-          .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
-          .eq('user_id', userId)
-          .order('recorded_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    try {
+      const { data: wearableRow } = await db
+        .from('wearable_data')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
+        .eq('user_id', userId)
+        .order('recorded_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (wearableRow) {
-          const rhr = wearableRow.resting_heart_rate || null;
-          const peakHR = wearableRow.heart_rate || null;
-          const hrv = wearableRow.hrv || null;
-          // Elevated HR: peak > 100 or > 120% of RHR
-          const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
-          // HRV stress: below 30ms absolute (low) — a simple heuristic
-          const hrvElevated = hrv !== null && hrv < 30;
-          wearableContext = {
-            hrv,
-            rhr,
-            peakHR,
-            sleepScore: wearableRow.sleep_score || null,
-            sleepDuration: wearableRow.sleep_duration || null,
-            hrvElevated,
-            hrElevated,
-          };
-        }
-      } catch (err) {
-        console.error('[compute-outer-readiness] Wearable data fetch error:', err);
+      if (wearableRow) {
+        const rhr = wearableRow.resting_heart_rate || null;
+        const peakHR = wearableRow.heart_rate || null;
+        const hrv = wearableRow.hrv || null;
+        const sleepScore = wearableRow.sleep_score || null;
+        const sleepDuration = wearableRow.sleep_duration || null;
+        // Elevated HR: peak > 100 or > 120% of RHR
+        const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
+        // HRV stress: below 30ms absolute (low) — a simple heuristic
+        const hrvElevated = hrv !== null && hrv < 30;
+        // Poor sleep: score < 60 or duration < 6 hours (360 min)
+        const poorSleep = (sleepScore !== null && sleepScore < 60) || (sleepDuration !== null && sleepDuration < 360);
+        wearableContext = {
+          hrv,
+          rhr,
+          peakHR,
+          sleepScore,
+          sleepDuration,
+          hrvElevated,
+          hrElevated,
+          poorSleep,
+        };
       }
+    } catch (err) {
+      console.error('[compute-outer-readiness] Wearable data fetch error:', err);
     }
 
     console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
@@ -1256,7 +1338,7 @@ serve(async (req) => {
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
-    const wearableUsed = !!wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated);
+    const wearableUsed = !!wearableContext;
     const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
 
     const timeOfDay = getTimeOfDay(hour);
