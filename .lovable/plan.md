@@ -1,131 +1,118 @@
 
 
-## Problem Summary
+## Problem Analysis
 
-Three interconnected issues with the Proactive Mastery Plan:
+From the screenshot, the plan brief currently shows "Light Close (1 meetings today)" – a density label, not the contextual `planBrief` that was implemented. Two issues explain this:
 
-1. **Mobile vs Web parity**: The `calendarMessage` line (e.g., "Deep Recovery (8 meetings today, 6 hrs)") renders below "Evening Close" on web but is cut off or invisible on mobile native because it's `text-[11px] italic` with no padding protection and sits in a flex-column that collapses on small viewports.
+1. **The `planBrief` IS being generated** (line 2157) and returned (line 2316), but it doesn't include wearable data. The function `generatePlanBrief()` only references readiness tier, calendar, and check-in outcome – it never mentions sleep quality, HRV, or RHR even though these are the signals beta testers want to see ("your sleep data says disturbed sleep").
 
-2. **Calendar message is descriptive, not prescriptive**: Current messages like "Deep Recovery (8 meetings today, 6 hrs)" tell the user about density but don't explain *why* these specific practices were chosen or why they matter right now. Beta testers say "I don't know what this plan is meant to do."
+2. **The layout breaks on mobile** – the plan brief sits inside a `flex items-center justify-between` row alongside the "X of Y completed" counter, causing it to compress on small screens.
 
-3. **Per-card reasoning is invisible**: `getModuleReasoning()` returns generic strings like "Restore calm and emotional regulation" in `text-[11px] italic` - practically invisible and not connected to the user's actual state or context.
-
----
-
-## Root Causes
-
-**A. `calendarMessage` is a density label, not a contextual brief**
-- `generateCalendarMessage()` (line 678) outputs strings like "Deep Recovery (8 meetings, 6 hrs)" - pure data, zero directive connection.
-- It doesn't reference the user's readiness tier, check-in state, wearable data, or the Outer Readiness phrase.
-
-**B. `getModuleReasoning()` is a static lookup**
-- Line 2333: Maps `focus` to generic strings. No user state, no calendar context, no "why this practice right now for you."
-- The reasoning is the most valuable piece of text for a C-suite user and it's buried at 11px italic.
-
-**C. Mobile visibility**
-- The `calendarMessage` span is `text-[11px]` with `mt-0.5` - too small and too close to the header on mobile.
-- No minimum height or padding protection for the plan header area.
+3. **Wearable data is not fetched** in `generate-mastery-plan/index.ts` at all – the inner readiness tier is derived from check-in `energy_balance`, not from wearable snapshots. The function has no access to sleep score, HRV, or RHR to reference in briefs or reasoning strings.
 
 ---
 
 ## Plan
 
-### Change 1: Replace `calendarMessage` with a Contextual Plan Brief
+### Change 1: Fetch wearable snapshot data server-side
 
 **File:** `supabase/functions/generate-mastery-plan/index.ts`
 
-Replace `generateCalendarMessage()` with a new `generatePlanBrief()` function that produces a 1-2 sentence contextual statement connecting:
-- User's readiness tier (depleted/managing/strong/peak)
-- Time of day
-- Calendar density (meeting count)
-- The Outer Readiness phrase (what was recommended)
-- Why these practices matter right now
+Add a new server-side fetch block (alongside existing check-in, favorites, etc.) to query the latest `wearable_snapshots` row for the user. Extract: `sleep_score`, `hrv_ms`, `resting_heart_rate`, `hrv_deviation_pct`. Store these on a new `wearableContext` object passed to `generatePlanBrief()` and `getContextualReasoning()`.
 
-**Examples by tier x time:**
+Add to `PlanRequest`:
+```typescript
+wearableContext?: {
+  sleepScore: number | null;
+  hrvMs: number | null;
+  restingHR: number | null;
+  hrvDeviation: number | null;
+  hasData: boolean;
+};
+```
 
-| Tier | Time | Current Output | New Output |
-|------|------|----------------|------------|
-| depleted | evening | "Deep Recovery (8 meetings, 6 hrs)" | "You checked in as drained after 8 meetings. This sequence is designed to release what you carried today and protect tomorrow's capacity." |
-| managing | morning | "Heavy Day Ahead (6 meetings, 5 hrs)" | "Your readiness is steady but 6 meetings lie ahead. These practices build the composure and focus to sustain you through a dense day." |
-| strong | afternoon | "Moderate Day (4 meetings)" | "Your readiness is above baseline with 2 meetings still ahead. This sequence sharpens your edge for the stretch that remains." |
-| peak | morning | "Open Day (2 meetings)" | "You're at peak readiness with a light day ahead. These practices channel that clarity into deliberate intention." |
-| any | evening (no calendar) | null | "This evening sequence helps you close the day with intention and prepare your mind for tomorrow." |
+Query: latest row from `wearable_snapshots` where `user_id = req.userId` and `recorded_at` within last 24 hours.
 
-The function signature: `generatePlanBrief(ctx, timeOfDay, innerReadinessTier, innerReadinessScore, checkInOutcome, outerReadinessPhrase)`.
-
-Pass the readiness tier and score (already available in `req`) through to this function.
-
-### Change 2: Upgrade `getModuleReasoning()` to context-aware reasoning
+### Change 2: Upgrade `generatePlanBrief()` to include wearable signals
 
 **File:** `supabase/functions/generate-mastery-plan/index.ts`
 
-Replace the static lookup with `getContextualReasoning(moduleType, focus, innerReadinessTier, checkInOutcome, calendarLoad, timeOfDay)`.
+Update signature to accept wearable context. When wearable data is available, weave it into the brief naturally:
 
-**Examples:**
+| Scenario | Current | New |
+|----------|---------|-----|
+| Depleted + poor sleep | "You checked in as drained after 8 meetings..." | "You checked in as drained after 8 meetings and your sleep score is below baseline. This sequence is designed to release what you carried today and protect tomorrow's capacity." |
+| Strong + good HRV | "Your readiness is above baseline..." | "Your readiness is above baseline with recovered HRV and 2 meetings still ahead. This sequence sharpens your edge for the stretch that remains." |
+| Managing + low HRV | "Your readiness is steady but 6 meetings lie ahead..." | "Your readiness is steady but your HRV is below baseline and 6 meetings lie ahead. These practices build the composure and focus to sustain you through a dense day." |
 
-| Module | Focus | Current | New |
-|--------|-------|---------|-----|
-| regulate | composure | "Restore calm and emotional regulation" | "Your check-in flagged tension - this settles your nervous system before what's ahead" |
-| regulate | release | "Let go of tension and mental clutter" | "After a heavy day, this practice helps discharge accumulated stress so it doesn't carry into tomorrow" |
-| align | confidence | "Build presence and self-assurance" | "Your readiness is steady - this practice anchors that into confident presence for what remains" |
-| align | focus | "Sharpen concentration and clarity" | "With a dense calendar, this practice narrows your attention to what genuinely matters next" |
-| integrate (evening) | release | "Evening reflection and tiny wins capture" | "Capture what went well today and close with intention - this prevents rumination overnight" |
+Logic: append wearable fragment only when the signal is notable (sleep < 70 or HRV deviation > 10% below baseline). Don't mention wearable data when it's unremarkable or absent.
 
-The key principle: every reasoning string answers "why this practice, right now, for you."
+### Change 3: Upgrade `getContextualReasoning()` to include wearable context
 
-### Change 3: Improve plan brief visibility on mobile
+**File:** `supabase/functions/generate-mastery-plan/index.ts`
 
-**File:** `src/components/home/DailyRitual.tsx`
+Add `wearableContext` parameter. When notable wearable data exists, prioritise it in reasoning strings:
 
-- Increase the plan brief from `text-[11px]` to `text-[13px]` with `leading-relaxed`
-- Add `min-h-[20px]` to the brief container to prevent collapse
-- Change from `italic` to `font-medium` for better readability at small sizes
-- Wrap the plan brief in a subtle container (`bg-muted/20 rounded-lg px-3 py-2 mt-1.5`) to give it visual weight - similar to the Outer Readiness Brief's context line
+| Focus | Wearable Signal | New Reasoning |
+|-------|----------------|---------------|
+| composure | Low HRV | "Your HRV is below baseline – this settles your nervous system before what's ahead" |
+| release | Poor sleep | "Your sleep was disrupted last night – this practice helps discharge residual tension" |
+| restore | Low sleep + depleted | "Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level" |
 
-The header section becomes:
-```
-Evening Close    [Evening]    0 of 3 completed
-┌──────────────────────────────────────────────┐
-│ You checked in as drained after 8 meetings.  │
-│ This sequence releases what you carried      │
-│ today and protects tomorrow's capacity.      │
-└──────────────────────────────────────────────┘
-[Practice Cards...]
-```
+Fallback: if no wearable data, use existing check-in/calendar-based reasoning (no regression).
 
-### Change 4: Increase reasoning text visibility on practice cards
+### Change 4: Fix mobile layout – plan brief on its own row
 
 **File:** `src/components/home/DailyRitual.tsx`
 
-- Change reasoning from `text-[11px] text-muted-foreground/90 italic` to `text-[12px] text-muted-foreground font-medium`
-- Remove `line-clamp-2` constraint (let reasoning breathe - it's the most important text)
-- Keep `line-clamp-3` as a safety net to prevent overflow
+Move the plan brief container OUTSIDE the `flex items-center justify-between` row so it gets full width on all viewports. Current structure:
 
-### Change 5: Write comprehensive Proactive Mastery Plan documentation
+```
+<div className="flex items-center justify-between">   ← header row
+  <div className="flex flex-col">                     ← left side
+    <span>Evening Close [Evening]</span>
+    <div>plan brief (SQUEEZED HERE)</div>              ← problem
+  </div>
+  <span>2 of 3 completed</span>                       ← right side
+</div>
+```
+
+New structure:
+
+```
+<div className="flex items-center justify-between">   ← header row
+  <div className="flex items-center gap-2">
+    <span>Evening Close [Evening]</span>
+  </div>
+  <span>2 of 3 completed</span>
+</div>
+{planBrief && (                                        ← full-width, own row
+  <div className="bg-muted/20 rounded-lg px-3 py-2 mt-1.5 min-h-[20px]">
+    <span className="text-[13px] text-muted-foreground font-medium leading-relaxed">
+      {planBrief}
+    </span>
+  </div>
+)}
+```
+
+This ensures the brief always renders full-width on mobile and web, never squeezed by the completion counter.
+
+### Change 5: Update documentation
 
 **File:** `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md`
 
-Full documentation covering:
-- Purpose and philosophy (prescription, not menu)
-- Signal architecture (all 11 inputs)
-- Plan Brief role (why these practices, now, for you)
-- Module reasoning role (per-card contextual justification)
-- Theme-to-module mapping logic
-- Content selection scoring weights
-- Duration ceiling rules
-- Coach card inclusion logic
-- JIT pipeline and how it connects to ToD plan
-- Executive scenarios
-- Connection to Outer Readiness Brief
+Add a "Wearable Signal Integration" section documenting:
+- Which wearable fields are used (sleep_score, hrv_ms, resting_heart_rate)
+- Thresholds for inclusion in briefs (sleep < 70, HRV deviation > 10%)
+- How wearable data flows into reasoning strings
+- Priority hierarchy: Wearable > Check-in > Calendar > Generic
 
 ---
 
-## What This Does NOT Change
+## Technical Details
 
-- Content selection scoring (unchanged - already well-connected)
-- Theme-to-module mapping (unchanged)
-- Duration ceilings (unchanged)
-- Coach card logic (unchanged)
-- JIT pipeline (unchanged)
-- Outer Readiness Brief (unchanged - already fixed)
+- The `wearable_snapshots` table is already used by `compute-inner-readiness` and `compute-outer-readiness`, so the schema is confirmed.
+- All en-dash (`–`) usage will be maintained per project typography standard.
+- The `calendarMessage` fallback in DailyRitual.tsx will be retained for backwards compatibility but `planBrief` takes precedence.
+- Deploy updated `generate-mastery-plan` edge function after changes.
 
