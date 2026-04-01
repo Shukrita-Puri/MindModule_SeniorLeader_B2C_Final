@@ -348,6 +348,7 @@ function buildMorningTheme(
 }
 
 
+function getTheme(
   tier: EnergyTier,
   pressure: CalendarLevel | null,
   load: CalendarLevel | null,
