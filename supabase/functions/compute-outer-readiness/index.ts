@@ -1012,7 +1012,7 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[]): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[], meetingCount?: number, remainingMeetings?: number): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
