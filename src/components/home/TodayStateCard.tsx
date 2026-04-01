@@ -56,7 +56,7 @@ const TodayStateCard = () => {
   if (!energyState) return null;
 
   // Clean dashes from context statement
-  const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/—/g, ' ').replace(/ – /g, ' ');
+  const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/–/g, ' ').replace(/ – /g, ' ');
   
   const tierLabel = getStateLabel(energyState.energyTier);
   const contextStatement = energyState.recommendation?.contextStatement || '';
@@ -77,7 +77,7 @@ const TodayStateCard = () => {
         </span>
         <MetricInfoModal
           title="How Your Decision Readiness Score is Calculated"
-          description="Your Decision Readiness Score is where your internal signals meet. It combines how you feel right now — your energy, clarity about direction, and confidence in execution — with the natural rhythm of the time of day and what your body is telling you through wearable data. The result is a triangulated read of where you stand internally: how resourced, clear, and confident you are before you engage with the demands of the day. Not a status check. A performance-calibrated readiness profile. This is your internal world. How to orient it against today's outer demands lives in your Outer Readiness Brief."
+          description="Your Decision Readiness Score is where your internal signals meet. It combines how you feel right now – your energy, clarity about direction, and confidence in execution – with the natural rhythm of the time of day and what your body is telling you through wearable data. The result is a triangulated read of where you stand internally: how resourced, clear, and confident you are before you engage with the demands of the day. Not a status check. A performance-calibrated readiness profile. This is your internal world. How to orient it against today's outer demands lives in your Outer Readiness Brief."
         />
       </div>
       {/* Score and Tier */}
@@ -99,7 +99,7 @@ const TodayStateCard = () => {
         {insight}
       </p>
 
-      {/* Layer 3: Wearable Context — separate line for visibility */}
+      {/* Layer 3: Wearable Context – separate line for visibility */}
       {layer3Statement && layersActive.includes('wearable') && (
         <p className="text-xs text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
           {layer3Statement}
