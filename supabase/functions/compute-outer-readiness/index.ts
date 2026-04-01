@@ -474,7 +474,7 @@ function buildWeekdayEveningTheme(
       if (tier === 'strong') {
         return {
           phrase: "Carry your edge forward.",
-          context: `${pastLabel ? `You've navigated ${pastLabel} today with above-baseline readiness. ` : ''}${remainingHighStakes![0]} is still ahead – carry that edge forward into the moment that matters most rather than coasting on what's already done.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today with above-baseline readiness. ` : ''}'${remainingHighStakes![0]}' is still ahead – carry that edge forward into the moment that matters most rather than coasting on what's already done.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
