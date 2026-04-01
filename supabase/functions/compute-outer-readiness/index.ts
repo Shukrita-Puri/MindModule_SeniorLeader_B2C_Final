@@ -775,10 +775,12 @@ function getTheme(
   wearable?: WearableContext | null,
   todayHighStakes?: string[],
   eventCount?: number,
+  remainingEvents?: number,
+  remainingHighStakes?: string[],
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes);
   }
 
   const timeOfDay = getTimeOfDay(hour);
