@@ -407,7 +407,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
+      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
