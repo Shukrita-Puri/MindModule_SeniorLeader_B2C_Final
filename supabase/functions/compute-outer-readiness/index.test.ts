@@ -287,7 +287,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Your above-baseline readiness. A real asset that is worth protecting through the day.");
+  assertEquals(result.leanOn, "Based on your current readiness state: Your above-baseline readiness. A real asset that is worth protecting through the day.");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
