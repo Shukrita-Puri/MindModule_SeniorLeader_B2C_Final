@@ -983,7 +983,7 @@ function getTheme(
       return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return buildWeekdayEveningTheme('peak', tomorrowHighStakes, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
-      todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+      todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
   }
   // Morning
   if (timeOfDay === 'morning')
