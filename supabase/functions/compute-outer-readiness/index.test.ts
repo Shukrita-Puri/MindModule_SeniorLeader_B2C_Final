@@ -153,7 +153,7 @@ Deno.test("Depleted + no calendar + score 20 (daytime) → 'Begin with stillness
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Begin with stillness.");
-  assertEquals(result.driver, "state");
+  assertEquals(result.driver, "morning");
 });
 
 Deno.test("Peak + no calendar + score 92 (daytime) → 'Own your peak.'", async () => {
