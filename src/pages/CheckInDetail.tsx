@@ -12,6 +12,9 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
