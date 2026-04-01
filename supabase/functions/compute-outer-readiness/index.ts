@@ -1549,10 +1549,12 @@ interface LeanOnWatchForResult {
 
 // Build context enrichment suffix for leanOn — crisp, no event titles, no HR numbers.
 // Subtly reinforces the personal insight with situational acknowledgment.
+// Now aware of remaining events for evening.
 function buildDaytimeLeanOnSuffix(
   todayHighStakes: string[] | undefined,
   wearable: WearableContext | null | undefined,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
+  remainingEvents?: number,
 ): string {
   const hasStakes = todayHighStakes && todayHighStakes.length > 0;
   const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.poorSleep || wearable.rhrElevated);
@@ -1572,6 +1574,11 @@ function buildDaytimeLeanOnSuffix(
   }
 
   if (timeOfDay === 'evening') {
+    const remaining = remainingEvents ?? 0;
+    if (remaining > 0) {
+      if (bodyStrained) return ' The day isn\'t done — that instinct still serves you, and your body is signalling to pace what\'s left.';
+      return ' The day isn\'t done — that instinct still serves you.';
+    }
     if (bodyStrained) return ' Today tested that capacity. Your body is signalling the day is done.';
     return ' Today tested that capacity. The day is done.';
   }
