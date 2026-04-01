@@ -1,75 +1,120 @@
 
 
-## Plan: Outer Readiness Brief — Full Context Audit Fix
+## Plan: Evening Context Enrichment + Wearable Heart-Level Intelligence
 
-Two issues plus gaps discovered during audit.
-
----
-
-### Issue 2: `computeCalendarMetrics()` Inaccuracy
-
-**File**: `supabase/functions/compute-outer-readiness/index.ts` (lines 47-93)
-
-**Changes to `computeCalendarMetrics()`:**
-
-1. **Meeting density metric**: Calculate total gap time between consecutive events. If total gap < 30 min across 3+ meetings, boost pressure by +3.
-
-2. **Lower load threshold**: ≥4 events with average gap < 20 min = 'high' (currently needs ≥5).
-
-3. **Higher attendee weight**: >5 attendees now adds +3 pressure (was +2).
-
-4. **Intensity multiplier**: If >50% of events are non-recurring AND organizer, apply 1.5x pressure multiplier before thresholding.
-
-5. **Stronger back-to-back**: Gap < 15 min adds +2 (was +1). Gap < 5 min adds +3.
-
-No auth changes needed — function already works for both auth and dev users via `userId` from either source.
+### Single file: `supabase/functions/compute-outer-readiness/index.ts`
 
 ---
 
-### Issue 4: Reasoning Line Visibility
+### 1. Fetch Wearable Data (new parallel query)
 
-**Files**: `src/components/home/DailyRitual.tsx`, `src/components/home/JitCarousel.tsx`
+Add to the existing `Promise.all` block (line ~1009) a query for the latest `wearable_data` row:
 
-Change reasoning styling from:
+```sql
+wearable_data WHERE user_id = userId ORDER BY recorded_date DESC LIMIT 1
 ```
-text-[11px] text-muted-foreground italic
+
+Extract: `hrv`, `resting_heart_rate`, `heart_rate` (peak HR), `sleep_score`, `sleep_duration`. Also fetch today's `energy_snapshots` for `hrv_delta_pct` if available.
+
+Create a `WearableContext` type:
+```
+{ hrv, rhr, peakHR, sleepScore, sleepDuration, hrvDeltaPct }
+```
+
+---
+
+### 2. Expand Tomorrow Fetch to All Evenings (≥18:00)
+
+Change `needTomorrow` logic from:
+```
+lateEvening || sundayEvening
 ```
 to:
 ```
-text-[11px] text-muted-foreground/90 italic font-medium
+hour >= 18 || lateEvening
 ```
 
-No edge function change needed — reasoning is already populated for all users via service role key in `generate-mastery-plan`.
+This ensures any evening user (6pm+) gets tomorrow's calendar context.
 
 ---
 
-### Gap Found: Sunday Evening Theme Ignores Monday Signals
+### 3. Return High-Stakes Event Titles from Calendar Query
 
-**Problem**: `getTheme()` produces Sunday evening phrases like "Close into the week" without referencing Monday's actual calendar load. Only the leanOn/watchFor cascade uses Monday data. The theme phrase + context should differ based on whether Monday is heavy or light.
+Modify `getServerCalendarMetrics()` to also select `title` and return a new field:
+```
+highStakesEvents: string[]  // titles of events with pressure > threshold
+```
 
-**Additionally**: Tomorrow's calendar is only fetched when `isLateEvening(hour)` (≥21:00), but Sunday evening themes in `getTheme()` fire at any evening hour (≥18:00). This means a user checking in at 7pm Sunday gets no Monday context.
+High-stakes = non-recurring + (attendees > 5 OR organizer + attendees > 2 OR duration > 60min). Return up to 2 titles.
 
-**Fix** (same file):
-
-1. **Expand tomorrow fetch**: Also fetch tomorrow's calendar when `dayOfWeek === 0` (Sunday) AND hour ≥ 18, not just when `isLateEvening`.
-
-2. **Pass tomorrow metrics to `getTheme()`**: Add `tomorrowLoad` and `tomorrowPressure` parameters.
-
-3. **Update Sunday evening theme entries**: For all 4 tiers, the Sunday evening context text should reference Monday's actual load:
-   - Heavy Monday: "A demanding Monday is ahead — [tier-specific guidance]"
-   - Light Monday: "A lighter Monday ahead — [tier-specific guidance]"
-   - No Monday data: Keep current generic text
-
-This ensures the entire Outer Readiness Brief (phrase, context, leanOn, watchFor) is Monday-aware on Sunday evenings, not just the leanOn/watchFor section.
+Update `CalendarMetricsResult` interface to include `highStakesEvents: string[]`.
 
 ---
 
-### Summary of Changes
+### 4. Enrich `getTheme()` Evening Entries
 
-| File | Change |
-|------|--------|
-| `compute-outer-readiness/index.ts` | Enhanced `computeCalendarMetrics()` with density, intensity multiplier, stronger back-to-back, lower thresholds |
-| `compute-outer-readiness/index.ts` | Expand tomorrow fetch to Sunday ≥18:00; pass tomorrow metrics to `getTheme()`; update Sunday evening themes for all 4 tiers |
-| `DailyRitual.tsx` | Reasoning line styling boost |
-| `JitCarousel.tsx` | Reasoning line styling boost |
+Add parameters: `tomorrowHighStakes: string[]`, `wearable: WearableContext | null`.
+
+For **weekday evenings** (currently generic "Close before tomorrow"):
+- If tomorrow has high-stakes events: reference the event name and orient toward restoration
+  - e.g. phrase: "Ground before tomorrow." context: "You have [Event Title] tomorrow — tonight is about arriving restored, not prepared."
+- If wearable shows elevated HR/low HRV: lead with body signal
+  - e.g. "Your heart rate spiked through a demanding day — what you release tonight determines how sharp you are for [event] tomorrow."
+- If tomorrow is light + wearable is fine: keep current soft close language
+
+For **Sunday evenings**: keep planning orientation but also reference Monday's specific high-stakes event titles if present.
+
+---
+
+### 5. Enrich `getEveningInsights()` (Lean On / Watch For)
+
+Expand signature to receive: `tomorrowLoad`, `tomorrowPressure`, `tomorrowHighStakes: string[]`, `wearable: WearableContext | null`.
+
+Integrate:
+- **Wearable in leanOn**: "Your body carried a heavy day — elevated heart rate through back-to-back stakes. The cool-down tonight is physical, not just mental."
+- **Tomorrow high-stakes in watchFor**: "Preparing for [Event] tonight when what you actually need is restoration. You'll be sharper arriving rested than over-rehearsed."
+- Keep soft, permission-to-stop tone as Priority 1 unless a high-stakes event tomorrow requires explicit acknowledgment.
+
+---
+
+### 6. Update `getLeanOnWatchFor()` Cascade
+
+Pass wearable context through to `getEveningInsights()` call at P0b (line ~799). Currently it calls:
+```ts
+getEveningInsights(tier, calendarLoad, calendarPressure)
+```
+Change to:
+```ts
+getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext)
+```
+
+Same for `getSundayEveningInsights()` — add wearable context.
+
+---
+
+### 7. Add Wearable to `dataSources`
+
+Update `buildDataSources()`: if wearable data was present and used, add `'wearable'` to the sources array. This shows users the system is reading their physiological data.
+
+---
+
+### 8. Tone Rules
+
+- **Weekday evenings**: Soft, cool-down, "permission to stop" — unless high-stakes tomorrow, then acknowledge + orient toward restoration
+- **Weekend evenings**: Soft, recovery-focused
+- **Sunday evenings**: Planning-oriented (unchanged) but enriched with Monday event titles + wearable state
+- **Banned words in evening copy**: wellness, mindfulness, relax, well done (preserved from nudge spec)
+
+---
+
+### Summary of What Changes
+
+| Area | Current | After |
+|------|---------|-------|
+| Wearable data | Not fetched | Fetched + used in evening themes, leanOn/watchFor |
+| Tomorrow fetch | Only ≥21:00 or Sunday ≥18:00 | Any evening ≥18:00 |
+| Tomorrow events | Load/pressure levels only | Includes high-stakes event titles |
+| Weekday evening themes | Generic "Close before tomorrow" | References tomorrow's specific events + body state |
+| Evening leanOn/watchFor | Today-only context | Includes tomorrow forward-look + wearable signals |
+| Data sources label | No wearable | Shows "wearable" when data present |
 
