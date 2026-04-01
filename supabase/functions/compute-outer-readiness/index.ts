@@ -1571,14 +1571,14 @@ function getLeanOnWatchFor(
     const base = archetypeMatrix[archetype][tier];
     const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
     const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    return { leanOn: base.leanOn + leanOnSuffix, watchFor: base.watchFor + watchForSuffix, source: 'archetype-tier' };
+    return { leanOn: `Based on your archetype profile: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your archetype profile: ${base.watchFor}${watchForSuffix}`, source: 'archetype-tier' };
   }
 
   // ── P5: Tier fallback — enriched with context ──
   const base = tierFallbacks[tier];
   const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
   const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-  return { leanOn: base.leanOn + leanOnSuffix, watchFor: base.watchFor + watchForSuffix, source: 'tier-fallback' };
+  return { leanOn: `Based on your current readiness state: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your current readiness state: ${base.watchFor}${watchForSuffix}`, source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
