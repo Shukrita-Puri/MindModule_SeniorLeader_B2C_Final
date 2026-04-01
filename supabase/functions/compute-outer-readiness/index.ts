@@ -1587,10 +1587,12 @@ function buildDaytimeLeanOnSuffix(
 }
 
 // Build context enrichment suffix for watchFor — crisp, no event titles, no HR numbers.
+// Now aware of remaining events for evening.
 function buildDaytimeWatchForSuffix(
   todayHighStakes: string[] | undefined,
   wearable: WearableContext | null | undefined,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
+  remainingEvents?: number,
 ): string {
   const hasStakes = todayHighStakes && todayHighStakes.length > 0;
   const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.rhrElevated);
@@ -1606,6 +1608,9 @@ function buildDaytimeWatchForSuffix(
   }
 
   if (timeOfDay === 'evening') {
+    const remaining = remainingEvents ?? 0;
+    if (remaining > 0 && bodyStrained) return ' Pushing through the remaining meetings when your body is already signalling the cost.';
+    if (remaining > 0) return ' Mentally closing the day when demands still remain. Stay present for what\'s left.';
     if (bodyStrained) return ' Replaying the day\'s demands instead of releasing them. Your body is signalling the need to stop.';
     if (hasStakes) return ' Replaying the day\'s demands instead of releasing them.';
   }
