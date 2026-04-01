@@ -1,5 +1,5 @@
 /**
- * Process Orphaned Sessions — Server-side cron cleanup
+ * Process Orphaned Sessions – Server-side cron cleanup
  * 
  * Finds coach sessions that are still 'active' with no new messages for >5 minutes,
  * marks them as 'completed', and fires all downstream processing functions.
@@ -68,7 +68,7 @@ serve(async (req) => {
         .single();
 
       if (!lastMsg) {
-        // No messages at all — mark completed but skip processing
+        // No messages at all – mark completed but skip processing
         await supabase
           .from('dialogue_sessions')
           .update({ session_status: 'completed', ended_at: new Date().toISOString() })
@@ -77,13 +77,13 @@ serve(async (req) => {
         continue;
       }
 
-      // If last message is within 5 minutes, session might still be active — skip
+      // If last message is within 5 minutes, session might still be active – skip
       const lastMsgTime = new Date(lastMsg.timestamp).getTime();
       if (lastMsgTime > Date.now() - 5 * 60 * 1000) {
         continue;
       }
 
-      // Check message count — need at least 2 messages (1 user + 1 assistant) for processing
+      // Check message count – need at least 2 messages (1 user + 1 assistant) for processing
       const { count } = await supabase
         .from('dialogue_messages')
         .select('id', { count: 'exact', head: true })
@@ -117,7 +117,7 @@ serve(async (req) => {
       }
 
       if (msgCount < 2) {
-        console.log(`[process-orphaned-sessions] Session ${session.id} completed with ${msgCount} msgs — too few for downstream`);
+        console.log(`[process-orphaned-sessions] Session ${session.id} completed with ${msgCount} msgs – too few for downstream`);
         skipped++;
         continue;
       }
@@ -130,7 +130,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingSummary) {
-        console.log(`[process-orphaned-sessions] Session ${session.id} already has summary — skipping downstream`);
+        console.log(`[process-orphaned-sessions] Session ${session.id} already has summary – skipping downstream`);
         processed++;
         continue;
       }
@@ -197,7 +197,7 @@ serve(async (req) => {
         if (sessionMessages && sessionMessages.length >= 2) {
           const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
           if (LOVABLE_API_KEY) {
-            // Filter to user-only messages — wins must come from user's own statements
+            // Filter to user-only messages – wins must come from user's own statements
             const aiMessages = sessionMessages
               .filter(m => m.sender_type === 'user')
               .map(m => ({ role: 'user' as const, content: m.content }));
@@ -213,11 +213,11 @@ serve(async (req) => {
                 messages: [
                   {
                     role: 'system',
-                    content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
+                    content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
-Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of.
+Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
-A win MUST contain an ACTION VERB — the user must describe something they DID, ACHIEVED, CHOSE, REALIZED, or COMPLETED.
+A win MUST contain an ACTION VERB – the user must describe something they DID, ACHIEVED, CHOSE, REALIZED, or COMPLETED.
 
 DO NOT treat the following as wins:
 - Generic greetings or small talk
@@ -236,7 +236,7 @@ DO treat these as wins:
 - Progress on a pattern they've been working on
 
 If the user shared a genuine win, consolidate it into one clear statement.
-If no genuine win is present, do NOT force one — it's better to miss than to capture a complaint as a win.`
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`
                   },
                   ...aiMessages,
                 ],

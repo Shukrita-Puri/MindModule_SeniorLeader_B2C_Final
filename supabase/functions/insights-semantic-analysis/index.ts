@@ -372,7 +372,7 @@ ${allContent.slice(0, 3000)}`
       if (words) mergeTheme(words, 'coach', pattern.observation_count as number);
     }
 
-    // Calculate unified themes — cap at 8
+    // Calculate unified themes – cap at 8
     const maxCount = Math.max(...Array.from(themeMap.values()).map(v => v.count), 1);
     const unifiedThemes: UnifiedTheme[] = Array.from(themeMap.entries())
       .map(([theme, data]) => ({
@@ -384,7 +384,7 @@ ${allContent.slice(0, 3000)}`
       .sort((a, b) => b.totalCount - a.totalCount)
       .slice(0, 8);
 
-    // Generate algorithmic relationships if AI didn't extract any — cap at 8
+    // Generate algorithmic relationships if AI didn't extract any – cap at 8
     if (themeRelationships.length === 0 && unifiedThemes.length >= 2) {
       const themesLower = unifiedThemes.map(t => t.theme.toLowerCase());
       const knownPairs: [string, string, number][] = [
@@ -485,7 +485,7 @@ ${allContent.slice(0, 3000)}`
 });
 
 // ============================================
-// getNodeSummary — V2 Rich AI Summary
+// getNodeSummary – V2 Rich AI Summary
 // ============================================
 async function getNodeSummary(
   supabase: any,
@@ -541,7 +541,7 @@ async function getNodeSummary(
             model: 'google/gemini-2.5-flash-lite',
             messages: [{
               role: 'user',
-              content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data — not generic. Name the pattern, its context, and what it signals. No soft language.
+              content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data – not generic. Name the pattern, its context, and what it signals. No soft language.
 
 Source breakdown: ${sourceBreakdown}
 Connected themes: ${connectedList || 'none identified'}

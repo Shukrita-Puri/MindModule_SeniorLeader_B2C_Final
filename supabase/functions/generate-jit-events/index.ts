@@ -202,7 +202,7 @@ async function computeReadinessAmplifier(
     compositeDeviation += rhrDevPct * 0.35;
   }
 
-  // Signal 3: Sleep duration (15%) — assume 7.5h as good baseline
+  // Signal 3: Sleep duration (15%) – assume 7.5h as good baseline
   const latestSleep = recentWearable[0]?.sleep_duration;
   if (latestSleep) {
     const sleepDevPct = ((latestSleep - 7.5) / 7.5) * 100;
@@ -263,7 +263,7 @@ function computeConfidence(
 function determineUrgencyHorizon(minutesUntil: number): 'touch_1' | 'touch_2' | null {
   if (minutesUntil <= 360) return 'touch_2';                          // Touch 2: 0-6h body prep
   if (minutesUntil >= 1440 && minutesUntil <= 2880) return 'touch_1'; // Touch 1: 24-48h coach + think
-  return null;  // Silent gap (6-24h) or selection-only (>48h) — scored but not surfaced
+  return null;  // Silent gap (6-24h) or selection-only (>48h) – scored but not surfaced
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -273,9 +273,9 @@ function capitalizeFirst(s: string): string {
 
 function generatePillLabel(title: string, minutesUntil: number): string {
   const labelBase = title || 'Event';
-  if (minutesUntil <= 60) return `${labelBase} — Soon`;
-  if (minutesUntil <= 1440) return `${labelBase} — ${Math.floor(minutesUntil / 60)}h`;
-  return `${labelBase} — ${Math.floor(minutesUntil / 1440)}d`;
+  if (minutesUntil <= 60) return `${labelBase} – Soon`;
+  if (minutesUntil <= 1440) return `${labelBase} – ${Math.floor(minutesUntil / 60)}h`;
+  return `${labelBase} – ${Math.floor(minutesUntil / 1440)}d`;
 }
 
 function getTimeOfDayPill(timezoneOffset: number): { pillLabel: string; pillType: string; sessionPeriod: string } {
@@ -649,7 +649,7 @@ serve(async (req) => {
       }
 
       // Events in the silent gap (6-24h) or selection-only (>48h) are scored and
-      // stored but NOT surfaced — they wait until entering an action window.
+      // stored but NOT surfaced – they wait until entering an action window.
       const isSurfaceable = urgencyHorizon !== null;
 
       // Generate context statement

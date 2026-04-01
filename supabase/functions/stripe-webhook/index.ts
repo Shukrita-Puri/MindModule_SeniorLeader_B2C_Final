@@ -1,7 +1,7 @@
 /**
  * Stripe Webhook Handler
  * 
- * Processes Stripe events (no JWT auth — uses Stripe signature verification).
+ * Processes Stripe events (no JWT auth – uses Stripe signature verification).
  * Handles: checkout.session.completed, customer.subscription.updated,
  * invoice.payment_succeeded, invoice.payment_failed, customer.subscription.deleted
  * 
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
                 .maybeSingle();
 
               if (!existingConversion) {
-                // New signup attribution (trial start — no conversion yet)
+                // New signup attribution (trial start – no conversion yet)
                 await supabase.from('referral_conversions').insert({
                   referrer_id: referrer.user_id,
                   referee_id: userId,
@@ -219,11 +219,11 @@ Deno.serve(async (req) => {
           console.log(`[stripe-webhook] Subscription active for ${userId}: ${tier}`);
 
           // ═══════════════════════════════════════════════════════════
-          // STAGE 2: REFERRAL CONVERSION — Credit referrer on Pro purchase
+          // STAGE 2: REFERRAL CONVERSION – Credit referrer on Pro purchase
           // Only fires for paid plans (not 7-day trial)
           // ═══════════════════════════════════════════════════════════
           try {
-            // Find uncredited conversion for this user — .maybeSingle() since may not exist
+            // Find uncredited conversion for this user – .maybeSingle() since may not exist
             const { data: conversion } = await supabase
               .from('referral_conversions')
               .select('id, referrer_id, referral_code, credited_to_referrer, converted_to_pro_at')
@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
               }
             }
           } catch (refErr) {
-            // Non-critical — log but don't fail the webhook
+            // Non-critical – log but don't fail the webhook
             console.warn('[stripe-webhook] Referral credit check failed:', refErr);
           }
         } else if (subscription.status === 'trialing') {

@@ -3,7 +3,7 @@
  * 
  * Post-session: Analyzes conversation to detect if any pending commitments
  * were discussed and updates their status (progressed/completed/abandoned).
- * This bridges Gap #3 — update-commitment-status was never called from client.
+ * This bridges Gap #3 – update-commitment-status was never called from client.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

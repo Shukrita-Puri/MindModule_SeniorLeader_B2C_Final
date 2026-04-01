@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find referrer (referral_code is UNIQUE — .single() is correct)
+    // Find referrer (referral_code is UNIQUE – .single() is correct)
     const { data: referrer, error: referrerError } = await db
       .from("user_referrals")
       .select("user_id")
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if already tracked — .maybeSingle() since record may not exist
+    // Check if already tracked – .maybeSingle() since record may not exist
     const { data: existingConversion } = await db
       .from("referral_conversions")
       .select("id")
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       converted_to_pro_at: null,
     });
 
-    // Atomic increment: ONLY total_signups (not conversions — that's Stage 2)
+    // Atomic increment: ONLY total_signups (not conversions – that's Stage 2)
     await db.rpc("increment_referral_stats", {
       p_referrer_id: referrer.user_id,
       p_increment_signups: true,

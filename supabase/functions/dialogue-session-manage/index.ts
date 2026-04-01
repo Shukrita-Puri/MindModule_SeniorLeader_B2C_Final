@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
             }
           }, 5000);
         } else {
-          console.log(`[dialogue-session-manage] Session ${sessionId} already has summary — skipping downstream`);
+          console.log(`[dialogue-session-manage] Session ${sessionId} already has summary – skipping downstream`);
         }
 
         // ── TINY WIN EXTRACTION (reliable, at session close) ──
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
             if (sessionMessages && sessionMessages.length >= 2) {
               const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
               if (LOVABLE_API_KEY) {
-                // Filter to user-only messages — wins must come from user's own statements
+                // Filter to user-only messages – wins must come from user's own statements
                 const aiMessages = sessionMessages
                   .filter(m => m.sender_type === 'user')
                   .map(m => ({ role: 'user' as const, content: m.content }));
@@ -267,11 +267,11 @@ Deno.serve(async (req) => {
                     messages: [
                       {
                         role: 'system',
-                         content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
+                         content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
-Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of.
+Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
-A win MUST contain an ACTION VERB — the user must describe something they DID, ACHIEVED, CHOSE, REALIZED, or COMPLETED.
+A win MUST contain an ACTION VERB – the user must describe something they DID, ACHIEVED, CHOSE, REALIZED, or COMPLETED.
 
 DO NOT treat the following as wins:
 - Generic greetings or small talk
@@ -291,7 +291,7 @@ DO treat these as wins:
 - Progress on a pattern they've been working on
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-If no genuine win is present, do NOT force one — it's better to miss than to capture a complaint as a win.`
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`
                       },
                       ...aiMessages,
                     ],
@@ -356,7 +356,7 @@ If no genuine win is present, do NOT force one — it's better to miss than to c
             console.error(`[dialogue-session-manage] Tiny win extraction error:`, winErr);
           }
         } else {
-          console.log(`[dialogue-session-manage] Session ${sessionId} already has tiny_wins — skipping extraction`);
+          console.log(`[dialogue-session-manage] Session ${sessionId} already has tiny_wins – skipping extraction`);
         }
       }
 

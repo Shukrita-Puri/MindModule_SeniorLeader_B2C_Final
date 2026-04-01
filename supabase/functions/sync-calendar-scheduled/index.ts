@@ -62,19 +62,19 @@ serve(async (req) => {
         if (result.success === true) {
           successCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'success' });
-          console.log('[sync-calendar-scheduled] ✅', conn.user_id, '—', result.eventCount, 'events');
+          console.log('[sync-calendar-scheduled] ✅', conn.user_id, '–', result.eventCount, 'events');
         } else if (result.reconnectRequired) {
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: result.reason });
-          console.warn('[sync-calendar-scheduled] ⚠️', conn.user_id, '— reconnect_required:', result.reason);
+          console.warn('[sync-calendar-scheduled] ⚠️', conn.user_id, '– reconnect_required:', result.reason);
         } else if (result.skipped) {
           skippedCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: result.reason });
-          console.log('[sync-calendar-scheduled] ⏭️', conn.user_id, '— skipped:', result.reason);
+          console.log('[sync-calendar-scheduled] ⏭️', conn.user_id, '– skipped:', result.reason);
         } else {
           failureCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'failure', reason: result.error });
-          console.error('[sync-calendar-scheduled] ❌', conn.user_id, '—', result.error);
+          console.error('[sync-calendar-scheduled] ❌', conn.user_id, '–', result.error);
         }
       } catch (err) {
         failureCount++;

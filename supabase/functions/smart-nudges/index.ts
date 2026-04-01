@@ -84,7 +84,7 @@ async function sendApnsPush(
 
   if (!response.ok) {
     const errBody = await response.text();
-    console.error(`[APNs] Failed (${response.status}): ${errBody} — host=${apnsHost} topic=${bundleId} token=${deviceToken.substring(0, 12)}...`);
+    console.error(`[APNs] Failed (${response.status}): ${errBody} – host=${apnsHost} topic=${bundleId} token=${deviceToken.substring(0, 12)}...`);
     if (response.status === 410 || response.status === 400) {
       console.log(`[APNs] Deactivating invalid token: ${deviceToken.substring(0, 12)}...`);
     }
@@ -92,7 +92,7 @@ async function sendApnsPush(
   }
 
   await response.text();
-  console.log(`[APNs] Success — token=${deviceToken.substring(0, 12)}...`);
+  console.log(`[APNs] Success – token=${deviceToken.substring(0, 12)}...`);
   return true;
 }
 
@@ -254,7 +254,7 @@ interface QualifiedNudge {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── buildNudgeContext() — Central Signal Assembly ──
+// ── buildNudgeContext() – Central Signal Assembly ──
 // ══════════════════════════════════════════════════════════════
 
 async function buildNudgeContext(
@@ -623,7 +623,7 @@ async function generateNudgeCopy(
 ): Promise<NudgeCopy | null> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
-    console.warn('[smart-nudges] No LOVABLE_API_KEY — using static fallback');
+    console.warn('[smart-nudges] No LOVABLE_API_KEY – using static fallback');
     return null;
   }
 
@@ -632,9 +632,9 @@ Rules:
 - Title: max 5 words, no emoji
 - Body: max 15 words, performance-oriented tone
 - NEVER use: wellness, mindfulness, relax, well done, great job, amazing
-- For evenings/weekends: use softer, permission-to-stop tone — but still reference specific signals
+- For evenings/weekends: use softer, permission-to-stop tone – but still reference specific signals
 - Every nudge must reference something specific (a meeting title, a number, a commitment, a state)
-- If a signal is null, skip it — never fabricate data
+- If a signal is null, skip it – never fabricate data
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -652,7 +652,7 @@ Signals:
 - HRV vs baseline: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
 - RHR: ${ctx.wearable.rhrElevated ? 'elevated above baseline' : 'normal'}
 - Day: ${ctx.dayName}
-${ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60 ? 'PRIORITY: Lead with recovery signal — sleep was poor' : ''}
+${ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60 ? 'PRIORITY: Lead with recovery signal – sleep was poor' : ''}
 ${ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15 ? 'PRIORITY: Lead with HRV recovery signal' : ''}
 ${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}`;
       break;
@@ -703,7 +703,7 @@ Signals:
 - Coach session readiness lift: ${lift}%
 - Next high-stakes event: ${nextHighStakes || 'upcoming'}
 - Last coach session: ${ctx.coach.lastSessionAt ? `${Math.round((Date.now() - ctx.coach.lastSessionAt.getTime()) / 3600000)}h ago` : 'not recent'}
-Example: "You perform X% sharper after a coach session — [event] is tomorrow"`;
+Example: "You perform X% sharper after a coach session – [event] is tomorrow"`;
       } else {
         // State-aware afternoon
         userPrompt = `State-aware afternoon nudge. User started low and has heavy afternoon.
@@ -711,7 +711,7 @@ Signals:
 - Morning state: ${ctx.morningCheckinOutcome}
 - Afternoon high-stakes: ${ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).map(e => e.title).join(', ') || 'none'}
 - HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
-- RHR: ${ctx.wearable.rhrElevated ? 'elevated — body is carrying load' : 'normal'}
+- RHR: ${ctx.wearable.rhrElevated ? 'elevated – body is carrying load' : 'normal'}
 Reference the specific state and what's ahead.`;
       }
       break;
@@ -724,7 +724,7 @@ Reference the specific state and what's ahead.`;
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
 
       userPrompt = `Evening cool-down nudge. ${isWeekendEvening ? 'WEEKEND: Use softer, permission-to-rest tone.' : ''}
-${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals — ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}.` : ''}
+${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals – ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}.` : ''}
 Today's signals:
 - Meetings today: ${ctx.eventCount}
 - High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
@@ -849,12 +849,12 @@ function getFallbackGapCopy(durationMinutes: number, nextTitle: string): NudgeCo
 }
 
 function getFallbackCoachMatchCopy(commitment: string, meetingTitle: string): NudgeCopy {
-  return { title: 'Coach Connection', body: `You committed to work on this — ${meetingTitle} is the moment.`, variantId: 'FB-COACH' };
+  return { title: 'Coach Connection', body: `You committed to work on this – ${meetingTitle} is the moment.`, variantId: 'FB-COACH' };
 }
 
 function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.dayOfWeek === 0) {
-    // Sunday evening — reference Monday
+    // Sunday evening – reference Monday
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
@@ -1095,7 +1095,7 @@ async function evaluateCoachMeetingMatch(
   return null;
 }
 
-// P4: State-Aware Afternoon (pure — feature performance moved to P6 pattern_alert)
+// P4: State-Aware Afternoon (pure – feature performance moved to P6 pattern_alert)
 async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('state_aware_nudge')) return null;
 
@@ -1147,7 +1147,7 @@ async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<str
   return { type: 'evening_close', copy, priority: 5 };
 }
 
-// P6: Pattern Alert + Feature Performance (merged — both are data-driven observations)
+// P6: Pattern Alert + Feature Performance (merged – both are data-driven observations)
 async function evaluatePatternAlert(
   ctx: NudgeContext,
   alreadySentTypes: Set<string>,
@@ -1173,7 +1173,7 @@ async function evaluatePatternAlert(
     })
   );
 
-  // Pattern 0 (NEW): Feature Performance — coach session readiness lift
+  // Pattern 0 (NEW): Feature Performance – coach session readiness lift
   // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
   if (!recentPatternTypes.has('feature_performance') &&
       ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
@@ -1553,7 +1553,7 @@ serve(async (req) => {
       qualified.sort((a, b) => a.priority - b.priority);
 
       if (qualified.length > 0) {
-        // JIT (P1) always wins if present — even over suppression
+        // JIT (P1) always wins if present – even over suppression
         const jitNudge = qualified.find(n => n.type === 'pre_event_prep');
         const bestNudge = jitNudge || qualified[0];
 
@@ -1603,7 +1603,7 @@ serve(async (req) => {
         !apnsKeyId && 'APNS_KEY_ID',
         !apnsTeamId && 'APNS_TEAM_ID',
       ].filter(Boolean);
-      console.warn(`[smart-nudges] DRY RUN — missing secrets: ${missing.join(', ')}`);
+      console.warn(`[smart-nudges] DRY RUN – missing secrets: ${missing.join(', ')}`);
     } else {
       console.log(`[smart-nudges] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
     }

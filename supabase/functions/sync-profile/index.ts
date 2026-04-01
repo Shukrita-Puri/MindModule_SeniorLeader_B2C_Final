@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 1. Verify Auth0 JWT — this is our source of truth for identity
+    // 1. Verify Auth0 JWT – this is our source of truth for identity
     const authHeader = req.headers.get("Authorization");
     const userId = await verifyAuth0JWT(authHeader);
 
@@ -48,9 +48,9 @@ Deno.serve(async (req) => {
         name = info.name || null;
         picture = info.picture || null;
 
-        // TIER 3: Server-side cross-check — verify JWT sub matches /userinfo sub
+        // TIER 3: Server-side cross-check – verify JWT sub matches /userinfo sub
         if (info.sub && info.sub !== userId) {
-          console.error("[sync-profile] 🚨 IDENTITY MISMATCH — JWT sub:", userId, "userinfo sub:", info.sub);
+          console.error("[sync-profile] 🚨 IDENTITY MISMATCH – JWT sub:", userId, "userinfo sub:", info.sub);
           return new Response(
             JSON.stringify({
               error: "Token identity mismatch detected",
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const isNewProfile = !existingProfile;
 
-    // Build upsert data — auth_name always updated, display_name only on new profiles
+    // Build upsert data – auth_name always updated, display_name only on new profiles
     const upsertData: Record<string, unknown> = {
       id: userId,
       email,
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       upsertData.display_name = name;
     }
 
-    // Beta invite lookup — runs on EVERY sync, not just new profiles.
+    // Beta invite lookup – runs on EVERY sync, not just new profiles.
     // Matches both 'invited' and 'activated' status so that returning
     // users whose profile already exists still get beta fields populated.
     if (email) {

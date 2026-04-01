@@ -55,10 +55,10 @@ const DISPLAY_LABELS: Record<string, string> = {
 // Per-dimension insight text (moved from client-side)
 const DIMENSION_INSIGHTS: Record<string, Record<string, string>> = {
   emotion: {
-    pride: "Pride anchors accomplishment in your nervous system. This emotional marker strengthens your internal sense of competence—a key driver of Resilience when facing future challenges.",
+    pride: "Pride anchors accomplishment in your nervous system. This emotional marker strengthens your internal sense of competence–a key driver of Resilience when facing future challenges.",
     gratitude: "Gratitude shifts your nervous system toward parasympathetic activation. Regular gratitude practice has been shown to increase Resilience and reduce stress reactivity by up to 25%.",
     relief: "Noticing relief indicates you're tracking pressure cycles. This Self-Regulation skill helps you recognize recovery moments and prevent chronic stress accumulation.",
-    joy: "Joy captures flow states and peak experiences. Tracking these moments reveals your optimal conditions—key Emotional Intelligence for designing environments that support high performance.",
+    joy: "Joy captures flow states and peak experiences. Tracking these moments reveals your optimal conditions–key Emotional Intelligence for designing environments that support high performance.",
     confidence: "Confidence in your wins reflects a growing internal locus of control. This self-trust is foundational for making decisive calls under pressure.",
     hope: "Hope signals forward orientation and optimism. Leaders who track hopeful moments build psychological capital that sustains performance through uncertainty.",
     courage: "Courage reflects your willingness to face discomfort. This pattern indicates growing capacity for bold leadership moves and difficult conversations.",
@@ -70,16 +70,16 @@ const DIMENSION_INSIGHTS: Record<string, Record<string, string>> = {
     supported: "Seeking and accepting support reflects secure leadership. This pattern indicates psychological safety and the wisdom to leverage others' strengths.",
   },
   regulation: {
-    regulated: "Regulated states indicate your nervous system capacity is growing. Each time you notice regulation, you're reinforcing the neural circuitry for calm under pressure—essential for executive decision-making.",
+    regulated: "Regulated states indicate your nervous system capacity is growing. Each time you notice regulation, you're reinforcing the neural circuitry for calm under pressure–essential for executive decision-making.",
     intentional: "Intentional pauses before action reflect meta-cognitive mastery. This deliberate approach to decisions is what separates reactive management from strategic leadership.",
     reactive: "Noticing reactivity is itself a form of Self-Regulation. This meta-awareness creates space between trigger and response, where better choices become possible.",
   },
   growth: {
     learning: "A learning orientation is the engine of growth. By framing experiences as lessons, you're building Resilience and ensuring that even setbacks contribute to your development.",
-    breakthrough: "Breakthroughs mark threshold moments in your development. These aren't just wins—they're evidence that sustained effort is reshaping your capabilities.",
-    mastery: "Mastery orientation reflects your commitment to continuous improvement. This growth mindset is directly correlated with Resilience—you view challenges as development opportunities rather than threats.",
-    resilience: "You're explicitly building Resilience—the capacity to recover from setback. This meta-skill compounds over time, making you more adaptable and less affected by external volatility.",
-    boundary: "Setting boundaries is an advanced leadership skill. This pattern shows you're protecting your capacity for what matters most—a critical self-regulation behaviour.",
+    breakthrough: "Breakthroughs mark threshold moments in your development. These aren't just wins–they're evidence that sustained effort is reshaping your capabilities.",
+    mastery: "Mastery orientation reflects your commitment to continuous improvement. This growth mindset is directly correlated with Resilience–you view challenges as development opportunities rather than threats.",
+    resilience: "You're explicitly building Resilience–the capacity to recover from setback. This meta-skill compounds over time, making you more adaptable and less affected by external volatility.",
+    boundary: "Setting boundaries is an advanced leadership skill. This pattern shows you're protecting your capacity for what matters most–a critical self-regulation behaviour.",
     'letting-go': "Letting go reflects emotional maturity and trust in outcomes. This capacity to release control where appropriate frees cognitive resources for higher-order decisions.",
   },
 };
@@ -326,7 +326,7 @@ serve(async (req) => {
       }
     }
 
-    // Build dimensions array — EXCLUDE sentiment from client response (internal only)
+    // Build dimensions array – EXCLUDE sentiment from client response (internal only)
     const dimensions: { dimension: string; value: string; count: number; displayLabel: string; insight: string }[] = [];
     for (const [dimension, values] of Object.entries(dimensionCounts)) {
       if (dimension === 'sentiment') continue; // Gap 1: sentiment is internal filter only

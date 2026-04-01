@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
         if (insertErr) throw insertErr;
       } else {
-        // Update — only set timestamp if not already set (idempotent)
+        // Update – only set timestamp if not already set (idempotent)
         const updateData: Record<string, unknown> = { current_step: step };
         if (!(existing as any)[stepColumn]) {
           updateData[stepColumn] = now;

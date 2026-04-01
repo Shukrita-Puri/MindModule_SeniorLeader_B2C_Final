@@ -149,7 +149,7 @@ serve(async (req) => {
         });
         if (blErr) console.error('[track-jit-skip] primary behavior_log insert error:', blErr);
 
-        // Secondary bucket attribution (30% weight) — if secondary exists
+        // Secondary bucket attribution (30% weight) – if secondary exists
         if (secondaryBucket && secondaryBucket !== primaryBucket) {
           const { error: blErr2 } = await supabase.from('behavior_logs').insert({
             user_id: userId,

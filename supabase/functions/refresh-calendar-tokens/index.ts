@@ -101,7 +101,7 @@ serve(async (req) => {
       try {
         console.log('[refresh-calendar-tokens] token_near_expiry_refresh_start user:', conn.user_id, 'provider:', conn.provider, 'expires:', conn.token_expires_at);
 
-        // Decrypt refresh token — use refresh_token_iv if available, fall back to token_iv for legacy rows
+        // Decrypt refresh token – use refresh_token_iv if available, fall back to token_iv for legacy rows
         if (!conn.refresh_token_enc) {
           console.warn('[refresh-calendar-tokens] reconnect_required:no_refresh_token user:', conn.user_id);
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
@@ -177,17 +177,17 @@ serve(async (req) => {
             const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
             updatePayload.refresh_token_enc = newRefreshEnc;
             updatePayload.refresh_token_iv = newRefreshIv;
-            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '— rotated refresh token');
+            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '– rotated refresh token');
           } else {
-            // Preserve existing refresh token and its IV — do NOT overwrite
-            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '— kept existing refresh token');
+            // Preserve existing refresh token and its IV – do NOT overwrite
+            console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '– kept existing refresh token');
           }
 
           await serviceClient.from('calendar_connections').update(updatePayload).eq('id', conn.id);
           refreshedCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'refreshed' });
         } else {
-          // Outlook or other providers — skip for now
+          // Outlook or other providers – skip for now
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: 'unsupported_provider' });
         }
       } catch (err) {
@@ -198,7 +198,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[refresh-calendar-tokens] cron_refresh_completed — refreshed=${refreshedCount} reconnect=${reconnectCount} failed=${failedCount}`);
+    console.log(`[refresh-calendar-tokens] cron_refresh_completed – refreshed=${refreshedCount} reconnect=${reconnectCount} failed=${failedCount}`);
 
     return new Response(
       JSON.stringify({

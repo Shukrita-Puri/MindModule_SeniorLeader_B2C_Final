@@ -189,7 +189,7 @@ serve(async (req) => {
       }
     }
 
-    // Logistic event filter — skip transit/admin/booking events from all insight paths
+    // Logistic event filter – skip transit/admin/booking events from all insight paths
     const LOGISTIC_KEYWORDS = [
       'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
       'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
@@ -210,7 +210,7 @@ serve(async (req) => {
       return ev.event_metadata?.eventType === 'logistic';
     }
 
-    // Filter calendar events for insight analysis — exclude logistics
+    // Filter calendar events for insight analysis – exclude logistics
     const insightCalendarEvents = calendarEvents.filter((ev: any) => {
       if (!ev.title) return false;
       if (isLogisticEvent(ev.title)) return false;
@@ -245,10 +245,10 @@ serve(async (req) => {
       const drain = corrs[0];
       const lift = corrs[corrs.length - 1];
       if (drain && drain.avg < 50) {
-        calendarInsight = `On days with ${drain.et.replace("_", " ")} events, your readiness averages ${Math.round(drain.avg)} — observed across ${drain.count} occurrences.`;
+        calendarInsight = `On days with ${drain.et.replace("_", " ")} events, your readiness averages ${Math.round(drain.avg)} – observed across ${drain.count} occurrences.`;
       } else if (lift && lift.avg > 65) {
         const lbl = lift.et.replace("_", " ");
-        calendarInsight = `${lbl.charAt(0).toUpperCase() + lbl.slice(1)} events consistently lift your readiness — avg ${Math.round(lift.avg)} across ${lift.count} occurrences.`;
+        calendarInsight = `${lbl.charAt(0).toUpperCase() + lbl.slice(1)} events consistently lift your readiness – avg ${Math.round(lift.avg)} across ${lift.count} occurrences.`;
       }
     }
 
@@ -311,9 +311,9 @@ serve(async (req) => {
         const label = b.et.replace(/_/g, " ");
         const absDevPct = Math.abs(b.devPct);
         if (b.direction === "drop") {
-          causeEffectInsight = `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — observed across ${b.count} events.`;
+          causeEffectInsight = `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) – observed across ${b.count} events.`;
         } else {
-          causeEffectInsight = `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — these events don't tax your nervous system.`;
+          causeEffectInsight = `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) – these events don't tax your nervous system.`;
         }
       }
     }
@@ -411,7 +411,7 @@ serve(async (req) => {
         const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
         const isKeyword = Object.keys(EVENT_TYPE_KEYWORDS).includes(b.et);
         const label = isKeyword ? `${b.et.replace(/_/g, " ")} events` : `'${b.et}' events`;
-        causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+        causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' – ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
         // HRV enrichment for Path C
         if (wearableData.length >= 3) {
           const hrvByDate = new Map<string, number>();
@@ -452,9 +452,9 @@ serve(async (req) => {
         const diff = eventPosPct - nonEventPosPct;
         if (Math.abs(diff) >= 0.15) {
           if (diff > 0) {
-            causeEffectInsight = `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`;
+            causeEffectInsight = `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days – external structure may help you focus.`;
           } else {
-            causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+            causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days – your inner state may benefit from space.`;
           }
           // HRV enrichment for Path D
           if (wearableData.length >= 3) {
@@ -509,9 +509,9 @@ serve(async (req) => {
             const jitAvg = Math.round(jitDayHRVs.reduce((a, b) => a + b, 0) / jitDayHRVs.length);
             const nonAvg = Math.round(nonPreppedHRVs.reduce((a, b) => a + b, 0) / nonPreppedHRVs.length);
             if (jitAvg > nonAvg) {
-              causeEffectInsight = `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped event days — preparation may reduce physiological stress.`;
+              causeEffectInsight = `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped event days – preparation may reduce physiological stress.`;
             } else {
-              causeEffectInsight = `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped days — prep helps your state even when HRV stays similar.`;
+              causeEffectInsight = `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped days – prep helps your state even when HRV stays similar.`;
             }
           }
         }
@@ -526,13 +526,13 @@ serve(async (req) => {
           }
           const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
           if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
-            causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
+            causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time – observed across ${completedOutcomes.length} events.`;
           }
         }
       }
     }
 
-    // Path F: Deterministic temporal fallback — use strongest day/time differential
+    // Path F: Deterministic temporal fallback – use strongest day/time differential
     if (!causeEffectInsight && checkIns.length >= 7) {
       const positiveOutcomes = new Set(["focused", "steady"]);
       const weekdayCI = checkIns.filter(c => { const d = new Date(c.checkin_date).getDay(); return d >= 1 && d <= 5 && c.outcome; });
@@ -545,7 +545,7 @@ serve(async (req) => {
           const worse = wdPos > wePos ? "weekends" : "weekdays";
           const betterPct = Math.round(Math.max(wdPos, wePos) * 100);
           const worsePct = Math.round(Math.min(wdPos, wePos) * 100);
-          causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} — your environment on ${better} may better support your inner state.`;
+          causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} – your environment on ${better} may better support your inner state.`;
         }
       }
       if (!causeEffectInsight) {
@@ -557,7 +557,7 @@ serve(async (req) => {
           if (Math.abs(mPos - ePos) >= 0.15) {
             const better = mPos > ePos ? "mornings" : "evenings";
             const betterPct = Math.round(Math.max(mPos, ePos) * 100);
-            causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) — your natural rhythm may favour this window for high-stakes work.`;
+            causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) – your natural rhythm may favour this window for high-stakes work.`;
           }
         }
       }
@@ -644,23 +644,23 @@ serve(async (req) => {
       // Build signals for insight text
       const signals: { s: number; t: string }[] = [];
 
-      if (preEventPts > 0) signals.push({ s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments — preparation correlates with stronger presence.` });
-      if (Math.abs(coachPts) > 0) signals.push({ s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high." });
-      if (depletedPts > 0) signals.push({ s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted — your presence held despite your state.` });
-      if (energizedPts > 0) signals.push({ s: energizedPts, t: "High-stakes moments energize you — your readiness often rises the day after, not before." });
+      if (preEventPts > 0) signals.push({ s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments – preparation correlates with stronger presence.` });
+      if (Math.abs(coachPts) > 0) signals.push({ s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts – that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high." });
+      if (depletedPts > 0) signals.push({ s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted – your presence held despite your state.` });
+      if (energizedPts > 0) signals.push({ s: energizedPts, t: "High-stakes moments energize you – your readiness often rises the day after, not before." });
 
       // Check-in-based presence insights (always available)
       if (hsDayPts > 0 && highStakesDayOutcomes.length >= 2) {
         signals.push({ s: hsDayPts, t: `On high-stakes days, you checked in positively ${Math.round(hsPositivePct * 100)}% of the time across ${highStakesDayOutcomes.length} events.` });
       }
       if (baselinePts > 0) {
-        signals.push({ s: baselinePts, t: `Your overall positive check-in rate is ${Math.round(overallPosPct * 100)}% — ${overallPosPct >= 0.6 ? "a strong foundation for sustained performance." : "there's room to build more consistent positive states."}` });
+        signals.push({ s: baselinePts, t: `Your overall positive check-in rate is ${Math.round(overallPosPct * 100)}% – ${overallPosPct >= 0.6 ? "a strong foundation for sustained performance." : "there's room to build more consistent positive states."}` });
       }
 
       signals.sort((a, b) => b.s - a.s);
       presenceInsight = signals.length > 0 && signals[0].s > 0
         ? signals[0].t
-        : "Building pattern data — presence insights strengthen with more check-ins and high-stakes moments.";
+        : "Building pattern data – presence insights strengthen with more check-ins and high-stakes moments.";
 
       // Build presenceActions from top signals, excluding the one already used as presenceInsight
       presenceActions = signals
@@ -674,14 +674,14 @@ serve(async (req) => {
       ).length;
       if (jitBeforeHighStakes >= 2 && highStakesEvents.length > 0) {
         presenceActions.push(
-          `You completed JIT prep before ${jitBeforeHighStakes} high-stakes events — this preparation pattern correlates with stronger presence.`
+          `You completed JIT prep before ${jitBeforeHighStakes} high-stakes events – this preparation pattern correlates with stronger presence.`
         );
       }
 
       // Add depleted recovery suggestion
       if (depletedHighStakes > highStakesEvents.length * 0.5 && highStakesEvents.length >= 2) {
         presenceActions.push(
-          `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments — consider scheduling recovery blocks before these events.`
+          `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments – consider scheduling recovery blocks before these events.`
         );
       }
 
@@ -721,7 +721,7 @@ serve(async (req) => {
         else weekdayOutcomes.push(ci.outcome);
       }
 
-      // 1. Consecutive same-day patterns — using stored time_window
+      // 1. Consecutive same-day patterns – using stored time_window
       const dayDateOutcomes: Map<number, { date: string; outcome: string }[]> = new Map();
       for (const ci of checkIns) {
         if (!ci.checkin_date || !ci.outcome) continue;
@@ -811,7 +811,7 @@ serve(async (req) => {
         const worst = timeScores[timeScores.length - 1];
         if (best.posPct - worst.posPct >= 0.2) {
           temporalPatterns.push(
-            `${TIME_LABELS[best.tw]}s are your strongest window (${Math.round(best.posPct * 100)}% positive) — ${TIME_LABELS[worst.tw]}s your most challenging (${Math.round(worst.posPct * 100)}%).`
+            `${TIME_LABELS[best.tw]}s are your strongest window (${Math.round(best.posPct * 100)}% positive) – ${TIME_LABELS[worst.tw]}s your most challenging (${Math.round(worst.posPct * 100)}%).`
           );
         }
       }

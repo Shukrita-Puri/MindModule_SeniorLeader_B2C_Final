@@ -19,7 +19,7 @@ interface ComponentScores {
   energyRenewal: number;
 }
 
-// Q1: Emotional Awareness — how early you notice internal shifts
+// Q1: Emotional Awareness – how early you notice internal shifts
 const Q1_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   notice_early:   { er: 85, fr: 75, en: 70 },
   physical_signs: { er: 60, fr: 55, en: 65 },
@@ -27,7 +27,7 @@ const Q1_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   push_through:   { er: 35, fr: 55, en: 30 },
 };
 
-// Q2: Stress Response — what happens under pressure
+// Q2: Stress Response – what happens under pressure
 const Q2_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   stay_grounded:    { er: 90, fr: 80, en: 80 },
   react_quickly:    { er: 45, fr: 50, en: 55 },
@@ -35,7 +35,7 @@ const Q2_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   power_through:    { er: 50, fr: 60, en: 35 },
 };
 
-// Q3: Recovery Patterns — how you recharge
+// Q3: Recovery Patterns – how you recharge
 const Q3_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   bounce_back:          { er: 80, fr: 85, en: 90 },
   weekend_recover:      { er: 55, fr: 55, en: 60 },
@@ -43,7 +43,7 @@ const Q3_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   always_tired:         { er: 35, fr: 30, en: 25 },
 };
 
-// Q4: Mental Clarity — cognitive load management
+// Q4: Mental Clarity – cognitive load management
 const Q4_SCORES: Record<string, { er: number; fr: number; en: number }> = {
   crystal_clear: { er: 80, fr: 90, en: 75 },
   mostly_clear:  { er: 65, fr: 70, en: 60 },
@@ -185,7 +185,7 @@ Results:
 - Primary pressure: ${pressureContext}
 - Practice goal: ${practiceGoal}
 
-Write 2-3 sentences that name this leader's specific pattern — what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
+Write 2-3 sentences that name this leader's specific pattern – what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
     const models = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash-lite', 'openai/gpt-5-nano'];
     let response: Response | null = null;
@@ -226,7 +226,7 @@ Write 2-3 sentences that name this leader's specific pattern — what their scor
       console.warn('[Onboarding] All AI models unavailable, using fallback insight');
       const lowest = Object.entries(componentScores).sort((a, b) => (a[1] as number) - (b[1] as number))[0];
       const lowestLabel = lowest[0] === 'energyRegulation' ? 'energy regulation' : lowest[0] === 'focusRecovery' ? 'focus recovery' : 'energy renewal';
-      insight = `Your pattern shows strong capacity across your leadership dimensions. Your practice will focus on strengthening ${lowestLabel} — the area with the most room for growth given your current profile.`;
+      insight = `Your pattern shows strong capacity across your leadership dimensions. Your practice will focus on strengthening ${lowestLabel} – the area with the most room for growth given your current profile.`;
     } else {
       const data = await response.json();
       insight = data.choices?.[0]?.message?.content?.trim() || '';
