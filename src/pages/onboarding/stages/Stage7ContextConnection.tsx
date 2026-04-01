@@ -262,7 +262,7 @@ export default function Stage7ContextConnection() {
   };
 
   const handleComplete = async () => {
-    recordStep("context_connection", {
+    await recordStep("context_connection", {
       context_calendar_enabled: calendarEnabled,
       context_watch_enabled: watchEnabled,
       completed: true,
@@ -323,10 +323,8 @@ export default function Stage7ContextConnection() {
       console.log("[Stage7] Context preferences saved, navigating to daily check-in");
       navigate("/daily-check-in");
     } else {
-      // Still navigate but warn — profile refresh will reconcile on next load
-      console.warn("[Stage7] Navigating despite completion failure — will reconcile on next load");
-      toast.warning("Setup saved. If you see onboarding again, just tap Continue.");
-      navigate("/daily-check-in");
+      console.warn("[Stage7] Completion failed, staying on context step");
+      toast.error("We couldn't finish setup yet. Please try again.");
     }
   };
 

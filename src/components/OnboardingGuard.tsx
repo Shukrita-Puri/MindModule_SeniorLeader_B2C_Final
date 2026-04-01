@@ -50,7 +50,7 @@ async function checkDbOnboardingCompletion(): Promise<boolean> {
  *    - If DB says incomplete → fetch resume route and redirect
  */
 export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [resolving, setResolving] = useState(false);
@@ -79,6 +79,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
         const dbCompleted = await checkDbOnboardingCompletion();
         if (dbCompleted) {
           console.log('[OnboardingGuard] ✅ DB says onboarding completed (profile was stale), allowing access');
+          await refreshProfile();
           setResolved(true);
           setResolving(false);
           return;
@@ -94,7 +95,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
         navigate('/onboarding', { replace: true });
       }
     })();
-  }, [loading, user, navigate, location.pathname, resolving, resolved]);
+  }, [loading, user, navigate, location.pathname, refreshProfile, resolving, resolved]);
 
   if (loading || resolving) {
     return (
@@ -118,7 +119,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
  * If not authenticated → allow onboarding (anonymous assessment)
  */
 export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, loading, isAuthenticated, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [resumeChecked, setResumeChecked] = useState(false);
@@ -153,8 +154,8 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
       return;
     }
 
-    // Authenticated but not completed + landed on /onboarding root → check DB for resume
-    if (!user.onboarding_completed_at && isOnboardingRoot && !resumeChecked && !resuming) {
+    // Authenticated but profile says incomplete → reconcile first, then resume if needed
+    if (!user.onboarding_completed_at && !resumeChecked && !resuming) {
       setResuming(true);
       (async () => {
         try {
@@ -162,7 +163,13 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
           const dbCompleted = await checkDbOnboardingCompletion();
           if (dbCompleted && !isWhitelisted) {
             console.log('[OnboardingBlockGuard] DB says completed, redirecting to /daily-check-in');
+            await refreshProfile();
             navigate('/daily-check-in', { replace: true });
+            return;
+          }
+
+          if (!isOnboardingRoot) {
+            console.log('[OnboardingBlockGuard] Non-root onboarding route with incomplete state, allowing stage gating to handle path');
             return;
           }
 
@@ -189,7 +196,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
 
     setResumeChecked(true);
     console.log('[OnboardingBlockGuard] ✅ Allowing access');
-  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, resumeChecked, resuming]);
+  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, refreshProfile, resumeChecked, resuming]);
 
   // Show loading while checking resume state for authenticated users
   if (loading || (isAuthenticated && !resumeChecked && !DEV_MODE)) {
@@ -200,7 +207,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
     );
   }
 
-  // If authenticated and onboarding completed and NOT whitelisted, block render
+  // If authenticated and onboarding completed and NOT whitelisted, block render while redirect happens
   if (!DEV_MODE && !loading && isAuthenticated && user?.onboarding_completed_at && !isWhitelisted) return null;
 
   return <>{children}</>;

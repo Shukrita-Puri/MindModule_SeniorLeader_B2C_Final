@@ -24,7 +24,7 @@ const Front = () => {
 
 const Auth0Front = () => {
   const { loginWithRedirect } = useAuth0();
-  const { isAuthenticated, loading, user, signOut } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const navigate = useNavigate();
 
   // Auto-redirect: logged-in + completed + valid → straight to app
