@@ -560,10 +560,12 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                   {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
                 </span>
               </div>
-              {plan?.timeOfDayPlan?.calendarMessage && (
-                <span className="text-[11px] text-muted-foreground font-body mt-0.5 italic">
-                  {plan.timeOfDayPlan.calendarMessage}
-                </span>
+              {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
+                <div className="bg-muted/20 rounded-lg px-3 py-2 mt-1.5 min-h-[20px]">
+                  <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+                    {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
+                  </span>
+                </div>
               )}
             </div>
             <span className={cn(
