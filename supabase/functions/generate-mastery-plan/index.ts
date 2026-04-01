@@ -675,34 +675,74 @@ function applyCalendarOverrides(
   return m;
 }
 
-function generateCalendarMessage(
+function generatePlanBrief(
   ctx: CalendarContext,
-  timeOfDay: 'morning' | 'afternoon' | 'evening'
-): string | null {
-  const load = timeOfDay === 'morning' ? ctx.upcomingLoad : ctx.todayLoad;
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  innerReadinessTier: string,
+  checkInOutcome: string,
+  calendarLoad: string
+): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
-  const hours = timeOfDay === 'morning' ? ctx.upcomingMeetingHours : ctx.todayMeetingHours;
+  const remainingCount = ctx.remainingMeetingCount ?? count;
+  const hasCalendar = count > 0;
 
-  if (count === 0) return null; // No calendar data
+  // Map readiness tier to human language
+  const tierLabel: Record<string, string> = {
+    depleted: 'drained',
+    managing: 'steady',
+    strong: 'above baseline',
+    peak: 'at peak readiness'
+  };
+  const readinessWord = tierLabel[innerReadinessTier] || 'steady';
 
-  const hrsLabel = hours === 1 ? '1 hr' : `${hours} hrs`;
+  // Map check-in outcome to state descriptor
+  const outcomeLabel: Record<string, string> = {
+    thriving: 'energised',
+    steady: 'steady',
+    struggling: 'under pressure',
+    drained: 'drained',
+    scattered: 'scattered',
+    anxious: 'tense',
+    flat: 'flat'
+  };
+  const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
 
+  // ---- EVENING ----
+  if (timeOfDay === 'evening') {
+    if (!hasCalendar) {
+      return 'This evening sequence helps you close the day with intention and prepare your mind for tomorrow.';
+    }
+    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+      return `You checked in as ${stateWord} after ${count} meetings. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
+    }
+    if (calendarLoad === 'moderate') {
+      return `After a moderate day of ${count} meetings, this sequence helps you close with clarity and set up tomorrow.`;
+    }
+    return `A lighter day behind you. This evening sequence helps you consolidate what went well and rest with intention.`;
+  }
+
+  // ---- MORNING ----
   if (timeOfDay === 'morning') {
-    if (load === 'extreme') return `Extreme Day Ahead (${count} meetings, ${hrsLabel})`;
-    if (load === 'heavy') return `Heavy Day Ahead (${count} meetings, ${hrsLabel})`;
-    if (load === 'moderate') return `Moderate Day (${count} meetings, ${hrsLabel})`;
-    return `Open Day (${count} meetings)`;
+    if (!hasCalendar) {
+      return `Your readiness is ${readinessWord}. These practices set your mental edge for the day ahead.`;
+    }
+    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+      return `Your readiness is ${readinessWord} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
+    }
+    if (calendarLoad === 'moderate') {
+      return `Your readiness is ${readinessWord} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
+    }
+    return `You're ${readinessWord} with a light day ahead. These practices channel that clarity into deliberate intention.`;
   }
-  if (timeOfDay === 'afternoon') {
-    if (load === 'extreme' || load === 'heavy') return `Dense Day (${count} meetings, ${hrsLabel})`;
-    if (load === 'moderate') return `Moderate Day (${count} meetings)`;
-    return null; // Light afternoon – no special callout
+
+  // ---- AFTERNOON ----
+  if (!hasCalendar || remainingCount === 0) {
+    return `Your readiness is ${readinessWord}. This sequence resets your energy for the stretch that remains.`;
   }
-  // Evening
-  if (load === 'extreme') return `Deep Recovery (${count} meetings today, ${hrsLabel})`;
-  if (load === 'heavy') return `Wind-Down Priority (${count} meetings today)`;
-  if (load === 'moderate') return `Evening Transition (${count} meetings today)`;
-  return `Light Close (${count} meetings today)`;
+  if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+    return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
+  }
+  return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
 }
 
 function hashCode(str: string): number {
