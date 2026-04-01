@@ -460,7 +460,7 @@ function buildWeekdayEveningTheme(
       if (tier === 'depleted') {
         return {
           phrase: "Protect what's left.",
-          context: `${pastLabel ? `You've spent most of today's reserves across ${pastLabel}. ` : ''}With ${remainingHighStakes![0]} still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters – everything before it is cost, not investment.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've spent most of today's reserves across ${pastLabel}. ` : ''}With '${remainingHighStakes![0]}' still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters – everything before it is cost, not investment.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
