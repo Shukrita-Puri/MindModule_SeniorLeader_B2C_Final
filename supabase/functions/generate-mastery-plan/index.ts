@@ -2048,6 +2048,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       req.outerReadinessContext = outerData.context || '';
       req.outerReadinessLeanOn = outerData.leanOn || '';
       req.outerReadinessWatchFor = outerData.watchFor || '';
+      // Extract relay arrays for no-repeat rule in Plan brief
+      combinedAlreadyUsed.push(...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || []));
     }
   } catch {
     req.outerReadinessPhrase = 'Steady execution.';
