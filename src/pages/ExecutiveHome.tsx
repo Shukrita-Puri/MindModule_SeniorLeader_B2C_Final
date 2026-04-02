@@ -27,6 +27,7 @@ import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
+import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
