@@ -39,6 +39,8 @@ interface GuideStep {
   action?: 'open-sidebar' | 'close-sidebar' | 'navigate-profile';
   /** Elevate sidebar panel above overlay */
   elevateSidebar?: boolean;
+  /** Activate a tab before highlighting (clicks data-tour="tab-{value}") */
+  activateTab?: 'state' | 'compass' | 'action';
 }
 
 const STEPS: GuideStep[] = [
