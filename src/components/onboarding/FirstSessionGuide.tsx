@@ -61,6 +61,7 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     tooltipPosition: 'below',
+    activateTab: 'state',
   },
   {
     targetSelector: '[data-tour="compass"]',
@@ -71,6 +72,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'above',
+    activateTab: 'compass',
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -81,6 +83,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'above',
+    activateTab: 'action',
   },
   {
     targetSelector: 'fullscreen',
