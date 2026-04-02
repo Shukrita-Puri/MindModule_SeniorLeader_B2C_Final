@@ -223,7 +223,9 @@ const ExecutiveHome = () => {
                 <StrategicIntentionCard />
               </section>
 
-              <div className="border-t border-black/[0.06] my-8" />
+              <div className="flex justify-center my-6">
+                <div className="w-px h-6 border-l border-dashed border-muted-foreground/20" />
+              </div>
 
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
