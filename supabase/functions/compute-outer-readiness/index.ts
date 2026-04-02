@@ -1489,10 +1489,10 @@ const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watch
 
 // Priority 5: Hardcoded tier fallbacks
 const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: { leanOn: "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.", watchFor: "Committing to demands that require more than your current state can sustain." },
-  managing: { leanOn: "Your operational steadiness. Consistent presence is a form of strength.", watchFor: "Over-extending into territory that requires more than your current reserves." },
-  strong: { leanOn: "Your above-baseline readiness. A real asset that is worth protecting through the day.", watchFor: "Diffusing strong capacity across too many demands rather than concentrating it." },
-  peak: { leanOn: "Your full readiness. You are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
+  depleted: { leanOn: "Your state awareness", watchFor: "Over-committing" },
+  managing: { leanOn: "Your operational steadiness", watchFor: "Over-extending" },
+  strong: { leanOn: "Your above-baseline readiness", watchFor: "Diffusing capacity" },
+  peak: { leanOn: "Your full readiness", watchFor: "Spending the peak unchecked" },
 };
 
 // ==================== COACH INSIGHT AGE TIERS ====================
