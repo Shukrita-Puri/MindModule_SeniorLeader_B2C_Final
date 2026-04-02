@@ -370,6 +370,12 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   /* ---- run actions before highlighting ---- */
 
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
+    // Activate the correct tab before highlighting (for homepage tab content)
+    if (s.activateTab) {
+      const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
+      if (tabBtn) tabBtn.click();
+    }
+
     if (!s.action) { cb(); return; }
 
     switch (s.action) {
