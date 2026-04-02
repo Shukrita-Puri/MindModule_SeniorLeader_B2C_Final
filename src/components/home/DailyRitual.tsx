@@ -325,6 +325,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
               console.log('[DailyRitual] Using sessionStorage cache for plan', { period: currentPeriod, date: todayDate });
               setPlan(parsed);
               onPreEventPlanReady?.(parsed.preEventPlan || null);
+              onJitPriorityChange?.(!!parsed.jitPriority);
               const allCompletedIds = todayRitual?.completed_practice_ids || [];
               const modules = parsed.timeOfDayPlan?.modules || [];
               const planModuleIds = modules.map(m => m.contentId);
