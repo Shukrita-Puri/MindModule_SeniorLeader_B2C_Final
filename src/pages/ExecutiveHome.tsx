@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
