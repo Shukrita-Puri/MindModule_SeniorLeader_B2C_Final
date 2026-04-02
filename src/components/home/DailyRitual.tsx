@@ -127,10 +127,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     completedCount: number;
     totalCount: number;
   }>({ status: 'not_started', completedCount: 0, totalCount: 0 });
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideCount, setSlideCount] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
+  // Carousel state removed – vertical list layout
   const prevCompletedIdsRef = useRef<string[]>([]);
 
   // Navigate to Coach with context
