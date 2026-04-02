@@ -1,116 +1,83 @@
 
-Goal: fix the remaining drift between Outer Readiness Brief and Proactive Mastery Plan, make event titles visually distinct, ensure auth and dev mode follow the same server-driven logic, and correct plan completion so it reflects only the currently active prescribed plan.
 
-What’s still broken
-- The mastery plan brief is still only partially contextual. `generatePlanBrief()` now mentions readiness and wearables, but it still mostly anchors on generic templates and quoted phrase text instead of synthesizing outer readiness context, score, coach signals, and current-state rationale.
-- Progress is inconsistent with visible cards. In `DailyRitual.tsx`, completed modules are filtered out visually, but `ritualStatus.totalCount` still comes from the stored ritual row / prior plan length, so the UI can show “1 of 3 completed” while only 2 cards remain.
-- Edge caching can still serve stale plans. `generate-mastery-plan` still rate-limits by `userId + period` only, so a changed check-in can return the old plan for 30s.
-- Outer readiness can still lag same-day state changes. `compute-outer-readiness` fetches recent check-ins, but its same-day context does not yet explicitly detect “earlier state vs latest state” and rewrite evening context accordingly.
-- Event emphasis is not yet standardized. Current UI renders plain strings; event titles are not visually distinguished in either card.
-- Dev/auth parity must be preserved end-to-end. The good news: both edge functions already support dev bypass, so the remaining work is to ensure the new logic lives server-side and both clients call the same paths.
+# Fix: Outer Readiness Context Relevance + Lean On/Watch For Length + Connector Visibility
 
-Implementation plan
+## Root Cause Analysis
 
-1. Fix mastery plan server-side state sync and stale-cache behavior
-- File: `supabase/functions/generate-mastery-plan/index.ts`
-- Replace the current cache key (`userId:period`) with a state fingerprint that includes:
-  - period
-  - latest check-in timestamp / created_at
-  - latest check-in outcome
-  - latest energy balance
-  - clarity/confidence
-  - completed practice ids for the current ritual row
-  - recommended practice ids for the current ritual row if present
-- Keep the 30s memory cache, but key it by this fingerprint so any updated check-in or completion forces a new plan.
-- Also persist `latestCheckinTimestamp` on `PlanRequest` since the type already expects it but it is not populated now.
+### Problem 1: "demands ahead" when calendar is empty
+**Location:** `compute-outer-readiness/index.ts`, line 906
 
-2. Make the mastery plan brief genuinely contextual
-- File: `supabase/functions/generate-mastery-plan/index.ts`
-- Rewrite `generatePlanBrief()` so it composes two sentences from:
-  - decision readiness score and tier
-  - current check-in outcome
-  - wearable recovery strain
-  - outer readiness phrase
-  - outer readiness context
-  - relevant coach insight / pattern insight
-  - meeting load / remaining meetings
-- Avoid generic fallback lines like “This evening sequence helps you close the day...”
-- Use the outer readiness context as rationale, not just the phrase in quotes.
-- If a coach insight is relevant, weave it in subtly as supporting rationale, not as a separate unrelated sentence.
+The depleted morning path calls `buildMorningTheme` with a hardcoded `defaultContext`: `"Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do."`
 
-3. Ensure generate-mastery-plan and compute-outer-readiness stay perfectly aligned
-- Files:
-  - `supabase/functions/generate-mastery-plan/index.ts`
-  - `supabase/functions/compute-outer-readiness/index.ts`
-- Keep the existing server-to-server call, but tighten the contract:
-  - include the freshest check-in timestamp / created_at
-  - make sure current-window check-in selection is ordered by latest creation time, not only `checkin_date`
-- In `compute-outer-readiness`, add same-day shift logic:
-  - compare the latest 2 same-day check-ins
-  - if readiness dropped or improved materially, reflect that in evening context
-  - example pattern: “Your latest check-in now shows depletion after a dense day...”
-- This will make the outer brief change when the user re-checks in after meetings end.
+The `buildMorningTheme` function (line 656) checks priorities 1-6 (poor sleep, high-stakes, HRV, dense calendar). When NONE match (no wearable data, no high-stakes events, calendar is empty/light), it falls to the **morning default fallback** (line 841) which uses this passed `defaultContext` verbatim — including "with demands ahead" even when there are zero meetings.
 
-4. Correct active-plan completion math
-- Files:
-  - `src/components/home/DailyRitual.tsx`
-  - `supabase/functions/daily-rituals/index.ts`
-  - `src/utils/dailyRituals.ts`
-- Treat completion as intersection against the current active plan only:
-  - `completedCount = completed_practice_ids ∩ currentPlan.moduleIds`
-  - `totalCount = currentPlan.moduleIds.length`
-- Do not derive visible progress from stale `recommended_practices_count`.
-- When a refreshed plan replaces an older one, overwrite `recommended_practice_ids` and `recommended_practices_count` for that period with the new plan’s module ids/count.
-- Keep relevant current-plan practices visible whether completed or not. Do not remove active-plan items from the carousel just because completed; instead dim/mark them complete.
-- Only exclude practices that belonged to the old state/old brief and are no longer relevant to the refreshed plan.
+**Same issue at line 909** (afternoon depleted) uses the same "demands ahead" text.
 
-5. Fix coach-card behavior for refreshed state
-- File: `supabase/functions/generate-mastery-plan/index.ts`
-- Make coach recommendations state-versioned:
-  - if the refreshed state still calls for coach, include the coach card in the new plan even if the user completed a coach card from the prior state
-  - if the refreshed state no longer calls for coach, do not include it and do not count it toward the new plan
-- The safest approach is to give coach cards a state-aware id/fingerprint tied to the new brief/context so old completions don’t incorrectly suppress new relevant coach work.
+**Fix:** Make the defaultContext calendar-aware. Replace the static "with demands ahead" strings with calendar-conditional language:
+- If `eventCount > 0`: "with demands ahead"
+- If `eventCount === 0` or calendar not connected: "How you enter the day determines how much you have for what matters" (no demands reference)
 
-6. Add event-title emphasis consistently in both cards
-- Files:
-  - `src/components/home/StrategicIntentionCard.tsx`
-  - `src/components/home/DailyRitual.tsx`
-  - add a small shared formatter component/helper
-- Parse text for quoted event titles and render them as italic or bold-italic.
-- Standardize server copy to wrap event titles in single quotes when referenced in brief/context/reasoning.
-- Apply the same rendering to:
-  - outer readiness context
-  - mastery plan brief
-  - any reasoning/context strings that mention event titles
+This affects 4 places in `getTheme()`: depleted morning (906), depleted afternoon (909-910), managing morning (952), and their equivalent in `getNoCalendarTheme()`.
 
-7. Preserve auth-user and dev-mode parity
-- Files:
-  - `supabase/functions/generate-mastery-plan/index.ts`
-  - `supabase/functions/compute-outer-readiness/index.ts`
-  - `supabase/functions/daily-rituals/index.ts`
-- Keep all decision logic server-side.
-- Make sure dev mode uses the same edge-function logic paths already present via `x-dev-user-id` / `userId` fallback.
-- Avoid adding any client-only branching for logic; only use client branching for auth header transport.
+### Problem 2: Lean On / Watch For too long
+**Location:** `compute-outer-readiness/index.ts`, lines 1345-1849
 
-8. Tighten client invalidation so refreshed state appears immediately
-- Files:
-  - `src/pages/DailyCheckIn.tsx`
-  - `src/pages/CheckInDetail.tsx`
-  - `src/components/home/DailyRitual.tsx`
-- Keep current query invalidation, but strengthen session cache invalidation:
-  - clear all plan cache keys for the active day/period
-  - make the session “energy hash” include clarity/confidence and latest check-in timestamp
-- On load, if the current ritual row’s recommended ids differ from the fetched plan ids, sync local state to the new plan immediately.
+The C×C modifier (Pattern 3, line 1393) generates:
+- `"Your clarity. You see the direction clearly even when confidence hasn't caught up yet."`
+- `"Waiting for confidence to arrive before acting on what you already know is right."`
 
-Technical notes
-- `generate-mastery-plan` already passes full readiness inputs to `compute-outer-readiness`; the remaining gap is richer brief composition and cache/state freshness.
-- `CheckInDetail.tsx` and `DailyCheckIn.tsx` already invalidate `outer-readiness`; the remaining issue is the edge cache key and weak client hash.
-- `DailyRitual.tsx` currently filters completed modules out of view, which is causing confusion. For the behavior you described, active-plan items should remain visible and just show completion state.
-- `compute-outer-readiness` currently stores `finalContext = patternOverride || theme.context`; this is where same-day shift-aware rewriting should be added.
+These are prepended with `"Based on your check-in today: "` at line 1818.
 
-Expected result after implementation
-- Outer Readiness Brief updates immediately after a new check-in and reflects the latest same-day state.
-- Proactive Mastery Plan brief explains why this sequence is prescribed for this user now, using score, context, outer brief, wearable signals, and coach context.
-- Event titles stand out visually via quoted italic emphasis.
-- Progress always matches the currently active plan only.
-- Refreshed plans show the right currently relevant practices, including coach when newly relevant, without carrying irrelevant prior-state completions into the new plan.
+**Fix:** Condense all C×C modifier outputs to 2-3 word core insights with source attribution in brackets. The current verbose sentences become:
+
+| Pattern | Current Lean On | New Lean On | Current Watch For | New Watch For |
+|---------|----------------|-------------|------------------|--------------|
+| Both low | "Your honesty about where you are..." | "Your self-honesty (check-in)" | "Making commitments..." | "Premature commitments (check-in)" |
+| Both high | "Your internal alignment..." | "Your alignment (check-in)" | "Overriding others..." | "Rigidity from conviction (check-in)" |
+| High clarity + low confidence | "Your clarity. You see the direction..." | "Your clarity (check-in)" | "Waiting for confidence..." | "Delaying action (check-in)" |
+| Low clarity + high confidence | "Your confidence..." | "Your confidence (check-in)" | "Operating as if..." | "Moving without direction (check-in)" |
+| Low clarity only | "Your capacity to ask..." | "Your discernment (check-in)" | "Moving into the day..." | "Acting without anchor (check-in)" |
+| Low confidence only | "Your self-awareness..." | "Your self-awareness (check-in)" | "Decisions performed from..." | "Projected confidence (check-in)" |
+| High clarity only | "Your directional certainty..." | "Your direction (check-in)" | "Clarity about your own view..." | "Crowding out perspectives (check-in)" |
+| High confidence only | "Your conviction..." | "Your conviction (check-in)" | "Confidence tipping into..." | "Closing off inputs (check-in)" |
+
+Similarly condense evening variants. Remove the `"Based on your check-in today: "` prefix since source is now in brackets.
+
+Apply same pattern to archetype, coach, and tier fallback sources:
+- `"Based on your archetype profile: Your instinct to return to stillness..."` → `"Your stillness instinct (archetype)"`
+- `"Based on your current readiness state: ..."` → `"Your state awareness (readiness)"`
+- Coach sources: `"(coach, 3d ago)"` instead of `"Based on your recent coach conversation: ..."`
+
+Context enrichment suffixes (from `buildDaytimeLeanOnSuffix` / `buildDaytimeWatchForSuffix`) should also be shortened — keep them to a single concise clause or remove them entirely since the Lean On/Watch For are now crisp.
+
+### Problem 3: DailyRitual planBrief says "1 meeting ahead" but outer readiness says "demands ahead"
+This is the same root cause as Problem 1. The planBrief correctly uses the dynamic meeting count (`with ${count} meetings ahead`) at line 795/807. The outer readiness incorrectly hardcodes "demands ahead." Fixing Problem 1 fixes this contradiction.
+
+### Problem 4: Vertical connectors too subtle
+**Location:** `ExecutiveHome.tsx`, lines 219 and 227
+
+Current: `border-muted-foreground/20` — nearly invisible.
+
+**Fix:** Change to `border-muted-foreground/35` and increase height from `h-6` to `h-8` for more presence while keeping the luxurious dashed aesthetic.
+
+## Files to Change
+
+### 1. `supabase/functions/compute-outer-readiness/index.ts`
+- **Lines 906, 909-910, 952, 955**: Make defaultContext strings calendar-aware by checking `eventCount` before including "demands ahead" language
+- **Lines 1360-1461**: Condense all 8 C×C modifier patterns to crisp 2-4 word Lean On/Watch For with `(check-in)` source tag
+- **Lines 1468-1523**: Condense archetype matrix entries to crisp format with `(archetype)` tag
+- **Lines 1527-1531**: Condense tier fallbacks to crisp format with `(readiness)` tag  
+- **Lines 1775-1849**: Update source attribution from verbose prefixes to bracketed tags; remove or shorten context enrichment suffixes
+- **Lines 1209-1275**: Condense evening insights similarly
+
+### 2. `src/pages/ExecutiveHome.tsx`
+- **Lines 219, 227**: Change connector from `border-muted-foreground/20` to `border-muted-foreground/35` and `h-6` to `h-8`
+
+## What stays unchanged
+- No database changes
+- No changes to calendar metrics computation, wearable logic, or scoring
+- Theme phrases (the quoted italic text) remain unchanged
+- Context statement logic structure remains the same — only the fallback default text changes
+- DailyRitual, JitCarousel, StepLabel components unchanged
+- Coach insight age tiers and contradiction detection unchanged
+
