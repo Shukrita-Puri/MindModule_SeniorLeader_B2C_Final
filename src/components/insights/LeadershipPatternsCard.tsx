@@ -295,9 +295,15 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
 
             {/* ── SECTION 1: YOUR DIMENSIONS ── */}
             <div className="space-y-3">
-              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
-                Your Dimensions
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                  Your Dimensions
+                </p>
+                <InsightInfoModal
+                  title="How Scores Are Calculated"
+                  explanation="These three scores reflect how you show up over time — drawn from your check-ins, coach conversations, and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                />
+              </div>
 
               {/* Archetype */}
               {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
