@@ -563,8 +563,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
               <span className="text-sm font-semibold text-foreground font-body">
                 {plan?.timeOfDayPlan?.label || 'Today'}
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+              <span className="text-[11px] text-muted-foreground/60 font-body">
+                ({activeModules.length}-step sequence)
               </span>
             </div>
             <span className={cn(
@@ -609,74 +609,90 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
               return (
                 <CarouselItem key={module.contentId} className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]">
-                  <div
-                    onClick={() => !isDragging && !isCompleted && navigateToPractice(module)}
-                    className={cn(
-                      "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
-                      "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
-                      isCompleted
-                        ? "bg-white/15 backdrop-blur-md border border-white/40 opacity-60 cursor-default"
-                        : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
-                      isLastCard && "mr-4"
-                    )}
-                  >
-                    {/* Completed overlay badge */}
-                    {isCompleted && (
-                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
-                        <Check size={10} className="stroke-[3]" />
-                        Done
-                      </div>
-                    )}
-
-                    {/* Thumbnail */}
-                    {isCoach ? (
-                      <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
-                        <img src={coachVisual} alt="" className={cn("w-full h-full object-cover object-top", isCompleted ? "brightness-50 grayscale-[30%]" : "brightness-75")} />
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
-                          <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
-                        </div>
-                        {!isCompleted && (
-                          <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
-                            {module.title === 'Tiny Win and Reflection' ? 'Tiny Win & Reflection' : "Today's Plan"}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <img
-                        src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
-                        alt={module.title}
-                        className={cn("w-32 h-full object-cover flex-shrink-0", isCompleted && "brightness-50 grayscale-[30%]")}
-                      />
-                    )}
-
-                    {/* Content */}
-                    <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                      <div className="flex flex-col gap-0.5">
-                        <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
-                        <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
-                      </div>
-                      <div className="flex items-start gap-1 mt-1.5">
-                        <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
-                        {!isCoach && isFavorite(module.contentId) && (
-                          <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                      {module.reasoning && !isCompleted && (
-                        <p className="text-[12px] text-muted-foreground font-medium font-body line-clamp-3 leading-snug mt-0.5">
-                          {module.reasoning}
-                        </p>
+                  <div className="relative">
+                    <div
+                      onClick={() => !isDragging && !isCompleted && navigateToPractice(module)}
+                      className={cn(
+                        "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
+                        "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+                        isCompleted
+                          ? "bg-white/15 backdrop-blur-md border border-white/40 opacity-60 cursor-default"
+                          : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
+                        isLastCard && "mr-4"
                       )}
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
+                    >
+                      {/* Completed overlay badge */}
+                      {isCompleted && (
+                        <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                          <Check size={10} className="stroke-[3]" />
+                          Done
+                        </div>
+                      )}
+
+                      {/* Step badge */}
+                      {!isCompleted && (
+                        <span className="absolute top-2 right-2 z-10 text-[9px] uppercase tracking-wider text-muted-foreground/60 font-body">
+                          Step {index + 1}
+                        </span>
+                      )}
+
+                      {/* Thumbnail */}
+                      {isCoach ? (
+                        <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
+                          <img src={coachVisual} alt="" className={cn("w-full h-full object-cover object-top", isCompleted ? "brightness-50 grayscale-[30%]" : "brightness-75")} />
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                            <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
+                          </div>
+                          {!isCompleted && (
+                            <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
+                              {module.title === 'Tiny Win and Reflection' ? 'Tiny Win & Reflection' : "Today's Plan"}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <img
+                          src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
+                          alt={module.title}
+                          className={cn("w-32 h-full object-cover flex-shrink-0", isCompleted && "brightness-50 grayscale-[30%]")}
+                        />
+                      )}
+
+                      {/* Content */}
+                      <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
+                        <div className="flex flex-col gap-0.5">
+                          <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
+                          <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
+                        </div>
+                        <div className="flex items-start gap-1 mt-1.5">
+                          <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
+                          {!isCoach && isFavorite(module.contentId) && (
+                            <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                        {module.reasoning && !isCompleted && (
+                          <p className="text-[12px] text-muted-foreground font-medium font-body line-clamp-3 leading-snug mt-0.5">
+                            {module.reasoning}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
+                        </div>
                       </div>
+
+                      {isCompleted && (
+                        <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                          <Check size={16} className="text-white stroke-[3]" />
+                        </div>
+                      )}
                     </div>
 
-                    {isCompleted && (
-                      <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
-                        <Check size={16} className="text-white stroke-[3]" />
-                      </div>
+                    {/* Chevron connector between cards */}
+                    {!isLastCard && (
+                      <span className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-muted-foreground/30 text-lg font-light select-none pointer-events-none">
+                        ›
+                      </span>
                     )}
                   </div>
                 </CarouselItem>
@@ -700,12 +716,12 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       <div className="px-4 max-w-lg mx-auto">
         {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
               <Button onClick={handleStartRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                Start Your Time of Day Plan
+                Start Sequence
               </Button>
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
               <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                Continue Plan
+                Continue Sequence
               </Button>
             )}
             {ritualStatus.status === 'completed' && (

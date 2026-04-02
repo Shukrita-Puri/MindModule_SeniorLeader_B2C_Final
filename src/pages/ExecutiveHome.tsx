@@ -21,6 +21,7 @@ import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
+import StepLabel from "@/components/home/StepLabel";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
@@ -214,24 +215,24 @@ const ExecutiveHome = () => {
                 <TodayStateCard />
               </section>
 
-              <div className="border-t border-black/[0.06] my-8" />
+              <div className="flex justify-center my-6">
+                <div className="w-px h-6 border-l border-dashed border-muted-foreground/20" />
+              </div>
 
               <section className="animate-in fade-in duration-500 delay-100">
                 <StrategicIntentionCard />
               </section>
 
-              <div className="border-t border-black/[0.06] my-8" />
+              <div className="flex justify-center my-6">
+                <div className="w-px h-6 border-l border-dashed border-muted-foreground/20" />
+              </div>
 
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-                      Your Proactive Mastery Plan
-                    </span>
-                  </div>
+                  <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
                   <MetricInfoModal
-                    title="Your Proactive Mastery Plan"
-                    description="Your Proactive Mastery Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    title="Your Performance Readiness Plan"
+                    description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
                   />
                 </div>
               </section>
