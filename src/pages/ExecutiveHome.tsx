@@ -234,7 +234,7 @@ const ExecutiveHome = () => {
               </div>
 
               <section data-tour="compass" className="animate-in fade-in duration-500 delay-100">
-                <StrategicIntentionCard />
+                <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
               </section>
 
               <div className="flex justify-center my-6">
