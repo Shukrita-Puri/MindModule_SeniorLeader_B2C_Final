@@ -6,7 +6,7 @@ import { Check, RotateCcw, Heart, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+// Carousel imports removed – vertical list layout
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { useFavorites } from '@/hooks/useFavorites';
