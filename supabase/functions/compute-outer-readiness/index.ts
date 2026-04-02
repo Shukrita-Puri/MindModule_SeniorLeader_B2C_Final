@@ -902,11 +902,17 @@ function getTheme(
         todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", todayHighStakes, eventCount);
+    if (timeOfDay === 'morning') {
+      const depletedMorningCtx = eventCount && eventCount > 0
+        ? "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do."
+        : "Starting the day in a depleted state. How you enter the day determines how much you have for what matters.";
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", depletedMorningCtx, todayHighStakes, eventCount);
+    }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.";
+      const base = eventCount && eventCount > 0
+        ? "Carrying a depleted state through the afternoon with demands still ahead. How you enter each remaining moment matters more than how much you do."
+        : "Carrying a depleted state through the afternoon. How you spend what remains determines how you close the day.";
       return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
     // Pressure×load matrix (morning/afternoon only now)
