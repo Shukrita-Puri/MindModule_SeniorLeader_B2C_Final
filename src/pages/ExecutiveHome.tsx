@@ -224,7 +224,7 @@ const ExecutiveHome = () => {
               </section>
 
               <div className="flex justify-center my-6">
-                <div className="w-px h-8 border-l border-dashed border-muted-foreground/35" />
+                <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
               </div>
 
               <section className="animate-in fade-in duration-500 delay-200">
