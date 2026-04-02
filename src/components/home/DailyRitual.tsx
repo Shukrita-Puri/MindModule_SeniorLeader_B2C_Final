@@ -783,6 +783,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
               </div>
             )}
       </div>
+      </>)}
     </div>
   );
 };
