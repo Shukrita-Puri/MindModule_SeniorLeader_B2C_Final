@@ -153,17 +153,17 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
     setDismissed(true);
     sessionStorage.setItem(getSnoozeKey(), 'true');
 
-    // Track snooze count per event type (persisted in localStorage across sessions)
+    // Track snooze count per event type across sessions (persisted in localStorage)
     const countKey = getSnoozeCountKey();
     const priorCount = parseInt(localStorage.getItem(countKey) || '0', 10);
     const newCount = priorCount + 1;
     localStorage.setItem(countKey, String(newCount));
 
-    if (newCount >= 2) {
-      // 2+ snoozes of same event type → escalate to permanent dismissed
+    if (newCount >= 3) {
+      // 3+ snoozes of same event type → escalate to permanent dismissed
       await trackJitAction('dismissed');
     } else {
-      // First snooze → soft, server won't write to dismissed_horizons
+      // 1st/2nd snooze → soft, server won't touch jit_event_context
       await trackJitAction('snoozed');
     }
   };

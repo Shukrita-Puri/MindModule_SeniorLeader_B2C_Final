@@ -1126,7 +1126,10 @@ async function getPreScoredEvents(
         // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
         // Only include events in valid action windows (touch1 or touch2)
         const actionWindow = getActionWindow(minutesUntil);
-        if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+        if (actionWindow === 'silent' || actionWindow === 'selection_only') {
+          console.log(`[generate-mastery-plan] Bridge: EXCLUDED "${row.event_title}" – window=${actionWindow} minutesUntil=${minutesUntil} score=${row.final_score}`);
+          continue;
+        }
 
         // ═══ PER-TOUCH DISMISSAL CHECK ═══
         // Check if this specific touch has been dismissed (not the whole event)
@@ -2102,13 +2105,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Find first event in a valid action window
   let topEvent: ScoredEvent | null = null;
   for (const evt of filteredEvents) {
-    if (evt.score < JIT_THRESHOLD_UNIFIED) continue;
+    if (evt.score < JIT_THRESHOLD_UNIFIED) {
+      console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – score=${evt.score} < threshold=${JIT_THRESHOLD_UNIFIED}`);
+      continue;
+    }
     const window = getActionWindow(evt.minutesUntil);
     if (window === 'touch1' || window === 'touch2') {
       topEvent = evt;
       break;
     }
-    // Events in silent gap or selection-only are skipped for plan building
+    console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`);
   }
 
   if (topEvent) {

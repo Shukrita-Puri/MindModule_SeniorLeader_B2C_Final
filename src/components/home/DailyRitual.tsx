@@ -292,34 +292,50 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           
-      // Validate cached plan against current energy state to prevent cross-device divergence
-          const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
-          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}`;
-          // If we can detect a different energy tier from the plan metadata, invalidate
-          if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
-            console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
+          // ═══ JIT CACHE INVALIDATION ═══
+          // If cached plan has no preEventPlan but enough time has passed, refetch
+          // so newly-qualifying JIT events can surface
+          const jitCacheKey = `plan-jit-checked-${todayDate}-${currentPeriod}`;
+          const lastJitCheck = sessionStorage.getItem(jitCacheKey);
+          const jitCacheStale = !parsed.preEventPlan && (!lastJitCheck || (Date.now() - parseInt(lastJitCheck, 10)) > 10 * 60 * 1000);
+          if (jitCacheStale) {
+            console.log('[DailyRitual] Cached plan has no preEventPlan — invalidating to allow JIT resurfacing');
             sessionStorage.removeItem(sessionKey);
             sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
             sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+            sessionStorage.setItem(jitCacheKey, String(Date.now()));
             shouldRegenerate = true;
-          } else {
-            console.log('[DailyRitual] Using sessionStorage cache for plan', { period: currentPeriod, date: todayDate });
-            setPlan(parsed);
-            onPreEventPlanReady?.(parsed.preEventPlan || null);
-            const allCompletedIds = todayRitual?.completed_practice_ids || [];
-            const modules = parsed.timeOfDayPlan?.modules || [];
-            const planModuleIds = modules.map(m => m.contentId);
-            const activeCompletedIds = planModuleIds.length > 0
-              ? allCompletedIds.filter(id => planModuleIds.includes(id))
-              : allCompletedIds;
-            setCompletedPracticeIds(activeCompletedIds);
-            setRitualStatus({
-              status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
-              completedCount: activeCompletedIds.length,
-              totalCount: modules.length
-            });
-            setLoading(false);
-            return;
+          }
+
+          // Validate cached plan against current energy state to prevent cross-device divergence
+          if (!shouldRegenerate) {
+            const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}`;
+            if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
+              console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
+              sessionStorage.removeItem(sessionKey);
+              sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+              sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+              shouldRegenerate = true;
+            } else {
+              console.log('[DailyRitual] Using sessionStorage cache for plan', { period: currentPeriod, date: todayDate });
+              setPlan(parsed);
+              onPreEventPlanReady?.(parsed.preEventPlan || null);
+              const allCompletedIds = todayRitual?.completed_practice_ids || [];
+              const modules = parsed.timeOfDayPlan?.modules || [];
+              const planModuleIds = modules.map(m => m.contentId);
+              const activeCompletedIds = planModuleIds.length > 0
+                ? allCompletedIds.filter(id => planModuleIds.includes(id))
+                : allCompletedIds;
+              setCompletedPracticeIds(activeCompletedIds);
+              setRitualStatus({
+                status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
+                completedCount: activeCompletedIds.length,
+                totalCount: modules.length
+              });
+              setLoading(false);
+              return;
+            }
           }
         }
       }

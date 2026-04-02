@@ -807,7 +807,7 @@ serve(async (req) => {
         },
         jit_urgency_horizon: evt.jitUrgencyHorizon,
         jit_horizons_surfaced: mergedHorizons,
-      }, { onConflict: 'id' });
+      }, { onConflict: 'user_id,calendar_event_id' });
     }
 
     console.log(`[generate-jit-events] Scored ${events.length} events, selected ${selectedEvents.length}`);

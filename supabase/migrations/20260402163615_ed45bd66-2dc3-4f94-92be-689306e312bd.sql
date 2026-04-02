@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS jit_event_context_user_event_unique ON public.jit_event_context (user_id, calendar_event_id);
