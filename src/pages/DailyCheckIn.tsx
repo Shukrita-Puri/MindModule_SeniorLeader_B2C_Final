@@ -69,6 +69,7 @@ const DailyCheckIn = () => {
   const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
   const [checkedInMessage, setCheckedInMessage] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
 
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
