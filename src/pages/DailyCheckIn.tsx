@@ -284,6 +284,7 @@ const DailyCheckIn = () => {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
+          data-tour="check-in-carousel"
           className="flex gap-4 overflow-x-auto w-full max-w-[100vw] px-[calc(50vw-120px)] pb-4 snap-x snap-mandatory scrollbar-hide"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
