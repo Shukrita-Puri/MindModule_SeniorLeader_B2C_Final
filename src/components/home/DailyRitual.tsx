@@ -154,27 +154,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     });
   };
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    setSlideCount(carouselApi.scrollSnapList().length);
-    setCurrentSlide(carouselApi.selectedScrollSnap());
-    carouselApi.on("select", () => setCurrentSlide(carouselApi.selectedScrollSnap()));
-  }, [carouselApi]);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    const onPointerDown = () => setIsDragging(false);
-    const onPointerUp = () => setTimeout(() => setIsDragging(false), 100);
-    const onScroll = () => setIsDragging(true);
-    carouselApi.on('pointerDown', onPointerDown);
-    carouselApi.on('pointerUp', onPointerUp);
-    carouselApi.on('scroll', onScroll);
-    return () => {
-      carouselApi.off('pointerDown', onPointerDown);
-      carouselApi.off('pointerUp', onPointerUp);
-      carouselApi.off('scroll', onScroll);
-    };
-  }, [carouselApi]);
+  // Carousel useEffects removed – vertical list layout
 
   useEffect(() => {
     loadPlan();
