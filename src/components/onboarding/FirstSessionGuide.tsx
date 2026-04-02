@@ -213,6 +213,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.zIndex = '';
       previousElRef.current.style.boxShadow = '';
       previousElRef.current.style.borderRadius = '';
+      previousElRef.current.style.padding = '';
+      previousElRef.current.style.margin = '';
       previousElRef.current = null;
     }
     // Sidebar z-index
@@ -254,11 +256,19 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       cleanupPrevious();
 
-      // Raise element
+      // Raise element above overlay
+      const pad = s.spotlightPad || 0;
       el.style.position = 'relative';
       el.style.zIndex = '61';
       el.style.boxShadow = '0 0 40px rgba(255,183,77,0.15)';
-      el.style.borderRadius = '12px';
+      // Circular spotlight for small icon buttons, rounded-rect for sections
+      if (pad > 0) {
+        el.style.borderRadius = '9999px';
+        el.style.padding = `${pad}px`;
+        el.style.margin = `-${pad}px`;
+      } else {
+        el.style.borderRadius = '12px';
+      }
       previousElRef.current = el;
 
       // Sidebar elevation
@@ -367,8 +377,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   const tooltipStyle: React.CSSProperties =
     isFullscreen || tooltipTop === null
-      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-      : { top: `${Math.max(8, tooltipTop)}px`, left: '16px', right: '16px' };
+      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)' }
+      : { top: `${Math.max(8, tooltipTop)}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen ? '360px' : '400px';
 
@@ -392,7 +402,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300 mx-auto',
           tooltipVisible ? 'opacity-100' : 'opacity-0 translate-y-2',
         )}
-        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, width: isFullscreen ? 'calc(100% - 32px)' : undefined }}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW }}
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
