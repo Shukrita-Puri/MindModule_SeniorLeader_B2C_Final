@@ -7,6 +7,7 @@
 
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
+import StepLabel from './StepLabel';
 import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
