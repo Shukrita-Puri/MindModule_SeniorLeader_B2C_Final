@@ -2021,6 +2021,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.favorites = (favs || []).map((f: any) => f.content_id);
   } catch { req.favorites = []; }
 
+  // Relay array: signals already surfaced by State + Compass, so Plan brief doesn't repeat them
+  const combinedAlreadyUsed: string[] = [];
   // Outer readiness – call compute-outer-readiness server-to-server with FULL readiness inputs
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
