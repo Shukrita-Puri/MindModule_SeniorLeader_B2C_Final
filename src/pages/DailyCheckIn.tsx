@@ -84,6 +84,21 @@ const DailyCheckIn = () => {
     });
   }, []);
 
+  // Show first session guide if user has zero check-ins
+  useEffect(() => {
+    if (!user?.id || sessionStorage.getItem('first_session_done')) return;
+    supabase
+      .from('daily_checkins')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count }) => {
+        if (count === 0) {
+          sessionStorage.setItem('first_session_guide_step', '0');
+          setShowGuide(true);
+        }
+      });
+  }, [user?.id]);
+
   // Fetch connection status
   const { data: connections } = useQuery({
     queryKey: ['connections', user?.id],
