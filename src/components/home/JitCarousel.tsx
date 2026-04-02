@@ -149,16 +149,28 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   };
 
   const handleDismiss = async () => {
-    // Session-scoped snooze: hide for this session, resurface after 30 min
+    // Session-scoped snooze: hide for this session only
     setDismissed(true);
-    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
-    // Track as 'snoozed' (soft) — server won't write to dismissed_horizons
-    await trackJitAction('snoozed');
+    sessionStorage.setItem(getSnoozeKey(), 'true');
+
+    // Track snooze count per event type (persisted in localStorage across sessions)
+    const countKey = getSnoozeCountKey();
+    const priorCount = parseInt(localStorage.getItem(countKey) || '0', 10);
+    const newCount = priorCount + 1;
+    localStorage.setItem(countKey, String(newCount));
+
+    if (newCount >= 2) {
+      // 2+ snoozes of same event type → escalate to permanent dismissed
+      await trackJitAction('dismissed');
+    } else {
+      // First snooze → soft, server won't write to dismissed_horizons
+      await trackJitAction('snoozed');
+    }
   };
 
   const handleSnooze = async () => {
     setSnoozed(true);
-    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
+    sessionStorage.setItem(getSnoozeKey(), 'true');
     await trackJitAction('snoozed');
   };
 
