@@ -202,8 +202,12 @@ const ExecutiveHome = () => {
             </div>
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
-              <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
-              <div data-tour="coach-access"><CoachAccessButton /></div>
+              <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
+                <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
+              </div>
+              <div data-tour="coach-access-wrap" className="p-2 -m-2 rounded-full">
+                <div data-tour="coach-access"><CoachAccessButton /></div>
+              </div>
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">

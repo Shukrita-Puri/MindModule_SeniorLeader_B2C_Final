@@ -64,7 +64,7 @@ const LeftSidebar = () => {
   const hideLabels = isCollapsed && !isMobile;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
+    <Sidebar collapsible="icon" className="border-r border-border" data-tour="sidebar-panel">
       {/* Header */}
       <SidebarHeader className="min-h-[4rem] flex items-center justify-center border-b border-sidebar-border pt-[env(safe-area-inset-top,0px)]">
         <div className={cn(
