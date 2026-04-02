@@ -234,6 +234,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
     const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
     if (sp) sp.style.zIndex = '';
+    // Reset mobile sheet dialog + overlay z-indexes
+    const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
+    if (sheetDialog) sheetDialog.style.zIndex = '';
+    const sheetOverlayEl = sheetDialog?.previousElementSibling as HTMLElement | null;
+    if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '';
     setSpotRect(null);
   }, []);
 
