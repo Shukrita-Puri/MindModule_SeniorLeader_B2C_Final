@@ -2021,6 +2021,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.favorites = (favs || []).map((f: any) => f.content_id);
   } catch { req.favorites = []; }
 
+  // Relay array: signals already surfaced by State + Compass, so Plan brief doesn't repeat them
+  const combinedAlreadyUsed: string[] = [];
   // Outer readiness – call compute-outer-readiness server-to-server with FULL readiness inputs
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -2048,6 +2050,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       req.outerReadinessContext = outerData.context || '';
       req.outerReadinessLeanOn = outerData.leanOn || '';
       req.outerReadinessWatchFor = outerData.watchFor || '';
+      // Extract relay arrays for no-repeat rule in Plan brief
+      combinedAlreadyUsed.push(...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || []));
     }
   } catch {
     req.outerReadinessPhrase = 'Steady execution.';
@@ -2343,7 +2347,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const nextEvtTitle = topEvent?.event.title || null;
   const nextEvtMins = topEvent?.minutesUntil || null;
 
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights, resolvedModuleTypes, [], nextEvtTitle, nextEvtMins, pendingCommitments);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights, resolvedModuleTypes, combinedAlreadyUsed, nextEvtTitle, nextEvtMins, pendingCommitments);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
