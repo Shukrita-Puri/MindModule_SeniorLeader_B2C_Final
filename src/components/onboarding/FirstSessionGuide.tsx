@@ -6,14 +6,14 @@
  * Phase B (steps 5-9): Navigation features — all on /executive-home
  *
  * Key behaviours:
- * - Tooltip is always positioned with a measured gap so it never covers the
- *   highlighted element.
+ * - Tooltip is positioned via measured rects so it never covers the target.
  * - "Demo" steps programmatically open the sidebar, scroll to items, etc.
  * - Sidebar panel is elevated above the overlay when needed.
  * - Small icon buttons (Menu / Coach) get a larger circular spotlight.
+ * - SVG cut-out overlay creates a true spotlight effect.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 import { X, ArrowRight, ArrowLeft, Rocket } from 'lucide-react';
@@ -31,18 +31,18 @@ interface GuideStep {
   page: 'check-in' | 'home';
   phase: 'A' | 'B';
   phaseLabel: string;
-  /** Open sidebar before highlighting */
   openSidebar?: boolean;
-  /** Close sidebar before highlighting */
   closeSidebar?: boolean;
-  /** Scroll window to top before highlighting */
   scrollToTop?: boolean;
-  /** ScrollIntoView block alignment. Default 'center'. */
   scrollBlock?: ScrollLogicalPosition;
   /** Extra padding (px) around the spotlight rectangle. */
   spotlightPad?: number;
   /** Elevate sidebar panel above overlay for this step */
   elevateSidebar?: boolean;
+  /** Use circular spotlight shape */
+  spotlightCircle?: boolean;
+  /** Preferred tooltip position. 'auto' (default) measures best fit. */
+  tooltipPosition?: 'above' | 'below' | 'auto';
 }
 
 const STEPS: GuideStep[] = [
@@ -62,6 +62,7 @@ const STEPS: GuideStep[] = [
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
+    tooltipPosition: 'below',
   },
   {
     targetSelector: '[data-tour="compass"]',
@@ -71,6 +72,7 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
+    tooltipPosition: 'above',
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -80,6 +82,7 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
+    tooltipPosition: 'above',
   },
   {
     targetSelector: 'fullscreen',
@@ -92,7 +95,7 @@ const STEPS: GuideStep[] = [
 
   // ── Phase B — Navigation ──────────────────────────────────────
   {
-    // Step 5 — Menu button (larger circle spotlight)
+    // Step 5 — Menu button
     targetSelector: '[data-tour="sidebar-trigger-wrap"]',
     title: 'Your Menu',
     body: 'Open this to access all your features — Assessment, Reset Studio, Coach, and Intelligence.',
@@ -100,10 +103,12 @@ const STEPS: GuideStep[] = [
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
     scrollToTop: true,
-    spotlightPad: 12,
+    spotlightPad: 14,
+    spotlightCircle: true,
+    tooltipPosition: 'below',
   },
   {
-    // Step 6 — Mental Performance Suite (sidebar open, elevated)
+    // Step 6 — Mental Performance Suite
     targetSelector: '[data-tour="sidebar-nav"]',
     title: 'Your Mental Performance Suite',
     body: '',
@@ -132,9 +137,10 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     openSidebar: true,
     elevateSidebar: true,
+    tooltipPosition: 'below',
   },
   {
-    // Step 7 — Coach button (larger circle spotlight)
+    // Step 7 — Coach button
     targetSelector: '[data-tour="coach-access-wrap"]',
     title: 'Mind Performance Coach',
     body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
@@ -143,11 +149,12 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     closeSidebar: true,
     scrollToTop: true,
-    spotlightPad: 12,
+    spotlightPad: 14,
+    spotlightCircle: true,
+    tooltipPosition: 'below',
   },
   {
-    // Step 8 — Connect Your Data (sidebar > profile > connected data)
-    // Demo-style: opens sidebar, highlights profile entry which leads to connected data
+    // Step 8 — Connect Your Data
     targetSelector: '[data-tour="sidebar-profile"]',
     title: 'Connect Your Data',
     body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours — the more context, the sharper your system.',
@@ -156,6 +163,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     openSidebar: true,
     elevateSidebar: true,
+    tooltipPosition: 'above',
   },
   {
     // Step 9 — Ready
@@ -187,12 +195,18 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
   const [currentStep, setCurrentStep] = useState(savedStep);
-  const [tooltipVisible, setTooltipVisible] = useState(true);
-  /** Pixel position of the tooltip (top of tooltip card). null = centre (fullscreen). */
-  const [tooltipTop, setTooltipTop] = useState<number | null>(null);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+
+  // Spotlight rect (viewport coords) for the SVG cut-out
+  const [spotRect, setSpotRect] = useState<{ x: number; y: number; w: number; h: number; r: number } | null>(null);
+  // Tooltip position
+  const [tooltipPos, setTooltipPos] = useState<{ top: number } | null>(null);
+
   const previousElRef = useRef<HTMLElement | null>(null);
   const currentStepRef = useRef(currentStep);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const measureFrameRef = useRef<number | null>(null);
 
   currentStepRef.current = currentStep;
 
@@ -217,9 +231,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.margin = '';
       previousElRef.current = null;
     }
-    // Sidebar z-index
     const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
     if (sp) sp.style.zIndex = '';
+    setSpotRect(null);
   }, []);
 
   const clearRetry = useCallback(() => {
@@ -227,6 +241,72 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
+    if (measureFrameRef.current) {
+      cancelAnimationFrame(measureFrameRef.current);
+      measureFrameRef.current = null;
+    }
+  }, []);
+
+  /* ---- measure & position ---- */
+
+  const measureAndPosition = useCallback(() => {
+    const idx = currentStepRef.current;
+    const s = STEPS[idx];
+    if (!s || s.targetSelector === 'fullscreen') {
+      setSpotRect(null);
+      setTooltipPos(null);
+      return;
+    }
+
+    const el = document.querySelector(s.targetSelector) as HTMLElement | null;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const pad = s.spotlightPad || 0;
+
+    // Spotlight rect with padding
+    const sx = rect.left - pad;
+    const sy = rect.top - pad;
+    const sw = rect.width + pad * 2;
+    const sh = rect.height + pad * 2;
+    const sr = s.spotlightCircle ? Math.max(sw, sh) / 2 : 12;
+
+    setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
+
+    // Measure tooltip height
+    const tooltipEl = tooltipRef.current;
+    const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
+    const GAP = 16;
+    const vH = window.innerHeight;
+
+    const spaceAbove = sy;
+    const spaceBelow = vH - (sy + sh);
+
+    const pref = s.tooltipPosition || 'auto';
+
+    let top: number;
+    if (pref === 'above' && spaceAbove >= tooltipH + GAP) {
+      top = sy - tooltipH - GAP;
+    } else if (pref === 'below' && spaceBelow >= tooltipH + GAP) {
+      top = sy + sh + GAP;
+    } else if (pref === 'auto' || (pref === 'above' && spaceAbove < tooltipH + GAP) || (pref === 'below' && spaceBelow < tooltipH + GAP)) {
+      // Auto: prefer whichever side has more room
+      if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP) {
+        top = sy + sh + GAP;
+      } else if (spaceAbove >= tooltipH + GAP) {
+        top = sy - tooltipH - GAP;
+      } else {
+        // Clamp below if neither fits
+        top = sy + sh + GAP;
+      }
+    } else {
+      top = sy + sh + GAP;
+    }
+
+    // Clamp within viewport
+    top = Math.max(8, Math.min(top, vH - tooltipH - 8));
+
+    setTooltipPos({ top });
   }, []);
 
   /* ---- highlight + measure ---- */
@@ -235,7 +315,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
     if (!s || s.targetSelector === 'fullscreen') {
-      setTooltipTop(null); // centre
+      setSpotRect(null);
+      setTooltipPos(null);
+      setTooltipVisible(true);
       return;
     }
 
@@ -257,15 +339,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       cleanupPrevious();
 
       // Raise element above overlay
-      const pad = s.spotlightPad || 0;
       el.style.position = 'relative';
       el.style.zIndex = '61';
-      el.style.boxShadow = '0 0 40px rgba(255,183,77,0.15)';
-      // Circular spotlight for small icon buttons, rounded-rect for sections
-      if (pad > 0) {
+      if (s.spotlightCircle) {
         el.style.borderRadius = '9999px';
-        el.style.padding = `${pad}px`;
-        el.style.margin = `-${pad}px`;
       } else {
         el.style.borderRadius = '12px';
       }
@@ -277,29 +354,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         if (sp) sp.style.zIndex = '61';
       }
 
-      // ── Measured tooltip positioning ──
-      // Goal: place the tooltip card so it never overlaps the highlighted element.
-      const rect = el.getBoundingClientRect();
-      const vH = window.innerHeight;
-      const TOOLTIP_H = 260; // estimated max height of tooltip card
-      const GAP = 20;        // space between tooltip and element
+      // Measure positions
+      measureAndPosition();
+      setTooltipVisible(true);
 
-      const spaceAbove = rect.top;
-      const spaceBelow = vH - rect.bottom;
-
-      if (spaceAbove >= TOOLTIP_H + GAP) {
-        // Place above the element
-        setTooltipTop(rect.top - TOOLTIP_H - GAP);
-      } else if (spaceBelow >= TOOLTIP_H + GAP) {
-        // Place below the element
-        setTooltipTop(rect.bottom + GAP);
-      } else {
-        // Not enough room either side — clamp to safe zone
-        // Prefer top, clamp at safe-area + 56px
-        setTooltipTop(Math.max(60, rect.top - TOOLTIP_H - GAP));
-      }
+      // Re-measure after a short delay for any layout shifts
+      setTimeout(measureAndPosition, 100);
     }, 500);
-  }, [cleanupPrevious]);
+  }, [cleanupPrevious, measureAndPosition]);
 
   /* ---- step lifecycle ---- */
 
@@ -307,12 +369,12 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     clearRetry();
     cleanupPrevious();
     setTooltipVisible(false);
+    setTooltipPos(null);
+    setSpotRect(null);
 
-    const fadeTimer = setTimeout(() => setTooltipVisible(true), 550);
     const hlTimer = setTimeout(highlightElement, 150);
 
     return () => {
-      clearTimeout(fadeTimer);
       clearTimeout(hlTimer);
       clearRetry();
     };
@@ -345,6 +407,20 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     return () => { cleanupPrevious(); clearRetry(); };
   }, [cleanupPrevious, clearRetry]);
 
+  // Re-measure on scroll/resize
+  useEffect(() => {
+    const handler = () => {
+      if (measureFrameRef.current) cancelAnimationFrame(measureFrameRef.current);
+      measureFrameRef.current = requestAnimationFrame(measureAndPosition);
+    };
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  }, [measureAndPosition]);
+
   /* ---- actions ---- */
 
   const handleNext = () => {
@@ -366,7 +442,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
     if (sidebarContext) sidebarContext.setOpen(false);
-    // Don't submit invalid onboarding step — just mark done locally
     onComplete();
     navigate('/daily-check-in');
   };
@@ -376,33 +451,75 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   /* ---- tooltip position styles ---- */
 
   const tooltipStyle: React.CSSProperties =
-    isFullscreen || tooltipTop === null
+    isFullscreen || tooltipPos === null
       ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)' }
-      : { top: `${Math.max(8, tooltipTop)}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
+      : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen ? '360px' : '400px';
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40 transition-opacity duration-300" />
+      {/* SVG overlay with spotlight cut-out */}
+      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+        <defs>
+          <mask id="spotlight-mask">
+            <rect width="100%" height="100%" fill="white" />
+            {spotRect && (
+              <rect
+                x={spotRect.x}
+                y={spotRect.y}
+                width={spotRect.w}
+                height={spotRect.h}
+                rx={spotRect.r}
+                ry={spotRect.r}
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect
+          width="100%"
+          height="100%"
+          fill="rgba(0,0,0,0.45)"
+          mask="url(#spotlight-mask)"
+        />
+      </svg>
+
+      {/* Spotlight glow ring */}
+      {spotRect && (
+        <div
+          className="absolute pointer-events-none border-2 border-saffron/30 transition-all duration-500"
+          style={{
+            left: spotRect.x - 2,
+            top: spotRect.y - 2,
+            width: spotRect.w + 4,
+            height: spotRect.h + 4,
+            borderRadius: spotRect.r >= 9999 ? '9999px' : `${spotRect.r + 2}px`,
+            boxShadow: '0 0 30px rgba(255,183,77,0.15)',
+          }}
+        />
+      )}
+
+      {/* Click-through overlay to block interactions outside spotlight */}
+      <div className="absolute inset-0" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
 
       {/* Skip */}
       <button
         onClick={finish}
         className="absolute right-4 z-[70] flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)', pointerEvents: 'auto' }}
       >
         Skip <X size={14} />
       </button>
 
       {/* Tooltip Card */}
       <div
+        ref={tooltipRef}
         className={cn(
           'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300 mx-auto',
           tooltipVisible ? 'opacity-100' : 'opacity-0 translate-y-2',
         )}
-        style={{ ...tooltipStyle, maxWidth: tooltipMaxW }}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: 'auto' }}
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
