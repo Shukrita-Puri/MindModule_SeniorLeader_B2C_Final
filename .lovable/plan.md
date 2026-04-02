@@ -1,42 +1,45 @@
 
 
-# Fix Tour Walkthrough: Mobile Sidebar, Profile Highlight, Tab Activation
+# Insights Page — Tab Layout (Matching Homepage Design)
 
-## Issues Found
+## Current Structure
+The Insights page has 4 cards in a vertical scroll:
+1. **Your Self Mastery Patterns** (LeadershipPatternsCard)
+2. **Your Momentum** (Tiny Wins / Performance Log)
+3. **Your Performance Rhythm** (PerformanceRhythmCard)
+4. **Your Mind Map** (InnerWorldBubbles)
 
-1. **Sidebar not showing on mobile tour**: The sidebar Sheet renders as a portal dialog. The tour overlay sits at `z-[60]`, but the mobile Sheet dialog needs its z-index elevated above it. The current `elevateSidebar` code finds `[data-sidebar="sidebar"]` and its parent `[role="dialog"]`, but the Sheet overlay/backdrop also needs elevation.
+## New Structure — 3 Tabs
 
-2. **Profile button missing circular highlight**: Step 7 (`sidebar-profile`) has no `spotlightPad` or `spotlightCircle` — it gets a default rectangular highlight unlike the menu button (step 5) which has `spotlightPad: 14, spotlightCircle: true`.
+Same tab bar design as the homepage: sticky, `bg-background/95 backdrop-blur-md border-b border-white/[0.06]`, 3-col grid, active underline `bg-primary`.
 
-3. **Homepage tour steps may target hidden tab content**: Steps 1-3 target `today-state`, `compass`, and `daily-plan` which live inside tab panels controlled by `display: block/none`. If the wrong tab is active, the element is hidden and unmeasurable. The tour needs to activate the correct tab before highlighting.
+| Tab | Label | Cards |
+|-----|-------|-------|
+| **Patterns** | Patterns | LeadershipPatternsCard |
+| **Momentum** | Momentum | Your Momentum card + PerformanceRhythmCard |
+| **Mind Map** | Mind Map | Your Mind Map card |
 
 ## Changes
 
-### 1. `src/components/onboarding/FirstSessionGuide.tsx`
+### `src/pages/Insights.tsx`
 
-**a) Fix mobile sidebar elevation (line ~335-341)**
+1. **Add tab state**: `const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>('patterns');`
 
-Expand the `elevateSidebar` logic to also elevate the Sheet's backdrop/overlay element. On mobile, the sidebar renders inside a `Sheet` with a backdrop that sits below z-60. Add:
-- Find the Sheet's overlay sibling (`[data-sidebar="sidebar"]`'s closest `[role="dialog"]`'s parent, or the Radix dialog overlay)
-- Set its z-index to 61 as well
-- On cleanup (`cleanupPrevious`), reset these z-indexes
+2. **Add sticky tab bar** below the hero banner — identical markup to `ExecutiveHome.tsx`:
+   - Sticky `top-0 z-30`, `bg-background/95 backdrop-blur-md border-b border-white/[0.06]`
+   - 3-col grid with labels: "Patterns", "Momentum", "Mind Map"
+   - Active tab gets `text-foreground` + `h-0.5 bg-primary rounded-full` underline
+   - Inactive: `text-muted-foreground hover:text-foreground/70`
 
-**b) Add `spotlightCircle` + `spotlightPad` to Profile step (step 7, line ~139-149)**
+3. **Wrap existing cards in tab panels** using `display: block/none` (same pattern as homepage — no unmount):
+   - **Patterns tab**: `<LeadershipPatternsCard />` inside `px-4 max-w-lg mx-auto pt-4`
+   - **Momentum tab**: Your Momentum `LuxuryInsightCard` + `<PerformanceRhythmCard />` inside same container with `space-y-6`
+   - **Mind Map tab**: Your Mind Map `LuxuryInsightCard`
 
-Add `spotlightPad: 14` and `spotlightCircle: true` to the step 7 definition, matching the style of step 5 (menu button).
+4. **Container**: Change `max-w-4xl` to `max-w-lg` to match homepage card width on mobile
 
-**c) Add tab activation before homepage highlights (steps 1-3)**
-
-Add a new action type or inline logic: before highlighting `today-state`, activate the "state" tab; before `compass`, activate the "compass" tab; before `daily-plan`, activate the "action" tab. This can be done by:
-- Adding a `preAction` field to step definitions (e.g., `activateTab: 'state'`)
-- In `highlightElement`, click the corresponding tab button programmatically before measuring
-
-### 2. `src/pages/ExecutiveHome.tsx`
-
-**Add data-tour attributes to tab buttons** so the tour can programmatically click them:
-- Add `data-tour="tab-state"`, `data-tour="tab-compass"`, `data-tour="tab-action"` to each tab button in the grid (line ~223-238)
+5. **No content, text, or logic changes** — cards move into tab panels as-is
 
 ### Files touched
-- `src/components/onboarding/FirstSessionGuide.tsx` — step definitions + sidebar elevation + tab activation logic
-- `src/pages/ExecutiveHome.tsx` — add `data-tour` attrs to tab buttons (~3 lines)
+- `src/pages/Insights.tsx` — add tab state, tab bar, wrap cards in display-toggled panels
 
