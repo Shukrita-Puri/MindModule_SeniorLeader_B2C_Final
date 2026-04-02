@@ -248,7 +248,7 @@ const ExecutiveHome = () => {
             </div>
 
             {/* Time-of-Day Plan */}
-            <div className="animate-in fade-in duration-500 delay-200">
+            <div data-tour="daily-plan" className="animate-in fade-in duration-500 delay-200">
               <DailyRitual onPreEventPlanReady={setPreEventPlan} />
             </div>
 
