@@ -2105,13 +2105,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Find first event in a valid action window
   let topEvent: ScoredEvent | null = null;
   for (const evt of filteredEvents) {
-    if (evt.score < JIT_THRESHOLD_UNIFIED) continue;
+    if (evt.score < JIT_THRESHOLD_UNIFIED) {
+      console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – score=${evt.score} < threshold=${JIT_THRESHOLD_UNIFIED}`);
+      continue;
+    }
     const window = getActionWindow(evt.minutesUntil);
     if (window === 'touch1' || window === 'touch2') {
       topEvent = evt;
       break;
     }
-    // Events in silent gap or selection-only are skipped for plan building
+    console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`);
   }
 
   if (topEvent) {
