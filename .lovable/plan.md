@@ -1,66 +1,100 @@
 
-Goal: make the walkthrough behave like a true demo, not a passive overlay, and fix the remaining overlap/highlight issues shown in the screenshots.
+Goal: fix the walkthrough so it behaves like a true demo on mobile, without tooltip overlap/jump, and with working Menu → Suite → Profile → Connected Data → Coach steps.
 
-1. Rework tooltip placement so it never covers the highlighted content
-- Replace the current fixed top/bottom tooltip behavior with measured positioning tied to the target element.
-- For large sections like “Your Compass” and “Your Action,” compute a safe gap above the highlighted region and clamp the tooltip there.
-- If there is not enough room above, place the tooltip below the highlighted region instead.
-- This prevents the box from sitting on top of the headline/body as shown in the screenshots.
+1. Fix the root mobile sidebar bug in `FirstSessionGuide.tsx`
+- The current demo opens the desktop sidebar state, but on the user’s 390px viewport the sidebar is a mobile sheet controlled by `openMobile`.
+- Update the step-action logic to open/close the correct sidebar state based on `isMobile`.
+- This is why the walkthrough currently gets stuck after the Menu step and why the suite/connect-data demos never visibly appear.
 
-2. Make the highlight region start exactly from the feature headline
-- Keep `data-tour="daily-plan"` on the full wrapper, but refine the spotlight logic so the highlighted bounds use the wrapper’s real rect after scroll settles.
-- Add per-step padding controls so “Your Action” can highlight from the StepLabel/header down through the cards and CTA, without the tooltip intruding into that region.
-- Do the same for “Your Compass” so the tooltip sits above the title with visible space.
+2. Add real demo actions instead of static spotlight-only steps
+- Extend the step config with explicit actions such as:
+  - `open-sidebar`
+  - `close-sidebar`
+  - `scroll-sidebar-footer`
+  - `open-profile`
+  - `navigate-profile`
+- Run these actions before measuring the target, with retries until the target exists.
+- This will make the flow actually demonstrate:
+  - Menu button opens sidebar
+  - Suite stays open and shows navigation area
+  - Connect Data continues to Profile instead of stopping at the profile row
+  - Coach returns to home and highlights the top-right button
 
-3. Turn Menu / Coach / Suite / Connected Data into guided demo steps
-- Add a small step-action system to `FirstSessionGuide.tsx` so steps can trigger UI behavior, not just navigate/scroll.
-- Menu step: animate/open the sidebar and highlight the larger padded wrapper around the menu trigger.
-- Mental Performance Suite step: keep the sidebar open and sequentially spotlight the 4 suite items inside the sidebar so the user can clearly see each feature being referenced.
-- Coach step: highlight the larger padded wrapper around the coach button with a true circular punch-through.
+3. Fix Mental Performance Suite so it shows the actual navigation items
+- Right now it only highlights `[data-tour="sidebar-nav"]`, which does not satisfy the requested “show the 4 different features”.
+- Add `data-tour` hooks for each suite row in `LeftSidebar.tsx`.
+- Change the suite step into either:
+  - one grouped spotlight around the full visible feature list plus richer explanatory copy, or
+  - a short sub-sequence that spotlights each item in order.
+- Also ensure the sidebar sheet/panel gets elevated above the overlay on mobile.
 
-4. Change “Connect Your Data” from redirect to in-app demo flow
-- Remove the `/connected-data` page redirect from the walkthrough.
-- Instead, make this step demo the path the user would take:
-  - open the menu
-  - scroll within the sidebar/footer area to the profile/account section
-  - open the profile/settings entry
-  - then spotlight the “Connected Data Sources” entry as the destination
-- This matches your requested “show me where it lives” behavior instead of taking the user away to another page.
-- If the current sidebar only exposes “Profile,” then the walkthrough should highlight that entry first and then continue the demo on the Profile page only for the connected-data button itself, not jump directly there.
+4. Complete the Connect Data discovery path
+- The current tour stops at `sidebar-profile`; it never opens Profile and never spotlights `connected-data-btn`.
+- Split this into a true path:
+  - open sidebar
+  - scroll footer/profile into view
+  - spotlight profile entry
+  - navigate to `/profile`
+  - after route settles, spotlight `data-tour="connected-data-btn"`
+- This matches the requested “show me where it lives” behavior without redirecting straight to `/connected-data`.
 
-5. Add explicit tour targets for the exact sidebar/profile elements
-- Add `data-tour` hooks for:
-  - sidebar trigger wrapper
-  - coach wrapper
-  - sidebar panel
-  - each of the 4 Mental Performance Suite items
-  - profile entry in `UserSettingsPopover`
-  - “Connected Data Sources” button in `Profile.tsx`
-- This allows the walkthrough to spotlight exact UI pieces instead of generic containers.
+5. Fix Coach step so the highlight always appears
+- Ensure the coach step first closes the mobile sidebar, waits for the sheet dismissal to complete, scrolls to top, then measures `[data-tour="coach-access-wrap"]`.
+- Keep circular spotlight mode with padded hit area.
+- The current failure is likely because measurement runs while the sidebar transition/page state is still changing.
 
-6. Improve spotlight rendering for small controls
-- Change the current inline z-index styling into a reusable spotlight mode:
-  - circular for icon buttons (menu, coach)
-  - rounded-rect for cards/sections
-  - full-panel elevation for sidebar content
-- Add configurable padding/radius per step so small buttons get a larger visible punch-through area.
+6. Remove tooltip overlap and the visible “jump” correction
+- The overlap is happening because the tooltip renders, then repositions after measurement.
+- Change tooltip rendering so it stays hidden until:
+  - target rect is final
+  - tooltip height has been measured
+  - final top position is computed
+- Use a two-pass measure flow:
+  - mount hidden tooltip
+  - measure actual height
+  - compute top based on real target rect + gap
+  - reveal only after final coordinates are ready
+- For `today-state`, `compass`, and `daily-plan`, preserve preferred placement but fall back below when above doesn’t fit.
 
-7. Fix the walkthrough completion runtime error
-- The current finish handler sends `first_session_walkthrough` to `onboarding-progress`, but that endpoint only accepts canonical onboarding step names.
-- Fix by removing that invalid step submission from the walkthrough flow, or by routing walkthrough completion to a separate accepted action.
-- This is separate from the visual issue, but it should be cleaned up in the same pass.
+7. Refine spotlight bounds for State / Compass / Plan
+- Keep `data-tour="daily-plan"` on the full wrapper.
+- Adjust scroll alignment and per-step offsets so the visible spotlight starts exactly at the intended header region, or begins after the tooltip gap when tooltip is above.
+- For large cards/sections, add per-step spotlight metadata such as:
+  - `spotlightInsetTop`
+  - `spotlightInsetBottom`
+  - `tooltipGap`
+  - optional `scrollOffset`
+- This will stop the navigation card from covering “Your State”, “Your Compass”, or “Your Action” before correcting itself.
 
-Files to update
-- `src/components/onboarding/FirstSessionGuide.tsx`
-- `src/pages/ExecutiveHome.tsx`
-- `src/components/navigation/LeftSidebar.tsx`
-- `src/components/navigation/UserSettingsPopover.tsx`
-- `src/pages/Profile.tsx`
-- optionally `src/hooks/useOnboardingProgress.ts` or the walkthrough finish logic only
+8. Add missing target hooks required by the approved behavior
+- `LeftSidebar.tsx`
+  - add `data-tour` for each of the 4 suite items
+  - optionally add a footer wrapper target for profile-area scrolling
+- `UserSettingsPopover.tsx`
+  - keep `data-tour="sidebar-profile"`
+- `Profile.tsx`
+  - keep `data-tour="connected-data-btn"`
+- `ExecutiveHome.tsx`
+  - keep menu/coach wrapper hooks and ensure they remain stable for spotlight measurement
+
+9. Verify walkthrough completion logic remains clean
+- Confirm `finish()` no longer calls invalid onboarding step recording.
+- Keep completion limited to local/session walkthrough state unless there is already a valid backend field for completion timestamp.
+
+Technical details
+- Primary issue: mobile sidebar uses `openMobile`, but the walkthrough currently only calls `setOpen(true/false)` semantics through sidebar context behavior, so the visible sheet never opens correctly on phones.
+- Secondary issue: tooltip position is calculated after initial render, causing the temporary overlap seen in screenshots.
+- Structural gap: step 6 and step 8 are not true demos yet; they spotlight containers but do not perform the requested UI path.
+- Main files to update:
+  - `src/components/onboarding/FirstSessionGuide.tsx`
+  - `src/components/navigation/LeftSidebar.tsx`
+  - `src/components/navigation/UserSettingsPopover.tsx`
+  - `src/pages/Profile.tsx`
+  - `src/pages/ExecutiveHome.tsx`
 
 Expected result
-- Tooltip boxes no longer overlap Compass or Action content.
-- Menu and Coach buttons are visibly spotlighted with larger circles.
-- Mental Performance Suite is shown as a guided demo with each feature visibly highlighted.
-- Connected Data is shown via the actual discovery path in-app, not by redirecting straight to the page.
-- The walkthrough no longer throws the invalid onboarding step error.
+- Menu step opens visibly on mobile.
+- Mental Performance Suite visibly demonstrates the 4 feature entries.
+- Connect Data shows Menu → Profile → Connected Data Sources.
+- Coach button gets a visible circular spotlight after the sidebar closes.
+- State / Compass / Plan tooltips appear only in final non-overlapping positions, without the initial overlap/jump.
