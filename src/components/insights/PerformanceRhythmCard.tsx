@@ -897,6 +897,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
                     How You Show Up
                   </span>
+                  <InsightInfoModal
+                    title="How You Show Up"
+                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations — it reflects how consistently you operate at your best."
+                  />
                 </div>
                 <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
                 {data.presenceInsight && (
