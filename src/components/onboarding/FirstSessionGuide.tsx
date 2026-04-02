@@ -150,6 +150,8 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     action: 'open-sidebar',
     elevateSidebar: true,
+    spotlightPad: 14,
+    spotlightCircle: true,
     tooltipPosition: 'above',
   },
   {
