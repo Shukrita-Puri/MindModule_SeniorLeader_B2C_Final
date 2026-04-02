@@ -19,12 +19,18 @@ interface GuideStep {
   body: string;
   /** Rich body content for steps that need structured layout */
   richBody?: React.ReactNode;
-  page: 'check-in' | 'home';
+  page: 'check-in' | 'home' | 'connected-data';
   phase: 'A' | 'B';
   phaseLabel: string;
   openSidebar?: boolean;
   closeSidebar?: boolean;
   scrollToTop?: boolean;
+  /** Control scroll alignment when highlighting. Default 'center'. */
+  scrollBlock?: ScrollLogicalPosition;
+  /** Force tooltip position instead of auto-detecting */
+  forceTooltip?: 'top' | 'bottom';
+  /** Elevate the sidebar panel above overlay for this step */
+  elevateSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
@@ -39,7 +45,7 @@ const STEPS: GuideStep[] = [
   {
     targetSelector: '[data-tour="today-state"]',
     title: 'Your State — Decision Readiness Score',
-    body: 'Your check-in becomes a score — how sharp, steady, and ready you are right now.',
+    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now — your sharpness, clarity, and confidence, with an understanding from your wearable (if available) — based on your time of day.',
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
@@ -51,6 +57,8 @@ const STEPS: GuideStep[] = [
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
+    scrollBlock: 'start',
+    forceTooltip: 'top',
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -59,6 +67,8 @@ const STEPS: GuideStep[] = [
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
+    scrollBlock: 'start',
+    forceTooltip: 'top',
   },
   {
     targetSelector: 'fullscreen',
@@ -69,7 +79,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
   },
   {
-    targetSelector: '[data-tour="sidebar-trigger"]',
+    targetSelector: '[data-tour="sidebar-trigger-wrap"]',
     title: 'Your Menu',
     body: 'Open this to access all your features — Assessment, Reset Studio, Coach, and Intelligence.',
     page: 'home',
@@ -105,9 +115,10 @@ const STEPS: GuideStep[] = [
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
     openSidebar: true,
+    elevateSidebar: true,
   },
   {
-    targetSelector: '[data-tour="coach-access"]',
+    targetSelector: '[data-tour="coach-access-wrap"]',
     title: 'Mind Performance Coach',
     body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
     page: 'home',
@@ -117,10 +128,10 @@ const STEPS: GuideStep[] = [
     scrollToTop: true,
   },
   {
-    targetSelector: 'fullscreen',
+    targetSelector: '[data-tour="connected-data-content"]',
     title: 'Connect Your Data',
-    body: 'Go to Profile → Connected Data to sync Google Calendar and Apple Health. This syncs automatically every 6 hours — but you can always manually sync if you want updates sooner. The more context, the sharper your system.',
-    page: 'home',
+    body: 'Sync Google Calendar and Apple Health here. This syncs automatically every 6 hours — but you can always manually sync if you want updates sooner. The more context, the sharper your system.',
+    page: 'connected-data',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
   },
@@ -169,7 +180,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.setItem(SESSION_KEY, String(currentStep));
   }, [currentStep]);
 
-  // Clean up previously highlighted element
+  // Clean up previously highlighted element + sidebar elevation
   const cleanupPrevious = useCallback(() => {
     if (previousElRef.current) {
       previousElRef.current.style.position = '';
@@ -177,6 +188,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.boxShadow = '';
       previousElRef.current.style.borderRadius = '';
       previousElRef.current = null;
+    }
+    // Clean up sidebar elevation
+    const sidebarPanel = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
+    if (sidebarPanel) {
+      sidebarPanel.style.zIndex = '';
     }
   }, []);
 
@@ -209,8 +225,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Scroll element into view
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll element into view with configurable alignment
+    const scrollBlock = s.scrollBlock || 'center';
+    el.scrollIntoView({ behavior: 'smooth', block: scrollBlock });
 
     // After scroll settles, raise element above overlay and measure position
     setTimeout(() => {
@@ -225,16 +242,27 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       el.style.borderRadius = '12px';
       previousElRef.current = el;
 
-      // Smart tooltip positioning: measure where element sits
-      const rect = el.getBoundingClientRect();
-      const viewportH = window.innerHeight;
+      // Elevate sidebar panel if needed
+      if (s.elevateSidebar) {
+        const sidebarPanel = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
+        if (sidebarPanel) {
+          sidebarPanel.style.zIndex = '61';
+        }
+      }
 
-      if (rect.bottom > viewportH * 0.5) {
-        // Element is in lower half → tooltip goes to top
-        setTooltipPosition('top');
+      // Tooltip positioning
+      if (s.forceTooltip) {
+        setTooltipPosition(s.forceTooltip);
       } else {
-        // Element is in upper half → tooltip goes to bottom
-        setTooltipPosition('bottom');
+        // Smart tooltip positioning: measure where element sits
+        const rect = el.getBoundingClientRect();
+        const viewportH = window.innerHeight;
+
+        if (rect.bottom > viewportH * 0.5) {
+          setTooltipPosition('top');
+        } else {
+          setTooltipPosition('bottom');
+        }
       }
     }, 450);
   }, [cleanupPrevious]);
@@ -282,6 +310,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
     if (step.page === 'check-in' && currentPage !== '/daily-check-in') {
       navigate('/daily-check-in');
+    }
+    if (step.page === 'connected-data' && currentPage !== '/connected-data') {
+      navigate('/connected-data');
     }
   }, [currentStep, step, location.pathname, navigate]);
 

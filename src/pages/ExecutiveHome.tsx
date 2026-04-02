@@ -202,8 +202,12 @@ const ExecutiveHome = () => {
             </div>
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
-              <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
-              <div data-tour="coach-access"><CoachAccessButton /></div>
+              <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
+                <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
+              </div>
+              <div data-tour="coach-access-wrap" className="p-2 -m-2 rounded-full">
+                <div data-tour="coach-access"><CoachAccessButton /></div>
+              </div>
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
@@ -236,25 +240,31 @@ const ExecutiveHome = () => {
                 <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
               </div>
 
-              <section className="animate-in fade-in duration-500 delay-200">
-                <div className="flex items-center justify-between py-2">
-                  <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
-                  <MetricInfoModal
-                    title="Your Performance Readiness Plan"
-                    description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-                  />
-                </div>
-              </section>
             </div>
 
-            {/* Time-of-Day Plan */}
-            <div data-tour="daily-plan" className="animate-in fade-in duration-500 delay-200">
-              <DailyRitual onPreEventPlanReady={setPreEventPlan} />
-            </div>
+            {/* Your Action section — wrapped for tour highlight */}
+            <div data-tour="daily-plan">
+              <div className="px-4 md:px-6 max-w-lg mx-auto">
+                <section className="animate-in fade-in duration-500 delay-200">
+                  <div className="flex items-center justify-between py-2">
+                    <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
+                    <MetricInfoModal
+                      title="Your Performance Readiness Plan"
+                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    />
+                  </div>
+                </section>
+              </div>
 
-            {/* JIT Preparation - driven by plan data */}
-            <div className="animate-in fade-in duration-500 delay-300 mt-4">
-              <JitCarousel preEventPlan={preEventPlan} />
+              {/* Time-of-Day Plan */}
+              <div className="animate-in fade-in duration-500 delay-200">
+                <DailyRitual onPreEventPlanReady={setPreEventPlan} />
+              </div>
+
+              {/* JIT Preparation - driven by plan data */}
+              <div className="animate-in fade-in duration-500 delay-300 mt-4">
+                <JitCarousel preEventPlan={preEventPlan} />
+              </div>
             </div>
 
             <div className="mt-8">

@@ -527,7 +527,7 @@ const ConnectedData = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" data-tour="connected-data-content">
       <UnifiedTopBar hideCoach backPath="/profile" />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-4">
