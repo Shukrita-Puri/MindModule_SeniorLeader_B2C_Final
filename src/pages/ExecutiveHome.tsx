@@ -1,14 +1,10 @@
 /**
- * Executive Home - Decision Engine Dashboard
- * Answers 3 questions:
- * 1. Where am I today? (TodayStateCard)
- * 2. What matters today? (StrategicIntentionCard)
- * 3. What should I do now? (DailyRitual - Performance Plan)
- * + Just-in-time interventions when triggered (JitCarousel)
+ * Executive Home – Decision Engine Dashboard
+ * Three-tab layout: State / Compass / Action
+ * Uses display:none toggling (not unmount) to preserve component state.
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -60,9 +56,15 @@ interface PreEventPlan {
   progressTracked: boolean;
 }
 
+const TAB_LABELS = [
+  { key: 'state' as const, label: 'State' },
+  { key: 'compass' as const, label: 'Compass' },
+  { key: 'action' as const, label: 'Action' },
+];
+
 const ExecutiveHome = () => {
   const { user } = useAuth();
-  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'state' | 'compass' | 'action'>('state');
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
@@ -95,7 +97,6 @@ const ExecutiveHome = () => {
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
   
-  // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return `Morning, ${firstName}`;
@@ -103,26 +104,23 @@ const ExecutiveHome = () => {
     return `Evening, ${firstName}`;
   };
   
-  // Get subheadline from Outer Readiness Brief (shared cache)
   const getSubheadline = () => {
     if (!outerBrief) return "Let's make today count.";
     return outerBrief.phrase || "Let's make today count.";
   };
   
-  // Get tier gradient class for poster placeholder
   const getTierGradient = () => {
     const tier = energyState?.energyTier || 'default';
     return TIER_GRADIENTS[tier] || TIER_GRADIENTS.default;
   };
   
-  // Get time of day for video selection
   const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'morning';
     if (hour >= 12 && hour < 18) return 'afternoon';
     return 'evening';
   };
-  // Memoize video URL to prevent remount on every render
+
   const heroVideoUrl = useMemo(() => {
     const timeOfDay = getTimeOfDay();
     const tier = energyState?.energyTier || 'default';
@@ -156,7 +154,6 @@ const ExecutiveHome = () => {
     return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
   }, [energyState?.energyTier]);
   
-  // Use ref to track if video has already faded in
   const videoFadedIn = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -168,7 +165,6 @@ const ExecutiveHome = () => {
     }
   }, []);
 
-  // Timeout fallback: if video events never fire (iOS WKWebView), fade in after 3s
   useEffect(() => {
     videoFadedIn.current = false;
     const timer = setTimeout(() => fadeInVideo(), 3000);
@@ -211,7 +207,7 @@ const ExecutiveHome = () => {
               </div>
             </header>
             
-            <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
+            <div className="relative z-10 pt-6 pb-20 max-w-lg mx-auto text-center">
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
@@ -221,64 +217,87 @@ const ExecutiveHome = () => {
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* Sticky Tab Bar */}
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/30">
+            <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
+              {TAB_LABELS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`text-sm font-medium font-body transition-all relative ${
+                    activeTab === key
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground/70'
+                  }`}
+                >
+                  {label}
+                  {activeTab === key && (
+                    <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab Content – all rendered, toggle via display */}
           <div className="flex-1 w-full pb-8">
 
-            <div className="px-4 md:px-6 max-w-lg mx-auto">
-              <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <TodayStateCard />
-              </section>
-
-              <div className="flex justify-center my-6">
-                <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
-              </div>
-
-              <section data-tour="compass" className="animate-in fade-in duration-500 delay-100">
-                <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
-              </section>
-
-              <div className="flex justify-center my-6">
-                <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
-              </div>
-
-            </div>
-
-            {/* Your Action section – wrapped for tour highlight */}
-            <div data-tour="daily-plan">
-              <div className="px-4 md:px-6 max-w-lg mx-auto">
-                <section className="animate-in fade-in duration-500 delay-200">
-                  <div className="flex items-center justify-between py-2">
-                    <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
-                    <MetricInfoModal
-                      title="Your Performance Readiness Plan"
-                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-                    />
-                  </div>
+            {/* STATE tab */}
+            <div style={{ display: activeTab === 'state' ? 'block' : 'none' }}>
+              <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+                <section data-tour="today-state" className="animate-in fade-in duration-500">
+                  <TodayStateCard />
                 </section>
               </div>
+            </div>
 
-              {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
-              {jitPriority && (
-                <div className="animate-in fade-in duration-500 delay-200 mt-4">
-                  <JitCarousel preEventPlan={preEventPlan} />
-                </div>
-              )}
-
-              {/* Time-of-Day Plan */}
-              <div className="animate-in fade-in duration-500 delay-200">
-                <DailyRitual
-                  onPreEventPlanReady={setPreEventPlan}
-                  onJitPriorityChange={setJitPriority}
-                  jitPriority={jitPriority}
-                />
+            {/* COMPASS tab */}
+            <div style={{ display: activeTab === 'compass' ? 'block' : 'none' }}>
+              <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+                <section data-tour="compass" className="animate-in fade-in duration-500">
+                  <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
+                </section>
               </div>
+            </div>
 
-              {/* JIT Preparation – below ToD when NOT primary */}
-              {!jitPriority && (
-                <div className="animate-in fade-in duration-500 delay-300 mt-4">
-                  <JitCarousel preEventPlan={preEventPlan} />
+            {/* ACTION tab */}
+            <div style={{ display: activeTab === 'action' ? 'block' : 'none' }}>
+              <div data-tour="daily-plan">
+                <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+                  <section className="animate-in fade-in duration-500">
+                    <div className="flex items-center justify-between py-2">
+                      <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
+                      <MetricInfoModal
+                        title="Your Performance Readiness Plan"
+                        description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                      />
+                    </div>
+                  </section>
                 </div>
-              )}
+
+                {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
+                {jitPriority && (
+                  <div className="animate-in fade-in duration-500 mt-4">
+                    <JitCarousel preEventPlan={preEventPlan} />
+                  </div>
+                )}
+
+                {/* Time-of-Day Plan */}
+                <div className="animate-in fade-in duration-500">
+                  <DailyRitual
+                    onPreEventPlanReady={setPreEventPlan}
+                    onJitPriorityChange={setJitPriority}
+                    jitPriority={jitPriority}
+                  />
+                </div>
+
+                {/* JIT Preparation – below ToD when NOT primary */}
+                {!jitPriority && (
+                  <div className="animate-in fade-in duration-500 mt-4">
+                    <JitCarousel preEventPlan={preEventPlan} />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-8">
