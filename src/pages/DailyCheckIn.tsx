@@ -88,9 +88,10 @@ const DailyCheckIn = () => {
   useEffect(() => {
     if (sessionStorage.getItem('first_session_done')) return;
 
-    // Dev/testing: ?tour=1 in URL forces the guide
+    // Dev/testing: ?tour=1 in URL forces the guide (also clears done flag)
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
+      sessionStorage.removeItem('first_session_done');
       sessionStorage.setItem('first_session_guide_step', '0');
       setShowGuide(true);
       return;
