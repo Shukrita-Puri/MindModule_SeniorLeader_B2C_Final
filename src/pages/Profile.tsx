@@ -301,6 +301,7 @@ const Profile = () => {
               variant="outline"
               className="w-full justify-start gap-2"
               onClick={() => navigate('/connected-data')}
+              data-tour="connected-data-btn"
             >
               <Database className="h-4 w-4" />
               Connected Data Sources
