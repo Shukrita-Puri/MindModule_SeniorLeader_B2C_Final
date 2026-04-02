@@ -21,6 +21,7 @@ import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
+import StepLabel from "@/components/home/StepLabel";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
