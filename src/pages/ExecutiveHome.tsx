@@ -262,6 +262,11 @@ const ExecutiveHome = () => {
             </div>
           </div>
 
+          {/* First Session Guide */}
+          {showGuide && (
+            <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+          )}
+
           {/* Plan Feedback Modal */}
           {planFeedback && (
             <PlanFeedbackModal

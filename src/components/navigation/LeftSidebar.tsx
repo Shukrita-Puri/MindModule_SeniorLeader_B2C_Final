@@ -92,7 +92,7 @@ const LeftSidebar = () => {
             Mental Performance Suite
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu data-tour="sidebar-nav">
               {features.map((feature) => {
                 const isActive = location.pathname === feature.path;
                 const IconComponent = feature.icon;

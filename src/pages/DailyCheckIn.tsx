@@ -344,6 +344,10 @@ const DailyCheckIn = () => {
           ))}
         </div>
       </div>
+      {/* First Session Guide overlay */}
+      {showGuide && (
+        <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+      )}
     </div>
   );
 };
