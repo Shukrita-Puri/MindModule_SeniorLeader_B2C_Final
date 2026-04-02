@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Heart } from 'lucide-react';
+import { Check, RotateCcw, Heart, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -85,6 +85,7 @@ interface MasteryPlanResponse {
   };
   calendarPills: CalendarPill[];
   preEventPlan: PreEventPlan | null;
+  jitPriority?: boolean;
   meta: {
     generatedAt: string;
     scenarioId: string | null;
@@ -107,9 +108,12 @@ const isEvening = (): boolean => {
 
 interface DailyRitualProps {
   onPreEventPlanReady?: (plan: PreEventPlan | null) => void;
+  onJitPriorityChange?: (jitPriority: boolean) => void;
+  jitPriority?: boolean;
 }
 
-const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
+const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = false }: DailyRitualProps = {}) => {
+  const [jitExpanded, setJitExpanded] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
@@ -321,6 +325,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
               console.log('[DailyRitual] Using sessionStorage cache for plan', { period: currentPeriod, date: todayDate });
               setPlan(parsed);
               onPreEventPlanReady?.(parsed.preEventPlan || null);
+              onJitPriorityChange?.(!!parsed.jitPriority);
               const allCompletedIds = todayRitual?.completed_practice_ids || [];
               const modules = parsed.timeOfDayPlan?.modules || [];
               const planModuleIds = modules.map(m => m.contentId);
@@ -369,6 +374,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
       onPreEventPlanReady?.(planResponse.preEventPlan || null);
+      onJitPriorityChange?.(!!planResponse.jitPriority);
 
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
@@ -563,6 +569,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     return { label: labels[module.type], protocolType: protocolTypes[module.type] };
   };
 
+  const isCollapsedByJit = jitPriority && !jitExpanded;
+
   return (
     <div className="space-y-4 pt-2">
       <div className="px-4 max-w-lg mx-auto">
@@ -583,15 +591,36 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                 ({activeModules.length}-step sequence)
               </span>
             </div>
-            <span className={cn(
-              "text-xs font-medium font-body whitespace-nowrap",
-              ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
-            )}>
-              {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
-              {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "text-xs font-medium font-body whitespace-nowrap",
+                ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
+              )}>
+                {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
+                {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
+              </span>
+              {jitPriority && (
+                <button
+                  onClick={() => setJitExpanded(!jitExpanded)}
+                  className="p-1 rounded-md hover:bg-muted/40 transition-colors"
+                  aria-label={jitExpanded ? 'Hide plan' : 'Show plan'}
+                >
+                  <ChevronDown size={14} className={cn("text-muted-foreground transition-transform", jitExpanded && "rotate-180")} />
+                </button>
+              )}
+            </div>
           </div>
-          {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
+
+          {/* JIT collapsed message */}
+          {isCollapsedByJit && (
+            <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2">
+              <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+                Preparing for your event — your Time-of-Day plan is available after.
+              </span>
+            </div>
+          )}
+
+          {!isCollapsedByJit && (plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
               <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
                 <TextWithEventEmphasis text={plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage || ''} />
@@ -599,7 +628,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
             </div>
           )}
           {/* Check-in prompt banner */}
-          {noCheckinForWindow && ritualStatus.status !== 'completed' && (
+          {!isCollapsedByJit && noCheckinForWindow && ritualStatus.status !== 'completed' && (
             <button
               onClick={() => navigate('/daily-checkin')}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
@@ -613,6 +642,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
       {/* Pre-event context removed — handled by JitCarousel */}
 
+      {/* Carousel — hidden when JIT collapses the ToD plan */}
+      {!isCollapsedByJit && (<>
       {/* Carousel */}
       <div className="relative w-full">
         <Carousel opts={{ align: 'start', loop: false, watchDrag: true }} className="w-full" setApi={setCarouselApi}>
@@ -752,6 +783,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
               </div>
             )}
       </div>
+      </>)}
     </div>
   );
 };

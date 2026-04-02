@@ -64,6 +64,7 @@ const ExecutiveHome = () => {
   const { user } = useAuth();
   const location = useLocation();
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
+  const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
 
   // First session guide: show if mid-flow (navigated from check-in page)
@@ -233,7 +234,7 @@ const ExecutiveHome = () => {
               </div>
 
               <section data-tour="compass" className="animate-in fade-in duration-500 delay-100">
-                <StrategicIntentionCard />
+                <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
               </section>
 
               <div className="flex justify-center my-6">
@@ -256,15 +257,28 @@ const ExecutiveHome = () => {
                 </section>
               </div>
 
+              {/* JIT Preparation — rendered ABOVE ToD when JIT is primary */}
+              {jitPriority && (
+                <div className="animate-in fade-in duration-500 delay-200 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
+
               {/* Time-of-Day Plan */}
               <div className="animate-in fade-in duration-500 delay-200">
-                <DailyRitual onPreEventPlanReady={setPreEventPlan} />
+                <DailyRitual
+                  onPreEventPlanReady={setPreEventPlan}
+                  onJitPriorityChange={setJitPriority}
+                  jitPriority={jitPriority}
+                />
               </div>
 
-              {/* JIT Preparation - driven by plan data */}
-              <div className="animate-in fade-in duration-500 delay-300 mt-4">
-                <JitCarousel preEventPlan={preEventPlan} />
-              </div>
+              {/* JIT Preparation — below ToD when NOT primary */}
+              {!jitPriority && (
+                <div className="animate-in fade-in duration-500 delay-300 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
             </div>
 
             <div className="mt-8">

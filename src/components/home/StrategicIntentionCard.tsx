@@ -28,7 +28,11 @@ function renderLeanOn(text: string) {
   );
 }
 
-const StrategicIntentionCard = () => {
+interface StrategicIntentionCardProps {
+  jitEvent?: { title: string; minutesUntil: number };
+}
+
+const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
   const { data: brief, isLoading } = useOuterReadiness();
 
   // Only show skeleton on initial load, not background refetches
@@ -71,6 +75,15 @@ const StrategicIntentionCard = () => {
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
           <TextWithEventEmphasis text={brief.context} />
         </p>
+
+        {/* JIT event context banner */}
+        {jitEvent && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
+            <span className="text-[13px] text-foreground font-medium font-body">
+              <TextWithEventEmphasis text={`'${jitEvent.title}' in ${jitEvent.minutesUntil} min — your sequence is ready`} />
+            </span>
+          </div>
+        )}
 
         {/* Coach Insight Age Label */}
         {brief.coachInsightLabel && (
