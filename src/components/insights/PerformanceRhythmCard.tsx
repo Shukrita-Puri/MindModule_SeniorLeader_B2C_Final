@@ -994,6 +994,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
                         Your Week at a Glance
                       </span>
+                      <InsightInfoModal
+                        title="Week at a Glance"
+                        explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
+                      </span>
                       <span className="text-[10px] text-muted-foreground/50">← scroll for past weeks</span>
                     </div>
 

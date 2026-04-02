@@ -369,9 +369,15 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
               {/* Recurring themes */}
               {data.recurringThemes.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-2">
-                    Recurring Themes
-                  </p>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                      Recurring Themes
+                    </p>
+                    <InsightInfoModal
+                      title="Recurring Themes"
+                      explanation="Words and phrases that keep surfacing across your check-ins and coach conversations over 30 days. The count shows how often each theme appeared."
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {data.recurringThemes.map((theme, i) => (
                       <span
