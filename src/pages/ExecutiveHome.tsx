@@ -64,6 +64,7 @@ const ExecutiveHome = () => {
   const { user } = useAuth();
   const location = useLocation();
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
+  const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
 
   // First session guide: show if mid-flow (navigated from check-in page)
