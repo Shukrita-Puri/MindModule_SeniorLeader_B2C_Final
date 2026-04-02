@@ -10,14 +10,13 @@ interface StepLabelProps {
 }
 
 const StepLabel = ({ letter, title, subtitle }: StepLabelProps) => (
-  <div className="flex items-center gap-2">
-    <span className="text-lg font-headline italic text-foreground/70 leading-none">
+  <div className="flex items-center gap-1">
+    <span className="text-lg font-headline italic font-bold text-primary leading-none mr-3">
       {letter}
     </span>
     <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-      {title}
+      {title}:
     </span>
-    <span className="text-xs text-muted-foreground/50 font-body">—</span>
     <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
       {subtitle}
     </span>
