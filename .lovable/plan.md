@@ -1,82 +1,62 @@
 
 
-# Client-Side JIT Priority Implementation
+# Em-Dash → En-Dash Replacement + Dead Code Removal
 
-## Overview
-Three files need updates to complete the JIT-takes-priority behavior. The server already returns `jitPriority: boolean` in the mastery plan response.
+## Part 1: Em-Dash (—) → En-Dash (–) Replacement
 
-## Changes
+**85 source files** contain em-dashes. Every `—` in `.ts` and `.tsx` files (excluding `node_modules`) must be replaced with `–`.
 
-### 1. `src/components/home/DailyRitual.tsx`
-- Add `jitPriority?: boolean` to `DailyRitualProps`
-- Add `jitPriority` to `MasteryPlanResponse` interface
-- When `jitPriority` is true AND the component receives it as a prop:
-  - Replace the full carousel with a collapsed view: show header + plan label + status message ("Your Time-of-Day plan is available after your event")
-  - Add a manual "Show plan" toggle (using Collapsible) so the user can still expand if they want
-- Pass `jitPriority` from plan response up via `onPreEventPlanReady` callback (extend to also relay `jitPriority`) OR add a separate callback/state
+This is a global find-and-replace. No logic changes – purely cosmetic text.
 
-### 2. `src/pages/ExecutiveHome.tsx`
-- Add `jitPriority` to local state, populated from DailyRitual's plan response
-- Modify `DailyRitualProps` or add a new callback `onJitPriorityChange` to receive the flag
-- When `jitPriority` is true:
-  - Render JitCarousel ABOVE the ToD section (swap order)
-  - Pass `jitPriority={true}` to `DailyRitual` to trigger collapse mode
-- Pass JIT event info to `StrategicIntentionCard` for Compass reorientation
+### Files with user-visible copy (highest priority)
+These produce text the user reads on screen or in statements:
+- `supabase/functions/compute-inner-readiness/index.ts` (~20 occurrences in statement strings)
+- `supabase/functions/compute-outer-readiness/index.ts` (~30 occurrences in context/compass copy)
+- `supabase/functions/generate-mastery-plan/index.ts` (~15 occurrences in plan brief/urgency copy)
+- `src/components/simulation/StrengthsSection.tsx` (separator in UI)
+- `src/components/CollegeAdmissionsSimulation.tsx` (simulation dialogue text)
+- `src/pages/onboarding/stages/Stage8Results.tsx` (results copy)
 
-### 3. `src/components/home/StrategicIntentionCard.tsx`
-- Accept optional `jitEvent?: { title: string; minutesUntil: number }` prop
-- When `jitEvent` is provided, show an additional JIT-context banner below the context line:
-  - Italic event title + time pill (e.g., "*Board Meeting* in 38 minutes")
-  - This reorients the Compass toward the immediate event without changing the underlying brief data (the server-side Compass already factors JIT when available)
+### Files with developer comments only
+All remaining ~79 files use em-dashes in code comments. These will also be replaced for consistency but have no user-visible impact.
 
-### 4. `src/hooks/useOuterReadiness.ts` — no changes needed
-The Compass data already comes from the server which now includes JIT-aware context when applicable.
+### Approach
+Run a single `sed` replacement across `src/` and `supabase/functions/` directories, replacing all `—` with `–`. Then verify build passes.
 
-## Data Flow
-```text
-generate-mastery-plan (server)
-  └─ returns { ..., preEventPlan, jitPriority }
-       │
-DailyRitual (loads plan)
-  ├─ onPreEventPlanReady(preEventPlan)
-  ├─ onJitPriorityChange(jitPriority)  ← new callback
-  └─ self-collapses when jitPriority prop is true
-       │
-ExecutiveHome
-  ├─ jitPriority state
-  ├─ Reorders: JitCarousel above DailyRitual when active
-  ├─ Passes jitEvent to StrategicIntentionCard
-  └─ Passes jitPriority to DailyRitual
-       │
-StrategicIntentionCard
-  └─ Shows JIT event context banner when jitEvent provided
-```
+---
 
-## Implementation Details
+## Part 2: Dead Code Removal
 
-**DailyRitual collapse mode:**
-- Uses `Collapsible` from radix (already in project)
-- Collapsed state shows: period label, "X of Y completed" status, and a muted message: "Preparing for *{eventTitle}* — your Time-of-Day plan is available after"
-- Toggle button: "Show plan" / "Hide plan" with ChevronDown rotation
+### Confirmed dead files (zero live imports)
 
-**ExecutiveHome reorder:**
-- When `jitPriority`, render JitCarousel div before the DailyRitual div inside the `data-tour="daily-plan"` wrapper
-- Extract `preEventPlan.eventTitle` and `preEventPlan.minutesUntil` to pass as `jitEvent` to StrategicIntentionCard
+| File | Status | Safe to delete |
+|------|--------|---------------|
+| `src/utils/planReconstruction.ts` | Marked `@deprecated`, only imports from `performancePlanEngine` | Yes |
+| `src/utils/performancePlanEngine.ts` | Marked `@deprecated`, only imported by `planReconstruction.ts` | Yes |
+| `src/components/_archived/MainNavigation.tsx` | In `_archived` folder, zero imports | Yes |
+| `src/components/_archived/PsychologicalDimensionBubbles.tsx` | In `_archived` folder, zero imports | Yes |
 
-**StrategicIntentionCard JIT banner:**
-- Rendered between context line and coach insight label
-- Small pill-style element: `"*{title}* in {minutes} min — your sequence is ready"`
-- Uses existing `TextWithEventEmphasis` for italic event title formatting
+### File to keep but note
 
-**DEV_MODE compatibility:**
-- `jitPriority` flows through the same plan response regardless of auth mode — no special handling needed since DailyRitual already supports DEV_MODE for plan loading
+| File | Status | Action |
+|------|--------|--------|
+| `src/utils/userArchetypeEngine.ts` | Marked `@deprecated` but actively imported by `FrictionAndStrengthDetail.tsx` | Keep – still in use |
 
-## Post-Implementation Audit
-After changes, verify:
-1. Edge function returns `jitPriority: true` when preEventPlan exists in touch_2 window
-2. Homepage renders JIT above ToD when jitPriority is active
-3. ToD carousel collapses with expand toggle
-4. Compass shows JIT event context
-5. Works in both authenticated and DEV_MODE
-6. When no JIT event: layout unchanged, DailyRitual fully visible, no JIT banner on Compass
+### Approach
+1. Delete the 4 dead files
+2. Remove the `_archived` directory
+3. Verify TypeScript build passes
+
+---
+
+## Implementation Order
+
+1. Global em-dash → en-dash replacement (all 85 files via sed)
+2. Delete 4 dead files + `_archived` directory
+3. Build verification
+
+## Risk Assessment
+- **Em-dash replacement**: Zero logic risk – character substitution in strings and comments only
+- **Dead code deletion**: Zero risk – confirmed no live imports exist for any deleted file
+- `userArchetypeEngine.ts` is deliberately kept because `FrictionAndStrengthDetail.tsx` uses it
 
