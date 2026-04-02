@@ -93,11 +93,11 @@ const LeftSidebar = () => {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu data-tour="sidebar-nav">
-              {features.map((feature) => {
+              {features.map((feature, idx) => {
                 const isActive = location.pathname === feature.path;
                 const IconComponent = feature.icon;
                 return (
-                  <SidebarMenuItem key={feature.path}>
+                  <SidebarMenuItem key={feature.path} data-tour={`sidebar-suite-${idx}`}>
                     <SidebarMenuButton
                       onClick={() => navigate(feature.path)}
                       isActive={isActive}

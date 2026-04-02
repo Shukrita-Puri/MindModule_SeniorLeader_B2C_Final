@@ -6,14 +6,13 @@
  * Phase B (steps 5-9): Navigation features — all on /executive-home
  *
  * Key behaviours:
- * - Tooltip is positioned via measured rects so it never covers the target.
- * - "Demo" steps programmatically open the sidebar, scroll to items, etc.
- * - Sidebar panel is elevated above the overlay when needed.
- * - Small icon buttons (Menu / Coach) get a larger circular spotlight.
- * - SVG cut-out overlay creates a true spotlight effect.
+ * - Two-pass tooltip: hidden mount → measure height → compute position → reveal.
+ * - Mobile sidebar uses setOpenMobile; desktop uses setOpen.
+ * - Demo steps programmatically open sidebar, navigate to profile, etc.
+ * - SVG mask spotlight with circular or rounded-rect shapes.
  */
 
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 import { X, ArrowRight, ArrowLeft, Rocket } from 'lucide-react';
@@ -28,21 +27,18 @@ interface GuideStep {
   title: string;
   body: string;
   richBody?: React.ReactNode;
-  page: 'check-in' | 'home';
+  page: 'check-in' | 'home' | 'profile';
   phase: 'A' | 'B';
   phaseLabel: string;
-  openSidebar?: boolean;
-  closeSidebar?: boolean;
   scrollToTop?: boolean;
   scrollBlock?: ScrollLogicalPosition;
-  /** Extra padding (px) around the spotlight rectangle. */
   spotlightPad?: number;
-  /** Elevate sidebar panel above overlay for this step */
-  elevateSidebar?: boolean;
-  /** Use circular spotlight shape */
   spotlightCircle?: boolean;
-  /** Preferred tooltip position. 'auto' (default) measures best fit. */
   tooltipPosition?: 'above' | 'below' | 'auto';
+  /** Actions to run before highlighting */
+  action?: 'open-sidebar' | 'close-sidebar' | 'navigate-profile';
+  /** Elevate sidebar panel above overlay */
+  elevateSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
@@ -135,35 +131,35 @@ const STEPS: GuideStep[] = [
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
-    openSidebar: true,
+    action: 'open-sidebar',
     elevateSidebar: true,
     tooltipPosition: 'below',
   },
   {
-    // Step 7 — Coach button
-    targetSelector: '[data-tour="coach-access-wrap"]',
-    title: 'Mind Performance Coach',
-    body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    closeSidebar: true,
-    scrollToTop: true,
-    spotlightPad: 14,
-    spotlightCircle: true,
-    tooltipPosition: 'below',
-  },
-  {
-    // Step 8 — Connect Your Data
+    // Step 7 — Connect Your Data (show profile entry in sidebar)
     targetSelector: '[data-tour="sidebar-profile"]',
     title: 'Connect Your Data',
     body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours — the more context, the sharper your system.',
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
-    openSidebar: true,
+    action: 'open-sidebar',
     elevateSidebar: true,
     tooltipPosition: 'above',
+  },
+  {
+    // Step 8 — Coach button
+    targetSelector: '[data-tour="coach-access-wrap"]',
+    title: 'Mind Performance Coach',
+    body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
+    page: 'home',
+    phase: 'B',
+    phaseLabel: 'YOUR NAVIGATION',
+    action: 'close-sidebar',
+    scrollToTop: true,
+    spotlightPad: 14,
+    spotlightCircle: true,
+    tooltipPosition: 'below',
   },
   {
     // Step 9 — Ready
@@ -173,7 +169,7 @@ const STEPS: GuideStep[] = [
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
-    closeSidebar: true,
+    action: 'close-sidebar',
   },
 ];
 
@@ -191,15 +187,13 @@ interface FirstSessionGuideProps {
 const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const sidebarContext = useSidebarSafe();
+  const sidebarCtx = useSidebarSafe();
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
   const [currentStep, setCurrentStep] = useState(savedStep);
-  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [ready, setReady] = useState(false); // two-pass: only true when position is final
 
-  // Spotlight rect (viewport coords) for the SVG cut-out
   const [spotRect, setSpotRect] = useState<{ x: number; y: number; w: number; h: number; r: number } | null>(null);
-  // Tooltip position
   const [tooltipPos, setTooltipPos] = useState<{ top: number } | null>(null);
 
   const previousElRef = useRef<HTMLElement | null>(null);
@@ -219,7 +213,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.setItem(SESSION_KEY, String(currentStep));
   }, [currentStep]);
 
-  /* ---- cleanup helpers ---- */
+  /* ---- helpers ---- */
 
   const cleanupPrevious = useCallback(() => {
     if (previousElRef.current) {
@@ -237,34 +231,37 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   }, []);
 
   const clearRetry = useCallback(() => {
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-    if (measureFrameRef.current) {
-      cancelAnimationFrame(measureFrameRef.current);
-      measureFrameRef.current = null;
-    }
+    if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    if (measureFrameRef.current) { cancelAnimationFrame(measureFrameRef.current); measureFrameRef.current = null; }
   }, []);
 
-  /* ---- measure & position ---- */
+  /** Open/close sidebar respecting mobile vs desktop */
+  const setSidebar = useCallback((open: boolean) => {
+    if (!sidebarCtx) return;
+    if (sidebarCtx.isMobile) {
+      sidebarCtx.setOpenMobile(open);
+    } else {
+      sidebarCtx.setOpen(open);
+    }
+  }, [sidebarCtx]);
 
-  const measureAndPosition = useCallback(() => {
+  /* ---- measure & position (two-pass) ---- */
+
+  const computePosition = useCallback(() => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
     if (!s || s.targetSelector === 'fullscreen') {
       setSpotRect(null);
       setTooltipPos(null);
-      return;
+      return true; // ready
     }
 
     const el = document.querySelector(s.targetSelector) as HTMLElement | null;
-    if (!el) return;
+    if (!el) return false;
 
     const rect = el.getBoundingClientRect();
     const pad = s.spotlightPad || 0;
 
-    // Spotlight rect with padding
     const sx = rect.left - pad;
     const sy = rect.top - pad;
     const sw = rect.width + pad * 2;
@@ -273,7 +270,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
     setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
 
-    // Measure tooltip height
+    // Measure tooltip height (hidden-rendered)
     const tooltipEl = tooltipRef.current;
     const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
     const GAP = 16;
@@ -281,7 +278,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
     const spaceAbove = sy;
     const spaceBelow = vH - (sy + sh);
-
     const pref = s.tooltipPosition || 'auto';
 
     let top: number;
@@ -289,27 +285,20 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       top = sy - tooltipH - GAP;
     } else if (pref === 'below' && spaceBelow >= tooltipH + GAP) {
       top = sy + sh + GAP;
-    } else if (pref === 'auto' || (pref === 'above' && spaceAbove < tooltipH + GAP) || (pref === 'below' && spaceBelow < tooltipH + GAP)) {
-      // Auto: prefer whichever side has more room
-      if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP) {
-        top = sy + sh + GAP;
-      } else if (spaceAbove >= tooltipH + GAP) {
-        top = sy - tooltipH - GAP;
-      } else {
-        // Clamp below if neither fits
-        top = sy + sh + GAP;
-      }
+    } else if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP) {
+      top = sy + sh + GAP;
+    } else if (spaceAbove >= tooltipH + GAP) {
+      top = sy - tooltipH - GAP;
     } else {
       top = sy + sh + GAP;
     }
 
-    // Clamp within viewport
     top = Math.max(8, Math.min(top, vH - tooltipH - 8));
-
     setTooltipPos({ top });
+    return true;
   }, []);
 
-  /* ---- highlight + measure ---- */
+  /* ---- highlight lifecycle ---- */
 
   const highlightElement = useCallback(() => {
     const idx = currentStepRef.current;
@@ -317,7 +306,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     if (!s || s.targetSelector === 'fullscreen') {
       setSpotRect(null);
       setTooltipPos(null);
-      setTooltipVisible(true);
+      setReady(true);
       return;
     }
 
@@ -338,80 +327,105 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       cleanupPrevious();
 
-      // Raise element above overlay
       el.style.position = 'relative';
       el.style.zIndex = '61';
-      if (s.spotlightCircle) {
-        el.style.borderRadius = '9999px';
-      } else {
-        el.style.borderRadius = '12px';
-      }
+      el.style.borderRadius = s.spotlightCircle ? '9999px' : '12px';
       previousElRef.current = el;
 
-      // Sidebar elevation
       if (s.elevateSidebar) {
         const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
         if (sp) sp.style.zIndex = '61';
+        // Also elevate the mobile sheet overlay
+        const sheetOverlay = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
+        if (sheetOverlay) sheetOverlay.style.zIndex = '61';
       }
 
-      // Measure positions
-      measureAndPosition();
-      setTooltipVisible(true);
-
-      // Re-measure after a short delay for any layout shifts
-      setTimeout(measureAndPosition, 100);
+      // Two-pass: compute position, then reveal
+      computePosition();
+      // Second pass after a frame for accurate tooltip measurement
+      requestAnimationFrame(() => {
+        computePosition();
+        setReady(true);
+      });
     }, 500);
-  }, [cleanupPrevious, measureAndPosition]);
+  }, [cleanupPrevious, computePosition]);
+
+  /* ---- run actions before highlighting ---- */
+
+  const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
+    if (!s.action) { cb(); return; }
+
+    switch (s.action) {
+      case 'open-sidebar':
+        setSidebar(true);
+        setTimeout(cb, 600); // wait for sheet animation
+        break;
+      case 'close-sidebar':
+        setSidebar(false);
+        setTimeout(cb, 500);
+        break;
+      case 'navigate-profile':
+        setSidebar(false);
+        setTimeout(() => {
+          navigate('/profile');
+          setTimeout(cb, 600);
+        }, 400);
+        break;
+      default:
+        cb();
+    }
+  }, [setSidebar, navigate]);
 
   /* ---- step lifecycle ---- */
 
   useEffect(() => {
     clearRetry();
     cleanupPrevious();
-    setTooltipVisible(false);
+    setReady(false);
     setTooltipPos(null);
     setSpotRect(null);
 
-    const hlTimer = setTimeout(highlightElement, 150);
+    const s = STEPS[currentStep];
+    if (!s) return;
+
+    // Navigate to correct page first
+    const cur = location.pathname;
+    if (s.page === 'home' && cur !== '/executive-home') {
+      navigate('/executive-home');
+    } else if (s.page === 'check-in' && cur !== '/daily-check-in') {
+      navigate('/daily-check-in');
+    } else if (s.page === 'profile' && cur !== '/profile') {
+      navigate('/profile');
+    }
+
+    // Run action then highlight, with delay for page transitions
+    const startDelay = cur !== getPagePath(s.page) ? 800 : 150;
+    const timer = setTimeout(() => {
+      runStepAction(s, highlightElement);
+    }, startDelay);
 
     return () => {
-      clearTimeout(hlTimer);
+      clearTimeout(timer);
       clearRetry();
     };
-  }, [currentStep, highlightElement, cleanupPrevious, clearRetry]);
-
-  // Sidebar open/close
-  useEffect(() => {
-    if (!step) return;
-    if (step.openSidebar && sidebarContext) {
-      sidebarContext.setOpen(true);
-      setTimeout(highlightElement, 600);
-    }
-    if (step.closeSidebar && sidebarContext) {
-      sidebarContext.setOpen(false);
-      setTimeout(highlightElement, 600);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
-  // Page transitions
-  useEffect(() => {
-    if (!step) return;
-    const cur = location.pathname;
-    if (step.page === 'home' && cur !== '/executive-home') navigate('/executive-home');
-    if (step.page === 'check-in' && cur !== '/daily-check-in') navigate('/daily-check-in');
-  }, [currentStep, step, location.pathname, navigate]);
-
   // Cleanup on unmount
   useEffect(() => {
-    return () => { cleanupPrevious(); clearRetry(); };
-  }, [cleanupPrevious, clearRetry]);
+    return () => {
+      cleanupPrevious();
+      clearRetry();
+      setSidebar(false);
+    };
+  }, [cleanupPrevious, clearRetry, setSidebar]);
 
-  // Re-measure on scroll/resize
+  // Re-measure on scroll/resize (only when ready)
   useEffect(() => {
+    if (!ready) return;
     const handler = () => {
       if (measureFrameRef.current) cancelAnimationFrame(measureFrameRef.current);
-      measureFrameRef.current = requestAnimationFrame(measureAndPosition);
+      measureFrameRef.current = requestAnimationFrame(() => computePosition());
     };
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
@@ -419,7 +433,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       window.removeEventListener('scroll', handler, true);
       window.removeEventListener('resize', handler);
     };
-  }, [measureAndPosition]);
+  }, [ready, computePosition]);
 
   /* ---- actions ---- */
 
@@ -441,7 +455,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     clearRetry();
     sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
-    if (sidebarContext) sidebarContext.setOpen(false);
+    setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
   };
@@ -486,7 +500,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       </svg>
 
       {/* Spotlight glow ring */}
-      {spotRect && (
+      {spotRect && ready && (
         <div
           className="absolute pointer-events-none border-2 border-saffron/30 transition-all duration-500"
           style={{
@@ -512,14 +526,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         Skip <X size={14} />
       </button>
 
-      {/* Tooltip Card */}
+      {/* Tooltip Card — hidden until ready for two-pass measurement */}
       <div
         ref={tooltipRef}
         className={cn(
-          'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300 mx-auto',
-          tooltipVisible ? 'opacity-100' : 'opacity-0 translate-y-2',
+          'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto',
+          ready ? 'opacity-100 transition-opacity duration-300' : 'opacity-0 pointer-events-none',
         )}
-        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: 'auto' }}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: ready ? 'auto' : 'none' }}
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
@@ -554,16 +568,16 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           </div>
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
-              <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors">
+              <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors" style={{ pointerEvents: 'auto' }}>
                 <ArrowLeft size={14} /> Back
               </button>
             )}
             {isLastStep ? (
-              <button onClick={finish} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20">
+              <button onClick={finish} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20" style={{ pointerEvents: 'auto' }}>
                 <Rocket size={16} /> Begin
               </button>
             ) : (
-              <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors">
+              <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors" style={{ pointerEvents: 'auto' }}>
                 Next <ArrowRight size={14} />
               </button>
             )}
@@ -574,8 +588,18 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   );
 };
 
+function getPagePath(page: string): string {
+  switch (page) {
+    case 'home': return '/executive-home';
+    case 'check-in': return '/daily-check-in';
+    case 'profile': return '/profile';
+    default: return '/';
+  }
+}
+
 function useSidebarSafe() {
   try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useSidebar();
   } catch {
     return null;
