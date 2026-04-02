@@ -721,7 +721,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
               <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                Continue Plan
+                Continue Sequence
               </Button>
             )}
             {ritualStatus.status === 'completed' && (
