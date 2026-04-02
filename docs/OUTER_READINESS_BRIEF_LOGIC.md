@@ -1,285 +1,146 @@
-# Outer Readiness Brief — Complete Logic & Role Documentation
+# Outer Readiness Brief – Full Logic Documentation
 
-## Purpose
+## 1. Purpose
 
-The Outer Readiness Brief is the single navigational frame that tells a leader **what to do right now and why**, by reading their inner state against their outer demands. It is not a status report. It is not a context dump. It is a **direction** grounded in evidence.
+The Outer Readiness Brief answers: **"What does the world look like for you right now, and how should you meet it?"**
 
-The brief answers one question: *Given who you are today — your readiness, your body, your patterns — and what the world is asking of you — your calendar, your stakes, your time of day — what is the highest-leverage orientation for this moment?*
+It produces four outputs:
+- **Phrase** – 3–6 word directive (e.g., "Pace from the start.")
+- **Context** – 1–3 sentence explanation connecting the user's state to the directive
+- **Lean On** – The user's primary strength to leverage right now
+- **Watch For** – The primary risk pattern to guard against
+
+All logic lives in `supabase/functions/compute-outer-readiness/index.ts`.
 
 ---
 
-## Architecture: Signal → Decision → Direction
+## 2. Upstream Data Sources (Inputs)
+
+All signals are fetched **server-side** using the service role key. The client sends only `timezoneOffset` plus the pre-computed inner readiness fields.
+
+### 2.1 Client-Provided (via request body)
+
+| Signal | Source | Description |
+|--------|--------|-------------|
+| `innerReadinessTier` | `computeEnergyState()` client-side | depleted / managing / strong / peak |
+| `innerReadinessScore` | `computeEnergyState()` client-side | 0–100 numeric |
+| `clarityLevel` | Today's check-in | 1–5 scale (null if no check-in) |
+| `confidenceLevel` | Today's check-in | 1–5 scale (null if no check-in) |
+| `checkInOutcome` | Today's check-in | thriving/steady/struggling/drained/scattered/etc. |
+| `timezoneOffset` | `new Date().getTimezoneOffset()` | Minutes offset from UTC |
+
+### 2.2 Server-Fetched (inside the edge function)
+
+| Signal | Table/Source | Description |
+|--------|-------------|-------------|
+| Calendar events (today) | `calendar_events` | All events for user's local day, filtered by `calendar_connections.is_active` |
+| Calendar events (tomorrow) | `calendar_events` | Fetched for evening periods (≥18:00) for forward-looking context |
+| Calendar metrics | Computed from events | `load` (low/medium/high), `pressure` (low/medium/high), `eventCount`, `meetingCount`, `remainingMeetings`, `highStakesEvents`, `remainingHighStakes` |
+| Wearable data | `wearable_data` | Latest row: `hrv`, `resting_heart_rate`, `heart_rate` (peak), `sleep_score`, `sleep_duration` |
+| Coach insights | `user_coach_insights` | Active strength + growth_area insights (most recent, up to 5) |
+| Archetype | `profiles.user_archetype` | User's onboarding-derived behavioral archetype |
+| Recent check-ins (7 days) | `daily_checkins` | For pattern detection (consecutive low states, C×C trends) |
+
+---
+
+## 3. Context Statement Logic
+
+### 3.1 Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    INPUT SIGNALS                        │
-├──────────────────┬──────────────────┬───────────────────┤
-│ Decision         │ Calendar         │ Wearable          │
-│ Readiness Score  │ (load, pressure, │ (HRV, RHR,        │
-│ (0–100)          │  density, stakes)│  Peak HR, Sleep)  │
-│ + Energy Tier    │                  │                   │
-│ (depleted →      │                  │                   │
-│  managing →      │                  │                   │
-│  strong → peak)  │                  │                   │
-├──────────────────┼──────────────────┼───────────────────┤
-│ Check-In Outcome │ Clarity Level    │ Confidence Level  │
-│ (today's self-   │ (1–5 scale)      │ (1–5 scale)       │
-│  reported state) │                  │                   │
-├──────────────────┼──────────────────┼───────────────────┤
-│ Archetype        │ Coach Insights   │ Time of Day       │
-│ (e.g., adaptive- │ (strengths,      │ (morning,         │
-│  navigator,      │  growth edges    │  afternoon,       │
-│  reflective-     │  from coaching   │  evening)         │
-│  strategist)     │  sessions)       │                   │
-└──────────────────┴──────────────────┴───────────────────┘
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │   OUTER READINESS     │
-              │   COMPUTATION         │
-              │                       │
-              │ 1. getTheme()         │
-              │    → phrase + context │
-              │                       │
-              │ 2. getLeanOnWatchFor() │
-              │    → leanOn + watchFor│
-              │                       │
-              │ 3. buildDataSources() │
-              │    → attribution      │
-              └───────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                  OUTPUT: THE BRIEF                      │
-├─────────────────────────────────────────────────────────┤
-│ PHRASE:    "Close with care."                           │
-│ CONTEXT:   "You've navigated 4 meetings so far. 1      │
-│            still ahead — closing with care means        │
-│            bringing the same quality of attention to    │
-│            what remains without borrowing from          │
-│            tomorrow."                                   │
-│ LEAN ON:   "Based on your coach conversation: Your     │
-│            ability to read the room and adapt mid-      │
-│            conversation. The day tested that capacity.  │
-│            The day is done."                            │
-│ WATCH FOR: "Based on your coach conversation:          │
-│            Absorbing others' urgency as your own.      │
-│            Replaying the day's demands instead of       │
-│            releasing them."                             │
-│ SOURCES:   "decision readiness score, calendar,        │
-│            wearable data, coaching insights"            │
-└─────────────────────────────────────────────────────────┘
+getTheme() → returns { phrase, context, driver }
+  ├── Time-of-day routing (evening / morning / afternoon)
+  │   ├── Evening → buildWeekdayEveningTheme()
+  │   ├── Morning → buildMorningTheme()
+  │   └── Afternoon → buildAfternoonContext() wrapping base context
+  └── Pressure × Load matrix (fallback for morning/afternoon)
 ```
 
----
+### 3.2 Derived Signals
 
-## The Four Elements and Their Roles
+| Signal | Derivation | Thresholds |
+|--------|-----------|------------|
+| `hasMeaningfulDemand` | `highStakes.length > 0 OR load === 'high' OR pressure === 'high' OR meetingCount >= 3` | Boolean gate for "demands ahead" language |
+| `bodyStressed` | `wearable.hrElevated OR wearable.hrvElevated` | Boolean |
+| `poorSleep` | `sleepScore < 60 OR sleepDuration < 360min` | Boolean |
+| `rhrElevated` | `resting_heart_rate > 75bpm` | Boolean |
+| `hrvElevated` | `hrv < 30ms` | Boolean |
+| `hrElevated` | `peakHR > 100 OR peakHR > 120% of RHR` | Boolean |
 
-### 1. PHRASE — The Directive
+### 3.3 Morning Context (`buildMorningTheme`) – Priority Cascade
 
-**Role:** A 2–5 word imperative that tells the user **what to do**. It is the headline, the single action-frame for this moment.
+1. **Poor sleep + high-stakes events** → Tier-specific pacing directive
+2. **Good recovery + high-stakes events** → Tier-specific protection directive
+3. **Poor sleep only** → Sleep deficit awareness
+4. **HRV elevated strain** → HRV strain acknowledgment
+5. **RHR elevated only** → Resting HR above baseline
+6. **High-stakes events, no wearable** → Tier-aware event prep
+7. **Dense calendar (4+), no wearable/stakes** → Tier-aware volume pacing
+8. **Default fallback** → Tier-aware, uses `hasMeaningfulDemand` to avoid "demands ahead" on light days
 
-**Rules:**
-- Always an imperative or directive statement ("Close with care", "Protect what's left", "Pace the remaining hours")
-- Must be specific enough to act on, general enough to apply across the user's next hours
-- Changes based on: Energy Tier × Calendar State × Time of Day × Body Signals
-- Evening phrases must not use forward-looking language ("prepare", "get ready") — use "release", "restore", "close", "arrive"
+### 3.4 Evening Context (`buildWeekdayEveningTheme`)
 
-**Examples by tier + time:**
-| Tier | Morning | Evening (day done) | Evening (meetings ahead) |
-|------|---------|-------------------|--------------------------|
-| Depleted | "Pace from the start." | "Ground before tomorrow." | "Protect what's left." |
-| Managing | "Set a sustainable pace." | "Close with care." | "Stay present for what's left." |
-| Strong | "Protect the window." | "Close strong." | "Carry your edge forward." |
-| Peak | "Protect the peak." | "Close with intention." | "Finish at your best." |
+**Branch A (remainingMeetings > 0):** A-1 remaining high-stakes, A-2 remaining + body strain, A-3 remaining no strain
 
----
+**Branch B (day done):** P1 heavy today + tomorrow stakes → P2 heavy + body stressed → P3 light today + heavy tomorrow → P4 tomorrow stakes → P5 body stressed → P6 today acknowledgment → Default
 
-### 2. CONTEXT — The Why
+### 3.5 Special Contexts
 
-**Role:** 1–3 sentences that explain **why this phrase is the right direction**, grounding it in the user's actual signals. The context is NOT a summary of the user's day. It connects observable evidence (calendar count, body strain, readiness tier) to the phrase directive.
-
-**Pattern:** `[Acknowledge observable state] + [Frame the situation] + [Connect to why the phrase matters]`
-
-**Rules:**
-- Must reference the phrase's directive — not just describe the situation
-- Uses **filtered meeting counts** (`meetingCount` / `remainingMeetings`) — excludes all-day blocks, personal holds, and multi-day events from user-facing text
-- Raw `eventCount` is still used internally for load/pressure scoring (density should count all calendar entries)
-- Evening context must distinguish "meetings still ahead" (Branch A) from "day is done" (Branch B)
-- When meetings remain: acknowledge what's past, frame what's ahead, explain why the phrase matters now
-- When day is done: acknowledge the day's weight, frame tomorrow if stakes exist, connect to restoration
-- Never list context as standalone facts — always tie back to the directive
-
-**Anti-patterns (WRONG):**
-- ❌ "You've navigated 2 meetings so far. 1 still ahead — the day isn't done, but the hardest part may be behind you." (Describes, doesn't direct)
-- ❌ "High-stakes moments ahead with a manageable schedule." (Generic, no connection to user's actual state)
-
-**Correct patterns:**
-- ✅ "You've navigated 4 meetings so far. 1 still ahead — closing with care means bringing the same quality of attention to what remains without borrowing from tomorrow."
-- ✅ "You've spent most of today's reserves across 3 meetings. With Board Review still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters."
+- **Sunday evening**: Monday-aware (fetches tomorrow's calendar)
+- **Same-day state shift**: ≥15 energy_balance change between today's check-ins
+- **"Strength without clarity" override**: strong/peak tier but clarity/confidence ≤ 2
+- **Pattern override**: 3+ consecutive days at same outcome
 
 ---
 
-### 3. LEAN ON — The Strength to Deploy
+## 4. Lean On / Watch For Logic
 
-**Role:** Identifies the user's **specific, personal strength** that is most relevant right now and tells them to lean into it. This is not generic advice — it must come from actual knowledge about this user.
+### 4.1 Priority Cascade
 
-**Source Hierarchy (Personal-First):**
-1. **Coach Insights (Priority 1):** Strengths identified across coaching conversations. Prefixed with "Based on your coach conversation:" for credibility.
-2. **Archetype (Priority 2):** Strengths associated with the user's psychological archetype (e.g., adaptive-navigator → "reading the room"). Prefixed with archetype name attribution.
-3. **Clarity × Confidence Modifier (Priority 3):** When clarity and/or confidence are notably high, reference that directional certainty as a resource.
-4. **Tier Fallback (Priority 4):** Generic tier-based strengths when no personal data exists.
+```
+P-1: Wearable Recovery Override (feature-flagged OFF)
+P0a: Sunday evening (after 9pm) → getSundayEveningInsights()
+P0b: Late evening weekdays/Saturday (after 9pm) → getEveningInsights()
+P1a: Coach insights ≤ 3 days old → "(coach)"
+P1b: Coach insights 4–7 days old → "(coach, Xd ago)" (if no C×C contradiction)
+P2:  C×C modifier (clarity × confidence) → "(check-in)"
+P3:  Partial coach + archetype/tier fill → mixed tags
+P4:  Archetype × Tier matrix → "(archetype)"
+P5:  Tier fallback → "(readiness)"
+```
 
-**Rules:**
-- Must explicitly attribute the source ("Based on your coach conversation:", "As an adaptive navigator:")
-- Must be a real strength the system has observed or inferred, not a platitude
-- Evening variants should be retrospective ("That capacity served you today") not forward-looking ("Use that today")
-- Followed by a **situational suffix** that grounds it in the current moment (e.g., "The day isn't done — that instinct still serves you." or "Today tested that capacity. The day is done.")
+### 4.2 C×C Modifier Patterns (8 patterns, time-aware)
 
-**Anti-pattern (WRONG):**
-- ❌ "Your directional certainty. You know what matters today and why." (Generic, not attributed, could apply to anyone)
+| Pattern | Lean On | Watch For (Day) | Watch For (Evening) |
+|---------|---------|-----------------|---------------------|
+| Both low | Your self-honesty | Premature commitments | Forcing resolution tonight |
+| Both high | Your alignment | Rigidity from conviction | Over-optimising what worked |
+| High clarity + low confidence | Your clarity | Delaying action | Replaying doubt |
+| Low clarity + high confidence | Your confidence | Moving without direction | Forcing clarity tonight |
+| Low clarity only | Your discernment | Acting without anchor | Grinding open questions |
+| Low confidence only | Your self-awareness | Projected confidence | Reviewing through doubt |
+| High clarity only | Your direction | Crowding out perspectives | Replaying what held |
+| High confidence only | Your conviction | Closing off inputs | Running past the close |
 
-**Correct pattern:**
-- ✅ "Based on your coach conversation: Your ability to read the room and adapt mid-conversation. The day tested that capacity. The day is done."
+### 4.3 Archetype × Tier Matrix (5 archetypes × 4 tiers)
 
----
+| Archetype | Depleted LeanOn | Peak WatchFor |
+|-----------|----------------|---------------|
+| grounded-leader | Stillness instinct | Tunnel focus |
+| resilient-performer | Recovery wisdom | Spending peak too fast |
+| clear-thinker | Economy of thought | Complexity for own sake |
+| intensity-driver | Rest-as-fuel wisdom | Opening at full intensity |
+| adaptive-navigator | Situational awareness | Complexity over decisiveness |
 
-### 4. WATCH FOR — The Edge to Manage
+### 4.4 Context Enrichment Suffixes
 
-**Role:** Names the user's **specific, personal vulnerability or tendency** that is most likely to surface given the current conditions. This is the growth edge — the pattern that could undermine their effectiveness if unchecked.
-
-**Source Hierarchy (same as Lean On):**
-1. **Coach Insights (Priority 1):** Growth edges identified across coaching conversations.
-2. **Archetype (Priority 2):** Known vulnerabilities of the user's archetype.
-3. **Clarity × Confidence Modifier (Priority 3):** Patterns associated with low clarity or low confidence.
-4. **Tier Fallback (Priority 4):** Generic tier-based risks.
-
-**Rules:**
-- Must be a real pattern, not a generic caution
-- Source attributed for credibility
-- Evening variants should warn against post-day patterns ("Replaying today's decisions to find flaws") not work-day patterns ("Over-committing in meetings")
-- Followed by a **situational suffix** grounded in the current moment
-
-**Anti-pattern (WRONG):**
-- ❌ "Over-extending into tomorrow's challenges before tonight's recovery is complete." (Generic, not personal)
-
-**Correct pattern:**
-- ✅ "Based on your coach conversation: Absorbing others' urgency as your own. Replaying the day's demands instead of releasing them."
+After core Lean On/Watch For, situational suffixes from `buildDaytimeLeanOnSuffix` / `buildDaytimeWatchForSuffix` are appended based on body strain, high-stakes events, poor sleep, and remaining events (evening-aware).
 
 ---
 
-## Time Windows
+## 5. Calendar Metrics
 
-| Window | Hours | Character |
-|--------|-------|-----------|
-| Morning | 05:00–11:59 | Forward-looking. Sleep/recovery signals prominent. Frame the opening. |
-| Afternoon | 12:00–17:59 | Mid-day. Accumulated strain signals. Pace the remaining hours. |
-| Evening | 18:00–04:59 | Two sub-modes: **Events Ahead** (acknowledge past + frame remaining) or **Day Done** (retrospective + restoration). Tomorrow's calendar as recovery motivation. |
-
-### Evening Sub-Modes
-
-**Branch A: Meetings Still Ahead** (`remainingMeetings > 0`)
-- Acknowledge past meetings navigated
-- Frame remaining meetings (and remaining high-stakes if applicable)
-- Connect to phrase: why this directive matters for the final stretch
-- Tier-aware: depleted users protect, managing users sustain, strong users carry forward, peak users finish at best
-
-**Branch B: Day is Done** (`remainingMeetings === 0`)
-- Acknowledge what was carried today (todaySummary)
-- If tomorrow has high-stakes: frame recovery as essential for tomorrow's demands
-- If body stressed: frame physical cool-down
-- Connect to phrase: why this restoration directive matters given their tier
-
----
-
-## Calendar Metrics
-
-### Raw vs Filtered Counts
-
-| Metric | Used For | Includes |
-|--------|----------|----------|
-| `eventCount` | Internal load/pressure scoring | All calendar entries (meetings, blocks, all-day events) |
-| `meetingCount` | User-facing text ("You've navigated X meetings") | Only actual meetings — excludes personal blocks, all-day holds, multi-day events |
-| `remainingMeetings` | Evening Branch A/B split and user-facing remaining count | Filtered meetings that haven't started yet |
-| `remainingEvents` | Internal remaining event tracking | All events that haven't started yet |
-
-### Filtering Rules
-
-Events excluded from `meetingCount`:
-- Title matches `personalBlockPatterns`: Day Block, Focus Time, Prep Block, Hold, Blocked, DNB, No Meetings, Lunch, Break, Commute, Travel Time, Personal, Buffer
-- Duration > 240 minutes AND attendees ≤ 1 (all-day blocks, multi-day calendar holds)
-
-### Load & Pressure Scoring
-
-**Load** (calendar density):
-- Low: 0–2 events
-- Medium: 3 events
-- High: 4+ events (or 3+ with avg gap < 20 min)
-
-**Pressure** (weighted scoring per event):
-- Organizer: +2
-- Attendees >5: +3, >2: +1
-- Duration >60min: +2, ≥30min: +1
-- Non-recurring: +1
-- Prime time (9–12, 14–16): +1
-- Back-to-back (<5min gap): +3, (<15min gap): +2
-- Future events: full weight; past events: 50% weight
-
----
-
-## Calendar Sync Strategy
-
-The `sync-calendar` function syncs events from **start of today (user's local midnight)** through **8 days ahead**. This ensures:
-- Past events from today are always captured (essential for evening retrospective context)
-- A full 7-day rolling window is maintained
-- The delete-and-replace strategy won't lose today's earlier meetings
-
-Sync cadence: 6-hour intervals via pg_cron scheduled function. The scheduled sync resolves each user's `timezone_offset` from the `profiles` table and passes it to `sync-calendar`, ensuring local midnight is used even without an active client session.
-
----
-
-## Data Source Attribution
-
-The `dataSources` array in the response tells the user exactly what signals informed their brief:
-
-| Source | When included |
-|--------|--------------|
-| `decision readiness score` | Always (core signal) |
-| `today's check-in` | When a check-in exists for today |
-| `calendar` | When calendar is connected and has events |
-| `wearable data` | When Oura/wearable data exists |
-| `coaching insights` | When coach-derived strength/growth insights exist |
-| `your archetype` | When archetype is set and used for Lean On/Watch For |
-| `clarity and confidence levels` | When C×C modifier is applied |
-
-The **Coach Insight Age Label** shows how recent coaching insights are (e.g., "Coaching insight from 2 days ago" or "Coaching insight from this week") to set appropriate expectations about freshness.
-
----
-
-## Integration Points
-
-### Upstream Dependencies
-- `computeEnergyState()` → provides Decision Readiness Score and Energy Tier
-- `getTodayCheckin()` → provides clarity_level, confidence_level, outcome
-- `getServerCalendarMetrics()` → provides load, pressure, event counts, high-stakes events
-- `getWearableContext()` → provides HRV, RHR, Peak HR, Sleep Score
-- Coach conversation data (from `coach_session_summaries`, `coach_pattern_observations`)
-- User archetype (from `profiles.archetype`)
-
-### Downstream Consumers
-- `StrategicIntentionCard` — renders the brief on the Executive Home
-- `useOuterReadiness` hook — caches the brief via react-query (5-min stale time)
-- Coach context builder — references the brief for coaching conversation context
-
----
-
-## Key Invariants
-
-1. **The phrase is always a directive** — never a description or observation
-2. **The context always connects to the phrase** — never standalone facts
-3. **Lean On and Watch For are always personal** — never generic advice applicable to anyone
-4. **Source attribution is always present** — builds credibility through transparency
-5. **Evening always distinguishes remaining vs done** — never treats the day as finished when meetings remain
-6. **Filtered meeting counts for user-facing text** — all-day blocks and personal holds never inflate "meetings navigated"
-7. **No evening forward-looking language** — "restore", "release", "arrive", never "prepare", "plan", "get ready"
-8. **Tomorrow as recovery motivation, not preparation** — framing tomorrow's demands as reason to recover, not to work more tonight
+**Load**: 4+ events = high; 3 + avg gap < 20min = high; 3 = medium; < 3 = low
+**Pressure**: Weighted scoring (organizer +2, attendees +1/+3, duration +1/+2, non-recurring +1, prime time +1, back-to-back +2/+3, density boost +3, intensity multiplier 1.5×). Total ≥ 6 = high; ≥ 3 = medium.
+**High-stakes**: Non-recurring AND (attendees > 5 OR organizer+attendees > 2 OR duration > 60min). Excludes personal blocks and all-day blockers.
+**meetingCount**: Excludes personal blocks and all-day blockers (used for user-facing text).
