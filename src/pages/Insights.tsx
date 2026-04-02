@@ -848,6 +848,8 @@ const Insights = () => {
         {/* MOMENTUM tab */}
         <div style={{ display: activeTab === 'momentum' ? 'block' : 'none' }}>
           <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
+            <PerformanceRhythmCard userId={user?.id} />
+
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
@@ -869,7 +871,6 @@ const Insights = () => {
                   </div>
                 ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
                   <div className="space-y-4">
-                    {/* Stat boxes */}
                     {(() => {
                       const getDomain = (w: any) => {
                         const content = (w.content || '').toLowerCase();
@@ -922,7 +923,6 @@ const Insights = () => {
                       );
                     })()}
 
-                    {/* Win list */}
                     <div className="space-y-2">
                       {tinyWinsContent.slice(0, 5).map((win, i) => {
                         const content = (win.content || '').toLowerCase();
@@ -980,8 +980,6 @@ const Insights = () => {
                 )}
               </CardContent>
             </LuxuryInsightCard>
-
-            <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
 
