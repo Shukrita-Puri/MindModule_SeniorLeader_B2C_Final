@@ -254,11 +254,19 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       cleanupPrevious();
 
-      // Raise element
+      // Raise element above overlay
+      const pad = s.spotlightPad || 0;
       el.style.position = 'relative';
       el.style.zIndex = '61';
       el.style.boxShadow = '0 0 40px rgba(255,183,77,0.15)';
-      el.style.borderRadius = '12px';
+      // Circular spotlight for small icon buttons, rounded-rect for sections
+      if (pad > 0) {
+        el.style.borderRadius = '9999px';
+        el.style.padding = `${pad}px`;
+        el.style.margin = `-${pad}px`;
+      } else {
+        el.style.borderRadius = '12px';
+      }
       previousElRef.current = el;
 
       // Sidebar elevation
