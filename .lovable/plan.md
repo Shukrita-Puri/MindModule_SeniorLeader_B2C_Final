@@ -1,76 +1,58 @@
 
 
-# First Session Guide — Fix All Issues
+# Fix First Session Guide — All Issues
 
-## Problems Identified
+## Problems from Screenshots
 
-1. **Clip-path cutout crops the feature** — the spotlight punches a hole showing only part of the element
-2. **Orange border looks cheap** — hard `border-2 border-saffron/60` feels rigid, not premium
-3. **Features not centered** — elements below fold (like Daily Plan) aren't scrolled into view, tooltip falls off-screen and becomes unclickable
-4. **Check-in only shows Mental Sharpness** — the carousel shows only one axis; misses Clarity and Confidence
-5. **Overlay too dark** — `bg-black/75` hides the app; user should see context while focusing on the highlighted element
-6. **Tooltip below fold** — when both feature and tooltip are off-screen, "Next" is unclickable
+1. **Navigation box covers the feature** — tooltip at bottom overlaps the highlighted element (e.g., step 4 "Performance Readiness Plan" card is behind the tooltip)
+2. **Back→Next breaks highlighting** — going back and forward again stops highlighting elements entirely (stale closure bug in `highlightElement` callback)
+3. **Daily check-in only shows Mental Sharpness** — the carousel wrapper is highlighted but only one card is visible; needs to show all states
+4. **Phase B doesn't highlight navigation elements** — sidebar trigger (top-left), coach access (top-right), and sidebar nav items are not visually raised above overlay
+5. **Step 7 (Mental Performance Suite) should detail each feature** — instead of a single line listing all 4 tools, show individual descriptions for each
 
 ## Fixes
 
-### 1. Remove clip-path cutout; use soft vignette instead
+### File: `src/components/onboarding/FirstSessionGuide.tsx`
 
-Replace the clip-path approach with a simple semi-transparent overlay. The highlighted element gets `position: relative; z-index: 61` (raised above the overlay) so it remains fully visible and unclipped. No hole-punching needed.
+**Fix 1 — Smart tooltip positioning**: After scrolling and highlighting the element, measure its `getBoundingClientRect()`. If the element is in the lower half of the viewport, position the tooltip at the **top** (below safe area). If the element is in the upper half, keep tooltip at **bottom**. This prevents overlap. For small elements like sidebar-trigger and coach-access in the header, always position tooltip below.
 
-**Overlay**: `bg-black/40` (down from `/75`) — enough to dim but user can still read labels, see scroll position, recognize the page.
+**Fix 2 — Fix Back→Next re-highlighting**: The `highlightElement` callback has stale closure issues because it depends on `step` and `isFullscreen` derived from `currentStep` state. The fix: use a ref for `currentStep` so `highlightElement` always reads the latest value. Also ensure `cleanupPrevious` runs synchronously before setting new highlights, and add a retry mechanism that's properly cleaned up.
 
-### 2. Remove orange border ring
+**Fix 3 — Daily check-in carousel**: For step 0, after finding the `[data-tour="check-in-carousel"]` element, programmatically scroll it horizontally to show all cards are present. Update step body to emphasize all 3 dimensions. The main fix is actually that the carousel container needs to be highlighted — this already works, but the `scrollIntoView` with `block: 'center'` should use `block: 'start'` for this step so the full carousel area is visible above the tooltip.
 
-Delete the `border-2 border-saffron/60` spotlight ring entirely. Instead, apply a subtle `shadow-[0_0_40px_rgba(255,183,77,0.15)]` glow around the element for a soft, premium feel — no hard edges.
+**Fix 4 — Phase B navigation highlighting**: 
+- Step 5 (sidebar trigger): scroll to top of page first, then highlight the `[data-tour="sidebar-trigger"]` button in the header. Position tooltip in center since the element is small.
+- Step 6 (sidebar nav): open sidebar first, wait 400ms, then highlight `[data-tour="sidebar-nav"]`. Position tooltip at bottom-right or overlay the content area (not covering sidebar).
+- Step 7 (coach access): close sidebar, scroll to top, highlight `[data-tour="coach-access"]` in header.
 
-### 3. Auto-scroll element into center before highlighting
+**Fix 5 — Expand Step 7 to show individual feature descriptions**: Change the step body to a structured layout showing each feature with a one-line description:
+- **Performance Readiness Assessment** — Check your mental state daily
+- **Reset Studio** — Guided practices to restore energy
+- **Mind Performance Coach** — AI coaching built around your patterns  
+- **Performance Intelligence** — Track trends and growth over time
 
-Add `scrollIntoView({ behavior: 'smooth', block: 'center' })` call on each step transition. Wait 400ms for scroll to settle, then measure `getBoundingClientRect()` and position tooltip. This ensures:
-- Daily Plan section scrolls into view
-- Compass section scrolls into view
-- Every feature appears centered on screen before the tooltip appears
+### File: `src/pages/DailyCheckIn.tsx`
 
-### 4. Fix check-in step — show full carousel, not just one card
+**Fix 3b — Page navigation on Back**: When step 0 is the check-in page step, the existing `useEffect` for page transitions needs to also handle navigating *back* to `/daily-check-in` when `step.page === 'check-in'`. Currently it only handles navigating to `/executive-home`. Add the reverse check.
 
-The `data-tour="check-in-carousel"` already wraps the full carousel. The issue is the clip-path was cropping it. With the new overlay approach (element raised above overlay via z-index), the full carousel with all 5 states (Overwhelmed, Drained, Steady, Scattered, Focused) will be visible.
+## Technical Details
 
-Additionally, update the step 1 body copy to mention all dimensions:
-> "One tap to tell the system how you're performing right now — your sharpness, clarity, and confidence. This is where every day starts."
+**Tooltip positioning logic** (new):
+```text
+measure element rect after scroll
+if element bottom > viewport height * 0.5:
+  tooltip position = top (with safe-area offset)
+else:
+  tooltip position = bottom
+for fullscreen steps: centered as before
+```
 
-### 5. Reduce overlay darkness
+**Stale closure fix**: Replace the `currentStep`-derived `step`/`isFullscreen` inside `highlightElement` with direct reads from a `currentStepRef`:
+```typescript
+const currentStepRef = useRef(currentStep);
+currentStepRef.current = currentStep;
+// Inside highlightElement, read STEPS[currentStepRef.current]
+```
 
-Change from `bg-black/75 backdrop-blur-sm` to `bg-black/40` with no blur. The app remains clearly visible beneath — the user sees scroll position, feature names, the full layout — while the overlay gently directs attention to the highlighted element.
-
-### 6. Tooltip always positioned in safe zone
-
-After scrolling the element to center, position the tooltip card in a fixed bottom area (`bottom: 24px, left: 16px, right: 16px`) when highlighting real elements. This guarantees:
-- Tooltip + Next button always visible and tappable
-- Feature centered in the upper portion of the viewport
-- No overlap between tooltip and highlighted element on mobile
-
-For fullscreen steps, tooltip stays centered as before.
-
-## File Changes
-
-### Modify: `src/components/onboarding/FirstSessionGuide.tsx`
-
-- **Overlay**: Replace `bg-black/75 backdrop-blur-sm` with `bg-black/40`, remove `clipPath` logic entirely
-- **Element highlighting**: Instead of clip-path cutout, programmatically add a temporary class/style to the target element raising it above the overlay (`position: relative; z-index: 61`) with a soft glow shadow
-- **Auto-scroll**: Before measuring, call `el.scrollIntoView({ behavior: 'smooth', block: 'center' })`, then `setTimeout(updateSpotlight, 500)`
-- **Remove border ring**: Delete the `border-2 border-saffron/60` div entirely
-- **Tooltip positioning**: For non-fullscreen steps, fix tooltip to bottom of viewport (`position: fixed; bottom: 24px; left: 16px; right: 16px`) so it's always tappable
-- **Step 1 body copy**: Update to mention clarity and confidence
-- Clean up spotlight rect logic (no longer needed for clip-path, only for optional soft glow positioning)
-
-### No other files change
-
-All `data-tour` attributes and page-level rendering remain as-is.
-
-## Best Practice Suggestions for Further Improvement
-
-- **Add a "Back" button** alongside "Next" so users can revisit a step they missed
-- **Add step counter text** (e.g., "3 of 10") for clearer progress indication beyond dots
-- **Animate transitions** — when scrolling to the next element, briefly fade out the tooltip, scroll, then fade in the new tooltip for a polished demo feel
-- **Haptic feedback** on mobile (if Capacitor) when advancing steps
-- **Auto-advance timer** option — if user doesn't tap for 8s, gently pulse the Next button
+**Retry cleanup**: Store the retry timer ID in a ref and clear it on every step change to prevent ghost highlights from previous steps.
 
