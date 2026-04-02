@@ -1,16 +1,16 @@
 /**
- * Energy State Engine — v2.0 (Decision Readiness)
+ * Energy State Engine – v2.0 (Decision Readiness)
  * Thin client orchestrator: gathers inputs, calls backend for scoring.
  * No proprietary scoring logic lives here.
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-// NOTE: getLocalWearableData intentionally NOT imported — DB is canonical source for cross-device consistency
+// NOTE: getLocalWearableData intentionally NOT imported – DB is canonical source for cross-device consistency
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
-// getLocalWearableData removed — local cache must not override cloud source of truth
+// getLocalWearableData removed – local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
 
 // ==================== RETRY GUARDRAIL ====================
@@ -181,7 +181,7 @@ async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | nu
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
-  // 1. Read wearable data — try DB first, fall back to local storage
+  // 1. Read wearable data – try DB first, fall back to local storage
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
   let wearableHRV: number | null = null;
   let wearableBaseline: number | null = null;
@@ -224,7 +224,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   let calendarData: any[] = [];
   if (effectiveUserId) {
     try {
-      // Gate on active connection — stale events must not power active behavior
+      // Gate on active connection – stale events must not power active behavior
       const { data: conn } = await supabase
         .from('calendar_connections')
         .select('is_active')
@@ -250,7 +250,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
   const hasCalendar = calendarData.length > 0;
 
-  // 2. Fetch check-in data from DB (sole source of truth — no localStorage)
+  // 2. Fetch check-in data from DB (sole source of truth – no localStorage)
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
   let checkInOutcome: string | null = null;

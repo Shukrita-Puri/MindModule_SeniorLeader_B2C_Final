@@ -33,7 +33,7 @@ export default function Stage5RecoveryPatterns() {
     { 
       value: "accumulating_fatigue", 
       label: "Fatigue accumulates even with rest",
-      description: "Rest doesn't fully restore me—tiredness carries over"
+      description: "Rest doesn't fully restore me–tiredness carries over"
     },
     { 
       value: "always_tired", 

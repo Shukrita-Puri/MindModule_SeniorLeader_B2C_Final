@@ -500,7 +500,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         }),
       }).catch(err => console.error('Insight extraction failed:', err));
 
-      // 3. Trigger probing effectiveness analysis (fire-and-forget) — use Auth0 token
+      // 3. Trigger probing effectiveness analysis (fire-and-forget) – use Auth0 token
       if (insightToken) {
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-probing-effectiveness`, {
           method: 'POST',
@@ -583,7 +583,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           }),
         }).catch(err => console.error('Tool commitment extraction failed:', err));
 
-        // 9. Resolve session commitments — updates pending commitment statuses based on conversation
+        // 9. Resolve session commitments – updates pending commitment statuses based on conversation
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-session-commitments`, {
           method: 'POST',
           headers: {

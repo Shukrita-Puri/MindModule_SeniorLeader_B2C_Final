@@ -9,14 +9,14 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
-// WeeklyRitualStreak removed — lives on homepage via InsightProgressCard
+// WeeklyRitualStreak removed – lives on homepage via InsightProgressCard
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
-// BaselineReferenceCard removed — archetype data now lives in LeadershipPatternsCard
+// BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
@@ -168,7 +168,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // Removed page-level `loading` gate — each section manages its own loading
+  // Removed page-level `loading` gate – each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
@@ -209,7 +209,7 @@ const Insights = () => {
   useEffect(() => {
     if (user?.id && !fetchedRef.current) {
       fetchedRef.current = true;
-      // Fire all three fetches in parallel — each manages its own loading/error state
+      // Fire all three fetches in parallel – each manages its own loading/error state
       fetchStatePatterns();
       fetchTinyWinsInsights();
       fetchSemanticAnalysis();
@@ -329,7 +329,7 @@ const Insights = () => {
         
         console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
         
-        // Aggregate dimensions — exclude sentiment (internal only)
+        // Aggregate dimensions – exclude sentiment (internal only)
         const dimensionCounts: Record<string, Record<string, number>> = {
           emotion: {}, agency: {}, regulation: {}, growth: {}
         };
@@ -775,12 +775,12 @@ const Insights = () => {
     const count = tinyWinsInsights?.winsCount || 0;
     if (count === 0) return 'Capture your first win during evening integration to start building your momentum map';
     if (count === 1) return 'First win captured! Log 2 more to see your dimension map';
-    if (count < 3) return `${count} wins so far — log ${3 - count} more for your dimension map`;
+    if (count < 3) return `${count} wins so far – log ${3 - count} more for your dimension map`;
     if (count < 5) return 'Your momentum map is building. At 5 wins, an AI observation will appear';
     return null;
   };
 
-  // No page-level loading gate — page shell renders immediately, each card shows its own spinner
+  // No page-level loading gate – page shell renders immediately, each card shows its own spinner
 
   const winsProgressMessage = getWinsProgressMessage();
 
@@ -800,24 +800,24 @@ const Insights = () => {
               Patterns. Progress. Presence.
             </p>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              What is consistently true about how you lead, perform, and recover — drawn from everything the app knows about you.
+              What is consistently true about how you lead, perform, and recover – drawn from everything the app knows about you.
             </p>
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Your Self Mastery Patterns — pass pre-fetched data to avoid duplicate edge call */}
+        {/* Your Self Mastery Patterns – pass pre-fetched data to avoid duplicate edge call */}
         <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
 
-        {/* Card 2 — Your Momentum (Performance Log) */}
+        {/* Card 2 – Your Momentum (Performance Log) */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
                 title="Your Momentum"
-                explanation="The wins you've logged over the past 30 days — reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
+                explanation="The wins you've logged over the past 30 days – reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
@@ -881,7 +881,7 @@ const Insights = () => {
                         return (
                           <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                             <p className="text-sm text-foreground leading-relaxed">
-                              {pct}% of your wins this month were {dominantDomain.toLowerCase()} wins — that's your dominant pattern right now.
+                              {pct}% of your wins this month were {dominantDomain.toLowerCase()} wins – that's your dominant pattern right now.
                             </p>
                           </div>
                         );
@@ -895,7 +895,7 @@ const Insights = () => {
                 {/* Win list */}
                 <div className="space-y-2">
                   {tinyWinsContent.slice(0, 5).map((win, i) => {
-                    // Domain tag mapping — must match getDomain logic above
+                    // Domain tag mapping – must match getDomain logic above
                     const content = (win.content || '').toLowerCase();
                     let domain = 'Delivery';
                     let dotColor = 'bg-slate-400';
@@ -946,24 +946,24 @@ const Insights = () => {
                   {winsProgressMessage || 'Share your wins during evening coach sessions to build your performance log.'}
                 </p>
                 <p className="text-xs text-muted-foreground/60">
-                  The coach captures patterns you might miss — speak to them about your daily wins to unlock this feature.
+                  The coach captures patterns you might miss – speak to them about your daily wins to unlock this feature.
                 </p>
               </div>
             )}
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Card 3 — Your Performance Rhythm */}
+        {/* Card 3 – Your Performance Rhythm */}
         <PerformanceRhythmCard userId={user?.id} />
 
-        {/* Card 5 — Your Mind Map */}
+        {/* Card 5 – Your Mind Map */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
               <InsightInfoModal
                 title="Your Mind Map"
-                explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day — what keeps coming up. The picture your data is painting of your inner world right now."
+                explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day – what keeps coming up. The picture your data is painting of your inner world right now."
               />
             </div>
           </CardHeader>

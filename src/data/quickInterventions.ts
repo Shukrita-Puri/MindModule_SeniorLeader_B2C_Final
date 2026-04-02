@@ -37,10 +37,10 @@ export const quickInterventions: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Stanford Neuroscience (Dr. Andrew Huberman)",
     origin: "Discovered by Stanford researchers as the fastest way to activate the parasympathetic nervous system",
-    storyHook: "The single fastest way to calm your nervous system—used by Navy SEALs and surgeons alike.",
+    storyHook: "The single fastest way to calm your nervous system–used by Navy SEALs and surgeons alike.",
     essence: "Two inhales through nose, one long exhale through mouth. Your nervous system will respond in seconds.",
     cue: "Double inhale, long exhale.",
-    usedBy: "When you need to calm down in 30 seconds—before walking into a room, after receiving bad news, during panic",
+    usedBy: "When you need to calm down in 30 seconds–before walking into a room, after receiving bad news, during panic",
     thumbnail: quickBreathThumbnail,
     steps: 3,
     subType: "tool",
@@ -75,7 +75,7 @@ export const quickInterventions: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Navy SEALs / Mark Divine",
     origin: "Standard breathing technique used by special forces operators before high-stakes operations",
-    storyHook: "The same technique Navy SEALs use before breaching a door—adapted for your exam or interview.",
+    storyHook: "The same technique Navy SEALs use before breaching a door–adapted for your exam or interview.",
     essence: "4-4-4-4: Inhale 4 counts, hold 4 counts, exhale 4 counts, hold 4 counts.",
     cue: "Square your breath.",
     usedBy: "Before any high-stakes moment requiring calm focus",
@@ -84,7 +84,7 @@ export const quickInterventions: SanctuaryContent[] = [
     subType: "tool",
     instructions: [
       "Inhale for 4 counts: Breathe in slowly through your nose for 4 seconds",
-      "Hold for 4 counts: Hold the breath gently—no tension in your throat",
+      "Hold for 4 counts: Hold the breath gently–no tension in your throat",
       "Exhale for 4 counts: Release slowly through your mouth for 4 seconds",
       "Hold for 4 counts: Pause at the bottom before your next inhale. Repeat 3 times total."
     ],
@@ -125,7 +125,7 @@ export const quickInterventions: SanctuaryContent[] = [
       "5 things you SEE: Look around and name 5 things you can see right now (wall, chair, window, phone, shoes)",
       "4 things you HEAR: Notice 4 sounds (air conditioning, distant voices, your breath, birds outside)",
       "3 things you FEEL: Name 3 physical sensations (feet on floor, fabric on skin, air temperature)",
-      "2 things you SMELL: Identify 2 scents (coffee, paper, your shampoo, nothing—that counts)",
+      "2 things you SMELL: Identify 2 scents (coffee, paper, your shampoo, nothing–that counts)",
       "1 thing you TASTE: Notice 1 taste in your mouth (toothpaste, coffee, nothing specific)"
     ],
     whyThisWorks: "Anxiety lives in the future. This technique forces your brain to process present-moment sensory data, which occupies the same neural real estate as anxious rumination. You literally cannot be fully present and fully anxious at the same time."
@@ -157,7 +157,7 @@ export const quickInterventions: SanctuaryContent[] = [
     storyHook: "Your body tells your brain how confident you are. Change your posture, change your state.",
     essence: "Stand tall, hands on hips or raised overhead, chin up. Hold for 30 seconds.",
     cue: "Stand like you already won.",
-    usedBy: "Before interviews, presentations, difficult conversations—anywhere you need instant confidence",
+    usedBy: "Before interviews, presentations, difficult conversations–anywhere you need instant confidence",
     thumbnail: quickResetThumbnail,
     steps: 3,
     subType: "tool",
@@ -204,7 +204,7 @@ export const quickInterventions: SanctuaryContent[] = [
       "Apply cold water: Splash cold water on your face (especially forehead and cheeks) OR run cold water over your inner wrists for 20-30 seconds",
       "Breathe slowly while you do it: Take slow, deep breaths as the cold activates your dive reflex and calms your system"
     ],
-    whyThisWorks: "When cold water touches your face, it triggers the mammalian dive reflex—an ancient survival mechanism that immediately slows heart rate by 10-25% and redirects blood to vital organs. This is the fastest physiological reset available."
+    whyThisWorks: "When cold water touches your face, it triggers the mammalian dive reflex–an ancient survival mechanism that immediately slows heart rate by 10-25% and redirects blood to vital organs. This is the fastest physiological reset available."
   },
 
   // ============= MINDSET QUICK INTERVENTIONS (30-60 sec) =============
@@ -235,7 +235,7 @@ export const quickInterventions: SanctuaryContent[] = [
     storyHook: "One word to anchor your entire performance. Choose it. Repeat it. Become it.",
     essence: "Choose one word that represents how you want to show up. Let it be your anchor.",
     cue: "What is my word?",
-    usedBy: "Before exams, presentations, interviews, competitions—any moment requiring intentional presence",
+    usedBy: "Before exams, presentations, interviews, competitions–any moment requiring intentional presence",
     thumbnail: quickResetThumbnail,
     steps: 3,
     subType: "mindset",
@@ -271,7 +271,7 @@ export const quickInterventions: SanctuaryContent[] = [
     creator: "Alison Wood Brooks / Harvard Business School",
     origin: "Research showing that reframing anxiety as excitement improves performance",
     storyHook: "Nervousness and excitement are the same physiological state. Choose your label.",
-    essence: "Say out loud: I am excited. Your body cannot tell the difference between nervous and excited—only your label can.",
+    essence: "Say out loud: I am excited. Your body cannot tell the difference between nervous and excited–only your label can.",
     cue: "I am excited.",
     usedBy: "When you feel nervous before a performance, presentation, or high-stakes moment",
     thumbnail: quickResetThumbnail,
@@ -282,7 +282,7 @@ export const quickInterventions: SanctuaryContent[] = [
       "Say out loud: I am excited (10 sec): Actually say the words. Out loud if possible, silently if not. Say it 2-3 times with conviction.",
       "Reframe the story (15 sec): Tell yourself: This energy is here to help me perform. My body is preparing me for something important."
     ],
-    whyThisWorks: "Harvard research shows that saying \"I am excited\" before stressful tasks significantly improves performance compared to trying to calm down. Both nervousness and excitement involve arousal—the only difference is your interpretation. Excitement is approach-oriented; nervousness is avoidance-oriented."
+    whyThisWorks: "Harvard research shows that saying \"I am excited\" before stressful tasks significantly improves performance compared to trying to calm down. Both nervousness and excitement involve arousal–the only difference is your interpretation. Excitement is approach-oriented; nervousness is avoidance-oriented."
   },
 
   {
@@ -356,10 +356,10 @@ export const quickInterventions: SanctuaryContent[] = [
     instructions: [
       "Name the fear specifically (15 sec): What exactly are you afraid will happen? Be specific. Not \"it will go badly\" but \"I will forget my words and stand there in silence.\"",
       "Ask: And then what? (15 sec): If that happened, what would you do? You would probably recover, move on, or it would not be as catastrophic as it feels.",
-      "Ask: Would I survive it? (15 sec): The answer is almost always yes. Even embarrassment, failure, rejection—you have survived these before.",
+      "Ask: Would I survive it? (15 sec): The answer is almost always yes. Even embarrassment, failure, rejection–you have survived these before.",
       "Release and refocus (15 sec): Take a breath. Say: The worst is survivable. Now, what is most likely to happen? Focus on that instead."
     ],
-    whyThisWorks: "Anxiety thrives in vagueness. When you name the specific fear and follow it to its conclusion, you often realize you could handle it. This is called defusion in ACT therapy—separating yourself from the thought and seeing it as just a thought, not reality."
+    whyThisWorks: "Anxiety thrives in vagueness. When you name the specific fear and follow it to its conclusion, you often realize you could handle it. This is called defusion in ACT therapy–separating yourself from the thought and seeing it as just a thought, not reality."
   },
 
   {

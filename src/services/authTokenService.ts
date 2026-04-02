@@ -1,5 +1,5 @@
 /**
- * Centralized Auth Token Service (v3 — hardened)
+ * Centralized Auth Token Service (v3 – hardened)
  * 
  * Single source of truth for Auth0 access token retrieval.
  * - Deduplicates concurrent requests (one in-flight promise)
@@ -48,7 +48,7 @@ export async function getAuthToken(): Promise<string | null> {
       const auth0Client = (window as any).__auth0Client;
       if (!auth0Client) {
         console.warn('[authTokenService] Auth0 client not available yet, waiting 1s...');
-        // Brief wait — client may still be initializing
+        // Brief wait – client may still be initializing
         await new Promise(r => setTimeout(r, 1000));
         const retryClient = (window as any).__auth0Client;
         if (!retryClient) {
@@ -104,9 +104,9 @@ export async function getAuthToken(): Promise<string | null> {
         }
       }
 
-      // Don't log "login_required" as an error — it's expected when session is truly gone
+      // Don't log "login_required" as an error – it's expected when session is truly gone
       if (err?.error === 'login_required') {
-        console.log('[authTokenService] Session expired (login_required) — user will need to re-authenticate');
+        console.log('[authTokenService] Session expired (login_required) – user will need to re-authenticate');
       } else {
         console.error('[authTokenService] Token retrieval failed:', err?.error || err?.message || err);
       }

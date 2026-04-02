@@ -31,7 +31,7 @@ const SimulationHeader = ({
             Dialogue Debrief
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground font-body leading-relaxed mx-auto mb-6 px-4">
-            Curated reflection from your practice session—highlighting strengths, blind spots, and frameworks to accelerate your growth
+            Curated reflection from your practice session–highlighting strengths, blind spots, and frameworks to accelerate your growth
           </p>
           
           <TooltipProvider>

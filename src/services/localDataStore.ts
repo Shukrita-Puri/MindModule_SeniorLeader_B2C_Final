@@ -1,7 +1,7 @@
 /**
  * Local device storage for calendar and wearable data.
  * Uses localStorage as the storage backend (works on web + Capacitor).
- * This is an additional cache layer — cloud DB remains canonical.
+ * This is an additional cache layer – cloud DB remains canonical.
  */
 
 const CALENDAR_KEY = 'local_calendar_events';

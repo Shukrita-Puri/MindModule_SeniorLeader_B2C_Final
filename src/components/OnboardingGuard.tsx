@@ -85,7 +85,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
           return;
         }
 
-        // Truly incomplete — find resume route
+        // Truly incomplete – find resume route
         console.log('[OnboardingGuard] ⏳ Fetching DB progress for resume route...');
         const resumeRoute = await getResumeRoute();
         console.log('[OnboardingGuard] 📍 Resume route resolved:', resumeRoute);

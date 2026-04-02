@@ -1,5 +1,5 @@
 /**
- * @deprecated This file is dead code — superseded by the `generate-mastery-plan` edge function.
+ * @deprecated This file is dead code – superseded by the `generate-mastery-plan` edge function.
  * Only imported by `planReconstruction.ts` (also dead code) for type definitions.
  * All plan generation, scoring, and content selection now runs server-side.
  * Do NOT add new consumers. Will be removed in a future cleanup.

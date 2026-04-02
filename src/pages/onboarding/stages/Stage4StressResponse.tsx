@@ -28,7 +28,7 @@ export default function Stage4StressResponse() {
     { 
       value: "react_quickly", 
       label: "I react quickly, sometimes before I've fully processed",
-      description: "I tend to respond fast—occasionally too fast"
+      description: "I tend to respond fast–occasionally too fast"
     },
     { 
       value: "freeze_overthink", 

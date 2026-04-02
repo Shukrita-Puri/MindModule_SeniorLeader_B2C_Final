@@ -39,7 +39,7 @@ export interface CoachContext {
     };
   };
   
-   // Mastery recommendation (from energy state — not outer readiness brief)
+   // Mastery recommendation (from energy state – not outer readiness brief)
    theme?: {
     phrase: string;
     context: string;

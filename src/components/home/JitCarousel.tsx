@@ -277,7 +277,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
   return (
     <div className="space-y-3">
-      {/* Section header — tooltip aligned with Time of Day section */}
+      {/* Section header – tooltip aligned with Time of Day section */}
       <div className="px-4 md:px-6 max-w-lg mx-auto">
         <div className="flex items-center justify-between py-1">
           <span className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
@@ -285,12 +285,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           </span>
           <MetricInfoModal
             title="Just-in-Time Preparation"
-            description="A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice — regulation, alignment, and a coaching prompt — designed to bring your best self into the room."
+            description="A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice – regulation, alignment, and a coaching prompt – designed to bring your best self into the room."
           />
         </div>
       </div>
 
-      {/* Event header with pills inline + X dismiss — same structure as time-of-day */}
+      {/* Event header with pills inline + X dismiss – same structure as time-of-day */}
       <div className="px-4 md:px-6 max-w-lg mx-auto space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">

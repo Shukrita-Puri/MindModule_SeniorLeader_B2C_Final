@@ -26,7 +26,7 @@ const UserSettingsPopover = () => {
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
 
-  // Derive display values — guard against null user during async profile sync
+  // Derive display values – guard against null user during async profile sync
   const displayName = user?.name || user?.email?.split('@')[0] || 'User';
   const displayEmail = user?.email || '';
   const initials = user?.name
@@ -41,7 +41,7 @@ const UserSettingsPopover = () => {
   const handleSignOut = async () => {
     setOpen(false);
     await signOut();
-    // Navigate to public landing — NOT /login (which auto-triggers auth)
+    // Navigate to public landing – NOT /login (which auto-triggers auth)
     navigate('/', { replace: true });
   };
 

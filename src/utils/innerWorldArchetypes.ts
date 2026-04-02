@@ -1,4 +1,4 @@
-// Inner World Archetypes v2.0 — Unified archetype system
+// Inner World Archetypes v2.0 – Unified archetype system
 // All assignment logic lives server-side. This file provides display metadata only.
 
 export interface ArchetypeInfo {

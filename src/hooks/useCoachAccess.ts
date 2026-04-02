@@ -56,7 +56,7 @@ export function useCoachAccess() {
       return result;
     } catch (err) {
       console.error('[useCoachAccess] Error:', err);
-      // Fail open for now — don't block users on network errors
+      // Fail open for now – don't block users on network errors
       const result = { canStart: true, unlimited: false };
       setAccessResult(result);
       return result;

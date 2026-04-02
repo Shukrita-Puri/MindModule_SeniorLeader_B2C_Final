@@ -103,7 +103,7 @@ const MicroPracticePlayer = () => {
     
     // If this is the last practice in a plan, skip practice rating and trigger plan feedback
     if (isLastPracticeInPlan(id)) {
-      console.log('[MicroPracticePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      console.log('[MicroPracticePlayer] Last in plan – skipping practice rating, setting plan feedback flag');
       const jitData = localStorage.getItem('jitInterventionData');
       const planType = jitData ? 'jit' : 'tod';
       
@@ -174,7 +174,7 @@ const MicroPracticePlayer = () => {
   // Handle beginning practice - navigate to cards view for card-based practices
   const handleBeginPractice = () => {
     if (practice.steps) {
-      // Card-based practice — pass coach state through
+      // Card-based practice – pass coach state through
       navigate(`/micro-practice/${id}/cards`, {
         state: {
           fromCoach,

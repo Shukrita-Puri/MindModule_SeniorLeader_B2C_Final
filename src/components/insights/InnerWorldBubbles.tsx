@@ -68,7 +68,7 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG viewBox — taller to prevent overlap
+  // SVG viewBox – taller to prevent overlap
   const svgWidth = 420;
   const svgHeight = 480;
 
@@ -112,7 +112,7 @@ const InnerWorldBubbles = ({
       return { x, y, radius: nodeR, fontSize, labelRight, labelX, labelW, labelH };
     });
 
-    // Collision detection — nudge overlapping labels vertically
+    // Collision detection – nudge overlapping labels vertically
     for (let i = 0; i < positions.length; i++) {
       for (let j = i + 1; j < positions.length; j++) {
         const a = positions[i];

@@ -47,7 +47,7 @@ export const WisdomCard = ({
         "text-xs mt-2 text-right",
         isOnDark ? "text-muted-foreground" : "text-muted-foreground"
       )}>
-        — {attribution}
+        – {attribution}
       </p>
       
       {/* Optional Context */}

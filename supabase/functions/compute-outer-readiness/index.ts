@@ -2182,10 +2182,10 @@ serve(async (req) => {
         } else if (notable.length === 1) {
           const good = signals.find(s => s.key === 'sleep_good');
           if (good) {
-            stateStatement = `${tierLabel} with ${good.text} — but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
+            stateStatement = `${tierLabel} with ${good.text} – but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
             stateAlreadyUsed.push(notable[0].key, good.key);
           } else {
-            stateStatement = `${tierLabel} this ${tod} — ${notable[0].text}.`;
+            stateStatement = `${tierLabel} this ${tod} – ${notable[0].text}.`;
             stateAlreadyUsed.push(notable[0].key);
           }
         } else {
@@ -2210,10 +2210,10 @@ serve(async (req) => {
       const confHigh = (confidenceLevel ?? 3) >= 4;
       const confLow = (confidenceLevel ?? 3) <= 2;
       if (cHigh && confLow) {
-        stateStatement += ' Clarity is strong — but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
+        stateStatement += ' Clarity is strong – but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
         stateAlreadyUsed.push('clarity_high', 'confidence_low');
       } else if (cLow && confHigh) {
-        stateStatement += ' Confidence is high but clarity is low — certainty about an unclear path.';
+        stateStatement += ' Confidence is high but clarity is low – certainty about an unclear path.';
         stateAlreadyUsed.push('clarity_low', 'confidence_high');
       } else if (cLow && confLow && safeTier !== 'depleted') {
         stateStatement += ' Both clarity and confidence flagged low in your check-in.';
@@ -2241,12 +2241,12 @@ serve(async (req) => {
         return eventTypes.some(et => content.includes(et.split(' ')[0]) || themes.some(th => et.includes(th)));
       });
       if (relevantMemory && !finalContext.includes('coach')) {
-        // P1: Coach memory + calendar match — prepend intersection
+        // P1: Coach memory + calendar match – prepend intersection
         const eventRef = `*${todayHighStakes[0]}*`;
         const coachRef = (relevantMemory as any).memory_content.length > 80 
           ? (relevantMemory as any).memory_content.substring(0, 77) + '...'
           : (relevantMemory as any).memory_content;
-        finalContext = `You've explored this territory in coaching — ${eventRef} is that moment. ${finalContext}`;
+        finalContext = `You've explored this territory in coaching – ${eventRef} is that moment. ${finalContext}`;
         compassAlreadyUsed.push('coach_memory_match');
       }
     }
@@ -2259,7 +2259,7 @@ serve(async (req) => {
         return todayHighStakes.some(e => text.includes(e.toLowerCase().split(' ')[0]));
       });
       if (relevantCommitment && !finalContext.includes('commitment')) {
-        finalContext = `You committed to working on this — ${eventRef} is that moment. ${finalContext}`;
+        finalContext = `You committed to working on this – ${eventRef} is that moment. ${finalContext}`;
         compassAlreadyUsed.push('coach_commitment_match');
       }
     }

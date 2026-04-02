@@ -105,7 +105,7 @@ const ConnectedData = () => {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  // Fetch connection status from backend — NO localStorage overrides
+  // Fetch connection status from backend – NO localStorage overrides
   const fetchStatus = useCallback(async () => {
     try {
       const token = await getAuthToken();
@@ -126,7 +126,7 @@ const ConnectedData = () => {
       );
       if (res.ok) {
         const data = await res.json();
-        // Trust backend connection state — do NOT override with localStorage
+        // Trust backend connection state – do NOT override with localStorage
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
         setStatus(data);
       } else {

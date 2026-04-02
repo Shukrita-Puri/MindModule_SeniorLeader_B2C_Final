@@ -136,7 +136,7 @@ export function useWearableSync(): WearableSyncState {
         setIsSyncing(false);
         return false;
       }
-      // Permission confirmed — run full sync
+      // Permission confirmed – run full sync
       return await runSync(false);
     } catch (err) {
       console.error('[useWearableSync] triggerSync error:', err);
@@ -186,7 +186,7 @@ export function useWearableSync(): WearableSyncState {
           console.log('[useWearableSync] Init: live HealthKit access confirmed');
           await syncIfStale();
         } else {
-          console.log('[useWearableSync] Init: live HealthKit access DENIED — marking permission_revoked');
+          console.log('[useWearableSync] Init: live HealthKit access DENIED – marking permission_revoked');
           setConnectionState('permission_revoked');
         }
       } else if (!isNativeApp()) {
@@ -207,7 +207,7 @@ export function useWearableSync(): WearableSyncState {
         const { App } = await import('@capacitor/app');
         const listener = await App.addListener('appStateChange', (state) => {
           if (state.isActive) {
-            console.log('[useWearableSync] App resumed to foreground — checking sync freshness');
+            console.log('[useWearableSync] App resumed to foreground – checking sync freshness');
             syncIfStale();
           }
         });

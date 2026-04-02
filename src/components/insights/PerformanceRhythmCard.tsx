@@ -186,7 +186,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const getTimeWindow = (h: number) => h >= 5 && h < 12 ? 0 : h >= 12 && h < 17 ? 1 : 2;
         const getDayIndex = (d: number) => d === 0 ? 6 : d - 1; // Sun=6, Mon=0
 
-        // ── Build 3x7 grid — uses stored time_window, not UTC-derived hours ──
+        // ── Build 3x7 grid – uses stored time_window, not UTC-derived hours ──
         const grid: HeatmapCell[][] = Array(3).fill(null).map(() => 
           Array(7).fill(null).map(() => ({ outcome: null, compositeScore: null, divergence: false }))
         );
@@ -259,7 +259,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
         }
 
-        // Logistic event filter — skip transit/admin/booking events
+        // Logistic event filter – skip transit/admin/booking events
         const LOGISTIC_KEYWORDS = [
           'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
           'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
@@ -317,13 +317,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           const mostDraining = correlations[0];
           const mostEnergizing = correlations[correlations.length - 1];
           if (mostDraining && mostDraining.avgScore < 50) {
-            calendarInsight = `On days with ${mostDraining.eventType.replace('_', ' ')} events, your readiness averages ${Math.round(mostDraining.avgScore)} — observed across ${mostDraining.count} occurrences.`;
+            calendarInsight = `On days with ${mostDraining.eventType.replace('_', ' ')} events, your readiness averages ${Math.round(mostDraining.avgScore)} – observed across ${mostDraining.count} occurrences.`;
           } else if (mostEnergizing && mostEnergizing.avgScore > 65) {
-            calendarInsight = `${mostEnergizing.eventType.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())} events consistently lift your readiness — avg ${Math.round(mostEnergizing.avgScore)} across ${mostEnergizing.count} occurrences.`;
+            calendarInsight = `${mostEnergizing.eventType.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())} events consistently lift your readiness – avg ${Math.round(mostEnergizing.avgScore)} across ${mostEnergizing.count} occurrences.`;
           }
         }
 
-        // ── Cause-Effect (1C) — All 6 paths mirroring edge function ──
+        // ── Cause-Effect (1C) – All 6 paths mirroring edge function ──
         let causeEffectInsight: string | null = null;
 
         const EVENT_TYPE_KEYWORDS_CE: Record<string, string[]> = {
@@ -379,11 +379,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const label = b.et.replace(/_/g, ' ');
             const absDevPct = Math.abs(b.devPct);
             causeEffectInsight = b.direction === 'drop'
-              ? `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — observed across ${b.count} events.`
-              : `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — these events don't tax your nervous system.`;
+              ? `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) – observed across ${b.count} events.`
+              : `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) – these events don't tax your nervous system.`;
             // Confidence qualifier for single-occurrence correlations
             if (b.count === 1) {
-              causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence — will validate over time)`;
+              causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence – will validate over time)`;
             }
             // RHR enrichment
             const rhrByDate = new Map<string, number>();
@@ -509,7 +509,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
             const isKeyword = Object.keys(EVENT_TYPE_KEYWORDS_CE).includes(b.et);
             const label = isKeyword ? `${b.et.replace(/_/g, ' ')} events` : `'${b.et}' events`;
-            causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+            causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' – ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
             // HRV enrichment for Path C
             if (wearableData.length >= 3) {
               const hrvByDateC = new Map<string, number>();
@@ -550,8 +550,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const diff = eventPosPct - nonEventPosPct;
             if (Math.abs(diff) >= 0.15) {
               causeEffectInsight = diff > 0
-                ? `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`
-                : `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+                ? `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days – external structure may help you focus.`
+                : `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days – your inner state may benefit from space.`;
               // HRV enrichment for Path D
               if (wearableData.length >= 3) {
                 const hrvByDateD = new Map<string, number>();
@@ -603,8 +603,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 const jitAvg = Math.round(jitDayHRVs.reduce((a, b) => a + b, 0) / jitDayHRVs.length);
                 const nonAvg = Math.round(nonPreppedHRVs.reduce((a, b) => a + b, 0) / nonPreppedHRVs.length);
                 causeEffectInsight = jitAvg > nonAvg
-                  ? `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped event days — preparation may reduce physiological stress.`
-                  : `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped days — prep helps your state even when HRV stays similar.`;
+                  ? `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped event days – preparation may reduce physiological stress.`
+                  : `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped days – prep helps your state even when HRV stays similar.`;
               }
             }
             if (!causeEffectInsight) {
@@ -617,7 +617,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               }
               const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
               if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
-                causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
+                causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time – observed across ${completedOutcomes.length} events.`;
               }
             }
           }
@@ -636,7 +636,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               const worse = wdPos > wePos ? 'weekends' : 'weekdays';
               const betterPct = Math.round(Math.max(wdPos, wePos) * 100);
               const worsePct = Math.round(Math.min(wdPos, wePos) * 100);
-              causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} — your environment on ${better} may better support your inner state.`;
+              causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} – your environment on ${better} may better support your inner state.`;
             }
           }
           if (!causeEffectInsight) {
@@ -648,7 +648,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               if (Math.abs(mPos - ePos) >= 0.15) {
                 const better = mPos > ePos ? 'mornings' : 'evenings';
                 const betterPct = Math.round(Math.max(mPos, ePos) * 100);
-                causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) — your natural rhythm may favour this window for high-stakes work.`;
+                causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) – your natural rhythm may favour this window for high-stakes work.`;
               }
             }
           }
@@ -714,13 +714,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
           // Dominant signal insight
           const signals = [
-            { score: preEventScore, text: `You prepared for ${preEventSessionsCompleted} of ${highStakesEvents.length} high-stakes moments — your presence held even when readiness was low.` },
-            { score: Math.abs(coachPresenceScore), text: coachPresenceScore > 0 ? 'Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength.' : 'Your coach has flagged uneven presence when stakes are high — preparation matters but doesn\'t always close the gap.' },
-            { score: lowReadinessScore, text: `You showed up to ${lowReadinessHighStakes} high-stakes moments while depleted — your presence held despite your state.` },
-            { score: energizedScore, text: 'High-stakes moments energize you — your readiness often rises the day after, not before.' },
+            { score: preEventScore, text: `You prepared for ${preEventSessionsCompleted} of ${highStakesEvents.length} high-stakes moments – your presence held even when readiness was low.` },
+            { score: Math.abs(coachPresenceScore), text: coachPresenceScore > 0 ? 'Your coach has noted strong presence in high-stakes contexts – that consistency is a real strength.' : 'Your coach has flagged uneven presence when stakes are high – preparation matters but doesn\'t always close the gap.' },
+            { score: lowReadinessScore, text: `You showed up to ${lowReadinessHighStakes} high-stakes moments while depleted – your presence held despite your state.` },
+            { score: energizedScore, text: 'High-stakes moments energize you – your readiness often rises the day after, not before.' },
           ];
           signals.sort((a, b) => b.score - a.score);
-          presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
+          presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data – presence insights strengthen after more high-stakes moments.';
         }
 
         // ── Build Full Month Calendar ──
@@ -830,7 +830,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const getProgressiveMessage = () => {
     if (!data) return null;
     if (data.checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm.';
-    if (data.checkInCount < 5) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — ${5 - data.checkInCount} more to see your readiness rhythm.`;
+    if (data.checkInCount < 5) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged – ${5 - data.checkInCount} more to see your readiness rhythm.`;
     return null;
   };
 
@@ -853,7 +853,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         }
       }
       if (!data.presenceLabel) {
-        messages.push({ icon: 'sparkles', text: 'Keep checking in — presence insights appear after more high-stakes moments or coach sessions' });
+        messages.push({ icon: 'sparkles', text: 'Keep checking in – presence insights appear after more high-stakes moments or coach sessions' });
       }
     }
 
@@ -869,7 +869,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           </span>
           <InsightInfoModal
             title="Your Readiness Rhythm"
-            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your decision readiness with outer circumstances — calendar events, time of day, behaviors — to surface patterns you can't see without the aggregation."
+            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your decision readiness with outer circumstances – calendar events, time of day, behaviors – to surface patterns you can't see without the aggregation."
           />
         </div>
       </CardHeader>
@@ -889,7 +889,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 1A — How You Show Up (7+ check-ins) */}
+            {/* 1A – How You Show Up (7+ check-ins) */}
             {data.checkInCount >= 7 && data.presenceLabel && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -899,7 +899,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   <InsightInfoModal
                     title="How You Show Up"
-                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations — it reflects how consistently you operate at your best."
+                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations – it reflects how consistently you operate at your best."
                   />
                 </div>
                 <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
@@ -943,7 +943,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1B — Calendar Pattern */}
+            {/* 1B – Calendar Pattern */}
             {data.checkInCount >= 7 && data.calendarInsight && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -956,7 +956,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1C removed — cause-effect insights now render inside How You Show Up */}
+            {/* 1C removed – cause-effect insights now render inside How You Show Up */}
 
             {/* Insight unlock incentives */}
             {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
@@ -980,7 +980,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Continuous Horizontal Calendar (Full Month) */}
+            {/* 2 – Continuous Horizontal Calendar (Full Month) */}
             {data.checkInCount >= 5 && data.weekRows && (() => {
               // Full month days are already in order (1st to last)
               const allDays = data.weekRows.flatMap(w => w.days);

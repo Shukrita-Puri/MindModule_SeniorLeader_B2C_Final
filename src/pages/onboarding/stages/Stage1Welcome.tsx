@@ -37,9 +37,9 @@ export default function Stage1Welcome() {
           Your answers build your performance profile across three areas:
         </p>
         <div className="space-y-2 pl-1">
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RECALIBRATE</span> — How you regulate under pressure</p>
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">CLARITY</span> — How you decide under cognitive load</p>
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RENEWAL</span> — How you sustain performance over time</p>
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RECALIBRATE</span> – How you regulate under pressure</p>
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">CLARITY</span> – How you decide under cognitive load</p>
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RENEWAL</span> – How you sustain performance over time</p>
         </div>
         <p className="text-base text-foreground/90 font-body leading-relaxed">
           Everything personalizes from this:

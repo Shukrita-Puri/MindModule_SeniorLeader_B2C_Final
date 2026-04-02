@@ -27,7 +27,7 @@ export async function logPracticeCompletion({
   contextData = {}
 }: PracticeCompletionParams): Promise<boolean> {
   try {
-    // Auth is handled by trackSanctuaryEvent via Auth0 token — no local gate needed
+    // Auth is handled by trackSanctuaryEvent via Auth0 token – no local gate needed
 
     // Determine time of day for context
     const hour = new Date().getHours();

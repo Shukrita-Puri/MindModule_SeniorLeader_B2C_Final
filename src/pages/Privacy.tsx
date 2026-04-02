@@ -187,7 +187,7 @@ const Privacy = () => {
             <p className="mb-4">We do not sell, rent, or trade your personal information.</p>
             <p className="mb-4">We may share information with:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
-              <li><strong>Service providers:</strong> Authentication (Auth0), payment processing (Stripe), AI processing (third-party AI infrastructure), and cloud hosting — all subject to strict confidentiality obligations</li>
+              <li><strong>Service providers:</strong> Authentication (Auth0), payment processing (Stripe), AI processing (third-party AI infrastructure), and cloud hosting – all subject to strict confidentiality obligations</li>
               <li><strong>Legal authorities:</strong> When required by law, court order, or to protect legal rights</li>
               <li><strong>Safety purposes:</strong> To prevent fraud, abuse, or threats to the Service or users</li>
               <li><strong>Business transfers:</strong> In connection with a merger, acquisition, or sale of assets (with prior notice)</li>

@@ -241,8 +241,8 @@ const CollegeAdmissionsSimulation = ({
       {
         condition: isHesitant || userAnxietyLevel === "medium",
         type: "ancient-wisdom" as const,
-        message: "Remember the Stoic teaching: 'You have power over your mind—not outside events. Realize this, and you will find strength.'",
-        suggestion: "Focus on what you can control—your response, your authenticity, your presence in this moment."
+        message: "Remember the Stoic teaching: 'You have power over your mind–not outside events. Realize this, and you will find strength.'",
+        suggestion: "Focus on what you can control–your response, your authenticity, your presence in this moment."
       }
     ];
 
@@ -353,7 +353,7 @@ const CollegeAdmissionsSimulation = ({
       setTimeout(() => {
         const openingMessage: Message = {
           id: "opening",
-          text: "Thank you for taking the time to meet with me today. I've reviewed your application, and I must say, you've clearly had access to some exceptional resources and opportunities. Now I'd like to understand the person behind these achievements. So let me start with this: You've had access to some of the best resources available—how can you assure us that you've developed personal grit and not just privilege?",
+          text: "Thank you for taking the time to meet with me today. I've reviewed your application, and I must say, you've clearly had access to some exceptional resources and opportunities. Now I'd like to understand the person behind these achievements. So let me start with this: You've had access to some of the best resources available–how can you assure us that you've developed personal grit and not just privilege?",
           sender: "ai",
           timestamp: new Date(),
           emotion: "probing"

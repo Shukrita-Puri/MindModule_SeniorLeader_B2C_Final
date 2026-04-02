@@ -387,9 +387,9 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
       const weAvg = avg(weekendValues);
       if (wdAvg && weAvg && Math.abs(wdAvg - weAvg) > baseline30d * 0.15) {
         if (wdAvg < weAvg) {
-          patternObservations.push('Your weekday HRV runs notably lower than weekends — your work week carries measurable physiological load');
+          patternObservations.push('Your weekday HRV runs notably lower than weekends – your work week carries measurable physiological load');
         } else {
-          patternObservations.push('Your weekend HRV runs lower than weekdays — your recovery pattern may be disrupted');
+          patternObservations.push('Your weekend HRV runs lower than weekdays – your recovery pattern may be disrupted');
         }
       }
     }

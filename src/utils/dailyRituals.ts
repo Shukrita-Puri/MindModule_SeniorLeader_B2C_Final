@@ -223,7 +223,7 @@ export async function updateRitualCompletion(
     sessionPeriod: currentPeriod, date: today, timestamp 
   });
   
-  // DEV_MODE: Direct database — single atomic upsert
+  // DEV_MODE: Direct database – single atomic upsert
   if (DEV_MODE) {
     console.log(`[dailyRituals] DEV_MODE: Atomic update for period=${currentPeriod}`);
     
@@ -278,7 +278,7 @@ export async function updateRitualCompletion(
     const accessToken = await getAccessToken();
     
     if (!accessToken) {
-      console.warn(`[dailyRituals] No access token — completion NOT saved!`);
+      console.warn(`[dailyRituals] No access token – completion NOT saved!`);
       return;
     }
 

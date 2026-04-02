@@ -47,7 +47,7 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
           </span>
           <InsightInfoModal
             title="Your Leadership Blueprint"
-            explanation="Your foundation. This is who you are based on your onboarding assessment — your mental fitness baseline, your archetype, and the component scores that define how you regulate, focus, and recover. Every other insight on this page is measured against this."
+            explanation="Your foundation. This is who you are based on your onboarding assessment – your mental fitness baseline, your archetype, and the component scores that define how you regulate, focus, and recover. Every other insight on this page is measured against this."
           />
         </div>
       </CardHeader>

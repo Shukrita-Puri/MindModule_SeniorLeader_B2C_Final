@@ -1,5 +1,5 @@
 /**
- * Subscription helper utilities — CANONICAL access check.
+ * Subscription helper utilities – CANONICAL access check.
  * 
  * hasValidAccess() is the SINGLE source of truth for subscription/beta gating.
  * Used by: SubscriptionGuard, Front.tsx CTA, any routing/access logic.
@@ -33,7 +33,7 @@ function hasResolvedSubscriptionState(user: AccessUser): boolean {
 }
 
 /**
- * Canonical access check — returns true if user should have app access.
+ * Canonical access check – returns true if user should have app access.
  * 
  * Rules (in priority order):
  * 1. Valid beta access (beta_user + unexpired beta_expires_at)
@@ -60,7 +60,7 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
 
   const status = user.subscription_status;
 
-  // 2. Active subscription — always allowed
+  // 2. Active subscription – always allowed
   if (status === 'active') return 'allow';
 
   // 3. Trialing subscription
@@ -68,7 +68,7 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
     const tier = user.subscription_tier;
     // Paid-tier Stripe billing trial → full access (no local expiry check)
     if (tier === 'monthly_pro' || tier === 'annual_pro') return 'allow';
-    // App-level free trial — check trial_ends_at if present
+    // App-level free trial – check trial_ends_at if present
     if (user.trial_ends_at) {
       return new Date(user.trial_ends_at) > new Date() ? 'allow' : 'block';
     }
@@ -100,7 +100,7 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
   return 'pending';
 }
 
-// Backwards-compatible alias — callers that used the old name keep working
+// Backwards-compatible alias – callers that used the old name keep working
 export const hasValidSubscription = hasValidAccess;
 
 /**

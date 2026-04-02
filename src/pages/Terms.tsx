@@ -84,7 +84,7 @@ const Terms = () => {
 
             <h3 className="text-xl font-subheadline text-foreground mb-2">5.3 Cancellation and Refunds</h3>
             <p className="mb-4">
-              You may cancel your subscription at any time via account settings. Cancellation takes effect at the end of the current billing period — you retain access until then.
+              You may cancel your subscription at any time via account settings. Cancellation takes effect at the end of the current billing period – you retain access until then.
             </p>
             <p className="mb-4">
               Refunds are handled on a case-by-case basis. Contact <a href="mailto:contact@mindmodule.me" className="text-primary underline">contact@mindmodule.me</a> for billing enquiries.
@@ -190,7 +190,7 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">12. Intellectual Property</h2>
             <p className="mb-4">
-              All content, features, and functionality of the Service — including software, text, graphics, logos, methodologies, and assessment frameworks — are the exclusive property of Mind Module and are protected by copyright, trademark, patent, and other intellectual property laws.
+              All content, features, and functionality of the Service – including software, text, graphics, logos, methodologies, and assessment frameworks – are the exclusive property of Mind Module and are protected by copyright, trademark, patent, and other intellectual property laws.
             </p>
             <p>
               You retain ownership of your personal content (e.g., assessment responses, conversation text). By using the Service, you grant us a limited, non-exclusive licence to process and store this content solely for the purpose of providing the Service.

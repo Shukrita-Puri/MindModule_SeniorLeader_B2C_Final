@@ -80,7 +80,7 @@ const StrengthsSection = ({ strengths = [], isGenerating = false }: StrengthsSec
                   )}
                   {(item.description || (item.indicators && item.indicators.length > 0)) && (
                     <span className="text-muted-foreground">
-                      {" — "}{item.description || item.indicators?.join(', ')}
+                      {" – "}{item.description || item.indicators?.join(', ')}
                     </span>
                   )}
                 </p>

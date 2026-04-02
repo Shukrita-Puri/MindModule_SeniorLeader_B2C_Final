@@ -120,7 +120,7 @@ const CoachingToastMinimal = ({ feedback, onClose }: CoachingToastMinimalProps) 
           
           {feedback.pastLearning?.insight && (
             <p className="text-sm text-muted-foreground italic">
-              — {feedback.pastLearning.insight}
+              – {feedback.pastLearning.insight}
             </p>
           )}
         </div>

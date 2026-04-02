@@ -27,7 +27,7 @@ interface PsychologicalDimensionBubblesProps {
   relatedWins?: WinWithDimensions[];
 }
 
-// Color schemes by dimension type — sentiment removed (internal only)
+// Color schemes by dimension type – sentiment removed (internal only)
 const DIMENSION_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   'emotion': { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/25' },
   'agency': { bg: 'bg-sky-500/15', text: 'text-sky-600', border: 'border-sky-500/25' },
@@ -291,7 +291,7 @@ const PsychologicalDimensionBubbles = ({
         document.body
       )}
 
-      {/* Color Legend — uses C-suite display labels, no sentiment */}
+      {/* Color Legend – uses C-suite display labels, no sentiment */}
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[10px] text-muted-foreground pt-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-400/50"></span>

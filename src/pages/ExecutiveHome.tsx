@@ -243,7 +243,7 @@ const ExecutiveHome = () => {
 
             </div>
 
-            {/* Your Action section — wrapped for tour highlight */}
+            {/* Your Action section – wrapped for tour highlight */}
             <div data-tour="daily-plan">
               <div className="px-4 md:px-6 max-w-lg mx-auto">
                 <section className="animate-in fade-in duration-500 delay-200">
@@ -251,13 +251,13 @@ const ExecutiveHome = () => {
                     <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
                     <MetricInfoModal
                       title="Your Performance Readiness Plan"
-                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
                     />
                   </div>
                 </section>
               </div>
 
-              {/* JIT Preparation — rendered ABOVE ToD when JIT is primary */}
+              {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
               {jitPriority && (
                 <div className="animate-in fade-in duration-500 delay-200 mt-4">
                   <JitCarousel preEventPlan={preEventPlan} />
@@ -273,7 +273,7 @@ const ExecutiveHome = () => {
                 />
               </div>
 
-              {/* JIT Preparation — below ToD when NOT primary */}
+              {/* JIT Preparation – below ToD when NOT primary */}
               {!jitPriority && (
                 <div className="animate-in fade-in duration-500 delay-300 mt-4">
                   <JitCarousel preEventPlan={preEventPlan} />

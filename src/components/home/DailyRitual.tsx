@@ -118,7 +118,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
-  // activeView removed — JIT handled by JitCarousel component
+  // activeView removed – JIT handled by JitCarousel component
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
@@ -189,7 +189,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     };
     document.addEventListener('visibilitychange', handleVisibility);
     
-    // Relaxed polling as fallback (60s instead of 15s) — only when plan is loaded
+    // Relaxed polling as fallback (60s instead of 15s) – only when plan is loaded
     const interval = setInterval(() => { if (plan) checkRitualCompletion(); }, 60000);
     
     return () => {
@@ -198,7 +198,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     };
   }, [user?.id]);
 
-  // Re-check completion whenever plan loads/changes — this is the canonical trigger
+  // Re-check completion whenever plan loads/changes – this is the canonical trigger
   useEffect(() => {
     if (plan) {
       checkRitualCompletion();
@@ -290,7 +290,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         }
       }
 
-      // Use session cache if available — but validate energy state hash for cross-device consistency
+      // Use session cache if available – but validate energy state hash for cross-device consistency
       if (!shouldRegenerate && sessionLoaded === 'true') {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
@@ -303,7 +303,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
           const lastJitCheck = sessionStorage.getItem(jitCacheKey);
           const jitCacheStale = !parsed.preEventPlan && (!lastJitCheck || (Date.now() - parseInt(lastJitCheck, 10)) > 10 * 60 * 1000);
           if (jitCacheStale) {
-            console.log('[DailyRitual] Cached plan has no preEventPlan — invalidating to allow JIT resurfacing');
+            console.log('[DailyRitual] Cached plan has no preEventPlan – invalidating to allow JIT resurfacing');
             sessionStorage.removeItem(sessionKey);
             sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
             sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
@@ -316,7 +316,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
             const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
             const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}`;
             if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
-              console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
+              console.log('[DailyRitual] Energy hash mismatch – invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
               sessionStorage.removeItem(sessionKey);
               sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
               sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
@@ -355,7 +355,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // Only timezoneOffset — ALL signals are now derived server-side
+      // Only timezoneOffset – ALL signals are now derived server-side
       const requestBody = {
         timezoneOffset: new Date().getTimezoneOffset(),
       };
@@ -376,7 +376,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       onPreEventPlanReady?.(planResponse.preEventPlan || null);
       onJitPriorityChange?.(!!planResponse.jitPriority);
 
-      // Store plan for stability — keyed by period
+      // Store plan for stability – keyed by period
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         
@@ -473,7 +473,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     }))));
     localStorage.setItem('queueIndex', '0');
     localStorage.setItem('ritualMode', 'true');
-    // todayRecommendedIds removed — redundant with DB
+    // todayRecommendedIds removed – redundant with DB
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
@@ -533,7 +533,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     localStorage.removeItem('queueIndex');
     localStorage.removeItem('ritualMode');
 
-    // Reset UI state — do NOT clear session cache or reload plan
+    // Reset UI state – do NOT clear session cache or reload plan
     setCompletedPracticeIds([]);
     setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length });
   };
@@ -577,7 +577,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         <PostEventReflection />
       </div>
 
-      {/* Calendar pills removed — JIT context now shown in JitCarousel */}
+      {/* Calendar pills removed – JIT context now shown in JitCarousel */}
 
       {/* Progress tracker */}
       {(
@@ -615,7 +615,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
           {isCollapsedByJit && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2">
               <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
-                Preparing for your event — your Time-of-Day plan is available after.
+                Preparing for your event – your Time-of-Day plan is available after.
               </span>
             </div>
           )}
@@ -640,9 +640,9 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         </div>
       )}
 
-      {/* Pre-event context removed — handled by JitCarousel */}
+      {/* Pre-event context removed – handled by JitCarousel */}
 
-      {/* Carousel — hidden when JIT collapses the ToD plan */}
+      {/* Carousel – hidden when JIT collapses the ToD plan */}
       {!isCollapsedByJit && (<>
       {/* Carousel */}
       <div className="relative w-full">

@@ -100,7 +100,7 @@ function generateProfile(scores: MetaSkillScores): {
     return {
       profileType: "Balanced Leader",
       profileDescription:
-        "You show balanced capability across multiple Meta Skills. This versatility is valuable—you can adapt your approach based on what each situation demands.",
+        "You show balanced capability across multiple Meta Skills. This versatility is valuable–you can adapt your approach based on what each situation demands.",
     };
   }
 
