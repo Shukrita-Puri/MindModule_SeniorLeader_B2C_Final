@@ -954,11 +954,17 @@ function getTheme(
         todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", todayHighStakes, eventCount);
+    if (timeOfDay === 'morning') {
+      const managingMorningCtx = eventCount && eventCount > 0
+        ? "The full shape of the day is ahead. How you pace the opening determines whether you finish well."
+        : "The day is open. How you pace the opening sets the tone for what follows.";
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", managingMorningCtx, todayHighStakes, eventCount);
+    }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = "The full shape of the day is ahead. How you pace the remaining hours determines whether you finish well.";
+      const base = eventCount && eventCount > 0
+        ? "The shape of the day continues. How you pace the remaining hours determines whether you finish well."
+        : "The afternoon is open. How you use this space determines how you close the day.";
       return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
     // Pressure×load matrix
