@@ -902,11 +902,17 @@ function getTheme(
         todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", todayHighStakes, eventCount);
+    if (timeOfDay === 'morning') {
+      const depletedMorningCtx = eventCount && eventCount > 0
+        ? "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do."
+        : "Starting the day in a depleted state. How you enter the day determines how much you have for what matters.";
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", depletedMorningCtx, todayHighStakes, eventCount);
+    }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.";
+      const base = eventCount && eventCount > 0
+        ? "Carrying a depleted state through the afternoon with demands still ahead. How you enter each remaining moment matters more than how much you do."
+        : "Carrying a depleted state through the afternoon. How you spend what remains determines how you close the day.";
       return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
     // Pressure×load matrix (morning/afternoon only now)
@@ -948,11 +954,17 @@ function getTheme(
         todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", todayHighStakes, eventCount);
+    if (timeOfDay === 'morning') {
+      const managingMorningCtx = eventCount && eventCount > 0
+        ? "The full shape of the day is ahead. How you pace the opening determines whether you finish well."
+        : "The day is open. How you pace the opening sets the tone for what follows.";
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", managingMorningCtx, todayHighStakes, eventCount);
+    }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = "The full shape of the day is ahead. How you pace the remaining hours determines whether you finish well.";
+      const base = eventCount && eventCount > 0
+        ? "The shape of the day continues. How you pace the remaining hours determines whether you finish well."
+        : "The afternoon is open. How you use this space determines how you close the day.";
       return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
     // Pressure×load matrix
@@ -1356,108 +1368,60 @@ function getCCModifier(
   const confidenceHigh = confidence !== null && confidence >= 4;
   const isEvening = timeOfDay === 'evening';
 
-  // Pattern 1: Both low – rare, significant signal
+  // Pattern 1: Both low
   if (clarityLow && confidenceLow) {
     return isEvening
-      ? {
-          leanOn: "Your honesty about where you are. Ending a day with low clarity and low confidence is uncomfortable, but recognising it is itself leadership.",
-          watchFor: "Trying to force resolution tonight when both your compass and conviction need rest, not pressure.",
-        }
-      : {
-          leanOn: "Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.",
-          watchFor: "Making commitments or significant decisions while both your internal compass and your conviction are unsettled.",
-        };
+      ? { leanOn: "Your self-honesty", watchFor: "Forcing resolution tonight" }
+      : { leanOn: "Your self-honesty", watchFor: "Premature commitments" };
   }
 
-  // Pattern 2: Both high – full alignment
+  // Pattern 2: Both high
   if (clarityHigh && confidenceHigh) {
     return isEvening
-      ? {
-          leanOn: "Your internal alignment. You operated with clear direction and confident execution today. Let the day close on that note – no review needed.",
-          watchFor: "Replaying today's decisions to optimise what was already well-executed. Your alignment held – trust it and release.",
-        }
-      : {
-          leanOn: "Your internal alignment. Clear direction with confident execution – rare conditions that deserve to be used fully.",
-          watchFor: "Overriding others because your conviction is high. Alignment can become rigidity if you stop listening.",
-        };
+      ? { leanOn: "Your alignment", watchFor: "Over-optimising what worked" }
+      : { leanOn: "Your alignment", watchFor: "Rigidity from conviction" };
   }
 
-  // Pattern 3: High clarity + low confidence – knows what, but doubts self
+  // Pattern 3: High clarity + low confidence
   if (clarityHigh && confidenceLow) {
     return isEvening
-      ? {
-          leanOn: "Your clarity held through a full day, even without confidence backing it. That directional sense is genuine – trust it tonight.",
-          watchFor: "Replaying moments where confidence didn't match your clarity. The direction was right even when conviction lagged.",
-        }
-      : {
-          leanOn: "Your clarity. You see the direction clearly even when confidence hasn't caught up yet.",
-          watchFor: "Waiting for confidence to arrive before acting on what you already know is right.",
-        };
+      ? { leanOn: "Your clarity", watchFor: "Replaying doubt" }
+      : { leanOn: "Your clarity", watchFor: "Delaying action" };
   }
 
-  // Pattern 4: Low clarity + high confidence – confident without direction
+  // Pattern 4: Low clarity + high confidence
   if (clarityLow && confidenceHigh) {
     return isEvening
-      ? {
-          leanOn: "Your confidence carried you through today. Even without clear direction, your self-trust kept you moving.",
-          watchFor: "Assuming tonight's reflection will manufacture the clarity that was absent today. Rest first – clarity often arrives after recovery.",
-        }
-      : {
-          leanOn: "Your confidence. Trust in your ability to find the right direction once you stop and look.",
-          watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
-        };
+      ? { leanOn: "Your confidence", watchFor: "Forcing clarity tonight" }
+      : { leanOn: "Your confidence", watchFor: "Moving without direction" };
   }
 
-  // Pattern 5: Low clarity only (mid confidence)
+  // Pattern 5: Low clarity only
   if (clarityLow) {
     return isEvening
-      ? {
-          leanOn: "Your capacity to sit with unresolved direction. If clarity was elusive today, evening is not the time to force it. Clarity often arrives after rest.",
-          watchFor: "Grinding through open questions tonight when your system needs to release, not resolve.",
-        }
-      : {
-          leanOn: "Your capacity to ask the right question before committing to a direction.",
-          watchFor: "Moving into the day's demands before you've found your anchor point.",
-        };
+      ? { leanOn: "Your discernment", watchFor: "Grinding open questions" }
+      : { leanOn: "Your discernment", watchFor: "Acting without anchor" };
   }
 
-  // Pattern 6: Low confidence only (mid clarity)
+  // Pattern 6: Low confidence only
   if (confidenceLow) {
     return isEvening
-      ? {
-          leanOn: "Your self-awareness. You carried uncertainty through today's demands – that honesty about your state is itself valuable.",
-          watchFor: "Reviewing today's decisions through the lens of low confidence. The decisions are done – let them stand.",
-        }
-      : {
-          leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
-          watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
-        };
+      ? { leanOn: "Your self-awareness", watchFor: "Reviewing through doubt" }
+      : { leanOn: "Your self-awareness", watchFor: "Projected confidence" };
   }
 
-  // Pattern 7: High clarity only (mid confidence)
+  // Pattern 7: High clarity only
   if (clarityHigh) {
     return isEvening
-      ? {
-          leanOn: "Your directional certainty. You held clarity through a full day. That same directional sense now tells you when to stop.",
-          watchFor: "Replaying today's decisions to find flaws. Your clarity held – trust it and release.",
-        }
-      : {
-          leanOn: "Your directional certainty. You know what matters today and why.",
-          watchFor: "Clarity about your own view crowding out the perspectives you need.",
-        };
+      ? { leanOn: "Your direction", watchFor: "Replaying what held" }
+      : { leanOn: "Your direction", watchFor: "Crowding out perspectives" };
   }
 
-  // Pattern 8: High confidence only (mid clarity)
+  // Pattern 8: High confidence only
   if (confidenceHigh) {
     return isEvening
-      ? {
-          leanOn: "Your conviction. You backed yourself through today's demands. That conviction has done its work – release it.",
-          watchFor: "Confidence that keeps running past the day's close. Your judgment served you well – let it rest.",
-        }
-      : {
-          leanOn: "Your conviction. You trust your judgment today and can move with authority.",
-          watchFor: "Confidence tipping into certainty that closes off important inputs.",
-        };
+      ? { leanOn: "Your conviction", watchFor: "Running past the close" }
+      : { leanOn: "Your conviction", watchFor: "Closing off inputs" };
   }
 
   // Mid-range on both – no modifier, fall through to archetype/tier
@@ -1467,68 +1431,68 @@ function getCCModifier(
 // Priority 3: Archetype × Tier matrix
 const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watchFor: string }>> = {
   'grounded-leader': {
-    depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
-    managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
-    strong: { leanOn: "Your natural stability. It's a leadership presence others orient around.", watchFor: "Staying in maintenance mode when your state supports something more." },
-    peak: { leanOn: "Your grounded precision. Full presence with full capacity.", watchFor: "Tunnel focus that closes off peripheral awareness at the moment it matters." },
+    depleted: { leanOn: "Your stillness instinct", watchFor: "Absorbing others' energy" },
+    managing: { leanOn: "Your rootedness", watchFor: "Quiet drain from steadying others" },
+    strong: { leanOn: "Your natural stability", watchFor: "Maintenance mode" },
+    peak: { leanOn: "Your grounded precision", watchFor: "Tunnel focus" },
   },
   'resilient-performer': {
-    depleted: { leanOn: "Your knowledge that recovery is part of performance, not a retreat from it.", watchFor: "Performing resilience instead of actually recovering." },
-    managing: { leanOn: "Your baseline reliability. Showing up consistently is its own form of leadership.", watchFor: "Settling for operational when your performance instinct wants to push." },
-    strong: { leanOn: "Your above-baseline capacity. A real performance window is available.", watchFor: "Burning the window early by going too hard before the high-stakes moments." },
-    peak: { leanOn: "Your full competitive edge. This is your signature performance state.", watchFor: "Spending the peak too fast without protecting what carries you through the full day." },
+    depleted: { leanOn: "Your recovery wisdom", watchFor: "Performing resilience" },
+    managing: { leanOn: "Your baseline reliability", watchFor: "Settling for operational" },
+    strong: { leanOn: "Your performance window", watchFor: "Burning it early" },
+    peak: { leanOn: "Your competitive edge", watchFor: "Spending the peak too fast" },
   },
   'clear-thinker': {
-    depleted: { leanOn: "Your ability to think simply when complexity costs too much. Straight lines today.", watchFor: "Over-processing when low energy needs economy of thought." },
-    managing: { leanOn: "Your capacity to bring analytical clarity to what genuinely requires it.", watchFor: "Applying deep analysis to decisions that don't warrant the cognitive spend." },
-    strong: { leanOn: "Your sharpest insights surface from a stable, well-resourced state. Conditions are good.", watchFor: "Staying in analysis past the point where the insight is already clear." },
-    peak: { leanOn: "Your analytical precision at full cognitive capacity. Your highest-value thinking window.", watchFor: "Intellectual momentum that runs past the decision point and into complexity for its own sake." },
+    depleted: { leanOn: "Your economy of thought", watchFor: "Over-processing" },
+    managing: { leanOn: "Your analytical clarity", watchFor: "Over-investing cognitively" },
+    strong: { leanOn: "Your sharpest insights", watchFor: "Analysis past the insight" },
+    peak: { leanOn: "Your analytical precision", watchFor: "Complexity for its own sake" },
   },
   'intensity-driver': {
-    depleted: { leanOn: "Your knowledge that genuine rest is what fuels your next surge, not pushing through.", watchFor: "Forcing intensity on empty. It produces noise rather than output." },
-    managing: { leanOn: "Your drive, held in check. Directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
-    strong: { leanOn: "Your capacity to amplify from a stable base. Above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
-    peak: { leanOn: "Your full-force capability. Focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
+    depleted: { leanOn: "Your rest-as-fuel wisdom", watchFor: "Forcing intensity on empty" },
+    managing: { leanOn: "Your directed drive", watchFor: "Impatience with your pace" },
+    strong: { leanOn: "Your sustainable intensity", watchFor: "Outpacing the day" },
+    peak: { leanOn: "Your full-force capability", watchFor: "Opening at full intensity" },
   },
   'adaptive-navigator': {
-    depleted: { leanOn: "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.", watchFor: "Adapting to everyone else's demands when your own capacity is the priority." },
-    managing: { leanOn: "Your flexibility. Meeting the day's variability without resistance.", watchFor: "Staying adaptive when the moment calls for a fixed position." },
-    strong: { leanOn: "Your strategic read of the full field. You see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
-    peak: { leanOn: "Your strategic agility at full cognitive capacity. Your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
+    depleted: { leanOn: "Your situational awareness", watchFor: "Adapting to others' demands" },
+    managing: { leanOn: "Your flexibility", watchFor: "Staying adaptive vs. holding firm" },
+    strong: { leanOn: "Your strategic read", watchFor: "Over-navigating" },
+    peak: { leanOn: "Your strategic agility", watchFor: "Complexity over decisiveness" },
   },
   // Legacy ID fallbacks
   'natural-regulator': {
-    depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
-    managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
-    strong: { leanOn: "Your natural stability. It's a leadership presence others orient around.", watchFor: "Staying in maintenance mode when your state supports something more." },
-    peak: { leanOn: "Your grounded precision. Full presence with full capacity.", watchFor: "Tunnel focus that closes off peripheral awareness at the moment it matters." },
+    depleted: { leanOn: "Your stillness instinct", watchFor: "Absorbing others' energy" },
+    managing: { leanOn: "Your rootedness", watchFor: "Quiet drain from steadying others" },
+    strong: { leanOn: "Your natural stability", watchFor: "Maintenance mode" },
+    peak: { leanOn: "Your grounded precision", watchFor: "Tunnel focus" },
   },
   'high-octane-performer': {
-    depleted: { leanOn: "Your knowledge that recovery is part of performance, not a retreat from it.", watchFor: "Performing resilience instead of actually recovering." },
-    managing: { leanOn: "Your baseline reliability. Showing up consistently is its own form of leadership.", watchFor: "Settling for operational when your performance instinct wants to push." },
-    strong: { leanOn: "Your above-baseline capacity. A real performance window is available.", watchFor: "Burning the window early by going too hard before the high-stakes moments." },
-    peak: { leanOn: "Your full competitive edge. This is your signature performance state.", watchFor: "Spending the peak too fast without protecting what carries you through the full day." },
+    depleted: { leanOn: "Your recovery wisdom", watchFor: "Performing resilience" },
+    managing: { leanOn: "Your baseline reliability", watchFor: "Settling for operational" },
+    strong: { leanOn: "Your performance window", watchFor: "Burning it early" },
+    peak: { leanOn: "Your competitive edge", watchFor: "Spending the peak too fast" },
   },
   'strategic-pauser': {
-    depleted: { leanOn: "Your ability to think simply when complexity costs too much. Straight lines today.", watchFor: "Over-processing when low energy needs economy of thought." },
-    managing: { leanOn: "Your capacity to bring analytical clarity to what genuinely requires it.", watchFor: "Applying deep analysis to decisions that don't warrant the cognitive spend." },
-    strong: { leanOn: "Your sharpest insights surface from a stable, well-resourced state. Conditions are good.", watchFor: "Staying in analysis past the point where the insight is already clear." },
-    peak: { leanOn: "Your analytical precision at full cognitive capacity. Your highest-value thinking window.", watchFor: "Intellectual momentum that runs past the decision point and into complexity for its own sake." },
+    depleted: { leanOn: "Your economy of thought", watchFor: "Over-processing" },
+    managing: { leanOn: "Your analytical clarity", watchFor: "Over-investing cognitively" },
+    strong: { leanOn: "Your sharpest insights", watchFor: "Analysis past the insight" },
+    peak: { leanOn: "Your analytical precision", watchFor: "Complexity for its own sake" },
   },
   'awareness-builder': {
-    depleted: { leanOn: "Your knowledge that genuine rest is what fuels your next surge, not pushing through.", watchFor: "Forcing intensity on empty. It produces noise rather than output." },
-    managing: { leanOn: "Your drive, held in check. Directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
-    strong: { leanOn: "Your capacity to amplify from a stable base. Above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
-    peak: { leanOn: "Your full-force capability. Focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
+    depleted: { leanOn: "Your rest-as-fuel wisdom", watchFor: "Forcing intensity on empty" },
+    managing: { leanOn: "Your directed drive", watchFor: "Impatience with your pace" },
+    strong: { leanOn: "Your sustainable intensity", watchFor: "Outpacing the day" },
+    peak: { leanOn: "Your full-force capability", watchFor: "Opening at full intensity" },
   },
 };
 
 // Priority 5: Hardcoded tier fallbacks
 const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: { leanOn: "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.", watchFor: "Committing to demands that require more than your current state can sustain." },
-  managing: { leanOn: "Your operational steadiness. Consistent presence is a form of strength.", watchFor: "Over-extending into territory that requires more than your current reserves." },
-  strong: { leanOn: "Your above-baseline readiness. A real asset that is worth protecting through the day.", watchFor: "Diffusing strong capacity across too many demands rather than concentrating it." },
-  peak: { leanOn: "Your full readiness. You are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
+  depleted: { leanOn: "Your state awareness", watchFor: "Over-committing" },
+  managing: { leanOn: "Your operational steadiness", watchFor: "Over-extending" },
+  strong: { leanOn: "Your above-baseline readiness", watchFor: "Diffusing capacity" },
+  peak: { leanOn: "Your full readiness", watchFor: "Spending the peak unchecked" },
 };
 
 // ==================== COACH INSIGHT AGE TIERS ====================
@@ -1771,27 +1735,23 @@ function getLeanOnWatchFor(
     return { ...getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'evening-recovery-override' };
   }
 
-  // ── P1a: Coach insights ≤3 days (recent) – no age label, enriched with context ──
+  // ── P1a: Coach insights ≤3 days (recent) ──
   if (hasCoachBoth && coachTier === 'recent') {
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return {
-      leanOn: `Based on your recent coach conversation: ${coachStrength!}${leanOnSuffix}`,
-      watchFor: `Based on your recent coach conversation: ${coachGrowth!}${watchForSuffix}`,
+      leanOn: `${coachStrength!} (coach)`,
+      watchFor: `${coachGrowth!} (coach)`,
       source: 'coach-insights-recent',
       coachInsightAge: coachDaysOld,
     };
   }
 
-  // ── P1b: Coach insights 4-7 days (grace) – use if no C×C contradiction, enriched ──
+  // ── P1b: Coach insights 4-7 days (grace) – use if no C×C contradiction ──
   if (hasCoachBoth && coachTier === 'grace') {
     const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
     if (!hasContradiction) {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-      const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
       return {
-        leanOn: `From your coach session ${coachDaysOld} days ago: ${coachStrength!}${leanOnSuffix}`,
-        watchFor: `From your coach session ${coachDaysOld} days ago: ${coachGrowth!}${watchForSuffix}`,
+        leanOn: `${coachStrength!} (coach, ${coachDaysOld}d ago)`,
+        watchFor: `${coachGrowth!} (coach, ${coachDaysOld}d ago)`,
         source: 'coach-insights-grace',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
@@ -1803,50 +1763,38 @@ function getLeanOnWatchFor(
   const ccMod = getCCModifier(clarity, confidence, timeOfDay);
   if (ccMod) {
     if (hasCoachBoth && coachTier === 'contextual') {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-      const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_${leanOnSuffix}`;
       return {
-        leanOn: enrichedLeanOn,
-        watchFor: ccMod.watchFor + (hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : ''),
+        leanOn: `${ccMod.leanOn} (check-in)`,
+        watchFor: `${ccMod.watchFor} (check-in)`,
         source: 'cc-modifier-with-context',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
       };
     }
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    return { leanOn: `Based on your check-in today: ${ccMod.leanOn}${leanOnSuffix}`, watchFor: `Based on your check-in today: ${ccMod.watchFor}${watchForSuffix}`, source: 'cc-modifier' };
+    return { leanOn: `${ccMod.leanOn} (check-in)`, watchFor: `${ccMod.watchFor} (check-in)`, source: 'cc-modifier' };
   }
 
   // ── Partial coach: mix with other priorities (any non-archived tier) ──
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
-    return { leanOn: `From your coach conversation: ${coachStrength}${leanOnSuffix}`, watchFor: `${watchSource}${watchFor}${watchForSuffix}`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+    const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
+    return { leanOn: `${coachStrength} (coach)`, watchFor: `${watchFor} (${watchSource})`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
-    return { leanOn: `${leanSource}${leanOn}${leanOnSuffix}`, watchFor: `From your coach conversation: ${coachGrowth}${watchForSuffix}`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
+    const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
+    return { leanOn: `${leanOn} (${leanSource})`, watchFor: `${coachGrowth} (coach)`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
-  // ── P4: Archetype × Tier – enriched with context ──
+  // ── P4: Archetype × Tier ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     const base = archetypeMatrix[archetype][tier];
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-    return { leanOn: `Based on your archetype profile: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your archetype profile: ${base.watchFor}${watchForSuffix}`, source: 'archetype-tier' };
+    return { leanOn: `${base.leanOn} (archetype)`, watchFor: `${base.watchFor} (archetype)`, source: 'archetype-tier' };
   }
 
-  // ── P5: Tier fallback – enriched with context ──
+  // ── P5: Tier fallback ──
   const base = tierFallbacks[tier];
-  const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-  const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
-  return { leanOn: `Based on your current readiness state: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your current readiness state: ${base.watchFor}${watchForSuffix}`, source: 'tier-fallback' };
+  return { leanOn: `${base.leanOn} (readiness)`, watchFor: `${base.watchFor} (readiness)`, source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
