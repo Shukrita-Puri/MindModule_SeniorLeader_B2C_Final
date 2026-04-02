@@ -220,7 +220,7 @@ const ExecutiveHome = () => {
           <div className="flex-1 w-full pb-8">
 
             <div className="px-4 md:px-6 max-w-lg mx-auto">
-              <section className="animate-in fade-in duration-500">
+              <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <TodayStateCard />
               </section>
 
