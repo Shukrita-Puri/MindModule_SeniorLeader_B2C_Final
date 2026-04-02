@@ -374,6 +374,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
       onPreEventPlanReady?.(planResponse.preEventPlan || null);
+      onJitPriorityChange?.(!!planResponse.jitPriority);
 
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
