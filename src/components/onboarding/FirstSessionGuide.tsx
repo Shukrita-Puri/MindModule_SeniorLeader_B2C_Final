@@ -39,6 +39,8 @@ interface GuideStep {
   action?: 'open-sidebar' | 'close-sidebar' | 'navigate-profile';
   /** Elevate sidebar panel above overlay */
   elevateSidebar?: boolean;
+  /** Activate a tab before highlighting (clicks data-tour="tab-{value}") */
+  activateTab?: 'state' | 'compass' | 'action';
 }
 
 const STEPS: GuideStep[] = [
@@ -59,6 +61,7 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     tooltipPosition: 'below',
+    activateTab: 'state',
   },
   {
     targetSelector: '[data-tour="compass"]',
@@ -69,6 +72,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'above',
+    activateTab: 'compass',
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -79,6 +83,7 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'above',
+    activateTab: 'action',
   },
   {
     targetSelector: 'fullscreen',
@@ -145,6 +150,8 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     action: 'open-sidebar',
     elevateSidebar: true,
+    spotlightPad: 14,
+    spotlightCircle: true,
     tooltipPosition: 'above',
   },
   {
@@ -227,6 +234,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
     const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
     if (sp) sp.style.zIndex = '';
+    // Reset mobile sheet dialog + overlay z-indexes
+    const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
+    if (sheetDialog) sheetDialog.style.zIndex = '';
+    const sheetOverlayEl = sheetDialog?.previousElementSibling as HTMLElement | null;
+    if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '';
     setSpotRect(null);
   }, []);
 
@@ -335,9 +347,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       if (s.elevateSidebar) {
         const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
         if (sp) sp.style.zIndex = '61';
-        // Also elevate the mobile sheet overlay
-        const sheetOverlay = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
-        if (sheetOverlay) sheetOverlay.style.zIndex = '61';
+        // Also elevate the mobile sheet dialog + its backdrop overlay
+        const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
+        if (sheetDialog) {
+          sheetDialog.style.zIndex = '61';
+          // The Radix overlay is the previous sibling of the dialog content
+          const sheetOverlayEl = sheetDialog.previousElementSibling as HTMLElement | null;
+          if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '61';
+        }
       }
 
       // Two-pass: compute position, then reveal
@@ -353,6 +370,12 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   /* ---- run actions before highlighting ---- */
 
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
+    // Activate the correct tab before highlighting (for homepage tab content)
+    if (s.activateTab) {
+      const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
+      if (tabBtn) tabBtn.click();
+    }
+
     if (!s.action) { cb(); return; }
 
     switch (s.action) {

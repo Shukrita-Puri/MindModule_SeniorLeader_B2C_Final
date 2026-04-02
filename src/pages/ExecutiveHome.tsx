@@ -223,6 +223,7 @@ const ExecutiveHome = () => {
               {TAB_LABELS.map(({ key, label }) => (
                 <button
                   key={key}
+                  data-tour={`tab-${key}`}
                   onClick={() => setActiveTab(key)}
                   className={`text-sm font-medium font-body transition-all relative ${
                     activeTab === key
