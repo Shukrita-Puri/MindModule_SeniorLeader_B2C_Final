@@ -347,9 +347,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       if (s.elevateSidebar) {
         const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
         if (sp) sp.style.zIndex = '61';
-        // Also elevate the mobile sheet overlay
-        const sheetOverlay = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
-        if (sheetOverlay) sheetOverlay.style.zIndex = '61';
+        // Also elevate the mobile sheet dialog + its backdrop overlay
+        const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
+        if (sheetDialog) {
+          sheetDialog.style.zIndex = '61';
+          // The Radix overlay is the previous sibling of the dialog content
+          const sheetOverlayEl = sheetDialog.previousElementSibling as HTMLElement | null;
+          if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '61';
+        }
       }
 
       // Two-pass: compute position, then reveal
