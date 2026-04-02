@@ -275,6 +275,9 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
               <span className="text-sm font-semibold text-foreground font-body">
                 {preEventPlan.eventTitle || 'Upcoming Event'}
               </span>
+              <span className="text-[11px] text-muted-foreground/60 font-body">
+                ({preEventPlan.modules.length}-step sequence)
+              </span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
                 {preEventPlan.timePill}
               </span>
@@ -293,14 +296,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         </div>
 
         <div className="flex items-start justify-between gap-3">
-          {/* Context description — AI-generated "why this event" reasoning — hidden if low confidence */}
           {preEventPlan.contextDescription && preEventPlan.contextDescription.length > 0 && (
             <p className="text-xs text-muted-foreground italic font-body leading-relaxed flex-1 min-w-0">
               {preEventPlan.contextDescription}
             </p>
           )}
 
-          {/* Progress tracker — mirrors Time-of-Day placement */}
           <span className={cn(
             "text-xs font-medium font-body whitespace-nowrap",
             completedModuleIds.length >= preEventPlan.modules.length ? "text-saffron" : completedModuleIds.length > 0 ? "text-saffron/80" : "text-foreground/80"
