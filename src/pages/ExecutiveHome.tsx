@@ -266,7 +266,7 @@ const ExecutiveHome = () => {
                 <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
                   <section className="animate-in fade-in duration-500">
                     <div className="flex items-center justify-between py-2">
-                      <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
+                      <h2 className="text-lg font-headline text-foreground">Performance Readiness Plan</h2>
                       <MetricInfoModal
                         title="Your Performance Readiness Plan"
                         description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
