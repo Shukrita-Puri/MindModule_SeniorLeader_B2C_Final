@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Heart } from 'lucide-react';
+import { Check, RotateCcw, Heart, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
