@@ -86,9 +86,7 @@ const DailyCheckIn = () => {
 
   // Show first session guide if user has zero check-ins (or forced via URL param)
   useEffect(() => {
-    if (sessionStorage.getItem('first_session_done')) return;
-
-    // Dev/testing: ?tour=1 in URL forces the guide (also clears done flag)
+    // Dev/testing: ?tour=1 in URL forces the guide (clears done flag first)
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
       sessionStorage.removeItem('first_session_done');
@@ -96,6 +94,8 @@ const DailyCheckIn = () => {
       setShowGuide(true);
       return;
     }
+
+    if (sessionStorage.getItem('first_session_done')) return;
 
     if (!user?.id) return;
     supabase
