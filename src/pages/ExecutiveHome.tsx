@@ -229,14 +229,10 @@ const ExecutiveHome = () => {
 
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-                      Your Proactive Mastery Plan
-                    </span>
-                  </div>
+                  <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
                   <MetricInfoModal
-                    title="Your Proactive Mastery Plan"
-                    description="Your Proactive Mastery Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    title="Your Performance Readiness Plan"
+                    description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
                   />
                 </div>
               </section>

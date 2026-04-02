@@ -53,9 +53,7 @@ const StrategicIntentionCard = () => {
     )}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-          Outer Readiness Brief
-        </span>
+        <StepLabel letter="B" title="Your Compass" subtitle="Outer Readiness Brief" />
         <MetricInfoModal
           title="Your Outer Readiness Brief"
           description="Your Compass is where your inner world meets the outer demands of the day. It takes your Decision Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
