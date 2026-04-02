@@ -213,6 +213,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.zIndex = '';
       previousElRef.current.style.boxShadow = '';
       previousElRef.current.style.borderRadius = '';
+      previousElRef.current.style.padding = '';
+      previousElRef.current.style.margin = '';
       previousElRef.current = null;
     }
     // Sidebar z-index
