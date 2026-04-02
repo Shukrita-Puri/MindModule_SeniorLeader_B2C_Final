@@ -276,6 +276,15 @@ function getDayContext(dayOfWeek: number): DayContext {
   return 'weekday';
 }
 
+function hasMeaningfulDemand(
+  load: CalendarLevel | null,
+  pressure: CalendarLevel | null,
+  highStakes?: string[],
+  meetingCount?: number,
+): boolean {
+  return Boolean(highStakes?.length) || load === 'high' || pressure === 'high' || (meetingCount ?? 0) >= 3;
+}
+
 // ==================== CONTEXT SUFFIX BUILDER ====================
 // Generates 1–2 sentence dynamic suffix connecting body signals to calendar demands.
 // RELEVANCE RULE: Never list event titles as standalone items.
@@ -880,6 +889,7 @@ function getTheme(
 
   // Build dynamic context suffix for all tier×load×pressure entries
   const suffix = buildContextSuffix(todayHighStakes, eventCount, wearable, timeOfDay);
+  const hasDemandAhead = hasMeaningfulDemand(load, pressure, todayHighStakes, meetingCount ?? eventCount);
 
   // DEPLETED TIER
   if (tier === 'depleted') {
@@ -903,15 +913,15 @@ function getTheme(
     }
     // Morning
     if (timeOfDay === 'morning') {
-      const depletedMorningCtx = eventCount && eventCount > 0
-        ? "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do."
+      const depletedMorningCtx = hasDemandAhead
+        ? "Starting the day in a depleted state with real demands ahead. How you enter each moment today matters more than how much you do."
         : "Starting the day in a depleted state. How you enter the day determines how much you have for what matters.";
       return buildMorningTheme('depleted', wearable, "Begin with intention.", depletedMorningCtx, todayHighStakes, eventCount);
     }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = eventCount && eventCount > 0
-        ? "Carrying a depleted state through the afternoon with demands still ahead. How you enter each remaining moment matters more than how much you do."
+      const base = hasDemandAhead
+        ? "Carrying a depleted state through the afternoon with real demands still ahead. How you enter each remaining moment matters more than how much you do."
         : "Carrying a depleted state through the afternoon. How you spend what remains determines how you close the day.";
       return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
@@ -930,7 +940,7 @@ function getTheme(
       return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending. Each recovery window between engagements is worth protecting." + suffix, driver: 'load' };
     if (load === 'low')
       return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery." + suffix, driver: 'load' };
-    return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today." + suffix, driver: 'state' };
+    return { phrase: "Protect your reserves.", context: "The day still needs to be met with what you have. Deliberate pacing is your strategy today." + suffix, driver: 'state' };
   }
 
   // MANAGING TIER
@@ -955,16 +965,16 @@ function getTheme(
     }
     // Morning
     if (timeOfDay === 'morning') {
-      const managingMorningCtx = eventCount && eventCount > 0
-        ? "The full shape of the day is ahead. How you pace the opening determines whether you finish well."
-        : "The day is open. How you pace the opening sets the tone for what follows.";
+      const managingMorningCtx = hasDemandAhead
+        ? "The more meaningful parts of the day are still ahead. How you pace the opening determines whether you finish well."
+        : "The day is relatively open. How you pace the opening sets the tone for what follows.";
       return buildMorningTheme('managing', wearable, "Set a sustainable pace.", managingMorningCtx, todayHighStakes, eventCount);
     }
     // Afternoon
     if (timeOfDay === 'afternoon') {
-      const base = eventCount && eventCount > 0
-        ? "The shape of the day continues. How you pace the remaining hours determines whether you finish well."
-        : "The afternoon is open. How you use this space determines how you close the day.";
+      const base = hasDemandAhead
+        ? "The more meaningful parts of the day are still ahead. How you pace the remaining hours determines whether you finish well."
+        : "The afternoon is relatively open. How you use this space determines how you close the day.";
       return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
     // Pressure×load matrix
