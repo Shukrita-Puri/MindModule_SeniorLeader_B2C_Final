@@ -7,7 +7,7 @@
 
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
-import StepLabel from './StepLabel';
+
 import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
@@ -57,7 +57,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
     )}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <StepLabel letter="B" title="Your Compass" subtitle="Outer Readiness Brief" />
+        <h2 className="text-lg font-headline text-foreground">Outer Readiness Brief</h2>
         <MetricInfoModal
           title="Your Outer Readiness Brief"
           description="Your Compass is where your inner world meets the outer demands of the day. It takes your Decision Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
