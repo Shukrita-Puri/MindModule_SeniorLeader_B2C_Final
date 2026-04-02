@@ -990,12 +990,12 @@ async function getHRVEventCorrelations(
 const JIT_THRESHOLD_UNIFIED = 55;
 
 // ==================== TWO-TOUCH ACTION WINDOWS ====================
-// Touch 1 (24-48h): coach + think prep. Touch 2 (0-6h): body + state prep.
-// Silent gap (6-24h) and selection-only (>48h): scored but not surfaced.
-function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'silent' | 'selection_only' {
+// Touch 2 (0-6h): body + state prep. Touch 1 (6-48h): coach + think prep.
+// Selection-only (>48h): scored but not surfaced.
+// Suppression is per-event via dismissed_horizons and skippedTypes3Plus — no blanket silent window.
+function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'selection_only' {
   if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
-  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap – do not surface
-  if (minutesUntil <= 2880) return 'touch1';           // 24-48h: coach + think
+  if (minutesUntil <= 2880) return 'touch1';          // 6-48h: coach + think prep
   return 'selection_only';                              // >48h: scored but not surfaced
 }
 
