@@ -803,9 +803,6 @@ const Insights = () => {
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
               Performance Intelligence
             </h1>
-            <p className="text-lg font-subheadline italic text-muted-foreground">
-              Patterns. Progress. Presence.
-            </p>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               What is consistently true about how you lead, perform, and recover – drawn from everything the app knows about you.
             </p>
