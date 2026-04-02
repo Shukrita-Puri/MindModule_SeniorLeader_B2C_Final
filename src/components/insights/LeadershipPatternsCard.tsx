@@ -345,7 +345,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
 
               {/* Friction frequency with trend */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Friction</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Friction</span>
+                  <InsightInfoModal
+                    title="What Is Friction?"
+                    explanation="Friction measures how often you report low-energy states like feeling drained, overwhelmed, or scattered. It's shown as a percentage of your check-ins over 30 days. Labels range from 'Low friction' (≤25%) to 'Sustained friction' (>75%), helping you see whether difficult states are occasional or persistent."
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     'text-sm font-semibold',
