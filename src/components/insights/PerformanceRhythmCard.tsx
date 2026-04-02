@@ -897,6 +897,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
                     How You Show Up
                   </span>
+                  <InsightInfoModal
+                    title="How You Show Up"
+                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations — it reflects how consistently you operate at your best."
+                  />
                 </div>
                 <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
                 {data.presenceInsight && (
@@ -987,9 +991,15 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 <>
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
-                        Your Week at a Glance
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
+                          Your Week at a Glance
+                        </span>
+                        <InsightInfoModal
+                          title="Week at a Glance"
+                          explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
+                        />
+                      </div>
                       <span className="text-[10px] text-muted-foreground/50">← scroll for past weeks</span>
                     </div>
 
