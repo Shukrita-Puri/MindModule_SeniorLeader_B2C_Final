@@ -1,62 +1,103 @@
 
 
-# Em-Dash → En-Dash Replacement + Dead Code Removal
+# Homepage Layout Restructure – Tabs + Vertical Practice List
 
-## Part 1: Em-Dash (—) → En-Dash (–) Replacement
+## Overview
+Replace the stacked vertical card layout with a three-tab navigation. Each tab shows one card. The practice carousel in the Action tab becomes a vertical list. No logic, data, or component internals change.
 
-**85 source files** contain em-dashes. Every `—` in `.ts` and `.tsx` files (excluding `node_modules`) must be replaced with `–`.
+## Files Changed
 
-This is a global find-and-replace. No logic changes – purely cosmetic text.
+### 1. `src/pages/ExecutiveHome.tsx` – Major restructure
 
-### Files with user-visible copy (highest priority)
-These produce text the user reads on screen or in statements:
-- `supabase/functions/compute-inner-readiness/index.ts` (~20 occurrences in statement strings)
-- `supabase/functions/compute-outer-readiness/index.ts` (~30 occurrences in context/compass copy)
-- `supabase/functions/generate-mastery-plan/index.ts` (~15 occurrences in plan brief/urgency copy)
-- `src/components/simulation/StrengthsSection.tsx` (separator in UI)
-- `src/components/CollegeAdmissionsSimulation.tsx` (simulation dialogue text)
-- `src/pages/onboarding/stages/Stage8Results.tsx` (results copy)
+**Remove:**
+- The three stacked sections (TodayStateCard, StrategicIntentionCard, DailyRitual) with dashed connectors between them
+- The StepLabel + MetricInfoModal header for the Action section (this moves into DailyRitual or stays inside the tab)
 
-### Files with developer comments only
-All remaining ~79 files use em-dashes in code comments. These will also be replaced for consistency but have no user-visible impact.
+**Add:**
+- `const [activeTab, setActiveTab] = useState<'state' | 'compass' | 'action'>('state')`
+- A sticky tab bar (`Tabs` / `TabsList` / `TabsTrigger` from existing `src/components/ui/tabs.tsx`) positioned directly below the hero section
+- Three tab triggers: **State**, **Compass**, **Action**
+- Tab content area using CSS `display: none` / `display: block` (NOT conditional unmount) to preserve component state and avoid re-fetching
 
-### Approach
-Run a single `sed` replacement across `src/` and `supabase/functions/` directories, replacing all `—` with `–`. Then verify build passes.
+**Layout structure:**
+```text
+Hero (slightly taller: pb-20 instead of pb-16)
+├── Sticky Tab Bar (sticky top-0 z-30, bg-background/95 backdrop-blur)
+└── Tab Content (px-4 max-w-lg mx-auto)
+    ├── [State]   → TodayStateCard (rendered always, hidden when inactive)
+    ├── [Compass]  → StrategicIntentionCard (rendered always, hidden when inactive)
+    └── [Action]   → StepLabel C + MetricInfoModal + JIT/DailyRitual (rendered always, hidden when inactive)
+```
 
----
+**Key implementation detail – no unmounting:**
+All three content divs render simultaneously. Active tab: `style={{ display: 'block' }}`. Inactive tabs: `style={{ display: 'none' }}`. This preserves React state, query cache, and carousel API references.
 
-## Part 2: Dead Code Removal
+**JIT logic preserved:**
+The existing `jitPriority` conditional rendering (JitCarousel above/below DailyRitual) stays identical inside the Action tab content div.
 
-### Confirmed dead files (zero live imports)
+**Pass jitEvent to Compass:**
+Same as current – `StrategicIntentionCard` still receives `jitEvent` prop regardless of active tab.
 
-| File | Status | Safe to delete |
-|------|--------|---------------|
-| `src/utils/planReconstruction.ts` | Marked `@deprecated`, only imports from `performancePlanEngine` | Yes |
-| `src/utils/performancePlanEngine.ts` | Marked `@deprecated`, only imported by `planReconstruction.ts` | Yes |
-| `src/components/_archived/MainNavigation.tsx` | In `_archived` folder, zero imports | Yes |
-| `src/components/_archived/PsychologicalDimensionBubbles.tsx` | In `_archived` folder, zero imports | Yes |
+### 2. `src/components/home/DailyRitual.tsx` – Carousel → Vertical List
 
-### File to keep but note
+**Change only the carousel rendering section (lines ~646-760):**
 
-| File | Status | Action |
-|------|--------|--------|
-| `src/utils/userArchetypeEngine.ts` | Marked `@deprecated` but actively imported by `FrictionAndStrengthDetail.tsx` | Keep – still in use |
+- Remove `<Carousel>`, `<CarouselContent>`, `<CarouselItem>` wrapper
+- Remove carousel API state (`carouselApi`, `currentSlide`, `slideCount`, `isDragging`)
+- Remove pagination dots
+- Remove the right-edge gradient fade
+- Replace with a vertical `<div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">` containing the same card markup
 
-### Approach
-1. Delete the 4 dead files
-2. Remove the `_archived` directory
-3. Verify TypeScript build passes
+**Each practice card becomes a full-width row:**
+- Same internal structure (thumbnail left, content right, completed overlay, step badge, reasoning line, duration)
+- Change from `basis-[80%]` constrained width to `w-full`
+- Card height stays `h-44` (same as current carousel cards)
+- The chevron connector `›` between cards is removed (vertical stacking replaces it)
+- `mr-4` on last card removed (no longer needed)
 
----
+**Preserved exactly:**
+- `navigateToPractice()`, `handleMarkComplete()`, `handleStartRitual()`, `handleContinueRitual()`, `handleRestartRitual()` – zero changes
+- Completion state tracking, confetti, toast
+- Progress tracker header (label, step count, completed count)
+- Plan brief / calendar message display
+- Check-in prompt banner
+- PostEventReflection component
+- JIT collapsed state (`isCollapsedByJit`) with expand toggle
+- Start/Continue/Completed buttons at bottom
 
-## Implementation Order
+### 3. `src/components/home/TodayStateCard.tsx` – No changes
+Card renders identically. The StepLabel "A" header stays inside the card.
 
-1. Global em-dash → en-dash replacement (all 85 files via sed)
-2. Delete 4 dead files + `_archived` directory
-3. Build verification
+### 4. `src/components/home/StrategicIntentionCard.tsx` – No changes
+Card renders identically. The StepLabel "B" header stays inside the card.
 
-## Risk Assessment
-- **Em-dash replacement**: Zero logic risk – character substitution in strings and comments only
-- **Dead code deletion**: Zero risk – confirmed no live imports exist for any deleted file
-- `userArchetypeEngine.ts` is deliberately kept because `FrictionAndStrengthDetail.tsx` uses it
+## Tab Bar Styling
+
+Using the existing `Tabs` component from `src/components/ui/tabs.tsx`:
+- `TabsList`: full-width, `bg-background/95 backdrop-blur-md`, sticky
+- `TabsTrigger`: text-only labels ("State", "Compass", "Action"), active state uses existing `data-[state=active]` styling with primary underline
+- Custom className on TabsList: `w-full grid grid-cols-3 h-12 bg-background/95 backdrop-blur-md border-b border-border/30 rounded-none`
+- Since we use `display:none` instead of Radix TabsContent (to prevent unmounting), the tab triggers just set `activeTab` state via `onValueChange`
+
+## What Is NOT Touched
+- No edge functions, server logic, scoring, or data fetching
+- No card component internals (TodayStateCard, StrategicIntentionCard internal markup)
+- No copy, text strings, or context statements
+- No hero image logic
+- No navigation outside ExecutiveHome
+- No database, auth, onboarding, payments
+- No info modal behavior
+
+## Verification Checklist
+- Hero image displays correctly with slightly more height
+- Tab bar appears immediately below hero, sticky on scroll
+- Default tab on load is State
+- All three tabs switch without data re-fetch
+- State card content identical to before
+- Compass card content identical to before
+- Action tab shows vertical practice list with all cards
+- Start/Continue Sequence button works
+- JIT plan surfaces correctly in Action tab
+- No horizontal scroll in practice section
+- No console errors on tab switch
 
