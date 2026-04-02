@@ -165,7 +165,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+const INSIGHT_TABS = [
+  { key: 'patterns' as const, label: 'Patterns' },
+  { key: 'momentum' as const, label: 'Momentum' },
+  { key: 'mindmap' as const, label: 'Mind Map' },
+];
+
 const Insights = () => {
+  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>('patterns');
   const navigate = useNavigate();
   const { user } = useAuth();
   // Removed page-level `loading` gate – each section manages its own loading
@@ -786,11 +793,11 @@ const Insights = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header with Navigation - scrolls with content */}
+      {/* Header with Navigation */}
       <div className="relative">
         <FloatingNavigation />
 
-        {/* Hero Banner - matching Reset Studio pattern */}
+        {/* Hero Banner */}
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
@@ -806,204 +813,229 @@ const Insights = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Your Self Mastery Patterns – pass pre-fetched data to avoid duplicate edge call */}
-        <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
+      {/* Sticky Tab Bar – matches homepage */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
+        <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
+          {INSIGHT_TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`text-sm font-medium font-body transition-all relative ${
+                activeTab === key
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70'
+              }`}
+            >
+              {label}
+              {activeTab === key && (
+                <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Card 2 – Your Momentum (Performance Log) */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
-              <InsightInfoModal
-                title="Your Momentum"
-                explanation="The wins you've logged over the past 30 days – reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {winsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : winsError ? (
-              <div className="py-4 text-center">
-                <p className="text-sm text-muted-foreground">Unable to load momentum data right now.</p>
-              </div>
-            ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
-              <div className="space-y-4">
-                {/* Stat boxes */}
-                {(() => {
-                  // Helper to compute primary domain for a win
-                  const getDomain = (w: any) => {
-                    const content = (w.content || '').toLowerCase();
-                    // Delivery: explicit shipping/completing signals
-                    if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) return 'Delivery';
-                    // Resilience: sustained effort, recovery, endurance
-                    if (w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
-                        w.growth_signal === 'resilience' || w.growth_signal === 'boundary' ||
-                        /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) return 'Resilience';
-                    // Leadership: must have content signals, not just pride
-                    if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) return 'Leadership';
-                    // Decision: metadata + verb
-                    if ((w.agency_type === 'proactive' || w.agency_type === 'decisive') &&
-                        /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) return 'Decision';
-                    // Growth
-                    if (w.growth_signal === 'insight' || w.growth_signal === 'progress' ||
-                        w.growth_signal === 'learning' || w.growth_signal === 'breakthrough' ||
-                        /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) return 'Growth';
-                    return 'Delivery';
-                  };
+      {/* Tab Content – all rendered, toggle via display */}
+      <div className="flex-1 w-full pb-8">
 
-                  // Count by primary domain
-                  const domainCounts: Record<string, number> = { Resilience: 0, Leadership: 0, Decision: 0, Growth: 0, Delivery: 0 };
-                  tinyWinsContent.forEach(w => { domainCounts[getDomain(w)]++; });
-                  
-                  const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
-                  const [dominantDomain, dominantCount] = sorted[0];
-                  
-                  return (
-                    <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                        <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
-                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
-                      </div>
-                       <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                        <p className="text-2xl font-headline text-foreground">{dominantCount}</p>
-                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
-                      </div>
-                    </div>
+        {/* PATTERNS tab */}
+        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+            <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
+          </div>
+        </div>
 
-                    {tinyWinsInsights.winsCount >= 3 && dominantCount > 0 && (() => {
-                      const pct = Math.round((dominantCount / tinyWinsInsights.winsCount) * 100);
-                      if (pct >= 25) {
-                        return (
-                          <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                            <p className="text-sm text-foreground leading-relaxed">
-                              {pct}% of your wins this month were {dominantDomain.toLowerCase()} wins – that's your dominant pattern right now.
-                            </p>
+        {/* MOMENTUM tab */}
+        <div style={{ display: activeTab === 'momentum' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
+            <LuxuryInsightCard>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
+                  <InsightInfoModal
+                    title="Your Momentum"
+                    explanation="The wins you've logged over the past 30 days – reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {winsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : winsError ? (
+                  <div className="py-4 text-center">
+                    <p className="text-sm text-muted-foreground">Unable to load momentum data right now.</p>
+                  </div>
+                ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
+                  <div className="space-y-4">
+                    {/* Stat boxes */}
+                    {(() => {
+                      const getDomain = (w: any) => {
+                        const content = (w.content || '').toLowerCase();
+                        if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) return 'Delivery';
+                        if (w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
+                            w.growth_signal === 'resilience' || w.growth_signal === 'boundary' ||
+                            /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) return 'Resilience';
+                        if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) return 'Leadership';
+                        if ((w.agency_type === 'proactive' || w.agency_type === 'decisive') &&
+                            /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) return 'Decision';
+                        if (w.growth_signal === 'insight' || w.growth_signal === 'progress' ||
+                            w.growth_signal === 'learning' || w.growth_signal === 'breakthrough' ||
+                            /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) return 'Growth';
+                        return 'Delivery';
+                      };
+
+                      const domainCounts: Record<string, number> = { Resilience: 0, Leadership: 0, Decision: 0, Growth: 0, Delivery: 0 };
+                      tinyWinsContent.forEach(w => { domainCounts[getDomain(w)]++; });
+                      
+                      const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
+                      const [dominantDomain, dominantCount] = sorted[0];
+                      
+                      return (
+                        <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                            <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
+                            <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
                           </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    </>
-                  );
-                })()}
-
-                {/* Win list */}
-                <div className="space-y-2">
-                  {tinyWinsContent.slice(0, 5).map((win, i) => {
-                    // Domain tag mapping – must match getDomain logic above
-                    const content = (win.content || '').toLowerCase();
-                    let domain = 'Delivery';
-                    let dotColor = 'bg-slate-400';
-                    let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
-                    
-                    // Delivery first (explicit shipping signals)
-                    if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) {
-                      domain = 'Delivery'; dotColor = 'bg-slate-400'; tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
-                    } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
-                        win.growth_signal === 'resilience' || win.growth_signal === 'boundary' ||
-                        /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) {
-                      domain = 'Resilience'; dotColor = 'bg-emerald-500'; tagBg = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
-                    } else if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) {
-                      domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
-                    } else if ((win.agency_type === 'proactive' || win.agency_type === 'decisive') &&
-                        /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) {
-                      domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
-                    } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress' ||
-                        win.growth_signal === 'learning' || win.growth_signal === 'breakthrough' ||
-                        /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) {
-                      domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
-                    }
-                    
-                    return (
-                      <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10 border border-border/10">
-                        <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
-                              {domain}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">{win.date}</span>
+                           <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                            <p className="text-2xl font-headline text-foreground">{dominantCount}</p>
+                            <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
 
-                <p className="text-xs text-muted-foreground/60">
-                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
-                </p>
-              </div>
-            ) : (
-              <div className="py-4 space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {winsProgressMessage || 'Share your wins during evening coach sessions to build your performance log.'}
-                </p>
-                <p className="text-xs text-muted-foreground/60">
-                  The coach captures patterns you might miss – speak to them about your daily wins to unlock this feature.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </LuxuryInsightCard>
+                        {tinyWinsInsights.winsCount >= 3 && dominantCount > 0 && (() => {
+                          const pct = Math.round((dominantCount / tinyWinsInsights.winsCount) * 100);
+                          if (pct >= 25) {
+                            return (
+                              <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                                <p className="text-sm text-foreground leading-relaxed">
+                                  {pct}% of your wins this month were {dominantDomain.toLowerCase()} wins – that's your dominant pattern right now.
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        </>
+                      );
+                    })()}
 
-        {/* Card 3 – Your Performance Rhythm */}
-        <PerformanceRhythmCard userId={user?.id} />
+                    {/* Win list */}
+                    <div className="space-y-2">
+                      {tinyWinsContent.slice(0, 5).map((win, i) => {
+                        const content = (win.content || '').toLowerCase();
+                        let domain = 'Delivery';
+                        let dotColor = 'bg-slate-400';
+                        let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+                        
+                        if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) {
+                          domain = 'Delivery'; dotColor = 'bg-slate-400'; tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+                        } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
+                            win.growth_signal === 'resilience' || win.growth_signal === 'boundary' ||
+                            /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) {
+                          domain = 'Resilience'; dotColor = 'bg-emerald-500'; tagBg = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
+                        } else if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) {
+                          domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+                        } else if ((win.agency_type === 'proactive' || win.agency_type === 'decisive') &&
+                            /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) {
+                          domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
+                        } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress' ||
+                            win.growth_signal === 'learning' || win.growth_signal === 'breakthrough' ||
+                            /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) {
+                          domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+                        }
+                        
+                        return (
+                          <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10 border border-border/10">
+                            <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
+                                  {domain}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">{win.date}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
-        {/* Card 5 – Your Mind Map */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
-              <InsightInfoModal
-                title="Your Mind Map"
-                explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day – what keeps coming up. The picture your data is painting of your inner world right now."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {semanticLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : semanticError ? (
-              <div className="py-4 text-center">
-                <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
-              </div>
-            ) : !mindMapReady ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Your Mind Map builds from coach conversations, practices, and wins.
-                </p>
-                <p className="text-xs text-muted-foreground/60 mt-2">
-                  Keep engaging to see unified themes emerge.
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* AI Observation above the bubble map */}
-                {semanticAnalysis?.aiObservation && (
-                  <div className="mb-4 p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {semanticAnalysis.aiObservation}
+                    <p className="text-xs text-muted-foreground/60">
+                      Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
+                    </p>
+                  </div>
+                ) : (
+                  <div className="py-4 space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {winsProgressMessage || 'Share your wins during evening coach sessions to build your performance log.'}
+                    </p>
+                    <p className="text-xs text-muted-foreground/60">
+                      The coach captures patterns you might miss – speak to them about your daily wins to unlock this feature.
                     </p>
                   </div>
                 )}
-                <InnerWorldBubbles
-                  items={semanticAnalysis?.unifiedThemes || []}
-                  relationships={semanticAnalysis?.themeRelationships || []}
-                  onNodeSummary={fetchNodeSummary}
-                />
-              </>
-            )}
-          </CardContent>
-        </LuxuryInsightCard>
+              </CardContent>
+            </LuxuryInsightCard>
+
+            <PerformanceRhythmCard userId={user?.id} />
+          </div>
+        </div>
+
+        {/* MIND MAP tab */}
+        <div style={{ display: activeTab === 'mindmap' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+            <LuxuryInsightCard>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
+                  <InsightInfoModal
+                    title="Your Mind Map"
+                    explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day – what keeps coming up. The picture your data is painting of your inner world right now."
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {semanticLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : semanticError ? (
+                  <div className="py-4 text-center">
+                    <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
+                  </div>
+                ) : !mindMapReady ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Your Mind Map builds from coach conversations, practices, and wins.
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-2">
+                      Keep engaging to see unified themes emerge.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {semanticAnalysis?.aiObservation && (
+                      <div className="mb-4 p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {semanticAnalysis.aiObservation}
+                        </p>
+                      </div>
+                    )}
+                    <InnerWorldBubbles
+                      items={semanticAnalysis?.unifiedThemes || []}
+                      relationships={semanticAnalysis?.themeRelationships || []}
+                      onNodeSummary={fetchNodeSummary}
+                    />
+                  </>
+                )}
+              </CardContent>
+            </LuxuryInsightCard>
+          </div>
+        </div>
       </div>
     </div>
   );
