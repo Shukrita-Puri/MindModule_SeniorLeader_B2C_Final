@@ -402,7 +402,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300 mx-auto',
           tooltipVisible ? 'opacity-100' : 'opacity-0 translate-y-2',
         )}
-        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, width: isFullscreen ? 'calc(100% - 32px)' : undefined }}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW }}
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
