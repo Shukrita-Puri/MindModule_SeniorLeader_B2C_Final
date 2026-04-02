@@ -240,25 +240,31 @@ const ExecutiveHome = () => {
                 <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
               </div>
 
-              <section className="animate-in fade-in duration-500 delay-200">
-                <div className="flex items-center justify-between py-2">
-                  <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
-                  <MetricInfoModal
-                    title="Your Performance Readiness Plan"
-                    description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-                  />
-                </div>
-              </section>
             </div>
 
-            {/* Time-of-Day Plan */}
-            <div data-tour="daily-plan" className="animate-in fade-in duration-500 delay-200">
-              <DailyRitual onPreEventPlanReady={setPreEventPlan} />
-            </div>
+            {/* Your Action section — wrapped for tour highlight */}
+            <div data-tour="daily-plan">
+              <div className="px-4 md:px-6 max-w-lg mx-auto">
+                <section className="animate-in fade-in duration-500 delay-200">
+                  <div className="flex items-center justify-between py-2">
+                    <StepLabel letter="C" title="Your Action" subtitle="Performance Readiness Plan" />
+                    <MetricInfoModal
+                      title="Your Performance Readiness Plan"
+                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    />
+                  </div>
+                </section>
+              </div>
 
-            {/* JIT Preparation - driven by plan data */}
-            <div className="animate-in fade-in duration-500 delay-300 mt-4">
-              <JitCarousel preEventPlan={preEventPlan} />
+              {/* Time-of-Day Plan */}
+              <div className="animate-in fade-in duration-500 delay-200">
+                <DailyRitual onPreEventPlanReady={setPreEventPlan} />
+              </div>
+
+              {/* JIT Preparation - driven by plan data */}
+              <div className="animate-in fade-in duration-500 delay-300 mt-4">
+                <JitCarousel preEventPlan={preEventPlan} />
+              </div>
             </div>
 
             <div className="mt-8">
