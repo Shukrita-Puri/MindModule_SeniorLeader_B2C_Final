@@ -167,8 +167,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 const INSIGHT_TABS = [
   { key: 'patterns' as const, label: 'Patterns' },
-  { key: 'momentum' as const, label: 'Momentum' },
-  { key: 'mindmap' as const, label: 'Mind Map' },
+  { key: 'momentum' as const, label: 'Progress' },
+  { key: 'mindmap' as const, label: 'Presence' },
 ];
 
 const Insights = () => {
@@ -803,9 +803,6 @@ const Insights = () => {
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
               Performance Intelligence
             </h1>
-            <p className="text-lg font-subheadline italic text-muted-foreground">
-              Patterns. Progress. Presence.
-            </p>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               What is consistently true about how you lead, perform, and recover – drawn from everything the app knows about you.
             </p>
