@@ -319,6 +319,154 @@ function assembleContextStatement(
   return { text: parts.join(' '), layersActive };
 }
 
+// ==================== CALENDAR-AWARE SIGNAL SELECTION ====================
+
+interface SelectedSignals {
+  primary: string;      // Main physiological sentence
+  secondary: string | null;  // Cognitive sentence (only if diverges from physical)
+  alreadyUsed: string[];     // Signals used, for relay to Compass
+}
+
+function selectSignalsForStatement(
+  outcome: string | null,
+  hasCheckIn: boolean,
+  tier: EnergyTier,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  clarity: number,
+  confidence: number,
+  hrvDeviation: number | null,
+  hasWearable: boolean,
+  patternContext: HRVPatternContext | null,
+  sleepScore: number | null,
+  rhrElevated: boolean,
+  calendarLoad: string | null,
+  highStakesCount: number,
+  consecutiveStreak: { tier: string; count: number } | null,
+  baselineConfidence: 'low' | 'medium' | 'high',
+  sampleDays: number,
+): SelectedSignals {
+  const alreadyUsed: string[] = [];
+  const isHeavyDay = calendarLoad === 'high' || calendarLoad === 'extreme' || highStakesCount > 0;
+
+  // Collect divergent signals
+  const signals: Array<{ key: string; text: string; divergence: number }> = [];
+
+  if (hasWearable && hrvDeviation !== null) {
+    const absD = Math.abs(hrvDeviation);
+    const baselineLabel = baselineConfidence === 'high' ? 'baseline' : `${sampleDays}-day baseline`;
+    if (absD >= 5) {
+      const direction = hrvDeviation > 0 ? 'above' : 'below';
+      signals.push({
+        key: 'hrv_deviation',
+        text: `HRV ${absD}% ${direction} ${baselineLabel}`,
+        divergence: absD,
+      });
+    }
+  }
+
+  if (sleepScore !== null) {
+    if (sleepScore < 60) {
+      signals.push({ key: 'sleep_score', text: `sleep below baseline (score: ${sleepScore})`, divergence: 60 - sleepScore });
+    } else if (sleepScore >= 80) {
+      signals.push({ key: 'sleep_good', text: 'solid sleep', divergence: sleepScore - 70 });
+    }
+  }
+
+  if (rhrElevated) {
+    signals.push({ key: 'rhr_elevated', text: 'resting heart rate above baseline', divergence: 15 });
+  }
+
+  // Sort by divergence (most notable first)
+  signals.sort((a, b) => b.divergence - a.divergence);
+
+  // Build primary sentence (physiological reality)
+  let primary = '';
+  if (!hasWearable && !hasCheckIn) {
+    primary = TIER_FALLBACK_STATEMENTS[tier]?.[timeOfDay] || 'Readiness data is limited.';
+    alreadyUsed.push('tier_fallback');
+  } else if (!hasWearable) {
+    // Check-in only — use clarity + confidence as proxy
+    if (hasCheckIn && outcome && BASE_STATEMENTS[outcome]) {
+      primary = BASE_STATEMENTS[outcome][timeOfDay];
+      alreadyUsed.push('checkin_outcome');
+    } else {
+      primary = TIER_FALLBACK_STATEMENTS[tier]?.[timeOfDay] || 'Readiness data is limited.';
+      alreadyUsed.push('tier_fallback');
+    }
+  } else if (isHeavyDay) {
+    // Heavy day: surface multiple divergent signals
+    const notable = signals.filter(s => s.divergence >= 10);
+    const positive = signals.filter(s => ['sleep_good'].includes(s.key));
+    if (notable.length >= 2) {
+      primary = `Strong readiness signals are mixed — ${notable[0].text} and ${notable[1].text} this morning.`;
+      notable.slice(0, 2).forEach(s => alreadyUsed.push(s.key));
+    } else if (notable.length === 1 && positive.length > 0) {
+      primary = `${getTierLabel(tier)} with ${positive[0].text} — but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
+      alreadyUsed.push(notable[0].key, positive[0].key);
+    } else if (notable.length === 1) {
+      primary = `${getTierLabel(tier)} this ${timeOfDay} — ${notable[0].text}.`;
+      alreadyUsed.push(notable[0].key);
+    } else if (signals.length > 0 && signals[0].key.includes('good')) {
+      // All signals strong on a heavy day — reassure
+      primary = `${getTierLabel(tier)} with ${signals.map(s => s.text).join(' and ')}.`;
+      signals.forEach(s => alreadyUsed.push(s.key));
+    } else {
+      primary = hasCheckIn && outcome && BASE_STATEMENTS[outcome]
+        ? BASE_STATEMENTS[outcome][timeOfDay]
+        : (TIER_FALLBACK_STATEMENTS[tier]?.[timeOfDay] || 'Readiness data is limited.');
+      alreadyUsed.push('checkin_outcome');
+    }
+  } else {
+    // Light/moderate day: single strongest signal only
+    if (signals.length > 0) {
+      const top = signals[0];
+      primary = `Readiness is steady, ${top.text}.`;
+      alreadyUsed.push(top.key);
+    } else if (hasCheckIn && outcome && BASE_STATEMENTS[outcome]) {
+      primary = BASE_STATEMENTS[outcome][timeOfDay];
+      alreadyUsed.push('checkin_outcome');
+    } else {
+      primary = TIER_FALLBACK_STATEMENTS[tier]?.[timeOfDay] || 'Readiness data is limited.';
+      alreadyUsed.push('tier_fallback');
+    }
+  }
+
+  // Consecutive streak
+  if (consecutiveStreak && consecutiveStreak.count >= 3) {
+    primary += ` ${consecutiveStreak.count} days running at this level.`;
+    alreadyUsed.push(`streak_${consecutiveStreak.count}d`);
+  }
+
+  // Build secondary sentence (cognitive reality) — only if it meaningfully diverges
+  let secondary: string | null = null;
+  const clarityHigh = clarity >= 4;
+  const clarityLow = clarity <= 2;
+  const confidenceHigh = confidence >= 4;
+  const confidenceLow = confidence <= 2;
+
+  if (hasCheckIn) {
+    // Only show if cognitive state diverges from physical
+    const physicalGood = tier === 'strong' || tier === 'peak';
+    const physicalBad = tier === 'depleted';
+
+    if (clarityHigh && confidenceLow) {
+      secondary = 'Clarity is strong — but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
+      alreadyUsed.push('clarity_high', 'confidence_low');
+    } else if (clarityLow && confidenceHigh) {
+      secondary = 'Confidence is high but clarity is low — certainty about an unclear path.';
+      alreadyUsed.push('clarity_low', 'confidence_high');
+    } else if (clarityLow && confidenceLow && !physicalBad) {
+      secondary = 'Both clarity and confidence flagged low in your check-in.';
+      alreadyUsed.push('clarity_low', 'confidence_low');
+    } else if (clarityHigh && confidenceHigh && physicalBad) {
+      secondary = 'Your cognitive signals are strong despite the physiological picture.';
+      alreadyUsed.push('clarity_high', 'confidence_high');
+    }
+  }
+
+  return { primary, secondary, alreadyUsed };
+}
+
 // ==================== MAIN SCORING ====================
 
 interface ComputeRequest {
@@ -333,6 +481,12 @@ interface ComputeRequest {
   hrvPatternContext?: HRVPatternContext | null;
   baselineConfidence?: 'low' | 'medium' | 'high';
   sampleDays?: number;
+  // New: calendar-aware signal selection inputs
+  calendarLoad?: string | null;
+  highStakesCount?: number;
+  consecutiveStreak?: { tier: string; count: number } | null;
+  sleepScore?: number | null;
+  rhrElevated?: boolean;
 }
 
 serve(async (req) => {
