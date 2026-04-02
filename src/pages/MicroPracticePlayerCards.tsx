@@ -50,11 +50,11 @@ const BUDDHIST_PHOENIX_CARDS = [
     type: "overview" as const,
     title: "Resilience Through The Phoenix",
     subtitle: "Reframe setbacks into strength and clarity",
-    source: "Growth through adversity — a pattern observed across millennia — Stoic Amor Fati (love of fate) + Growth Mindset Research (Dweck)",
+    source: "Growth through adversity – a pattern observed across millennia – Stoic Amor Fati (love of fate) + Growth Mindset Research (Dweck)",
     duration: "3 min",
     steps: "4 Steps",
     trigger: "Setbacks, failures, rejection, unexpected obstacles, moments when you feel defeated",
-    whenToUse: "After any loss/rejection/failures/mistakes — big or small. When you need to move from 'what happened to me' to 'what I do next.'",
+    whenToUse: "After any loss/rejection/failures/mistakes – big or small. When you need to move from 'what happened to me' to 'what I do next.'",
   },
   {
     type: "step" as const,
@@ -122,7 +122,7 @@ const BUDDHIST_PHOENIX_CARDS = [
     guidance: "Make it small. Make it soon. Make it specific.",
     reframingNote: "Every comeback starts with one deliberate step forward.",
     insight: {
-      wisdom: "Amor fati — Practice of loving all events in one's life, good or bad.",
+      wisdom: "Amor fati – Practice of loving all events in one's life, good or bad.",
       wisdomSource: "Ancient Wisdom",
       quote: {
         text: "We will make it work. Failure is an option here. If things are not failing, you are not innovating enough.",
@@ -135,7 +135,7 @@ const BUDDHIST_PHOENIX_CARDS = [
     title: "Why This Works",
     content: [
       "Your brain rewires most dramatically during stress and recovery. You're building new neural pathways through adversity.",
-      "Hormetic stress (the right dose of challenge) makes you antifragile — stronger than before.",
+      "Hormetic stress (the right dose of challenge) makes you antifragile – stronger than before.",
     ],
     closing: "Find the upgrade hiding in the rubble. Every failure is tuition paid toward mastery.",
   },
@@ -147,7 +147,7 @@ const ENERGY_REFRAME_CARDS = [
     type: "overview" as const,
     title: "Energy Through Reframe",
     subtitle: "Rapid activation when energy runs low",
-    source: "Cognitive reappraisal + Yerkes-Dodson arousal curve + Polyvagal Theory (Porges) — Physiological state-shifting techniques observed in athletes, performers and special forces for pre-mission.",
+    source: "Cognitive reappraisal + Yerkes-Dodson arousal curve + Polyvagal Theory (Porges) – Physiological state-shifting techniques observed in athletes, performers and special forces for pre-mission.",
     duration: "1.5 min",
     steps: "3 Steps",
     trigger: "Mental fatigue, low motivation, feeling 'too tired'",
@@ -204,41 +204,41 @@ const COURAGE_FUTURE_SELF_CARDS = [
     type: "overview" as const,
     title: "Courage Through The Future Self",
     subtitle: "Act with courage to choose growth over comfort in key moments that matter",
-    source: "Perspective-taking across time horizons — Stoic philosophy (Memento Mori), Regret Minimisation Framework (Bezos), Fear-Setting (Ferriss)",
+    source: "Perspective-taking across time horizons – Stoic philosophy (Memento Mori), Regret Minimisation Framework (Bezos), Fear-Setting (Ferriss)",
     duration: "3 min",
     steps: "4 Steps",
     trigger: "Afraid to act, stuck in comfort zone, procrastinating on meaningful risk, choosing safety over growth",
-    whenToUse: "When facing a significant choice where fear of failure or judgment keeps you frozen — big conversations, tryouts, applications, career moves, creative risks.",
+    whenToUse: "When facing a significant choice where fear of failure or judgment keeps you frozen – big conversations, tryouts, applications, career moves, creative risks.",
   },
   {
     type: "step" as const,
     stepNumber: 1,
     title: "Project Forward in Time",
     duration: "45 sec",
-    instruction: "Close your eyes. Imagine your future self looking back at this exact moment from far ahead — next month, 1 year, or 5 years.",
+    instruction: "Close your eyes. Imagine your future self looking back at this exact moment from far ahead – next month, 1 year, or 5 years.",
     question: "Will I regret NOT taking this action?",
     examples: [
-      "Usually, regret comes from never trying — not from trying and failing",
+      "Usually, regret comes from never trying – not from trying and failing",
       "Fear fades. Wondering \"what if\" never does",
     ],
     insight: {
       text: "Those who take risks regret some outcomes. Those who avoid risks regret the absence of experiences.",
       source: "Regret Minimization Research",
     },
-    closingWisdom: "Which version feels more like who you want to become — the one who tried, or the one who stayed safe?",
+    closingWisdom: "Which version feels more like who you want to become – the one who tried, or the one who stayed safe?",
   },
   {
     type: "step" as const,
     stepNumber: 2,
     title: "Name What You're Actually Afraid Of",
     duration: "45 sec",
-    instruction: "Complete this sentence: \"What I'm actually afraid of is [specific outcome].\" Not \"failure\" — that's too vague. Get precise.",
+    instruction: "Complete this sentence: \"What I'm actually afraid of is [specific outcome].\" Not \"failure\" – that's too vague. Get precise.",
     examples: [
       '"Being judged by people who matter to me"',
       '"Losing the security I have now"',
       '"Discovering I\'m not as capable as I think"',
       '"Being rejected publicly"',
-      '"Any other fear not mentioned here — name yours"',
+      '"Any other fear not mentioned here – name yours"',
     ],
     insight: {
       text: "Labeling emotions activates prefrontal cortex and dampens the amygdala. Precision reduces intensity by ~40%.",
@@ -293,14 +293,14 @@ const CONFIDENCE_EVIDENCE_CARDS = [
     duration: "2 min",
     steps: "3 Steps",
     trigger: "Self-doubt, imposter feelings, pre-performance anxiety, comparing yourself to others",
-    whenToUse: "Before high-stakes moments — presentations, tough conversations, interviews, or any moment when you need to remember your own capability.",
+    whenToUse: "Before high-stakes moments – presentations, tough conversations, interviews, or any moment when you need to remember your own capability.",
   },
   {
     type: "step" as const,
     stepNumber: 1,
     title: "Recall Three Wins",
     duration: "40 sec",
-    instruction: "Name three times you succeeded at something hard. Be specific — not \"I'm good at speaking,\" but \"I convinced 10 people to join my idea in 5 minutes.\"",
+    instruction: "Name three times you succeeded at something hard. Be specific – not \"I'm good at speaking,\" but \"I convinced 10 people to join my idea in 5 minutes.\"",
     question: "When have you already done something like this?",
     examples: [
       '"I closed the deal when everyone said it was impossible"',
@@ -335,7 +335,7 @@ const CONFIDENCE_EVIDENCE_CARDS = [
     title: "State Your Readiness",
     duration: "40 sec",
     instruction: "Complete: \"I am ready because I have [skill 1], [skill 2], and [skill 3].\" Say it once out loud.",
-    guidance: "Evidence-based confidence doesn't waver. You're not hoping you're capable — you're remembering you already proved it.",
+    guidance: "Evidence-based confidence doesn't waver. You're not hoping you're capable – you're remembering you already proved it.",
     insight: {
       text: "Competence remembered becomes confidence available.",
       source: "Performance Psychology",
@@ -349,7 +349,7 @@ const COURAGE_ARENA_CARDS = [
   {
     type: "overview" as const,
     title: "Resilience Through Brave Action",
-    subtitle: "Step into visibility knowing you might fail — and choose to show up anyway",
+    subtitle: "Step into visibility knowing you might fail – and choose to show up anyway",
     source: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius (simplified)",
     duration: "2 min",
     steps: "3 Steps",
@@ -372,7 +372,7 @@ const COURAGE_ARENA_CARDS = [
     stepNumber: 2,
     title: "Remember Who You Admire",
     duration: "40 sec",
-    instruction: "Think of someone you respect — friend, athlete, artist, character. Did they play it safe? No. They stepped into the arena knowing they might fail. You're doing what they did.",
+    instruction: "Think of someone you respect – friend, athlete, artist, character. Did they play it safe? No. They stepped into the arena knowing they might fail. You're doing what they did.",
     examples: [
       "Your favorite artist posted their first song knowing people might hate it. They did it anyway.",
     ],
@@ -447,9 +447,9 @@ const ENERGY_COMPLETION_CARDS = [
     title: "Declare What's Closed",
     duration: "15 sec",
     instruction: "Speak aloud: \"These loops are closed. My mind is clear.\" Physical act of closing notebook or app.",
-    guidance: "Hemingway stopped writing mid-sentence so he always knew where to restart — create closure on YOUR terms.",
+    guidance: "Hemingway stopped writing mid-sentence so he always knew where to restart – create closure on YOUR terms.",
     insight: {
-      text: "Jeff Bezos uses \"two-pizza teams\" to limit cognitive load — small, self-contained projects that finish.",
+      text: "Jeff Bezos uses \"two-pizza teams\" to limit cognitive load – small, self-contained projects that finish.",
       source: "High Performer Pattern",
     },
     closingWisdom: "A clear mind is a powerful mind. Close the tabs to open the focus.",
@@ -466,14 +466,14 @@ const SINGLE_THREAD_CARDS = [
     duration: "2 min",
     steps: "4 Steps",
     trigger: "Before entering deep work, when attention keeps fragmenting, starting sessions with scattered focus, task-switching exhaustion",
-    whenToUse: "At the threshold of focus sessions—before writing, studying, coding, creating, or any work requiring sustained attention.",
+    whenToUse: "At the threshold of focus sessions–before writing, studying, coding, creating, or any work requiring sustained attention.",
   },
   {
     type: "step" as const,
     stepNumber: 1,
     title: "Name the single target",
     duration: "30 sec",
-    instruction: "Complete: \"For the next [time block], the only thing that exists is [specific task].\" Not \"work on project\"—be surgical: \"Write the introduction\" or \"Solve equations 12-15\" or \"Draft slide 3.\"",
+    instruction: "Complete: \"For the next [time block], the only thing that exists is [specific task].\" Not \"work on project\"–be surgical: \"Write the introduction\" or \"Solve equations 12-15\" or \"Draft slide 3.\"",
     guidance: "The brain can't multitask; it context-switches. Each switch costs 23 minutes of refocus time (Leroy, 2009). Single-threading eliminates the tax.",
     insight: {
       text: "Neuroscience: The brain can't multitask; it context-switches. Each switch costs 23 minutes of refocus time. Single-threading eliminates the tax.",
@@ -528,14 +528,14 @@ const FIRST_MOVE_CARDS = [
     duration: "1.5 min",
     steps: "3 Steps",
     trigger: "Procrastination, task paralysis, perfectionism preventing start, feeling overwhelmed by scope, resistance to beginning",
-    whenToUse: "When you know what to do but can't start—staring at blank page, avoiding the first step, waiting for \"the right time.\"",
+    whenToUse: "When you know what to do but can't start–staring at blank page, avoiding the first step, waiting for \"the right time.\"",
   },
   {
     type: "step" as const,
     stepNumber: 1,
     title: "Shrink the start to absurd",
     duration: "30 sec",
-    instruction: "What's the smallest first action? Not \"write the essay\"—just \"Write one sentence.\" Not \"study for test\"—just \"Read one page.\" Not \"clean room\"—just \"Put away one item.\" The brain resists big. It can't resist tiny.",
+    instruction: "What's the smallest first action? Not \"write the essay\"–just \"Write one sentence.\" Not \"study for test\"–just \"Read one page.\" Not \"clean room\"–just \"Put away one item.\" The brain resists big. It can't resist tiny.",
     guidance: "Physics: Objects at rest stay at rest. Objects in motion stay in motion. Your first move creates momentum.",
     insight: {
       text: "The brain resists big. It can't resist tiny.",
@@ -560,7 +560,7 @@ const FIRST_MOVE_CARDS = [
     title: "Execute the first move now",
     duration: "30 sec",
     instruction: "Not in 5 minutes. Now. Open the document. Pick up the book. Write the word. Momentum exists only in the present tense.",
-    guidance: "High performer: Hemingway's rule—\"Write one true sentence. The truest sentence you know.\" Then the next. Then the next. Books are built from first sentences.",
+    guidance: "High performer: Hemingway's rule–\"Write one true sentence. The truest sentence you know.\" Then the next. Then the next. Books are built from first sentences.",
     insight: {
       text: "Momentum exists only in the present tense.",
       source: "Hemingway's Method",
@@ -598,7 +598,7 @@ const DEPTH_SUBTRACTION_CARDS = [
     title: "Ask the essential question",
     duration: "45 sec",
     instruction: "For each item: \"If I could only do ONE thing today, would this be it?\" If no, cross it out or defer it. Repeat until one remains. Essential means \"if you don't do this, nothing else matters.\"",
-    guidance: "High performer: Warren Buffett's 5/25 rule—List 25 goals. Circle top 5. Avoid the other 20 at all costs. They're distractions disguised as priorities.",
+    guidance: "High performer: Warren Buffett's 5/25 rule–List 25 goals. Circle top 5. Avoid the other 20 at all costs. They're distractions disguised as priorities.",
     insight: {
       text: "Avoid distractions disguised as priorities.",
       source: "Warren Buffett's 5/25 Rule",
@@ -610,7 +610,7 @@ const DEPTH_SUBTRACTION_CARDS = [
     title: "Eliminate or automate the rest",
     duration: "30 sec",
     instruction: "For non-essential items: Delete, delegate, or schedule for later (not today). Your energy is finite. Depth requires saying no to good things to say yes to great things.",
-    guidance: "Design principle: Dieter Rams—\"Good design is as little design as possible.\" Good work is as few priorities as necessary.",
+    guidance: "Design principle: Dieter Rams–\"Good design is as little design as possible.\" Good work is as few priorities as necessary.",
     insight: {
       text: "Depth requires saying no to good things to say yes to great things.",
       source: "Essentialism",
@@ -660,7 +660,7 @@ const ETERNAL_NOW_CARDS = [
     title: "Return to sensory present",
     duration: "30 sec",
     instruction: "Name three immediate sensations: What you see, hear, or feel right now. \"I see the screen. I hear the fan. I feel the chair.\" Sensation only exists now. Your senses are an anchor to the present.",
-    guidance: "Ancient wisdom: Zen teaching—\"When you eat, eat. When you walk, walk.\" The present moment is the only moment.",
+    guidance: "Ancient wisdom: Zen teaching–\"When you eat, eat. When you walk, walk.\" The present moment is the only moment.",
     insight: {
       text: "Your senses are an anchor to the present moment.",
       source: "Zen Mindfulness",
@@ -672,7 +672,7 @@ const ETERNAL_NOW_CARDS = [
     title: "Re-engage the task",
     duration: "30 sec",
     instruction: "Return to what's in front of you. Ask: \"What's the next smallest action?\" Do that. Then the next. Flow lives in sequential now-moments.",
-    guidance: "Flow research: Csikszentmihalyi—Flow occurs when attention is fully absorbed in the present challenge. Past and future disappear.",
+    guidance: "Flow research: Csikszentmihalyi–Flow occurs when attention is fully absorbed in the present challenge. Past and future disappear.",
     insight: {
       text: "Flow lives in sequential now-moments.",
       source: "Csikszentmihalyi, Flow Research",
@@ -772,7 +772,7 @@ const MASTERY_CONSTRAINT_CARDS = [
     title: "Isolate and exaggerate",
     duration: "50 sec",
     instruction: "Practice ONLY that skill in isolation. Remove everything else. If it's \"asking clarifying questions,\" practice 20 questions with no other goals. If it's \"thesis statements,\" write 10 thesis statements and nothing else. Constraint forces mastery. Abundance creates mediocrity.",
-    guidance: "High performer: Basketball players practice free throws (one skill) for 30 minutes daily. Not \"playing games\"—drilling the constraint.",
+    guidance: "High performer: Basketball players practice free throws (one skill) for 30 minutes daily. Not \"playing games\"–drilling the constraint.",
     insight: {
       text: "Constraint forces mastery. Abundance creates mediocrity.",
       source: "Deliberate Practice Research",
@@ -796,7 +796,7 @@ const MASTERY_CONSTRAINT_CARDS = [
     title: "Return tomorrow to the same constraint",
     duration: "40 sec",
     instruction: "Don't switch to a new skill yet. Return to the bottleneck for 3-5 sessions. Progress comes from depth, not variety. When the bottleneck breaks, the whole system levels up.",
-    guidance: "Deliberate practice: Ericsson—Experts spend 80% of practice time on their weakest skills. Amateurs avoid them.",
+    guidance: "Deliberate practice: Ericsson–Experts spend 80% of practice time on their weakest skills. Amateurs avoid them.",
     insight: {
       text: "Experts spend 80% of practice time on their weakest skills.",
       source: "Ericsson, Deliberate Practice",
@@ -810,7 +810,7 @@ const WU_WEI_CARDS = [
     type: "overview" as const,
     title: "Effortless Action Through Wu Wei",
     subtitle: "Flow, don't force",
-    source: "Laozi's Tao Te Ching — 無為 (Wu Wei) Daoist principle + Flow state research (Csíkszentmihályi)",
+    source: "Laozi's Tao Te Ching – 無為 (Wu Wei) Daoist principle + Flow state research (Csíkszentmihályi)",
     duration: "2 min",
     steps: "4 Steps",
     trigger: "Micromanaging, overthinking technique, feeling stuck or effortful, creative blocks",
@@ -845,9 +845,9 @@ const WU_WEI_CARDS = [
     duration: "1 min",
     instruction: "If writing: Just write next thought. If problem-solving: Ask \"What wants to emerge here?\" If in conversation: Listen and respond naturally.",
     examples: [
-      "Stop trying to write perfectly — just write",
-      "Stop forcing the solution — ask what wants to emerge",
-      "Stop planning your next sentence — just respond naturally",
+      "Stop trying to write perfectly – just write",
+      "Stop forcing the solution – ask what wants to emerge",
+      "Stop planning your next sentence – just respond naturally",
     ],
     closingWisdom: "The river doesn't push water. Align effort with natural conditions, not against them.",
   },
@@ -858,7 +858,7 @@ const WU_WEI_CARDS = [
     duration: "ongoing",
     instruction: "Every 10 minutes ask: \"Am I swimming with the current or against it?\" Adjust accordingly.",
     insight: {
-      text: "Mastery isn't more effort — it's precise effort with less tension",
+      text: "Mastery isn't more effort – it's precise effort with less tension",
       source: "Expert Performance Research",
     },
   },
@@ -879,7 +879,7 @@ const MUSHIN_CARDS = [
     type: "overview" as const,
     title: "Fluid Performance Through Mushin",
     subtitle: "Empty mind, full action",
-    source: "無心 (Mushin) — Zen Buddhism, martial arts philosophy + Expert automaticity research",
+    source: "無心 (Mushin) – Zen Buddhism, martial arts philosophy + Expert automaticity research",
     duration: "1 min",
     steps: "4 Steps",
     trigger: "High-stakes performance, when self-doubt interferes, during practiced skills that don't need thinking",
@@ -943,7 +943,7 @@ const JOBS_SIMPLICITY_CARDS = [
     type: "overview" as const,
     title: "Ruthless Focus Through Simplicity",
     subtitle: "One thing. Nothing else.",
-    source: "\"Focus is about saying no.\" — Steve Jobs + Essentialism (Greg McKeown)",
+    source: "\"Focus is about saying no.\" – Steve Jobs + Essentialism (Greg McKeown)",
     duration: "2 min",
     steps: "4 Steps",
     trigger: "Overwhelm by options, multitasking temptation, unclear priorities, decision fatigue",
@@ -981,7 +981,7 @@ const JOBS_SIMPLICITY_CARDS = [
     title: "The \"Is This It?\" Filter",
     duration: "ongoing",
     instruction: "Every time you're tempted to switch tasks or add something, ask: \"Is this THE thing right now?\" If no, write it on a \"later\" list and return to your one thing.",
-    closingWisdom: "\"Do one thing\" isn't limiting — it's liberating. You're not avoiding work; you're avoiding waste.",
+    closingWisdom: "\"Do one thing\" isn't limiting – it's liberating. You're not avoiding work; you're avoiding waste.",
   },
   {
     type: "step" as const,
@@ -1001,7 +1001,7 @@ const JOBS_SIMPLICITY_CARDS = [
       "Context-switching costs 20-40% of productive time. Every additional priority fractures your attention.",
       "Your brain can only hold one complex thing in working memory at a time.",
     ],
-    closing: "Mastery isn't adding complexity — it's ruthless elimination of everything that doesn't serve the mission.",
+    closing: "Mastery isn't adding complexity – it's ruthless elimination of everything that doesn't serve the mission.",
   },
 ];
 
@@ -1011,7 +1011,7 @@ const IKIGAI_PURPOSE_CARDS = [
     type: "overview" as const,
     title: "Purpose-Driven Flow Through Ikigai",
     subtitle: "This is why I'm here",
-    source: "生き甲斐 (Ikigai) — Japanese philosophy of purpose + Self-determination theory",
+    source: "生き甲斐 (Ikigai) – Japanese philosophy of purpose + Self-determination theory",
     duration: "3 min",
     steps: "4 Steps",
     trigger: "Mundane work, motivation dips, when questioning the point, energy depletion from meaningless tasks",
@@ -1024,11 +1024,11 @@ const IKIGAI_PURPOSE_CARDS = [
     duration: "2 min",
     instruction: "Before starting work, answer: \"Who benefits if I do this well? How does this serve something bigger than me?\" Even mundane tasks have downstream impact.",
     examples: [
-      "Not \"filling out reports\" — \"creating clarity for the team to make better decisions\"",
-      "Not \"answering emails\" — \"unblocking people so they can move forward\"",
+      "Not \"filling out reports\" – \"creating clarity for the team to make better decisions\"",
+      "Not \"answering emails\" – \"unblocking people so they can move forward\"",
     ],
     insight: {
-      text: "When you connect your task to meaning, your prefrontal cortex releases dopamine — the fuel for sustained effort",
+      text: "When you connect your task to meaning, your prefrontal cortex releases dopamine – the fuel for sustained effort",
       source: "Motivation Research",
     },
   },
@@ -1049,7 +1049,7 @@ const IKIGAI_PURPOSE_CARDS = [
     title: "The Energy Check",
     duration: "ongoing",
     instruction: "If a task consistently drains you with no sense of purpose, ask: \"Is this in my Ikigai zone? If not, can I delegate it, automate it, or say no to it?\" Protect your energy for work that lights you up.",
-    closingWisdom: "When your task sits at the intersection of what you love, what you're good at, what the world needs, and what you can be rewarded for — energy flows naturally.",
+    closingWisdom: "When your task sits at the intersection of what you love, what you're good at, what the world needs, and what you can be rewarded for – energy flows naturally.",
   },
   {
     type: "step" as const,
@@ -1067,7 +1067,7 @@ const IKIGAI_PURPOSE_CARDS = [
     title: "Why This Works",
     content: [
       "Intrinsic motivation outperforms extrinsic motivation for complex cognitive work.",
-      "When you connect your task to meaning, your brain releases dopamine — the fuel for sustained effort.",
+      "When you connect your task to meaning, your brain releases dopamine – the fuel for sustained effort.",
     ],
     closing: "Meaning isn't found; it's created through framing.",
   },
@@ -1079,7 +1079,7 @@ const STOIC_REFLECTION_CARDS = [
     type: "overview" as const,
     title: "Daily Virtue Alignment",
     subtitle: "Marcus Aurelius's evening practice",
-    source: "Ancient Rome — Stoic Philosophy, Marcus Aurelius's Meditations",
+    source: "Ancient Rome – Stoic Philosophy, Marcus Aurelius's Meditations",
     duration: "10 min",
     steps: "5 Steps",
     trigger: "End of day, need for clarity, desire to align actions with values",
@@ -1113,7 +1113,7 @@ const STOIC_REFLECTION_CARDS = [
     title: "Identify Virtue Alignment",
     duration: "2 min",
     instruction: "Ask: \"Where did I act with courage, wisdom, justice, or temperance? Where did I fall short?\" Be honest but not harsh.",
-    closingWisdom: "The goal isn't perfection — it's progress toward who you want to become.",
+    closingWisdom: "The goal isn't perfection – it's progress toward who you want to become.",
   },
   {
     type: "step" as const,
@@ -1154,18 +1154,18 @@ const FUDOSHIN_CARDS = [
     type: "overview" as const,
     title: "Calm in Chaos Through Fudōshin",
     subtitle: "Maintain unshakeable mind when everything moves",
-    source: "Samurai principle Fudōshin (不動心 — 'immovable mind') from Miyamoto Musashi's Book of Five Rings + Elite athlete 'eye of the storm' training + Michael Jordan's pre-shot ritual",
+    source: "Samurai principle Fudōshin (不動心 – 'immovable mind') from Miyamoto Musashi's Book of Five Rings + Elite athlete 'eye of the storm' training + Michael Jordan's pre-shot ritual",
     duration: "1.5 min",
     steps: "3 Steps",
     trigger: "Critical performances, leadership under crisis, public speaking, confrontation, when chaos surrounds you and all eyes are on you",
-    whenToUse: "Before stepping into the arena—presentations, difficult conversations, competition, emergency leadership, any moment requiring poise under pressure.",
+    whenToUse: "Before stepping into the arena–presentations, difficult conversations, competition, emergency leadership, any moment requiring poise under pressure.",
   },
   {
     type: "step" as const,
     stepNumber: 1,
     title: "Center in your body",
     duration: "30 sec",
-    instruction: "Feel your feet on the ground. Press them down deliberately. Lower your awareness to your center—two inches below your navel. The Japanese call this hara, your body's gravity point.",
+    instruction: "Feel your feet on the ground. Press them down deliberately. Lower your awareness to your center–two inches below your navel. The Japanese call this hara, your body's gravity point.",
     guidance: "Chaos exists outside. Your center is internal and unmovable. Stand or sit with spine straight. You are a mountain.",
     insight: {
       text: "Before battle, samurai warriors grounded their energy in hara. External storm, internal stillness. This is the foundation of immovable mind.",
@@ -1177,7 +1177,7 @@ const FUDOSHIN_CARDS = [
     stepNumber: 2,
     title: "Widen your gaze",
     duration: "30 sec",
-    instruction: "Soften your eyes. Don't fixate on one thing—take in the whole scene at once. Peripheral vision, not tunnel vision.",
+    instruction: "Soften your eyes. Don't fixate on one thing–take in the whole scene at once. Peripheral vision, not tunnel vision.",
     guidance: "When you fixate, you react to every stimulus. When you observe broadly, you respond from choice. Let everything enter your awareness without grabbing onto anything.",
     insight: {
       text: "Observe with both eyes, but see with the mind. Perceive that which cannot be seen with the eye. Peripheral vision activates parasympathetic calm awareness.",
@@ -1189,10 +1189,10 @@ const FUDOSHIN_CARDS = [
     stepNumber: 3,
     title: "Declare your ground",
     duration: "30 sec",
-    instruction: "Say silently or aloud: 'I am here. I am steady. Nothing moves me.' Or use the samurai declaration: 'Fudōshin—immovable mind.'",
+    instruction: "Say silently or aloud: 'I am here. I am steady. Nothing moves me.' Or use the samurai declaration: 'Fudōshin–immovable mind.'",
     guidance: "Your inner stability creates outer composure. What you declare, you embody. Feel the truth of immovability in your center. You are the eye of the storm.",
     insight: {
-      text: "Michael Jordan used the same free-throw ritual 8,000+ times—same breath, same stance, same unshakeable presence regardless of 20,000 screaming fans.",
+      text: "Michael Jordan used the same free-throw ritual 8,000+ times–same breath, same stance, same unshakeable presence regardless of 20,000 screaming fans.",
       source: "Elite Performance Research",
     },
   },
@@ -1204,11 +1204,11 @@ const PRESENCE_GROUNDING_CARDS = [
     type: "overview" as const,
     title: "Presence Through Grounding",
     subtitle: "Return to now when mind spirals elsewhere",
-    source: "Buddhist mindfulness practice (sati — present-moment awareness) + Eckhart Tolle's The Power of Now + Grounding techniques from trauma therapy (Bessel van der Kolk)",
+    source: "Buddhist mindfulness practice (sati – present-moment awareness) + Eckhart Tolle's The Power of Now + Grounding techniques from trauma therapy (Bessel van der Kolk)",
     duration: "1.5 min",
     steps: "3 Steps",
     trigger: "Ruminating on past mistakes, anxious about future outcomes, mental time-traveling during stress, feeling disconnected or dissociated, racing thoughts that won't stop",
-    whenToUse: "When your body is here but your mind is elsewhere—replaying arguments, rehearsing disasters, or lost in worry. This brings you back.",
+    whenToUse: "When your body is here but your mind is elsewhere–replaying arguments, rehearsing disasters, or lost in worry. This brings you back.",
   },
   {
     type: "step" as const,
@@ -1218,7 +1218,7 @@ const PRESENCE_GROUNDING_CARDS = [
     instruction: "Pause. Ask yourself: 'Where was my mind just now?' Past (replaying what happened)? Future (worrying what might happen)? Judging myself? Planning obsessively?",
     guidance: "Name it without shame: 'I was catastrophizing about tomorrow' or 'I was replaying that conversation.' Just notice. No fixing yet.",
     insight: {
-      text: "Awareness of mind-wandering itself interrupts the default mode network—the brain's 'autopilot' that creates rumination.",
+      text: "Awareness of mind-wandering itself interrupts the default mode network–the brain's 'autopilot' that creates rumination.",
       source: "Brewer et al., 2011",
     },
   },
@@ -1242,7 +1242,7 @@ const PRESENCE_GROUNDING_CARDS = [
     instruction: "Say aloud or silently: 'I am here. I am now. This moment is enough.' Or simply: 'Here. Now.'",
     guidance: "Your body believes what you declare. Verbal grounding completes the return. Take one full breath. Feel yourself arrive.",
     insight: {
-      text: "Grounding statements restore 'felt safety'—the body's sense that it's okay to be present. The body keeps the score.",
+      text: "Grounding statements restore 'felt safety'–the body's sense that it's okay to be present. The body keeps the score.",
       source: "Van der Kolk",
     },
   },
@@ -1258,7 +1258,7 @@ const RELEASE_EXHALE_CARDS = [
     duration: "1.5 min",
     steps: "3 Steps",
     trigger: "Physical tension, shallow breathing, fight-or-flight activation, wired/manic energy at night, post-adrenaline crash, body feeling 'locked up,' overstimulated after long day",
-    whenToUse: "When intensity is stored in your body—anxiety that manifests as chest tightness, post-stress tension, or when you have too much energy at the end of the day and need to wind down.",
+    whenToUse: "When intensity is stored in your body–anxiety that manifests as chest tightness, post-stress tension, or when you have too much energy at the end of the day and need to wind down.",
   },
   {
     type: "step" as const,
@@ -1280,7 +1280,7 @@ const RELEASE_EXHALE_CARDS = [
     instruction: "Breathe in through your nose for 4 counts. Breathe out through your nose or mouth for 8 counts (twice as long as the inhale). Repeat this pattern 3 times.",
     guidance: "Focus only on making the exhale long and complete. Each long exhale is a message to your nervous system: 'Threat is over. Reset to baseline.'",
     insight: {
-      text: "Inhale is energy. Exhale is release. The exhale activates the parasympathetic nervous system—your body's rest-and-digest mode.",
+      text: "Inhale is energy. Exhale is release. The exhale activates the parasympathetic nervous system–your body's rest-and-digest mode.",
       source: "Pranayama Teaching",
     },
   },
@@ -1290,9 +1290,9 @@ const RELEASE_EXHALE_CARDS = [
     title: "Discharge physically",
     duration: "20 sec",
     instruction: "After your third long exhale, shake your hands vigorously for 10 seconds. Let them be loose and wild. Or shiver your whole body like you're shaking off water.",
-    guidance: "Let sound escape if it wants to—sigh, groan, exhale sharply. You're completing the stress cycle your body started but couldn't finish.",
+    guidance: "Let sound escape if it wants to–sigh, groan, exhale sharply. You're completing the stress cycle your body started but couldn't finish.",
     insight: {
-      text: "Animals shake after escaping predators—discharging trapped cortisol and adrenaline. Physical discharge releases stress hormones that breath alone can't clear.",
+      text: "Animals shake after escaping predators–discharging trapped cortisol and adrenaline. Physical discharge releases stress hormones that breath alone can't clear.",
       source: "Levine, 1997",
     },
   },
@@ -1308,7 +1308,7 @@ const CLARITY_EYE_STORM_CARDS = [
     duration: "2 min",
     steps: "4 Steps",
     trigger: "Overwhelming situations, information overload, when multiple demands hit simultaneously, decision paralysis under pressure, feeling like everything is urgent",
-    whenToUse: "When everything feels critical and you don't know where to look first—project crises, simultaneous deadlines, family emergencies overlapping with work demands.",
+    whenToUse: "When everything feels critical and you don't know where to look first–project crises, simultaneous deadlines, family emergencies overlapping with work demands.",
   },
   {
     type: "step" as const,
@@ -1350,7 +1350,7 @@ const STILLNESS_GAP_CARDS = [
     type: "overview" as const,
     title: "Stillness Through The Gap",
     subtitle: "Find the quiet between thoughts",
-    source: "Zen ma (間 — the space between) + Vipassana meditation (sankara observation) + Elite sniper 'breath pause' training",
+    source: "Zen ma (間 – the space between) + Vipassana meditation (sankara observation) + Elite sniper 'breath pause' training",
     duration: "2 min",
     steps: "3 Steps",
     trigger: "Mental noise, thoughts colliding, feeling trapped in your own head, pre-decision overwhelm, when you need to hear your intuition but can't access it",
@@ -1364,7 +1364,7 @@ const STILLNESS_GAP_CARDS = [
     instruction: "Close your eyes or soften your gaze. Notice thoughts moving through your mind like cars on a highway. Don't grab onto any thought. Don't follow any thought into its story.",
     guidance: "Just observe: 'Thought about work. Thought about dinner. Worry thought. Planning thought.' You are not the cars. You are the road.",
     insight: {
-      text: "Thoughts arise (uppada), exist briefly, and pass away (vaya). Your job isn't to stop them—it's to stop identifying with them.",
+      text: "Thoughts arise (uppada), exist briefly, and pass away (vaya). Your job isn't to stop them–it's to stop identifying with them.",
       source: "Vipassana Teaching",
     },
   },
@@ -1386,7 +1386,7 @@ const STILLNESS_GAP_CARDS = [
     title: "Expand the silence",
     duration: "20 sec",
     instruction: "After finding a few gaps, ask one question into the silence: 'What do I actually need right now?' or 'What's true here?' Don't answer it. Just ask it into the gap and listen.",
-    guidance: "The answer won't come from thinking. It will arrive in the next gap—sudden, clear, quiet. Trust the first thing that emerges from silence. That's your intuition.",
+    guidance: "The answer won't come from thinking. It will arrive in the next gap–sudden, clear, quiet. Trust the first thing that emerges from silence. That's your intuition.",
     insight: {
       text: "The quieter you become, the more you can hear. Intuition doesn't shout. It whispers in gaps.",
       source: "Rumi",
@@ -1412,7 +1412,7 @@ const DETACHMENT_OBSERVER_CARDS = [
     title: "Shift to third-person narration",
     duration: "40 sec",
     instruction: "Describe what's happening as if you're a narrator watching someone else. Don't say: 'I'm furious.' Say: 'They are feeling anger' or 'They received feedback that triggered defensiveness.'",
-    guidance: "Use your name or 'they' instead of 'I.' Create distance without denying reality. You're not suppressing emotion—you're changing your viewing angle.",
+    guidance: "Use your name or 'they' instead of 'I.' Create distance without denying reality. You're not suppressing emotion–you're changing your viewing angle.",
     insight: {
       text: "Third-person self-talk reduces emotional reactivity by 30% and increases problem-solving by 20%.",
       source: "Kross et al., 2014",
@@ -1454,11 +1454,11 @@ const SOFTNESS_RELEASE_CARDS = [
     type: "overview" as const,
     title: "Softness Through Release",
     subtitle: "Let go of what you cannot control",
-    source: "Taoist Wu Wei (effortless action) + Serenity Prayer tradition + Acceptance and Commitment Therapy (ACT — Russ Harris)",
+    source: "Taoist Wu Wei (effortless action) + Serenity Prayer tradition + Acceptance and Commitment Therapy (ACT – Russ Harris)",
     duration: "2 min",
     steps: "3 Steps",
     trigger: "Trying to control the uncontrollable, white-knuckling outcomes, exhaustion from forcing, resistance creating more suffering, fixated on what you can't change",
-    whenToUse: "When you're fighting reality, when effort creates more tension, when you need to accept what is before you can act, when resistance is the problem—not the situation.",
+    whenToUse: "When you're fighting reality, when effort creates more tension, when you need to accept what is before you can act, when resistance is the problem–not the situation.",
   },
   {
     type: "step" as const,
@@ -1485,7 +1485,7 @@ const SOFTNESS_RELEASE_CARDS = [
     instruction: "For what you named, ask: 'Can I directly influence this outcome?' and 'Is my effort creating the result I want?'",
     guidance: "If both answers are NO, you're gripping the uncontrollable. Speak: 'I cannot control [X]. I release my grip on [X].' If YES to either, identify your one actual leverage point: 'What I CAN do is [specific action].'",
     insight: {
-      text: "Wu Wei doesn't mean 'do nothing.' It means 'don't force what doesn't need force.' Water doesn't fight the rock—it flows around.",
+      text: "Wu Wei doesn't mean 'do nothing.' It means 'don't force what doesn't need force.' Water doesn't fight the rock–it flows around.",
       source: "Taoist Teaching",
     },
   },
@@ -1497,7 +1497,7 @@ const SOFTNESS_RELEASE_CARDS = [
     instruction: "Physically: Make tight fists. Squeeze hard for 5 seconds. Then open your hands completely. Palms up. Fingers relaxed. Feel the difference. That's the sensation of release.",
     guidance: "Say aloud or silently: 'I release. I allow. I accept what is.' Take three breaths with open hands. Each exhale, imagine releasing more grip. You're not giving up. You're putting down what was never yours to carry.",
     insight: {
-      text: "Open palms (varada mudra)—the gesture of giving and releasing. Used for 2,500+ years to signal surrender to what is.",
+      text: "Open palms (varada mudra)–the gesture of giving and releasing. Used for 2,500+ years to signal surrender to what is.",
       source: "Buddhist Mudra",
     },
   },
@@ -1632,7 +1632,7 @@ const triggerHaptic = () => {
   }
 };
 
-// Crisp step card — title + instruction only, secondary content expandable
+// Crisp step card – title + instruction only, secondary content expandable
 const StepCardContent = ({ card }: { card: any }) => {
   const [expanded, setExpanded] = useState(false);
   
@@ -1645,12 +1645,12 @@ const StepCardContent = ({ card }: { card: any }) => {
         Step {card.stepNumber}
       </p>
 
-      {/* Title — large, commanding action verb */}
+      {/* Title – large, commanding action verb */}
       <h2 className="text-2xl md:text-3xl font-serif font-bold text-white tracking-wide leading-snug px-2">
         {card.title}
       </h2>
 
-      {/* Core instruction — the ONE thing to do */}
+      {/* Core instruction – the ONE thing to do */}
       <p className="text-base text-white/85 leading-relaxed max-w-[280px]">
         {card.instruction}
       </p>
@@ -1709,18 +1709,18 @@ const StepCardContent = ({ card }: { card: any }) => {
                   {card.insight.text && (
                     <p className="text-[11px] text-white/40 italic">
                       {card.insight.text}
-                      {card.insight.source && <span className="text-amber-300/50"> — {card.insight.source}</span>}
+                      {card.insight.source && <span className="text-amber-300/50"> – {card.insight.source}</span>}
                     </p>
                   )}
                   {card.insight.wisdom && (
                     <p className="text-[11px] text-white/40 italic">
                       {card.insight.wisdom}
-                      {card.insight.wisdomSource && <span className="text-amber-300/50"> — {card.insight.wisdomSource}</span>}
+                      {card.insight.wisdomSource && <span className="text-amber-300/50"> – {card.insight.wisdomSource}</span>}
                     </p>
                   )}
                   {card.insight.quote && (
                     <p className="text-[11px] text-white/40 italic mt-1">
-                      "{card.insight.quote.text}" <span className="text-amber-300/50">— {card.insight.quote.author}</span>
+                      "{card.insight.quote.text}" <span className="text-amber-300/50">– {card.insight.quote.author}</span>
                     </p>
                   )}
                 </div>
@@ -1879,7 +1879,7 @@ const MicroPracticePlayerCards = () => {
 
     // If this is the last practice in a plan, skip practice rating and trigger plan feedback
     if (isLastPracticeInPlan(id)) {
-      console.log('[MicroPracticePlayerCards] Last in plan — skipping practice rating, setting plan feedback flag');
+      console.log('[MicroPracticePlayerCards] Last in plan – skipping practice rating, setting plan feedback flag');
       const ritualMode = localStorage.getItem('ritualMode');
       const jitData = localStorage.getItem('jitInterventionData');
       const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
@@ -2204,7 +2204,7 @@ const MicroPracticePlayerCards = () => {
           {cards.map((card, index) => (
             <CarouselItem key={index} className="pl-0">
               <div className="p-4 pt-20 pb-32 min-h-screen flex items-center justify-center">
-                {/* Card container — transparent glassmorphic for all cards */}
+                {/* Card container – transparent glassmorphic for all cards */}
                 <div className="w-full max-w-md rounded-3xl p-6 md:p-8 bg-white/15 backdrop-blur-md border border-white/40">
                   {card.type === "overview" && (
                     <div className="flex flex-col items-center text-center space-y-5">

@@ -1,5 +1,5 @@
 /**
- * Native (iOS Capacitor) authentication helpers — Singleton manager.
+ * Native (iOS Capacitor) authentication helpers – Singleton manager.
  *
  * Prevents duplicate Browser.open calls, duplicate listeners, and
  * login loops during callback handling.
@@ -11,7 +11,7 @@ import { Capacitor } from '@capacitor/core';
 
 const APP_SCHEME = 'app.mindmodule.me';
 
-/** Centralised redirect URI — used in authorize URL AND token exchange */
+/** Centralised redirect URI – used in authorize URL AND token exchange */
 export const AUTH0_NATIVE_REDIRECT_URI = `${APP_SCHEME}://callback`;
 
 // ─── Environment helpers ────────────────────────────────────────────
@@ -105,7 +105,7 @@ export function storeNativeTokens(tokens: {
 
 /**
  * Get native tokens. IMPORTANT: Does NOT clear expired tokens if a
- * refresh_token is present — the caller (useAuth) should attempt refresh.
+ * refresh_token is present – the caller (useAuth) should attempt refresh.
  * Only clears if there is no way to recover (no refresh_token + expired).
  */
 export function getNativeTokens(): {
@@ -120,9 +120,9 @@ export function getNativeTokens(): {
     const tokens = JSON.parse(raw);
     const now = Math.floor(Date.now() / 1000);
     if (tokens.expires_at < now) {
-      // Expired — but if refresh_token exists, KEEP them for refresh attempt
+      // Expired – but if refresh_token exists, KEEP them for refresh attempt
       if (tokens.refresh_token) {
-        console.log('[NativeAuth] Access token expired but refresh_token available — keeping for refresh');
+        console.log('[NativeAuth] Access token expired but refresh_token available – keeping for refresh');
         return tokens;
       }
       console.log('[NativeAuth] Stored tokens expired (no refresh_token), clearing');
@@ -311,7 +311,7 @@ export async function nativeLogin(options?: {
   if (!isNativeiOS()) return false;
 
   if (_loginInProgress || _safariPresented || _callbackInProgress) {
-    console.log('[NativeAuth] Login blocked — loginInProgress:', _loginInProgress,
+    console.log('[NativeAuth] Login blocked – loginInProgress:', _loginInProgress,
       'safariPresented:', _safariPresented, 'callbackInProgress:', _callbackInProgress);
     return true;
   }
@@ -323,7 +323,7 @@ export async function nativeLogin(options?: {
 
   // Check if we have recoverable tokens before opening login
   if (hasRecoverableNativeSession()) {
-    console.log('[NativeAuth] Recoverable native session exists, skipping login — will attempt refresh');
+    console.log('[NativeAuth] Recoverable native session exists, skipping login – will attempt refresh');
     return true;
   }
 

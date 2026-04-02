@@ -24,7 +24,7 @@ export const TouchOptimized = ({
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const touchMoved = useRef(false);
 
-  const MOVE_THRESHOLD = 10; // pixels — beyond this, treat as swipe not tap
+  const MOVE_THRESHOLD = 10; // pixels – beyond this, treat as swipe not tap
 
   const handleTouchStart = (e: TouchEvent) => {
     if (disabled) return;

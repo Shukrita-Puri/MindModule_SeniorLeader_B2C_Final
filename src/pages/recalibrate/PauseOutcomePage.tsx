@@ -153,11 +153,11 @@ const PauseOutcomePage = () => {
     }
     
     if (item.contentType === 'soundbath') {
-      return `${duration} — Listened ${count}x`;
+      return `${duration} – Listened ${count}x`;
     } else if (item.contentType === 'guided-practice') {
-      return `${duration} — Completed ${count}x`;
+      return `${duration} – Completed ${count}x`;
     } else {
-      return `${duration} — Used ${count}x`;
+      return `${duration} – Used ${count}x`;
     }
   };
 

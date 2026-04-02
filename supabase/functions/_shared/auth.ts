@@ -1,5 +1,5 @@
 /**
- * Shared Auth0 JWT Verification Module (v2 — hardened)
+ * Shared Auth0 JWT Verification Module (v2 – hardened)
  * 
  * Local JWT verification using jose library + Auth0 JWKS.
  * Eliminates per-function copy-paste and /userinfo rate limiting.
@@ -52,7 +52,7 @@ const CIRCUIT_COOLDOWN_MS = 30000; // 30s cooldown
 function isUserinfoCircuitOpen(): boolean {
   if (userinfoFailCount < CIRCUIT_THRESHOLD) return false;
   if (Date.now() > userinfoCircuitOpenUntil) {
-    // Reset — allow one probe request
+    // Reset – allow one probe request
     userinfoFailCount = 0;
     return false;
   }
@@ -124,18 +124,18 @@ export async function verifyAuth0JWT(authHeader: string | null): Promise<string>
     // Only fallback for non-JWT tokens (opaque). Check if token looks like a JWT first.
     const isJwtFormat = token.split('.').length === 3;
     if (isJwtFormat) {
-      // JWT verification failed — log the specific reason, don't fallback to /userinfo
+      // JWT verification failed – log the specific reason, don't fallback to /userinfo
       // because the token IS a JWT, it just failed validation (wrong issuer/key/expired)
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[shared/auth] JWT verification failed (will NOT fallback for JWT tokens): ${msg}`);
       throw new Error(`JWT verification failed: ${msg}`);
     }
 
-    // Opaque token — fallback to /userinfo with circuit breaker
+    // Opaque token – fallback to /userinfo with circuit breaker
     console.warn('[shared/auth] Non-JWT token detected, attempting /userinfo fallback');
 
     if (isUserinfoCircuitOpen()) {
-      console.error('[shared/auth] /userinfo circuit is OPEN — rejecting request');
+      console.error('[shared/auth] /userinfo circuit is OPEN – rejecting request');
       throw new Error('Auth service temporarily unavailable (rate limited)');
     }
 

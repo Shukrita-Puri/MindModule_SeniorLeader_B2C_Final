@@ -211,7 +211,7 @@ const Profile = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {/* Upgrade Plan — shown when not paying (including beta users as optional) */}
+                    {/* Upgrade Plan – shown when not paying (including beta users as optional) */}
                     {!isPaying && (
                       <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
                         <Sparkles className="h-4 w-4 mr-2" />
@@ -219,7 +219,7 @@ const Profile = () => {
                       </DropdownMenuItem>
                     )}
 
-                    {/* Change Plan — shown when paying */}
+                    {/* Change Plan – shown when paying */}
                     {isPaying && (
                       <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
                         <CreditCard className="h-4 w-4 mr-2" />
@@ -227,7 +227,7 @@ const Profile = () => {
                       </DropdownMenuItem>
                     )}
 
-                    {/* Manage Billing — shown when Stripe account exists */}
+                    {/* Manage Billing – shown when Stripe account exists */}
                     {hasStripeAccount && (
                       <DropdownMenuItem onClick={handleManageBilling} disabled={managingPortal}>
                         <ExternalLink className="h-4 w-4 mr-2" />
@@ -235,7 +235,7 @@ const Profile = () => {
                       </DropdownMenuItem>
                     )}
 
-                    {/* Cancel Plan — only for paying/trialing users with Stripe, not pure beta */}
+                    {/* Cancel Plan – only for paying/trialing users with Stripe, not pure beta */}
                     {(isPaying || (isTrialing && hasStripeAccount)) && !isCanceled && !isPendingCancellation && (
                       <>
                         <DropdownMenuSeparator />

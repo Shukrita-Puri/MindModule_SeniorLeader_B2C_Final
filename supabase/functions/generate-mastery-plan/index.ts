@@ -699,37 +699,37 @@ function deriveRationaleFromModules(modules: Array<{ type: string; focus: string
 
   // Module composition mapping
   if (types.has('regulate') && focuses.has('restore')) {
-    return 'Nervous system recovery before the load lands — settle the physiology first, everything else follows.';
+    return 'Nervous system recovery before the load lands – settle the physiology first, everything else follows.';
   }
   if (types.has('regulate') && focuses.has('composure') && !types.has('align')) {
-    return 'Interrupt the stress pattern before it compounds — your body is already signalling load.';
+    return 'Interrupt the stress pattern before it compounds – your body is already signalling load.';
   }
   if (types.has('align') && focuses.has('confidence') && !types.has('regulate')) {
-    return 'Anchor your presence before you walk in — the thinking is there, this closes the belief gap.';
+    return 'Anchor your presence before you walk in – the thinking is there, this closes the belief gap.';
   }
   if (types.has('align') && focuses.has('focus') && !types.has('regulate')) {
     return 'Sharpen the clarity gap between where you are and where the day needs you to be.';
   }
   if (types.has('regulate') && types.has('align')) {
-    return 'Settle the body first, then sharpen the mind — in that order, because the sequence matters.';
+    return 'Settle the body first, then sharpen the mind – in that order, because the sequence matters.';
   }
   if (types.has('integrate') && types.has('regulate')) {
     return 'Discharge what you carried today before it follows you into tomorrow.';
   }
   if (types.has('integrate')) {
-    return 'Close the loop on what happened — named experiences don\'t compound overnight.';
+    return 'Close the loop on what happened – named experiences don\'t compound overnight.';
   }
   if (types.has('regulate') && focuses.has('release')) {
-    return 'Release what you carried — this prevents rumination and protects your rest.';
+    return 'Release what you carried – this prevents rumination and protects your rest.';
   }
   if (types.has('regulate') && focuses.has('grounding')) {
-    return 'Ground before you move — stability under load starts with the body.';
+    return 'Ground before you move – stability under load starts with the body.';
   }
   if (types.has('align')) {
     return 'Sharpen your mental edge for what lies ahead.';
   }
   if (types.has('regulate')) {
-    return 'Settle your nervous system — this is the foundation for everything else.';
+    return 'Settle your nervous system – this is the foundation for everything else.';
   }
   return 'This sequence addresses what your system needs right now.';
 }
@@ -756,7 +756,7 @@ function buildUrgencyFrame(
 
   // Calendar gap
   if (calendarGapMinutes !== null && calendarGapMinutes > 0 && calendarGapMinutes <= 60) {
-    return `You have ${calendarGapMinutes} minutes before your next block. That's enough — use it.`;
+    return `You have ${calendarGapMinutes} minutes before your next block. That's enough – use it.`;
   }
 
   // Time of day based
@@ -803,7 +803,7 @@ function generatePlanBrief(
         return eventWords.some(w => text.includes(w));
       });
       if (relevantCommitment) {
-        coachFragment = ` You committed to working on this — *${nextEventTitle}* is that moment.`;
+        coachFragment = ` You committed to working on this – *${nextEventTitle}* is that moment.`;
       }
     }
     if (!coachFragment && coachInsights && coachInsights.length > 0) {
@@ -811,7 +811,7 @@ function generatePlanBrief(
       if (growthInsight?.content && growthInsight.content.length < 80) {
         const pattern = growthInsight.content.toLowerCase().replace(/\.$/, '');
         if (!alreadyUsed?.includes('coach_memory_match')) {
-          coachFragment = ` Your coach noted ${pattern} — today's signals are consistent with it.`;
+          coachFragment = ` Your coach noted ${pattern} – today's signals are consistent with it.`;
         }
       }
     }
@@ -1025,7 +1025,7 @@ const JIT_THRESHOLD_UNIFIED = 55;
 // ==================== TWO-TOUCH ACTION WINDOWS ====================
 // Touch 2 (0-6h): body + state prep. Touch 1 (6-48h): coach + think prep.
 // Selection-only (>48h): scored but not surfaced.
-// Suppression is per-event via dismissed_horizons and skippedTypes3Plus — no blanket silent window.
+// Suppression is per-event via dismissed_horizons and skippedTypes3Plus – no blanket silent window.
 function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'selection_only' {
   if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
   if (minutesUntil <= 2880) return 'touch1';          // 6-48h: coach + think prep
@@ -1269,10 +1269,10 @@ function buildEnrichedContextDescription(
     parts.push('Sustain energy through this transition');
   }
 
-  // Coach memory signal — specific, not generic
+  // Coach memory signal – specific, not generic
   if (row.has_coach_context) {
     if (row.expressed_concern) {
-      parts.push('you\'ve explored this concern in coaching — this is that moment');
+      parts.push('you\'ve explored this concern in coaching – this is that moment');
     } else if (row.coach_scenario) {
       parts.push('your coach has noted a pattern here');
     } else if (row.has_pending_tool) {
@@ -1280,7 +1280,7 @@ function buildEnrichedContextDescription(
     }
   }
 
-  // HRV historical correlation — pattern reference, not raw number
+  // HRV historical correlation – pattern reference, not raw number
   if (hrvCorrelations) {
     const evtType = extractEventType(row.event_title || '');
     const corr = hrvCorrelations[evtType];
@@ -1292,9 +1292,9 @@ function buildEnrichedContextDescription(
 
   // Urgency frame
   if (minutesUntil <= 30) {
-    parts.push('starting very soon — start now');
+    parts.push('starting very soon – start now');
   } else if (minutesUntil <= 60) {
-    parts.push(`in ${minutesUntil} minutes — this is your window`);
+    parts.push(`in ${minutesUntil} minutes – this is your window`);
   } else if (minutesUntil < 1440) {
     const hrs = Math.floor(minutesUntil / 60);
     parts.push(`in ${hrs} hour${hrs > 1 ? 's' : ''}`);
@@ -1313,12 +1313,12 @@ function buildEnrichedContextDescription(
   // Confidence-framed closing
   const confidenceScore = row.jit_confidence_score || 0;
   if (confidenceScore >= 70) {
-    return `${prefix} — ${parts.join('. ')}.`;
+    return `${prefix} – ${parts.join('. ')}.`;
   } else if (confidenceScore >= 40) {
-    return `${prefix} — ${parts.join('. ')}.`;
+    return `${prefix} – ${parts.join('. ')}.`;
   }
 
-  return `${prefix} — ${parts.join('. ')}.`;
+  return `${prefix} – ${parts.join('. ')}.`;
 }
 
 /**

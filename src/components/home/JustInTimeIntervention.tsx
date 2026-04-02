@@ -517,7 +517,7 @@ const JustInTimeIntervention = () => {
                   <span className="text-xs font-medium uppercase text-saffron">
                     {getModuleLabel(intervention.modules[i])}
                   </span>
-                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">–</span>
                   <span className="text-xs text-foreground truncate flex-1">
                     {practice.title}
                   </span>
@@ -538,7 +538,7 @@ const JustInTimeIntervention = () => {
                   <span className="text-xs font-medium uppercase text-saffron">
                     {intervention.modules.includes('integrate') ? 'Integrate' : 'Prepare'}
                   </span>
-                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">–</span>
                   <span className="text-xs text-foreground">
                     {intervention.modules.includes('integrate') ? 'Evening Closure' : 'Mental Rehearsal'}
                   </span>

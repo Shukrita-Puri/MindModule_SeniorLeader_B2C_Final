@@ -27,7 +27,7 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [graceExpired, setGraceExpired] = useState(false);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Start a grace timer on mount — don't trigger login until it expires
+  // Start a grace timer on mount – don't trigger login until it expires
   useEffect(() => {
     graceTimerRef.current = setTimeout(() => {
       setGraceExpired(true);
@@ -47,13 +47,13 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // Still loading — wait
+    // Still loading – wait
     if (loading || auth0Loading) return;
 
-    // Authenticated — we're done
+    // Authenticated – we're done
     if (isAuthenticated) return;
 
-    // Logout guard — redirect to landing instead of re-authing
+    // Logout guard – redirect to landing instead of re-authing
     if (isLogoutGuardActive()) {
       console.log('[ProtectedRoute] Logout guard active, redirecting to /');
       navigate('/', { replace: true });

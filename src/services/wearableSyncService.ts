@@ -1,7 +1,7 @@
 /**
  * Service to persist HealthKit data to the backend via edge function.
- * Syncs ALL daily wearable summaries (HRV, RHR, HR, Sleep — up to 30 days) in a single bulk request.
- * Only active on native iOS — no-op on web.
+ * Syncs ALL daily wearable summaries (HRV, RHR, HR, Sleep – up to 30 days) in a single bulk request.
+ * Only active on native iOS – no-op on web.
  */
 import { isNativeApp, queryHealthKitData, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
 import { getAuthToken } from '@/services/authTokenService';
@@ -18,7 +18,7 @@ export function markHealthKitPermissionGranted(): void {
   }
 }
 
-/** Check if HealthKit permission was previously granted (local cache only — NOT authoritative) */
+/** Check if HealthKit permission was previously granted (local cache only – NOT authoritative) */
 export function isHealthKitPermissionGranted(): boolean {
   try { return localStorage.getItem(WEARABLE_PERMISSION_KEY) === 'true'; } catch { return false; }
 }
@@ -155,7 +155,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
   }
 
   try {
-    console.log('[WearableSync] Starting sync — verifying HealthKit access first...');
+    console.log('[WearableSync] Starting sync – verifying HealthKit access first...');
     await persistWatchStatus({
       watch_connection_status: 'connecting',
       watch_sync_status: 'unknown',
@@ -165,7 +165,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
     const hasAccess = await verifyHealthKitAccess();
     if (!hasAccess) {
-      console.warn('[WearableSync] HealthKit access verification failed — permission likely revoked');
+      console.warn('[WearableSync] HealthKit access verification failed – permission likely revoked');
       clearHealthKitPermission();
       await persistWatchStatus({
         watch_connection_status: 'permission_revoked',
@@ -255,7 +255,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       };
     }
 
-    console.log('[WearableSync] Found', data.dailySummaries.length, 'daily summaries — persisting to backend...');
+    console.log('[WearableSync] Found', data.dailySummaries.length, 'daily summaries – persisting to backend...');
 
     const token = await getAuthToken();
     if (!token) {

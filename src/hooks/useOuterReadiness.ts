@@ -1,5 +1,5 @@
 /**
- * useOuterReadiness — shared hook for the Outer Readiness Brief
+ * useOuterReadiness – shared hook for the Outer Readiness Brief
  * Calls compute-outer-readiness edge function and caches via react-query.
  * All components that need theme/phrase/leanOn/watchFor share this cache.
  */
@@ -33,7 +33,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     getTodayCheckin(),
   ]);
 
-  // Build auth headers — in DEV_MODE, skip Auth0 token and pass userId in body
+  // Build auth headers – in DEV_MODE, skip Auth0 token and pass userId in body
   const headers: Record<string, string> = {};
   if (!DEV_MODE) {
     let token: string | null = null;
@@ -43,13 +43,13 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
       await new Promise(r => setTimeout(r, 500));
     }
     if (!token) {
-      console.warn('[useOuterReadiness] No Auth0 token after retries — skipping edge call');
+      console.warn('[useOuterReadiness] No Auth0 token after retries – skipping edge call');
       return null;
     }
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Calendar load/pressure now computed server-side — no need to send from client
+  // Calendar load/pressure now computed server-side – no need to send from client
   const res = await supabase.functions.invoke('compute-outer-readiness', {
     body: {
       innerReadinessTier: energyState.energyTier,

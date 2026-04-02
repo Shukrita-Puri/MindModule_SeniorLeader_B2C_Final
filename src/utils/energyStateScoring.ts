@@ -1,5 +1,5 @@
 /**
- * Energy State Scoring System — Cleaned (v4)
+ * Energy State Scoring System – Cleaned (v4)
  * 
  * Decision Readiness scoring logic lives in the `compute-inner-readiness` edge function.
  * Outer Readiness (Strategic Theme) logic lives in the `compute-outer-readiness` edge function.
@@ -49,7 +49,7 @@ export function getTimeOfDay(hour: number = new Date().getHours()): TimeOfDay {
   return 'evening';
 }
 
-// ==================== ENERGY TIER (utility — thresholds match edge function) ====================
+// ==================== ENERGY TIER (utility – thresholds match edge function) ====================
 
 export function getEnergyTier(balance: number): EnergyTier {
   if (balance < 40) return 'depleted';

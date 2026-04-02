@@ -239,16 +239,16 @@ const CoachSplitView = ({
   };
 
   // ════════════════════════════════════════════
-  //  EMPTY STATE — full-screen visual + prompts
+  //  EMPTY STATE – full-screen visual + prompts
   // ════════════════════════════════════════════
   if (!hasMessages) {
     return (
       <div className="flex flex-col h-full min-h-0 relative overflow-hidden">
-        {/* Dark gradient background — no full-bleed photo */}
+        {/* Dark gradient background – no full-bleed photo */}
         <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-          {/* Title + tagline + avatar + greeting — top-aligned for mobile first-fold */}
+          {/* Title + tagline + avatar + greeting – top-aligned for mobile first-fold */}
           <div className="flex-1 flex flex-col items-center justify-start pt-14 md:pt-20 px-6 text-center space-y-2">
             <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
               Mind Performance Coach
@@ -270,7 +270,7 @@ const CoachSplitView = ({
             </p>
           </div>
 
-          {/* Prompt suggestions — transparent, text-only */}
+          {/* Prompt suggestions – transparent, text-only */}
           <div className="px-5 pb-2 space-y-1">
             {promptSuggestions.map((prompt) => (
               <button
@@ -291,11 +291,11 @@ const CoachSplitView = ({
   }
 
   // ════════════════════════════════════════════
-  //  ACTIVE CONVERSATION — single-column chat
+  //  ACTIVE CONVERSATION – single-column chat
   // ════════════════════════════════════════════
   return (
     <div className="flex flex-col h-full min-h-0 relative">
-      {/* Scrollable message list — takes ALL available space */}
+      {/* Scrollable message list – takes ALL available space */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
         {messages.map((message) => {
           if (message.role === 'user') {
@@ -336,7 +336,7 @@ const CoachSplitView = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input bar — pinned to bottom */}
+      {/* Input bar – pinned to bottom */}
       <InputBar glass={false} {...inputBarProps} />
       <p className="text-[10px] text-muted-foreground/50 text-center pb-2 px-4">
         AI-powered coaching assistant. Responses are generated and may not always be accurate. Not a substitute for professional advice.

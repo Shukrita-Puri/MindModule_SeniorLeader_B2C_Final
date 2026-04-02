@@ -72,7 +72,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   }
   
   // Post-auth stages: results, payment, context-connection
-  // These are now tracked via Cloud DB only — don't check localStorage
+  // These are now tracked via Cloud DB only – don't check localStorage
 
   const isComplete = hasCompletedCheckIn;
   const percentComplete = Math.round((completedStages.length / TOTAL_STAGES) * 100);
@@ -166,7 +166,7 @@ function getResumeRouteFromLocal(): string {
   if (!responses.mental_clarity_response) return '/onboarding/mental-clarity';
   if (!responses.growth_intention && !responses.practice_priority_tag) return '/onboarding/growth-intention';
   
-  // Post-auth stages are gated by DB only — if we reach here, send to signup-step
+  // Post-auth stages are gated by DB only – if we reach here, send to signup-step
   return '/onboarding/signup-step';
 }
 
@@ -218,7 +218,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       if (targetPath === '/onboarding/results' && !data?.signup_step_at) {
         return '/onboarding/signup-step';
       }
-      // Gate: payment requires results — but allow if user already completed onboarding
+      // Gate: payment requires results – but allow if user already completed onboarding
       if (targetPath === '/onboarding/payment' && !data?.results_at && !data?.completed_at) {
         return await getResumeRoute();
       }

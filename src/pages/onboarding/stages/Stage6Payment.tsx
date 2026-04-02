@@ -159,7 +159,7 @@ export default function Stage6Payment() {
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <div /> {/* spacer — back button provided by parent OnboardingFlow */}
+        <div /> {/* spacer – back button provided by parent OnboardingFlow */}
         {availablePlans.length > 1 ? (
           <div className="bg-muted rounded-full p-1 flex">
             {availablePlans.includes('annual') && (
@@ -283,7 +283,7 @@ export default function Stage6Payment() {
 
       {/* ROI */}
       <p className="font-subheadline italic leading-relaxed text-center mb-8 text-base text-foreground/70">
-        30+ touchpoints/month — <span className="text-xl font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
+        30+ touchpoints/month – <span className="text-xl font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
       {/* Legal links */}

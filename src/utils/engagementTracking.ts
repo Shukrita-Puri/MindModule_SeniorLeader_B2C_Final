@@ -310,7 +310,7 @@ export function generateEnergyInsight(windows: PeakWindow[]): string {
   }
   
   if (primaryWindow.type === 'afternoon') {
-    return `Your mental engagement peaks at ${formatHour(primaryWindow.startHour)}—schedule deep work then. ${primaryWindow.sessionCount} sessions happen in this window.`;
+    return `Your mental engagement peaks at ${formatHour(primaryWindow.startHour)}–schedule deep work then. ${primaryWindow.sessionCount} sessions happen in this window.`;
   }
   
   if (primaryWindow.type === 'evening') {
@@ -338,7 +338,7 @@ export function generateWeeklyInsight(weeklyData: Awaited<ReturnType<typeof getW
   const bestDay = sorted[sorted.length - 1];
   
   if (worstDay.rate < 50) {
-    return `${worstDay.day} energy dips—try setting a morning alarm or lighter ritual.`;
+    return `${worstDay.day} energy dips–try setting a morning alarm or lighter ritual.`;
   }
   
   if (bestDay.rate >= 80) {

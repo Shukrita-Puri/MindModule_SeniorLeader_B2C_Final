@@ -16,7 +16,7 @@ const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRenewal: ['Adaptive Capacity', 'Influence', 'Presence'],
 };
 
-// Dimension descriptors removed — pills communicate the detail now
+// Dimension descriptors removed – pills communicate the detail now
 
 interface ResultsData {
   baselineScore: number;
@@ -240,7 +240,7 @@ export default function Stage8Results() {
         </p>
       </div>
 
-      {/* Your Self-Mastery Map — Unified */}
+      {/* Your Self-Mastery Map – Unified */}
       <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-2">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center font-body pt-1">Your Self-Mastery Map</h3>
         <svg viewBox="0 0 300 250" className="w-full max-w-xs mx-auto">
@@ -337,7 +337,7 @@ export default function Stage8Results() {
       {/* Development Path */}
       <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-4 text-center">
         <p className="text-sm text-muted-foreground">
-          Your practice will prioritise <span className="font-semibold text-saffron">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+          Your practice will prioritise <span className="font-semibold text-saffron">{results.practiceGoalLabel}</span> – the highest-leverage area given your pattern.
         </p>
       </div>
 

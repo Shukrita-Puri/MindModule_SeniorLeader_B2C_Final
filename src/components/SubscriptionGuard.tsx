@@ -1,5 +1,5 @@
 /**
- * SubscriptionGuard — wraps protected routes to enforce valid subscription.
+ * SubscriptionGuard – wraps protected routes to enforce valid subscription.
  * 
  * Uses the CANONICAL hasValidAccess() from subscriptionHelpers.
  * Does NOT implement its own access logic.
@@ -15,10 +15,10 @@ import { resolveSubscriptionAccess } from '@/utils/subscriptionHelpers';
 export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
-  // Still loading — render children with opacity 0 to prevent layout shift and blank flash
+  // Still loading – render children with opacity 0 to prevent layout shift and blank flash
   if (loading) return <div className="opacity-0">{children}</div>;
 
-  // No user — let ProtectedRoute handle redirect
+  // No user – let ProtectedRoute handle redirect
   if (!user) return <>{children}</>;
 
   const decision = resolveSubscriptionAccess(user);

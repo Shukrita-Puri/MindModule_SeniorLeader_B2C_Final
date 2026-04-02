@@ -66,7 +66,7 @@ async function callFunction(body: Record<string, unknown>): Promise<{ status: nu
 }
 
 // ==================== THEME SELECTION TESTS ====================
-// Note: calendarLoad/calendarPressure sent from client are legacy fields — the server
+// Note: calendarLoad/calendarPressure sent from client are legacy fields – the server
 // now computes calendar metrics from the DB. Test users have no calendar connections,
 // so the server always returns no-calendar themes for them. These tests verify no-calendar paths.
 
@@ -209,7 +209,7 @@ Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  // After 9 PM, archetype and C+C are suppressed — evening tier insights take over
+  // After 9 PM, archetype and C+C are suppressed – evening tier insights take over
   assertEquals(result.leanOn, "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.");
   assertEquals(result.watchFor, "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.");
 });
@@ -319,7 +319,7 @@ Deno.test("Footer: no calendar + archetype → readiness only (archetype not in 
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  // Archetype is fetched server-side — test user has no profile, so no archetype in sources
+  // Archetype is fetched server-side – test user has no profile, so no archetype in sources
   assertEquals(result.dataSources, ["decision readiness score"]);
 });
 

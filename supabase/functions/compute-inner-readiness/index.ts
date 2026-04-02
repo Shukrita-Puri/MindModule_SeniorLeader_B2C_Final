@@ -385,7 +385,7 @@ function selectSignalsForStatement(
     primary = TIER_FALLBACK_STATEMENTS[tier]?.[timeOfDay] || 'Readiness data is limited.';
     alreadyUsed.push('tier_fallback');
   } else if (!hasWearable) {
-    // Check-in only — use clarity + confidence as proxy
+    // Check-in only – use clarity + confidence as proxy
     if (hasCheckIn && outcome && BASE_STATEMENTS[outcome]) {
       primary = BASE_STATEMENTS[outcome][timeOfDay];
       alreadyUsed.push('checkin_outcome');
@@ -398,16 +398,16 @@ function selectSignalsForStatement(
     const notable = signals.filter(s => s.divergence >= 10);
     const positive = signals.filter(s => ['sleep_good'].includes(s.key));
     if (notable.length >= 2) {
-      primary = `Strong readiness signals are mixed — ${notable[0].text} and ${notable[1].text} this morning.`;
+      primary = `Strong readiness signals are mixed – ${notable[0].text} and ${notable[1].text} this morning.`;
       notable.slice(0, 2).forEach(s => alreadyUsed.push(s.key));
     } else if (notable.length === 1 && positive.length > 0) {
-      primary = `${getTierLabel(tier)} with ${positive[0].text} — but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
+      primary = `${getTierLabel(tier)} with ${positive[0].text} – but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
       alreadyUsed.push(notable[0].key, positive[0].key);
     } else if (notable.length === 1) {
-      primary = `${getTierLabel(tier)} this ${timeOfDay} — ${notable[0].text}.`;
+      primary = `${getTierLabel(tier)} this ${timeOfDay} – ${notable[0].text}.`;
       alreadyUsed.push(notable[0].key);
     } else if (signals.length > 0 && signals[0].key.includes('good')) {
-      // All signals strong on a heavy day — reassure
+      // All signals strong on a heavy day – reassure
       primary = `${getTierLabel(tier)} with ${signals.map(s => s.text).join(' and ')}.`;
       signals.forEach(s => alreadyUsed.push(s.key));
     } else {
@@ -437,7 +437,7 @@ function selectSignalsForStatement(
     alreadyUsed.push(`streak_${consecutiveStreak.count}d`);
   }
 
-  // Build secondary sentence (cognitive reality) — only if it meaningfully diverges
+  // Build secondary sentence (cognitive reality) – only if it meaningfully diverges
   let secondary: string | null = null;
   const clarityHigh = clarity >= 4;
   const clarityLow = clarity <= 2;
@@ -450,10 +450,10 @@ function selectSignalsForStatement(
     const physicalBad = tier === 'depleted';
 
     if (clarityHigh && confidenceLow) {
-      secondary = 'Clarity is strong — but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
+      secondary = 'Clarity is strong – but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
       alreadyUsed.push('clarity_high', 'confidence_low');
     } else if (clarityLow && confidenceHigh) {
-      secondary = 'Confidence is high but clarity is low — certainty about an unclear path.';
+      secondary = 'Confidence is high but clarity is low – certainty about an unclear path.';
       alreadyUsed.push('clarity_low', 'confidence_high');
     } else if (clarityLow && confidenceLow && !physicalBad) {
       secondary = 'Both clarity and confidence flagged low in your check-in.';

@@ -1,4 +1,4 @@
-// User Archetype Engine v2.0 — Thin wrapper using unified archetype system
+// User Archetype Engine v2.0 – Thin wrapper using unified archetype system
 // Legacy file kept for backward compatibility with imports
 
 import { resolveArchetypeId, getArchetypeDisplay, ARCHETYPES } from './innerWorldArchetypes';

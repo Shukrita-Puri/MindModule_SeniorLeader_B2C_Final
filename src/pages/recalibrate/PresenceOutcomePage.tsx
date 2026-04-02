@@ -132,11 +132,11 @@ const PresenceOutcomePage = () => {
     }
     
     if (item.contentType === 'soundbath') {
-      return `${duration} — Listened ${count}x`;
+      return `${duration} – Listened ${count}x`;
     } else if (item.contentType === 'guided-practice') {
-      return `${duration} — Completed ${count}x`;
+      return `${duration} – Completed ${count}x`;
     } else {
-      return `${duration} — Used ${count}x`;
+      return `${duration} – Used ${count}x`;
     }
   };
 
@@ -174,7 +174,7 @@ const PresenceOutcomePage = () => {
       'mastery-constraint': 'Accelerate learning by limiting options',
       'wu-wei-flow': 'Flow arises when you align effort with natural conditions',
       'mushin-no-mind': 'Think less, execute more',
-      "jobs-simplicity": "Mastery isn't adding complexity—it's ruthless elimination",
+      "jobs-simplicity": "Mastery isn't adding complexity–it's ruthless elimination",
       'ikigai-purpose': 'When task meets meaning, energy flows naturally',
       "stoic-reflection": "Review actions, align with virtue at day's end",
     };

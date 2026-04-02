@@ -130,7 +130,7 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 3,
         title: "Hold for 4",
-        instruction: "Hold your breath at the top of the inhale for 4 counts. Keep your body relaxed—no tension in your shoulders or jaw. Count: 1... 2... 3... 4.",
+        instruction: "Hold your breath at the top of the inhale for 4 counts. Keep your body relaxed–no tension in your shoulders or jaw. Count: 1... 2... 3... 4.",
         duration: 60,
         breathingPattern: "Hold",
         wisdomNote: "In this pause, your body absorbs oxygen and your mind finds stillness."
@@ -149,7 +149,7 @@ const practiceData: Record<string, PracticeData> = {
         instruction: "Hold your breath at the bottom of the exhale for 4 counts. Stay calm and present in this empty space. Count: 1... 2... 3... 4.",
         duration: 60,
         breathingPattern: "Hold",
-        wisdomNote: "Emptiness is not absence—it's spaciousness. Here lies your power."
+        wisdomNote: "Emptiness is not absence–it's spaciousness. Here lies your power."
       },
       {
         stepNumber: 6,
@@ -188,14 +188,14 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 2,
         title: "Connect with Your Own Suffering",
-        instruction: "Bring to mind a difficulty you're facing—nothing overwhelming, just a genuine challenge. Feel where it lives in your body. Notice the sensation without trying to fix it.",
+        instruction: "Bring to mind a difficulty you're facing–nothing overwhelming, just a genuine challenge. Feel where it lives in your body. Notice the sensation without trying to fix it.",
         duration: 90,
         wisdomNote: "Your own pain is the gateway to understanding all pain."
       },
       {
         stepNumber: 3,
         title: "Breathe In Your Suffering",
-        instruction: "As you inhale, imagine breathing in the dark, heavy quality of your difficulty. You're not making it worse—you're acknowledging it, accepting it, making space for it.",
+        instruction: "As you inhale, imagine breathing in the dark, heavy quality of your difficulty. You're not making it worse–you're acknowledging it, accepting it, making space for it.",
         duration: 120,
         breathingPattern: "Inhale",
         wisdomNote: "What you resist persists. What you accept transforms."
@@ -220,7 +220,7 @@ const practiceData: Record<string, PracticeData> = {
         title: "Rest in Spaciousness",
         instruction: "Let go of the technique. Simply breathe naturally. Notice the space that's been created in your heart. Rest here for a few moments in open awareness.",
         duration: 120,
-        wisdomNote: "Compassion is not exhausting—it's liberating. You've just touched the source of infinite strength."
+        wisdomNote: "Compassion is not exhausting–it's liberating. You've just touched the source of infinite strength."
       }
     ],
     completionMessage: "May all beings be free from suffering. May all beings know peace. Starting with you."
@@ -232,7 +232,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 1080,
     difficulty: "Beginner",
     origin: "Ancient Egyptian Temple Practice",
-    fullStory: "The ancient Egyptians developed sophisticated meditation practices centered around the Nile River, which they considered the source of all life. Temple priests and priestesses performed sunset rituals to honor Ra's journey into the underworld, using these moments to restore Ma'at—the cosmic balance of truth, justice, and harmony. This practice draws from temple reliefs at Karnak and Luxor showing seated meditation postures, papyrus texts describing breath work (ankh breathing), and archaeological evidence of lotus flower use in contemplative rituals. The Egyptians believed that sunset was a liminal time when the veil between worlds thinned, making it ideal for inner work and divine communication. The practice combines several ritual elements: purifying with sacred water, anointing with temple oils, breath synchronization with natural rhythms, and visualization of the eternal Nile. These weren't separate practices but an integrated system for achieving hotep—deep peace and contentment.",
+    fullStory: "The ancient Egyptians developed sophisticated meditation practices centered around the Nile River, which they considered the source of all life. Temple priests and priestesses performed sunset rituals to honor Ra's journey into the underworld, using these moments to restore Ma'at–the cosmic balance of truth, justice, and harmony. This practice draws from temple reliefs at Karnak and Luxor showing seated meditation postures, papyrus texts describing breath work (ankh breathing), and archaeological evidence of lotus flower use in contemplative rituals. The Egyptians believed that sunset was a liminal time when the veil between worlds thinned, making it ideal for inner work and divine communication. The practice combines several ritual elements: purifying with sacred water, anointing with temple oils, breath synchronization with natural rhythms, and visualization of the eternal Nile. These weren't separate practices but an integrated system for achieving hotep–deep peace and contentment.",
     whatYouNeed: [
       "Quiet space where you can sit comfortably for 18 minutes",
       "Ability to play audio through speakers or headphones (speakers recommended)",
@@ -257,14 +257,14 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Arrival & Preparation",
-        instruction: "Settle into your chosen space. Sit with your spine straight, hands resting on your lap or knees. Close your eyes or soften your gaze. Begin breathing consciously—long, slow breaths through your nose. Feel yourself arriving fully in this present moment.",
+        instruction: "Settle into your chosen space. Sit with your spine straight, hands resting on your lap or knees. Close your eyes or soften your gaze. Begin breathing consciously–long, slow breaths through your nose. Feel yourself arriving fully in this present moment.",
         duration: 120,
         wisdomNote: "The ancient Egyptians believed that conscious arrival at sacred practice was half the journey. Let the modern world fall away."
       },
       {
         stepNumber: 2,
         title: "Purification Ritual",
-        instruction: "Visualize yourself standing before the great Nile at sunset. Imagine cupping sacred water in your hands and bringing it to your forehead, your heart, your belly. With each touch, feel the water washing away the tensions and concerns of the day. Set your intention: 'I restore Ma'at within myself—truth, balance, harmony.'",
+        instruction: "Visualize yourself standing before the great Nile at sunset. Imagine cupping sacred water in your hands and bringing it to your forehead, your heart, your belly. With each touch, feel the water washing away the tensions and concerns of the day. Set your intention: 'I restore Ma'at within myself–truth, balance, harmony.'",
         duration: 120,
         wisdomNote: "Water from the Nile was considered divine. This visualization activates the same neural pathways as actual ritual cleansing."
       },
@@ -278,34 +278,34 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 4,
         title: "Lotus Breath Work (Ankh Breathing)",
-        instruction: "Visualize a blue lotus flower floating on the Nile before you. As you inhale, imagine the lotus opening, petals spreading wide. Hold your breath gently at the top. As you exhale, see the lotus closing softly. Repeat this cycle 7 times—the sacred number of Egypt. Breathe in: lotus opens (count 4). Hold (count 4). Breathe out: lotus closes (count 6).",
+        instruction: "Visualize a blue lotus flower floating on the Nile before you. As you inhale, imagine the lotus opening, petals spreading wide. Hold your breath gently at the top. As you exhale, see the lotus closing softly. Repeat this cycle 7 times–the sacred number of Egypt. Breathe in: lotus opens (count 4). Hold (count 4). Breathe out: lotus closes (count 6).",
         duration: 180,
         breathingPattern: "Lotus Pattern",
-        wisdomNote: "The ankh symbol represented eternal life. This breath pattern mirrors the ankh's shape—balance between intake and release."
+        wisdomNote: "The ankh symbol represented eternal life. This breath pattern mirrors the ankh's shape–balance between intake and release."
       },
       {
         stepNumber: 5,
         title: "Sunset Contemplation",
         instruction: "Watch the sun descend toward the horizon in your mind's eye. As it touches the water, visualize all your burdens, worries, and struggles being carried away with Ra's golden barque into the underworld. Know that they will be transformed in the night and return renewed. Place your hand on your heart and feel it being weighed against the feather of Ma'at. Feel yourself in perfect balance.",
         duration: 240,
-        wisdomNote: "The weighing of the heart ceremony wasn't just about death—it was a daily practice of self-evaluation and balance."
+        wisdomNote: "The weighing of the heart ceremony wasn't just about death–it was a daily practice of self-evaluation and balance."
       },
       {
         stepNumber: 6,
         title: "Sacred Stillness (Heron Meditation)",
-        instruction: "Become completely still like the sacred heron standing in the shallows at dusk. Don't move a muscle. Simply be. Listen to the sounds around you as if they were the sounds of the ancient Nile—the wind, distant birds, the water's gentle movement. Rest in pure presence. You are held. You are part of the eternal flow.",
+        instruction: "Become completely still like the sacred heron standing in the shallows at dusk. Don't move a muscle. Simply be. Listen to the sounds around you as if they were the sounds of the ancient Nile–the wind, distant birds, the water's gentle movement. Rest in pure presence. You are held. You are part of the eternal flow.",
         duration: 180,
         wisdomNote: "The heron was sacred to Thoth, god of wisdom. In perfect stillness, wisdom arises naturally."
       },
       {
         stepNumber: 7,
         title: "Return & Integration",
-        instruction: "When you're ready, begin climbing back up the limestone steps. With each step up, count from 1 to 10, bringing yourself back to ordinary awareness. But you are not the same person who descended. You carry hotep—deep peace—within you. Place both hands on your heart and bow slightly, honoring the practice. Open your eyes slowly.",
+        instruction: "When you're ready, begin climbing back up the limestone steps. With each step up, count from 1 to 10, bringing yourself back to ordinary awareness. But you are not the same person who descended. You carry hotep–deep peace–within you. Place both hands on your heart and bow slightly, honoring the practice. Open your eyes slowly.",
         duration: 60,
         wisdomNote: "The Egyptians knew that sacred practices must be sealed with gratitude. What you honor, you strengthen."
       }
     ],
-    completionMessage: "You have restored Ma'at. You have touched the eternal Nile. Hotep—peace be with you."
+    completionMessage: "You have restored Ma'at. You have touched the eternal Nile. Hotep–peace be with you."
   },
   "zazen-stone-garden": {
     id: "zazen-stone-garden",
@@ -314,7 +314,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 900,
     difficulty: "Beginner",
     origin: "Japanese Zen Buddhism | 12th-13th Century",
-    fullStory: "Zazen, meaning 'seated meditation' in Japanese, is the heart of Zen Buddhism, brought to Japan from China in the 12th-13th centuries by monks Eisai and Dogen. However, its roots extend back to the Buddha himself, who achieved enlightenment through seated meditation 2,500 years ago. The practice was refined in Japanese Zen monasteries, particularly at Eiheiji Temple (founded 1244 CE) and within the Rinzai and Soto Zen schools. Unlike goal-oriented meditation, Zazen embodies the radical principle of 'shikantaza'—'just sitting.' There is no object of meditation, no mantra, no visualization. You simply sit, allowing thoughts to arise and dissolve like clouds passing through an empty sky. This version is set in a traditional Japanese Zen garden (karesansui or 'dry landscape garden'), where monks have practiced for centuries. These gardens of raked gravel, carefully placed stones, and minimal vegetation are designed as three-dimensional expressions of Zen philosophy: Ma (間) - the concept of meaningful emptiness and space between things; Wabi-sabi (侘寂) - finding beauty in imperfection, impermanence, and incompleteness; Fukinsei (不均整) - asymmetry and irregularity as more natural than perfect balance. The practice includes kinhin (walking meditation) as traditionally practiced between sitting periods in Zen monasteries. During Japan's feudal period, even samurai warriors practiced Zazen to cultivate mental clarity and fearlessness before battle.",
+    fullStory: "Zazen, meaning 'seated meditation' in Japanese, is the heart of Zen Buddhism, brought to Japan from China in the 12th-13th centuries by monks Eisai and Dogen. However, its roots extend back to the Buddha himself, who achieved enlightenment through seated meditation 2,500 years ago. The practice was refined in Japanese Zen monasteries, particularly at Eiheiji Temple (founded 1244 CE) and within the Rinzai and Soto Zen schools. Unlike goal-oriented meditation, Zazen embodies the radical principle of 'shikantaza'–'just sitting.' There is no object of meditation, no mantra, no visualization. You simply sit, allowing thoughts to arise and dissolve like clouds passing through an empty sky. This version is set in a traditional Japanese Zen garden (karesansui or 'dry landscape garden'), where monks have practiced for centuries. These gardens of raked gravel, carefully placed stones, and minimal vegetation are designed as three-dimensional expressions of Zen philosophy: Ma (間) - the concept of meaningful emptiness and space between things; Wabi-sabi (侘寂) - finding beauty in imperfection, impermanence, and incompleteness; Fukinsei (不均整) - asymmetry and irregularity as more natural than perfect balance. The practice includes kinhin (walking meditation) as traditionally practiced between sitting periods in Zen monasteries. During Japan's feudal period, even samurai warriors practiced Zazen to cultivate mental clarity and fearlessness before battle.",
     whatYouNeed: [
       "Quiet space where you can sit undisturbed for 15 minutes",
       "Zafu (round meditation cushion) or firm cushion that elevates hips above knees",
@@ -341,7 +341,7 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Entering the Garden",
-        instruction: "Visualize yourself entering a traditional Zen temple garden at dawn. The raked gravel patterns flow like water around carefully placed stones. Morning mist still clings to moss-covered rocks. You walk mindfully to your seat—a zafu cushion facing a simple stone wall. Upon arriving, perform three prostrations (or simply bow three times from the heart) to honor the practice, the teachers who came before, and your own Buddha nature.",
+        instruction: "Visualize yourself entering a traditional Zen temple garden at dawn. The raked gravel patterns flow like water around carefully placed stones. Morning mist still clings to moss-covered rocks. You walk mindfully to your seat–a zafu cushion facing a simple stone wall. Upon arriving, perform three prostrations (or simply bow three times from the heart) to honor the practice, the teachers who came before, and your own Buddha nature.",
         duration: 60,
         wisdomNote: "The entrance to the zendo (meditation hall) is sacred threshold. Monks bow upon entering and leaving, acknowledging the transformation that happens within."
       },
@@ -350,40 +350,40 @@ const practiceData: Record<string, PracticeData> = {
         title: "Taking the Posture",
         instruction: "Sit on your cushion with your sitting bones elevated above your knees, creating a stable tripod base. Cross your legs in half-lotus, full-lotus, or simply cross-legged (Burmese position). Rock gently side to side, then front to back, finding your center of gravity. Lengthen your spine upward as if a string pulls from the crown of your head. Tuck your chin slightly. Place your hands in the cosmic mudra: left hand resting in right palm, thumbs barely touching to form an oval. Rest hands on your lap. Let your shoulders relax. This posture is dignified, alert, yet at ease.",
         duration: 120,
-        wisdomNote: "Dogen taught that the posture itself is enlightenment. You are not sitting to become Buddha—you are sitting as Buddha. Form and essence are one."
+        wisdomNote: "Dogen taught that the posture itself is enlightenment. You are not sitting to become Buddha–you are sitting as Buddha. Form and essence are one."
       },
       {
         stepNumber: 3,
         title: "The Gaze & Breath",
-        instruction: "Rather than closing your eyes completely, lower your gaze to about 45 degrees, resting softly on the floor or wall about three feet in front of you. Eyes are half-open, not focusing on anything in particular—this is called 'just seeing.' Now bring attention to your breath. Do not control it. Do not count it. Simply notice the natural rhythm—the belly rising on the inhale, falling on the exhale. The breath breathes itself.",
+        instruction: "Rather than closing your eyes completely, lower your gaze to about 45 degrees, resting softly on the floor or wall about three feet in front of you. Eyes are half-open, not focusing on anything in particular–this is called 'just seeing.' Now bring attention to your breath. Do not control it. Do not count it. Simply notice the natural rhythm–the belly rising on the inhale, falling on the exhale. The breath breathes itself.",
         duration: 60,
-        wisdomNote: "Half-open eyes prevent drowsiness and dreams. You remain present to reality as it is. Zen is not about escaping the world—it's about being fully here."
+        wisdomNote: "Half-open eyes prevent drowsiness and dreams. You remain present to reality as it is. Zen is not about escaping the world–it's about being fully here."
       },
       {
         stepNumber: 4,
         title: "Shikantaza - Just Sitting",
-        instruction: "Now, just sit. Shikantaza means 'nothing but precisely sitting.' No counting breaths. No mantra. No visualization. Simply be completely present with whatever arises. Thoughts will come—let them. They are like clouds passing through the vast sky of awareness. Don't grasp them. Don't push them away. Notice them arising, notice them passing. You are the sky, not the clouds. When you realize you've been caught in thought, gently return to the physical sensation of sitting—the weight of your body, the flow of breath, the sounds around you. Again and again, return. This is the practice.",
+        instruction: "Now, just sit. Shikantaza means 'nothing but precisely sitting.' No counting breaths. No mantra. No visualization. Simply be completely present with whatever arises. Thoughts will come–let them. They are like clouds passing through the vast sky of awareness. Don't grasp them. Don't push them away. Notice them arising, notice them passing. You are the sky, not the clouds. When you realize you've been caught in thought, gently return to the physical sensation of sitting–the weight of your body, the flow of breath, the sounds around you. Again and again, return. This is the practice.",
         duration: 420,
-        wisdomNote: "This is the most challenging and most profound form of meditation. It requires nothing yet demands everything—total presence without agenda. Suzuki Roshi said: 'The most important thing is remembering the most important thing.'"
+        wisdomNote: "This is the most challenging and most profound form of meditation. It requires nothing yet demands everything–total presence without agenda. Suzuki Roshi said: 'The most important thing is remembering the most important thing.'"
       },
       {
         stepNumber: 5,
         title: "Kinhin - Walking Meditation",
-        instruction: "When you're ready, slowly stand, bringing the same quality of awareness into movement. Form the shashu hand position: left hand in a fist at heart level, right hand covering it. Walk very slowly—one full breath per half-step. Your gaze remains lowered. Feel the weight shift from heel to toe, the engagement of muscles, the contact with the ground. Walk in a circle or back and forth. This is not walking to get anywhere—it's walking to walk, fully alive in each step.",
+        instruction: "When you're ready, slowly stand, bringing the same quality of awareness into movement. Form the shashu hand position: left hand in a fist at heart level, right hand covering it. Walk very slowly–one full breath per half-step. Your gaze remains lowered. Feel the weight shift from heel to toe, the engagement of muscles, the contact with the ground. Walk in a circle or back and forth. This is not walking to get anywhere–it's walking to walk, fully alive in each step.",
         duration: 120,
         wisdomNote: "Kinhin prevents stiffness and demonstrates that Zen practice extends to all activities. Monks walk mindfully between sits, understanding that meditation is not confined to stillness."
       },
       {
         stepNumber: 6,
         title: "Return to Stillness",
-        instruction: "Return to your seat and settle back into zazen posture. Take a moment to feel the contrast—movement and stillness, sound and silence, effort and ease. All of it arising in the same awareness. Sit again, completely present. Let everything be exactly as it is. Nothing to fix. Nothing to achieve. Nothing to become. You are already whole. Just this. Just sitting. Just breath. Just being.",
+        instruction: "Return to your seat and settle back into zazen posture. Take a moment to feel the contrast–movement and stillness, sound and silence, effort and ease. All of it arising in the same awareness. Sit again, completely present. Let everything be exactly as it is. Nothing to fix. Nothing to achieve. Nothing to become. You are already whole. Just this. Just sitting. Just breath. Just being.",
         duration: 90,
         wisdomNote: "The second sit often goes deeper, as body and mind have now settled. Notice how stillness feels more natural now, less forced."
       },
       {
         stepNumber: 7,
         title: "Closing Bows",
-        instruction: "When you're ready, bring your hands together at your heart in gassho (prayer position). Bow deeply from this seated position—honoring the practice, your effort, all beings who seek peace. Slowly stand and perform three final bows. As you prepare to leave the garden, know that you carry this quality of presence with you. Every moment is an opportunity for zazen—washing dishes, walking to your car, listening to a friend. This is the Way.",
+        instruction: "When you're ready, bring your hands together at your heart in gassho (prayer position). Bow deeply from this seated position–honoring the practice, your effort, all beings who seek peace. Slowly stand and perform three final bows. As you prepare to leave the garden, know that you carry this quality of presence with you. Every moment is an opportunity for zazen–washing dishes, walking to your car, listening to a friend. This is the Way.",
         duration: 30,
         wisdomNote: "Zen Master Thich Nhat Hanh taught: 'The practice of Zen is forgetting the self in the act of uniting with something.' You have touched this in zazen. Now live it."
       }
@@ -397,7 +397,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 720,
     difficulty: "Beginner",
     origin: "Ancient Vedic Meditation | 5000 years",
-    fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara—the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana—the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
+    fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara–the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana–the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
     whatYouNeed: [
       "Quiet space where you can sit comfortably for 12 minutes",
       "Ability to hum without disturbing others (or practice during private time)",
@@ -423,29 +423,29 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Sacred Arrival",
-        instruction: "Find a comfortable seated position with your spine naturally upright. Close your eyes gently. Take three deep breaths, feeling your body settle into the earth. Allow your shoulders to soften, your jaw to release. Bring your awareness to the natural rhythm of your breath—no need to change it yet, simply observe.",
+        instruction: "Find a comfortable seated position with your spine naturally upright. Close your eyes gently. Take three deep breaths, feeling your body settle into the earth. Allow your shoulders to soften, your jaw to release. Bring your awareness to the natural rhythm of your breath–no need to change it yet, simply observe.",
         duration: 90,
         wisdomNote: "The ancient yogis taught that how you arrive at practice determines its depth. Come with reverence, as if entering a sacred temple."
       },
       {
         stepNumber: 2,
         title: "Pranayama Preparation",
-        instruction: "Raise your hands to your face. Place your thumbs gently in your ears to close them, or rest your index fingers on the tragus (the small cartilage flap) and press gently to seal the ear canal. Your remaining fingers rest lightly on your face. This is Shanmukhi Mudra—sealing the six gates of perception. Feel the immediate shift into inner space.",
+        instruction: "Raise your hands to your face. Place your thumbs gently in your ears to close them, or rest your index fingers on the tragus (the small cartilage flap) and press gently to seal the ear canal. Your remaining fingers rest lightly on your face. This is Shanmukhi Mudra–sealing the six gates of perception. Feel the immediate shift into inner space.",
         duration: 90,
         wisdomNote: "When the outer sound disappears, the inner sound becomes audible. This is where transformation happens."
       },
       {
         stepNumber: 3,
         title: "First Humming Cycle",
-        instruction: "Take a deep breath in through your nose. As you exhale, keep your mouth gently closed and create a smooth, steady humming sound—'mmmmmmm'—like a contented bee. Feel the vibration in your skull, face, and throat. The pitch doesn't matter; choose what feels natural. Complete three rounds: inhale deeply, exhale with the hum for as long as comfortable. Between rounds, take a normal breath and observe the resonance still vibrating within you.",
+        instruction: "Take a deep breath in through your nose. As you exhale, keep your mouth gently closed and create a smooth, steady humming sound–'mmmmmmm'–like a contented bee. Feel the vibration in your skull, face, and throat. The pitch doesn't matter; choose what feels natural. Complete three rounds: inhale deeply, exhale with the hum for as long as comfortable. Between rounds, take a normal breath and observe the resonance still vibrating within you.",
         duration: 120,
         breathingPattern: "Bee Breath",
-        wisdomNote: "The bee doesn't force its hum—it arises naturally from its being. Let your sound be effortless, arising from your center."
+        wisdomNote: "The bee doesn't force its hum–it arises naturally from its being. Let your sound be effortless, arising from your center."
       },
       {
         stepNumber: 4,
         title: "Deep Immersion Rounds",
-        instruction: "Now begin 12 continuous rounds of Bhramari. Inhale slowly and deeply through your nose. Exhale with the bee breath, letting the hum be smooth and steady for the entire length of your exhale. Don't rush—quality over quantity. With each round, feel the vibration deepening, resonating in new places: your third eye, the crown of your head, your entire skull becoming a resonance chamber. Let your mind be absorbed completely in the sound. If thoughts arise, let them dissolve into the humming. The sound is your anchor, your home.",
+        instruction: "Now begin 12 continuous rounds of Bhramari. Inhale slowly and deeply through your nose. Exhale with the bee breath, letting the hum be smooth and steady for the entire length of your exhale. Don't rush–quality over quantity. With each round, feel the vibration deepening, resonating in new places: your third eye, the crown of your head, your entire skull becoming a resonance chamber. Let your mind be absorbed completely in the sound. If thoughts arise, let them dissolve into the humming. The sound is your anchor, your home.",
         duration: 300,
         breathingPattern: "Deep Bhramari",
         wisdomNote: "Ancient texts say: 'The yogi who practices Bhramari becomes lord of his mind, just as the bee is lord of its hive.'"
@@ -453,16 +453,16 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 5,
         title: "Silent Absorption",
-        instruction: "After your final hum, gently lower your hands to your lap. Keep your eyes closed. Sit in complete stillness. Notice the profound silence that follows the practice—it feels different than ordinary silence. There's a spaciousness, a clarity, a vibration still echoing. This is the fruit of practice. Simply rest here, absorbed in presence.",
+        instruction: "After your final hum, gently lower your hands to your lap. Keep your eyes closed. Sit in complete stillness. Notice the profound silence that follows the practice–it feels different than ordinary silence. There's a spaciousness, a clarity, a vibration still echoing. This is the fruit of practice. Simply rest here, absorbed in presence.",
         duration: 90,
-        wisdomNote: "The silence after Bhramari is called 'Nada'—the inner cosmic sound. Ancient yogis would meditate on this sound for hours, using it as a gateway to higher consciousness."
+        wisdomNote: "The silence after Bhramari is called 'Nada'–the inner cosmic sound. Ancient yogis would meditate on this sound for hours, using it as a gateway to higher consciousness."
       },
       {
         stepNumber: 6,
         title: "Return & Integration",
         instruction: "Begin to deepen your breath. Wiggle your fingers and toes. When you're ready, gently open your eyes. Take a moment to bow inwardly to the practice, to the ancient lineage that preserved it, and to your own commitment to inner work. Carry this clarity forward into whatever comes next.",
         duration: 30,
-        wisdomNote: "The practice ends, but its effects continue. You've trained your nervous system to access this state—it will become easier each time."
+        wisdomNote: "The practice ends, but its effects continue. You've trained your nervous system to access this state–it will become easier each time."
       }
     ],
     completionMessage: "You have touched the ancient sound of Nada. You have entered the hive of consciousness. Carry this resonance with you."
@@ -474,7 +474,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 480,
     difficulty: "Beginner",
     origin: "Ancient Yogic Practice | Hatha Yoga Pradipika",
-    fullStory: "Trataka is one of the six purification practices (Shatkarma) described in the Hatha Yoga Pradipika, a 15th-century Sanskrit text, though the practice itself dates back much earlier to tantric traditions of ancient India. The word 'Trataka' comes from Sanskrit, meaning 'to gaze steadily.' Unlike ordinary seeing, Trataka involves focused, unwavering attention on a single point—traditionally a candle flame, though it can be practiced with a black dot, a symbol (yantra), the moon, or even a still body of water. Ancient yogis discovered that the eyes are the gateway to the mind. By training the eyes to remain perfectly still, the mind naturally follows into deep concentration. This practice was considered essential preparation for meditation, as it develops Ekagrata—one-pointed attention—the foundation of all yogic and flow states. The flame was chosen as the ideal object because fire has a mesmerizing, magnetic quality that naturally draws attention, the flickering creates enough movement to maintain interest without overwhelming, the afterimage created when closing the eyes stimulates the Ajna chakra (third eye), and fire represents consciousness itself in Vedic philosophy. Tantric texts describe Trataka as a direct path to stilling the 'monkey mind' and achieving instant access to meditative absorption. Modern research confirms this: studies show that Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
+    fullStory: "Trataka is one of the six purification practices (Shatkarma) described in the Hatha Yoga Pradipika, a 15th-century Sanskrit text, though the practice itself dates back much earlier to tantric traditions of ancient India. The word 'Trataka' comes from Sanskrit, meaning 'to gaze steadily.' Unlike ordinary seeing, Trataka involves focused, unwavering attention on a single point–traditionally a candle flame, though it can be practiced with a black dot, a symbol (yantra), the moon, or even a still body of water. Ancient yogis discovered that the eyes are the gateway to the mind. By training the eyes to remain perfectly still, the mind naturally follows into deep concentration. This practice was considered essential preparation for meditation, as it develops Ekagrata–one-pointed attention–the foundation of all yogic and flow states. The flame was chosen as the ideal object because fire has a mesmerizing, magnetic quality that naturally draws attention, the flickering creates enough movement to maintain interest without overwhelming, the afterimage created when closing the eyes stimulates the Ajna chakra (third eye), and fire represents consciousness itself in Vedic philosophy. Tantric texts describe Trataka as a direct path to stilling the 'monkey mind' and achieving instant access to meditative absorption. Modern research confirms this: studies show that Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
     whatYouNeed: [
       "One candle (any size, unscented works best to avoid distraction)",
       "Matches or lighter",
@@ -500,23 +500,23 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Sacred Setup",
-        instruction: "Light your candle and place it on a stable surface at eye level, about 3-4 feet away from where you'll sit. Ensure the room is dim or dark, with no other light sources. Sit comfortably with your spine upright—on a cushion or chair. Take three deep breaths. Set your intention: 'I dedicate this practice to developing unwavering focus and inner clarity.' Feel the reverence of this ancient ritual.",
+        instruction: "Light your candle and place it on a stable surface at eye level, about 3-4 feet away from where you'll sit. Ensure the room is dim or dark, with no other light sources. Sit comfortably with your spine upright–on a cushion or chair. Take three deep breaths. Set your intention: 'I dedicate this practice to developing unwavering focus and inner clarity.' Feel the reverence of this ancient ritual.",
         duration: 60,
         wisdomNote: "Fire has been humanity's meditation object for millennia. You are joining an unbroken lineage of seekers gazing into flames."
       },
       {
         stepNumber: 2,
         title: "Soft Gazing Preparation",
-        instruction: "Look at the flame with soft, relaxed eyes. Don't stare harshly—imagine you're looking at someone you love. Let your eyes rest naturally on the brightest part of the flame, just above the wick where it glows most intensely. Your eyes should feel comfortable, not strained. Blink naturally a few times, then allow the blinks to slow down. Breathe normally through your nose.",
+        instruction: "Look at the flame with soft, relaxed eyes. Don't stare harshly–imagine you're looking at someone you love. Let your eyes rest naturally on the brightest part of the flame, just above the wick where it glows most intensely. Your eyes should feel comfortable, not strained. Blink naturally a few times, then allow the blinks to slow down. Breathe normally through your nose.",
         duration: 60,
-        wisdomNote: "Trataka is not about forcing—it's about magnetism. Let the flame draw your attention naturally, like falling in love."
+        wisdomNote: "Trataka is not about forcing–it's about magnetism. Let the flame draw your attention naturally, like falling in love."
       },
       {
         stepNumber: 3,
         title: "First Gaze Cycle",
-        instruction: "Now gaze at the flame without blinking for 30 seconds. Keep your eyes soft but steady. The flame is the only thing that exists. When your eyes begin to water (which is natural and purifying), gently close them. With eyes closed, observe the afterimage of the flame—it will appear in your inner vision, usually as a glowing shape at your forehead center. Watch it shift colors, move, fade. Don't try to hold it; simply observe. After 30 seconds, open your eyes again.",
+        instruction: "Now gaze at the flame without blinking for 30 seconds. Keep your eyes soft but steady. The flame is the only thing that exists. When your eyes begin to water (which is natural and purifying), gently close them. With eyes closed, observe the afterimage of the flame–it will appear in your inner vision, usually as a glowing shape at your forehead center. Watch it shift colors, move, fade. Don't try to hold it; simply observe. After 30 seconds, open your eyes again.",
         duration: 90,
-        wisdomNote: "The afterimage is your third eye awakening. Ancient yogis called this 'inner fire'—the light of consciousness itself."
+        wisdomNote: "The afterimage is your third eye awakening. Ancient yogis called this 'inner fire'–the light of consciousness itself."
       },
       {
         stepNumber: 4,
@@ -529,16 +529,16 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 5,
         title: "Final Extended Gaze",
-        instruction: "For this final minute, gaze at the flame with complete, unwavering attention. You are not trying anymore—you are simply absorbed. The flame is not separate from you. You are the witness of the flame. You are the flame witnessing itself. Let time disappear. Let the room disappear. Let everything dissolve into this single point of light. When tears come, let them flow—they are purifying. When the minute ends, close your eyes one last time.",
+        instruction: "For this final minute, gaze at the flame with complete, unwavering attention. You are not trying anymore–you are simply absorbed. The flame is not separate from you. You are the witness of the flame. You are the flame witnessing itself. Let time disappear. Let the room disappear. Let everything dissolve into this single point of light. When tears come, let them flow–they are purifying. When the minute ends, close your eyes one last time.",
         duration: 60,
-        wisdomNote: "This is Ekagrata—one-pointed absorption. You've just experienced what athletes call 'the zone,' what mystics call Samadhi."
+        wisdomNote: "This is Ekagrata–one-pointed absorption. You've just experienced what athletes call 'the zone,' what mystics call Samadhi."
       },
       {
         stepNumber: 6,
         title: "Integration",
         instruction: "Sit with eyes closed for 30 seconds, feeling the afterimage fade. Rub your palms together vigorously until they're warm, then place them gently over your closed eyes (called 'palming'). Feel the warmth soothing your eyes. Take three deep breaths. When ready, open your eyes slowly. Bow to the flame in gratitude, then safely extinguish it. Notice how the world looks sharper, clearer, more vivid.",
         duration: 30,
-        wisdomNote: "The practice ends, but the focus remains. You can return to this state at will now—the neural pathway has been carved."
+        wisdomNote: "The practice ends, but the focus remains. You can return to this state at will now–the neural pathway has been carved."
       }
     ],
     completionMessage: "You have trained the eyes. You have stilled the mind. You have touched the eternal flame within. Carry this focus into your work."
@@ -550,7 +550,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 360,
     difficulty: "Intermediate",
     origin: "Ancient Yogic Practice | Hatha Yoga",
-    fullStory: "Kapalabhati, literally meaning 'skull shining' or 'forehead luster' in Sanskrit, is one of the six classical cleansing techniques (Shatkarma) described in ancient yogic texts including the Hatha Yoga Pradipika (15th century) and Gheranda Samhita (17th century). This practice dates back thousands of years to the early development of Hatha Yoga in India, where yogis discovered that rapid, forceful exhalations could purify the nadis (energy channels), expel stale air and toxins from the lungs, and generate immediate vitality and mental clarity. The technique was traditionally practiced at dawn, after cleansing rituals, to prepare the body and mind for meditation. Ancient yogis believed that Kapalabhati clears the frontal brain region (bringing luminosity to the mind), activates the manipura chakra (solar plexus - the seat of personal power), balances the three doshas in Ayurvedic medicine, and increases prana (life force) throughout the entire system. Unlike gentle breathing practices, Kapalabhati is vigorous and heating. The rapid diaphragmatic pumping creates an internal massage of the organs, stimulates the sympathetic nervous system, and floods the body with oxygen and energy. Modern studies show it increases metabolic rate, improves lung capacity, and triggers the release of endorphins. This is not a meditation—it's an activation. Warriors and yogis alike used this technique before battle, intense practice, or any situation requiring peak physical and mental performance.",
+    fullStory: "Kapalabhati, literally meaning 'skull shining' or 'forehead luster' in Sanskrit, is one of the six classical cleansing techniques (Shatkarma) described in ancient yogic texts including the Hatha Yoga Pradipika (15th century) and Gheranda Samhita (17th century). This practice dates back thousands of years to the early development of Hatha Yoga in India, where yogis discovered that rapid, forceful exhalations could purify the nadis (energy channels), expel stale air and toxins from the lungs, and generate immediate vitality and mental clarity. The technique was traditionally practiced at dawn, after cleansing rituals, to prepare the body and mind for meditation. Ancient yogis believed that Kapalabhati clears the frontal brain region (bringing luminosity to the mind), activates the manipura chakra (solar plexus - the seat of personal power), balances the three doshas in Ayurvedic medicine, and increases prana (life force) throughout the entire system. Unlike gentle breathing practices, Kapalabhati is vigorous and heating. The rapid diaphragmatic pumping creates an internal massage of the organs, stimulates the sympathetic nervous system, and floods the body with oxygen and energy. Modern studies show it increases metabolic rate, improves lung capacity, and triggers the release of endorphins. This is not a meditation–it's an activation. Warriors and yogis alike used this technique before battle, intense practice, or any situation requiring peak physical and mental performance.",
     whatYouNeed: [
       "Empty stomach (at least 2 hours after eating) - CRITICAL",
       "Comfortable seated position with straight spine",
@@ -577,9 +577,9 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Preparation & Technique",
-        instruction: "Sit upright with your spine straight—on a cushion or chair. Place your hands on your knees or belly. Close your eyes. Take three natural breaths. Now learn the technique: the exhale is sharp, forceful, and active—pull your belly in toward your spine like a quick pump. The inhale is passive and automatic—just release your belly and air flows in naturally. Practice 10 slow pumps now to get the rhythm: sharp exhale (belly in), passive inhale (belly out). Don't force the inhale; let it happen naturally.",
+        instruction: "Sit upright with your spine straight–on a cushion or chair. Place your hands on your knees or belly. Close your eyes. Take three natural breaths. Now learn the technique: the exhale is sharp, forceful, and active–pull your belly in toward your spine like a quick pump. The inhale is passive and automatic–just release your belly and air flows in naturally. Practice 10 slow pumps now to get the rhythm: sharp exhale (belly in), passive inhale (belly out). Don't force the inhale; let it happen naturally.",
         duration: 60,
-        wisdomNote: "The ancient yogis called this 'bellows breath'—like a blacksmith pumping bellows to stoke fire. You are stoking your inner fire."
+        wisdomNote: "The ancient yogis called this 'bellows breath'–like a blacksmith pumping bellows to stoke fire. You are stoking your inner fire."
       },
       {
         stepNumber: 2,
@@ -592,15 +592,15 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 3,
         title: "Second Power Round",
-        instruction: "Take a moment to feel the effects—tingling, warmth, clarity. When ready, take another deep breath and begin: 50 rapid breaths this time, slightly faster than before. Let the rhythm become automatic—your belly pumping like a powerful engine. Sharp exhales, passive inhales. After 50, take one final massive inhale, hold it for 20-40 seconds or as long as comfortable. Feel the pressure building in your skull—this is the 'skull shining.' Exhale slowly. Breathe normally for a few breaths.",
+        instruction: "Take a moment to feel the effects–tingling, warmth, clarity. When ready, take another deep breath and begin: 50 rapid breaths this time, slightly faster than before. Let the rhythm become automatic–your belly pumping like a powerful engine. Sharp exhales, passive inhales. After 50, take one final massive inhale, hold it for 20-40 seconds or as long as comfortable. Feel the pressure building in your skull–this is the 'skull shining.' Exhale slowly. Breathe normally for a few breaths.",
         duration: 90,
         breathingPattern: "Intense Pumping",
-        wisdomNote: "The Sanskrit texts describe this feeling as 'tejas'—radiant inner fire. Your manipura chakra is awakening."
+        wisdomNote: "The Sanskrit texts describe this feeling as 'tejas'–radiant inner fire. Your manipura chakra is awakening."
       },
       {
         stepNumber: 4,
         title: "Peak Performance Round",
-        instruction: "This is the peak round. Take a deep breath. Begin: 70-100 rapid breaths, as fast as you can maintain with control. Let yourself become the breath—there's no you anymore, just this pumping rhythm. Your core is on fire. Your mind is crystal clear. Every cell is alive. After your count, take one final enormous inhale, hold it as long as you possibly can (aim for 30-60 seconds). Feel the pressure at your third eye. When you absolutely must breathe, exhale slowly through your mouth with a sigh. Rest in stillness.",
+        instruction: "This is the peak round. Take a deep breath. Begin: 70-100 rapid breaths, as fast as you can maintain with control. Let yourself become the breath–there's no you anymore, just this pumping rhythm. Your core is on fire. Your mind is crystal clear. Every cell is alive. After your count, take one final enormous inhale, hold it as long as you possibly can (aim for 30-60 seconds). Feel the pressure at your third eye. When you absolutely must breathe, exhale slowly through your mouth with a sigh. Rest in stillness.",
         duration: 120,
         breathingPattern: "Maximum Power",
         wisdomNote: "Warriors used this before battle. You've just accessed your primal power. This is what you're capable of."
@@ -608,7 +608,7 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 5,
         title: "Integration Breath",
-        instruction: "Return to normal, natural breathing. Don't try to control it—just observe. Notice the profound effects: your heart rate, the energy coursing through your limbs, the clarity in your mind, the warmth in your body. You may feel slightly euphoric, empowered, invincible. This is your natural state when obstacles are cleared. Sit with this for 30 seconds, just breathing and feeling.",
+        instruction: "Return to normal, natural breathing. Don't try to control it–just observe. Notice the profound effects: your heart rate, the energy coursing through your limbs, the clarity in your mind, the warmth in your body. You may feel slightly euphoric, empowered, invincible. This is your natural state when obstacles are cleared. Sit with this for 30 seconds, just breathing and feeling.",
         duration: 30,
         wisdomNote: "The ancient texts promise: 'By this practice, one becomes radiant, diseases are destroyed, and perfect health is attained.'"
       },
@@ -629,7 +629,7 @@ const practiceData: Record<string, PracticeData> = {
     totalDuration: 420,
     difficulty: "Intermediate",
     origin: "Ancient Spartan Warrior Protocol | 480 BCE",
-    fullStory: "This practice is reconstructed from historical accounts of Spartan warrior preparation rituals, particularly the pre-battle practices performed before the Battle of Thermopylae (480 BCE) and other legendary conflicts. Ancient Greek warriors, especially the Spartans, understood that the mind and body must be unified, energized, and fearless before combat. Historical sources including Plutarch's 'Sayings of Spartans' and Xenophon's 'Polity of the Lacedaemonians' describe how Spartan warriors performed specific breathing exercises combined with physical movements and battle cries before engaging in warfare. The Spartans believed that Pneuma (breath/spirit) was the essence of life force and courage, controlled breathing expanded the chest making warriors appear larger and more intimidating, rhythmic forceful breathing synchronized groups of soldiers creating unified energy, and the paean (war cry) expelled fear and summoned divine favor from Apollo and Ares. Before battle, Spartan warriors would form into phalanx formation, begin slow deep rhythmic breathing synchronized with their fellows, gradually increase the pace while stamping the ground with their shields, culminate in powerful battle cries that could be heard across the battlefield, and enter a state called 'menos'—divine fury or battle-trance. This practice combines historical accounts with what we know about warrior cultures worldwide: controlled hyperventilation increases adrenaline, reduces fear response, heightens pain tolerance, and creates a transcendent state of fearless presence. This is not meditation. This is activation for peak performance.",
+    fullStory: "This practice is reconstructed from historical accounts of Spartan warrior preparation rituals, particularly the pre-battle practices performed before the Battle of Thermopylae (480 BCE) and other legendary conflicts. Ancient Greek warriors, especially the Spartans, understood that the mind and body must be unified, energized, and fearless before combat. Historical sources including Plutarch's 'Sayings of Spartans' and Xenophon's 'Polity of the Lacedaemonians' describe how Spartan warriors performed specific breathing exercises combined with physical movements and battle cries before engaging in warfare. The Spartans believed that Pneuma (breath/spirit) was the essence of life force and courage, controlled breathing expanded the chest making warriors appear larger and more intimidating, rhythmic forceful breathing synchronized groups of soldiers creating unified energy, and the paean (war cry) expelled fear and summoned divine favor from Apollo and Ares. Before battle, Spartan warriors would form into phalanx formation, begin slow deep rhythmic breathing synchronized with their fellows, gradually increase the pace while stamping the ground with their shields, culminate in powerful battle cries that could be heard across the battlefield, and enter a state called 'menos'–divine fury or battle-trance. This practice combines historical accounts with what we know about warrior cultures worldwide: controlled hyperventilation increases adrenaline, reduces fear response, heightens pain tolerance, and creates a transcendent state of fearless presence. This is not meditation. This is activation for peak performance.",
     whatYouNeed: [
       "Standing space where you can move and make noise",
       "Privacy (you will shout)",
@@ -657,14 +657,14 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 1,
         title: "Warrior's Stance",
-        instruction: "Stand with feet shoulder-width apart, knees slightly bent. Roll your shoulders back and down. Lift your chest proudly. Plant your feet like roots growing into the earth—you are immovable. If you have a prop (stick, weight, etc.), grip it firmly in your right hand like a spear. Close your eyes. Visualize yourself as a Spartan warrior standing in formation with 299 brothers before battle. You are about to do something extraordinary. Set your intention: 'I am fearless. I am powerful. I am ready.'",
+        instruction: "Stand with feet shoulder-width apart, knees slightly bent. Roll your shoulders back and down. Lift your chest proudly. Plant your feet like roots growing into the earth–you are immovable. If you have a prop (stick, weight, etc.), grip it firmly in your right hand like a spear. Close your eyes. Visualize yourself as a Spartan warrior standing in formation with 299 brothers before battle. You are about to do something extraordinary. Set your intention: 'I am fearless. I am powerful. I am ready.'",
         duration: 60,
         wisdomNote: "The Spartans inscribed on their shields: 'Ἢ τὰν ἢ ἐπὶ τᾶς' (Come back with your shield or on it). Total commitment. No retreat. This is that energy."
       },
       {
         stepNumber: 2,
         title: "Shield Wall Breathing",
-        instruction: "Begin slow, deep breathing through your nose. Inhale for 4 counts, expanding your chest as wide as possible—imagine holding a massive shield. Hold for 2 counts. Exhale for 4 counts through your mouth with control. As you breathe, feel yourself synchronizing with thousands of invisible warriors around you. You breathe together. You are one organism. Repeat this cycle 10 times. With each breath, feel power building in your core, in your legs, in your chest.",
+        instruction: "Begin slow, deep breathing through your nose. Inhale for 4 counts, expanding your chest as wide as possible–imagine holding a massive shield. Hold for 2 counts. Exhale for 4 counts through your mouth with control. As you breathe, feel yourself synchronizing with thousands of invisible warriors around you. You breathe together. You are one organism. Repeat this cycle 10 times. With each breath, feel power building in your core, in your legs, in your chest.",
         duration: 90,
         breathingPattern: "Deep Warrior Breath",
         wisdomNote: "The phalanx formation was invincible because it moved as one. You are learning to harness collective warrior energy."
@@ -672,7 +672,7 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 3,
         title: "Battle March Activation",
-        instruction: "Now increase the pace: inhale for 2 counts, exhale for 2 counts—faster, more forceful. As you breathe, begin to add movement: stomp your feet in rhythm with your breath. Left foot stomp (inhale), right foot stomp (exhale). Let the rhythm intensify. If you're holding an object, raise it and lower it with each breath. Your breathing becomes audible, powerful—like bellows. Feel your heart rate rising. Feel adrenaline beginning to flood your system. You are marching toward battle. Faster now. Build the intensity. Let guttural sounds emerge from your exhales—'HAH!'",
+        instruction: "Now increase the pace: inhale for 2 counts, exhale for 2 counts–faster, more forceful. As you breathe, begin to add movement: stomp your feet in rhythm with your breath. Left foot stomp (inhale), right foot stomp (exhale). Let the rhythm intensify. If you're holding an object, raise it and lower it with each breath. Your breathing becomes audible, powerful–like bellows. Feel your heart rate rising. Feel adrenaline beginning to flood your system. You are marching toward battle. Faster now. Build the intensity. Let guttural sounds emerge from your exhales–'HAH!'",
         duration: 120,
         breathingPattern: "Forceful March",
         wisdomNote: "Ancient sources describe the Spartans approaching battle in perfect rhythm, their unified breathing and footsteps creating a sound like thunder."
@@ -680,7 +680,7 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 4,
         title: "The Paean - War Cry",
-        instruction: "This is the crescendo. Take three massive breaths—huge inhales, explosive exhales. With each exhale, release a powerful shout from your deepest core: 'HA!' (or 'AROO!' in Spartan tradition). Don't hold back—let it be primal, animalistic, fearsome. Breath 1: 'HA!' Breath 2: louder 'HA!' Breath 3: maximum power 'HA!' Now, take one final enormous inhale, raise your arms or weapon overhead, and release the longest, loudest war cry you can produce—let it last 10-15 seconds. Empty every ounce of air. Expel all fear, all doubt, all weakness. You are MENOS—divine warrior fury incarnate.",
+        instruction: "This is the crescendo. Take three massive breaths–huge inhales, explosive exhales. With each exhale, release a powerful shout from your deepest core: 'HA!' (or 'AROO!' in Spartan tradition). Don't hold back–let it be primal, animalistic, fearsome. Breath 1: 'HA!' Breath 2: louder 'HA!' Breath 3: maximum power 'HA!' Now, take one final enormous inhale, raise your arms or weapon overhead, and release the longest, loudest war cry you can produce–let it last 10-15 seconds. Empty every ounce of air. Expel all fear, all doubt, all weakness. You are MENOS–divine warrior fury incarnate.",
         duration: 90,
         breathingPattern: "War Cry",
         wisdomNote: "Plutarch wrote that the Spartan war cry was so terrifying that enemies would flee before the battle even began. You are channeling 2,500 years of warrior spirit."
@@ -688,16 +688,16 @@ const practiceData: Record<string, PracticeData> = {
       {
         stepNumber: 5,
         title: "Menos - Battle Trance",
-        instruction: "After the cry, stand in powerful stillness. Breathe naturally but notice: you are transformed. Your chest is expanded. Your eyes are fierce. Your body is flooded with adrenaline and endorphins. You feel no fear. You feel unstoppable. This is the warrior state—menos. Hold this for one full minute. Breathe naturally. Feel the power coursing through you. You could run through walls. You could face any challenge. This is your true nature when all limitations are stripped away. Remember this feeling. This is who you actually are.",
+        instruction: "After the cry, stand in powerful stillness. Breathe naturally but notice: you are transformed. Your chest is expanded. Your eyes are fierce. Your body is flooded with adrenaline and endorphins. You feel no fear. You feel unstoppable. This is the warrior state–menos. Hold this for one full minute. Breathe naturally. Feel the power coursing through you. You could run through walls. You could face any challenge. This is your true nature when all limitations are stripped away. Remember this feeling. This is who you actually are.",
         duration: 60,
         wisdomNote: "The 300 Spartans held Thermopylae for three days in this state. You now have access to the same transcendent courage. Use it wisely."
       },
       {
         stepNumber: 6,
         title: "Return of the Victor",
-        instruction: "Begin to slow your breathing. Place one hand on your heart, one on your belly. Bow your head slightly in warrior's honor—honoring your ancestors, your lineage, your own courage. Take three deep, calming breaths. Say aloud or internally: 'I am ready. I am powerful. I am fearless.' When you open your eyes, you are returning not as who you were, but as a warrior who knows their true strength. Stand tall. You carry this with you now.",
+        instruction: "Begin to slow your breathing. Place one hand on your heart, one on your belly. Bow your head slightly in warrior's honor–honoring your ancestors, your lineage, your own courage. Take three deep, calming breaths. Say aloud or internally: 'I am ready. I am powerful. I am fearless.' When you open your eyes, you are returning not as who you were, but as a warrior who knows their true strength. Stand tall. You carry this with you now.",
         duration: 30,
-        wisdomNote: "The Spartans never celebrated before battle—only after. But they fought with absolute certainty of their worth. You have just tapped that certainty. Go forth and conquer."
+        wisdomNote: "The Spartans never celebrated before battle–only after. But they fought with absolute certainty of their worth. You have just tapped that certainty. Go forth and conquer."
       }
     ],
     completionMessage: "Μολὼν λαβέ (Come and take them). You are the warrior. You are the storm. Nothing can stop you. Now go claim your victory."
@@ -945,7 +945,7 @@ const GuidedPracticePlayer = () => {
     
     // If this is the last practice in a plan, skip practice feedback and trigger plan feedback
     if (isLastPracticeInPlan(id)) {
-      console.log('[GuidedPracticePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      console.log('[GuidedPracticePlayer] Last in plan – skipping practice rating, setting plan feedback flag');
       const ritualMode = localStorage.getItem('ritualMode');
       const jitData = localStorage.getItem('jitInterventionData');
       const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
@@ -1994,7 +1994,7 @@ const GuidedPracticePlayer = () => {
     );
   }
 
-  // Completion screen removed — post-practice navigates directly to category page
+  // Completion screen removed – post-practice navigates directly to category page
   return null;
 };
 

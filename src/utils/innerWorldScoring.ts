@@ -1,4 +1,4 @@
-// Inner World Scoring Engine v2.0 — 3-Component Model
+// Inner World Scoring Engine v2.0 – 3-Component Model
 // Components: Energy Regulation, Focus Recovery, Energy Renewal
 // All proprietary scoring logic lives server-side in generate-onboarding-insight.
 // This file provides types and lightweight client-side helpers only.

@@ -64,11 +64,11 @@ const trendColors = {
 
 // DEV_MODE archetype resolution
 function devResolveArchetype(er: number, fr: number, en: number) {
-  if (er >= 65 && en >= 55) return { id: "grounded-leader", title: "The Grounded Master", leanOn: "Stability and presence — you lead from a centered place.", watchFor: "Over-reliance on composure when renewal is needed." };
-  if (en >= 65 && er >= 50) return { id: "resilient-performer", title: "The Resilient Performer", leanOn: "Recovery capacity — you absorb impact and bounce back.", watchFor: "Pushing through when regulation would serve you better." };
-  if (fr >= 65 && er >= 45) return { id: "clear-thinker", title: "The Clear Thinker", leanOn: "Mental clarity — you cut through complexity with precision.", watchFor: "Over-thinking when action or rest is what's needed." };
-  if (er >= 60 && fr < 50) return { id: "intensity-driver", title: "The Intensity Driver", leanOn: "Directed force — you channel intensity into focused action.", watchFor: "Intensity without clarity can fragment your focus." };
-  return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
+  if (er >= 65 && en >= 55) return { id: "grounded-leader", title: "The Grounded Master", leanOn: "Stability and presence – you lead from a centered place.", watchFor: "Over-reliance on composure when renewal is needed." };
+  if (en >= 65 && er >= 50) return { id: "resilient-performer", title: "The Resilient Performer", leanOn: "Recovery capacity – you absorb impact and bounce back.", watchFor: "Pushing through when regulation would serve you better." };
+  if (fr >= 65 && er >= 45) return { id: "clear-thinker", title: "The Clear Thinker", leanOn: "Mental clarity – you cut through complexity with precision.", watchFor: "Over-thinking when action or rest is what's needed." };
+  if (er >= 60 && fr < 50) return { id: "intensity-driver", title: "The Intensity Driver", leanOn: "Directed force – you channel intensity into focused action.", watchFor: "Intensity without clarity can fragment your focus." };
+  return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility – you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
 const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: LeadershipPatternsCardProps) => {
@@ -82,7 +82,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       setLoading(false);
       return;
     }
-    // If parent is still loading, wait — don't fire our own request
+    // If parent is still loading, wait – don't fire our own request
     if (parentLoading) return;
     // Only self-fetch if no parent is providing data (standalone usage)
     if (userId && prefetchedData === undefined) fetchData();
@@ -168,7 +168,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         let currentLeanOn = baselineArch.leanOn;
         let currentWatchFor = baselineArch.watchFor;
 
-        // Use available dimensions — fall back to clarity/confidence as proxy for energy if missing
+        // Use available dimensions – fall back to clarity/confidence as proxy for energy if missing
         const hasEnoughData = totalCheckins >= 5 && (recentCL.length > 0 || recentCF.length > 0);
         if (hasEnoughData) {
           const avgER = recentEB.length > 0
@@ -279,7 +279,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           </span>
           <InsightInfoModal
             title="Your Performance Patterns"
-            explanation="What is consistently true about how you operate — not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring themes, practices, and wearable data over 30 days."
+            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring themes, practices, and wearable data over 30 days."
           />
         </div>
       </CardHeader>
@@ -301,7 +301,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 </p>
                 <InsightInfoModal
                   title="How Scores Are Calculated"
-                  explanation="These three scores reflect how you show up over time — drawn from your check-ins, coach conversations, and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                  explanation="These three scores reflect how you show up over time – drawn from your check-ins, coach conversations, and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
                 />
               </div>
 

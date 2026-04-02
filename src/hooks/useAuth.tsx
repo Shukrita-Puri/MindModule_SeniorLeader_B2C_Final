@@ -92,7 +92,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (isLoading) return;
 
     if (isAuthenticated) {
-      // SDK caught up — clear native flags if present
+      // SDK caught up – clear native flags if present
       if (isNativeAuthCompleted()) {
         console.log('[useAuth] SDK is authenticated, clearing native auth flags');
         clearNativeAuthCompleted();
@@ -104,7 +104,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     if (nativeHydrationAttempted.current) {
-      // Already attempted — mark resolved if we didn't find anything
+      // Already attempted – mark resolved if we didn't find anything
       if (!nativeAuthed) setAuthResolved(true);
       return;
     }
@@ -164,7 +164,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (currentTokens && currentTokens.expires_at > now + 60) {
             return currentTokens.access_token;
           }
-          // Token expired or expiring — try refresh
+          // Token expired or expiring – try refresh
           const refreshed = await refreshNativeTokens();
           if (refreshed) {
             const freshTokens = getNativeTokens();
@@ -278,7 +278,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const payload = JSON.parse(atob(tokenParts[1]));
             const tokenSub = payload.sub;
             if (tokenSub && currentSub && tokenSub !== currentSub) {
-              console.error('[useAuth] 🚨 TOKEN MISMATCH — token sub:', tokenSub, 'auth0User sub:', currentSub);
+              console.error('[useAuth] 🚨 TOKEN MISMATCH – token sub:', tokenSub, 'auth0User sub:', currentSub);
               syncAttempted.current = false;
               setSyncing(false);
               toast.error('Session mismatch detected. Please log in again.');
@@ -361,7 +361,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('[useAuth] ⚠️ Profile sync error:', error);
         syncAttempted.current = false;
 
-        // CRITICAL: Same preservation logic — never downgrade to 'none' on transient errors
+        // CRITICAL: Same preservation logic – never downgrade to 'none' on transient errors
         setAppUser(prev => {
           if (prev && prev.id) {
             console.warn('[useAuth] Preserving last-known-good profile for', prev.id);

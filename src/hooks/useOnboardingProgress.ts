@@ -13,7 +13,7 @@ interface StepMetadata {
 
 /**
  * Hook for persisting onboarding step completion to the database.
- * Fire-and-forget writes — does not block UI.
+ * Fire-and-forget writes – does not block UI.
  * Falls back silently if unauthenticated.
  */
 export function useOnboardingProgress() {

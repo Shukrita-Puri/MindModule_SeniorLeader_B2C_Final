@@ -64,7 +64,7 @@ const soundscapeData: Record<string, any> = {
     origin: "Ancient Himalayan Tradition",
     fullStory: "For over 5000 years, Tibetan monks have used singing bowls to achieve profound meditative states. The bowls produce harmonic overtones that synchronize brainwaves and create a sense of timeless awareness. Each bowl is hand-hammered from seven sacred metals, representing the seven celestial bodies known to ancient cultures. The vibrations penetrate deep into the body, releasing tension and creating alignment between mind, body, and spirit.",
     creator: "Curated from Tibetan Buddhist lineages",
-    technique: "The bowls are played using a circular motion that creates sustained, layered tones. Allow the sounds to wash over you without analysis—simply rest in the harmonic field.",
+    technique: "The bowls are played using a circular motion that creates sustained, layered tones. Allow the sounds to wash over you without analysis–simply rest in the harmonic field.",
     benefits: [
       "Reduces stress and anxiety through harmonic resonance",
       "Enhances meditation depth and duration",
@@ -94,7 +94,7 @@ const SoundscapePlayer = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [hasStarted, setHasStarted] = useState(false);
-  // actualDurationMinutes removed — now using formatTime(displayDuration) directly
+  // actualDurationMinutes removed – now using formatTime(displayDuration) directly
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Practice Queue State
@@ -311,7 +311,7 @@ const SoundscapePlayer = () => {
     
     // If this is the last practice in a plan, skip practice rating and trigger plan feedback
     if (isLastPracticeInPlan(id)) {
-      console.log('[SoundscapePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      console.log('[SoundscapePlayer] Last in plan – skipping practice rating, setting plan feedback flag');
       const ritualMode = localStorage.getItem('ritualMode');
       const jitData = localStorage.getItem('jitInterventionData');
       const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
@@ -617,7 +617,7 @@ const SoundscapePlayer = () => {
     );
   }
 
-  // Completion screen removed — post-practice navigates directly to category page
+  // Completion screen removed – post-practice navigates directly to category page
 
   return (
     <div className="relative min-h-screen overflow-hidden animate-page-enter">

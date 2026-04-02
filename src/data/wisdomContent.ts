@@ -22,14 +22,14 @@ export const wisdomContent: Record<string, WisdomEntry> = {
     attribution: "Military Decision Framework"
   },
   'aviation:aviate-navigate-communicate': {
-    quote: "Aviate, navigate, communicate — in that order.",
+    quote: "Aviate, navigate, communicate – in that order.",
     attribution: "Pilot Emergency Protocol",
     context: "In crisis, stabilize first, orient second, communicate last."
   },
   
   // Medicine & Emergency Response
   'medicine:stabilize-first': {
-    quote: "First, stabilize — then act.",
+    quote: "First, stabilize – then act.",
     attribution: "Emergency Medicine"
   },
   'medicine:triage-clarity': {
@@ -51,7 +51,7 @@ export const wisdomContent: Record<string, WisdomEntry> = {
     attribution: "2026 Leadership Imperative"
   },
   'leadership:human-edge': {
-    quote: "AI raises the bar on human leadership — presence, judgment, connection.",
+    quote: "AI raises the bar on human leadership – presence, judgment, connection.",
     attribution: "2026 Leadership Imperative"
   },
   
@@ -65,7 +65,7 @@ export const wisdomContent: Record<string, WisdomEntry> = {
     attribution: "Championship Mindset"
   },
   'sport:pressure-is-privilege': {
-    quote: "Pressure is a privilege — it means the moment matters.",
+    quote: "Pressure is a privilege – it means the moment matters.",
     attribution: "Billie Jean King"
   },
   
@@ -75,7 +75,7 @@ export const wisdomContent: Record<string, WisdomEntry> = {
     attribution: "Epictetus"
   },
   'stoic:present-moment': {
-    quote: "You have power over your mind — not outside events. Realize this, and you will find strength.",
+    quote: "You have power over your mind – not outside events. Realize this, and you will find strength.",
     attribution: "Marcus Aurelius"
   },
   'stoic:obstacle-is-way': {

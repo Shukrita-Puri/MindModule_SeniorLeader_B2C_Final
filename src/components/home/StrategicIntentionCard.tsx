@@ -80,7 +80,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         {jitEvent && (
           <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
             <span className="text-[13px] text-foreground font-medium font-body">
-              <TextWithEventEmphasis text={`'${jitEvent.title}' in ${jitEvent.minutesUntil} min — your sequence is ready`} />
+              <TextWithEventEmphasis text={`'${jitEvent.title}' in ${jitEvent.minutesUntil} min – your sequence is ready`} />
             </span>
           </div>
         )}

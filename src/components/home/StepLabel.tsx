@@ -1,5 +1,5 @@
 /**
- * StepLabel — Renders a section step marker: letter + title — subtitle
+ * StepLabel – Renders a section step marker: letter + title – subtitle
  * Uses font-headline italic for the letter (matching Outer Readiness theme phrase)
  */
 

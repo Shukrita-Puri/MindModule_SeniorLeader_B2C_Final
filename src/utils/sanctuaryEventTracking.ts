@@ -106,7 +106,7 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
       if (import.meta.env.DEV) {
         console.error('Error tracking sanctuary event:', error);
       }
-      // Add to in-memory offline queue (no localStorage backup — retry on reconnect)
+      // Add to in-memory offline queue (no localStorage backup – retry on reconnect)
       offlineQueue.push(eventWithUser);
     } else {
       if (import.meta.env.DEV) {
@@ -123,7 +123,7 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     if (err instanceof z.ZodError) {
       return { success: false, error: new Error('Invalid event data') };
     }
-    // Add to offline queue for network errors (no userId needed — EF handles auth)
+    // Add to offline queue for network errors (no userId needed – EF handles auth)
     const eventWithUser: SanctuaryEventData = {
       ...event,
       timestamp: event.timestamp || new Date().toISOString()
@@ -172,7 +172,7 @@ export function getEnrichedContextData(checkInOutcome?: string, calendarEvents?:
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayOfWeek = daysOfWeek[now.getDay()];
   
-  // Get Oura data (ephemeral signal — acceptable in localStorage)
+  // Get Oura data (ephemeral signal – acceptable in localStorage)
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
   const ouraReadiness = ouraData.readiness;
   

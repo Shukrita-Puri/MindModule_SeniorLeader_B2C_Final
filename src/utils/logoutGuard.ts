@@ -1,5 +1,5 @@
 /**
- * Logout Guard — prevents auto-login flows from firing immediately after sign-out.
+ * Logout Guard – prevents auto-login flows from firing immediately after sign-out.
  *
  * A short-lived sessionStorage flag is set during sign-out.
  * Login/Signup pages and ProtectedRoute check this flag and skip
@@ -34,7 +34,7 @@ export function isLogoutGuardActive(): boolean {
   return true;
 }
 
-/** Clear the guard — call when user explicitly initiates login. */
+/** Clear the guard – call when user explicitly initiates login. */
 export function clearLogoutGuard(): void {
   sessionStorage.removeItem(LOGOUT_GUARD_KEY);
   sessionStorage.removeItem(LOGOUT_GUARD_TS_KEY);

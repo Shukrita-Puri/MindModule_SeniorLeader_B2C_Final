@@ -77,7 +77,7 @@ const BlindSpotsSection = ({ blindSpots = [], isGenerating = false }: BlindSpots
                   {item.subSkill && (
                     <span className="text-muted-foreground"> → {item.subSkill}</span>
                   )}
-                  <span className="text-muted-foreground">{" — "}{item.observation}</span>
+                  <span className="text-muted-foreground">{" – "}{item.observation}</span>
                   {item.actionSuggested && (
                     <span className="text-forest font-medium">{" → "}{item.actionSuggested}</span>
                   )}

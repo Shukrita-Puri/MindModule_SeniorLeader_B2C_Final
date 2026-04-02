@@ -46,7 +46,7 @@ export default function OnboardingFlow() {
       const sessionId = initializeSession();
       console.log("Onboarding session initialized:", sessionId);
 
-      // Never auto-redirect from /onboarding root — always show Welcome.
+      // Never auto-redirect from /onboarding root – always show Welcome.
       // Resume logic only applies to deep-linked sub-routes (handled by stage gating).
     };
     

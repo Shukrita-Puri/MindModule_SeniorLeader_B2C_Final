@@ -151,7 +151,7 @@ export async function analyzeEventPhysiologicalPattern(
 export async function autoRecordPhysiologyForCalendarEvents(calendarEvents?: any[]): Promise<void> {
   const events = calendarEvents || [];
   
-  // Get latest physiological data (ephemeral signal — acceptable in localStorage)
+  // Get latest physiological data (ephemeral signal – acceptable in localStorage)
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
   const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || '{}');
   

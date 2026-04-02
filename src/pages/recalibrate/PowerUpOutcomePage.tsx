@@ -152,11 +152,11 @@ const PowerUpOutcomePage = () => {
     }
     
     if (item.contentType === 'soundbath') {
-      return `${duration} — Listened ${count}x`;
+      return `${duration} – Listened ${count}x`;
     } else if (item.contentType === 'guided-practice') {
-      return `${duration} — Completed ${count}x`;
+      return `${duration} – Completed ${count}x`;
     } else {
-      return `${duration} — Used ${count}x`;
+      return `${duration} – Used ${count}x`;
     }
   };
 
@@ -249,7 +249,7 @@ const PowerUpOutcomePage = () => {
                           : item.id === 'confidence-through-evidence'
                             ? 'Rebuild self-belief with your own proof'
                             : item.id === 'courage-arena'
-                              ? 'Step into visibility knowing you might fail — and choose to show up anyway'
+                              ? 'Step into visibility knowing you might fail – and choose to show up anyway'
                               : item.storyHook}
                   </CardDescription>
                 </CardHeader>

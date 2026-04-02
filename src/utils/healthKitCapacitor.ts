@@ -1,7 +1,7 @@
 /**
  * HealthKit integration via Capacitor for native iOS apps.
  * Uses @capgo/capacitor-health (Capacitor 8 compatible).
- * Gracefully degrades on web — all functions are safe to call in any environment.
+ * Gracefully degrades on web – all functions are safe to call in any environment.
  *
  * Reads: HRV, Resting Heart Rate, Heart Rate, Sleep Analysis
  */
@@ -33,7 +33,7 @@ export interface HealthKitWearableData {
   permissionGranted: boolean;
   /** Read path failed even though permission is still granted */
   readError: 'authorization_denied' | 'read_failed' | null;
-  /** All daily HRV averages grouped by day (up to 30 days) — backward compat */
+  /** All daily HRV averages grouped by day (up to 30 days) – backward compat */
   dailySamples: HRVDailySample[];
   /** Enriched daily summaries with all metrics */
   dailySummaries: DailyWearableSummary[];
@@ -104,7 +104,7 @@ export async function getHealthKitAuthorization(): Promise<{
 
     const readAuthorized = status.readAuthorized ?? [];
     const readDenied = status.readDenied ?? [];
-    // HRV is the minimum required metric — others are optional
+    // HRV is the minimum required metric – others are optional
     const permissionGranted = readAuthorized.includes('heartRateVariability');
 
     console.log('[HealthKit] checkAuthorization:', JSON.stringify({ readAuthorized, readDenied, permissionGranted }));
@@ -130,7 +130,7 @@ export async function verifyHealthKitAccess(): Promise<boolean> {
   }
 }
 
-/** Safe read helper — returns empty array if metric is not authorized or read fails */
+/** Safe read helper – returns empty array if metric is not authorized or read fails */
 async function safeReadSamples(
   Health: any,
   dataType: string,
@@ -181,7 +181,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
     console.log('[HealthKit] queryHealthKitData: reading 30-day window for all metrics...');
 
-    // Read all metrics in parallel — each one is fault-tolerant
+    // Read all metrics in parallel – each one is fault-tolerant
     const [hrvSamples, rhrSamples, hrSamples, sleepSamples] = await Promise.all([
       safeReadSamples(Health, 'heartRateVariability', startISO, endISO, 'HRV'),
       safeReadSamples(Health, 'restingHeartRate', startISO, endISO, 'RHR'),
@@ -189,7 +189,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       safeReadSamples(Health, 'sleep', startISO, endISO, 'Sleep'),
     ]);
 
-    console.log(`[HealthKit] Raw counts — HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
+    console.log(`[HealthKit] Raw counts – HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
 
     // ---- Group HRV by day ----
     const hrvByDay: Record<string, { value: number; hour: number; timestamp: string }[]> = {};
@@ -289,7 +289,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       if (totalSleep !== null && inBed !== null && (totalSleep + inBed) > 0) {
         sleepScore = Math.round((totalSleep / (totalSleep + inBed)) * 100);
       } else if (totalSleep !== null && totalSleep > 0) {
-        // No inBed data — estimate based on duration (7-9h = 85-95)
+        // No inBed data – estimate based on duration (7-9h = 85-95)
         const hours = totalSleep / 60;
         sleepScore = hours >= 7 ? Math.min(95, Math.round(70 + hours * 3)) : Math.max(30, Math.round(hours * 10));
       }

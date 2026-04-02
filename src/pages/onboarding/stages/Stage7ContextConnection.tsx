@@ -201,7 +201,7 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  // Handle Apple Health toggle — verify actual HealthKit access + sync
+  // Handle Apple Health toggle – verify actual HealthKit access + sync
   const handleWatchToggle = async (checked: boolean) => {
     if (!checked) {
       setWatchEnabled(false);

@@ -2,8 +2,8 @@
  * First Session Spotlight Walkthrough
  *
  * A 10-step guided demo that highlights real UI elements on the actual pages.
- * Phase A (steps 0-4): Core daily loop — starts on /daily-check-in, moves to /executive-home
- * Phase B (steps 5-9): Navigation features — all on /executive-home
+ * Phase A (steps 0-4): Core daily loop – starts on /daily-check-in, moves to /executive-home
+ * Phase B (steps 5-9): Navigation features – all on /executive-home
  *
  * Key behaviours:
  * - Two-pass tooltip: hidden mount → measure height → compute position → reveal.
@@ -42,19 +42,19 @@ interface GuideStep {
 }
 
 const STEPS: GuideStep[] = [
-  // ── Phase A — Daily Loop ──────────────────────────────────────
+  // ── Phase A – Daily Loop ──────────────────────────────────────
   {
     targetSelector: '[data-tour="check-in-carousel"]',
     title: 'Performance Readiness Assessment',
-    body: "One tap to tell the system how you're performing right now — your sharpness, clarity, and confidence. This is where every day starts.",
+    body: "One tap to tell the system how you're performing right now – your sharpness, clarity, and confidence. This is where every day starts.",
     page: 'check-in',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
   },
   {
     targetSelector: '[data-tour="today-state"]',
-    title: 'Your State — Decision Readiness Score',
-    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now — your sharpness, clarity, and confidence, with an understanding from your wearable (if available) — based on your time of day.',
+    title: 'Your State – Decision Readiness Score',
+    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now – your sharpness, clarity, and confidence, with an understanding from your wearable (if available) – based on your time of day.',
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
@@ -62,7 +62,7 @@ const STEPS: GuideStep[] = [
   },
   {
     targetSelector: '[data-tour="compass"]',
-    title: 'Your Compass — Outer Readiness Brief',
+    title: 'Your Compass – Outer Readiness Brief',
     body: 'Your calendar, energy, and patterns shape a strategic read on your day. What to lean on. What to watch for.',
     page: 'home',
     phase: 'A',
@@ -72,8 +72,8 @@ const STEPS: GuideStep[] = [
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
-    title: 'Your Action — Performance Readiness Plan',
-    body: 'Practices and sessions built for today — designed to close the gap between where you are and where the day needs you to be.',
+    title: 'Your Action – Performance Readiness Plan',
+    body: 'Practices and sessions built for today – designed to close the gap between where you are and where the day needs you to be.',
     page: 'home',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
@@ -89,12 +89,12 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR DAILY LOOP',
   },
 
-  // ── Phase B — Navigation ──────────────────────────────────────
+  // ── Phase B – Navigation ──────────────────────────────────────
   {
-    // Step 5 — Menu button
+    // Step 5 – Menu button
     targetSelector: '[data-tour="sidebar-trigger-wrap"]',
     title: 'Your Menu',
-    body: 'Open this to access all your features — Assessment, Reset Studio, Coach, and Intelligence.',
+    body: 'Open this to access all your features – Assessment, Reset Studio, Coach, and Intelligence.',
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
@@ -104,7 +104,7 @@ const STEPS: GuideStep[] = [
     tooltipPosition: 'below',
   },
   {
-    // Step 6 — Mental Performance Suite
+    // Step 6 – Mental Performance Suite
     targetSelector: '[data-tour="sidebar-nav"]',
     title: 'Your Mental Performance Suite',
     body: '',
@@ -136,10 +136,10 @@ const STEPS: GuideStep[] = [
     tooltipPosition: 'below',
   },
   {
-    // Step 7 — Connect Your Data (show profile entry in sidebar)
+    // Step 7 – Connect Your Data (show profile entry in sidebar)
     targetSelector: '[data-tour="sidebar-profile"]',
     title: 'Connect Your Data',
-    body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours — the more context, the sharper your system.',
+    body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours – the more context, the sharper your system.',
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
@@ -148,10 +148,10 @@ const STEPS: GuideStep[] = [
     tooltipPosition: 'above',
   },
   {
-    // Step 8 — Coach button
+    // Step 8 – Coach button
     targetSelector: '[data-tour="coach-access-wrap"]',
     title: 'Mind Performance Coach',
-    body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
+    body: 'Instant AI-powered coaching – available from any screen. Built around your patterns and context.',
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
@@ -162,7 +162,7 @@ const STEPS: GuideStep[] = [
     tooltipPosition: 'below',
   },
   {
-    // Step 9 — Ready
+    // Step 9 – Ready
     targetSelector: 'fullscreen',
     title: "You're Ready",
     body: 'Start with your first check-in.',
@@ -526,7 +526,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         Skip <X size={14} />
       </button>
 
-      {/* Tooltip Card — hidden until ready for two-pass measurement */}
+      {/* Tooltip Card – hidden until ready for two-pass measurement */}
       <div
         ref={tooltipRef}
         className={cn(

@@ -54,7 +54,7 @@ const Refer = () => {
   }, []);
 
   const getShareMessage = () =>
-    `I've been using Mind Module — an inner operating system for leaders who operate under sustained pressure. It has been helping me stay regulated under pressure, lead with more clarity and make better decisions when it matters most. Thought you'd find it valuable too.\n\nDownload it here: ${APP_STORE_URL}\n\nUse my code ${referralCode}`;
+    `I've been using Mind Module – an inner operating system for leaders who operate under sustained pressure. It has been helping me stay regulated under pressure, lead with more clarity and make better decisions when it matters most. Thought you'd find it valuable too.\n\nDownload it here: ${APP_STORE_URL}\n\nUse my code ${referralCode}`;
 
   const handleShare = async () => {
     const message = getShareMessage();
@@ -116,11 +116,11 @@ const Refer = () => {
 
           {/* MM logos + sparkles bursting from gift box gap */}
           <div className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 pointer-events-none" aria-hidden="true">
-            {/* Large MM logo — top-left of burst */}
+            {/* Large MM logo – top-left of burst */}
             <img src={mmLogoMini} alt="" className="absolute left-[18%] top-[36%] w-7 h-7 rounded-full shadow-md -rotate-6" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }} />
-            {/* Medium MM logo — upper right */}
+            {/* Medium MM logo – upper right */}
             <img src={mmLogoMini} alt="" className="absolute left-[38%] top-[30%] w-5 h-5 rounded-full shadow-sm rotate-12" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.1))' }} />
-            {/* Small MM logo — lower */}
+            {/* Small MM logo – lower */}
             <img src={mmLogoMini} alt="" className="absolute left-[28%] top-[50%] w-4 h-4 rounded-full shadow-sm rotate-6" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.1))' }} />
 
             {/* Sparkles */}

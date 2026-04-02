@@ -8,7 +8,7 @@ const PoweredByAI = () => {
       <UnifiedTopBar hideCoach />
       <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
         <h1 className="text-4xl font-headline text-foreground mb-2">Powered by AI</h1>
-        <p className="text-muted-foreground mb-8">AI Transparency Disclosure — Last Updated: March 18, 2026</p>
+        <p className="text-muted-foreground mb-8">AI Transparency Disclosure – Last Updated: March 18, 2026</p>
         
         <div className="space-y-8 text-foreground/80 font-body">
 
@@ -26,7 +26,7 @@ const PoweredByAI = () => {
             </p>
             <p className="mb-4">Specifically, we use:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
-              <li><strong>Google Gemini</strong> (via Lovable AI gateway) — for natural language understanding, contextual coaching responses, pattern analysis, and personalised content generation</li>
+              <li><strong>Google Gemini</strong> (via Lovable AI gateway) – for natural language understanding, contextual coaching responses, pattern analysis, and personalised content generation</li>
             </ul>
             <p>
               All AI requests are routed through Lovable's AI infrastructure, which acts as a secure gateway to Google Gemini. No direct API calls are made from the client application to Google's services.
@@ -38,13 +38,13 @@ const PoweredByAI = () => {
             <h2 className="text-2xl font-subheadline text-foreground mb-3">2. Features Powered by AI</h2>
             <p className="mb-4">The following features within Mind Module are powered by AI:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
-              <li><strong>AI Self-Mastery Coach</strong> — Real-time conversational coaching that adapts to your context, patterns, and goals</li>
-              <li><strong>Daily Brief &amp; Energy Insights</strong> — AI-generated summaries of your decision readiness state based on check-in data, calendar context, and wearable signals</li>
-              <li><strong>Proactive Mastery Plan</strong> — Personalised practice recommendations generated based on your performance profile and behavioural patterns</li>
-              <li><strong>State Pattern Analysis</strong> — AI-driven identification of recurring patterns in your energy, clarity, and confidence over time</li>
-              <li><strong>Nudge Recommendations</strong> — Context-aware micro-interventions timed to your schedule and state</li>
-              <li><strong>Daily Check-In Insights</strong> — Contextual interpretation of your self-reported states</li>
-              <li><strong>Tiny Wins Analysis</strong> — AI-powered reflection and categorisation of daily achievements</li>
+              <li><strong>AI Self-Mastery Coach</strong> – Real-time conversational coaching that adapts to your context, patterns, and goals</li>
+              <li><strong>Daily Brief &amp; Energy Insights</strong> – AI-generated summaries of your decision readiness state based on check-in data, calendar context, and wearable signals</li>
+              <li><strong>Proactive Mastery Plan</strong> – Personalised practice recommendations generated based on your performance profile and behavioural patterns</li>
+              <li><strong>State Pattern Analysis</strong> – AI-driven identification of recurring patterns in your energy, clarity, and confidence over time</li>
+              <li><strong>Nudge Recommendations</strong> – Context-aware micro-interventions timed to your schedule and state</li>
+              <li><strong>Daily Check-In Insights</strong> – Contextual interpretation of your self-reported states</li>
+              <li><strong>Tiny Wins Analysis</strong> – AI-powered reflection and categorisation of daily achievements</li>
             </ul>
           </section>
 
@@ -75,7 +75,7 @@ const PoweredByAI = () => {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Energy scores, clarity levels, and confidence ratings from your check-ins</li>
               <li>Check-in outcomes and state tags (e.g., "power-up," "pause," "presence")</li>
-              <li>Calendar metadata (event titles, meeting density, time pressure) — if you have connected your calendar</li>
+              <li>Calendar metadata (event titles, meeting density, time pressure) – if you have connected your calendar</li>
               <li>Practice history and completion records</li>
               <li>Conversation history within the current AI Coach session</li>
               <li>Your professional role and performance profile (as provided during onboarding)</li>
@@ -123,10 +123,10 @@ const PoweredByAI = () => {
             <h2 className="text-2xl font-subheadline text-foreground mb-3">7. Your Control Over AI Features</h2>
             <p className="mb-4">You have control over how AI is used with your data:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
-              <li><strong>Conversation history</strong> — Your AI Coach conversations are stored for continuity; you can request deletion at any time</li>
-              <li><strong>Calendar integration</strong> — Optional; you can connect or disconnect Google Calendar at any time via settings</li>
-              <li><strong>Wearable integration</strong> — Optional; you can grant or revoke Apple HealthKit access via iOS Settings</li>
-              <li><strong>Account deletion</strong> — Deleting your account removes all stored data, including AI conversation history</li>
+              <li><strong>Conversation history</strong> – Your AI Coach conversations are stored for continuity; you can request deletion at any time</li>
+              <li><strong>Calendar integration</strong> – Optional; you can connect or disconnect Google Calendar at any time via settings</li>
+              <li><strong>Wearable integration</strong> – Optional; you can grant or revoke Apple HealthKit access via iOS Settings</li>
+              <li><strong>Account deletion</strong> – Deleting your account removes all stored data, including AI conversation history</li>
             </ul>
           </section>
 

@@ -257,7 +257,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
             doc.setTextColor(100, 100, 100);
             doc.setCharSpace(0);
             const quoteText = `"${intervention.wisdom_source.quote}"`;
-            const attribution = intervention.wisdom_source.attribution ? ` — ${intervention.wisdom_source.attribution}` : '';
+            const attribution = intervention.wisdom_source.attribution ? ` – ${intervention.wisdom_source.attribution}` : '';
             yPos = addWrappedText(quoteText + attribution, margin + 16, yPos, pageWidth - margin * 2 - 20, 5);
           }
           yPos += 4;
@@ -473,7 +473,7 @@ export const generateTranscriptPdf = (transcript: TranscriptMessage[], scenarioC
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(120);
           const quoteText = `"${intervention.wisdom_source.quote}"`;
-          const attribution = intervention.wisdom_source.attribution ? ` — ${intervention.wisdom_source.attribution}` : '';
+          const attribution = intervention.wisdom_source.attribution ? ` – ${intervention.wisdom_source.attribution}` : '';
           yPos = addWrappedText(quoteText + attribution, margin + 16, yPos, pageWidth - margin * 2 - 20, 5);
         }
         yPos += 3;
