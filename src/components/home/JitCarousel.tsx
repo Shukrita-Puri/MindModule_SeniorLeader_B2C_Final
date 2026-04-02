@@ -63,7 +63,17 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
 
-  const [dismissed, setDismissed] = useState(false);
+  // Session-scoped snooze: hide for this session only, don't permanently suppress
+  const getSnoozeKey = () => preEventPlan ? `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}` : '';
+  const [dismissed, setDismissed] = useState(() => {
+    if (!preEventPlan) return false;
+    const key = `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}`;
+    const snoozedAt = sessionStorage.getItem(key);
+    if (!snoozedAt) return false;
+    // Allow resurfacing after 30 minutes
+    const elapsed = Date.now() - parseInt(snoozedAt, 10);
+    return elapsed < 30 * 60 * 1000;
+  });
   const [snoozed, setSnoozed] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -142,12 +152,16 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   };
 
   const handleDismiss = async () => {
+    // Session-scoped snooze: hide for this session, resurface after 30 min
     setDismissed(true);
-    await trackJitAction('dismissed');
+    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
+    // Track as 'snoozed' (soft) — server won't write to dismissed_horizons
+    await trackJitAction('snoozed');
   };
 
   const handleSnooze = async () => {
     setSnoozed(true);
+    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
     await trackJitAction('snoozed');
   };
 

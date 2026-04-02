@@ -56,7 +56,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       };
 
-      if (horizon && (action === 'dismissed' || action === 'snoozed')) {
+      if (horizon && action === 'dismissed') {
         // Append this specific touch to dismissed_horizons using raw SQL via rpc
         // Since we can't do array_append via PostgREST, fetch + merge
         const { data: existingCtx } = await supabase
