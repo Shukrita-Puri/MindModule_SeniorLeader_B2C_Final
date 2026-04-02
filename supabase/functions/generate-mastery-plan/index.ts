@@ -2088,6 +2088,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Observability: log calendar scoring summary
   console.log(`[generate-mastery-plan] Calendar: ${req.calendarEvents?.length || 0} events fetched, ${scoredEvents.length} scored, ${filteredEvents.length} after suppression. Top event: ${filteredEvents[0]?.event.title || 'none'} (score: ${filteredEvents[0]?.score || 0})`);
 
+  // State hash for coach card versioning – ensures refreshed state gets new coach cards
+  const coachStateHash = String(hashCode(`${req.innerReadinessTier}:${req.checkInOutcome}:${req.innerReadinessScore}:${req.outerReadinessPhrase}:${timeOfDay}`));
+
   // 4. Build calendar pills (max 2)
   const calendarPills = filteredEvents.slice(0, 2).map(e => ({
     label: e.scenario ? `${e.scenario.contextLabel}` : e.event.title || 'Upcoming Event',
@@ -2293,8 +2296,6 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   }
 
   // 6. Build time-of-day plan
-  // State hash for coach card versioning – ensures refreshed state gets new coach cards
-  const coachStateHash = String(hashCode(`${req.innerReadinessTier}:${req.checkInOutcome}:${req.innerReadinessScore}:${req.outerReadinessPhrase}:${timeOfDay}`));
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
