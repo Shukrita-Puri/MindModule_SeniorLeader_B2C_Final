@@ -567,8 +567,30 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // Assemble context statement (now with always-on Layer 3 + confidence-aware text)
-    const { text: contextStatement, layersActive } = assembleContextStatement(
+    // Calendar-aware signal selection (new approach)
+    const calLoad = body.calendarLoad || null;
+    const hsCount = body.highStakesCount || 0;
+    const consStreak = body.consecutiveStreak || null;
+    const sleepSc = body.sleepScore ?? null;
+    const rhrElev = body.rhrElevated ?? false;
+
+    const selectedSignals = selectSignalsForStatement(
+      checkInOutcome, hasCheckIn, tier, timeOfDay,
+      clarity, confidence, hrvDeviation, hasWearable,
+      hrvPatternContext ?? null, sleepSc, rhrElev,
+      calLoad, hsCount, consStreak,
+      bConf, sampleDays,
+    );
+
+    // Assemble context statement from selected signals
+    const contextStatement = selectedSignals.secondary
+      ? `${selectedSignals.primary} ${selectedSignals.secondary}`
+      : selectedSignals.primary;
+
+    const layersActive = selectedSignals.alreadyUsed;
+
+    // Also keep legacy 3-layer assembly for backwards compatibility where needed
+    const { text: legacyContextStatement, layersActive: legacyLayers } = assembleContextStatement(
       checkInOutcome, hasCheckIn, timeOfDay, tier,
       clarity, confidence, divergenceFlag, hrvDeviation,
       hrvPatternContext ?? null, bConf, sampleDays
@@ -597,6 +619,8 @@ serve(async (req) => {
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
       tierLabel: getTierLabel(tier),
+      // New: alreadyUsed[] relay for Compass
+      alreadyUsed: selectedSignals.alreadyUsed,
     };
 
     return new Response(JSON.stringify(result), {
