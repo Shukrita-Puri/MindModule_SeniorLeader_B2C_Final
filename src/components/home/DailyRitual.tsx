@@ -563,8 +563,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
               <span className="text-sm font-semibold text-foreground font-body">
                 {plan?.timeOfDayPlan?.label || 'Today'}
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+              <span className="text-[11px] text-muted-foreground/60 font-body">
+                ({activeModules.length}-step sequence)
               </span>
             </div>
             <span className={cn(
