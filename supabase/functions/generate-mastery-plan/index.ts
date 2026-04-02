@@ -2255,6 +2255,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     }
 
+    const coachStateHash = String(hashCode(`${req.innerReadinessTier}:${req.checkInOutcome}:${req.innerReadinessScore}:${req.outerReadinessPhrase}:${timeOfDay}`));
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
