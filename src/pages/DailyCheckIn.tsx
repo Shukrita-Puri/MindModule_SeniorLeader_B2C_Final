@@ -10,6 +10,7 @@ import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyC
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
+import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -68,6 +69,7 @@ const DailyCheckIn = () => {
   const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
   const [checkedInMessage, setCheckedInMessage] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
 
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
@@ -81,6 +83,21 @@ const DailyCheckIn = () => {
       }
     });
   }, []);
+
+  // Show first session guide if user has zero check-ins
+  useEffect(() => {
+    if (!user?.id || sessionStorage.getItem('first_session_done')) return;
+    supabase
+      .from('daily_checkins')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count }) => {
+        if (count === 0) {
+          sessionStorage.setItem('first_session_guide_step', '0');
+          setShowGuide(true);
+        }
+      });
+  }, [user?.id]);
 
   // Fetch connection status
   const { data: connections } = useQuery({
@@ -267,6 +284,7 @@ const DailyCheckIn = () => {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
+          data-tour="check-in-carousel"
           className="flex gap-4 overflow-x-auto w-full max-w-[100vw] px-[calc(50vw-120px)] pb-4 snap-x snap-mandatory scrollbar-hide"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
@@ -326,6 +344,10 @@ const DailyCheckIn = () => {
           ))}
         </div>
       </div>
+      {/* First Session Guide overlay */}
+      {showGuide && (
+        <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+      )}
     </div>
   );
 };

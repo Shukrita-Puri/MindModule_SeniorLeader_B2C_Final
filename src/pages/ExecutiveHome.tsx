@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -26,6 +27,7 @@ import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
+import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
@@ -60,8 +62,15 @@ interface PreEventPlan {
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
+
+  // First session guide: show if mid-flow (navigated from check-in page)
+  const [showGuide, setShowGuide] = useState(() => {
+    const step = sessionStorage.getItem('first_session_guide_step');
+    return step !== null && !sessionStorage.getItem('first_session_done');
+  });
 
   // Check for plan feedback flag on mount
   useEffect(() => {
@@ -193,8 +202,8 @@ const ExecutiveHome = () => {
             </div>
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
-              <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
-              <CoachAccessButton />
+              <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
+              <div data-tour="coach-access"><CoachAccessButton /></div>
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
@@ -211,7 +220,7 @@ const ExecutiveHome = () => {
           <div className="flex-1 w-full pb-8">
 
             <div className="px-4 md:px-6 max-w-lg mx-auto">
-              <section className="animate-in fade-in duration-500">
+              <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <TodayStateCard />
               </section>
 
@@ -219,7 +228,7 @@ const ExecutiveHome = () => {
                 <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
               </div>
 
-              <section className="animate-in fade-in duration-500 delay-100">
+              <section data-tour="compass" className="animate-in fade-in duration-500 delay-100">
                 <StrategicIntentionCard />
               </section>
 
@@ -239,7 +248,7 @@ const ExecutiveHome = () => {
             </div>
 
             {/* Time-of-Day Plan */}
-            <div className="animate-in fade-in duration-500 delay-200">
+            <div data-tour="daily-plan" className="animate-in fade-in duration-500 delay-200">
               <DailyRitual onPreEventPlanReady={setPreEventPlan} />
             </div>
 
@@ -252,6 +261,11 @@ const ExecutiveHome = () => {
               <PrivacyFooter />
             </div>
           </div>
+
+          {/* First Session Guide */}
+          {showGuide && (
+            <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+          )}
 
           {/* Plan Feedback Modal */}
           {planFeedback && (
