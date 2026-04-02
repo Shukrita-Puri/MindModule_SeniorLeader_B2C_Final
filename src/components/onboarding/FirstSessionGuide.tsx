@@ -377,8 +377,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   const tooltipStyle: React.CSSProperties =
     isFullscreen || tooltipTop === null
-      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-      : { top: `${Math.max(8, tooltipTop)}px`, left: '16px', right: '16px' };
+      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)' }
+      : { top: `${Math.max(8, tooltipTop)}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen ? '360px' : '400px';
 
