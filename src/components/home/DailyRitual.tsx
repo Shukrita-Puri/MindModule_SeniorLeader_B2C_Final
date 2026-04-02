@@ -569,6 +569,8 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     return { label: labels[module.type], protocolType: protocolTypes[module.type] };
   };
 
+  const isCollapsedByJit = jitPriority && !jitExpanded;
+
   return (
     <div className="space-y-4 pt-2">
       <div className="px-4 max-w-lg mx-auto">
@@ -589,15 +591,36 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
                 ({activeModules.length}-step sequence)
               </span>
             </div>
-            <span className={cn(
-              "text-xs font-medium font-body whitespace-nowrap",
-              ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
-            )}>
-              {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
-              {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "text-xs font-medium font-body whitespace-nowrap",
+                ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
+              )}>
+                {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
+                {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
+              </span>
+              {jitPriority && (
+                <button
+                  onClick={() => setJitExpanded(!jitExpanded)}
+                  className="p-1 rounded-md hover:bg-muted/40 transition-colors"
+                  aria-label={jitExpanded ? 'Hide plan' : 'Show plan'}
+                >
+                  <ChevronDown size={14} className={cn("text-muted-foreground transition-transform", jitExpanded && "rotate-180")} />
+                </button>
+              )}
+            </div>
           </div>
-          {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
+
+          {/* JIT collapsed message */}
+          {isCollapsedByJit && (
+            <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2">
+              <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+                Preparing for your event — your Time-of-Day plan is available after.
+              </span>
+            </div>
+          )}
+
+          {!isCollapsedByJit && (plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
               <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
                 <TextWithEventEmphasis text={plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage || ''} />
@@ -605,7 +628,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
             </div>
           )}
           {/* Check-in prompt banner */}
-          {noCheckinForWindow && ritualStatus.status !== 'completed' && (
+          {!isCollapsedByJit && noCheckinForWindow && ritualStatus.status !== 'completed' && (
             <button
               onClick={() => navigate('/daily-checkin')}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
