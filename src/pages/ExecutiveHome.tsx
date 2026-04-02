@@ -228,7 +228,7 @@ const ExecutiveHome = () => {
                 <div className="w-px h-6 border-l border-dashed border-muted-foreground/35" />
               </div>
 
-              <section className="animate-in fade-in duration-500 delay-100">
+              <section data-tour="compass" className="animate-in fade-in duration-500 delay-100">
                 <StrategicIntentionCard />
               </section>
 
