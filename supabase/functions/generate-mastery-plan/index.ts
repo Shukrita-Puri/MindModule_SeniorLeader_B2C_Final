@@ -2097,9 +2097,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   }));
 
   // 5. Build pre-event plan using TWO-TOUCH ACTION MODEL
-  // Touch 1 (24-48h): coach primary CTA + framework + optional focus practice (5-8 min thinking prep)
+  // Touch 1 (6-48h): coach primary CTA + framework + optional focus practice (5-8 min thinking prep)
   // Touch 2 (0-6h): somatic primary + focus exercise + coach secondary (3-5 min body prep)
-  // Silent gap (6-24h): nothing surfaces. Selection-only (>48h): nothing surfaces.
+  // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
   // Find first event in a valid action window
