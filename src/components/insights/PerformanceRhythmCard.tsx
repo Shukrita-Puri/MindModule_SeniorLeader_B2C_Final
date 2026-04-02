@@ -889,102 +889,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 1A – How You Show Up (7+ check-ins) */}
-            {data.checkInCount >= 7 && data.presenceLabel && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary/70" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    How You Show Up
-                  </span>
-                  <InsightInfoModal
-                    title="How You Show Up"
-                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations – it reflects how consistently you operate at your best."
-                  />
-                </div>
-                <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
-                {data.presenceInsight && (
-                  <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
-                )}
-                {(data.presenceActions?.length || data.temporalPatterns?.length || data.causeEffectInsight) ? (
-                  <ul className="pl-6 space-y-1.5 mt-1">
-                    {data.presenceActions?.map((action, i) => (
-                      <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{action}</span>
-                      </li>
-                    ))}
-                    {data.temporalPatterns?.slice(0, 2).map((pattern, i) => (
-                      <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
-                        <span>{pattern}</span>
-                      </li>
-                    ))}
-                    {data.causeEffectInsight && (
-                      <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{data.causeEffectInsight}</span>
-                      </li>
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            )}
-
-            {/* Elevated: Your Sharpest Window */}
-            {data.bestReadinessWindow && (
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
-                <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
-                  Your Sharpest Window
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {data.bestReadinessWindow.label}
-                </p>
-              </div>
-            )}
-
-            {/* 1B – Calendar Pattern */}
-            {data.checkInCount >= 7 && data.calendarInsight && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary/70" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Calendar Pattern
-                  </span>
-                </div>
-                <p className="text-sm text-foreground/85 leading-relaxed pl-6">{data.calendarInsight}</p>
-              </div>
-            )}
-
-            {/* 1C removed – cause-effect insights now render inside How You Show Up */}
-
-            {/* Insight unlock incentives */}
-            {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
-              <div className="space-y-2">
-                {getInsightUnlockMessages().map((msg, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 flex items-center gap-3">
-                    {msg.icon === 'sparkles' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
-                    {msg.icon === 'calendar' && <Calendar className="h-4 w-4 text-primary/50 flex-shrink-0" />}
-                    {msg.icon === 'target' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
-                    <p className="text-xs text-muted-foreground leading-relaxed">{msg.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {data.checkInCount >= 7 && !data.hasCalendar && !data.calendarInsight && (
-              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">
-                  Connect your calendar to see how your outer world affects your inner state.
-                </p>
-              </div>
-            )}
-
-            {/* 2 – Continuous Horizontal Calendar (Full Month) */}
+            {/* 2 – Week at a Glance (moved above How You Show Up) */}
             {data.checkInCount >= 5 && data.weekRows && (() => {
-              // Full month days are already in order (1st to last)
               const allDays = data.weekRows.flatMap(w => w.days);
-              // Find the index of today (or nearest past day) for auto-scroll
               const todayIdx = allDays.findIndex(d => d.isToday);
 
               return (
@@ -1018,7 +925,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                         className="overflow-x-auto flex-1 pb-1"
                         ref={(el) => {
                           if (!el) return;
-                          // On mobile, set each column to 1/7th of container so exactly Mon-Sun fits
                           if (isMobile) {
                             const colW = Math.floor(el.clientWidth / 7);
                             const cols = el.querySelectorAll('[data-day-col]');
@@ -1114,6 +1020,94 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               );
             })()}
 
+            {/* 1A – How You Show Up (7+ check-ins) */}
+            {data.checkInCount >= 7 && data.presenceLabel && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary/70" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    How You Show Up
+                  </span>
+                  <InsightInfoModal
+                    title="How You Show Up"
+                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations – it reflects how consistently you operate at your best."
+                  />
+                </div>
+                <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
+                {data.presenceInsight && (
+                  <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
+                )}
+                {(data.presenceActions?.length || data.temporalPatterns?.length || data.causeEffectInsight) ? (
+                  <ul className="pl-6 space-y-1.5 mt-1">
+                    {data.presenceActions?.map((action, i) => (
+                      <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                    {data.temporalPatterns?.slice(0, 2).map((pattern, i) => (
+                      <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
+                        <span>{pattern}</span>
+                      </li>
+                    ))}
+                    {data.causeEffectInsight && (
+                      <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                        <span>{data.causeEffectInsight}</span>
+                      </li>
+                    )}
+                  </ul>
+                ) : null}
+              </div>
+            )}
+
+            {/* Elevated: Your Sharpest Window */}
+            {data.bestReadinessWindow && (
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
+                  Your Sharpest Window
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {data.bestReadinessWindow.label}
+                </p>
+              </div>
+            )}
+
+            {/* 1B – Calendar Pattern */}
+            {data.checkInCount >= 7 && data.calendarInsight && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary/70" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Calendar Pattern
+                  </span>
+                </div>
+                <p className="text-sm text-foreground/85 leading-relaxed pl-6">{data.calendarInsight}</p>
+              </div>
+            )}
+
+            {/* Insight unlock incentives */}
+            {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
+              <div className="space-y-2">
+                {getInsightUnlockMessages().map((msg, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 flex items-center gap-3">
+                    {msg.icon === 'sparkles' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    {msg.icon === 'calendar' && <Calendar className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    {msg.icon === 'target' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    <p className="text-xs text-muted-foreground leading-relaxed">{msg.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {data.checkInCount >= 7 && !data.hasCalendar && !data.calendarInsight && (
+              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Connect your calendar to see how your outer world affects your inner state.
+                </p>
+              </div>
+            )}
             {/* Data Source Note */}
             {data.checkInCount > 0 && (
               <p className="text-[10px] text-muted-foreground/60 text-center">
