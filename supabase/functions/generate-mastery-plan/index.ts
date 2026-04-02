@@ -2335,7 +2335,19 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights);
+  // Build resolved modules list for module-derived rationale
+  const resolvedModuleTypes = Object.entries(moduleMapping)
+    .filter(([_, spec]) => spec)
+    .map(([type, spec]) => ({ type, focus: (spec as any).focus }));
+
+  // Determine JIT priority: if preEventPlan exists and is in touch_2 window
+  const jitPriority = !!(preEventPlan && topEvent && getActionWindow(topEvent.minutesUntil) === 'touch2');
+
+  // Next event info for urgency frame
+  const nextEvtTitle = topEvent?.event.title || null;
+  const nextEvtMins = topEvent?.minutesUntil || null;
+
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights, resolvedModuleTypes, [], nextEvtTitle, nextEvtMins, pendingCommitments);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
