@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { cn } from '@/lib/utils';
 import MetricInfoModal from './MetricInfoModal';
-import StepLabel from './StepLabel';
+
 
 // Outcome-aware tier labels - specific to what user selected
 const getStateLabel = (tier: string): string => {
