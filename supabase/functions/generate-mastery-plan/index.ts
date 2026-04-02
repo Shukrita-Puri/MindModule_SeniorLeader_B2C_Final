@@ -1258,71 +1258,67 @@ function buildEnrichedContextDescription(
   hrvCorrelations: HRVCorrelationMap | null,
 ): string {
   const parts: string[] = [];
-  const dimScores = row.jit_dimension_scores;
   const bucket = row.jit_bucket_primary;
-  const confidenceScore = row.jit_confidence_score || 0;
 
-  // Bucket-driven reasoning
+  // Bucket-driven reasoning (module-composition style)
   if (bucket === 'recalibrate') {
-    parts.push('High inner-state demand detected – regulate before this');
+    parts.push('Interrupt the stress pattern before it compounds');
   } else if (bucket === 'clarity') {
-    parts.push('Decision or relationship stakes ahead – sharpen your approach');
+    parts.push('Sharpen your approach before the stakes arrive');
   } else if (bucket === 'renewal') {
-    parts.push('Transition moment – sustain energy and identity');
+    parts.push('Sustain energy through this transition');
   }
 
-  // Coach memory signal
+  // Coach memory signal — specific, not generic
   if (row.has_coach_context) {
     if (row.expressed_concern) {
-      parts.push('you\'ve discussed this concern with your coach');
+      parts.push('you\'ve explored this concern in coaching — this is that moment');
     } else if (row.coach_scenario) {
-      parts.push('your coach has flagged this pattern');
+      parts.push('your coach has noted a pattern here');
     } else if (row.has_pending_tool) {
-      parts.push('a coach-recommended tool applies here');
-    } else {
-      parts.push('this connects to themes from your coaching');
+      parts.push('a coach-recommended approach applies');
     }
   }
 
-  // HRV context from dimension scores
-  if (dimScores?.readiness_multiplier && dimScores.readiness_multiplier > 1.1) {
-    const deviation = Math.round((dimScores.readiness_multiplier - 1) * 100);
-    parts.push(`your readiness is ${deviation}% below baseline today`);
-  }
-
-  // Urgency
-  if (minutesUntil <= 30) {
-    parts.push('starting very soon – prepare now');
-  } else if (minutesUntil <= 60) {
-    parts.push(`in ${minutesUntil} minutes`);
-  } else if (minutesUntil < 1440) {
-    parts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
-  } else {
-    parts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
-  }
-
-  // HRV correlation from historical data
+  // HRV historical correlation — pattern reference, not raw number
   if (hrvCorrelations) {
     const evtType = extractEventType(row.event_title || '');
     const corr = hrvCorrelations[evtType];
     if (corr && corr.count >= 2 && Math.abs(corr.avgHRVDeviation) > 10) {
       const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
-      parts.push(`HRV typically shifts ${corr.avgHRVDeviation > 0 ? '+' : ''}${corr.avgHRVDeviation}% during ${canonicalLabel.toLowerCase()} events`);
+      parts.push(`your body shows a familiar pre-${canonicalLabel.toLowerCase().replace(/^pre /, '')} response`);
     }
   }
 
-  // Confidence-framed closing
-  if (confidenceScore >= 70) {
-    return parts.join(' – ') + '. Prepare with targeted practice.';
-  } else if (confidenceScore >= 40) {
-    return `Before your ${row.event_title || 'event'} – ` + parts.join(' – ') + '.';
-  } else if (confidenceScore >= 20) {
-    return `Worth preparing for this? ` + parts.join(' – ') + '.';
+  // Urgency frame
+  if (minutesUntil <= 30) {
+    parts.push('starting very soon — start now');
+  } else if (minutesUntil <= 60) {
+    parts.push(`in ${minutesUntil} minutes — this is your window`);
+  } else if (minutesUntil < 1440) {
+    const hrs = Math.floor(minutesUntil / 60);
+    parts.push(`in ${hrs} hour${hrs > 1 ? 's' : ''}`);
+  } else {
+    parts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
   }
 
-  return parts.length > 0
-    ? parts.join(' – ') + '. Prepare with targeted practice.'
-    : `${row.event_title || 'Upcoming event'}. Prepare with targeted practice.`;
+  // Build final string with event title in italics
+  const eventTitle = row.event_title || 'Upcoming event';
+  const prefix = `*${eventTitle}*`;
+
+  if (parts.length === 0) {
+    return `${prefix}. Prepare with targeted practice.`;
+  }
+
+  // Confidence-framed closing
+  const confidenceScore = row.jit_confidence_score || 0;
+  if (confidenceScore >= 70) {
+    return `${prefix} — ${parts.join('. ')}.`;
+  } else if (confidenceScore >= 40) {
+    return `${prefix} — ${parts.join('. ')}.`;
+  }
+
+  return `${prefix} — ${parts.join('. ')}.`;
 }
 
 /**
