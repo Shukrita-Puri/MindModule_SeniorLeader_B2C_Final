@@ -10,11 +10,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
-import { X, ArrowRight, Rocket } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GuideStep {
-  targetSelector: string; // CSS selector or 'fullscreen'
+  targetSelector: string;
   title: string;
   body: string;
   page: 'check-in' | 'home';
@@ -28,7 +28,7 @@ const STEPS: GuideStep[] = [
   {
     targetSelector: '[data-tour="check-in-carousel"]',
     title: 'Performance Readiness Assessment',
-    body: 'One tap to tell the system how you\'re performing right now. This is where every day starts.',
+    body: 'One tap to tell the system how you\'re performing right now — your sharpness, clarity, and confidence. This is where every day starts.',
     page: 'check-in',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
@@ -112,13 +112,6 @@ const STEPS: GuideStep[] = [
 const SESSION_KEY = 'first_session_guide_step';
 const DONE_KEY = 'first_session_done';
 
-interface SpotlightRect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
 interface FirstSessionGuideProps {
   onComplete: () => void;
 }
@@ -131,93 +124,75 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
   const [currentStep, setCurrentStep] = useState(savedStep);
-  const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
-  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
-  const rafRef = useRef<number>();
+  const [tooltipVisible, setTooltipVisible] = useState(true);
+  const previousElRef = useRef<HTMLElement | null>(null);
 
   const step = STEPS[currentStep];
   const isFullscreen = step?.targetSelector === 'fullscreen';
   const isLastStep = currentStep === STEPS.length - 1;
 
-  // Persist step to sessionStorage
+  // Persist step
   useEffect(() => {
     sessionStorage.setItem(SESSION_KEY, String(currentStep));
   }, [currentStep]);
 
-  // Find and track the highlighted element
-  const updateSpotlight = useCallback(() => {
-    if (!step || isFullscreen) {
-      setSpotlight(null);
-      setTooltipStyle({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
-      return;
+  // Clean up previously highlighted element
+  const cleanupPrevious = useCallback(() => {
+    if (previousElRef.current) {
+      previousElRef.current.style.position = '';
+      previousElRef.current.style.zIndex = '';
+      previousElRef.current.style.boxShadow = '';
+      previousElRef.current.style.borderRadius = '';
+      previousElRef.current = null;
     }
+  }, []);
 
-    const el = document.querySelector(step.targetSelector);
+  // Highlight and scroll to the target element
+  const highlightElement = useCallback(() => {
+    cleanupPrevious();
+
+    if (!step || isFullscreen) return;
+
+    const el = document.querySelector(step.targetSelector) as HTMLElement | null;
     if (!el) {
-      // Element not found yet — retry
-      rafRef.current = requestAnimationFrame(updateSpotlight);
-      return;
+      // Retry until element appears
+      const timer = setTimeout(highlightElement, 200);
+      return () => clearTimeout(timer);
     }
 
-    const rect = el.getBoundingClientRect();
-    const padding = 8;
-    const sr: SpotlightRect = {
-      top: rect.top - padding,
-      left: rect.left - padding,
-      width: rect.width + padding * 2,
-      height: rect.height + padding * 2,
-    };
-    setSpotlight(sr);
+    // Scroll element into center
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Position tooltip
-    const viewportH = window.innerHeight;
-    const spaceBelow = viewportH - (sr.top + sr.height);
-    const spaceAbove = sr.top;
-    const tooltipMaxW = Math.min(340, window.innerWidth - 32);
-
-    if (spaceBelow > 180) {
-      setTooltipStyle({
-        top: sr.top + sr.height + 16,
-        left: Math.max(16, Math.min(sr.left, window.innerWidth - tooltipMaxW - 16)),
-        maxWidth: tooltipMaxW,
-      });
-    } else if (spaceAbove > 180) {
-      setTooltipStyle({
-        bottom: viewportH - sr.top + 16,
-        left: Math.max(16, Math.min(sr.left, window.innerWidth - tooltipMaxW - 16)),
-        maxWidth: tooltipMaxW,
-      });
-    } else {
-      setTooltipStyle({
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        maxWidth: tooltipMaxW,
-      });
-    }
-  }, [step, isFullscreen]);
+    // After scroll settles, raise element above overlay
+    setTimeout(() => {
+      el.style.position = 'relative';
+      el.style.zIndex = '61';
+      el.style.boxShadow = '0 0 40px rgba(255,183,77,0.15)';
+      el.style.borderRadius = '12px';
+      previousElRef.current = el;
+    }, 450);
+  }, [step, isFullscreen, cleanupPrevious]);
 
   useEffect(() => {
-    updateSpotlight();
-    window.addEventListener('resize', updateSpotlight);
-    window.addEventListener('scroll', updateSpotlight, true);
-    return () => {
-      window.removeEventListener('resize', updateSpotlight);
-      window.removeEventListener('scroll', updateSpotlight, true);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [updateSpotlight]);
+    setTooltipVisible(false);
+    const fadeTimer = setTimeout(() => setTooltipVisible(true), 500);
 
-  // Handle sidebar open/close for specific steps
+    highlightElement();
+
+    return () => {
+      clearTimeout(fadeTimer);
+    };
+  }, [currentStep, highlightElement]);
+
+  // Handle sidebar open/close
   useEffect(() => {
     if (step?.openSidebar && sidebarContext) {
       sidebarContext.setOpen(true);
-      // Wait for sidebar to animate open, then re-measure
-      setTimeout(updateSpotlight, 400);
+      setTimeout(highlightElement, 400);
     }
     if (step?.closeSidebar && sidebarContext) {
       sidebarContext.setOpen(false);
-      setTimeout(updateSpotlight, 400);
+      setTimeout(highlightElement, 400);
     }
   }, [currentStep]);
 
@@ -230,6 +205,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
   }, [currentStep, step, location.pathname, navigate]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => cleanupPrevious();
+  }, [cleanupPrevious]);
+
   const handleNext = () => {
     if (isLastStep) {
       finish();
@@ -238,7 +218,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     setCurrentStep(prev => prev + 1);
   };
 
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
   const finish = () => {
+    cleanupPrevious();
     sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
     if (sidebarContext) sidebarContext.setOpen(false);
@@ -249,64 +236,40 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   if (!step) return null;
 
-  // Build clip-path to create the spotlight cutout
-  const clipPath = spotlight
-    ? `polygon(
-        0% 0%, 0% 100%, 
-        ${spotlight.left}px 100%, 
-        ${spotlight.left}px ${spotlight.top}px, 
-        ${spotlight.left + spotlight.width}px ${spotlight.top}px, 
-        ${spotlight.left + spotlight.width}px ${spotlight.top + spotlight.height}px, 
-        ${spotlight.left}px ${spotlight.top + spotlight.height}px, 
-        ${spotlight.left}px 100%, 
-        100% 100%, 100% 0%
-      )`
-    : undefined;
-
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
-      {/* Dark overlay with optional spotlight cutout */}
-      <div
-        className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-all duration-300"
-        style={spotlight ? { clipPath } : undefined}
-      />
-
-      {/* Spotlight border ring (only when highlighting an element) */}
-      {spotlight && (
-        <div
-          className="absolute rounded-xl border-2 border-saffron/60 shadow-[0_0_24px_rgba(255,183,77,0.25)] pointer-events-none transition-all duration-300"
-          style={{
-            top: spotlight.top,
-            left: spotlight.left,
-            width: spotlight.width,
-            height: spotlight.height,
-          }}
-        />
-      )}
+      {/* Light overlay — no clip-path, no blur */}
+      <div className="absolute inset-0 bg-black/40 transition-opacity duration-300" />
 
       {/* Skip button */}
       <button
         onClick={finish}
-        className="absolute top-4 right-4 z-[70] flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/10 transition-colors"
+        className="absolute top-4 right-4 z-[70] flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
       >
         Skip
         <X size={14} />
       </button>
 
-      {/* Tooltip Card */}
+      {/* Tooltip Card — fixed to bottom for non-fullscreen, centered for fullscreen */}
       <div
         className={cn(
-          "absolute z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl",
-          "animate-in fade-in slide-in-from-bottom-2 duration-300",
-          isFullscreen && "w-[calc(100%-32px)] max-w-[360px]"
+          "z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300",
+          tooltipVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
+          isFullscreen
+            ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[360px]"
+            : "fixed bottom-6 left-4 right-4 max-w-[400px] mx-auto"
         )}
-        style={tooltipStyle}
       >
-        {/* Phase label */}
-        <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron mb-2">
-          {step.phaseLabel}
-        </p>
+        {/* Phase label + step counter */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
+            {step.phaseLabel}
+          </p>
+          <p className="text-[10px] text-muted-foreground font-medium">
+            {currentStep + 1} of {STEPS.length}
+          </p>
+        </div>
 
         <h2 className="text-lg font-headline text-foreground leading-tight mb-2">
           {step.title}
@@ -316,7 +279,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           {step.body}
         </p>
 
-        {/* Footer: dots + action */}
+        {/* Footer: dots + actions */}
         <div className="flex items-center justify-between">
           {/* Dot indicators */}
           <div className="flex gap-1.5">
@@ -335,24 +298,36 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
             ))}
           </div>
 
-          {/* Action button */}
-          {isLastStep ? (
-            <button
-              onClick={finish}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20"
-            >
-              <Rocket size={16} />
-              Begin
-            </button>
-          ) : (
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors"
-            >
-              Next
-              <ArrowRight size={14} />
-            </button>
-          )}
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {currentStep > 0 && (
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors"
+              >
+                <ArrowLeft size={14} />
+                Back
+              </button>
+            )}
+
+            {isLastStep ? (
+              <button
+                onClick={finish}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20"
+              >
+                <Rocket size={16} />
+                Begin
+              </button>
+            ) : (
+              <button
+                onClick={handleNext}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors"
+              >
+                Next
+                <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
