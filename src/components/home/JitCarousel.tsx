@@ -63,16 +63,13 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
 
-  // Session-scoped snooze: hide for this session only, don't permanently suppress
+  // Session-scoped snooze: hide for this browser session only, resurface on next visit
   const getSnoozeKey = () => preEventPlan ? `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}` : '';
+  const getSnoozeCountKey = () => preEventPlan ? `jit_snooze_count_${preEventPlan.eventType || 'unknown'}` : '';
   const [dismissed, setDismissed] = useState(() => {
     if (!preEventPlan) return false;
     const key = `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}`;
-    const snoozedAt = sessionStorage.getItem(key);
-    if (!snoozedAt) return false;
-    // Allow resurfacing after 30 minutes
-    const elapsed = Date.now() - parseInt(snoozedAt, 10);
-    return elapsed < 30 * 60 * 1000;
+    return sessionStorage.getItem(key) === 'true';
   });
   const [snoozed, setSnoozed] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
