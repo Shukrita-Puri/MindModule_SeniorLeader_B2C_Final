@@ -72,6 +72,7 @@ interface PreEventPlan {
   } | null;
 }
 
+  jitPriority?: boolean;
 interface MasteryPlanResponse {
   timeOfDayPlan: {
     label: string;
