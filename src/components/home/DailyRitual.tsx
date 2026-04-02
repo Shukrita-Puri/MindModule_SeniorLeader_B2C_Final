@@ -85,6 +85,7 @@ interface MasteryPlanResponse {
   };
   calendarPills: CalendarPill[];
   preEventPlan: PreEventPlan | null;
+  jitPriority?: boolean;
   meta: {
     generatedAt: string;
     scenarioId: string | null;
