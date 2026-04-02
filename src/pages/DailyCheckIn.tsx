@@ -84,9 +84,19 @@ const DailyCheckIn = () => {
     });
   }, []);
 
-  // Show first session guide if user has zero check-ins
+  // Show first session guide if user has zero check-ins (or forced via URL param)
   useEffect(() => {
-    if (!user?.id || sessionStorage.getItem('first_session_done')) return;
+    if (sessionStorage.getItem('first_session_done')) return;
+
+    // Dev/testing: ?tour=1 in URL forces the guide
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tour') === '1') {
+      sessionStorage.setItem('first_session_guide_step', '0');
+      setShowGuide(true);
+      return;
+    }
+
+    if (!user?.id) return;
     supabase
       .from('daily_checkins')
       .select('id', { count: 'exact', head: true })
