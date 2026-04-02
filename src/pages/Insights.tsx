@@ -167,8 +167,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 const INSIGHT_TABS = [
   { key: 'patterns' as const, label: 'Patterns' },
-  { key: 'momentum' as const, label: 'Momentum' },
-  { key: 'mindmap' as const, label: 'Mind Map' },
+  { key: 'momentum' as const, label: 'Progress' },
+  { key: 'mindmap' as const, label: 'Presence' },
 ];
 
 const Insights = () => {
