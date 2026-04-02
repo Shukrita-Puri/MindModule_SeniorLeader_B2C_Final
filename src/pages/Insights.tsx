@@ -165,7 +165,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+const INSIGHT_TABS = [
+  { key: 'patterns' as const, label: 'Patterns' },
+  { key: 'momentum' as const, label: 'Momentum' },
+  { key: 'mindmap' as const, label: 'Mind Map' },
+];
+
 const Insights = () => {
+  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>('patterns');
   const navigate = useNavigate();
   const { user } = useAuth();
   // Removed page-level `loading` gate – each section manages its own loading
