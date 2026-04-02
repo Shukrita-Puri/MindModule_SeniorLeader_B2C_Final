@@ -1126,7 +1126,10 @@ async function getPreScoredEvents(
         // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
         // Only include events in valid action windows (touch1 or touch2)
         const actionWindow = getActionWindow(minutesUntil);
-        if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+        if (actionWindow === 'silent' || actionWindow === 'selection_only') {
+          console.log(`[generate-mastery-plan] Bridge: EXCLUDED "${row.event_title}" – window=${actionWindow} minutesUntil=${minutesUntil} score=${row.final_score}`);
+          continue;
+        }
 
         // ═══ PER-TOUCH DISMISSAL CHECK ═══
         // Check if this specific touch has been dismissed (not the whole event)
