@@ -22,6 +22,10 @@ interface OuterReadinessResult {
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
   coachInsightAge?: number;
   coachInsightLabel?: string;
+  // New: State statement + alreadyUsed[] relay for SharedContext
+  stateStatement?: string;
+  stateAlreadyUsed?: string[];
+  compassAlreadyUsed?: string[];
 }
 
 interface ComputeRequest {
