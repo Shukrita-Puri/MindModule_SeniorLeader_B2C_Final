@@ -63,16 +63,13 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
 
-  // Session-scoped snooze: hide for this session only, don't permanently suppress
+  // Session-scoped snooze: hide for this browser session only, resurface on next visit
   const getSnoozeKey = () => preEventPlan ? `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}` : '';
+  const getSnoozeCountKey = () => preEventPlan ? `jit_snooze_count_${preEventPlan.eventType || 'unknown'}` : '';
   const [dismissed, setDismissed] = useState(() => {
     if (!preEventPlan) return false;
     const key = `jit_snoozed_${preEventPlan.eventId || preEventPlan.eventTitle}`;
-    const snoozedAt = sessionStorage.getItem(key);
-    if (!snoozedAt) return false;
-    // Allow resurfacing after 30 minutes
-    const elapsed = Date.now() - parseInt(snoozedAt, 10);
-    return elapsed < 30 * 60 * 1000;
+    return sessionStorage.getItem(key) === 'true';
   });
   const [snoozed, setSnoozed] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -152,16 +149,28 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   };
 
   const handleDismiss = async () => {
-    // Session-scoped snooze: hide for this session, resurface after 30 min
+    // Session-scoped snooze: hide for this session only
     setDismissed(true);
-    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
-    // Track as 'snoozed' (soft) — server won't write to dismissed_horizons
-    await trackJitAction('snoozed');
+    sessionStorage.setItem(getSnoozeKey(), 'true');
+
+    // Track snooze count per event type (persisted in localStorage across sessions)
+    const countKey = getSnoozeCountKey();
+    const priorCount = parseInt(localStorage.getItem(countKey) || '0', 10);
+    const newCount = priorCount + 1;
+    localStorage.setItem(countKey, String(newCount));
+
+    if (newCount >= 2) {
+      // 2+ snoozes of same event type → escalate to permanent dismissed
+      await trackJitAction('dismissed');
+    } else {
+      // First snooze → soft, server won't write to dismissed_horizons
+      await trackJitAction('snoozed');
+    }
   };
 
   const handleSnooze = async () => {
     setSnoozed(true);
-    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
+    sessionStorage.setItem(getSnoozeKey(), 'true');
     await trackJitAction('snoozed');
   };
 
