@@ -2012,8 +2012,8 @@ serve(async (req) => {
       dayOfWeek,
     }));
 
-    // Fetch coach insights, check-ins, and archetype in parallel
-    const [coachRes, checkInRes, profileRes] = await Promise.all([
+    // Fetch coach insights, check-ins, archetype, and coach memory in parallel
+    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
@@ -2031,11 +2031,27 @@ serve(async (req) => {
         .select('user_archetype')
         .eq('id', userId)
         .maybeSingle(),
+      // Coach memory: recent memories with importance ≥ 5
+      db.from('coach_memory_index')
+        .select('memory_content, memory_type, pattern_area, key_themes, importance_score, created_at')
+        .eq('user_id', userId)
+        .gte('importance_score', 5)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      // Coach commitments: pending
+      db.from('coach_accountability_tracker')
+        .select('commitment_text, status, meta_skill, pattern_area, committed_at')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .order('committed_at', { ascending: false })
+        .limit(5),
     ]);
 
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
     const serverArchetype = profileRes.data?.user_archetype || null;
+    const coachMemories = coachMemoryRes.data || [];
+    const coachCommitments = coachCommitmentsRes.data || [];
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
