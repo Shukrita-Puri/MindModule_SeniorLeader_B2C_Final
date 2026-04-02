@@ -990,12 +990,12 @@ async function getHRVEventCorrelations(
 const JIT_THRESHOLD_UNIFIED = 55;
 
 // ==================== TWO-TOUCH ACTION WINDOWS ====================
-// Touch 1 (24-48h): coach + think prep. Touch 2 (0-6h): body + state prep.
-// Silent gap (6-24h) and selection-only (>48h): scored but not surfaced.
-function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'silent' | 'selection_only' {
+// Touch 2 (0-6h): body + state prep. Touch 1 (6-48h): coach + think prep.
+// Selection-only (>48h): scored but not surfaced.
+// Suppression is per-event via dismissed_horizons and skippedTypes3Plus — no blanket silent window.
+function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'selection_only' {
   if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
-  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap – do not surface
-  if (minutesUntil <= 2880) return 'touch1';           // 24-48h: coach + think
+  if (minutesUntil <= 2880) return 'touch1';          // 6-48h: coach + think prep
   return 'selection_only';                              // >48h: scored but not surfaced
 }
 
@@ -1126,7 +1126,7 @@ async function getPreScoredEvents(
         // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
         // Only include events in valid action windows (touch1 or touch2)
         const actionWindow = getActionWindow(minutesUntil);
-        if (actionWindow === 'silent' || actionWindow === 'selection_only') {
+        if (actionWindow === 'selection_only') {
           console.log(`[generate-mastery-plan] Bridge: EXCLUDED "${row.event_title}" – window=${actionWindow} minutesUntil=${minutesUntil} score=${row.final_score}`);
           continue;
         }
@@ -1319,12 +1319,12 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
 
     // ═══ TWO-TOUCH ACTION WINDOW ═══
     const actionWindow = getActionWindow(minutesUntil);
-    if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+    if (actionWindow === 'selection_only') continue;
 
     let score = 0;
     const titleLower = (event.title || '').toLowerCase();
 
-    // Immediacy scoring (only touch2 0-6h and touch1 24-48h windows)
+    // Immediacy scoring (touch2 0-6h and touch1 6-48h windows)
     if (minutesUntil <= 120) score += 40;
     else if (minutesUntil <= 240) score += 30;
     else if (minutesUntil <= 360) score += 20;
@@ -2097,9 +2097,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   }));
 
   // 5. Build pre-event plan using TWO-TOUCH ACTION MODEL
-  // Touch 1 (24-48h): coach primary CTA + framework + optional focus practice (5-8 min thinking prep)
+  // Touch 1 (6-48h): coach primary CTA + framework + optional focus practice (5-8 min thinking prep)
   // Touch 2 (0-6h): somatic primary + focus exercise + coach secondary (3-5 min body prep)
-  // Silent gap (6-24h): nothing surfaces. Selection-only (>48h): nothing surfaces.
+  // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
   // Find first event in a valid action window
