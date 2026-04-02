@@ -1319,7 +1319,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
 
     // ═══ TWO-TOUCH ACTION WINDOW ═══
     const actionWindow = getActionWindow(minutesUntil);
-    if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+    if (actionWindow === 'selection_only') continue;
 
     let score = 0;
     const titleLower = (event.title || '').toLowerCase();
