@@ -642,6 +642,8 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
 
       {/* Pre-event context removed — handled by JitCarousel */}
 
+      {/* Carousel — hidden when JIT collapses the ToD plan */}
+      {!isCollapsedByJit && (<>
       {/* Carousel */}
       <div className="relative w-full">
         <Carousel opts={{ align: 'start', loop: false, watchDrag: true }} className="w-full" setApi={setCarouselApi}>
