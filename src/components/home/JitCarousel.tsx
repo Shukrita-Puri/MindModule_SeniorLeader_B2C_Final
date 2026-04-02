@@ -152,12 +152,16 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   };
 
   const handleDismiss = async () => {
+    // Session-scoped snooze: hide for this session, resurface after 30 min
     setDismissed(true);
-    await trackJitAction('dismissed');
+    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
+    // Track as 'snoozed' (soft) — server won't write to dismissed_horizons
+    await trackJitAction('snoozed');
   };
 
   const handleSnooze = async () => {
     setSnoozed(true);
+    sessionStorage.setItem(getSnoozeKey(), String(Date.now()));
     await trackJitAction('snoozed');
   };
 
