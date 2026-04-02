@@ -1324,7 +1324,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     let score = 0;
     const titleLower = (event.title || '').toLowerCase();
 
-    // Immediacy scoring (only touch2 0-6h and touch1 24-48h windows)
+    // Immediacy scoring (touch2 0-6h and touch1 6-48h windows)
     if (minutesUntil <= 120) score += 40;
     else if (minutesUntil <= 240) score += 30;
     else if (minutesUntil <= 360) score += 20;
