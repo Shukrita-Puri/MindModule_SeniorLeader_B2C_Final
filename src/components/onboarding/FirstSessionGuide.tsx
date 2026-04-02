@@ -1,43 +1,56 @@
 /**
  * First Session Spotlight Walkthrough
- * 
- * A 10-step guided tour that highlights real UI elements on the actual pages.
+ *
+ * A 10-step guided demo that highlights real UI elements on the actual pages.
  * Phase A (steps 0-4): Core daily loop — starts on /daily-check-in, moves to /executive-home
  * Phase B (steps 5-9): Navigation features — all on /executive-home
+ *
+ * Key behaviours:
+ * - Tooltip is always positioned with a measured gap so it never covers the
+ *   highlighted element.
+ * - "Demo" steps programmatically open the sidebar, scroll to items, etc.
+ * - Sidebar panel is elevated above the overlay when needed.
+ * - Small icon buttons (Menu / Coach) get a larger circular spotlight.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
-import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
 import { X, ArrowRight, ArrowLeft, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/* ------------------------------------------------------------------ */
+/*  Step definitions                                                   */
+/* ------------------------------------------------------------------ */
 
 interface GuideStep {
   targetSelector: string;
   title: string;
   body: string;
-  /** Rich body content for steps that need structured layout */
   richBody?: React.ReactNode;
-  page: 'check-in' | 'home' | 'connected-data';
+  page: 'check-in' | 'home';
   phase: 'A' | 'B';
   phaseLabel: string;
+  /** Open sidebar before highlighting */
   openSidebar?: boolean;
+  /** Close sidebar before highlighting */
   closeSidebar?: boolean;
+  /** Scroll window to top before highlighting */
   scrollToTop?: boolean;
-  /** Control scroll alignment when highlighting. Default 'center'. */
+  /** ScrollIntoView block alignment. Default 'center'. */
   scrollBlock?: ScrollLogicalPosition;
-  /** Force tooltip position instead of auto-detecting */
-  forceTooltip?: 'top' | 'bottom';
-  /** Elevate the sidebar panel above overlay for this step */
+  /** Extra padding (px) around the spotlight rectangle. */
+  spotlightPad?: number;
+  /** Elevate sidebar panel above overlay for this step */
   elevateSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
+  // ── Phase A — Daily Loop ──────────────────────────────────────
   {
     targetSelector: '[data-tour="check-in-carousel"]',
     title: 'Performance Readiness Assessment',
-    body: 'One tap to tell the system how you\'re performing right now — your sharpness, clarity, and confidence. This is where every day starts.',
+    body: "One tap to tell the system how you're performing right now — your sharpness, clarity, and confidence. This is where every day starts.",
     page: 'check-in',
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
@@ -58,7 +71,6 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
-    forceTooltip: 'top',
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -68,7 +80,6 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
-    forceTooltip: 'top',
   },
   {
     targetSelector: 'fullscreen',
@@ -78,7 +89,10 @@ const STEPS: GuideStep[] = [
     phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
   },
+
+  // ── Phase B — Navigation ──────────────────────────────────────
   {
+    // Step 5 — Menu button (larger circle spotlight)
     targetSelector: '[data-tour="sidebar-trigger-wrap"]',
     title: 'Your Menu',
     body: 'Open this to access all your features — Assessment, Reset Studio, Coach, and Intelligence.',
@@ -86,8 +100,10 @@ const STEPS: GuideStep[] = [
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
     scrollToTop: true,
+    spotlightPad: 12,
   },
   {
+    // Step 6 — Mental Performance Suite (sidebar open, elevated)
     targetSelector: '[data-tour="sidebar-nav"]',
     title: 'Your Mental Performance Suite',
     body: '',
@@ -118,6 +134,7 @@ const STEPS: GuideStep[] = [
     elevateSidebar: true,
   },
   {
+    // Step 7 — Coach button (larger circle spotlight)
     targetSelector: '[data-tour="coach-access-wrap"]',
     title: 'Mind Performance Coach',
     body: 'Instant AI-powered coaching — available from any screen. Built around your patterns and context.',
@@ -126,29 +143,38 @@ const STEPS: GuideStep[] = [
     phaseLabel: 'YOUR NAVIGATION',
     closeSidebar: true,
     scrollToTop: true,
+    spotlightPad: 12,
   },
   {
-    targetSelector: '[data-tour="connected-data-content"]',
+    // Step 8 — Connect Your Data (sidebar > profile > connected data)
+    // Demo-style: opens sidebar, highlights profile entry which leads to connected data
+    targetSelector: '[data-tour="sidebar-profile"]',
     title: 'Connect Your Data',
-    body: 'Sync Google Calendar and Apple Health here. This syncs automatically every 6 hours — but you can always manually sync if you want updates sooner. The more context, the sharper your system.',
-    page: 'connected-data',
+    body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours — the more context, the sharper your system.',
+    page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
+    openSidebar: true,
+    elevateSidebar: true,
   },
   {
+    // Step 9 — Ready
     targetSelector: 'fullscreen',
-    title: 'You\'re Ready',
+    title: "You're Ready",
     body: 'Start with your first check-in.',
     page: 'home',
     phase: 'B',
     phaseLabel: 'YOUR NAVIGATION',
+    closeSidebar: true,
   },
 ];
 
 const SESSION_KEY = 'first_session_guide_step';
 const DONE_KEY = 'first_session_done';
 
-type TooltipPosition = 'top' | 'bottom' | 'center';
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 interface FirstSessionGuideProps {
   onComplete: () => void;
@@ -157,18 +183,17 @@ interface FirstSessionGuideProps {
 const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { recordStep } = useOnboardingProgress();
   const sidebarContext = useSidebarSafe();
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
   const [currentStep, setCurrentStep] = useState(savedStep);
   const [tooltipVisible, setTooltipVisible] = useState(true);
-  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>('bottom');
+  /** Pixel position of the tooltip (top of tooltip card). null = centre (fullscreen). */
+  const [tooltipTop, setTooltipTop] = useState<number | null>(null);
   const previousElRef = useRef<HTMLElement | null>(null);
   const currentStepRef = useRef(currentStep);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep ref in sync
   currentStepRef.current = currentStep;
 
   const step = STEPS[currentStep];
@@ -180,7 +205,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.setItem(SESSION_KEY, String(currentStep));
   }, [currentStep]);
 
-  // Clean up previously highlighted element + sidebar elevation
+  /* ---- cleanup helpers ---- */
+
   const cleanupPrevious = useCallback(() => {
     if (previousElRef.current) {
       previousElRef.current.style.position = '';
@@ -189,14 +215,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.borderRadius = '';
       previousElRef.current = null;
     }
-    // Clean up sidebar elevation
-    const sidebarPanel = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
-    if (sidebarPanel) {
-      sidebarPanel.style.zIndex = '';
-    }
+    // Sidebar z-index
+    const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
+    if (sp) sp.style.zIndex = '';
   }, []);
 
-  // Clear any pending retry timer
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
@@ -204,131 +227,118 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
   }, []);
 
-  // Highlight and scroll to the target element
+  /* ---- highlight + measure ---- */
+
   const highlightElement = useCallback(() => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
     if (!s || s.targetSelector === 'fullscreen') {
-      setTooltipPosition('center');
+      setTooltipTop(null); // centre
       return;
     }
 
     const el = document.querySelector(s.targetSelector) as HTMLElement | null;
     if (!el) {
-      // Retry until element appears (max ~5s)
       retryTimerRef.current = setTimeout(highlightElement, 250);
       return;
     }
 
-    // Scroll to top first if requested
-    if (s.scrollToTop) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (s.scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Scroll element into view with configurable alignment
     const scrollBlock = s.scrollBlock || 'center';
     el.scrollIntoView({ behavior: 'smooth', block: scrollBlock });
 
-    // After scroll settles, raise element above overlay and measure position
+    // Wait for scroll + sidebar animation to settle
     setTimeout(() => {
-      // Double-check we're still on the same step
       if (currentStepRef.current !== idx) return;
 
       cleanupPrevious();
 
+      // Raise element
       el.style.position = 'relative';
       el.style.zIndex = '61';
       el.style.boxShadow = '0 0 40px rgba(255,183,77,0.15)';
       el.style.borderRadius = '12px';
       previousElRef.current = el;
 
-      // Elevate sidebar panel if needed
+      // Sidebar elevation
       if (s.elevateSidebar) {
-        const sidebarPanel = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
-        if (sidebarPanel) {
-          sidebarPanel.style.zIndex = '61';
-        }
+        const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
+        if (sp) sp.style.zIndex = '61';
       }
 
-      // Tooltip positioning
-      if (s.forceTooltip) {
-        setTooltipPosition(s.forceTooltip);
+      // ── Measured tooltip positioning ──
+      // Goal: place the tooltip card so it never overlaps the highlighted element.
+      const rect = el.getBoundingClientRect();
+      const vH = window.innerHeight;
+      const TOOLTIP_H = 260; // estimated max height of tooltip card
+      const GAP = 20;        // space between tooltip and element
+
+      const spaceAbove = rect.top;
+      const spaceBelow = vH - rect.bottom;
+
+      if (spaceAbove >= TOOLTIP_H + GAP) {
+        // Place above the element
+        setTooltipTop(rect.top - TOOLTIP_H - GAP);
+      } else if (spaceBelow >= TOOLTIP_H + GAP) {
+        // Place below the element
+        setTooltipTop(rect.bottom + GAP);
       } else {
-        // Smart tooltip positioning: measure where element sits
-        const rect = el.getBoundingClientRect();
-        const viewportH = window.innerHeight;
-
-        if (rect.bottom > viewportH * 0.5) {
-          setTooltipPosition('top');
-        } else {
-          setTooltipPosition('bottom');
-        }
+        // Not enough room either side — clamp to safe zone
+        // Prefer top, clamp at safe-area + 56px
+        setTooltipTop(Math.max(60, rect.top - TOOLTIP_H - GAP));
       }
-    }, 450);
+    }, 500);
   }, [cleanupPrevious]);
 
-  // On step change: fade tooltip, cleanup, re-highlight
+  /* ---- step lifecycle ---- */
+
   useEffect(() => {
     clearRetry();
     cleanupPrevious();
     setTooltipVisible(false);
 
-    const fadeTimer = setTimeout(() => setTooltipVisible(true), 500);
-
-    // Small delay to let page transitions / sidebar animations settle
-    const highlightTimer = setTimeout(() => {
-      highlightElement();
-    }, 100);
+    const fadeTimer = setTimeout(() => setTooltipVisible(true), 550);
+    const hlTimer = setTimeout(highlightElement, 150);
 
     return () => {
       clearTimeout(fadeTimer);
-      clearTimeout(highlightTimer);
+      clearTimeout(hlTimer);
       clearRetry();
     };
   }, [currentStep, highlightElement, cleanupPrevious, clearRetry]);
 
-  // Handle sidebar open/close
+  // Sidebar open/close
   useEffect(() => {
     if (!step) return;
     if (step.openSidebar && sidebarContext) {
       sidebarContext.setOpen(true);
-      // Re-highlight after sidebar animation
-      setTimeout(() => highlightElement(), 500);
+      setTimeout(highlightElement, 600);
     }
     if (step.closeSidebar && sidebarContext) {
       sidebarContext.setOpen(false);
-      setTimeout(() => highlightElement(), 500);
+      setTimeout(highlightElement, 600);
     }
-  }, [currentStep]); // intentionally only depend on currentStep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
-  // Handle page transitions (both directions)
+  // Page transitions
   useEffect(() => {
     if (!step) return;
-    const currentPage = location.pathname;
-    if (step.page === 'home' && currentPage !== '/executive-home') {
-      navigate('/executive-home');
-    }
-    if (step.page === 'check-in' && currentPage !== '/daily-check-in') {
-      navigate('/daily-check-in');
-    }
-    if (step.page === 'connected-data' && currentPage !== '/connected-data') {
-      navigate('/connected-data');
-    }
+    const cur = location.pathname;
+    if (step.page === 'home' && cur !== '/executive-home') navigate('/executive-home');
+    if (step.page === 'check-in' && cur !== '/daily-check-in') navigate('/daily-check-in');
   }, [currentStep, step, location.pathname, navigate]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      cleanupPrevious();
-      clearRetry();
-    };
+    return () => { cleanupPrevious(); clearRetry(); };
   }, [cleanupPrevious, clearRetry]);
 
+  /* ---- actions ---- */
+
   const handleNext = () => {
-    if (isLastStep) {
-      finish();
-      return;
-    }
+    if (isLastStep) { finish(); return; }
     cleanupPrevious();
     setCurrentStep(prev => prev + 1);
   };
@@ -346,54 +356,45 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
     if (sidebarContext) sidebarContext.setOpen(false);
-    recordStep('first_session_walkthrough');
+    // Don't submit invalid onboarding step — just mark done locally
     onComplete();
     navigate('/daily-check-in');
   };
 
   if (!step) return null;
 
-  // Compute tooltip classes based on position
-  const tooltipPositionClasses = (() => {
-    if (isFullscreen || tooltipPosition === 'center') {
-      return 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-[360px]';
-    }
-    if (tooltipPosition === 'top') {
-      return 'fixed left-4 right-4 max-w-[400px] mx-auto';
-    }
-    // bottom
-    return 'fixed bottom-6 left-4 right-4 max-w-[400px] mx-auto';
-  })();
+  /* ---- tooltip position styles ---- */
 
-  const tooltipTopStyle = tooltipPosition === 'top' && !isFullscreen
-    ? { top: 'calc(env(safe-area-inset-top, 0px) + 56px)' }
-    : undefined;
+  const tooltipStyle: React.CSSProperties =
+    isFullscreen || tooltipTop === null
+      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+      : { top: `${Math.max(8, tooltipTop)}px`, left: '16px', right: '16px' };
+
+  const tooltipMaxW = isFullscreen ? '360px' : '400px';
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
-      {/* Light overlay */}
+      {/* Overlay */}
       <div className="absolute inset-0 bg-black/40 transition-opacity duration-300" />
 
-      {/* Skip button */}
+      {/* Skip */}
       <button
         onClick={finish}
-        className="absolute top-4 right-4 z-[70] flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+        className="absolute right-4 z-[70] flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
       >
-        Skip
-        <X size={14} />
+        Skip <X size={14} />
       </button>
 
       {/* Tooltip Card */}
       <div
         className={cn(
-          "z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300",
-          tooltipVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
-          tooltipPositionClasses
+          'fixed z-[70] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl transition-all duration-300 mx-auto',
+          tooltipVisible ? 'opacity-100' : 'opacity-0 translate-y-2',
         )}
-        style={tooltipTopStyle}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, width: isFullscreen ? 'calc(100% - 32px)' : undefined }}
       >
-        {/* Phase label + step counter */}
+        {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
             {step.phaseLabel}
@@ -403,64 +404,40 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           </p>
         </div>
 
-        <h2 className="text-lg font-headline text-foreground leading-tight mb-2">
-          {step.title}
-        </h2>
+        <h2 className="text-lg font-headline text-foreground leading-tight mb-2">{step.title}</h2>
 
         {step.richBody ? (
           <div className="mb-4">{step.richBody}</div>
         ) : (
-          <p className="text-sm text-muted-foreground font-body leading-relaxed mb-5">
-            {step.body}
-          </p>
+          <p className="text-sm text-muted-foreground font-body leading-relaxed mb-5">{step.body}</p>
         )}
 
-        {/* Footer: dots + actions */}
+        {/* Footer */}
         <div className="flex items-center justify-between">
-          {/* Dot indicators */}
           <div className="flex gap-1.5">
             {STEPS.map((_, idx) => (
               <div
                 key={idx}
                 className={cn(
-                  "h-1.5 rounded-full transition-all duration-300",
-                  idx === currentStep
-                    ? "w-5 bg-saffron"
-                    : idx < currentStep
-                    ? "w-1.5 bg-saffron/40"
-                    : "w-1.5 bg-muted-foreground/25"
+                  'h-1.5 rounded-full transition-all duration-300',
+                  idx === currentStep ? 'w-5 bg-saffron' : idx < currentStep ? 'w-1.5 bg-saffron/40' : 'w-1.5 bg-muted-foreground/25',
                 )}
               />
             ))}
           </div>
-
-          {/* Action buttons */}
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors"
-              >
-                <ArrowLeft size={14} />
-                Back
+              <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors">
+                <ArrowLeft size={14} /> Back
               </button>
             )}
-
             {isLastStep ? (
-              <button
-                onClick={finish}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20"
-              >
-                <Rocket size={16} />
-                Begin
+              <button onClick={finish} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20">
+                <Rocket size={16} /> Begin
               </button>
             ) : (
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors"
-              >
-                Next
-                <ArrowRight size={14} />
+              <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors">
+                Next <ArrowRight size={14} />
               </button>
             )}
           </div>
@@ -470,9 +447,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   );
 };
 
-/**
- * Safely access sidebar context — returns null if not within a SidebarProvider.
- */
 function useSidebarSafe() {
   try {
     return useSidebar();

@@ -76,6 +76,7 @@ const UserSettingsPopover = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <SidebarMenuButton
+          data-tour="sidebar-profile"
           size="lg"
           className={cn(
             "data-[state=open]:bg-muted",
