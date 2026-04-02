@@ -2510,6 +2510,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     },
     calendarPills,
     preEventPlan,
+    jitPriority,
     meta: {
       generatedAt: new Date().toISOString(),
       scenarioId: filteredEvents[0]?.scenario?.id || null,
