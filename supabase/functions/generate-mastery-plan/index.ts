@@ -2296,8 +2296,6 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   }
 
   // 6. Build time-of-day plan
-  // State hash for coach card versioning – ensures refreshed state gets new coach cards
-  const coachStateHash = String(hashCode(`${req.innerReadinessTier}:${req.checkInOutcome}:${req.innerReadinessScore}:${req.outerReadinessPhrase}:${timeOfDay}`));
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
