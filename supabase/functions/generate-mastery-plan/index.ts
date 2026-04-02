@@ -691,6 +691,87 @@ function applyCalendarOverrides(
   return m;
 }
 
+// ==================== MODULE-DERIVED RATIONALE ====================
+
+function deriveRationaleFromModules(modules: Array<{ type: string; focus: string }>): string {
+  const types = new Set(modules.map(m => m.type));
+  const focuses = new Set(modules.map(m => m.focus));
+
+  // Module composition mapping
+  if (types.has('regulate') && focuses.has('restore')) {
+    return 'Nervous system recovery before the load lands — settle the physiology first, everything else follows.';
+  }
+  if (types.has('regulate') && focuses.has('composure') && !types.has('align')) {
+    return 'Interrupt the stress pattern before it compounds — your body is already signalling load.';
+  }
+  if (types.has('align') && focuses.has('confidence') && !types.has('regulate')) {
+    return 'Anchor your presence before you walk in — the thinking is there, this closes the belief gap.';
+  }
+  if (types.has('align') && focuses.has('focus') && !types.has('regulate')) {
+    return 'Sharpen the clarity gap between where you are and where the day needs you to be.';
+  }
+  if (types.has('regulate') && types.has('align')) {
+    return 'Settle the body first, then sharpen the mind — in that order, because the sequence matters.';
+  }
+  if (types.has('integrate') && types.has('regulate')) {
+    return 'Discharge what you carried today before it follows you into tomorrow.';
+  }
+  if (types.has('integrate')) {
+    return 'Close the loop on what happened — named experiences don\'t compound overnight.';
+  }
+  if (types.has('regulate') && focuses.has('release')) {
+    return 'Release what you carried — this prevents rumination and protects your rest.';
+  }
+  if (types.has('regulate') && focuses.has('grounding')) {
+    return 'Ground before you move — stability under load starts with the body.';
+  }
+  if (types.has('align')) {
+    return 'Sharpen your mental edge for what lies ahead.';
+  }
+  if (types.has('regulate')) {
+    return 'Settle your nervous system — this is the foundation for everything else.';
+  }
+  return 'This sequence addresses what your system needs right now.';
+}
+
+function buildUrgencyFrame(
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  nextEventTitle: string | null,
+  nextEventMinutes: number | null,
+  calendarGapMinutes: number | null,
+  calendarLoad: string,
+): string {
+  // JIT event urgency
+  if (nextEventTitle && nextEventMinutes !== null) {
+    if (nextEventMinutes <= 45) {
+      return `*${nextEventTitle}* in ${nextEventMinutes} minutes. Start now.`;
+    }
+    if (nextEventMinutes <= 120) {
+      const hours = Math.floor(nextEventMinutes / 60);
+      const mins = nextEventMinutes % 60;
+      const timeStr = hours > 0 ? `${hours}h ${mins > 0 ? mins + 'm' : ''}` : `${mins}m`;
+      return `*${nextEventTitle}* is ${timeStr} away. This is your window.`;
+    }
+  }
+
+  // Calendar gap
+  if (calendarGapMinutes !== null && calendarGapMinutes > 0 && calendarGapMinutes <= 60) {
+    return `You have ${calendarGapMinutes} minutes before your next block. That's enough — use it.`;
+  }
+
+  // Time of day based
+  if (timeOfDay === 'evening') {
+    return 'The day is done. This closes it properly.';
+  }
+
+  const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
+  if (isDense) {
+    return 'There is no better window than this one.';
+  }
+
+  return 'The open space is the asset. Use it deliberately.';
+}
+
 function generatePlanBrief(
   ctx: CalendarContext,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
@@ -703,35 +784,54 @@ function generatePlanBrief(
   outerReadinessContext: string,
   outerReadinessLeanOn: string,
   coachInsights?: any[],
+  resolvedModules?: Array<{ type: string; focus: string }>,
+  alreadyUsed?: string[],
+  nextEventTitle?: string | null,
+  nextEventMinutes?: number | null,
+  pendingCommitments?: any[],
 ): string {
+  // Derive rationale from resolved modules (new approach)
+  if (resolvedModules && resolvedModules.length > 0) {
+    const rationale = deriveRationaleFromModules(resolvedModules);
+    
+    // Coach memory integration
+    let coachFragment = '';
+    if (pendingCommitments && pendingCommitments.length > 0 && nextEventTitle) {
+      const relevantCommitment = pendingCommitments.find((c: any) => {
+        const text = (c.commitment_text || '').toLowerCase();
+        const eventWords = (nextEventTitle || '').toLowerCase().split(' ').filter((w: string) => w.length > 3);
+        return eventWords.some(w => text.includes(w));
+      });
+      if (relevantCommitment) {
+        coachFragment = ` You committed to working on this — *${nextEventTitle}* is that moment.`;
+      }
+    }
+    if (!coachFragment && coachInsights && coachInsights.length > 0) {
+      const growthInsight = coachInsights.find((i: any) => i.type === 'growth_area');
+      if (growthInsight?.content && growthInsight.content.length < 80) {
+        const pattern = growthInsight.content.toLowerCase().replace(/\.$/, '');
+        if (!alreadyUsed?.includes('coach_memory_match')) {
+          coachFragment = ` Your coach noted ${pattern} — today's signals are consistent with it.`;
+        }
+      }
+    }
+
+    // Urgency frame
+    const calGapMins = ctx.remainingMeetingCount > 0 ? null : null; // simplified
+    const urgency = buildUrgencyFrame(timeOfDay, nextEventTitle || null, nextEventMinutes || null, calGapMins, calendarLoad);
+
+    return `${rationale}${coachFragment} ${urgency}`;
+  }
+
+  // ═══ FALLBACK: Legacy brief generation (when resolvedModules not available) ═══
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
   const remainingCount = ctx.remainingMeetingCount ?? count;
-  const hasCalendar = count > 0;
 
-  // Map readiness tier to human language
   const tierLabel: Record<string, string> = {
-    depleted: 'low',
-    managing: 'steady',
-    strong: 'above baseline',
-    peak: 'at peak'
+    depleted: 'low', managing: 'steady', strong: 'above baseline', peak: 'at peak'
   };
   const readinessWord = tierLabel[innerReadinessTier] || 'steady';
 
-  // Map check-in outcome to state descriptor
-  const outcomeLabel: Record<string, string> = {
-    thriving: 'energised',
-    steady: 'steady',
-    struggling: 'under pressure',
-    drained: 'drained',
-    scattered: 'scattered',
-    anxious: 'tense',
-    flat: 'flat',
-    overwhelmed: 'overwhelmed',
-    focused: 'focused',
-  };
-  const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
-
-  // Wearable signal fragments – only when notable
   const poorSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
   const lowHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
   const goodHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation > 5;
@@ -744,89 +844,22 @@ function generatePlanBrief(
   else if (goodHRV && goodSleep) wearableFragment = ' with recovered HRV and solid sleep';
   else if (goodHRV) wearableFragment = ' with recovered HRV';
 
-  // Extract the key action from outer readiness context (sentence 2 source)
-  // Use context directly as rationale instead of quoting the phrase
-  const hasOuterContext = outerReadinessContext && outerReadinessContext.length > 10;
+  let stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
+  let purposeSentence = 'This sequence addresses what your system needs right now.';
 
-  // Coach insight fragment – pick one relevant insight if available
-  let coachFragment = '';
-  if (coachInsights && coachInsights.length > 0) {
-    const relevantInsight = coachInsights.find((i: any) => i.type === 'growth_area') || coachInsights[0];
-    if (relevantInsight?.content && relevantInsight.content.length < 80) {
-      coachFragment = ` Your coach has noted: ${relevantInsight.content.toLowerCase().replace(/\.$/, '')}.`;
-    }
-  }
-
-  // ---- Build contextual brief: sentence 1 = state now, sentence 2 = why this sequence ----
-
-  let stateSentence = '';
-  let purposeSentence = '';
-
-  // ---- EVENING ----
   if (timeOfDay === 'evening') {
-    // State: acknowledge today retrospectively using outer readiness context
-    if (hasOuterContext) {
-      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
-      // Purpose: derive from outer readiness context – the "why" behind the sequence
-      if (innerReadinessTier === 'depleted') {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence helps you release what you carried and protect tomorrow's capacity.`;
-      } else if (innerReadinessTier === 'managing') {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence helps you close cleanly so you arrive restored tomorrow.`;
-      } else {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence consolidates your edge and sets up tomorrow.`;
-      }
-    } else if (hasCalendar && (calendarLoad === 'extreme' || calendarLoad === 'heavy')) {
-      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100) after ${count} meetings${wearableFragment}.`;
-      purposeSentence = innerReadinessTier === 'depleted'
-        ? 'This sequence helps you release what you carried today and protect tomorrow\'s first decisions.'
-        : 'This sequence helps you close cleanly after a dense day.';
-    } else {
-      stateSentence = `You checked in as ${stateWord} this evening – readiness at ${innerReadinessScore}/100${wearableFragment}.`;
-      purposeSentence = innerReadinessTier === 'depleted'
-        ? 'This sequence is designed to release what you carried today and protect tomorrow\'s capacity.'
-        : 'This sequence helps you close with intention and arrive restored tomorrow.';
-    }
-    return `${stateSentence} ${purposeSentence}${coachFragment}`;
-  }
-
-  // ---- MORNING ----
-  if (timeOfDay === 'morning') {
-    if (hasOuterContext) {
-      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}${hasCalendar ? ` with ${count} meetings ahead` : ''}.`;
-      if (innerReadinessTier === 'depleted' || poorSleep) {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices compensate for what rest didn't fully restore.`;
-      } else if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices build the composure to sustain you through a dense day.`;
-      } else {
-        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices set your mental edge for what lies ahead.`;
-      }
-    } else {
-      if (poorSleep) {
-        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100) after below-baseline sleep${lowHRV ? ' and low HRV' : ''}.`;
-      } else if (hasCalendar) {
-        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment} with ${count} meetings ahead.`;
-      } else {
-        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
-      }
-      purposeSentence = 'These practices set your mental edge for the day ahead.';
-    }
-    return `${stateSentence} ${purposeSentence}${coachFragment}`;
-  }
-
-  // ---- AFTERNOON ----
-  if (hasOuterContext) {
-    stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}${remainingCount > 0 ? ` with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead` : ''}.`;
-    purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence restores your edge for the stretch that remains.`;
+    purposeSentence = innerReadinessTier === 'depleted'
+      ? 'This sequence helps you release what you carried and protect tomorrow\'s capacity.'
+      : 'This sequence helps you close cleanly so you arrive restored tomorrow.';
+  } else if (timeOfDay === 'morning') {
+    purposeSentence = poorSleep
+      ? 'These practices compensate for what rest didn\'t fully restore.'
+      : 'These practices set your mental edge for the day ahead.';
   } else {
-    if (hasCalendar && remainingCount > 0) {
-      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead.`;
-    } else {
-      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
-    }
-    purposeSentence = 'This sequence resets your energy for the stretch that remains.';
+    purposeSentence = 'This sequence restores your edge for the stretch that remains.';
   }
 
-  return `${stateSentence} ${purposeSentence}${coachFragment}`;
+  return `${stateSentence} ${purposeSentence}`;
 }
 
 function hashCode(str: string): number {
