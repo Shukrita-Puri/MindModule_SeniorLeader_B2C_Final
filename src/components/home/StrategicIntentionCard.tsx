@@ -28,7 +28,11 @@ function renderLeanOn(text: string) {
   );
 }
 
-const StrategicIntentionCard = () => {
+interface StrategicIntentionCardProps {
+  jitEvent?: { title: string; minutesUntil: number };
+}
+
+const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
   const { data: brief, isLoading } = useOuterReadiness();
 
   // Only show skeleton on initial load, not background refetches

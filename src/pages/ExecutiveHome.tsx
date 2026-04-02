@@ -257,15 +257,28 @@ const ExecutiveHome = () => {
                 </section>
               </div>
 
+              {/* JIT Preparation — rendered ABOVE ToD when JIT is primary */}
+              {jitPriority && (
+                <div className="animate-in fade-in duration-500 delay-200 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
+
               {/* Time-of-Day Plan */}
               <div className="animate-in fade-in duration-500 delay-200">
-                <DailyRitual onPreEventPlanReady={setPreEventPlan} />
+                <DailyRitual
+                  onPreEventPlanReady={setPreEventPlan}
+                  onJitPriorityChange={setJitPriority}
+                  jitPriority={jitPriority}
+                />
               </div>
 
-              {/* JIT Preparation - driven by plan data */}
-              <div className="animate-in fade-in duration-500 delay-300 mt-4">
-                <JitCarousel preEventPlan={preEventPlan} />
-              </div>
+              {/* JIT Preparation — below ToD when NOT primary */}
+              {!jitPriority && (
+                <div className="animate-in fade-in duration-500 delay-300 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
             </div>
 
             <div className="mt-8">
