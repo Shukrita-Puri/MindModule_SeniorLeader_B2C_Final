@@ -218,7 +218,7 @@ const ExecutiveHome = () => {
           </div>
 
           {/* Sticky Tab Bar */}
-          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">">
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
             <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
               {TAB_LABELS.map(({ key, label }) => (
                 <button
