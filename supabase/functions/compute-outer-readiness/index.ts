@@ -2123,6 +2123,156 @@ serve(async (req) => {
     const wearableUsed = !!wearableContext;
     const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
 
+    // ═══ STATE STATEMENT BUILDER (calendar-aware, co-located) ═══
+    // Build the State card's physiological statement here since we have all signals
+    const stateAlreadyUsed: string[] = [];
+    let stateStatement = '';
+    {
+      const calLoad = calendarLoad === 'high' ? 'high' : (calendarLoad === 'medium' ? 'medium' : 'low');
+      const hsCount = todayHighStakes.length;
+      const isHeavyDay = calLoad === 'high' || hsCount > 0;
+
+      // Detect consecutive tier streak from check-ins
+      let consecutiveStreak: { tier: string; count: number } | null = null;
+      if (recentCheckIns.length >= 3) {
+        const sorted = [...recentCheckIns].sort((a: any, b: any) => 
+          new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime()
+        );
+        // Map energy_balance to tier
+        const getTier = (eb: number) => eb < 40 ? 'depleted' : eb < 60 ? 'managing' : eb < 75 ? 'strong' : 'peak';
+        const firstTier = getTier(sorted[0].energy_balance ?? 50);
+        let count = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          if (getTier(sorted[i].energy_balance ?? 50) === firstTier) count++;
+          else break;
+        }
+        if (count >= 3) consecutiveStreak = { tier: firstTier, count };
+      }
+
+      // Collect wearable signals
+      const signals: Array<{ key: string; text: string; divergence: number }> = [];
+      if (wearableContext) {
+        if (wearableContext.hrvElevated) {
+          signals.push({ key: 'hrv_deviation', text: 'HRV below baseline', divergence: 25 });
+        }
+        if (wearableContext.poorSleep) {
+          const detail = wearableContext.sleepScore ? `sleep below baseline (score: ${wearableContext.sleepScore})` : 'sleep below baseline';
+          signals.push({ key: 'sleep_score', text: detail, divergence: 20 });
+        } else if (wearableContext.sleepScore && wearableContext.sleepScore >= 80) {
+          signals.push({ key: 'sleep_good', text: 'solid sleep', divergence: 10 });
+        }
+        if (wearableContext.rhrElevated) {
+          signals.push({ key: 'rhr_elevated', text: 'resting heart rate above baseline', divergence: 15 });
+        }
+      }
+      signals.sort((a, b) => b.divergence - a.divergence);
+
+      // Build statement
+      const tierLabel = safeTier === 'depleted' ? 'Low readiness' : safeTier === 'managing' ? 'Moderate readiness' : safeTier === 'strong' ? 'Strong readiness' : 'Peak readiness';
+      const tod = getTimeOfDay(hour);
+
+      if (!wearableContext && !checkInOutcome) {
+        stateStatement = `${tierLabel} this ${tod}.`;
+        stateAlreadyUsed.push('tier_fallback');
+      } else if (isHeavyDay && signals.length >= 2) {
+        const notable = signals.filter(s => s.divergence >= 15);
+        if (notable.length >= 2) {
+          stateStatement = `${tierLabel} with ${notable[0].text} and ${notable[1].text} this ${tod}.`;
+          notable.slice(0, 2).forEach(s => stateAlreadyUsed.push(s.key));
+        } else if (notable.length === 1) {
+          const good = signals.find(s => s.key === 'sleep_good');
+          if (good) {
+            stateStatement = `${tierLabel} with ${good.text} — but ${notable[0].text}, signalling physiological load despite the mental clarity.`;
+            stateAlreadyUsed.push(notable[0].key, good.key);
+          } else {
+            stateStatement = `${tierLabel} this ${tod} — ${notable[0].text}.`;
+            stateAlreadyUsed.push(notable[0].key);
+          }
+        } else {
+          stateStatement = `${tierLabel} this ${tod}.`;
+          stateAlreadyUsed.push('tier_fallback');
+        }
+      } else if (signals.length > 0) {
+        // Light day: single strongest signal
+        stateStatement = `${tierLabel}, ${signals[0].text}.`;
+        stateAlreadyUsed.push(signals[0].key);
+      } else if (checkInOutcome) {
+        stateStatement = `${tierLabel} this ${tod}.`;
+        stateAlreadyUsed.push('checkin_outcome');
+      } else {
+        stateStatement = `${tierLabel} this ${tod}.`;
+        stateAlreadyUsed.push('tier_fallback');
+      }
+
+      // Cognitive divergence (second sentence)
+      const cHigh = (clarityLevel ?? 3) >= 4;
+      const cLow = (clarityLevel ?? 3) <= 2;
+      const confHigh = (confidenceLevel ?? 3) >= 4;
+      const confLow = (confidenceLevel ?? 3) <= 2;
+      if (cHigh && confLow) {
+        stateStatement += ' Clarity is strong — but confidence is low, which means the thinking is there but the belief in it isn\'t yet.';
+        stateAlreadyUsed.push('clarity_high', 'confidence_low');
+      } else if (cLow && confHigh) {
+        stateStatement += ' Confidence is high but clarity is low — certainty about an unclear path.';
+        stateAlreadyUsed.push('clarity_low', 'confidence_high');
+      } else if (cLow && confLow && safeTier !== 'depleted') {
+        stateStatement += ' Both clarity and confidence flagged low in your check-in.';
+        stateAlreadyUsed.push('clarity_low', 'confidence_low');
+      }
+
+      // Streak
+      if (consecutiveStreak) {
+        stateStatement += ` ${consecutiveStreak.count} days running at this level.`;
+        stateAlreadyUsed.push(`streak_${consecutiveStreak.count}d`);
+      }
+    }
+
+    // ═══ COMPASS INTERSECTION INTELLIGENCE ═══
+    // Apply no-repeat rule: if stateAlreadyUsed contains a signal, Compass must not repeat it
+    const compassAlreadyUsed = [...stateAlreadyUsed];
+
+    // Coach memory + calendar match for intersection
+    if (coachMemories.length > 0 && todayHighStakes.length > 0) {
+      // Check if any coach memory relates to an upcoming event type
+      const eventTypes = todayHighStakes.map(t => t.toLowerCase());
+      const relevantMemory = coachMemories.find((m: any) => {
+        const content = (m.memory_content || '').toLowerCase();
+        const themes = (m.key_themes || []).map((t: string) => t.toLowerCase());
+        return eventTypes.some(et => content.includes(et.split(' ')[0]) || themes.some(th => et.includes(th)));
+      });
+      if (relevantMemory && !finalContext.includes('coach')) {
+        // P1: Coach memory + calendar match — prepend intersection
+        const eventRef = `*${todayHighStakes[0]}*`;
+        const coachRef = (relevantMemory as any).memory_content.length > 80 
+          ? (relevantMemory as any).memory_content.substring(0, 77) + '...'
+          : (relevantMemory as any).memory_content;
+        finalContext = `You've explored this territory in coaching — ${eventRef} is that moment. ${finalContext}`;
+        compassAlreadyUsed.push('coach_memory_match');
+      }
+    }
+
+    // Coach commitment + event match
+    if (coachCommitments.length > 0 && todayHighStakes.length > 0) {
+      const eventRef = `*${todayHighStakes[0]}*`;
+      const relevantCommitment = coachCommitments.find((c: any) => {
+        const text = (c.commitment_text || '').toLowerCase();
+        return todayHighStakes.some(e => text.includes(e.toLowerCase().split(' ')[0]));
+      });
+      if (relevantCommitment && !finalContext.includes('commitment')) {
+        finalContext = `You committed to working on this — ${eventRef} is that moment. ${finalContext}`;
+        compassAlreadyUsed.push('coach_commitment_match');
+      }
+    }
+
+    // Ensure event titles in Compass context use italic formatting (*event_title*)
+    // Wrap any 'event_title' references in the context with * markers
+    if (todayHighStakes.length > 0) {
+      for (const hs of todayHighStakes) {
+        // Replace plain 'Title' with *Title* where it appears wrapped in single quotes
+        finalContext = finalContext.replace(new RegExp(`'${hs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`, 'g'), `*${hs}*`);
+      }
+    }
+
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
     try {
@@ -2154,6 +2304,10 @@ serve(async (req) => {
       calendarState: calendarResult.state,
       coachInsightAge: leanOnResult.coachInsightAge,
       coachInsightLabel: leanOnResult.coachInsightLabel,
+      // New: State statement + relay arrays
+      stateStatement,
+      stateAlreadyUsed,
+      compassAlreadyUsed,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
