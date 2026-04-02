@@ -107,9 +107,12 @@ const isEvening = (): boolean => {
 
 interface DailyRitualProps {
   onPreEventPlanReady?: (plan: PreEventPlan | null) => void;
+  onJitPriorityChange?: (jitPriority: boolean) => void;
+  jitPriority?: boolean;
 }
 
-const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
+const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = false }: DailyRitualProps = {}) => {
+  const [jitExpanded, setJitExpanded] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
