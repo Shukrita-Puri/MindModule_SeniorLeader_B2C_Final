@@ -62,8 +62,15 @@ interface PreEventPlan {
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
+
+  // First session guide: show if mid-flow (navigated from check-in page)
+  const [showGuide, setShowGuide] = useState(() => {
+    const step = sessionStorage.getItem('first_session_guide_step');
+    return step !== null && !sessionStorage.getItem('first_session_done');
+  });
 
   // Check for plan feedback flag on mount
   useEffect(() => {
