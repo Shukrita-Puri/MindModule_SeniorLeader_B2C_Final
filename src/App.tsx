@@ -54,6 +54,7 @@ const Stage7GrowthIntention = lazy(() => import("./pages/onboarding/stages/Stage
 const Stage8Results = lazy(() => import("./pages/onboarding/stages/Stage8Results"));
 const Stage8SignupStep = lazy(() => import("./pages/onboarding/stages/Stage8SignupStep"));
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
+const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
