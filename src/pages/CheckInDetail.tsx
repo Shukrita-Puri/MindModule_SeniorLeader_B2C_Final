@@ -147,7 +147,7 @@ const CheckInDetail = () => {
               </div>
               <Slider
                 value={[confidence]}
-                onValueChange={(v) => setConfidence(v[0])}
+                onValueChange={(v) => { setConfidence(v[0]); setConfidenceTouched(true); }}
                 min={1}
                 max={5}
                 step={1}
