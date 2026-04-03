@@ -38,7 +38,7 @@ export default function Stage1Welcome() {
         onClick={() => navigate("/onboarding/identity")}
         className="w-full text-lg py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
       >
-        Three minutes. Let's begin.
+        Let's begin
         <ArrowRight size={20} className="ml-2" />
       </Button>
 
