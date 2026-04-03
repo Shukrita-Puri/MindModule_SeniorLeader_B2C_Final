@@ -267,9 +267,11 @@ export default function Stage6Payment() {
         </ul>
       </div>
 
-      {/* 7-day trial note */}
+      {/* Trial / upgrade note */}
       <p className="text-xs text-center text-muted-foreground mb-4">
-        Includes 7-day free trial · Cancel anytime before for no charge
+        {isUpgradeVisit
+          ? 'Upgrade to unlock full access instantly'
+          : 'Includes 7-day free trial · Cancel anytime before for no charge'}
       </p>
 
       {/* CTA */}
