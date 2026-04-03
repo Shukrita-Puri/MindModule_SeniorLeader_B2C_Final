@@ -43,6 +43,10 @@ const UserSettingsPopover = () => {
     setOpen(false);
     sessionStorage.setItem('first_session_guide_step', '0');
     sessionStorage.setItem('first_session_guide_active', '1');
+    if (user?.id) {
+      sessionStorage.setItem('first_session_guide_user', user.id);
+      sessionStorage.setItem('first_session_guide_retake', user.id);
+    }
     sessionStorage.removeItem('first_session_intro_seen');
     navigate('/daily-check-in');
   };

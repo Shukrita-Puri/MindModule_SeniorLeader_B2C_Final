@@ -16,6 +16,7 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
+const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -101,6 +102,7 @@ const DailyCheckIn = () => {
     if (params.get('tour') === '1') {
       sessionStorage.setItem('first_session_guide_step', '0');
       sessionStorage.setItem('first_session_guide_active', '1');
+      if (user?.id) sessionStorage.setItem('first_session_guide_user', user.id);
       sessionStorage.removeItem('first_session_intro_seen');
       setShowGuide(true);
       return;
@@ -133,8 +135,9 @@ const DailyCheckIn = () => {
           const isActiveForUser =
             sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
             sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
+          const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === user.id;
 
-          if (walkthroughDone) {
+          if (walkthroughDone && !isRetakeForUser) {
             sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
             sessionStorage.removeItem(ACTIVE_TOUR_KEY);
             sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);

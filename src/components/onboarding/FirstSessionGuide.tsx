@@ -182,6 +182,7 @@ const STEPS: GuideStep[] = [
 const SESSION_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
+const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 const TARGET_WAIT_MS = 1800;
 const SIDEBAR_WAIT_MS = 1800;
 const RETRY_INTERVAL_MS = 150;
@@ -647,6 +648,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(ACTIVE_TOUR_KEY);
     sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
+    sessionStorage.removeItem(RETAKE_TOUR_KEY);
     pinnedSidebarRef.current = false;
     setSidebar(false);
     onComplete();

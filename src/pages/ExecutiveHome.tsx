@@ -66,6 +66,7 @@ const TAB_LABELS = [
 
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
+const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
@@ -109,8 +110,9 @@ const ExecutiveHome = () => {
         const isActiveForUser =
           sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
           sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
+        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === user.id;
 
-        if (walkthroughDone) {
+        if (walkthroughDone && !isRetakeForUser) {
           sessionStorage.removeItem(ACTIVE_TOUR_KEY);
           sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
           sessionStorage.removeItem('first_session_guide_step');
