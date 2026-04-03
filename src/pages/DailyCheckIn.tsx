@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -66,8 +66,9 @@ const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
+  
+  const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
   const [checkedInMessage, setCheckedInMessage] = useState('');
   const [showGuide, setShowGuide] = useState(false);
@@ -153,34 +154,12 @@ const DailyCheckIn = () => {
     enabled: !!user?.id
   });
 
-  // Scroll to initial card on mount
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const card = el.children[activeIndex] as HTMLElement;
-    if (card) {
-      el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: 'instant' as ScrollBehavior });
-    }
-  }, []);
-
-  // Track scroll position for dot indicators
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const center = el.scrollLeft + el.clientWidth / 2;
-    let closest = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < el.children.length; i++) {
-      const child = el.children[i] as HTMLElement;
-      const childCenter = child.offsetLeft + child.clientWidth / 2;
-      const dist = Math.abs(center - childCenter);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = i;
-      }
-    }
-    setActiveIndex(closest);
-  }, []);
+  const handleConfirm = async () => {
+    if (!selectedOutcome || isSubmitting) return;
+    setIsSubmitting(true);
+    await handleOutcomeSelect(selectedOutcome);
+    setIsSubmitting(false);
+  };
 
   const handleOutcomeSelect = async (outcome: Outcome) => {
     // Track check-in engagement
@@ -312,54 +291,50 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-32">
+      <div className="flex-1 flex flex-col px-4 pb-32 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide">
-          Tap your state to begin
+        <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide text-center">
+          Select your current state
         </p>
 
-        {/* Catalog Carousel */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          data-tour="check-in-carousel"
-          className="flex gap-4 overflow-x-auto w-full max-w-[100vw] px-[calc(50vw-120px)] pb-4 snap-x snap-mandatory scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-        >
-          {outcomes.map((outcome, idx) => {
+        {/* Vertical state list */}
+        <div data-tour="check-in-carousel" className="flex flex-col gap-3 w-full">
+          {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
-            const isActive = idx === activeIndex;
+            const isSelected = selectedOutcome === outcome.value;
             return (
               <TouchOptimized
                 key={outcome.value}
-                onTap={() => handleOutcomeSelect(outcome.value)}
-                className="snap-center shrink-0"
+                onTap={() => setSelectedOutcome(outcome.value)}
+                className="w-full"
               >
                 <div
                   className={`
-                    w-[240px] h-[280px] rounded-2xl bg-gradient-to-br ${outcome.gradient}
-                    flex flex-col items-center justify-center gap-4 p-6
-                    border border-white/20 backdrop-blur-sm
-                    shadow-[0_8px_32px_rgba(0,0,0,0.15)]
-                    transition-all duration-300 cursor-pointer
-                    ${isActive ? 'scale-100 opacity-100 ring-2 ring-white/40 animate-pulse' : 'scale-[0.92] opacity-60'}
-                    hover:scale-[1.02] active:scale-95
+                    w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
+                    flex items-center gap-4 px-5 py-4
+                    border backdrop-blur-sm cursor-pointer
+                    transition-all duration-200
+                    ${isSelected
+                      ? 'ring-2 ring-[hsl(var(--saffron))] border-[hsl(var(--saffron))] scale-[1.02] shadow-[0_4px_20px_rgba(0,0,0,0.25)]'
+                      : 'border-white/20 opacity-75 hover:opacity-90'}
                   `}
                 >
-                  <div className="w-16 h-16 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
-                    <IconComponent className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
+                    <IconComponent className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="text-xl font-headline text-white text-center tracking-tight">
-                    {outcome.title}
-                  </h3>
-                  <p className="text-sm text-white/70 font-body italic">
-                    {outcome.subtitle}
-                  </p>
-                  {isActive && (
-                    <span className="text-[10px] text-white/50 font-body tracking-wider uppercase">
-                      Tap to select
-                    </span>
+                  <div className="flex flex-col min-w-0">
+                    <h3 className="text-base font-headline text-white tracking-tight">
+                      {outcome.title}
+                    </h3>
+                    <p className="text-xs text-white/70 font-body italic">
+                      {outcome.subtitle}
+                    </p>
+                  </div>
+                  {isSelected && (
+                    <div className="ml-auto shrink-0 w-6 h-6 rounded-full bg-[hsl(var(--saffron))] flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">✓</span>
+                    </div>
                   )}
                 </div>
               </TouchOptimized>
@@ -367,26 +342,20 @@ const DailyCheckIn = () => {
           })}
         </div>
 
-        {/* Dot Indicators */}
-        <div className="flex gap-2 mt-4">
-          {outcomes.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                const el = scrollRef.current;
-                if (!el) return;
-                const card = el.children[idx] as HTMLElement;
-                if (card) {
-                  el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: 'smooth' });
-                }
-              }}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                idx === activeIndex ? 'bg-foreground w-6' : 'bg-muted-foreground/30'
-              }`}
-              aria-label={`Go to card ${idx + 1}`}
-            />
-          ))}
-        </div>
+        {/* Confirm button */}
+        <button
+          onClick={handleConfirm}
+          disabled={!selectedOutcome || isSubmitting}
+          className={`
+            mt-6 w-full py-4 rounded-xl font-headline text-base tracking-wide
+            transition-all duration-200
+            ${selectedOutcome
+              ? 'bg-[hsl(var(--saffron))] text-white shadow-lg hover:brightness-110 active:scale-[0.98]'
+              : 'bg-muted text-muted-foreground cursor-not-allowed'}
+          `}
+        >
+          {isSubmitting ? 'Saving…' : 'Confirm'}
+        </button>
       </div>
       {/* First Session Guide overlay */}
       {showGuide && (
