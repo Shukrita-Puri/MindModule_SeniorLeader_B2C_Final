@@ -129,6 +129,10 @@ GENERATE a JSON object with:
 - wisdom_referenced: array of wisdom references used (empty if none)
 - breakthrough_moment: string describing significant insight, or null
 - session_quality_score: 1-10 overall quality
+- leanOnUpdate: one phrase (max 8 words) the user should lean on right now based on what emerged in this session, or null if nothing clear emerged
+- watchForUpdate: one phrase (max 8 words) to watch for based on patterns or risks surfaced, or null
+- jitRelevantInsight: one sentence (max 15 words) relevant to an upcoming high-stakes event discussed, or null if not applicable
+- nextSessionFocus: one phrase for what the next coaching session should focus on, or null
 
 Return ONLY the JSON object.`
           }
