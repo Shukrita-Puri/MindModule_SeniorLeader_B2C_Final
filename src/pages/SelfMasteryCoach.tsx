@@ -491,8 +491,8 @@ const SelfMasteryCoach = () => {
         }
       />
 
-      {/* Queue Progress */}
-      {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
+      {/* Queue Progress – visible throughout the session, not just before first message */}
+      {isInQueue && practiceQueue.length > 1 && (
         <div className="relative z-10 mx-4 mt-2">
           <div className="bg-background/80 backdrop-blur-md rounded-xl border border-border/60 overflow-hidden shadow-sm">
             <PracticeQueueProgress
