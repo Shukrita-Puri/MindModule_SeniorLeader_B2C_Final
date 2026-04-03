@@ -1877,7 +1877,12 @@ const MicroPracticePlayerCards = () => {
       console.error("Failed to save completion:", error);
     }
 
-    setShowRatingModal(true);
+    // Skip individual rating modal when in a plan queue
+    if (isInQueue) {
+      handleQueueComplete();
+    } else {
+      setShowRatingModal(true);
+    }
   };
 
   const handleRatingSubmit = async (rating: number, feedback?: string) => {

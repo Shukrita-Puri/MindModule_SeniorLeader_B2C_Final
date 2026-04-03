@@ -101,8 +101,14 @@ const MicroPracticePlayer = () => {
       console.error('[MicroPracticePlayer] Failed to save completion:', error);
     }
     
-    // Always ask for practice feedback after the practice itself.
-    setShowRatingModal(true);
+    // Skip individual rating modal when part of a plan queue
+    const practiceQueueCheck = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+    const isPartOfQueue = practiceQueueCheck && practiceQueueCheck.some((p: any) => p.id === id);
+    if (isPartOfQueue) {
+      navigateAfterComplete();
+    } else {
+      setShowRatingModal(true);
+    }
   };
 
   const handleRatingSubmit = async (rating: number, feedback?: string) => {

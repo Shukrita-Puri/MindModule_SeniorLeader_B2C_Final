@@ -309,8 +309,12 @@ const SoundscapePlayer = () => {
       console.error('Failed to save practice session:', error);
     }
     
-    // Always ask for practice feedback after the practice itself.
-    setShowRatingModal(true);
+    // Skip individual rating modal when in a plan queue — plan-level feedback fires at the end
+    if (isInQueue) {
+      handleQueueComplete();
+    } else {
+      setShowRatingModal(true);
+    }
   };
 
   // Queue Handlers
