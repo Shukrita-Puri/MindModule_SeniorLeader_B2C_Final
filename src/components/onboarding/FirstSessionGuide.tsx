@@ -590,7 +590,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   /* ---- Intro overlay (before tour begins) ---- */
   if (showIntro) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center" role="dialog" aria-modal="true">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true">
         {/* Dark backdrop */}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
