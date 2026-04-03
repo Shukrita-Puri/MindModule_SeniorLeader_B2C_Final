@@ -789,6 +789,7 @@ function generatePlanBrief(
   nextEventTitle?: string | null,
   nextEventMinutes?: number | null,
   pendingCommitments?: any[],
+  calendarGaps?: number[],
 ): string {
   // Derive rationale from resolved modules (new approach)
   if (resolvedModules && resolvedModules.length > 0) {
