@@ -249,6 +249,10 @@ const CoachSplitView = ({
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
           {/* Centered coach visual + copy */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-4">
+            <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
+              Mind Performance Coach
+            </h1>
+
             {/* Large circular coach avatar */}
             <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 border-stone-200 shadow-xl shadow-stone-300/40">
               <img src={coachVisual} alt="Mind Performance Coach" className="w-full h-full object-cover object-top" />
