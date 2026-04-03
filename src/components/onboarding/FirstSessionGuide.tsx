@@ -623,6 +623,16 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   }
 
   /* ---- tooltip position styles ---- */
+
+  const tooltipStyle: React.CSSProperties =
+    isFullscreen || tooltipPos === null
+      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)' }
+      : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
+
+  const tooltipMaxW = isFullscreen ? '360px' : '400px';
+
+  return (
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
       {/* SVG overlay with spotlight cut-out */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
