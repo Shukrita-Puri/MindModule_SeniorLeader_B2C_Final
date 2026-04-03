@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     );
 
     if (action === "GET") {
-      // Fetch onboarding progress and beta fields in parallel
+      // Fetch onboarding progress and profile fields in parallel
       const [progressResult, profileResult] = await Promise.all([
         supabaseAdmin
           .from("onboarding_progress")
@@ -33,17 +33,35 @@ Deno.serve(async (req) => {
           .maybeSingle(),
         supabaseAdmin
           .from("profiles")
-          .select("beta_user, beta_expires_at")
+          .select("beta_user, beta_expires_at, onboarding_completed_at, mental_fitness_baseline, onboarding_insight, user_archetype")
           .eq("id", userId)
           .maybeSingle(),
       ]);
 
       if (progressResult.error) throw progressResult.error;
 
-      // Merge beta fields into progress data so client can check beta status
+      // Merge profile fields into progress data so signed-in resume can recover
+      // even if onboarding_progress missed a post-signup write.
       const data = progressResult.data
-        ? { ...progressResult.data, beta_user: profileResult.data?.beta_user, beta_expires_at: profileResult.data?.beta_expires_at }
-        : null;
+        ? {
+            ...progressResult.data,
+            beta_user: profileResult.data?.beta_user,
+            beta_expires_at: profileResult.data?.beta_expires_at,
+            onboarding_completed_at: profileResult.data?.onboarding_completed_at,
+            mental_fitness_baseline: profileResult.data?.mental_fitness_baseline,
+            onboarding_insight: profileResult.data?.onboarding_insight,
+            user_archetype: profileResult.data?.user_archetype,
+          }
+        : profileResult.data
+          ? {
+              beta_user: profileResult.data.beta_user,
+              beta_expires_at: profileResult.data.beta_expires_at,
+              onboarding_completed_at: profileResult.data.onboarding_completed_at,
+              mental_fitness_baseline: profileResult.data.mental_fitness_baseline,
+              onboarding_insight: profileResult.data.onboarding_insight,
+              user_archetype: profileResult.data.user_archetype,
+            }
+          : null;
 
       return new Response(
         JSON.stringify({ success: true, data }),

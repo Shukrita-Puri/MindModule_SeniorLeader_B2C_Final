@@ -36,6 +36,7 @@ export default function Stage8Results() {
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const completionPersisted = useRef(false);
+  const resultsStepPersisted = useRef(false);
 
   // Persist baseline data to DB (without marking onboarding complete)
   const persistBaseline = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string, archetypeTitle: string, archetypeDescription: string, insightText: string) => {
@@ -144,16 +145,6 @@ export default function Stage8Results() {
           practiceGoalLabel: goalLabel,
         });
 
-        // Persist to DB if authenticated (non-blocking)
-        if (isAuthenticated) {
-          persistBaseline(baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight);
-          recordStep('results');
-
-          // Referral attribution happens at payment stage only (stripe-webhook)
-          // No client-side tracking needed here
-        } else {
-          console.log('[Results] User not authenticated, skipping DB persistence');
-        }
       } catch (err) {
         console.error('Error computing results:', err);
         setError('Unable to generate your results. Please try again.');
@@ -164,6 +155,24 @@ export default function Stage8Results() {
 
     computeResults();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !results || error) return;
+
+    persistBaseline(
+      results.baselineScore,
+      results.scores,
+      results.archetype,
+      results.archetypeTitle,
+      results.archetypeDescription,
+      results.insight
+    );
+
+    if (!resultsStepPersisted.current) {
+      resultsStepPersisted.current = true;
+      recordStep('results');
+    }
+  }, [isAuthenticated, results, error, recordStep]);
 
   if (loading) {
     return (
