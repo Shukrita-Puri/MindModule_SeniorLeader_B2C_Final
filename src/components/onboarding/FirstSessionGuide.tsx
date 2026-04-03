@@ -247,6 +247,13 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     if (measureFrameRef.current) { cancelAnimationFrame(measureFrameRef.current); measureFrameRef.current = null; }
   }, []);
 
+  const isElementVisible = useCallback((el: Element | null): el is HTMLElement => {
+    if (!(el instanceof HTMLElement)) return false;
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+  }, []);
+
   /** Open/close sidebar respecting mobile vs desktop */
   const setSidebar = useCallback((open: boolean) => {
     if (!sidebarCtx) return;
@@ -326,8 +333,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       return;
     }
 
-    const el = document.querySelector(s.targetSelector) as HTMLElement | null;
-    if (!el) {
+    const el = document.querySelector(s.targetSelector);
+    if (!isElementVisible(el)) {
       retryCountRef.current++;
       if (retryCountRef.current >= MAX_RETRIES) {
         // Graceful skip: target never appeared, advance to next step
@@ -383,11 +390,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
    * Polls for DOM target availability after an action (e.g. opening sidebar).
    * Calls cb() once the step's target selector is found or after maxWait ms.
    */
-  const waitForTargetThenCb = useCallback((selector: string, cb: () => void, maxWait = 3000) => {
+  const waitForTargetThenCb = useCallback((selector: string, cb: () => void, maxWait = 4000) => {
     const start = Date.now();
     const poll = () => {
       const el = document.querySelector(selector);
-      if (el) {
+      if (isElementVisible(el)) {
         // Small settle delay after element appears
         setTimeout(cb, 150);
         return;
@@ -400,7 +407,30 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       setTimeout(poll, 100);
     };
     poll();
-  }, []);
+  }, [isElementVisible]);
+
+  const waitForSidebarReady = useCallback((cb: () => void, selector?: string) => {
+    const start = Date.now();
+    const poll = () => {
+      const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
+      const targetEl = selector ? document.querySelector(selector) : null;
+      const sidebarReady = isElementVisible(sidebarEl);
+      const targetReady = selector ? isElementVisible(targetEl) : true;
+
+      if (sidebarReady && targetReady) {
+        setTimeout(cb, 150);
+        return;
+      }
+
+      if (Date.now() - start > 4000) {
+        cb();
+        return;
+      }
+
+      setTimeout(poll, 100);
+    };
+    poll();
+  }, [isElementVisible]);
 
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
     if (s.activateTab) {
@@ -413,8 +443,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     switch (s.action) {
       case 'open-sidebar':
         setSidebar(true);
-        // Poll for the step's target instead of fixed timeout
-        waitForTargetThenCb(s.targetSelector, cb);
+        waitForSidebarReady(() => waitForTargetThenCb(s.targetSelector, cb), s.targetSelector);
         break;
       case 'close-sidebar':
         setSidebar(false);

@@ -62,51 +62,54 @@ const UserSettingsPopover = () => {
   // Show loading skeleton while user data is being fetched
   if (loading && !user) {
     return (
-      <SidebarMenuButton
-        size="lg"
-        className={cn(
-          isCollapsed && "justify-center px-0"
-        )}
-        disabled
-      >
-        <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
-        {!isCollapsed && (
-          <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-20 rounded bg-muted animate-pulse" />
-            <div className="h-2.5 w-28 rounded bg-muted animate-pulse" />
-          </div>
-        )}
-      </SidebarMenuButton>
+      <div data-tour="sidebar-profile">
+        <SidebarMenuButton
+          size="lg"
+          className={cn(
+            isCollapsed && "justify-center px-0"
+          )}
+          disabled
+        >
+          <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+          {!isCollapsed && (
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+              <div className="h-2.5 w-28 rounded bg-muted animate-pulse" />
+            </div>
+          )}
+        </SidebarMenuButton>
+      </div>
     );
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <SidebarMenuButton
-          data-tour="sidebar-profile"
-          size="lg"
-          className={cn(
-            "data-[state=open]:bg-muted",
-            isCollapsed && "justify-center px-0"
-          )}
-        >
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.picture} alt={displayName} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          {!isCollapsed && (
-            <>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium truncate">{displayName}</p>
-                {displayEmail && <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>}
-              </div>
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            </>
-          )}
-        </SidebarMenuButton>
+        <div data-tour="sidebar-profile">
+          <SidebarMenuButton
+            size="lg"
+            className={cn(
+              "data-[state=open]:bg-muted",
+              isCollapsed && "justify-center px-0"
+            )}
+          >
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.picture} alt={displayName} />
+              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            {!isCollapsed && (
+              <>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium truncate">{displayName}</p>
+                  {displayEmail && <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>}
+                </div>
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              </>
+            )}
+          </SidebarMenuButton>
+        </div>
       </PopoverTrigger>
       <PopoverContent 
         className="w-72 p-0" 
