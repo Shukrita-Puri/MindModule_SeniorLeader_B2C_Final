@@ -189,6 +189,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
     '/onboarding/signup-step',
     '/onboarding/results',
     '/onboarding/payment',
+    '/onboarding/app-intro',
     '/onboarding/context-connection',
   ];
 
