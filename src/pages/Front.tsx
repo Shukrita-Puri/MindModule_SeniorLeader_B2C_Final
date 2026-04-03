@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Shield } from "lucide-react";
 import mmLogoCircle from "@/assets/brand/mm-logo-circle.png";
-import heroIllustration from "@/assets/onboarding/usp-sky-light.jpeg";
+import heroIllustration from "@/assets/onboarding/usp-constellation.jpg";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
