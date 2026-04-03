@@ -89,18 +89,26 @@ const DailyCheckIn = () => {
 
   // Show first session guide ONLY on first signup (never on returning login)
   useEffect(() => {
+    const pendingGuide = sessionStorage.getItem('first_session_guide_pending') === '1';
+
     // Dev/testing: ?tour=1 in URL forces the guide (clears done flag first)
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
       sessionStorage.removeItem('first_session_done');
       sessionStorage.setItem('first_session_guide_step', '0');
+      sessionStorage.setItem('first_session_guide_pending', '1');
       setShowGuide(true);
       return;
     }
 
     if (sessionStorage.getItem('first_session_done')) return;
+    if (!user?.id || !user?.onboarding_completed_at) return;
 
-    if (!user?.id) return;
+    if (pendingGuide) {
+      sessionStorage.setItem('first_session_guide_step', '0');
+      setShowGuide(true);
+      return;
+    }
 
     // Check DB for walkthrough completion AND check-in count in parallel
     Promise.all([
@@ -135,10 +143,11 @@ const DailyCheckIn = () => {
       // Only show guide if walkthrough was never completed AND no check-ins exist
       if (!walkthroughCompleted && !hasCheckins) {
         sessionStorage.setItem('first_session_guide_step', '0');
+        sessionStorage.setItem('first_session_guide_pending', '1');
         setShowGuide(true);
       }
     });
-  }, [user?.id]);
+  }, [user?.id, user?.onboarding_completed_at]);
 
   // Fetch connection status
   const { data: connections } = useQuery({
@@ -389,6 +398,7 @@ const DailyCheckIn = () => {
       {showGuide && (
         <FirstSessionGuide onComplete={() => {
           setShowGuide(false);
+          sessionStorage.removeItem('first_session_guide_pending');
           // Persist walkthrough completion to DB (fire-and-forget)
           recordStep('first_session_walkthrough', { completed: true });
         }} />

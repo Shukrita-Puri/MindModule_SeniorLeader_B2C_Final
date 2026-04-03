@@ -182,6 +182,7 @@ const STEPS: GuideStep[] = [
 
 const SESSION_KEY = 'first_session_guide_step';
 const DONE_KEY = 'first_session_done';
+const PENDING_KEY = 'first_session_guide_pending';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -478,6 +479,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     clearRetry();
     sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(PENDING_KEY);
     setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
@@ -537,8 +539,43 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         />
       )}
 
-      {/* Click-through overlay to block interactions outside spotlight */}
-      <div className="absolute inset-0" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
+      {/* Block interactions outside the spotlight while leaving the highlighted area usable */}
+      {spotRect ? (
+        <>
+          <div
+            className="absolute left-0 right-0 top-0"
+            style={{ height: Math.max(spotRect.y, 0), pointerEvents: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div
+            className="absolute left-0"
+            style={{
+              top: Math.max(spotRect.y, 0),
+              width: Math.max(spotRect.x, 0),
+              height: Math.max(spotRect.h, 0),
+              pointerEvents: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div
+            className="absolute right-0"
+            style={{
+              top: Math.max(spotRect.y, 0),
+              width: Math.max(window.innerWidth - (spotRect.x + spotRect.w), 0),
+              height: Math.max(spotRect.h, 0),
+              pointerEvents: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div
+            className="absolute left-0 right-0 bottom-0"
+            style={{ top: Math.max(spotRect.y + spotRect.h, 0), pointerEvents: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </>
+      ) : (
+        <div className="absolute inset-0" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
+      )}
 
       {/* Skip */}
       <button

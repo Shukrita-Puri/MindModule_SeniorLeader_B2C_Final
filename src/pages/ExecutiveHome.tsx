@@ -74,7 +74,8 @@ const ExecutiveHome = () => {
   // First session guide: show if mid-flow (navigated from check-in page)
   const [showGuide, setShowGuide] = useState(() => {
     const step = sessionStorage.getItem('first_session_guide_step');
-    return step !== null && !sessionStorage.getItem('first_session_done');
+    const pending = sessionStorage.getItem('first_session_guide_pending') === '1';
+    return pending && step !== null && !sessionStorage.getItem('first_session_done');
   });
 
   // Check for plan feedback flag on mount
@@ -312,6 +313,7 @@ const ExecutiveHome = () => {
           {showGuide && (
             <FirstSessionGuide onComplete={() => {
               setShowGuide(false);
+              sessionStorage.removeItem('first_session_guide_pending');
               recordStep('first_session_walkthrough', { completed: true });
             }} />
           )}
