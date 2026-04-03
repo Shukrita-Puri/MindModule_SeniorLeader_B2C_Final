@@ -257,6 +257,22 @@ export function setPlanFeedbackFlag(planType: 'tod' | 'jit') {
 }
 
 /**
+ * Mark the active plan complete and queue plan feedback for the next home return.
+ * Keeps JIT data intact so callers can still route into Coach before landing home.
+ */
+export function markPlanCompleteForFeedback(): { planType: 'tod' | 'jit' } {
+  const ritualMode = localStorage.getItem('ritualMode');
+  const jitData = localStorage.getItem('jitInterventionData');
+  const planType: 'tod' | 'jit' = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
+
+  setPlanFeedbackFlag(planType);
+  localStorage.removeItem('practiceQueue');
+  localStorage.removeItem('ritualMode');
+
+  return { planType };
+}
+
+/**
  * Read and consume plan feedback flag (returns null if stale >5min or absent)
  */
 export function consumePlanFeedbackFlag(): { planType: 'tod' | 'jit' } | null {
