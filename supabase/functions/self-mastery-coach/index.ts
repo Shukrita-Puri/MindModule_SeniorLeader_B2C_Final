@@ -3090,9 +3090,15 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
   }
 
   // --- Entry-point specific instructions ---
-  if (entryPoint === 'jit' && context.jitContext?.eventTitle) {
+  // GAP 1: Use entryContext if available (higher fidelity than entryPoint string)
+  const ENABLE_ENTRY_CONTEXT = Deno.env.get('ENABLE_ENTRY_CONTEXT') !== 'false';
+  const ec = ENABLE_ENTRY_CONTEXT ? context.entryContext : null;
+  const resolvedEntryPoint = ec?.entryPoint || entryPoint || 'independent';
+
+  if (resolvedEntryPoint === 'jit' && context.jitContext?.eventTitle) {
     lines.push('## Entry: Just-In-Time Event Preparation');
     lines.push(`The user navigated here to prepare for "${context.jitContext.eventTitle}".`);
+    if (ec?.triggeredBy) lines.push(`Triggered by: ${ec.triggeredBy}`);
     lines.push('');
     lines.push('Your opener should:');
     lines.push(`- Acknowledge the specific event by name`);
@@ -3115,9 +3121,50 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
     lines.push('');
     lines.push('Example tone: "You have [event] coming up. [One relevant contextual observation]. How are you feeling about it?"');
 
-  } else if (entryPoint === 'tod_plan') {
+  } else if (resolvedEntryPoint === 'practice_complete' && ec?.lastAction) {
+    lines.push('## Entry: Post-Practice Reflection');
+    lines.push(`The user just completed a practice: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should:');
+    lines.push('- Acknowledge what they just did');
+    lines.push('- Ask what came up or what they noticed during the practice');
+    lines.push('- Be brief and curious');
+    lines.push('');
+    lines.push('Example tone: "You just finished [practice] — what came up for you?"');
+    lines.push('');
+    lines.push('Additional context available (use ONLY if more relevant):');
+    contextSignals.forEach(s => lines.push(s));
+
+  } else if (resolvedEntryPoint === 'check_in' && ec?.lastAction) {
+    lines.push('## Entry: Post Check-In');
+    lines.push(`The user just completed a check-in: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should reference their check-in state. Pick ONE of these:');
+    contextSignals.forEach(s => lines.push(s));
+    lines.push('');
+    lines.push('Example tone: "You just checked in as [state] — what\'s driving that?"');
+
+  } else if (resolvedEntryPoint === 'nudge' && ec?.triggeredBy) {
+    lines.push('## Entry: Nudge-Triggered');
+    lines.push(`The user came here from a nudge: "${ec.triggeredBy}".`);
+    lines.push('');
+    lines.push('Your opener should naturally reference why they were nudged. Don\'t say "I nudged you" – instead weave the context in.');
+    lines.push('');
+    contextSignals.forEach(s => lines.push(s));
+
+  } else if (resolvedEntryPoint === 'insights') {
+    lines.push('## Entry: From Insights Page');
+    if (ec?.lastAction) lines.push(`The user was exploring: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should show you know they were looking at their patterns. Pick ONE of these:');
+    contextSignals.forEach(s => lines.push(s));
+    lines.push('');
+    lines.push('Example tone: "I see you\'ve been looking at your patterns. Something catch your eye?"');
+
+  } else if (resolvedEntryPoint === 'tod_plan') {
     lines.push('## Entry: Daily Performance Plan');
     lines.push('The user is here as part of their daily mastery ritual.');
+    if (ec?.lastAction) lines.push(`Context: ${ec.lastAction}`);
     lines.push('');
     lines.push('Your opener should show continuity. Pick ONE of these (whichever is most salient):');
     contextSignals.forEach(s => lines.push(s));
