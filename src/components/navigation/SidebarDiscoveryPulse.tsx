@@ -34,7 +34,7 @@ const FEATURES = [
   },
 ];
 
-const GOLD = "#C9A84C";
+const ACCENT_COLOR = "#FF8C42";
 
 const SidebarDiscoveryPulse = () => {
   const navigate = useNavigate();
@@ -107,7 +107,7 @@ const SidebarDiscoveryPulse = () => {
               style={{
                 inset: "-6px",
                 animation: "discovery-ping-1 1.8s ease-out infinite",
-                border: `2.5px solid ${GOLD}`,
+                border: `2.5px solid ${ACCENT_COLOR}`,
               }}
             />
             {/* Secondary sonar ring — 0.6s delayed */}
@@ -116,7 +116,7 @@ const SidebarDiscoveryPulse = () => {
               style={{
                 inset: "-6px",
                 animation: "discovery-ping-2 1.8s ease-out infinite",
-                border: `2.5px solid ${GOLD}`,
+                border: `2.5px solid ${ACCENT_COLOR}`,
               }}
             />
             {/* Static gold dot badge */}
@@ -127,7 +127,7 @@ const SidebarDiscoveryPulse = () => {
                 height: 8,
                 top: -1,
                 right: -1,
-                backgroundColor: GOLD,
+                backgroundColor: ACCENT_COLOR,
               }}
             />
           </>
