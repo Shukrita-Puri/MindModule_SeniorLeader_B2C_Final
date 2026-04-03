@@ -257,7 +257,7 @@ const ExecutiveHome = () => {
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
               <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
-                <SidebarTrigger data-tour="sidebar-trigger" className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
+                <SidebarDiscoveryPulse />
               </div>
               <div data-tour="coach-access-wrap" className="p-2 -m-2 rounded-full">
                 <div data-tour="coach-access"><CoachAccessButton /></div>

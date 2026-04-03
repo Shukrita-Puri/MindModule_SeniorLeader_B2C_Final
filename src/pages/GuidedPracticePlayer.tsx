@@ -1094,7 +1094,12 @@ const GuidedPracticePlayer = () => {
       console.error('Failed to save practice session:', error);
     }
     
-    setView("rating");
+    // Skip individual rating modal when in a plan queue
+    if (isInQueue) {
+      handleQueueComplete();
+    } else {
+      setView("rating");
+    }
   };
 
   const audioProgress = duration > 0 ? (currentTime / duration) * 100 : 0;
