@@ -23,7 +23,11 @@ const CheckInDetail = () => {
   const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
+  const [clarityTouched, setClarityTouched] = useState(false);
+  const [confidenceTouched, setConfidenceTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const bothTouched = clarityTouched && confidenceTouched;
 
   const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
   const timeWindow = (location.state as any)?.timeWindow;
