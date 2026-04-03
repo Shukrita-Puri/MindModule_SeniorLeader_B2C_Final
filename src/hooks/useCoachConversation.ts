@@ -206,6 +206,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             eventTitle: eventContext.eventTitle,
           };
         }
+        // GAP 1: Include entry context on first message
+        if (entryContextState) {
+          context.entryContext = entryContextState;
+        }
         
         contextSentRef.current = true;
       }
