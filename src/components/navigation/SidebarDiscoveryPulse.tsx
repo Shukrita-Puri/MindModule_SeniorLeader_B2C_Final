@@ -34,6 +34,8 @@ const FEATURES = [
   },
 ];
 
+const GOLD = "#C9A84C";
+
 const SidebarDiscoveryPulse = () => {
   const navigate = useNavigate();
   const { state } = useSidebar();
@@ -45,14 +47,12 @@ const SidebarDiscoveryPulse = () => {
 
   const shouldPulse = openCount < PULSE_THRESHOLD;
 
-  // Track sidebar open events
   useEffect(() => {
     if (state === "expanded" && prevState === "collapsed") {
       const newCount = openCount + 1;
       setOpenCount(newCount);
       localStorage.setItem(SIDEBAR_OPEN_COUNT_KEY, String(newCount));
 
-      // Show discovery sheet on first 3 opens
       if (newCount <= PULSE_THRESHOLD) {
         setShowDiscovery(true);
       }
@@ -67,16 +67,70 @@ const SidebarDiscoveryPulse = () => {
 
   return (
     <>
+      <style>{`
+        @keyframes discovery-ping-1 {
+          0% {
+            transform: scale(1);
+            opacity: 0.9;
+          }
+          100% {
+            transform: scale(1.9);
+            opacity: 0;
+          }
+        }
+        @keyframes discovery-ping-2 {
+          0% {
+            transform: scale(1);
+            opacity: 0;
+          }
+          33% {
+            opacity: 0;
+            transform: scale(1);
+          }
+          33.1% {
+            opacity: 0.7;
+            transform: scale(1);
+          }
+          100% {
+            transform: scale(2.1);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
       <div className="relative">
         {shouldPulse && (
-          <span
-            className="absolute inset-0 rounded-full animate-ping pointer-events-none"
-            style={{
-              animationDuration: "2.5s",
-              background: "hsl(var(--gold) / 0.25)",
-              border: "1.5px solid hsl(var(--gold) / 0.4)",
-            }}
-          />
+          <>
+            {/* Primary pulse ring */}
+            <span
+              className="absolute rounded-full pointer-events-none"
+              style={{
+                inset: "-6px",
+                animation: "discovery-ping-1 1.8s ease-out infinite",
+                border: `2.5px solid ${GOLD}`,
+              }}
+            />
+            {/* Secondary sonar ring — 0.6s delayed */}
+            <span
+              className="absolute rounded-full pointer-events-none"
+              style={{
+                inset: "-6px",
+                animation: "discovery-ping-2 1.8s ease-out infinite",
+                border: `2.5px solid ${GOLD}`,
+              }}
+            />
+            {/* Static gold dot badge */}
+            <span
+              className="absolute z-20 rounded-full pointer-events-none"
+              style={{
+                width: 8,
+                height: 8,
+                top: -1,
+                right: -1,
+                backgroundColor: GOLD,
+              }}
+            />
+          </>
         )}
         <SidebarTrigger
           data-tour="sidebar-trigger"
