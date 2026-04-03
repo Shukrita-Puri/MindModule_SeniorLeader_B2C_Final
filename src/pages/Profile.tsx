@@ -44,6 +44,7 @@ const Profile = () => {
   const isPendingCancellation = !!user?.subscription_cancel_at && !isCanceled;
   const hasStripeAccount = !!user?.stripe_customer_id;
   const isBetaUser = user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date();
+  const profileUpgradePath = '/onboarding/payment?source=profile-upgrade';
 
   const statusLabel = isBetaUser ? 'Beta' : isCanceled ? 'Canceled' : isPaying ? 'Paid' : isTrialing ? 'Trial' : 'Free';
 
@@ -62,7 +63,7 @@ const Profile = () => {
 
   const handleManageBilling = async () => {
     if (!hasStripeAccount) {
-      navigate('/onboarding/payment');
+      navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } });
       return;
     }
     setManagingPortal(true);
@@ -85,7 +86,7 @@ const Profile = () => {
       } else {
         const err = await res.json().catch(() => ({}));
         if (res.status === 404) {
-          navigate('/onboarding/payment');
+          navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } });
         } else {
           toast.error(err.error || 'Failed to open billing portal');
         }
@@ -213,7 +214,7 @@ const Profile = () => {
                   <DropdownMenuContent align="end">
                     {/* Upgrade Plan – shown when not paying (including beta users as optional) */}
                     {!isPaying && (
-                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                      <DropdownMenuItem onClick={() => navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } })}>
                         <Sparkles className="h-4 w-4 mr-2" />
                         Upgrade Plan
                       </DropdownMenuItem>
@@ -221,7 +222,7 @@ const Profile = () => {
 
                     {/* Change Plan – shown when paying */}
                     {isPaying && (
-                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                      <DropdownMenuItem onClick={() => navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } })}>
                         <CreditCard className="h-4 w-4 mr-2" />
                         Change Plan
                       </DropdownMenuItem>
@@ -275,7 +276,7 @@ const Profile = () => {
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
-              onClick={isPaying ? handleManageBilling : () => navigate('/onboarding/payment')}
+              onClick={isPaying ? handleManageBilling : () => navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } })}
               disabled={managingPortal}
             >
               {isPaying ? (

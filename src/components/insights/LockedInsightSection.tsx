@@ -50,7 +50,7 @@ export function LockedInsightSection({
                 size="sm"
                 variant="outline"
                 className="bg-background/90 backdrop-blur-sm"
-                onClick={() => navigate('/onboarding/payment')}
+                onClick={() => navigate('/onboarding/payment?source=insights-upgrade', { state: { source: 'insights_upgrade' } })}
               >
                 Unlock with Pro
               </Button>

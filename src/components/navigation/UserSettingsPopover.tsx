@@ -35,7 +35,7 @@ const UserSettingsPopover = () => {
     : user?.email?.[0]?.toUpperCase() || 'U';
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment' },
+    { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment?source=profile-upgrade', source: 'profile_upgrade' },
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },
   ];
 
@@ -53,8 +53,8 @@ const UserSettingsPopover = () => {
     navigate('/', { replace: true });
   };
 
-  const handleNavigate = (path: string) => {
-    navigate(path);
+  const handleNavigate = (path: string, source?: string) => {
+    navigate(path, source ? { state: { source } } : undefined);
     // Close after navigation to prevent unmount race on iOS WebView
     requestAnimationFrame(() => setOpen(false));
   };
@@ -137,7 +137,7 @@ const UserSettingsPopover = () => {
             <button
               key={item.path}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
-              onClick={() => handleNavigate(item.path)}
+              onClick={() => handleNavigate(item.path, item.source)}
             >
               <item.icon className="h-4 w-4 text-muted-foreground" />
               <span>{item.label}</span>

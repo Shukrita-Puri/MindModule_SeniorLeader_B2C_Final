@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -10,13 +10,21 @@ import { toast } from "sonner";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { recordStep } = useOnboardingProgress();
   const { user } = useAuth();
   const currentTier = user?.subscription_tier || 'none';
 
   // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade
   const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
-  const isUpgradeVisit = !!user?.onboarding_completed_at;
+  const querySource = new URLSearchParams(location.search).get('source');
+  const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
+    ? location.state.source
+    : null;
+  const hasExplicitUpgradeSource = [querySource, stateSource].some((source) =>
+    typeof source === 'string' && source.includes('upgrade')
+  );
+  const isUpgradeVisit = hasExplicitUpgradeSource || !!user?.onboarding_completed_at;
   useEffect(() => {
     if (isBetaValid && !isUpgradeVisit) {
       console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
@@ -277,7 +285,7 @@ export default function Stage6Payment() {
             Processing...
           </span>
         ) : (
-          'Start 7-Day Free Trial'
+          isUpgradeVisit ? 'Upgrade Now' : 'Start 7-Day Free Trial'
         )}
       </Button>
 

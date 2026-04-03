@@ -66,7 +66,7 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
           <Button
             className="w-full"
             variant="critical"
-            onClick={() => navigate('/onboarding/payment')}
+            onClick={() => navigate('/onboarding/payment?source=coach-upgrade', { state: { source: 'coach_upgrade' } })}
           >
             Upgrade to Mind Module- Pro
           </Button>
