@@ -100,11 +100,43 @@ const SelfMasteryCoach = () => {
     });
   }, [checkAccess, hasValidBetaAccess]);
 
-  // Cleanup: end session on unmount to prevent orphaned active sessions
+  // Cleanup: finalize session on unmount, tab close, or navigation away.
+  // Uses sendBeacon for tab close (pagehide) since async fetch won't complete.
   const endSessionRef = useRef(endSession);
   endSessionRef.current = endSession;
+  const sessionIdForCleanup = useRef(sessionId);
+  sessionIdForCleanup.current = sessionId;
+  const messagesLenRef = useRef(messages.length);
+  messagesLenRef.current = messages.length;
+
   useEffect(() => {
+    const sendBeaconFinalize = () => {
+      const sid = sessionIdForCleanup.current;
+      const msgLen = messagesLenRef.current;
+      if (!sid || msgLen < 1) return;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dialogue-session-manage`;
+      const body = JSON.stringify({ action: 'finalize_coach', sessionId: sid });
+      // sendBeacon is fire-and-forget, survives page unload
+      try {
+        navigator.sendBeacon(url, body);
+      } catch {
+        // Fallback: best-effort fetch (may not complete)
+        fetch(url, { method: 'POST', body, keepalive: true }).catch(() => {});
+      }
+    };
+
+    const handlePageHide = () => sendBeaconFinalize();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') sendBeaconFinalize();
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // React unmount (in-app navigation): use the async path
       endSessionRef.current();
     };
   }, []);
