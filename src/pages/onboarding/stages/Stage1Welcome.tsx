@@ -22,33 +22,13 @@ export default function Stage1Welcome() {
 
       <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] animate-fade-in delay-200 space-y-5">
         <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Most leaders don't fail because they lack strategy.
+          Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
         </p>
         <p className="text-base text-foreground/90 font-body leading-relaxed">
-          They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most.
-        </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed font-semibold">
-          This system changes that.
-        </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Three minutes. Six questions.
-        </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Your answers build your performance profile across three areas:
-        </p>
-        <div className="space-y-2 pl-1">
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RECALIBRATE</span> – How you regulate under pressure</p>
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">CLARITY</span> – How you decide under cognitive load</p>
-          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RENEWAL</span> – How you sustain performance over time</p>
-        </div>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Everything personalizes from this:
-        </p>
-        <p className="text-sm text-foreground/80 font-body leading-relaxed text-center">
-          Your Daily Brief&nbsp;&nbsp;|&nbsp;&nbsp;Your Proactive Mastery Plan&nbsp;&nbsp;|&nbsp;&nbsp;Your Intelligence Based Patterns&nbsp;&nbsp;|&nbsp;&nbsp;Your Just-In-Time Preparation
+          Six questions build your Leadership Performance Profile — the intelligence layer that makes everything personal to you and your day.
         </p>
         <p className="text-sm text-foreground/70 font-body italic leading-relaxed">
-          The more honest you are, the smarter the system gets.
+          The more honest you are, the sharper it gets.
         </p>
       </div>
 
@@ -58,7 +38,7 @@ export default function Stage1Welcome() {
         onClick={() => navigate("/onboarding/identity")}
         className="w-full text-lg py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
       >
-        Start Questions
+        Three minutes. Let's begin.
         <ArrowRight size={20} className="ml-2" />
       </Button>
 
