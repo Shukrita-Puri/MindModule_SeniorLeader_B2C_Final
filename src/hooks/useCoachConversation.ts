@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getAuthToken } from '@/services/authTokenService';
+import type { EntryContext } from '@/types/coach';
 
 interface Message {
   id: string;
