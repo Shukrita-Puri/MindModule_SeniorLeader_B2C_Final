@@ -67,7 +67,8 @@ const DailyCheckIn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
+  const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
   const [checkedInMessage, setCheckedInMessage] = useState('');
   const [showGuide, setShowGuide] = useState(false);
