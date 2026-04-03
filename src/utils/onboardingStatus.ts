@@ -132,7 +132,7 @@ async function getResumeRouteFromDB(): Promise<string | null> {
     const hasPersistedResults = !!(data.mental_fitness_baseline || data.onboarding_insight || data.user_archetype);
 
     if (data.completed_at || data.onboarding_completed_at) return '/daily-check-in';
-    if (!data.context_connection_at && (data.payment_at || isBetaValid)) return '/onboarding/context-connection';
+    if (!data.context_connection_at && (data.payment_at || isBetaValid)) return '/onboarding/app-intro';
     if (!data.payment_at && !isBetaValid && data.results_at) return '/onboarding/payment';
     if (!data.results_at && data.signup_step_at) return '/onboarding/results';
     if (!data.results_at && hasPersistedResults) return '/onboarding/results';
@@ -189,6 +189,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
     '/onboarding/signup-step',
     '/onboarding/results',
     '/onboarding/payment',
+    '/onboarding/app-intro',
     '/onboarding/context-connection',
   ];
 

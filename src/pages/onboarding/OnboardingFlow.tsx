@@ -16,6 +16,7 @@ const STAGE_ROUTES = [
   "/onboarding/signup-step",
   "/onboarding/results",
   "/onboarding/payment",
+  "/onboarding/app-intro",
   "/onboarding/context-connection",
 ];
 

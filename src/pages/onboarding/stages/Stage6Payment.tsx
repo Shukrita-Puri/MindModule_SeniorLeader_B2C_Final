@@ -29,7 +29,7 @@ export default function Stage6Payment() {
     if (isBetaValid && !isUpgradeVisit) {
       console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
       recordStep('payment', { skipped: true, reason: 'beta_user' });
-      navigate('/onboarding/context-connection', { replace: true });
+      navigate('/onboarding/app-intro', { replace: true });
     }
   }, [isBetaValid, isUpgradeVisit]);
 
@@ -110,7 +110,7 @@ export default function Stage6Payment() {
       } else {
         toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
         recordStep('payment', { selected_plan: selectedPlan });
-        navigate('/onboarding/context-connection');
+        navigate('/onboarding/app-intro');
       }
     } finally {
       setLoading(false);
