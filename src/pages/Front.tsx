@@ -122,7 +122,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
         src={heroIllustration} 
         alt="" 
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover opacity-[0.35]"
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.35] object-[70%_20%] sm:object-center"
         width={1920}
         height={1080}
       />
