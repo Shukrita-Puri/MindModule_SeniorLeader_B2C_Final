@@ -23,7 +23,11 @@ const CheckInDetail = () => {
   const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
+  const [clarityTouched, setClarityTouched] = useState(false);
+  const [confidenceTouched, setConfidenceTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const bothTouched = clarityTouched && confidenceTouched;
 
   const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
   const timeWindow = (location.state as any)?.timeWindow;
@@ -122,7 +126,7 @@ const CheckInDetail = () => {
               </div>
               <Slider
                 value={[clarity]}
-                onValueChange={(v) => setClarity(v[0])}
+                onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
                 min={1}
                 max={5}
                 step={1}
@@ -143,7 +147,7 @@ const CheckInDetail = () => {
               </div>
               <Slider
                 value={[confidence]}
-                onValueChange={(v) => setConfidence(v[0])}
+                onValueChange={(v) => { setConfidence(v[0]); setConfidenceTouched(true); }}
                 min={1}
                 max={5}
                 step={1}
@@ -160,8 +164,12 @@ const CheckInDetail = () => {
             <div className="pt-2">
               <Button
                 onClick={handleSave}
-                disabled={saving}
-                className="w-full h-12 text-sm font-semibold bg-[hsl(var(--saffron))] text-white hover:brightness-110 rounded-xl"
+                disabled={saving || !bothTouched}
+                className={`w-full h-12 text-sm font-semibold rounded-xl transition-colors ${
+                  bothTouched
+                    ? 'bg-[hsl(var(--saffron))] text-white hover:brightness-110'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
               </Button>
