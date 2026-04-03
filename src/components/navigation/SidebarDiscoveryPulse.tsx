@@ -34,7 +34,7 @@ const FEATURES = [
   },
 ];
 
-const GOLD = "#C9A84C";
+const ACCENT_COLOR = "#FF8C42";
 
 const SidebarDiscoveryPulse = () => {
   const navigate = useNavigate();
