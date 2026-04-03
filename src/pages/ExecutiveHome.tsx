@@ -311,7 +311,6 @@ const ExecutiveHome = () => {
           {showGuide && (
             <FirstSessionGuide onComplete={() => {
               setShowGuide(false);
-              sessionStorage.removeItem('first_session_guide_pending');
               recordStep('first_session_walkthrough', { completed: true });
             }} />
           )}

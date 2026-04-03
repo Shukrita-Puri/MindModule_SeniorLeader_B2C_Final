@@ -385,7 +385,6 @@ const DailyCheckIn = () => {
       {showGuide && (
         <FirstSessionGuide onComplete={() => {
           setShowGuide(false);
-          sessionStorage.removeItem('first_session_guide_pending');
           // Persist walkthrough completion to DB (fire-and-forget)
           recordStep('first_session_walkthrough', { completed: true });
         }} />
