@@ -119,17 +119,6 @@ const SidebarDiscoveryPulse = () => {
                 border: `2.5px solid ${ACCENT_COLOR}`,
               }}
             />
-            {/* Static gold dot badge */}
-            <span
-              className="absolute z-20 rounded-full pointer-events-none"
-              style={{
-                width: 8,
-                height: 8,
-                top: -1,
-                right: -1,
-                backgroundColor: ACCENT_COLOR,
-              }}
-            />
           </>
         )}
         <SidebarTrigger
