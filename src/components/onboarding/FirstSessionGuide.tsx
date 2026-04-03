@@ -181,8 +181,7 @@ const STEPS: GuideStep[] = [
 ];
 
 const SESSION_KEY = 'first_session_guide_step';
-const DONE_KEY = 'first_session_done';
-const PENDING_KEY = 'first_session_guide_pending';
+const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
