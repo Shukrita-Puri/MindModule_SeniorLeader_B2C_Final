@@ -1,82 +1,92 @@
 
 
-# Four-Part UX Improvement Plan
+# USP Intro Screens – Post-Payment, Pre-Data Connection
 
-## 1. Button Colour Strategy — Define Clear Roles
+## Overview
 
-**Current problem**: The app uses `critical` (saffron/orange), `default` (taupe gradient), `secondary` (glass white), `outline`, `ghost`, `forest` (green), and `glass` variants inconsistently. Primary CTAs, onboarding actions, and secondary actions all use the same saffron orange.
+Three full-screen swipeable intro screens inserted between payment and context-connection in the onboarding flow. Each screen sells one USP to a C-suite leader, building urgency before asking them to connect data.
 
-**Proposed colour role system** (using existing palette — no new colours):
-
-| Role | Variant | Colour | Usage |
-|------|---------|--------|-------|
-| **Primary CTA** | `critical` (saffron) | Orange #FF8C42 | One per screen. The single most important action: "Let's Go", "Start Sequence", "Unlock", payment CTAs |
-| **Standard Action** | `default` (taupe gradient) | Warm taupe | Secondary buttons, "Continue", navigation actions, form submits |
-| **Tertiary / Ghost** | `outline` or `ghost` | Transparent + border | "Skip", "Cancel", "Update anyway", low-priority actions |
-| **Contextual Accent** | `forest` (green) | Kairos green | Active states, success confirmations, toggle-on states |
-| **Destructive** | `destructive` | Red | Delete, sign out confirmations |
-
-**Files to change**: Audit all `variant="critical"` usages. Keep `critical` only for the single hero CTA per screen (landing "Let's Go", onboarding "Let's begin", payment "Start Trial"). Downgrade mid-flow "Continue" buttons (e.g., Stage7ContextConnection, Stage7GrowthIntention) to `default`.
+**New flow**: Payment → `/onboarding/app-intro` (3 slides) → Context Connection
 
 ---
 
-## 2. Landing Page — Add Breathing Room
+## The 3 Screens
 
-**Current state** (Front.tsx): Logo, brand name, "Executive Edition", tagline, CTA, login link, and privacy footer are all stacked tightly in a single column.
+Each screen: uploaded engraved illustration (top ~45%), headline in bold italic Cormorant Garamond (`font-headline`), subtitle in Crimson Pro (`font-subheadline`), dot indicators, Skip + Continue buttons at bottom.
 
-**Changes**:
-- Increase vertical spacing between the brand block and the tagline (`mt-6` → `mt-10 sm:mt-8`)
-- Add more space between tagline and CTA buttons (`mt-auto` stays, but add `gap-5` instead of `gap-3`)
-- Increase the gold divider margin (`mb-2` → `mb-4`)
-- Give the privacy footer more top breathing room (`pt-2` → `pt-6`)
-- Slightly reduce the "Executive Edition" subtitle density (increase letter-spacing)
-- On mobile, nudge the top content block down slightly more so the illustration has more visual presence
-
-Net effect: same content, more whitespace between sections, feels calmer. No content removed.
-
-**File**: `src/pages/Front.tsx` — spacing class adjustments only.
+| # | Headline (bold italic, font-headline) | Subtitle (font-subheadline) | Visual |
+|---|---|---|---|
+| 1 | *Peak performers don't react. They anticipate.* | Your day mapped. Your state read. Your plan ready – before you need it. | Uploaded engraved sky (light version – sun/clouds/landscape) |
+| 2 | *You stop guessing. The intelligence does the work.* | Your context connected. Your patterns learnt. Your history decoded – before your day begins. | CSS-drawn pulse/signal visual (animated heartbeat line with gradient glow, matching the app's glassmorphic style) |
+| 3 | *Every elite athlete has a performance team. Now you do too.* | A thinking partner. A preparation system. A recalibration space. A performance intelligence layer. Always on. | Uploaded engraved sky (dark/dramatic version) – same illustration style as landing page |
 
 ---
 
-## 3. Daily Check-In Cards — Make Them Obviously Tappable
+## Button Hierarchy
 
-**Current problem**: The five state cards look like a passive carousel. Users scroll but don't realise tapping selects a state.
-
-**Proposed solution**:
-- Add a clear instruction line above the carousel: **"Tap your state to begin"** in muted text
-- Add a subtle pulsing ring/glow on the active (centred) card to signal interactivity
-- Add a small "Tap to select" label at the bottom of the active card (appears only on the centred card)
-- Keep the existing gradient colours exactly as-is (they map to the Week at a Glance heatmap)
-
-**File**: `src/pages/DailyCheckIn.tsx` — add instruction text, add conditional label on active card, add a subtle `ring-2 ring-white/40 animate-pulse` to the active card.
+- **Continue** (bottom): `variant="critical"` (saffron) – advances slide or navigates to `/onboarding/context-connection` on final screen
+- **Skip** (above Continue): `variant="outline"` – jumps straight to `/onboarding/context-connection` from any screen
 
 ---
 
-## 4. Tour Restart — Add a "Retake Tour" Option
+## Context Connection Page Text Update
 
-**Current problem**: If a user dismisses the tour, there's no way to restart it.
+After the 3 USP screens, the context-connection page header copy will be updated to reinforce the momentum:
 
-**Proposed placement**: Add a "Retake Tour" menu item in the **UserSettingsPopover** (sidebar footer profile menu) — this is where Profile, Upgrade, Refer, and Sign Out already live. It's discoverable but not intrusive.
+**Current**: "Connect Context" / "Personalise your experience"
+**New**: "Connect Your Intelligence Layer" / "Your calendar and biometrics power everything you just saw – the state read, the plan, the resets."
 
-**Behaviour**:
-- Clicking "Retake Tour" sets `sessionStorage` flags to restart the tour, then navigates to `/daily-check-in` (where the tour begins)
-- Does NOT reset the DB `first_session_walkthrough_at` — that stays as-is; the sessionStorage flag overrides it for one session
-- Uses a simple "compass" or "map" icon to signal guidance
-
-**File**: `src/components/navigation/UserSettingsPopover.tsx` — add one menu item before "Sign Out".
+This directly ties back to the 3 USPs and gives connecting data real urgency.
 
 ---
 
-## Technical Summary
+## Technical Changes
 
-| File | Change Type |
-|------|-------------|
-| `src/components/ui/button.tsx` | No changes needed — variants already defined |
-| `src/pages/Front.tsx` | Spacing class adjustments |
-| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | `variant="critical"` → `variant="default"` |
-| `src/pages/onboarding/stages/Stage7GrowthIntention.tsx` | `variant="critical"` → `variant="default"` |
-| `src/pages/DailyCheckIn.tsx` | Add instruction text + active card tap affordance |
-| `src/components/navigation/UserSettingsPopover.tsx` | Add "Retake Tour" menu item |
+### 1. Copy uploaded images to project
+- Copy the light engraved sky → `src/assets/onboarding/usp-sky-light.jpeg`
+- Copy the dark engraved sky → `src/assets/onboarding/usp-sky-dark.jpeg`
+- Both imported as ES6 modules in the component
 
-All changes are CSS/copy/component-level. No database migrations. No edge function changes. Build-safe.
+### 2. New file: `src/pages/onboarding/stages/StageUSPIntro.tsx`
+- Internal state: `currentSlide` (0, 1, 2)
+- Swipe via existing `useSwipeHandler` hook
+- Screen 2 visual: CSS-only animated pulse line (SVG path with `stroke-dashoffset` animation + gradient glow)
+- Dot indicators (3 dots, active = saffron fill)
+- Font classes: headline uses `font-headline font-bold italic`, subtitle uses `font-subheadline`
+- En-dash (–) used per typography standard
+
+### 3. Update `src/App.tsx`
+- Add lazy import: `const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro"))`
+- Add route inside onboarding children: `{ path: "app-intro", element: <Suspense ...><StageUSPIntro /></Suspense> }` between `payment` and `context-connection`
+
+### 4. Update `src/pages/onboarding/OnboardingFlow.tsx`
+- Add `/onboarding/app-intro` to `STAGE_ROUTES` array between `payment` and `context-connection`
+
+### 5. Update `src/pages/onboarding/stages/Stage6Payment.tsx`
+- Line 32: change `'/onboarding/context-connection'` → `'/onboarding/app-intro'` (beta skip path)
+- Post-payment success navigation would also route to `app-intro` if applicable
+
+### 6. Update `src/utils/onboardingStatus.ts`
+- Add `'/onboarding/app-intro'` to `stageOrder` array (line 192) between `payment` and `context-connection`
+- Add resume logic (line 135): if payment done but app-intro not done, resume to `/onboarding/app-intro`
+
+### 7. Update `src/pages/onboarding/stages/Stage7ContextConnection.tsx`
+- Line 341-347: Change header from "Connect Context" / "Personalise your experience" to "Connect Your Intelligence Layer" / "Your calendar and biometrics power everything you just saw – the state read, the plan, the resets."
+
+---
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `src/assets/onboarding/usp-sky-light.jpeg` | New – copied from upload |
+| `src/assets/onboarding/usp-sky-dark.jpeg` | New – copied from upload |
+| `src/pages/onboarding/stages/StageUSPIntro.tsx` | New – 3-screen swipeable USP intro |
+| `src/App.tsx` | Add lazy import + route |
+| `src/pages/onboarding/OnboardingFlow.tsx` | Add to STAGE_ROUTES |
+| `src/pages/onboarding/stages/Stage6Payment.tsx` | Redirect to app-intro |
+| `src/utils/onboardingStatus.ts` | Add stage validation + resume entry |
+| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Update header copy |
+
+No database changes. No edge function changes.
 
