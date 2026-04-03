@@ -27,7 +27,7 @@ export default function Stage1Welcome() {
         <p className="text-base text-foreground/90 font-body leading-relaxed">
           Six questions build your Leadership Performance Profile — the intelligence layer that makes everything personal to you and your day.
         </p>
-        <p className="text-sm text-foreground/70 font-body italic leading-relaxed">
+        <p className="text-base text-foreground/90 font-body leading-relaxed">
           The more honest you are, the sharper it gets.
         </p>
       </div>
