@@ -2469,6 +2469,95 @@ async function buildServerContext(
     }));
   }
 
+  // === GAP 2: Journey Arc ===
+  const ENABLE_JOURNEY_ARC = Deno.env.get('ENABLE_JOURNEY_ARC') !== 'false';
+  if (ENABLE_JOURNEY_ARC) {
+    try {
+      const sessions = journeySessionsResult?.data || [];
+      const totalSessions = sessions.length;
+      const firstSessionAt = sessions[0]?.started_at ? new Date(sessions[0].started_at as string) : null;
+      const weeksSinceStart = firstSessionAt ? Math.floor((Date.now() - firstSessionAt.getTime()) / (7 * 86400000)) : 0;
+
+      // Dominant theme last 30 days
+      const themes = (journeyThemesResult?.data || []).map((s: any) => s.dominant_pattern).filter(Boolean);
+      const themeCounts: Record<string, number> = {};
+      themes.forEach((t: string) => { themeCounts[t] = (themeCounts[t] || 0) + 1; });
+      const dominantThemeLast30Days = Object.entries(themeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+      // Commitment tracking
+      const commitmentStatuses = (journeyCommitmentsResult?.data || []).map((c: any) => c.status);
+      let consecutiveKept = 0;
+      for (const s of commitmentStatuses) {
+        if (s === 'completed') consecutiveKept++;
+        else break;
+      }
+      const lastCommitmentKept = commitmentStatuses.length > 0 ? commitmentStatuses[0] === 'completed' : null;
+
+      // Last breakthrough
+      const lastBreakthroughAt = journeyBreakthroughResult?.data?.[0]?.created_at;
+      const lastBreakthroughDaysAgo = lastBreakthroughAt
+        ? Math.floor((Date.now() - new Date(lastBreakthroughAt as string).getTime()) / 86400000)
+        : null;
+
+      // Growth edge progress
+      let growthEdgeProgress: 'early' | 'developing' | 'integrating' | 'graduated' = 'early';
+      if (totalSessions >= 24) growthEdgeProgress = 'graduated';
+      else if (totalSessions >= 12) growthEdgeProgress = 'integrating';
+      else if (totalSessions >= 4) growthEdgeProgress = 'developing';
+
+      context.journeyArc = {
+        totalSessions,
+        weeksSinceStart,
+        dominantThemeLast30Days,
+        lastBreakthroughDaysAgo,
+        growthEdgeProgress,
+        lastCommitmentKept,
+        consecutiveKeptCommitments: consecutiveKept,
+      };
+    } catch (e) {
+      console.error('[buildServerContext] Journey arc error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 5: Practice Ratings ===
+  const ENABLE_PRACTICE_HISTORY = Deno.env.get('ENABLE_PRACTICE_HISTORY') !== 'false';
+  if (ENABLE_PRACTICE_HISTORY) {
+    try {
+      const ratings = practiceRatingsResult?.data || [];
+      if (ratings.length > 0) {
+        const byContent: Record<string, { sum: number; count: number }> = {};
+        for (const r of ratings) {
+          const id = (r as any).content_id;
+          const star = Number((r as any).star_rating);
+          if (!id || isNaN(star)) continue;
+          if (!byContent[id]) byContent[id] = { sum: 0, count: 0 };
+          byContent[id].sum += star;
+          byContent[id].count++;
+        }
+        const dismissed: string[] = [];
+        const effective: string[] = [];
+        for (const [id, data] of Object.entries(byContent)) {
+          const avg = data.sum / data.count;
+          if (avg <= 2) dismissed.push(id);
+          else if (avg >= 4) effective.push(id);
+        }
+        if (dismissed.length > 0 || effective.length > 0) {
+          context.practiceRatings = {
+            dismissedPractices: dismissed.slice(0, 10),
+            confirmedEffective: effective.slice(0, 10),
+          };
+        }
+      }
+    } catch (e) {
+      console.error('[buildServerContext] Practice ratings error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 1: Entry Context (pass through from client) ===
+  if (clientContext?.entryContext) {
+    context.entryContext = clientContext.entryContext;
+  }
+
   return context;
 }
 
