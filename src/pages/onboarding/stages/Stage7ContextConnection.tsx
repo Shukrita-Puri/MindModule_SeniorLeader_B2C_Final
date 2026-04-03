@@ -321,9 +321,8 @@ export default function Stage7ContextConnection() {
 
     if (completionSucceeded) {
       console.log("[Stage7] Context preferences saved, navigating to daily check-in");
-      sessionStorage.removeItem('first_session_done');
-      sessionStorage.setItem('first_session_guide_step', '0');
-      sessionStorage.setItem('first_session_guide_pending', '1');
+      // Tour eligibility is determined by DB (first_session_walkthrough_at null)
+      // No need to set session flags here – DailyCheckIn will check DB on mount
       navigate("/daily-check-in");
     } else {
       console.warn("[Stage7] Completion failed, staying on context step");
