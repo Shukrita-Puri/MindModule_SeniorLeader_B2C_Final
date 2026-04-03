@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         "welcome_at", "identity_at", "emotional_awareness_at",
         "stress_response_at", "recovery_patterns_at", "mental_clarity_at",
         "growth_intention_at", "signup_step_at", "results_at",
-        "payment_at", "context_connection_at",
+        "payment_at", "context_connection_at", "first_session_walkthrough_at",
       ];
 
       if (!validColumns.includes(stepColumn)) {
