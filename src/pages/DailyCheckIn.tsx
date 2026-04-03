@@ -87,65 +87,52 @@ const DailyCheckIn = () => {
 
   const { recordStep } = useOnboardingProgress();
 
-  // Show first session guide ONLY on first signup (never on returning login)
+  // Show first session guide – DB is the single source of truth for eligibility
   useEffect(() => {
-    const pendingGuide = sessionStorage.getItem('first_session_guide_pending') === '1';
-
-    // Dev/testing: ?tour=1 in URL forces the guide (clears done flag first)
+    // Dev/testing: ?tour=1 forces the guide regardless of DB state
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
-      sessionStorage.removeItem('first_session_done');
       sessionStorage.setItem('first_session_guide_step', '0');
-      sessionStorage.setItem('first_session_guide_pending', '1');
+      sessionStorage.setItem('first_session_guide_active', '1');
       setShowGuide(true);
       return;
     }
 
-    if (sessionStorage.getItem('first_session_done')) return;
+    // If tour is already actively in progress (cross-page resume), show it
+    if (sessionStorage.getItem('first_session_guide_active') === '1') {
+      setShowGuide(true);
+      return;
+    }
+
     if (!user?.id || !user?.onboarding_completed_at) return;
 
-    if (pendingGuide) {
-      sessionStorage.setItem('first_session_guide_step', '0');
-      setShowGuide(true);
-      return;
-    }
-
-    // Check DB for walkthrough completion AND check-in count in parallel
-    Promise.all([
-      getAuthToken().then(async (token) => {
-        if (!token) return true; // assume completed if no token
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        try {
-          const res = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ action: 'GET' }),
-            }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            return !!data?.data?.first_session_walkthrough_at;
+    // Check DB: only show if onboarding complete AND walkthrough never completed
+    getAuthToken().then(async (token) => {
+      if (!token) return;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      try {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'GET' }),
           }
-        } catch { /* ignore */ }
-        return false;
-      }),
-      supabase
-        .from('daily_checkins')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .then(({ count }) => (count ?? 0) > 0),
-    ]).then(([walkthroughCompleted, hasCheckins]) => {
-      // Only show guide if walkthrough was never completed AND no check-ins exist
-      if (!walkthroughCompleted && !hasCheckins) {
-        sessionStorage.setItem('first_session_guide_step', '0');
-        sessionStorage.setItem('first_session_guide_pending', '1');
-        setShowGuide(true);
-      }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
+          if (!walkthroughDone) {
+            // Start the tour
+            sessionStorage.setItem('first_session_guide_step', '0');
+            sessionStorage.setItem('first_session_guide_active', '1');
+            setShowGuide(true);
+          }
+        }
+      } catch { /* ignore */ }
     });
   }, [user?.id, user?.onboarding_completed_at]);
 
