@@ -2131,6 +2131,13 @@ async function buildServerContext(
     todayCheckinsResult,
     upcomingCalendarResult,
     todayPatternsResult,
+    // === GAP 2: Journey Arc queries ===
+    journeySessionsResult,
+    journeyThemesResult,
+    journeyCommitmentsResult,
+    journeyBreakthroughResult,
+    // === GAP 5: Practice Ratings query ===
+    practiceRatingsResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -2243,6 +2250,41 @@ async function buildServerContext(
       .gte('confidence_score', 0.5)
       .order('confidence_score', { ascending: false })
       .limit(3),
+    // 19. GAP 2: Journey Arc – total sessions + first session date
+    supabase
+      .from('dialogue_sessions')
+      .select('started_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: true }),
+    // 20. GAP 2: Journey Arc – dominant themes last 30 days
+    supabase
+      .from('coach_session_summaries')
+      .select('dominant_pattern')
+      .eq('user_id', userId)
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // 21. GAP 2: Journey Arc – commitment outcomes last 30 days
+    supabase
+      .from('coach_accountability_tracker')
+      .select('status')
+      .eq('user_id', userId)
+      .gte('committed_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('committed_at', { ascending: false })
+      .limit(10),
+    // 22. GAP 2: Journey Arc – latest breakthrough
+    supabase
+      .from('coach_breakthrough_moments')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1),
+    // 23. GAP 5: Practice content ratings
+    supabase
+      .from('content_relevance_feedback')
+      .select('content_id, star_rating')
+      .eq('user_id', userId)
+      .not('star_rating', 'is', null),
   ]);
 
   // --- Populate context from server results ---
