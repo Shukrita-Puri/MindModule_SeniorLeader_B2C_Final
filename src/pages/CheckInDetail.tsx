@@ -126,7 +126,7 @@ const CheckInDetail = () => {
               </div>
               <Slider
                 value={[clarity]}
-                onValueChange={(v) => setClarity(v[0])}
+                onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
                 min={1}
                 max={5}
                 step={1}
