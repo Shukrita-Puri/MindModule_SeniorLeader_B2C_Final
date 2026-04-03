@@ -71,11 +71,9 @@ const ExecutiveHome = () => {
   const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
 
-  // First session guide: show if mid-flow (navigated from check-in page)
+  // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(() => {
-    const step = sessionStorage.getItem('first_session_guide_step');
-    const pending = sessionStorage.getItem('first_session_guide_pending') === '1';
-    return pending && step !== null && !sessionStorage.getItem('first_session_done');
+    return sessionStorage.getItem('first_session_guide_active') === '1';
   });
 
   // Check for plan feedback flag on mount
