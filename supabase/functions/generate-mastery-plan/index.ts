@@ -818,8 +818,9 @@ function generatePlanBrief(
     }
 
     // Urgency frame
-    const calGapMins = ctx.remainingMeetingCount > 0 ? null : null; // simplified
-    const urgency = buildUrgencyFrame(timeOfDay, nextEventTitle || null, nextEventMinutes || null, calGapMins, calendarLoad);
+    // Calendar gap: find the smallest upcoming gap for urgency framing
+    const nextGap = calendarGaps && calendarGaps.length > 0 ? calendarGaps.find(g => g > 0 && g <= 60) ?? null : null;
+    const urgency = buildUrgencyFrame(timeOfDay, nextEventTitle || null, nextEventMinutes || null, nextGap, calendarLoad);
 
     return `${rationale}${coachFragment} ${urgency}`;
   }
