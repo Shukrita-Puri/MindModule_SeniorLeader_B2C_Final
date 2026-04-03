@@ -653,7 +653,7 @@ Maximum one portable question per session. Never alongside a protocol in the sam
 
 When the coach identifies the active scenario from context, Layer 3 data, or user disclosure – it draws from the scenario-specific question bank below rather than the generic category list. Scenario-specific questions are always more precise and more powerful. The generic list is a fallback only.
 
-**MARKER FORMAT:** Offer a portable question tool using: [QUESTION_TOOL: {SCENARIO_TAG}] followed by the question. Maximum one per session. Never alongside a protocol in the same exchange.
+**DELIVERY:** Always deliver these as plain conversational text – never use bracket markers. Weave the question naturally into your response.
 
 ## FAMILY 1 – RECALIBRATION
 
