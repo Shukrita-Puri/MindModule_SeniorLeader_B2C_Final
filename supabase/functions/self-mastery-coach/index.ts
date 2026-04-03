@@ -3401,6 +3401,124 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     prompt += lines.join('\n');
   }
 
+  // === GAP 4: PHYSIOLOGICAL MODE ADAPTATION ===
+  const ENABLE_PHYSIO_MODE = Deno.env.get('ENABLE_PHYSIO_MODE') !== 'false';
+  if (ENABLE_PHYSIO_MODE && context) {
+    try {
+      const tier = context.todayState?.tier?.toLowerCase();
+      const hrvDeltaPct = context.hrvData?.hrvDeltaPct;
+      const clarity = context.todayCheckins?.[0]?.clarity_level;
+      const confidence = context.todayCheckins?.[0]?.confidence_level;
+
+      let physioMode: 'depleted' | 'managing' | 'strong' | 'peak' | null = null;
+
+      // Determine mode from multiple signals
+      if (
+        tier === 'depleted' ||
+        (hrvDeltaPct != null && hrvDeltaPct < -20) ||
+        (clarity != null && clarity <= 3) ||
+        (confidence != null && confidence <= 3)
+      ) {
+        physioMode = 'depleted';
+      } else if (
+        tier === 'peak' ||
+        (hrvDeltaPct != null && hrvDeltaPct > 10 && (clarity == null || clarity >= 7) && (confidence == null || confidence >= 7))
+      ) {
+        physioMode = 'peak';
+      } else if (tier === 'strong') {
+        physioMode = 'strong';
+      } else if (tier === 'managing') {
+        physioMode = 'managing';
+      }
+
+      if (physioMode) {
+        const modeInstructions: Record<string, string> = {
+          depleted: `\n\n# PHYSIOLOGICAL MODE: DEPLETED
+This user is physiologically depleted (low HRV, low clarity, or low confidence). Adapt your approach:
+- Responses max 3 sentences
+- One question maximum per turn
+- Move toward a concrete anchor or tool within 3 exchanges
+- Do NOT push for breakthrough – stabilise first
+- Tone: warm, grounding, minimal
+- Example: "Given where your energy is today, let's focus on one thing only."`,
+          managing: `\n\n# PHYSIOLOGICAL MODE: MANAGING
+Standard coaching approach. User is in a workable state.
+- Balanced between probing and synthesis
+- One question per turn
+- Offer grounding if needed`,
+          strong: `\n\n# PHYSIOLOGICAL MODE: STRONG
+User is in a good state. Can go deeper.
+- Standard challenge level appropriate
+- Full range of modes available`,
+          peak: `\n\n# PHYSIOLOGICAL MODE: PEAK
+User is physiologically strong today (high HRV, high clarity, high confidence). This is the session to go deeper.
+- Challenge more directly
+- Surface patterns that need naming
+- Do not waste a peak session on surface work
+- Push toward the uncomfortable insight they've been avoiding
+- Example: "You're in a strong state today – let's use that to go somewhere harder."`,
+        };
+        prompt += modeInstructions[physioMode];
+      }
+    } catch (e) {
+      console.error('[buildSystemPrompt] Physio mode error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 2: JOURNEY ARC CONTEXT ===
+  const ENABLE_JOURNEY_ARC_PROMPT = Deno.env.get('ENABLE_JOURNEY_ARC') !== 'false';
+  if (ENABLE_JOURNEY_ARC_PROMPT && context?.journeyArc) {
+    try {
+      const arc = context.journeyArc;
+      const arcLines: string[] = ['\n\n# JOURNEY CONTEXT'];
+      arcLines.push(`Sessions: ${arc.totalSessions} over ${arc.weeksSinceStart} weeks.`);
+      arcLines.push(`Growth stage: ${arc.growthEdgeProgress}.`);
+
+      if (arc.growthEdgeProgress === 'early') {
+        arcLines.push('REGISTER: Build trust. Listen more than you challenge. Establish the relationship. This is a new user – earn the right to go deeper.');
+      } else if (arc.growthEdgeProgress === 'developing') {
+        arcLines.push('REGISTER: Begin naming patterns. Introduce accountability gently. You have enough context to be specific.');
+      } else if (arc.growthEdgeProgress === 'integrating') {
+        arcLines.push('REGISTER: Hold to higher standards. Reference the arc of growth explicitly. Challenge more directly – you have the relationship capital.');
+      } else if (arc.growthEdgeProgress === 'graduated') {
+        arcLines.push('REGISTER: Name what has been built. Reference long-term patterns. This is a peer relationship now. High-bar coaching.');
+      }
+
+      if (arc.dominantThemeLast30Days) {
+        arcLines.push(`Recent dominant theme: ${arc.dominantThemeLast30Days}.`);
+      }
+      if (arc.consecutiveKeptCommitments > 0) {
+        arcLines.push(`${arc.consecutiveKeptCommitments} consecutive commitments kept – acknowledge this reliability.`);
+      }
+      if (arc.lastBreakthroughDaysAgo != null) {
+        arcLines.push(`Last breakthrough: ${arc.lastBreakthroughDaysAgo} days ago.`);
+      }
+
+      prompt += arcLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Journey arc prompt error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 5: PRACTICE AWARENESS ===
+  const ENABLE_PRACTICE_HISTORY_PROMPT = Deno.env.get('ENABLE_PRACTICE_HISTORY') !== 'false';
+  if (ENABLE_PRACTICE_HISTORY_PROMPT && context?.practiceRatings) {
+    try {
+      const pr = context.practiceRatings;
+      const praLines: string[] = ['\n\n# PRACTICE AWARENESS'];
+      if (pr.dismissedPractices.length > 0) {
+        praLines.push(`NEVER recommend these practices – user has rated them poorly: ${pr.dismissedPractices.join(', ')}`);
+      }
+      if (pr.confirmedEffective.length > 0) {
+        praLines.push(`These have worked well for this user: ${pr.confirmedEffective.join(', ')}`);
+        praLines.push('Reference them when relevant: "The [practice] worked well for you before – that applies here."');
+      }
+      prompt += praLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Practice awareness error (non-fatal):', e);
+    }
+  }
+
   // --- Pattern-area conditional prompts ---
   const dominantPattern = detectDominantPattern(context);
   if (dominantPattern === 'recalibration') prompt += RECALIBRATION_PATTERN_PROMPT;
