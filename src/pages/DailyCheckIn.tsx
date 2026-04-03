@@ -66,7 +66,7 @@ const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
