@@ -2272,6 +2272,31 @@ serve(async (req) => {
       }
     }
 
+    // Coach breakthrough moments + event/pattern match
+    if (coachBreakthroughs.length > 0 && !finalContext.includes('breakthrough')) {
+      const recentBreakthrough = coachBreakthroughs[0];
+      const breakthroughArea = (recentBreakthrough.pattern_area || recentBreakthrough.meta_skill || '').toLowerCase();
+      
+      // Match breakthrough to high-stakes event
+      if (todayHighStakes.length > 0 && breakthroughArea) {
+        const eventMatch = todayHighStakes.some((e: string) => e.toLowerCase().includes(breakthroughArea) || breakthroughArea.includes(e.toLowerCase().split(' ')[0]));
+        if (eventMatch) {
+          finalContext = `A recent coaching breakthrough connects directly to what's ahead today. ${finalContext}`;
+          compassAlreadyUsed.push('coach_breakthrough_match');
+        }
+      }
+      
+      // Standalone breakthrough awareness (acted on vs not)
+      if (!compassAlreadyUsed.includes('coach_breakthrough_match') && recentBreakthrough.impact_score >= 5) {
+        if (recentBreakthrough.was_acted_on) {
+          finalContext = `You've been acting on a recent coaching breakthrough – sustain that momentum today. ${finalContext}`;
+        } else {
+          finalContext = `A significant insight from coaching is still untested – today could be the moment to apply it. ${finalContext}`;
+        }
+        compassAlreadyUsed.push('coach_breakthrough_awareness');
+      }
+    }
+
     // Ensure event titles in Compass context use italic formatting (*event_title*)
     // Wrap any 'event_title' references in the context with * markers
     if (todayHighStakes.length > 0) {
