@@ -142,18 +142,18 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
             <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
               MIND MODULE
             </h1>
-            <p className="text-[9px] sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+        <p className="text-[10px] sm:text-xs tracking-[0.35em] uppercase text-taupe font-body -mt-1 sm:-mt-3">
               Executive Edition
             </p>
             
             {/* Tagline */}
-            <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-10 sm:mt-8">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-10 sm:mt-8 max-w-xs sm:max-w-none mx-auto">
               World's First Proactive Mental Performance OS.
             </h2>
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col items-center gap-5 w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+          <div className="flex flex-col items-center gap-5 w-full mt-auto mb-[16%] sm:mb-auto sm:mt-12">
             {/* Gold Divider */}
             <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-4" />
             
