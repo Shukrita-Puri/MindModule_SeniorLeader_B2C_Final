@@ -275,10 +275,12 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
           
           // ═══ JIT CACHE INVALIDATION ═══
           // If cached plan has no preEventPlan but enough time has passed, refetch
-          // so newly-qualifying JIT events can surface
+          // so newly-qualifying JIT events can surface.
+          // Only invalidate if there's no stored ritual data (meaning we haven't committed to a plan yet)
           const jitCacheKey = `plan-jit-checked-${todayDate}-${currentPeriod}`;
           const lastJitCheck = sessionStorage.getItem(jitCacheKey);
-          const jitCacheStale = !parsed.preEventPlan && (!lastJitCheck || (Date.now() - parseInt(lastJitCheck, 10)) > 10 * 60 * 1000);
+          const hasCommittedPlan = hasStoredPlan && todayRitual?.recommended_practice_ids && todayRitual.recommended_practice_ids.length > 0;
+          const jitCacheStale = !parsed.preEventPlan && !hasCommittedPlan && (!lastJitCheck || (Date.now() - parseInt(lastJitCheck, 10)) > 10 * 60 * 1000);
           if (jitCacheStale) {
             console.log('[DailyRitual] Cached plan has no preEventPlan – invalidating to allow JIT resurfacing');
             sessionStorage.removeItem(sessionKey);
