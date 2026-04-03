@@ -74,10 +74,10 @@ export default function StageUSPIntro() {
       <div className="absolute inset-x-0 bottom-0 flex flex-col px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
         {/* Text */}
         <div className="space-y-3 text-center mb-8">
-          <h1 className="font-headline text-[1.625rem] font-bold italic leading-tight tracking-tight text-white">
+          <h1 className="font-headline text-[2rem] sm:text-4xl font-bold italic leading-tight tracking-tight text-white">
             {slide.headline}
           </h1>
-          <p className="font-subheadline text-[0.9375rem] text-white/70 leading-relaxed max-w-xs mx-auto">
+          <p className="font-subheadline text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed max-w-sm mx-auto">
             {slide.subtitle}
           </p>
         </div>
