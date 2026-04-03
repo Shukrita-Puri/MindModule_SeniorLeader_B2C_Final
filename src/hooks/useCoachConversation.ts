@@ -421,6 +421,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     }
   }, [user?.id, clearConversation]);
 
+  const setEntryContext = useCallback((ec: EntryContext) => {
+    setEntryContextState(ec);
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -434,6 +438,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setFlowType,
     setPracticeContext,
     setEventContext,
+    setEntryContext,
     restoreMessages,
   };
 };
