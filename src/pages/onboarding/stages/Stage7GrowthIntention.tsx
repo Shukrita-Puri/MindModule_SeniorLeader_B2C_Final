@@ -65,7 +65,7 @@ export default function Stage7GrowthIntention() {
         onClick={handleContinue}
         disabled={!goal}
         size="lg"
-        variant="critical"
+        variant="default"
         className="w-full"
       >
         See My Results

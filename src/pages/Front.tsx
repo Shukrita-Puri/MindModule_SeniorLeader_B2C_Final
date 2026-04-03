@@ -135,40 +135,40 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
       <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto">
         
         {/* Top section - pushed down to overlap with sun area on mobile */}
-        <div className="flex flex-col items-center space-y-3 sm:space-y-5 lg:space-y-6 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
-          {/* Logo */}
-          <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
-          
-          {/* Brand name */}
-          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
-            MIND MODULE
-          </h1>
-          <p className="text-[9px] sm:text-xs tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-2 sm:-mt-4">
-            Executive Edition
-          </p>
-          
-          {/* Tagline - positioned between clouds and landscape */}
-          <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-foreground font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-6 sm:mt-4">
-            World's First Proactive Mental Performance OS.
-          </h2>
-        </div>
+          <div className="flex flex-col items-center space-y-4 sm:space-y-6 lg:space-y-8 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
+            {/* Logo */}
+            <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+            
+            {/* Brand name */}
+            <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
+              MIND MODULE
+            </h1>
+            <p className="text-[9px] sm:text-xs tracking-[0.35em] uppercase text-muted-foreground/70 font-body -mt-1 sm:-mt-3">
+              Executive Edition
+            </p>
+            
+            {/* Tagline - positioned between clouds and landscape */}
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-foreground font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-10 sm:mt-8">
+              World's First Proactive Mental Performance OS.
+            </h2>
+          </div>
 
-        {/* CTA Buttons - pushed down into landscape area */}
-        <div className="flex flex-col items-center gap-3 mt-auto mb-[22%] sm:mb-auto sm:mt-6">
-          {/* Gold Divider */}
-          <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-2" />
-          
-          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-            Let's Go
-          </Button>
-          
-          <button onClick={handleSignIn} className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-body">
-            Already have an account? <span className="underline underline-offset-2">Log in</span>
-          </button>
-        </div>
+          {/* CTA Buttons - pushed down into landscape area */}
+          <div className="flex flex-col items-center gap-5 mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+            {/* Gold Divider */}
+            <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-4" />
+            
+            <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              Let's Go
+            </Button>
+            
+            <button onClick={handleSignIn} className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-body">
+              Already have an account? <span className="underline underline-offset-2">Log in</span>
+            </button>
+          </div>
         
         {/* Privacy Trust Badge - pinned to bottom on mobile */}
-        <div className="flex flex-col items-center gap-1 pt-2 sm:pt-6 border-t border-gold/10 w-full mt-auto pb-4 sm:pb-0">
+        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8 border-t border-gold/10 w-full mt-auto pb-4 sm:pb-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
             <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>

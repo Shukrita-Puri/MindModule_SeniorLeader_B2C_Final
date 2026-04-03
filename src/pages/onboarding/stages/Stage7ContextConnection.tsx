@@ -401,7 +401,7 @@ export default function Stage7ContextConnection() {
 
         {/* CTAs */}
         <div className="space-y-3">
-          <Button onClick={handleComplete} variant="critical" className="w-full" disabled={loading}>
+          <Button onClick={handleComplete} variant="default" className="w-full" disabled={loading}>
             Continue
           </Button>
           <button
