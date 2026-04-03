@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Brain, Compass, BarChart3, HeartPulse } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SIDEBAR_OPEN_COUNT_KEY = "sidebar_open_count";
 const PULSE_THRESHOLD = 3;
