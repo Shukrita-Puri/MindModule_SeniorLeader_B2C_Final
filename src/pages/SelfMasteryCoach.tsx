@@ -64,6 +64,7 @@ const SelfMasteryCoach = () => {
     setFlowType,
     setPracticeContext,
     setEventContext,
+    setEntryContext,
     restoreMessages 
   } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
