@@ -6,7 +6,8 @@ import {
   Share2, 
   LogOut,
   ChevronUp,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Compass
 } from 'lucide-react';
 import {
   Popover,
@@ -37,6 +38,13 @@ const UserSettingsPopover = () => {
     { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment' },
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },
   ];
+
+  const handleRetakeTour = () => {
+    setOpen(false);
+    sessionStorage.setItem('first_session_guide_step', '0');
+    sessionStorage.setItem('first_session_guide_active', '1');
+    navigate('/daily-check-in');
+  };
 
   const handleSignOut = async () => {
     setOpen(false);

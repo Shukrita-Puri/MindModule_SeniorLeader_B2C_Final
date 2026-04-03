@@ -168,7 +168,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </div>
         
         {/* Privacy Trust Badge - pinned to bottom on mobile */}
-        <div className="flex flex-col items-center gap-1 pt-2 sm:pt-6 border-t border-gold/10 w-full mt-auto pb-4 sm:pb-0">
+        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8 border-t border-gold/10 w-full mt-auto pb-4 sm:pb-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
             <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>

@@ -317,6 +317,11 @@ const DailyCheckIn = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 pb-32">
 
+        {/* Instruction */}
+        <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide">
+          Tap your state to begin
+        </p>
+
         {/* Catalog Carousel */}
         <div
           ref={scrollRef}
@@ -341,7 +346,7 @@ const DailyCheckIn = () => {
                     border border-white/20 backdrop-blur-sm
                     shadow-[0_8px_32px_rgba(0,0,0,0.15)]
                     transition-all duration-300 cursor-pointer
-                    ${isActive ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-60'}
+                    ${isActive ? 'scale-100 opacity-100 ring-2 ring-white/40 animate-pulse' : 'scale-[0.92] opacity-60'}
                     hover:scale-[1.02] active:scale-95
                   `}
                 >
@@ -354,6 +359,11 @@ const DailyCheckIn = () => {
                   <p className="text-sm text-white/70 font-body italic">
                     {outcome.subtitle}
                   </p>
+                  {isActive && (
+                    <span className="text-[10px] text-white/50 font-body tracking-wider uppercase">
+                      Tap to select
+                    </span>
+                  )}
                 </div>
               </TouchOptimized>
             );
