@@ -87,7 +87,7 @@ const LeftSidebar = () => {
 
       <SidebarContent>
         {/* Features Section */}
-        <SidebarGroup>
+        <SidebarGroup data-tour="sidebar-suite-group">
           <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
             Mental Performance Suite
           </SidebarGroupLabel>
@@ -163,7 +163,7 @@ const LeftSidebar = () => {
       </SidebarContent>
 
       {/* Footer - User Settings */}
-      <SidebarFooter className="border-t border-border">
+      <SidebarFooter className="border-t border-border" data-tour="sidebar-footer">
         <UserSettingsPopover />
       </SidebarFooter>
     </Sidebar>

@@ -7,6 +7,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { getAuthToken } from "@/services/authTokenService";
 
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
@@ -63,6 +64,9 @@ const TAB_LABELS = [
   { key: 'action' as const, label: 'Action' },
 ];
 
+const ACTIVE_TOUR_KEY = 'first_session_guide_active';
+const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
+
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const { recordStep } = useOnboardingProgress();
@@ -72,9 +76,58 @@ const ExecutiveHome = () => {
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
-  const [showGuide, setShowGuide] = useState(() => {
-    return sessionStorage.getItem('first_session_guide_active') === '1';
-  });
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user?.id || !user?.onboarding_completed_at) {
+      setShowGuide(false);
+      return;
+    }
+
+    getAuthToken().then(async (token) => {
+      if (!token) return;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      try {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'GET' }),
+          }
+        );
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
+        const isActiveForUser =
+          sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+          sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
+
+        if (walkthroughDone) {
+          sessionStorage.removeItem(ACTIVE_TOUR_KEY);
+          sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
+          sessionStorage.removeItem('first_session_guide_step');
+          if (!cancelled) setShowGuide(false);
+          return;
+        }
+
+        if (!cancelled) setShowGuide(isActiveForUser);
+      } catch {
+        if (!cancelled) setShowGuide(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.onboarding_completed_at]);
 
   // Check for plan feedback flag on mount
   useEffect(() => {

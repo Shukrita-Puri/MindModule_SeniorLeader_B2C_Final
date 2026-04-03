@@ -13,6 +13,10 @@ import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
+const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
+const ACTIVE_TOUR_KEY = 'first_session_guide_active';
+const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
+
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
 
@@ -90,6 +94,8 @@ const DailyCheckIn = () => {
 
   // Show first session guide – DB is the single source of truth for eligibility
   useEffect(() => {
+    let cancelled = false;
+
     // Dev/testing: ?tour=1 forces the guide regardless of DB state
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
@@ -100,13 +106,10 @@ const DailyCheckIn = () => {
       return;
     }
 
-    // If tour is already actively in progress (cross-page resume), show it
-    if (sessionStorage.getItem('first_session_guide_active') === '1') {
-      setShowGuide(true);
+    if (!user?.id || !user?.onboarding_completed_at) {
+      setShowGuide(false);
       return;
     }
-
-    if (!user?.id || !user?.onboarding_completed_at) return;
 
     // Check DB: only show if onboarding complete AND walkthrough never completed
     getAuthToken().then(async (token) => {
@@ -127,15 +130,32 @@ const DailyCheckIn = () => {
         if (res.ok) {
           const data = await res.json();
           const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
-          if (!walkthroughDone) {
-            // Start the tour
-            sessionStorage.setItem('first_session_guide_step', '0');
-            sessionStorage.setItem('first_session_guide_active', '1');
-            setShowGuide(true);
+          const isActiveForUser =
+            sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+            sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
+
+          if (walkthroughDone) {
+            sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
+            sessionStorage.removeItem(ACTIVE_TOUR_KEY);
+            sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
+            if (!cancelled) setShowGuide(false);
+            return;
           }
+
+          if (!isActiveForUser) {
+            sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
+            sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
+            sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, user.id);
+          }
+
+          if (!cancelled) setShowGuide(true);
         }
       } catch { /* ignore */ }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, user?.onboarding_completed_at]);
 
   // Fetch connection status
