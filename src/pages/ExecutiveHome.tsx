@@ -65,6 +65,7 @@ const TAB_LABELS = [
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
+  const { recordStep } = useOnboardingProgress();
   const [activeTab, setActiveTab] = useState<'state' | 'compass' | 'action'>('state');
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [jitPriority, setJitPriority] = useState(false);
