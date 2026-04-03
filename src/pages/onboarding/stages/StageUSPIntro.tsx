@@ -17,7 +17,7 @@ const slides: Slide[] = [
   {
     headline: "Peak performers don\u2019t react. They anticipate.",
     subtitle: "Your day mapped. Your state read. Your plan ready \u2013 before you need it.",
-    image: uspSkyLight,
+    image: uspHorizonDawn,
     alt: "Engraved sky illustration",
   },
   {
