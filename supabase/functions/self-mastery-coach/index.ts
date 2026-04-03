@@ -2065,6 +2065,30 @@ interface CoachContext {
     time_window: string | null;
     confidence_score: number | null;
   }>;
+
+  // === GAP 2: Journey Arc (server-fetched) ===
+  journeyArc?: {
+    totalSessions: number;
+    weeksSinceStart: number;
+    dominantThemeLast30Days: string | null;
+    lastBreakthroughDaysAgo: number | null;
+    growthEdgeProgress: 'early' | 'developing' | 'integrating' | 'graduated';
+    lastCommitmentKept: boolean | null;
+    consecutiveKeptCommitments: number;
+  };
+
+  // === GAP 5: Practice Ratings (server-fetched) ===
+  practiceRatings?: {
+    dismissedPractices: string[];
+    confirmedEffective: string[];
+  };
+
+  // === GAP 1: Entry Context (client-provided) ===
+  entryContext?: {
+    entryPoint: string;
+    lastAction: string | null;
+    triggeredBy: string | null;
+  };
 }
 
 // =============================================================================
