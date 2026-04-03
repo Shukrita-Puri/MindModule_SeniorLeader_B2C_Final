@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -162,17 +161,17 @@ const CheckInDetail = () => {
 
             {/* Save button */}
             <div className="pt-2">
-              <Button
+              <button
                 onClick={handleSave}
                 disabled={saving || !bothTouched}
-                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-colors disabled:opacity-100 ${
+                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-all duration-200 ${
                   bothTouched
-                    ? 'bg-saffron text-saffron-foreground hover:brightness-110'
-                    : 'bg-muted text-foreground/55 cursor-not-allowed hover:brightness-100'
+                    ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
+                    : 'bg-muted text-foreground/60 cursor-not-allowed'
                 }`}
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
