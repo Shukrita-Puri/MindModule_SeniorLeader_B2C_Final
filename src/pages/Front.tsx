@@ -115,21 +115,21 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
     onSignIn();
   };
 
-  return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className={`relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`} style={{ backgroundColor: '#0A1628' }}>
       
-      {/* Full-bleed background illustration */}
+      {/* Full-bleed background illustration — white/silver engraving on dark */}
       <img 
         src={heroIllustration} 
         alt="" 
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover opacity-[0.35]"
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.18] invert brightness-200"
         width={1920}
         height={1080}
       />
 
       {/* Gradient overlays for depth and readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/30 to-background/90 pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-background pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0A1628]/60 via-[#0A1628]/30 to-[#0A1628]/90 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#0A1628_70%)] pointer-events-none" />
       
       {/* Content layer */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto space-y-3 sm:space-y-5 lg:space-y-6">
