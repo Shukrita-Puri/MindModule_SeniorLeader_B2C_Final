@@ -2040,7 +2040,6 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const combinedAlreadyUsed = shared.combinedAlreadyUsed;
   const pendingCommitments = shared.pendingCommitments;
 
-  // 0. Server-side upstream queries – ALL signals derived here (trust gap closed)
   // Calendar events – next 48h (only if connection is active)
   let rawCalendarEvents: any[] = [];
   try {
