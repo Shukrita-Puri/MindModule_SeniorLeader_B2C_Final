@@ -53,6 +53,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     fromIntervention?: boolean;
     fromRitual?: boolean;
   } | null>(null);
+  const [entryContextState, setEntryContextState] = useState<EntryContext | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
