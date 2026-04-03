@@ -17,6 +17,7 @@ import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
+import type { EntryContext } from '@/types/coach';
 
 interface PracticeStep {
   title: string;
@@ -34,6 +35,7 @@ interface LocationState {
   fromRitual?: boolean;
   resumeSession?: boolean;
   previousSessionId?: string;
+  entryContext?: EntryContext;
 }
 
 interface QueuedPractice {
