@@ -2012,8 +2012,8 @@ serve(async (req) => {
       dayOfWeek,
     }));
 
-    // Fetch coach insights, check-ins, archetype, and coach memory in parallel
-    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes] = await Promise.all([
+    // Fetch coach insights, check-ins, archetype, coach memory, commitments, and breakthroughs in parallel
+    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes, coachBreakthroughsRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
@@ -2044,6 +2044,13 @@ serve(async (req) => {
         .eq('user_id', userId)
         .eq('status', 'pending')
         .order('committed_at', { ascending: false })
+        .limit(5),
+      // Coach breakthrough moments: recent high-impact breakthroughs
+      db.from('coach_breakthrough_moments')
+        .select('breakthrough_content, breakthrough_type, meta_skill, pattern_area, impact_score, was_acted_on, created_at')
+        .eq('user_id', userId)
+        .gte('impact_score', 3)
+        .order('created_at', { ascending: false })
         .limit(5),
     ]);
 

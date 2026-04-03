@@ -2297,7 +2297,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const nextEvtTitle = topEvent?.event.title || null;
   const nextEvtMins = topEvent?.minutesUntil || null;
 
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights, resolvedModuleTypes, combinedAlreadyUsed, nextEvtTitle, nextEvtMins, pendingCommitments);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights, resolvedModuleTypes, combinedAlreadyUsed, nextEvtTitle, nextEvtMins, pendingCommitments, shared.calendarGaps);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
