@@ -1778,6 +1778,249 @@ async function checkMasteryPlanRecoveryTrigger(
   } catch { return null; }
 }
 
+// ==================== SHARED CONTEXT ====================
+
+interface SharedContext {
+  rawCalendarEvents: any[];
+  calendarGaps: number[];
+  innerReadinessPattern: { trend: 'improving' | 'declining' | 'stable'; values: number[] };
+  causeEffect: {
+    practiceImpact: { practiceId: string; avgOutcomeShift: number; count: number }[];
+    stateCarryover: { eveningTier: string; morningTier: string; count: number }[];
+  };
+  pendingCommitments: any[];
+  combinedAlreadyUsed: string[];
+}
+
+async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promise<SharedContext> {
+  const timeOfDay = getTimeOfDay(req.timezoneOffset);
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+  const ctx: SharedContext = {
+    rawCalendarEvents: [],
+    calendarGaps: [],
+    innerReadinessPattern: { trend: 'stable', values: [] },
+    causeEffect: { practiceImpact: [], stateCarryover: [] },
+    pendingCommitments: [],
+    combinedAlreadyUsed: [],
+  };
+
+  // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
+  const [
+    calConnRes, checkinsRes, wearableRes, profileRes,
+    favsRes, ritualRes, feedbackRes, insightsRes, commitmentsRes,
+    practiceSessionsRes,
+  ] = await Promise.all([
+    supabaseClient.from('calendar_connections').select('is_active').eq('user_id', req.userId).eq('is_active', true).maybeSingle(),
+    supabaseClient.from('daily_checkins').select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window').eq('user_id', req.userId).order('checkin_date', { ascending: false }).limit(10),
+    supabaseClient.from('wearable_data').select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date').eq('user_id', req.userId).gte('summary_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('summary_date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseClient.from('profiles').select('practice_priority_tag, pressure_context_tag, archetype').eq('id', req.userId).maybeSingle(),
+    supabaseClient.from('user_favorites').select('content_id').eq('user_id', req.userId),
+    supabaseClient.from('daily_ritual_completions').select('completed_practice_ids').eq('user_id', req.userId).eq('ritual_date', today).eq('session_period', timeOfDay).maybeSingle(),
+    supabaseClient.from('content_relevance_feedback').select('content_id').eq('user_id', req.userId).gte('star_rating', 4),
+    supabaseClient.from('user_coach_insights').select('id, insight_type, insight_content, content_reference, confidence_score').eq('user_id', req.userId).eq('is_active', true).gte('confidence_score', 0.6).order('extracted_at', { ascending: false }).limit(50),
+    supabaseClient.from('coach_accountability_tracker').select('commitment_text, target_practice_id, pattern_area, status').eq('user_id', req.userId).eq('status', 'pending'),
+    supabaseClient.from('practice_sessions').select('practice_id, completed_at').eq('user_id', req.userId).gte('completed_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('completed_at', { ascending: false }).limit(100),
+  ]);
+
+  // ── Calendar events ──
+  if (calConnRes.data) {
+    const { data: events } = await supabaseClient
+      .from('calendar_events')
+      .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+      .eq('user_id', req.userId)
+      .gte('start_time', now.toISOString())
+      .lte('start_time', in48h.toISOString());
+    ctx.rawCalendarEvents = events || [];
+    req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
+      id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
+      isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring,
+    }));
+    console.log(`[buildSharedContext] calendar_events: ${ctx.rawCalendarEvents.length} events in next 48h`);
+  } else {
+    req.calendarEvents = [];
+  }
+
+  // ── Calendar load/pressure + gaps ──
+  {
+    const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    const upcoming = ctx.rawCalendarEvents.filter((e: any) => new Date(e.start_time) >= now && new Date(e.start_time) <= fourHoursLater);
+    req.calendarLoad = upcoming.length >= 5 ? 'high' : upcoming.length >= 3 ? 'medium' : 'low';
+    let totalPressure = 0;
+    upcoming.forEach((e: any) => {
+      let ep = 0;
+      if (e.is_organizer) ep += 2;
+      const att = e.attendees_count || 0;
+      if (att > 5) ep += 2; else if (att > 2) ep += 1;
+      const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
+      if (dur > 60) ep += 2; else if (dur >= 30) ep += 1;
+      if (!e.is_recurring) ep += 1;
+      const hour = new Date(e.start_time).getHours();
+      if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 16)) ep += 1;
+      totalPressure += ep;
+    });
+    const sorted = [...upcoming].sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+      if (gap < 15) totalPressure += 1;
+    }
+    req.calendarPressure = totalPressure >= 6 ? 'high' : totalPressure >= 3 ? 'medium' : 'low';
+
+    // Calendar gaps between consecutive future events
+    const futureEvents = ctx.rawCalendarEvents
+      .filter((e: any) => new Date(e.start_time) >= now)
+      .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    for (let i = 0; i < futureEvents.length - 1; i++) {
+      ctx.calendarGaps.push(Math.round((new Date(futureEvents[i + 1].start_time).getTime() - new Date(futureEvents[i].end_time).getTime()) / 60000));
+    }
+  }
+
+  // ── Check-in data ──
+  const checkins = checkinsRes.data || [];
+  if (checkins.length > 0) {
+    const windowCheckin = checkins.find((c: any) => c.checkin_date === today && c.time_window === timeOfDay);
+    const latest = windowCheckin || checkins[0];
+    req.clarityLevel = latest.clarity_level ?? 0;
+    req.confidenceLevel = latest.confidence_level ?? 0;
+    req.checkInOutcome = latest.outcome || 'steady';
+    const eb = latest.energy_balance ?? 50;
+    req.innerReadinessScore = eb;
+    if (eb < 40) req.innerReadinessTier = 'depleted';
+    else if (eb < 60) req.innerReadinessTier = 'managing';
+    else if (eb < 75) req.innerReadinessTier = 'strong';
+    else req.innerReadinessTier = 'peak';
+
+    // Consecutive-low pattern
+    const first = checkins[0].outcome;
+    const lowStates = ['overwhelmed', 'drained', 'scattered'];
+    if (lowStates.includes(first)) {
+      let count = 1;
+      for (let i = 1; i < checkins.length; i++) { if (checkins[i].outcome === first) count++; else break; }
+      if (count >= 3) req.patternInsight = { count, state: first };
+    }
+
+    // innerReadinessPattern.trend (last 5 energy_balance direction)
+    const last5 = checkins.slice(0, 5).map((c: any) => c.energy_balance ?? 50);
+    ctx.innerReadinessPattern.values = last5;
+    if (last5.length >= 3) {
+      const older = last5.slice(Math.floor(last5.length / 2));
+      const recent = last5.slice(0, Math.floor(last5.length / 2));
+      const avgOlder = older.reduce((s: number, v: number) => s + v, 0) / older.length;
+      const avgRecent = recent.reduce((s: number, v: number) => s + v, 0) / recent.length;
+      const diff = avgRecent - avgOlder;
+      ctx.innerReadinessPattern.trend = diff > 5 ? 'improving' : diff < -5 ? 'declining' : 'stable';
+    }
+
+    // causeEffect.stateCarryover (evening→morning)
+    try {
+      const byDate: Record<string, any[]> = {};
+      for (const c of checkins) { if (!byDate[c.checkin_date]) byDate[c.checkin_date] = []; byDate[c.checkin_date].push(c); }
+      const dates = Object.keys(byDate).sort().reverse();
+      const getTier = (eb: number) => eb < 40 ? 'depleted' : eb < 60 ? 'managing' : eb < 75 ? 'strong' : 'peak';
+      const pairMap: Record<string, { eveningTier: string; morningTier: string; count: number }> = {};
+      for (let i = 0; i < dates.length - 1; i++) {
+        const prevEvenings = byDate[dates[i + 1]]?.filter((c: any) => c.time_window === 'evening') || [];
+        const mornings = byDate[dates[i]]?.filter((c: any) => c.time_window === 'morning') || [];
+        if (prevEvenings.length > 0 && mornings.length > 0) {
+          const evT = getTier(prevEvenings[0].energy_balance ?? 50);
+          const moT = getTier(mornings[0].energy_balance ?? 50);
+          const key = `${evT}→${moT}`;
+          if (!pairMap[key]) pairMap[key] = { eveningTier: evT, morningTier: moT, count: 0 };
+          pairMap[key].count++;
+        }
+      }
+      ctx.causeEffect.stateCarryover = Object.values(pairMap).filter(c => c.count >= 2);
+    } catch { /* ignore */ }
+  }
+
+  // ── Wearable data ──
+  if (wearableRes.data) {
+    const w = wearableRes.data;
+    let hrvDeviation: number | null = null;
+    if (w.hrv != null) {
+      const { data: baselineRows } = await supabaseClient.from('wearable_data').select('hrv').eq('user_id', req.userId).not('hrv', 'is', null).order('summary_date', { ascending: false }).limit(30);
+      if (baselineRows && baselineRows.length >= 5) {
+        const avgHRV = baselineRows.reduce((sum: number, r: any) => sum + Number(r.hrv), 0) / baselineRows.length;
+        if (avgHRV > 0) hrvDeviation = ((Number(w.hrv) - avgHRV) / avgHRV) * 100;
+      }
+    }
+    req.wearableContext = { sleepScore: w.sleep_score ?? null, hrvMs: w.hrv != null ? Number(w.hrv) : null, restingHR: w.resting_heart_rate ?? null, hrvDeviation, sleepQuality: w.sleep_quality ?? null, hasData: true };
+    console.log(`[buildSharedContext] wearable: sleep=${w.sleep_score}, hrv=${w.hrv}, hrvDev=${hrvDeviation?.toFixed(1)}%`);
+  }
+
+  // ── Profile tags ──
+  if (profileRes.data) {
+    req.practicePriorityTag = profileRes.data.practice_priority_tag || '';
+    req.pressureContextTag = profileRes.data.pressure_context_tag || '';
+    req.archetype = profileRes.data.archetype || '';
+  }
+
+  // ── Engagement signals ──
+  req.effectiveContent = (feedbackRes.data || []).map((f: any) => f.content_id);
+  req.coachInsights = (insightsRes.data || []).map((r: any) => ({ id: r.id, type: r.insight_type, content: r.insight_content, contentReference: r.content_reference || undefined, confidence: r.confidence_score || 0.5 }));
+  req.completedToday = ritualRes.data?.completed_practice_ids || [];
+  req.favorites = (favsRes.data || []).map((f: any) => f.content_id);
+  ctx.pendingCommitments = commitmentsRes.data || [];
+
+  // causeEffect.practiceImpact (practice_sessions × daily_checkins)
+  try {
+    const sessions = practiceSessionsRes.data || [];
+    if (sessions.length > 0 && checkins.length > 0) {
+      const impactMap: Record<string, { totalShift: number; count: number }> = {};
+      for (const session of sessions) {
+        const sessionDate = (session.completed_at || '').split('T')[0];
+        const sameDay = checkins.filter((c: any) => c.checkin_date === sessionDate);
+        if (sameDay.length >= 2) {
+          const pre = sameDay[sameDay.length - 1].energy_balance ?? 50;
+          const post = sameDay[0].energy_balance ?? 50;
+          const pid = session.practice_id;
+          if (!impactMap[pid]) impactMap[pid] = { totalShift: 0, count: 0 };
+          impactMap[pid].totalShift += (post - pre);
+          impactMap[pid].count++;
+        }
+      }
+      ctx.causeEffect.practiceImpact = Object.entries(impactMap)
+        .filter(([_, v]) => v.count >= 2)
+        .map(([pid, v]) => ({ practiceId: pid, avgOutcomeShift: Math.round(v.totalShift / v.count), count: v.count }));
+    }
+  } catch { /* ignore */ }
+
+  // ── Outer Readiness (server-to-server) ──
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+      body: JSON.stringify({
+        userId: req.userId, timezoneOffset: req.timezoneOffset,
+        innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
+        clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
+      }),
+    });
+    if (outerRes.ok) {
+      const outerData = await outerRes.json();
+      req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
+      req.outerReadinessDriver = outerData.driver || 'state';
+      req.outerReadinessContext = outerData.context || '';
+      req.outerReadinessLeanOn = outerData.leanOn || '';
+      req.outerReadinessWatchFor = outerData.watchFor || '';
+      ctx.combinedAlreadyUsed = [...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || [])];
+    }
+  } catch {
+    req.outerReadinessPhrase = 'Steady execution.';
+    req.outerReadinessDriver = 'state';
+    req.outerReadinessContext = '';
+    req.outerReadinessLeanOn = '';
+    req.outerReadinessWatchFor = '';
+  }
+
+  console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
+  return ctx;
+}
+
 // ==================== MAIN PLAN GENERATION ====================
 
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
@@ -1788,10 +2031,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     const recoveryTrigger = await checkMasteryPlanRecoveryTrigger(req.userId, supabaseClient);
     if (recoveryTrigger?.triggered) {
       console.log(`[generate-mastery-plan] RECOVERY DAY TRIGGERED: ${recoveryTrigger.reason}`);
-      // When enabled, this will force a recovery-only plan
-      // For now, just log – full implementation activates in Phase 2
     }
   }
+
+  // ═══ BUILD SHARED CONTEXT – single consolidated function ═══
+  const shared = await buildSharedContext(req, supabaseClient);
+  const rawCalendarEvents = shared.rawCalendarEvents;
+  const combinedAlreadyUsed = shared.combinedAlreadyUsed;
+  const pendingCommitments = shared.pendingCommitments;
 
   // 0. Server-side upstream queries – ALL signals derived here (trust gap closed)
   // Calendar events – next 48h (only if connection is active)
