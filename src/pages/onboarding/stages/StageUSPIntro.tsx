@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
-import uspSkyLight from "@/assets/onboarding/usp-sky-light.jpeg";
+import uspHorizonDawn from "@/assets/onboarding/usp-horizon-dawn.jpg";
 import uspPulseSignal from "@/assets/onboarding/usp-pulse-signal.jpg";
 import uspConstellation from "@/assets/onboarding/usp-constellation.jpg";
 
