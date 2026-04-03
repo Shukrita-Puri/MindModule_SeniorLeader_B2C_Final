@@ -960,8 +960,10 @@ export type Database = {
           dominant_pattern: string | null
           emotional_arc: string | null
           id: string
+          jit_relevant_insight: string | null
           key_topics: string[] | null
           new_themes: string[] | null
+          next_session_focus: string | null
           practices_recommended: string[] | null
           recurring_themes: string[] | null
           session_id: string
@@ -977,8 +979,10 @@ export type Database = {
           dominant_pattern?: string | null
           emotional_arc?: string | null
           id?: string
+          jit_relevant_insight?: string | null
           key_topics?: string[] | null
           new_themes?: string[] | null
+          next_session_focus?: string | null
           practices_recommended?: string[] | null
           recurring_themes?: string[] | null
           session_id: string
@@ -994,8 +998,10 @@ export type Database = {
           dominant_pattern?: string | null
           emotional_arc?: string | null
           id?: string
+          jit_relevant_insight?: string | null
           key_topics?: string[] | null
           new_themes?: string[] | null
+          next_session_focus?: string | null
           practices_recommended?: string[] | null
           recurring_themes?: string[] | null
           session_id?: string
@@ -1013,6 +1019,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coach_surface_messages: {
+        Row: {
+          created_at: string | null
+          dismissed: boolean | null
+          expires_at: string
+          id: string
+          message: string
+          trigger_condition: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dismissed?: boolean | null
+          expires_at: string
+          id?: string
+          message: string
+          trigger_condition?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dismissed?: boolean | null
+          expires_at?: string
+          id?: string
+          message?: string
+          trigger_condition?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       coach_tools_offered: {
         Row: {
