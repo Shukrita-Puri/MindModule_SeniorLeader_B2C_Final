@@ -142,8 +142,15 @@ const UserSettingsPopover = () => {
           ))}
         </div>
 
-        {/* Sign out */}
+        {/* Retake Tour + Sign out */}
         <div className="border-t border-border py-2">
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+            onClick={handleRetakeTour}
+          >
+            <Compass className="h-4 w-4 text-muted-foreground" />
+            Retake Tour
+          </button>
           <button
             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
             onClick={handleSignOut}
