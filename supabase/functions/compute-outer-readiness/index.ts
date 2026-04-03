@@ -2059,6 +2059,7 @@ serve(async (req) => {
     const serverArchetype = profileRes.data?.user_archetype || null;
     const coachMemories = coachMemoryRes.data || [];
     const coachCommitments = coachCommitmentsRes.data || [];
+    const coachBreakthroughs = coachBreakthroughsRes.data || [];
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
