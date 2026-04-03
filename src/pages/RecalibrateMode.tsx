@@ -110,7 +110,7 @@ const RecalibrateMode = () => {
             Recalibrate. Restore. Refocus. – Master Your Mental Edge
           </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Curated Sonic Library, Guided Sessions and Micro Exercises, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom – designed to restore mental agility, resilience, and executive poise.
+            Practical mind reset tools used by high performers — from centuries of proven techniques to modern execution. Mindset reframes, and Somatic protocols. Curated for the demands of real leadership — designed to restore mental agility, resilience, and executive poise.
           </p>
         </div>
       </div>
