@@ -329,11 +329,13 @@ const SelfMasteryCoach = () => {
     navigate('/executive-home');
   };
 
-  // Mark coach practice as complete
+  // Mark coach practice as complete – use actual queued item ID (state-versioned)
   const markCoachComplete = async () => {
     try {
-      const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
-      console.log('[SelfMasteryCoach] Calling updateRitualCompletion:', { coachId, queueLength: practiceQueue.length });
+      // Use the actual queue item ID if in a queue (handles state-versioned IDs like coach-integrate:<hash>)
+      const queuedItem = isInQueue && practiceQueue[currentQueueIndex];
+      const coachId = queuedItem?.id || (flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare');
+      console.log('[SelfMasteryCoach] Calling updateRitualCompletion:', { coachId, queuedItemId: queuedItem?.id, queueLength: practiceQueue.length });
       await updateRitualCompletion('micro_exercise', coachId, practiceQueue.length > 0 ? practiceQueue : undefined);
       console.log('[SelfMasteryCoach] updateRitualCompletion complete');
     } catch (error) {
@@ -489,8 +491,8 @@ const SelfMasteryCoach = () => {
         }
       />
 
-      {/* Queue Progress */}
-      {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
+      {/* Queue Progress – visible throughout the session, not just before first message */}
+      {isInQueue && practiceQueue.length > 1 && (
         <div className="relative z-10 mx-4 mt-2">
           <div className="bg-background/80 backdrop-blur-md rounded-xl border border-border/60 overflow-hidden shadow-sm">
             <PracticeQueueProgress

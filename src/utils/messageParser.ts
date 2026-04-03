@@ -66,6 +66,21 @@ export function parseMessageContent(content: string): ParsedMessage {
     cleanText = cleanText.replace(wisdomMatch[0], '');
   }
   
+  // === OUTPUT SANITIZATION ===
+  // Strip leaked internal markers that the UI doesn't render:
+  // [QUESTION_TOOL:...], [QUESTION_TOOL], [TOOL:...], [SCENARIO:...], etc.
+  cleanText = cleanText.replace(/\[QUESTION_TOOL(?::\s*[^\]]*)?\]/g, '');
+  cleanText = cleanText.replace(/\[TOOL(?::\s*[^\]]*)?\]/g, '');
+  cleanText = cleanText.replace(/\[SCENARIO(?::\s*[^\]]*)?\]/g, '');
+  cleanText = cleanText.replace(/\[GUARD(?::\s*[^\]]*)?\]/g, '');
+  
+  // Strip any remaining bracket markers that look like internal artifacts
+  // Pattern: [UPPERCASE_WORD:...] or [UPPERCASE_WORD] that aren't user content
+  cleanText = cleanText.replace(/\[(?:R[1-9]|C[1-9]|N[1-9])·[A-Z]+(?::\s*[^\]]*)?\]/g, '');
+  
+  // Strip leaked prompt fragments (lines starting with ## or === that aren't user-intended markdown)
+  cleanText = cleanText.replace(/^===\s.*===\s*$/gm, '');
+  
   // Clean up extra whitespace and empty lines
   cleanText = cleanText
     .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove triple+ line breaks
