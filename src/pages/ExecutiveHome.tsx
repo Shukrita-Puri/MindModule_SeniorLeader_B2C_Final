@@ -12,6 +12,7 @@ import { getAuthToken } from "@/services/authTokenService";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import CoachAccessButton from "@/components/navigation/CoachAccessButton";
+import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 
 import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
