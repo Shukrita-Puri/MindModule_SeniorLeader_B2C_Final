@@ -312,6 +312,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   /* ---- highlight lifecycle ---- */
 
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 20; // 20 × 250ms = 5 seconds max wait
+
   const highlightElement = useCallback(() => {
     const idx = currentStepRef.current;
     const s = STEPS[idx];
@@ -319,14 +322,25 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       setSpotRect(null);
       setTooltipPos(null);
       setReady(true);
+      retryCountRef.current = 0;
       return;
     }
 
     const el = document.querySelector(s.targetSelector) as HTMLElement | null;
     if (!el) {
+      retryCountRef.current++;
+      if (retryCountRef.current >= MAX_RETRIES) {
+        // Graceful skip: target never appeared, advance to next step
+        console.warn(`[FirstSessionGuide] Target "${s.targetSelector}" not found after ${MAX_RETRIES} retries – skipping step ${idx}`);
+        retryCountRef.current = 0;
+        setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1));
+        return;
+      }
       retryTimerRef.current = setTimeout(highlightElement, 250);
       return;
     }
+
+    retryCountRef.current = 0;
 
     if (s.scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -347,19 +361,15 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       if (s.elevateSidebar) {
         const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
         if (sp) sp.style.zIndex = '61';
-        // Also elevate the mobile sheet dialog + its backdrop overlay
         const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
         if (sheetDialog) {
           sheetDialog.style.zIndex = '61';
-          // The Radix overlay is the previous sibling of the dialog content
           const sheetOverlayEl = sheetDialog.previousElementSibling as HTMLElement | null;
           if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '61';
         }
       }
 
-      // Two-pass: compute position, then reveal
       computePosition();
-      // Second pass after a frame for accurate tooltip measurement
       requestAnimationFrame(() => {
         computePosition();
         setReady(true);
@@ -369,8 +379,30 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   /* ---- run actions before highlighting ---- */
 
+  /**
+   * Polls for DOM target availability after an action (e.g. opening sidebar).
+   * Calls cb() once the step's target selector is found or after maxWait ms.
+   */
+  const waitForTargetThenCb = useCallback((selector: string, cb: () => void, maxWait = 3000) => {
+    const start = Date.now();
+    const poll = () => {
+      const el = document.querySelector(selector);
+      if (el) {
+        // Small settle delay after element appears
+        setTimeout(cb, 150);
+        return;
+      }
+      if (Date.now() - start > maxWait) {
+        // Target never appeared – proceed anyway (highlightElement will retry/skip)
+        cb();
+        return;
+      }
+      setTimeout(poll, 100);
+    };
+    poll();
+  }, []);
+
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
-    // Activate the correct tab before highlighting (for homepage tab content)
     if (s.activateTab) {
       const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
       if (tabBtn) tabBtn.click();
@@ -381,23 +413,24 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     switch (s.action) {
       case 'open-sidebar':
         setSidebar(true);
-        setTimeout(cb, 600); // wait for sheet animation
+        // Poll for the step's target instead of fixed timeout
+        waitForTargetThenCb(s.targetSelector, cb);
         break;
       case 'close-sidebar':
         setSidebar(false);
-        setTimeout(cb, 500);
+        setTimeout(cb, 400);
         break;
       case 'navigate-profile':
         setSidebar(false);
         setTimeout(() => {
           navigate('/profile');
-          setTimeout(cb, 600);
+          waitForTargetThenCb(s.targetSelector, cb);
         }, 400);
         break;
       default:
         cb();
     }
-  }, [setSidebar, navigate]);
+  }, [setSidebar, navigate, waitForTargetThenCb]);
 
   /* ---- step lifecycle ---- */
 
