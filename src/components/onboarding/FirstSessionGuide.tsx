@@ -197,6 +197,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const sidebarCtx = useSidebarSafe();
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
+  // Show intro overlay only when tour starts from step 0 and hasn't been dismissed yet
+  const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !sessionStorage.getItem('first_session_intro_seen'));
   const [currentStep, setCurrentStep] = useState(savedStep);
   const [ready, setReady] = useState(false); // two-pass: only true when position is final
 
