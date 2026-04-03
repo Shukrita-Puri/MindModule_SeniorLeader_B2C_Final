@@ -218,7 +218,8 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
             flowType: 'prepare',
             initialPrompt: preEventPlan.coachCard?.prompt || "Let's prepare for what's ahead.",
             fromIntervention: true,
-            eventTitle: preEventPlan.eventTitle
+            eventTitle: preEventPlan.eventTitle,
+            entryContext: { entryPoint: 'jit', lastAction: `preparing for "${preEventPlan.eventTitle}"`, triggeredBy: preEventPlan.eventTitle }
           }
         });
         return;
@@ -237,6 +238,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           initialPrompt: preEventPlan.coachCard.prompt,
           fromIntervention: true,
           eventTitle: preEventPlan.eventTitle,
+          entryContext: { entryPoint: 'jit', lastAction: `preparing for "${preEventPlan.eventTitle}"`, triggeredBy: preEventPlan.eventTitle }
         }
       });
     }
@@ -251,7 +253,8 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           flowType: 'prepare',
           initialPrompt: preEventPlan.coachCard?.prompt || "Let's prepare for what's ahead.",
           fromIntervention: true,
-          eventTitle: preEventPlan.eventTitle
+          eventTitle: preEventPlan.eventTitle,
+          entryContext: { entryPoint: 'jit', lastAction: `preparing for "${preEventPlan.eventTitle}"`, triggeredBy: preEventPlan.eventTitle }
         }
       });
       return;

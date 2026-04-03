@@ -2065,6 +2065,30 @@ interface CoachContext {
     time_window: string | null;
     confidence_score: number | null;
   }>;
+
+  // === GAP 2: Journey Arc (server-fetched) ===
+  journeyArc?: {
+    totalSessions: number;
+    weeksSinceStart: number;
+    dominantThemeLast30Days: string | null;
+    lastBreakthroughDaysAgo: number | null;
+    growthEdgeProgress: 'early' | 'developing' | 'integrating' | 'graduated';
+    lastCommitmentKept: boolean | null;
+    consecutiveKeptCommitments: number;
+  };
+
+  // === GAP 5: Practice Ratings (server-fetched) ===
+  practiceRatings?: {
+    dismissedPractices: string[];
+    confirmedEffective: string[];
+  };
+
+  // === GAP 1: Entry Context (client-provided) ===
+  entryContext?: {
+    entryPoint: string;
+    lastAction: string | null;
+    triggeredBy: string | null;
+  };
 }
 
 // =============================================================================
@@ -2107,6 +2131,13 @@ async function buildServerContext(
     todayCheckinsResult,
     upcomingCalendarResult,
     todayPatternsResult,
+    // === GAP 2: Journey Arc queries ===
+    journeySessionsResult,
+    journeyThemesResult,
+    journeyCommitmentsResult,
+    journeyBreakthroughResult,
+    // === GAP 5: Practice Ratings query ===
+    practiceRatingsResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -2219,6 +2250,41 @@ async function buildServerContext(
       .gte('confidence_score', 0.5)
       .order('confidence_score', { ascending: false })
       .limit(3),
+    // 19. GAP 2: Journey Arc – total sessions + first session date
+    supabase
+      .from('dialogue_sessions')
+      .select('started_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: true }),
+    // 20. GAP 2: Journey Arc – dominant themes last 30 days
+    supabase
+      .from('coach_session_summaries')
+      .select('dominant_pattern')
+      .eq('user_id', userId)
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // 21. GAP 2: Journey Arc – commitment outcomes last 30 days
+    supabase
+      .from('coach_accountability_tracker')
+      .select('status')
+      .eq('user_id', userId)
+      .gte('committed_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('committed_at', { ascending: false })
+      .limit(10),
+    // 22. GAP 2: Journey Arc – latest breakthrough
+    supabase
+      .from('coach_breakthrough_moments')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1),
+    // 23. GAP 5: Practice content ratings
+    supabase
+      .from('content_relevance_feedback')
+      .select('content_id, star_rating')
+      .eq('user_id', userId)
+      .not('star_rating', 'is', null),
   ]);
 
   // --- Populate context from server results ---
@@ -2401,6 +2467,95 @@ async function buildServerContext(
       time_window: p.time_window,
       confidence_score: p.confidence_score,
     }));
+  }
+
+  // === GAP 2: Journey Arc ===
+  const ENABLE_JOURNEY_ARC = Deno.env.get('ENABLE_JOURNEY_ARC') !== 'false';
+  if (ENABLE_JOURNEY_ARC) {
+    try {
+      const sessions = journeySessionsResult?.data || [];
+      const totalSessions = sessions.length;
+      const firstSessionAt = sessions[0]?.started_at ? new Date(sessions[0].started_at as string) : null;
+      const weeksSinceStart = firstSessionAt ? Math.floor((Date.now() - firstSessionAt.getTime()) / (7 * 86400000)) : 0;
+
+      // Dominant theme last 30 days
+      const themes = (journeyThemesResult?.data || []).map((s: any) => s.dominant_pattern).filter(Boolean);
+      const themeCounts: Record<string, number> = {};
+      themes.forEach((t: string) => { themeCounts[t] = (themeCounts[t] || 0) + 1; });
+      const dominantThemeLast30Days = Object.entries(themeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+      // Commitment tracking
+      const commitmentStatuses = (journeyCommitmentsResult?.data || []).map((c: any) => c.status);
+      let consecutiveKept = 0;
+      for (const s of commitmentStatuses) {
+        if (s === 'completed') consecutiveKept++;
+        else break;
+      }
+      const lastCommitmentKept = commitmentStatuses.length > 0 ? commitmentStatuses[0] === 'completed' : null;
+
+      // Last breakthrough
+      const lastBreakthroughAt = journeyBreakthroughResult?.data?.[0]?.created_at;
+      const lastBreakthroughDaysAgo = lastBreakthroughAt
+        ? Math.floor((Date.now() - new Date(lastBreakthroughAt as string).getTime()) / 86400000)
+        : null;
+
+      // Growth edge progress
+      let growthEdgeProgress: 'early' | 'developing' | 'integrating' | 'graduated' = 'early';
+      if (totalSessions >= 24) growthEdgeProgress = 'graduated';
+      else if (totalSessions >= 12) growthEdgeProgress = 'integrating';
+      else if (totalSessions >= 4) growthEdgeProgress = 'developing';
+
+      context.journeyArc = {
+        totalSessions,
+        weeksSinceStart,
+        dominantThemeLast30Days,
+        lastBreakthroughDaysAgo,
+        growthEdgeProgress,
+        lastCommitmentKept,
+        consecutiveKeptCommitments: consecutiveKept,
+      };
+    } catch (e) {
+      console.error('[buildServerContext] Journey arc error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 5: Practice Ratings ===
+  const ENABLE_PRACTICE_HISTORY = Deno.env.get('ENABLE_PRACTICE_HISTORY') !== 'false';
+  if (ENABLE_PRACTICE_HISTORY) {
+    try {
+      const ratings = practiceRatingsResult?.data || [];
+      if (ratings.length > 0) {
+        const byContent: Record<string, { sum: number; count: number }> = {};
+        for (const r of ratings) {
+          const id = (r as any).content_id;
+          const star = Number((r as any).star_rating);
+          if (!id || isNaN(star)) continue;
+          if (!byContent[id]) byContent[id] = { sum: 0, count: 0 };
+          byContent[id].sum += star;
+          byContent[id].count++;
+        }
+        const dismissed: string[] = [];
+        const effective: string[] = [];
+        for (const [id, data] of Object.entries(byContent)) {
+          const avg = data.sum / data.count;
+          if (avg <= 2) dismissed.push(id);
+          else if (avg >= 4) effective.push(id);
+        }
+        if (dismissed.length > 0 || effective.length > 0) {
+          context.practiceRatings = {
+            dismissedPractices: dismissed.slice(0, 10),
+            confirmedEffective: effective.slice(0, 10),
+          };
+        }
+      }
+    } catch (e) {
+      console.error('[buildServerContext] Practice ratings error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 1: Entry Context (pass through from client) ===
+  if (clientContext?.entryContext) {
+    context.entryContext = clientContext.entryContext;
   }
 
   return context;
@@ -2935,9 +3090,15 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
   }
 
   // --- Entry-point specific instructions ---
-  if (entryPoint === 'jit' && context.jitContext?.eventTitle) {
+  // GAP 1: Use entryContext if available (higher fidelity than entryPoint string)
+  const ENABLE_ENTRY_CONTEXT = Deno.env.get('ENABLE_ENTRY_CONTEXT') !== 'false';
+  const ec = ENABLE_ENTRY_CONTEXT ? context.entryContext : null;
+  const resolvedEntryPoint = ec?.entryPoint || entryPoint || 'independent';
+
+  if (resolvedEntryPoint === 'jit' && context.jitContext?.eventTitle) {
     lines.push('## Entry: Just-In-Time Event Preparation');
     lines.push(`The user navigated here to prepare for "${context.jitContext.eventTitle}".`);
+    if (ec?.triggeredBy) lines.push(`Triggered by: ${ec.triggeredBy}`);
     lines.push('');
     lines.push('Your opener should:');
     lines.push(`- Acknowledge the specific event by name`);
@@ -2960,9 +3121,50 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
     lines.push('');
     lines.push('Example tone: "You have [event] coming up. [One relevant contextual observation]. How are you feeling about it?"');
 
-  } else if (entryPoint === 'tod_plan') {
+  } else if (resolvedEntryPoint === 'practice_complete' && ec?.lastAction) {
+    lines.push('## Entry: Post-Practice Reflection');
+    lines.push(`The user just completed a practice: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should:');
+    lines.push('- Acknowledge what they just did');
+    lines.push('- Ask what came up or what they noticed during the practice');
+    lines.push('- Be brief and curious');
+    lines.push('');
+    lines.push('Example tone: "You just finished [practice] — what came up for you?"');
+    lines.push('');
+    lines.push('Additional context available (use ONLY if more relevant):');
+    contextSignals.forEach(s => lines.push(s));
+
+  } else if (resolvedEntryPoint === 'check_in' && ec?.lastAction) {
+    lines.push('## Entry: Post Check-In');
+    lines.push(`The user just completed a check-in: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should reference their check-in state. Pick ONE of these:');
+    contextSignals.forEach(s => lines.push(s));
+    lines.push('');
+    lines.push('Example tone: "You just checked in as [state] — what\'s driving that?"');
+
+  } else if (resolvedEntryPoint === 'nudge' && ec?.triggeredBy) {
+    lines.push('## Entry: Nudge-Triggered');
+    lines.push(`The user came here from a nudge: "${ec.triggeredBy}".`);
+    lines.push('');
+    lines.push('Your opener should naturally reference why they were nudged. Don\'t say "I nudged you" – instead weave the context in.');
+    lines.push('');
+    contextSignals.forEach(s => lines.push(s));
+
+  } else if (resolvedEntryPoint === 'insights') {
+    lines.push('## Entry: From Insights Page');
+    if (ec?.lastAction) lines.push(`The user was exploring: "${ec.lastAction}".`);
+    lines.push('');
+    lines.push('Your opener should show you know they were looking at their patterns. Pick ONE of these:');
+    contextSignals.forEach(s => lines.push(s));
+    lines.push('');
+    lines.push('Example tone: "I see you\'ve been looking at your patterns. Something catch your eye?"');
+
+  } else if (resolvedEntryPoint === 'tod_plan') {
     lines.push('## Entry: Daily Performance Plan');
     lines.push('The user is here as part of their daily mastery ritual.');
+    if (ec?.lastAction) lines.push(`Context: ${ec.lastAction}`);
     lines.push('');
     lines.push('Your opener should show continuity. Pick ONE of these (whichever is most salient):');
     contextSignals.forEach(s => lines.push(s));
@@ -3244,6 +3446,124 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     }
 
     prompt += lines.join('\n');
+  }
+
+  // === GAP 4: PHYSIOLOGICAL MODE ADAPTATION ===
+  const ENABLE_PHYSIO_MODE = Deno.env.get('ENABLE_PHYSIO_MODE') !== 'false';
+  if (ENABLE_PHYSIO_MODE && context) {
+    try {
+      const tier = context.todayState?.tier?.toLowerCase();
+      const hrvDeltaPct = context.hrvData?.hrvDeltaPct;
+      const clarity = context.todayCheckins?.[0]?.clarity_level;
+      const confidence = context.todayCheckins?.[0]?.confidence_level;
+
+      let physioMode: 'depleted' | 'managing' | 'strong' | 'peak' | null = null;
+
+      // Determine mode from multiple signals
+      if (
+        tier === 'depleted' ||
+        (hrvDeltaPct != null && hrvDeltaPct < -20) ||
+        (clarity != null && clarity <= 3) ||
+        (confidence != null && confidence <= 3)
+      ) {
+        physioMode = 'depleted';
+      } else if (
+        tier === 'peak' ||
+        (hrvDeltaPct != null && hrvDeltaPct > 10 && (clarity == null || clarity >= 7) && (confidence == null || confidence >= 7))
+      ) {
+        physioMode = 'peak';
+      } else if (tier === 'strong') {
+        physioMode = 'strong';
+      } else if (tier === 'managing') {
+        physioMode = 'managing';
+      }
+
+      if (physioMode) {
+        const modeInstructions: Record<string, string> = {
+          depleted: `\n\n# PHYSIOLOGICAL MODE: DEPLETED
+This user is physiologically depleted (low HRV, low clarity, or low confidence). Adapt your approach:
+- Responses max 3 sentences
+- One question maximum per turn
+- Move toward a concrete anchor or tool within 3 exchanges
+- Do NOT push for breakthrough – stabilise first
+- Tone: warm, grounding, minimal
+- Example: "Given where your energy is today, let's focus on one thing only."`,
+          managing: `\n\n# PHYSIOLOGICAL MODE: MANAGING
+Standard coaching approach. User is in a workable state.
+- Balanced between probing and synthesis
+- One question per turn
+- Offer grounding if needed`,
+          strong: `\n\n# PHYSIOLOGICAL MODE: STRONG
+User is in a good state. Can go deeper.
+- Standard challenge level appropriate
+- Full range of modes available`,
+          peak: `\n\n# PHYSIOLOGICAL MODE: PEAK
+User is physiologically strong today (high HRV, high clarity, high confidence). This is the session to go deeper.
+- Challenge more directly
+- Surface patterns that need naming
+- Do not waste a peak session on surface work
+- Push toward the uncomfortable insight they've been avoiding
+- Example: "You're in a strong state today – let's use that to go somewhere harder."`,
+        };
+        prompt += modeInstructions[physioMode];
+      }
+    } catch (e) {
+      console.error('[buildSystemPrompt] Physio mode error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 2: JOURNEY ARC CONTEXT ===
+  const ENABLE_JOURNEY_ARC_PROMPT = Deno.env.get('ENABLE_JOURNEY_ARC') !== 'false';
+  if (ENABLE_JOURNEY_ARC_PROMPT && context?.journeyArc) {
+    try {
+      const arc = context.journeyArc;
+      const arcLines: string[] = ['\n\n# JOURNEY CONTEXT'];
+      arcLines.push(`Sessions: ${arc.totalSessions} over ${arc.weeksSinceStart} weeks.`);
+      arcLines.push(`Growth stage: ${arc.growthEdgeProgress}.`);
+
+      if (arc.growthEdgeProgress === 'early') {
+        arcLines.push('REGISTER: Build trust. Listen more than you challenge. Establish the relationship. This is a new user – earn the right to go deeper.');
+      } else if (arc.growthEdgeProgress === 'developing') {
+        arcLines.push('REGISTER: Begin naming patterns. Introduce accountability gently. You have enough context to be specific.');
+      } else if (arc.growthEdgeProgress === 'integrating') {
+        arcLines.push('REGISTER: Hold to higher standards. Reference the arc of growth explicitly. Challenge more directly – you have the relationship capital.');
+      } else if (arc.growthEdgeProgress === 'graduated') {
+        arcLines.push('REGISTER: Name what has been built. Reference long-term patterns. This is a peer relationship now. High-bar coaching.');
+      }
+
+      if (arc.dominantThemeLast30Days) {
+        arcLines.push(`Recent dominant theme: ${arc.dominantThemeLast30Days}.`);
+      }
+      if (arc.consecutiveKeptCommitments > 0) {
+        arcLines.push(`${arc.consecutiveKeptCommitments} consecutive commitments kept – acknowledge this reliability.`);
+      }
+      if (arc.lastBreakthroughDaysAgo != null) {
+        arcLines.push(`Last breakthrough: ${arc.lastBreakthroughDaysAgo} days ago.`);
+      }
+
+      prompt += arcLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Journey arc prompt error (non-fatal):', e);
+    }
+  }
+
+  // === GAP 5: PRACTICE AWARENESS ===
+  const ENABLE_PRACTICE_HISTORY_PROMPT = Deno.env.get('ENABLE_PRACTICE_HISTORY') !== 'false';
+  if (ENABLE_PRACTICE_HISTORY_PROMPT && context?.practiceRatings) {
+    try {
+      const pr = context.practiceRatings;
+      const praLines: string[] = ['\n\n# PRACTICE AWARENESS'];
+      if (pr.dismissedPractices.length > 0) {
+        praLines.push(`NEVER recommend these practices – user has rated them poorly: ${pr.dismissedPractices.join(', ')}`);
+      }
+      if (pr.confirmedEffective.length > 0) {
+        praLines.push(`These have worked well for this user: ${pr.confirmedEffective.join(', ')}`);
+        praLines.push('Reference them when relevant: "The [practice] worked well for you before – that applies here."');
+      }
+      prompt += praLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Practice awareness error (non-fatal):', e);
+    }
   }
 
   // --- Pattern-area conditional prompts ---

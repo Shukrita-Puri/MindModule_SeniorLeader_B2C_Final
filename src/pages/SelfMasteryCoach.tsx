@@ -17,6 +17,7 @@ import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
+import type { EntryContext } from '@/types/coach';
 
 interface PracticeStep {
   title: string;
@@ -34,6 +35,7 @@ interface LocationState {
   fromRitual?: boolean;
   resumeSession?: boolean;
   previousSessionId?: string;
+  entryContext?: EntryContext;
 }
 
 interface QueuedPractice {
@@ -62,6 +64,7 @@ const SelfMasteryCoach = () => {
     setFlowType,
     setPracticeContext,
     setEventContext,
+    setEntryContext,
     restoreMessages 
   } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
@@ -151,6 +154,13 @@ const SelfMasteryCoach = () => {
   const initialPrompt = locationState?.initialPrompt;
   const practiceTitle = locationState?.practiceTitle;
   const practiceSteps = locationState?.practiceSteps;
+
+  // GAP 1: Pass entry context to coach conversation hook on mount
+  useEffect(() => {
+    if (locationState?.entryContext) {
+      setEntryContext(locationState.entryContext);
+    }
+  }, [locationState?.entryContext, setEntryContext]);
 
   // Load queue from localStorage (Time-of-Day + JIT)
   useEffect(() => {

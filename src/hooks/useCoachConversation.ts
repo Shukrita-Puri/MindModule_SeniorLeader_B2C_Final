@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getAuthToken } from '@/services/authTokenService';
+import type { EntryContext } from '@/types/coach';
 
 interface Message {
   id: string;
@@ -31,6 +32,7 @@ interface UseCoachConversationReturn {
   setFlowType: (flowType: 'prepare' | 'integrate' | 'guided-reflection' | null) => void;
   setPracticeContext: (title: string, steps: PracticeStep[]) => void;
   setEventContext: (eventTitle: string, fromIntervention?: boolean, fromRitual?: boolean) => void;
+  setEntryContext: (ec: EntryContext) => void;
   restoreMessages: (restoredMessages: Message[], restoredSessionId: string) => void;
 }
 
@@ -51,6 +53,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     fromIntervention?: boolean;
     fromRitual?: boolean;
   } | null>(null);
+  const [entryContextState, setEntryContextState] = useState<EntryContext | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
@@ -202,6 +205,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             trigger: 'jit',
             eventTitle: eventContext.eventTitle,
           };
+        }
+        // GAP 1: Include entry context on first message
+        if (entryContextState) {
+          context.entryContext = entryContextState;
         }
         
         contextSentRef.current = true;
@@ -414,6 +421,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     }
   }, [user?.id, clearConversation]);
 
+  const setEntryContext = useCallback((ec: EntryContext) => {
+    setEntryContextState(ec);
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -427,6 +438,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setFlowType,
     setPracticeContext,
     setEventContext,
+    setEntryContext,
     restoreMessages,
   };
 };

@@ -129,6 +129,10 @@ GENERATE a JSON object with:
 - wisdom_referenced: array of wisdom references used (empty if none)
 - breakthrough_moment: string describing significant insight, or null
 - session_quality_score: 1-10 overall quality
+- leanOnUpdate: one phrase (max 8 words) the user should lean on right now based on what emerged in this session, or null if nothing clear emerged
+- watchForUpdate: one phrase (max 8 words) to watch for based on patterns or risks surfaced, or null
+- jitRelevantInsight: one sentence (max 15 words) relevant to an upcoming high-stakes event discussed, or null if not applicable
+- nextSessionFocus: one phrase for what the next coaching session should focus on, or null
 
 Return ONLY the JSON object.`
           }
@@ -177,10 +181,57 @@ Return ONLY the JSON object.`
         recurring_themes: recurringThemes,
         new_themes: newThemes,
         session_quality_score: summary.session_quality_score || null,
+        jit_relevant_insight: summary.jitRelevantInsight || null,
+        next_session_focus: summary.nextSessionFocus || null,
       }, { onConflict: 'session_id' });
 
     if (insertError) {
       console.error('[generate-coach-summary] Insert error:', insertError);
+    }
+
+    // === GAP 3: Write leanOn/watchFor updates to user_coach_insights ===
+    const ENABLE_DOWNSTREAM_FEED = Deno.env.get('ENABLE_DOWNSTREAM_FEED') !== 'false';
+    if (ENABLE_DOWNSTREAM_FEED) {
+      try {
+        const insightRows: any[] = [];
+        if (summary.leanOnUpdate) {
+          insightRows.push({
+            user_id: userId,
+            insight_type: 'strength',
+            insight_content: summary.leanOnUpdate,
+            confidence_score: 0.8,
+            source: 'coach_session',
+            is_active: true,
+          });
+        }
+        if (summary.watchForUpdate) {
+          insightRows.push({
+            user_id: userId,
+            insight_type: 'growth_area',
+            insight_content: summary.watchForUpdate,
+            confidence_score: 0.8,
+            source: 'coach_session',
+            is_active: true,
+          });
+        }
+        if (insightRows.length > 0) {
+          // Deactivate previous coach-sourced insights before inserting new ones
+          await supabase
+            .from('user_coach_insights')
+            .update({ is_active: false })
+            .eq('user_id', userId)
+            .eq('source', 'coach_session')
+            .eq('is_active', true);
+
+          const { error: insightError } = await supabase
+            .from('user_coach_insights')
+            .insert(insightRows);
+          if (insightError) console.error('[generate-coach-summary] Insight insert error:', insightError);
+          else console.log(`[generate-coach-summary] Wrote ${insightRows.length} coach insights downstream`);
+        }
+      } catch (e) {
+        console.error('[generate-coach-summary] Downstream feed error (non-fatal):', e);
+      }
     }
 
     // Store NEW commitments in accountability tracker

@@ -135,6 +135,7 @@ const PostEventReflection = () => {
           behaviorType: selectedBehavior,
           energyLevel: energy,
           sourceFlow: 'post_event_reflection',
+          entryContext: { entryPoint: 'check_in', lastAction: `completed post-event reflection for "${recentEvent.title}"`, triggeredBy: null },
         },
       });
     } catch (error) {

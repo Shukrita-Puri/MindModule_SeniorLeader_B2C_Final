@@ -842,7 +842,8 @@ const GuidedPracticePlayer = () => {
           initialPrompt: next.id === 'coach-prepare' 
             ? "I have an important moment coming up. Help me mentally prepare and visualize success."
             : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
-          fromRitual: true 
+          fromRitual: true,
+          entryContext: { entryPoint: 'practice_complete', lastAction: `completed guided practice`, triggeredBy: null }
         } 
       });
     }

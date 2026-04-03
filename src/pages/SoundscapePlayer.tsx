@@ -349,7 +349,8 @@ const SoundscapePlayer = () => {
               flowType,
               initialPrompt: coachPrompt,
               fromIntervention: true,
-              eventTitle
+              eventTitle,
+              entryContext: { entryPoint: 'practice_complete', lastAction: 'completed soundscape practice', triggeredBy: null }
             }
           });
           return;
