@@ -339,10 +339,10 @@ export default function Stage7ContextConnection() {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-headline tracking-tight">
-            Connect Context
+            Connect Your Intelligence Layer
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Personalise your experience
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your calendar and biometrics power everything you just saw – the state read, the plan, the resets.
           </p>
         </div>
 

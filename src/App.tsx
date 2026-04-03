@@ -205,6 +205,7 @@ const router = createBrowserRouter([
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
           { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage8Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
+          { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],
       },

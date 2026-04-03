@@ -29,7 +29,7 @@ export default function Stage6Payment() {
     if (isBetaValid && !isUpgradeVisit) {
       console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
       recordStep('payment', { skipped: true, reason: 'beta_user' });
-      navigate('/onboarding/context-connection', { replace: true });
+      navigate('/onboarding/app-intro', { replace: true });
     }
   }, [isBetaValid, isUpgradeVisit]);
 
