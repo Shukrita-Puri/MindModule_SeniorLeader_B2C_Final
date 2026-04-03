@@ -165,10 +165,10 @@ const CheckInDetail = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving || !bothTouched}
-                className={`w-full h-12 text-sm font-semibold rounded-xl transition-colors ${
+                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-colors disabled:opacity-100 ${
                   bothTouched
-                    ? 'bg-[hsl(var(--saffron))] text-white hover:brightness-110'
-                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                    ? 'bg-saffron text-saffron-foreground hover:brightness-110'
+                    : 'bg-muted text-foreground/55 cursor-not-allowed hover:brightness-100'
                 }`}
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
