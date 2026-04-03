@@ -155,6 +155,13 @@ const SelfMasteryCoach = () => {
   const practiceTitle = locationState?.practiceTitle;
   const practiceSteps = locationState?.practiceSteps;
 
+  // GAP 1: Pass entry context to coach conversation hook on mount
+  useEffect(() => {
+    if (locationState?.entryContext) {
+      setEntryContext(locationState.entryContext);
+    }
+  }, [locationState?.entryContext, setEntryContext]);
+
   // Load queue from localStorage (Time-of-Day + JIT)
   useEffect(() => {
     const queue = localStorage.getItem('practiceQueue');
