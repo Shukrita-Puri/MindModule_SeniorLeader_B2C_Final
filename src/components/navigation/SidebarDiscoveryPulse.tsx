@@ -99,34 +99,39 @@ const SidebarDiscoveryPulse = () => {
         }
       `}</style>
 
-      <div className="relative">
-        {shouldPulse && (
-          <>
-            {/* Primary pulse ring */}
-            <span
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                inset: "-6px",
-                animation: "discovery-ping-1 1.8s ease-out infinite",
-                border: `2.5px solid ${ACCENT_COLOR}`,
-              }}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="relative">
+            {shouldPulse && (
+              <>
+                <span
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    inset: "-6px",
+                    animation: "discovery-ping-1 1.8s ease-out infinite",
+                    border: `2.5px solid ${ACCENT_COLOR}`,
+                  }}
+                />
+                <span
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    inset: "-6px",
+                    animation: "discovery-ping-2 1.8s ease-out infinite",
+                    border: `2.5px solid ${ACCENT_COLOR}`,
+                  }}
+                />
+              </>
+            )}
+            <SidebarTrigger
+              data-tour="sidebar-trigger"
+              className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20 relative z-10"
             />
-            {/* Secondary sonar ring — 0.6s delayed */}
-            <span
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                inset: "-6px",
-                animation: "discovery-ping-2 1.8s ease-out infinite",
-                border: `2.5px solid ${ACCENT_COLOR}`,
-              }}
-            />
-          </>
-        )}
-        <SidebarTrigger
-          data-tour="sidebar-trigger"
-          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20 relative z-10"
-        />
-      </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p>Explore your mental performance suite</p>
+        </TooltipContent>
+      </Tooltip>
 
       <Sheet open={showDiscovery} onOpenChange={setShowDiscovery}>
         <SheetContent side="bottom" className="rounded-t-2xl px-6 pb-8 pt-6 max-h-[60vh]">
