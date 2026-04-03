@@ -387,7 +387,11 @@ const DailyCheckIn = () => {
       </div>
       {/* First Session Guide overlay */}
       {showGuide && (
-        <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+        <FirstSessionGuide onComplete={() => {
+          setShowGuide(false);
+          // Persist walkthrough completion to DB (fire-and-forget)
+          recordStep('first_session_walkthrough', { completed: true });
+        }} />
       )}
     </div>
   );
