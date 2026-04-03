@@ -62,7 +62,7 @@ const UserSettingsPopover = () => {
   // Show loading skeleton while user data is being fetched
   if (loading && !user) {
     return (
-      <div data-tour="sidebar-profile">
+      <div data-tour="sidebar-profile-wrap">
         <SidebarMenuButton
           size="lg"
           className={cn(
@@ -85,7 +85,7 @@ const UserSettingsPopover = () => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div data-tour="sidebar-profile">
+        <div data-tour="sidebar-profile-wrap">
           <SidebarMenuButton
             size="lg"
             className={cn(

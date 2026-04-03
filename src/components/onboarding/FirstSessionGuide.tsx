@@ -142,7 +142,7 @@ const STEPS: GuideStep[] = [
   },
   {
     // Step 7 – Connect Your Data (show profile entry in sidebar)
-    targetSelector: '[data-tour="sidebar-profile"]',
+    targetSelector: '[data-tour="sidebar-profile-wrap"]',
     title: 'Connect Your Data',
     body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours – the more context, the sharper your system.',
     page: 'home',
@@ -414,7 +414,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const poll = () => {
       const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
       const targetEl = selector ? document.querySelector(selector) : null;
-      const sidebarReady = isElementVisible(sidebarEl);
+      const sidebarReady = sidebarCtx?.isMobile
+        ? isElementVisible(sidebarEl)
+        : sidebarCtx?.state === 'expanded';
       const targetReady = selector ? isElementVisible(targetEl) : true;
 
       if (sidebarReady && targetReady) {
@@ -430,7 +432,32 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       setTimeout(poll, 100);
     };
     poll();
-  }, [isElementVisible]);
+  }, [isElementVisible, sidebarCtx]);
+
+  const waitForSidebarClosed = useCallback((cb: () => void, selector?: string) => {
+    const start = Date.now();
+    const poll = () => {
+      const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
+      const targetEl = selector ? document.querySelector(selector) : null;
+      const sidebarClosed = sidebarCtx?.isMobile
+        ? !isElementVisible(sidebarEl)
+        : sidebarCtx?.state === 'collapsed';
+      const targetReady = selector ? isElementVisible(targetEl) : true;
+
+      if (sidebarClosed && targetReady) {
+        setTimeout(cb, 150);
+        return;
+      }
+
+      if (Date.now() - start > 4000) {
+        cb();
+        return;
+      }
+
+      setTimeout(poll, 100);
+    };
+    poll();
+  }, [isElementVisible, sidebarCtx]);
 
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
     if (s.activateTab) {
@@ -447,7 +474,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         break;
       case 'close-sidebar':
         setSidebar(false);
-        setTimeout(cb, 400);
+        waitForSidebarClosed(() => waitForTargetThenCb(s.targetSelector, cb), s.targetSelector);
         break;
       case 'navigate-profile':
         setSidebar(false);
