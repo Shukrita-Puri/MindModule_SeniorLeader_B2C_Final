@@ -133,7 +133,13 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   // Navigate to Coach with context
   const navigateToCoach = (prompt: string, flowType: string, eventTitle?: string) => {
     navigate('/coach', {
-      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true }
+      state: { 
+        initialPrompt: prompt, 
+        flowType, 
+        eventTitle, 
+        fromRitual: true,
+        entryContext: { entryPoint: 'tod_plan', lastAction: 'started daily plan', triggeredBy: null }
+      }
     });
   };
 

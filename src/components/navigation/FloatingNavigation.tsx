@@ -48,7 +48,7 @@ const FloatingNavigation = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/coach')}
+              onClick={() => navigate('/coach', { state: { entryContext: { entryPoint: 'direct', lastAction: null, triggeredBy: null } } })}
               className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
             >
               <ChatCircle size={20} weight="duotone" className="text-saffron" />

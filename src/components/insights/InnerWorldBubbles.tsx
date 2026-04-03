@@ -408,7 +408,8 @@ const InnerWorldBubbles = ({
                   navigate('/coach', { 
                     state: { 
                       initialPrompt: `I'd like to explore the theme of "${selectedItem.theme}" that's been coming up in my reflections.`,
-                      flowType: 'explore'
+                      flowType: 'explore',
+                      entryContext: { entryPoint: 'insights', lastAction: `exploring theme "${selectedItem.theme}"`, triggeredBy: null }
                     }
                   });
                 }}
