@@ -11,6 +11,7 @@ import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
+import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
