@@ -11,6 +11,7 @@ import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
+import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -84,7 +85,9 @@ const DailyCheckIn = () => {
     });
   }, []);
 
-  // Show first session guide if user has zero check-ins (or forced via URL param)
+  const { recordStep } = useOnboardingProgress();
+
+  // Show first session guide ONLY on first signup (never on returning login)
   useEffect(() => {
     // Dev/testing: ?tour=1 in URL forces the guide (clears done flag first)
     const params = new URLSearchParams(window.location.search);
@@ -98,16 +101,43 @@ const DailyCheckIn = () => {
     if (sessionStorage.getItem('first_session_done')) return;
 
     if (!user?.id) return;
-    supabase
-      .from('daily_checkins')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .then(({ count }) => {
-        if (count === 0) {
-          sessionStorage.setItem('first_session_guide_step', '0');
-          setShowGuide(true);
-        }
-      });
+
+    // Check DB for walkthrough completion AND check-in count in parallel
+    Promise.all([
+      getAuthToken().then(async (token) => {
+        if (!token) return true; // assume completed if no token
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        try {
+          const res = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'GET' }),
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            return !!data?.data?.first_session_walkthrough_at;
+          }
+        } catch { /* ignore */ }
+        return false;
+      }),
+      supabase
+        .from('daily_checkins')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .then(({ count }) => (count ?? 0) > 0),
+    ]).then(([walkthroughCompleted, hasCheckins]) => {
+      // Only show guide if walkthrough was never completed AND no check-ins exist
+      if (!walkthroughCompleted && !hasCheckins) {
+        sessionStorage.setItem('first_session_guide_step', '0');
+        setShowGuide(true);
+      }
+    });
   }, [user?.id]);
 
   // Fetch connection status
@@ -357,7 +387,11 @@ const DailyCheckIn = () => {
       </div>
       {/* First Session Guide overlay */}
       {showGuide && (
-        <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+        <FirstSessionGuide onComplete={() => {
+          setShowGuide(false);
+          // Persist walkthrough completion to DB (fire-and-forget)
+          recordStep('first_session_walkthrough', { completed: true });
+        }} />
       )}
     </div>
   );

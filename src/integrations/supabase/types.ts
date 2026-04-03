@@ -2597,6 +2597,7 @@ export type Database = {
           context_watch_enabled: boolean | null
           current_step: string
           emotional_awareness_at: string | null
+          first_session_walkthrough_at: string | null
           growth_intention_at: string | null
           id: string
           identity_at: string | null
@@ -2619,6 +2620,7 @@ export type Database = {
           context_watch_enabled?: boolean | null
           current_step?: string
           emotional_awareness_at?: string | null
+          first_session_walkthrough_at?: string | null
           growth_intention_at?: string | null
           id?: string
           identity_at?: string | null
@@ -2641,6 +2643,7 @@ export type Database = {
           context_watch_enabled?: boolean | null
           current_step?: string
           emotional_awareness_at?: string | null
+          first_session_walkthrough_at?: string | null
           growth_intention_at?: string | null
           id?: string
           identity_at?: string | null
