@@ -316,8 +316,8 @@ const DailyCheckIn = () => {
                     border backdrop-blur-sm cursor-pointer
                     transition-all duration-200
                     ${isSelected
-                      ? 'ring-2 ring-[hsl(var(--saffron))] border-[hsl(var(--saffron))] scale-[1.02] shadow-[0_4px_20px_rgba(0,0,0,0.25)]'
-                      : 'border-white/20 opacity-75 hover:opacity-90'}
+                      ? 'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.30)] border-white/40 opacity-100'
+                      : 'border-white/20 opacity-70 hover:opacity-85'}
                   `}
                 >
                   <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
@@ -331,11 +331,6 @@ const DailyCheckIn = () => {
                       {outcome.subtitle}
                     </p>
                   </div>
-                  {isSelected && (
-                    <div className="ml-auto shrink-0 w-6 h-6 rounded-full bg-[hsl(var(--saffron))] flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">✓</span>
-                    </div>
-                  )}
                 </div>
               </TouchOptimized>
             );
