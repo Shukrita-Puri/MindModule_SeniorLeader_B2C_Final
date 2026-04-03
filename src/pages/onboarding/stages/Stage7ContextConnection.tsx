@@ -342,7 +342,7 @@ export default function Stage7ContextConnection() {
             Connect Your Intelligence Layer
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Your calendar and biometrics power everything you just saw – the state read, the plan, the resets.
+            Your calendar and wearable data powers everything you just saw – the state read, the proactive plans, the resets.
           </p>
         </div>
 
