@@ -148,7 +148,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </p>
           
           {/* Tagline */}
-          <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
+          <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
             World's First Proactive Mental Performance OS.
           </h2>
           
@@ -156,7 +156,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
           
           {/* CTA Buttons */}
-          <div className="flex flex-col items-center gap-3 mt-2">
+          <div className="flex flex-col items-center gap-3 mt-8 sm:mt-2">
             <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               Let's Go
             </Button>
