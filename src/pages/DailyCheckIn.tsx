@@ -95,6 +95,7 @@ const DailyCheckIn = () => {
     if (params.get('tour') === '1') {
       sessionStorage.setItem('first_session_guide_step', '0');
       sessionStorage.setItem('first_session_guide_active', '1');
+      sessionStorage.removeItem('first_session_intro_seen');
       setShowGuide(true);
       return;
     }
