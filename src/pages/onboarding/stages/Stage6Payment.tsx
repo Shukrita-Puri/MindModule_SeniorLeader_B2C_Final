@@ -110,7 +110,7 @@ export default function Stage6Payment() {
       } else {
         toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
         recordStep('payment', { selected_plan: selectedPlan });
-        navigate('/onboarding/context-connection');
+        navigate('/onboarding/app-intro');
       }
     } finally {
       setLoading(false);
