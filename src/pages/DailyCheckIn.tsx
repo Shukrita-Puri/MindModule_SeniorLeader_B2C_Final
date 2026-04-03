@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
