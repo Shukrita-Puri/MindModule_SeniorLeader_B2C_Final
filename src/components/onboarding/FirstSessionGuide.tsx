@@ -476,9 +476,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const finish = () => {
     cleanupPrevious();
     clearRetry();
-    sessionStorage.setItem(DONE_KEY, '1');
     sessionStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(PENDING_KEY);
+    sessionStorage.removeItem(ACTIVE_TOUR_KEY);
     setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
