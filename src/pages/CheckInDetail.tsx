@@ -161,7 +161,7 @@ const CheckInDetail = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full h-12 text-sm font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl"
+                className="w-full h-12 text-sm font-semibold bg-[hsl(var(--saffron))] text-white hover:brightness-110 rounded-xl"
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
               </Button>
