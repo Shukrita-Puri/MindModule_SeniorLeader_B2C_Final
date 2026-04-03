@@ -154,34 +154,12 @@ const DailyCheckIn = () => {
     enabled: !!user?.id
   });
 
-  // Scroll to initial card on mount
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const card = el.children[activeIndex] as HTMLElement;
-    if (card) {
-      el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: 'instant' as ScrollBehavior });
-    }
-  }, []);
-
-  // Track scroll position for dot indicators
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const center = el.scrollLeft + el.clientWidth / 2;
-    let closest = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < el.children.length; i++) {
-      const child = el.children[i] as HTMLElement;
-      const childCenter = child.offsetLeft + child.clientWidth / 2;
-      const dist = Math.abs(center - childCenter);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = i;
-      }
-    }
-    setActiveIndex(closest);
-  }, []);
+  const handleConfirm = async () => {
+    if (!selectedOutcome || isSubmitting) return;
+    setIsSubmitting(true);
+    await handleOutcomeSelect(selectedOutcome);
+    setIsSubmitting(false);
+  };
 
   const handleOutcomeSelect = async (outcome: Outcome) => {
     // Track check-in engagement
