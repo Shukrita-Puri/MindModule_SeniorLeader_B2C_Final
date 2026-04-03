@@ -14,7 +14,9 @@ All logic lives in `supabase/functions/generate-mastery-plan/index.ts`.
 
 The client sends **only `timezoneOffset`**. All other signals are fetched server-side.
 
-### 2.1 Server-Fetched Signals
+### 2.1 Server-Fetched Signals (via `buildSharedContext()`)
+
+All data fetching is consolidated into a single `buildSharedContext()` function that executes parallel queries and returns a `SharedContext` object. The client sends **only `timezoneOffset`**.
 
 | # | Signal | Table/Source | Used In |
 |---|--------|-------------|---------|
@@ -26,21 +28,26 @@ The client sends **only `timezoneOffset`**. All other signals are fetched server
 | 6 | Calendar Events (48h) | `calendar_events` (gated by `calendar_connections.is_active`) | JIT scoring, calendar context |
 | 7 | Calendar Load | Computed from upcoming events (4h window) | Plan Brief, Duration Ceiling, Module Reasoning |
 | 8 | Calendar Pressure | Computed from upcoming events (weighted scoring) | Coach card inclusion |
-| 9 | Wearable Data | `wearable_data` (latest within 24h) | Plan Brief (sleep/HRV fragments), Module Reasoning |
-| 10 | HRV Deviation | Computed: `(current_hrv - 30day_avg) / 30day_avg × 100` | Plan Brief, JIT Context |
-| 11 | Outer Readiness Brief | Server-to-server call to `compute-outer-readiness` | Plan Brief (context forwarding), Theme → Module mapping |
-| 12 | Favorites | `user_favorites` | Content scoring (+30 boost) |
-| 13 | Completed Today | `daily_ritual_completions.completed_practice_ids` | Content exclusion (-10), state fingerprint |
-| 14 | Coach Insights | `user_coach_insights` (active, confidence ≥ 0.6) | Plan Brief (coach fragment), Content scoring (+25) |
-| 15 | Effective Content | `content_relevance_feedback` (star_rating ≥ 4) | Content scoring (+20) |
-| 16 | Archetype | `profiles.archetype` | Content scoring (onboarding tag matching) |
-| 17 | Practice Priority Tag | `profiles.practice_priority_tag` | Content scoring (focus tag boost) |
-| 18 | Pressure Context Tag | `profiles.pressure_context_tag` | Content scoring (pressure tag boost) |
-| 19 | Pending Commitments | `coach_accountability_tracker` (status = 'pending') | Content scoring (+15), JIT context enrichment |
-| 20 | Pattern Insight | Computed: 3+ consecutive days at same low outcome | Coach card prompt, JIT context |
-| 21 | JIT Pre-scored Events | `jit_event_context` (bridge to new pipeline) | JIT plan (replaces legacy scoring when available) |
-| 22 | HRV × Calendar Correlations | Computed: 30-day `calendar_events` × `wearable_data` join | JIT scoring boost (+12 to +25), JIT context |
-| 23 | Skip Preferences | `jit_preferences` (skipped/dismissed, last 30 days) | JIT event suppression |
+| 9 | Calendar Gaps | Computed: gap durations between consecutive future events | Urgency framing in Plan Brief |
+| 10 | Wearable Data | `wearable_data` (latest within 24h) | Plan Brief (sleep/HRV fragments), Module Reasoning |
+| 11 | HRV Deviation | Computed: `(current_hrv - 30day_avg) / 30day_avg × 100` | Plan Brief, JIT Context |
+| 12 | Outer Readiness Brief | Server-to-server call to `compute-outer-readiness` | Plan Brief (context forwarding), Theme → Module mapping |
+| 13 | Favorites | `user_favorites` | Content scoring (+30 boost) |
+| 14 | Completed Today | `daily_ritual_completions.completed_practice_ids` | Content exclusion (-10), state fingerprint |
+| 15 | Coach Insights | `user_coach_insights` (active, confidence ≥ 0.6) | Plan Brief (coach fragment), Content scoring (+25) |
+| 16 | Effective Content | `content_relevance_feedback` (star_rating ≥ 4) | Content scoring (+20) |
+| 17 | Archetype | `profiles.archetype` | Content scoring (onboarding tag matching) |
+| 18 | Practice Priority Tag | `profiles.practice_priority_tag` | Content scoring (focus tag boost) |
+| 19 | Pressure Context Tag | `profiles.pressure_context_tag` | Content scoring (pressure tag boost) |
+| 20 | Pending Commitments | `coach_accountability_tracker` (status = 'pending') | Content scoring (+15), JIT context enrichment |
+| 21 | Pattern Insight | Computed: 3+ consecutive days at same low outcome | Coach card prompt, JIT context |
+| 22 | JIT Pre-scored Events | `jit_event_context` (bridge to new pipeline) | JIT plan (replaces legacy scoring when available) |
+| 23 | HRV × Calendar Correlations | Computed: 30-day `calendar_events` × `wearable_data` join | JIT scoring boost (+12 to +25), JIT context |
+| 24 | Skip Preferences | `jit_preferences` (skipped/dismissed, last 30 days) | JIT event suppression |
+| 25 | Inner Readiness Trend | Computed: last 5 check-ins energy_balance direction | SharedContext (improving/declining/stable) |
+| 26 | Practice Impact | Computed: `practice_sessions` × `daily_checkins` energy shift | SharedContext cause-effect correlation |
+| 27 | State Carryover | Computed: evening→morning tier patterns from `daily_checkins` | SharedContext cause-effect correlation |
+| 28 | Coach Breakthroughs | `coach_breakthrough_moments` (impact_score ≥ 3) | Outer Readiness compass context enrichment |
 
 ---
 
