@@ -115,21 +115,21 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
     onSignIn();
   };
 
-  return <div className={`relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`} style={{ backgroundColor: '#0A1628' }}>
+  return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
-      {/* Full-bleed background illustration — white/silver engraving on dark */}
+      {/* Full-bleed background illustration */}
       <img 
         src={heroIllustration} 
         alt="" 
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover opacity-[0.18] invert brightness-200"
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.35]"
         width={1920}
         height={1080}
       />
 
       {/* Gradient overlays for depth and readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0A1628]/60 via-[#0A1628]/30 to-[#0A1628]/90 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#0A1628_70%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/30 to-background/90 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-background pointer-events-none" />
       
       {/* Content layer */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto space-y-3 sm:space-y-5 lg:space-y-6">
@@ -138,20 +138,20 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
         <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
         
         {/* Brand name */}
-        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
+        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
-        <p className="text-[9px] sm:text-xs tracking-[0.25em] uppercase text-white/50 font-body -mt-2 sm:-mt-4">
+        <p className="text-[9px] sm:text-xs tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-2 sm:-mt-4">
           Executive Edition
         </p>
         
         {/* Tagline */}
-        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-white/80 font-medium tracking-wide leading-snug">
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
           World's First Proactive Mental Performance OS.
         </h2>
         
         {/* Gold Divider */}
-        <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mt-2" />
+        <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-3 mt-2">
@@ -159,23 +159,23 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
             Let's Go
           </Button>
           
-          <button onClick={handleSignIn} className="text-sm text-white/60 hover:text-white transition-colors duration-200 font-body">
+          <button onClick={handleSignIn} className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-body">
             Already have an account? <span className="underline underline-offset-2">Log in</span>
           </button>
         </div>
         
         {/* Privacy Trust Badge */}
-        <div className="flex flex-col items-center gap-1 pt-2 sm:pt-6 border-t border-white/10 w-full">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
-            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/50" />
+        <div className="flex flex-col items-center gap-1 pt-2 sm:pt-6 border-t border-gold/10 w-full">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>
           </div>
-          <span className="text-[10px] sm:text-xs text-white/40 font-body tracking-wide">
+          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-body tracking-wide">
             Local &amp; End-to-End Encrypted
           </span>
           <button
             onClick={() => navigate('/powered-by-ai')}
-            className="text-[10px] sm:text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
+            className="text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground font-body tracking-wide transition-colors mt-1"
           >
             Powered by AI →
           </button>
