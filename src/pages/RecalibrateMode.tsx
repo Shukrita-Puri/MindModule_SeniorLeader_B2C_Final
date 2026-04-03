@@ -106,9 +106,6 @@ const RecalibrateMode = () => {
           <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
             Reset Studio
           </h1>
-          <p className="text-lg font-subheadline italic text-muted-foreground">
-            Recalibrate. Restore. Refocus. – Master Your Mental Edge
-          </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Practical mind reset tools used by high performers — from centuries of proven techniques to modern execution. Mindset reframes, and Somatic protocols. Curated for the demands of real leadership — designed to restore mental agility, resilience, and executive poise.
           </p>
