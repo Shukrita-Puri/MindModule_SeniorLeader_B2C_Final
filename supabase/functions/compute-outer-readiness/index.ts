@@ -2012,8 +2012,8 @@ serve(async (req) => {
       dayOfWeek,
     }));
 
-    // Fetch coach insights, check-ins, archetype, and coach memory in parallel
-    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes] = await Promise.all([
+    // Fetch coach insights, check-ins, archetype, coach memory, commitments, and breakthroughs in parallel
+    const [coachRes, checkInRes, profileRes, coachMemoryRes, coachCommitmentsRes, coachBreakthroughsRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
@@ -2045,6 +2045,13 @@ serve(async (req) => {
         .eq('status', 'pending')
         .order('committed_at', { ascending: false })
         .limit(5),
+      // Coach breakthrough moments: recent high-impact breakthroughs
+      db.from('coach_breakthrough_moments')
+        .select('breakthrough_content, breakthrough_type, meta_skill, pattern_area, impact_score, was_acted_on, created_at')
+        .eq('user_id', userId)
+        .gte('impact_score', 3)
+        .order('created_at', { ascending: false })
+        .limit(5),
     ]);
 
     const coachInsights = coachRes.data || [];
@@ -2052,6 +2059,7 @@ serve(async (req) => {
     const serverArchetype = profileRes.data?.user_archetype || null;
     const coachMemories = coachMemoryRes.data || [];
     const coachCommitments = coachCommitmentsRes.data || [];
+    const coachBreakthroughs = coachBreakthroughsRes.data || [];
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
@@ -2261,6 +2269,31 @@ serve(async (req) => {
       if (relevantCommitment && !finalContext.includes('commitment')) {
         finalContext = `You committed to working on this – ${eventRef} is that moment. ${finalContext}`;
         compassAlreadyUsed.push('coach_commitment_match');
+      }
+    }
+
+    // Coach breakthrough moments + event/pattern match
+    if (coachBreakthroughs.length > 0 && !finalContext.includes('breakthrough')) {
+      const recentBreakthrough = coachBreakthroughs[0];
+      const breakthroughArea = (recentBreakthrough.pattern_area || recentBreakthrough.meta_skill || '').toLowerCase();
+      
+      // Match breakthrough to high-stakes event
+      if (todayHighStakes.length > 0 && breakthroughArea) {
+        const eventMatch = todayHighStakes.some((e: string) => e.toLowerCase().includes(breakthroughArea) || breakthroughArea.includes(e.toLowerCase().split(' ')[0]));
+        if (eventMatch) {
+          finalContext = `A recent coaching breakthrough connects directly to what's ahead today. ${finalContext}`;
+          compassAlreadyUsed.push('coach_breakthrough_match');
+        }
+      }
+      
+      // Standalone breakthrough awareness (acted on vs not)
+      if (!compassAlreadyUsed.includes('coach_breakthrough_match') && recentBreakthrough.impact_score >= 5) {
+        if (recentBreakthrough.was_acted_on) {
+          finalContext = `You've been acting on a recent coaching breakthrough – sustain that momentum today. ${finalContext}`;
+        } else {
+          finalContext = `A significant insight from coaching is still untested – today could be the moment to apply it. ${finalContext}`;
+        }
+        compassAlreadyUsed.push('coach_breakthrough_awareness');
       }
     }
 
