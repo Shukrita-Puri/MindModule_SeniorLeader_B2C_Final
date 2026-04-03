@@ -574,19 +574,55 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     navigate('/daily-check-in');
   };
 
+  const dismissIntroAndStart = () => {
+    sessionStorage.setItem('first_session_intro_seen', '1');
+    setShowIntro(false);
+  };
+
+  const skipTourEntirely = () => {
+    sessionStorage.setItem('first_session_intro_seen', '1');
+    setShowIntro(false);
+    finish();
+  };
+
   if (!step) return null;
 
+  /* ---- Intro overlay (before tour begins) ---- */
+  if (showIntro) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center" role="dialog" aria-modal="true">
+        {/* Dark backdrop */}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+        {/* Centred card */}
+        <div className="relative z-10 bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
+          <h2 className="text-2xl font-headline text-foreground leading-tight mb-3">
+            Let's show you around.
+          </h2>
+          <p className="text-sm text-muted-foreground font-body leading-relaxed mb-8">
+            A 60-second guided tour of how Mind Module works — starting with your daily check-in.
+            Follow the steps and you'll know exactly what to do from day one.
+          </p>
+
+          <button
+            onClick={dismissIntroAndStart}
+            className="w-full py-3.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20 mb-3"
+          >
+            Start Tour
+          </button>
+
+          <button
+            onClick={skipTourEntirely}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
+          >
+            Skip tour
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- tooltip position styles ---- */
-
-  const tooltipStyle: React.CSSProperties =
-    isFullscreen || tooltipPos === null
-      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)' }
-      : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
-
-  const tooltipMaxW = isFullscreen ? '360px' : '400px';
-
-  return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
       {/* SVG overlay with spotlight cut-out */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
