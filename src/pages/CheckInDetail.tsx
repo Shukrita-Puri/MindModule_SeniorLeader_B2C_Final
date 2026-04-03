@@ -164,8 +164,12 @@ const CheckInDetail = () => {
             <div className="pt-2">
               <Button
                 onClick={handleSave}
-                disabled={saving}
-                className="w-full h-12 text-sm font-semibold bg-[hsl(var(--saffron))] text-white hover:brightness-110 rounded-xl"
+                disabled={saving || !bothTouched}
+                className={`w-full h-12 text-sm font-semibold rounded-xl transition-colors ${
+                  bothTouched
+                    ? 'bg-[hsl(var(--saffron))] text-white hover:brightness-110'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
               </Button>
