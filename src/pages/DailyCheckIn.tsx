@@ -342,10 +342,10 @@ const DailyCheckIn = () => {
           onClick={handleConfirm}
           disabled={!selectedOutcome || isSubmitting}
           className={`
-            mt-6 w-full py-4 rounded-xl font-headline text-base tracking-wide
+            mt-6 w-full py-4 rounded-xl font-body text-sm font-semibold tracking-wide
             transition-all duration-200
             ${selectedOutcome
-              ? 'bg-[hsl(var(--saffron))] text-white shadow-lg hover:brightness-110 active:scale-[0.98]'
+              ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
               : 'bg-muted text-muted-foreground cursor-not-allowed'}
           `}
         >
