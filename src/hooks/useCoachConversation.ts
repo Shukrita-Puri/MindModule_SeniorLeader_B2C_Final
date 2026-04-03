@@ -69,15 +69,12 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     
     const userId = DEV_MODE ? DEV_USER.id : user.id;
     const newSessionId = crypto.randomUUID();
-    const timestamp = new Date().toISOString();
     
     // Set local session first for UI to work
     sessionIdRef.current = newSessionId;
     setSessionId(newSessionId);
     
-    // DEV_MODE: Direct database insert
     if (DEV_MODE) {
-      console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Creating session directly`);
       const { error } = await supabase
         .from('dialogue_sessions')
         .insert({
@@ -87,45 +84,29 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           session_status: 'active',
           started_at: new Date().toISOString()
         });
-      
-      if (error) {
-        console.error(`[useCoachConversation ${timestamp}] DEV_MODE DB error:`, error);
-      } else {
-        console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Session created:`, newSessionId);
-      }
+      if (error) console.error('[useCoachConversation] DEV_MODE DB error:', error);
       return newSessionId;
     }
     
-    // Production: Use edge function with Auth0 token
     try {
       const accessToken = await getAuthToken();
-      console.log(`[useCoachConversation ${timestamp}] createSession - token:`, accessToken ? 'present' : 'MISSING');
-      
       if (!accessToken) {
-        console.warn(`[useCoachConversation ${timestamp}] No access token - session will only exist locally!`);
+        console.warn('[useCoachConversation] No access token – session only exists locally');
         return newSessionId;
       }
-      
-      console.log(`[useCoachConversation ${timestamp}] Invoking dialogue-session-manage with action: create_coach`);
       
       const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { action: 'create_coach', sessionId: newSessionId }
       });
       
-      console.log(`[useCoachConversation ${timestamp}] Edge function response:`, { data, error });
-      
-      if (error) {
-        console.error(`[useCoachConversation ${timestamp}] Edge function error:`, error);
-      } else if (!data?.success) {
-        console.error(`[useCoachConversation ${timestamp}] Session creation failed:`, data?.error);
-      } else {
-        console.log(`[useCoachConversation ${timestamp}] Session created in database:`, newSessionId);
+      if (error || !data?.success) {
+        console.error('[useCoachConversation] Session creation failed:', error || data?.error);
       }
       
       return newSessionId;
     } catch (err) {
-      console.error(`[useCoachConversation ${timestamp}] Session creation error:`, err);
+      console.error('[useCoachConversation] Session creation error:', err);
       return newSessionId;
     }
   }, [user?.id]);
@@ -138,7 +119,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   ) => {
     if (!user?.id) return;
     
-    // DEV_MODE: Direct database insert
     if (DEV_MODE) {
       const { error } = await supabase
         .from('dialogue_messages')
@@ -149,24 +129,15 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           message_index: messageIndex,
           timestamp: new Date().toISOString()
         });
-      
-      if (error) {
-        console.error('[useCoachConversation] DEV_MODE saveMessage error:', error);
-      } else {
-        console.log('[useCoachConversation] DEV_MODE: Message saved:', role, messageIndex);
-      }
+      if (error) console.error('[useCoachConversation] DEV_MODE saveMessage error:', error);
       return;
     }
     
-    // Production: Use edge function
     try {
       const accessToken = await getAuthToken();
-      if (!accessToken) {
-        console.warn('[useCoachConversation] No access token for saveMessage');
-        return;
-      }
+      if (!accessToken) return;
       
-      const { data, error } = await supabase.functions.invoke('dialogue-data-persist', {
+      const { error } = await supabase.functions.invoke('dialogue-data-persist', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: {
           type: 'message',
@@ -180,11 +151,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         }
       });
       
-      if (error) {
-        console.error('[useCoachConversation] Failed to save message:', error);
-      } else {
-        console.log('[useCoachConversation] Message saved:', role, messageIndex);
-      }
+      if (error) console.error('[useCoachConversation] Failed to save message:', error);
     } catch (err) {
       console.error('[useCoachConversation] saveMessage error:', err);
     }
@@ -213,12 +180,9 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    
-    // Save user message
     await saveMessage(currentSessionId, 'user', content, messages.length);
 
     try {
-      // Build minimal ephemeral context (server builds full context from DB)
       let context: Record<string, any> | undefined;
       if (!contextSentRef.current) {
         const energyState = await computeEnergyState();
@@ -228,13 +192,11 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           checkInOutcome: energyState?.checkInOutcome,
         };
         
-        // Add practice steps if in guided-reflection mode
         if (flowType === 'guided-reflection' && practiceContext) {
           context.practiceTitle = practiceContext.title;
           context.practiceSteps = practiceContext.steps;
         }
 
-        // Add JIT event context if available
         if (eventContext?.eventTitle) {
           context.jitContext = {
             trigger: 'jit',
@@ -245,14 +207,12 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         contextSentRef.current = true;
       }
 
-      // Derive entry point from available signals
       const entryPoint = eventContext?.fromIntervention && eventContext?.eventTitle
         ? 'jit'
         : eventContext?.fromRitual
           ? 'tod_plan'
           : 'independent';
 
-      // Get Auth0 token for self-mastery-coach
       const coachToken = await getAuthToken();
 
       const controller = new AbortController();
@@ -272,7 +232,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           flowType,
           entryPoint,
           sessionId: currentSessionId,
-          context, // Pass context to edge function
+          context,
         }),
         signal: controller.signal,
       }).finally(() => {
@@ -281,7 +241,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        // Handle rate limiting specifically
         if (response.status === 429) {
           setIsRateLimited(true);
           setError(null);
@@ -311,7 +270,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Abort if the stream stalls (no chunks) to avoid infinite loading UI
       let stallTimeoutId: number | null = null;
       const resetStallTimeout = () => {
         if (stallTimeoutId) window.clearTimeout(stallTimeoutId);
@@ -372,14 +330,12 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         throw new Error('Coach took too long to respond. Please retry.');
       }
 
-      // Save assistant message
       await saveMessage(currentSessionId, 'assistant', assistantContent, messages.length + 1);
 
     } catch (err) {
       console.error('Coach conversation error:', err);
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
       setError(isAbort ? 'Coach took too long to respond. Please hit Retry.' : (err instanceof Error ? err.message : 'Failed to send message'));
-      // Remove the empty assistant message on error
       setMessages(prev => prev.filter(m => m.content !== ''));
     } finally {
       setIsLoading(false);
@@ -404,203 +360,56 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setEventContextState(null);
   }, []);
 
-  // Restore messages from a previous session (for Recent Activity click)
   const restoreMessages = useCallback((restoredMessages: Message[], restoredSessionId: string) => {
     setMessages(restoredMessages);
     sessionIdRef.current = restoredSessionId;
     setSessionId(restoredSessionId);
-    contextSentRef.current = true; // Don't resend context for restored sessions
+    contextSentRef.current = true;
   }, []);
 
-  // Keep messagesCountRef in sync with messages state
+  // Keep messagesCountRef in sync
   useEffect(() => {
     messagesCountRef.current = messages.length;
   }, [messages.length]);
 
+  /**
+   * endSession – calls the idempotent server-side finalize_coach action.
+   * All downstream processing (insights, summaries, patterns, wins) is
+   * handled server-side to prevent duplication. Safe to call multiple times.
+   */
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
-    const timestamp = new Date().toISOString();
     const msgCount = messagesCountRef.current;
     
-    // Skip if no session or conversation too short to extract insights
     if (!currentSessionId || !user?.id || msgCount < 1) {
-      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short (${msgCount} msgs)`);
       clearConversation();
       return;
     }
     
-    const userId = DEV_MODE ? DEV_USER.id : user.id;
+    if (DEV_MODE) {
+      await supabase
+        .from('dialogue_sessions')
+        .update({
+          session_status: 'completed',
+          ended_at: new Date().toISOString(),
+          total_messages: msgCount
+        })
+        .eq('id', currentSessionId);
+      clearConversation();
+      return;
+    }
     
     try {
-      // DEV_MODE: Direct database update
-      if (DEV_MODE) {
-        console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Ending session directly:`, currentSessionId);
-        const { error } = await supabase
-          .from('dialogue_sessions')
-          .update({
-            session_status: 'completed',
-            ended_at: new Date().toISOString(),
-            total_messages: msgCount
-          })
-          .eq('id', currentSessionId);
-        
-        if (error) {
-          console.error(`[useCoachConversation ${timestamp}] DEV_MODE endSession error:`, error);
-        } else {
-          console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Session ended successfully`);
-        }
-        clearConversation();
-        return;
-      }
-      
-      // Production: Use edge function with Auth0 token
-      // 1. Mark session as completed via edge function (bypasses RLS)
       const accessToken = await getAuthToken();
-      console.log(`[useCoachConversation ${timestamp}] endSession - token:`, accessToken ? 'present' : 'MISSING');
-      
       if (accessToken) {
-        console.log(`[useCoachConversation ${timestamp}] Ending session via edge function:`, currentSessionId);
-        
-        const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+        await supabase.functions.invoke('dialogue-session-manage', {
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { 
-            action: 'end', 
-            sessionId: currentSessionId,
-            durationSeconds: null,
-            totalMessages: msgCount,
-            totalInterventions: 0
-          }
+          body: { action: 'finalize_coach', sessionId: currentSessionId }
         });
-        
-        console.log(`[useCoachConversation ${timestamp}] End session response:`, { data, error });
-        
-        if (error) {
-          console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);
-        }
       }
-      
-      // 2. Trigger insight extraction (fire-and-forget)
-      let insightToken: string | undefined;
-      try {
-        insightToken = await getAuthToken() || undefined;
-      } catch (err) {
-        console.error('Failed to get access token for insights:', err);
-      }
-      
-      // Don't await - let it run in background
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-coach-insights`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(insightToken ? { 'Authorization': `Bearer ${insightToken}` } : {}),
-        },
-        body: JSON.stringify({
-          sessionId: currentSessionId,
-          userId: user.id,
-        }),
-      }).catch(err => console.error('Insight extraction failed:', err));
-
-      // 3. Trigger probing effectiveness analysis (fire-and-forget) – use Auth0 token
-      if (insightToken) {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-probing-effectiveness`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).catch(err => console.error('Probing analysis failed:', err));
-      }
-
-      // 4. Generate coach summary (fire-and-forget)
-      if (insightToken) {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-coach-summary`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).then(() => {
-          // 6. Extract session memories (chained after summary)
-          if (insightToken) {
-            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-session-memories`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${insightToken}`,
-              },
-              body: JSON.stringify({
-                sessionId: currentSessionId,
-                userId: user.id,
-              }),
-            }).catch(err => console.error('Session memory extraction failed:', err));
-          }
-        }).catch(err => console.error('Coach summary generation failed:', err));
-
-        // 5. Detect recurring patterns (fire-and-forget, parallel with summary)
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-recurring-patterns`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).catch(err => console.error('Pattern detection failed:', err));
-
-        // 7. Detect coach scenarios (fire-and-forget, parallel)
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-coach-scenarios`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).catch(err => console.error('Coach scenario detection failed:', err));
-
-        // 8. Extract tool commitments (fire-and-forget, parallel)
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-tool-commitments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).catch(err => console.error('Tool commitment extraction failed:', err));
-
-        // 9. Resolve session commitments – updates pending commitment statuses based on conversation
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-session-commitments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${insightToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            userId: user.id,
-          }),
-        }).catch(err => console.error('Commitment resolution failed:', err));
-      }
-      
     } catch (error) {
-      console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);
+      console.error('[useCoachConversation] endSession error:', error);
     } finally {
-      // 3. Clear local state
       clearConversation();
     }
   }, [user?.id, clearConversation]);
