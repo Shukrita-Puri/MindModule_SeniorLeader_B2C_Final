@@ -309,7 +309,10 @@ const ExecutiveHome = () => {
 
           {/* First Session Guide */}
           {showGuide && (
-            <FirstSessionGuide onComplete={() => setShowGuide(false)} />
+            <FirstSessionGuide onComplete={() => {
+              setShowGuide(false);
+              recordStep('first_session_walkthrough', { completed: true });
+            }} />
           )}
 
           {/* Plan Feedback Modal */}
