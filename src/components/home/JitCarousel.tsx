@@ -238,6 +238,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           initialPrompt: preEventPlan.coachCard.prompt,
           fromIntervention: true,
           eventTitle: preEventPlan.eventTitle,
+          entryContext: { entryPoint: 'jit', lastAction: `preparing for "${preEventPlan.eventTitle}"`, triggeredBy: preEventPlan.eventTitle }
         }
       });
     }
