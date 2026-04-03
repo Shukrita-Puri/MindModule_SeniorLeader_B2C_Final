@@ -161,17 +161,17 @@ const CheckInDetail = () => {
 
             {/* Save button */}
             <div className="pt-2">
-              <Button
+              <button
                 onClick={handleSave}
                 disabled={saving || !bothTouched}
-                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-colors disabled:opacity-100 ${
+                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-all duration-200 ${
                   bothTouched
-                    ? 'bg-saffron text-saffron-foreground hover:brightness-110'
-                    : 'bg-muted text-foreground/55 cursor-not-allowed hover:brightness-100'
+                    ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
+                    : 'bg-muted text-foreground/60 cursor-not-allowed'
                 }`}
               >
                 {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
