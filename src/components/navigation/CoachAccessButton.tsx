@@ -11,15 +11,16 @@ const CoachAccessButton = ({ surfaceHint }: CoachAccessButtonProps) => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Label — left of button */}
+    <div className="flex items-center gap-2">
+      {/* Label — left of button (mobile) */}
       <div className="flex flex-col items-end sm:hidden">
         {surfaceHint ? (
-          <span className="text-[9px] text-saffron/80 font-body text-right max-w-[80px] leading-tight animate-pulse">
+          <span className="bg-saffron/80 backdrop-blur-sm text-white text-[10px] font-medium font-body rounded-full px-2.5 py-0.5 text-right max-w-[100px] leading-tight animate-pulse">
             {surfaceHint}
           </span>
         ) : (
-          <span className="text-[10px] text-saffron font-body text-right leading-tight">
+          <span className="bg-black/50 backdrop-blur-sm text-white text-[11px] font-medium font-body rounded-full px-2.5 py-0.5 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-saffron animate-pulse" />
             Prepare me
           </span>
         )}
@@ -27,7 +28,7 @@ const CoachAccessButton = ({ surfaceHint }: CoachAccessButtonProps) => {
 
       {/* Desktop: surfaceHint badge left of button */}
       {surfaceHint && (
-        <span className="hidden sm:block text-[9px] text-saffron/80 font-body text-right max-w-[72px] leading-tight animate-pulse">
+        <span className="hidden sm:flex items-center bg-black/40 backdrop-blur-sm text-white text-[10px] font-medium font-body rounded-full px-2.5 py-0.5 max-w-[100px] leading-tight animate-pulse">
           {surfaceHint}
         </span>
       )}
