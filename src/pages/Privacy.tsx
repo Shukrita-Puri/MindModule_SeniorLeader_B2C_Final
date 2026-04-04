@@ -23,9 +23,9 @@ const Privacy = () => {
 
           {/* 1. Information We Collect */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">1. Information We Collect</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">1. Information We Collect</h2>
             
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.1 Account and Authentication Data</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.1 Account and Authentication Data</h3>
             <p className="mb-4">
               We use Auth0 for authentication. You may sign in using:
             </p>
@@ -38,7 +38,7 @@ const Privacy = () => {
               We do not store passwords for OAuth sign-ins. Email/password credentials are managed and encrypted by Auth0.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.2 Profile and Assessment Data</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.2 Profile and Assessment Data</h3>
             <p className="mb-4">
               During registration and use of the Service, you may provide:
             </p>
@@ -48,7 +48,7 @@ const Privacy = () => {
               <li>Daily self-assessment responses (mental sharpness, cognitive clarity, confidence levels)</li>
             </ul>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.3 Usage and Interaction Data</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.3 Usage and Interaction Data</h3>
             <p className="mb-4">
               We collect data about how you use the Service, including:
             </p>
@@ -58,12 +58,12 @@ const Privacy = () => {
               <li>Progress tracking and milestone completion</li>
             </ul>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.4 AI Coaching Conversations</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.4 AI Coaching Conversations</h3>
             <p className="mb-4">
               Conversations with our AI Coach are stored to provide continuity, session history, and personalised guidance. AI responses are generated in real-time using third-party AI infrastructure and are not reviewed by humans unless you report an issue or request support.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.5 Calendar Integration (Optional)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.5 Calendar Integration (Optional)</h3>
             <p className="mb-4">
               If you connect your Google Calendar (read-only access), we collect:
             </p>
@@ -76,7 +76,7 @@ const Privacy = () => {
               <strong>Local Storage:</strong> Calendar data is processed and stored <strong>locally on your device</strong>. You control this data and may disconnect the integration at any time.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.6 Wearable Data (Optional, iOS Only)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.6 Wearable Data (Optional, iOS Only)</h3>
             <p className="mb-4">
               If you grant access to Apple HealthKit, we collect:
             </p>
@@ -87,7 +87,7 @@ const Privacy = () => {
               <strong>Local Storage:</strong> HealthKit data is queried <strong>on-device only</strong> and stored <strong>locally on your iOS device</strong>. We do not sync wearable data to our servers. You may revoke access at any time via iOS Settings {'>'} Health {'>'} Data Access.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">1.7 Device and Technical Data</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">1.7 Device and Technical Data</h3>
             <p className="mb-4">
               We automatically collect:
             </p>
@@ -100,7 +100,7 @@ const Privacy = () => {
 
           {/* 2. How We Use Your Information */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">2. How We Use Your Information</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">2. How We Use Your Information</h2>
             <p className="mb-4">We use your information to:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Provide, maintain, and improve the Service</li>
@@ -114,7 +114,7 @@ const Privacy = () => {
 
           {/* 3. AI-Powered Features */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">3. AI-Powered Features</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">3. AI-Powered Features</h2>
             <p className="mb-4">
               The Service includes AI-driven features powered by third-party AI models. Your data (including assessment responses, conversation history, and contextual information) may be processed by these models to generate personalised recommendations and coaching responses.
             </p>
@@ -134,7 +134,7 @@ const Privacy = () => {
 
           {/* 4. Health and Medical Disclaimer */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">4. Health and Medical Disclaimer</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">4. Health and Medical Disclaimer</h2>
             <p className="mb-4"><strong>Mind Module is NOT a health application, medical device, or diagnostic tool.</strong></p>
             <p className="mb-4">The Service:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
@@ -150,7 +150,7 @@ const Privacy = () => {
 
           {/* 5. Data Security */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">5. Data Security</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">5. Data Security</h2>
             <p className="mb-4">We implement industry-standard security measures to protect your information:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Encryption in transit:</strong> TLS 1.3 for all data transmission</li>
@@ -169,7 +169,7 @@ const Privacy = () => {
 
           {/* 6. Payment Processing */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">6. Payment Processing</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">6. Payment Processing</h2>
             <p className="mb-4">
               Subscription payments are processed by <strong>Stripe</strong>. We do not store your credit card details, CVV, or full payment credentials. Stripe is PCI DSS Level 1 certified.
             </p>
@@ -183,7 +183,7 @@ const Privacy = () => {
 
           {/* 7. Data Sharing and Disclosure */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">7. Data Sharing and Disclosure</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">7. Data Sharing and Disclosure</h2>
             <p className="mb-4">We do not sell, rent, or trade your personal information.</p>
             <p className="mb-4">We may share information with:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
@@ -197,7 +197,7 @@ const Privacy = () => {
 
           {/* 8. International Data Transfers */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">8. International Data Transfers</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">8. International Data Transfers</h2>
             <p className="mb-4">
               The Service operates globally. Your information may be transferred to and processed in countries other than your country of residence, including the United States. We use appropriate safeguards:
             </p>
@@ -210,7 +210,7 @@ const Privacy = () => {
 
           {/* 9. Data Retention */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">9. Data Retention</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">9. Data Retention</h2>
             <p className="mb-4">We retain your information:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Account data:</strong> While your account is active, plus 30 days after deletion request</li>
@@ -226,7 +226,7 @@ const Privacy = () => {
 
           {/* 10. Your Rights */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">10. Your Rights</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">10. Your Rights</h2>
             <p className="mb-4">Depending on your jurisdiction, you may have the right to:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Access</strong> your personal information</li>
@@ -245,9 +245,9 @@ const Privacy = () => {
 
           {/* 11. Regional Privacy Rights */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">11. Regional Privacy Rights</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">11. Regional Privacy Rights</h2>
             
-            <h3 className="text-xl font-subheadline text-foreground mb-2">11.1 European Union & United Kingdom (GDPR / UK GDPR)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">11.1 European Union & United Kingdom (GDPR / UK GDPR)</h3>
             <p className="mb-4">Our lawful bases for processing:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Contract performance:</strong> Providing the Service</li>
@@ -259,7 +259,7 @@ const Privacy = () => {
               You may lodge a complaint with your supervisory authority (e.g., ICO in the UK).
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">11.2 California, USA (CCPA / CPRA)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">11.2 California, USA (CCPA / CPRA)</h3>
             <p className="mb-4">California residents have the right to:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Know what personal information we collect and how it is used</li>
@@ -268,17 +268,17 @@ const Privacy = () => {
             </ul>
             <p className="mb-4">We do not discriminate against users who exercise their privacy rights.</p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">11.3 Middle East & North Africa (MENA)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">11.3 Middle East & North Africa (MENA)</h3>
             <p className="mb-4">
               For users in DIFC, ADGM, Saudi Arabia, and other MENA jurisdictions, we comply with applicable data protection laws including the DIFC Data Protection Law and ADGM Data Protection Regulations.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">11.4 Asia-Pacific (APAC)</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">11.4 Asia-Pacific (APAC)</h3>
             <p className="mb-4">
               For users in Singapore (PDPA), Australia (Privacy Act), Japan (APPI), and South Korea (PIPA), we comply with applicable data protection requirements.
             </p>
 
-            <h3 className="text-xl font-subheadline text-foreground mb-2">11.5 Apple App Store Compliance</h3>
+            <h3 className="text-xl font-body text-foreground mb-2">11.5 Apple App Store Compliance</h3>
             <p className="mb-4">
               We comply with Apple's App Store Review Guidelines and App Tracking Transparency framework. HealthKit data is handled in accordance with Apple's guidelines and is never used for advertising or marketing.
             </p>
@@ -286,7 +286,7 @@ const Privacy = () => {
 
           {/* 12. Cookies and Tracking */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">12. Cookies and Tracking</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">12. Cookies and Tracking</h2>
             <p className="mb-4">We use cookies on mindmodule.me for:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Authentication and session management</li>
@@ -303,7 +303,7 @@ const Privacy = () => {
 
           {/* 13. Age Restriction */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">13. Age Restriction</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">13. Age Restriction</h2>
             <p>
               The Service is intended for users aged 18 and older. We do not knowingly collect information from minors. If we learn we have collected data from a minor, we will delete it and terminate the account.
             </p>
@@ -311,7 +311,7 @@ const Privacy = () => {
 
           {/* 14. Changes to This Policy */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">14. Changes to This Policy</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">14. Changes to This Policy</h2>
             <p>
               We may update this Privacy Policy from time to time. Material changes will be communicated via email or in-app notification. Continued use after changes constitutes acceptance of the updated policy.
             </p>
@@ -319,7 +319,7 @@ const Privacy = () => {
 
           {/* 15. Contact Us */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">15. Contact Us</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">15. Contact Us</h2>
             <p className="mb-4">For questions or requests regarding this Privacy Policy:</p>
             <p>
               <a href="mailto:contact@mindmodule.me" className="text-primary underline">contact@mindmodule.me</a>

@@ -77,7 +77,7 @@ export default function StageUSPIntro() {
           <h1 className="font-headline text-[2rem] sm:text-4xl font-bold italic leading-tight tracking-tight text-white">
             {slide.headline}
           </h1>
-          <p className="font-subheadline text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed max-w-sm mx-auto">
+          <p className="font-body text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed max-w-sm mx-auto">
             {slide.subtitle}
           </p>
         </div>

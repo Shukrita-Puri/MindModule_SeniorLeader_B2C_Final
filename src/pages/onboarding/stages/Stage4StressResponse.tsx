@@ -61,7 +61,7 @@ export default function Stage4StressResponse() {
             >
               <div className="flex-1">
                 <div className="font-medium text-sm mb-1 font-body">{option.label}</div>
-                <div className="text-xs text-muted-foreground font-subheadline italic">{option.description}</div>
+                <div className="text-xs text-muted-foreground font-body italic">{option.description}</div>
               </div>
             </button>
           ))}
