@@ -1524,7 +1524,7 @@ const GuidedPracticePlayer = () => {
                   {practice.whatYouNeed.map((item, index) => (
                     <li 
                       key={index} 
-                      className={`flex items-start gap-2 text-sm md:text-base ${
+                      className={`flex items-start gap-2 text-[13px] md:text-sm ${
                         item.startsWith('⚠️') || item.includes('DO NOT') 
                           ? 'text-red-500 font-semibold' 
                           : 'text-muted-foreground'
