@@ -7,6 +7,7 @@
 
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
+import CoachSurfaceMessage from '@/components/coach/CoachSurfaceMessage';
 
 import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
