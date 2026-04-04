@@ -99,11 +99,11 @@ const CheckInDetail = () => {
       
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-3xl font-headline text-foreground tracking-tight">
+          <h1 className="text-[22px] sm:text-3xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-base font-semibold uppercase tracking-widest text-foreground/70 font-body">Clarity & Confidence State</p>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+          <p className="text-[11px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Clarity & Confidence State</p>
+          <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-relaxed context-clamp">
             Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated.
           </p>
         </div>
