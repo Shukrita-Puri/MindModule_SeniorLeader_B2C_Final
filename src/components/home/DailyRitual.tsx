@@ -569,7 +569,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground font-body">
+              <span className="text-[15px] font-medium text-foreground font-body">
                 {plan?.timeOfDayPlan?.label || 'Today'}
               </span>
               <span className="text-[11px] text-muted-foreground/60 font-body">
