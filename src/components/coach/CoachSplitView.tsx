@@ -253,9 +253,9 @@ const CoachSplitView = ({
               Mind Performance Coach
             </h1>
 
-            {/* Large circular coach avatar */}
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 border-stone-200 shadow-xl shadow-stone-300/40">
-              <img src={coachVisual} alt="Mind Performance Coach" className="w-full h-full object-cover object-top" />
+            {/* Large geometric coach avatar */}
+            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 border-stone-200 shadow-xl shadow-stone-300/40 bg-stone-50 flex items-center justify-center">
+              <img src={coachVisual} alt="Mind Performance Coach" className="w-20 h-20 md:w-28 md:h-28 object-contain" />
             </div>
 
             <div className="space-y-3 max-w-sm">
