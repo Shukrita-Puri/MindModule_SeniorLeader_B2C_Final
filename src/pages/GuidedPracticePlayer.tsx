@@ -1479,7 +1479,7 @@ const GuidedPracticePlayer = () => {
 
             {/* Header */}
             <div>
-              <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
+              <h1 className="text-[20px] md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
                 {practice.title}
               </h1>
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
