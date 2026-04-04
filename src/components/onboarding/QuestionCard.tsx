@@ -21,7 +21,7 @@ export const QuestionCard = ({
           {title}
         </CardTitle>
         {subtitle && (
-          <p className="text-sm text-muted-foreground font-subheadline italic leading-relaxed">
+          <p className="text-sm text-muted-foreground font-body italic leading-relaxed">
             {subtitle}
           </p>
         )}

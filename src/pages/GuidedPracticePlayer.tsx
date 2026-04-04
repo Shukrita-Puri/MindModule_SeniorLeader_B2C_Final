@@ -1142,7 +1142,7 @@ const GuidedPracticePlayer = () => {
               <h1 className="text-3xl md:text-5xl font-headline text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
-              <p className="text-white/80 text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+              <p className="text-white/80 text-sm md:text-base font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                 {contentData.storyHook}
               </p>
             </div>
@@ -1186,13 +1186,13 @@ const GuidedPracticePlayer = () => {
                     <div className="mt-2 rounded-3xl p-6 bg-white/15 backdrop-blur-md border border-white/40 space-y-3 max-h-[40vh] overflow-y-auto">
                         {contentData?.technique && (
                           <div>
-                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">Technique</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-body font-semibold mb-1">Technique</h3>
                             <p className="text-white/80 text-xs leading-relaxed font-body">{contentData.technique}</p>
                           </div>
                         )}
                         {contentData?.benefits && contentData.benefits.length > 0 && (
                           <div>
-                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">Benefits</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-body font-semibold mb-1">Benefits</h3>
                             <ul className="space-y-1">
                               {contentData.benefits.map((benefit: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
@@ -1205,7 +1205,7 @@ const GuidedPracticePlayer = () => {
                         )}
                         {contentData?.whatYouNeed && contentData.whatYouNeed.length > 0 && (
                           <div>
-                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">What You Need</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-body font-semibold mb-1">What You Need</h3>
                             <ul className="space-y-1">
                               {contentData.whatYouNeed.map((item: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
@@ -1229,7 +1229,7 @@ const GuidedPracticePlayer = () => {
               <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
-              <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+              <p className="text-white/80 text-xs md:text-sm font-body leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                 {contentData?.storyHook || practice?.origin}
               </p>
             </div>
@@ -1386,7 +1386,7 @@ const GuidedPracticePlayer = () => {
                   <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
                     <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
                       <div>
-                        <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">The Story</h3>
+                        <h3 className="text-gold font-body font-semibold text-sm mb-1">The Story</h3>
                         <p className="text-white/80 text-xs leading-relaxed font-body">
                           {contentData.fullStory}
                         </p>
@@ -1394,7 +1394,7 @@ const GuidedPracticePlayer = () => {
 
                       {contentData.technique && (
                         <div>
-                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                          <h3 className="text-gold font-body font-semibold text-sm mb-1">Technique</h3>
                           <p className="text-white/80 text-xs leading-relaxed font-body">
                             {contentData.technique}
                           </p>
@@ -1403,7 +1403,7 @@ const GuidedPracticePlayer = () => {
 
                       {contentData.benefits && contentData.benefits.length > 0 && (
                         <div>
-                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
+                          <h3 className="text-gold font-body font-semibold text-sm mb-1">Benefits</h3>
                           <ul className="space-y-1">
                             {contentData.benefits.map((benefit, index) => (
                               <li key={index} className="flex items-start gap-2 text-white/80 text-xs font-body">
@@ -1417,7 +1417,7 @@ const GuidedPracticePlayer = () => {
 
                       {contentData.completionQuote && (
                         <div className="pt-2 border-t border-gold/10">
-                          <p className="text-gold/80 text-xs italic font-subheadline">
+                          <p className="text-gold/80 text-xs italic font-body">
                             "{contentData.completionQuote}"
                           </p>
                         </div>

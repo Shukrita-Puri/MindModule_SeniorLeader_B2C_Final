@@ -20,7 +20,7 @@ const PoweredByAI = () => {
 
           {/* 1. AI Services We Use */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">1. AI Services We Use</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">1. AI Services We Use</h2>
             <p className="mb-4">
               Mind Module integrates with <strong>Lovable's AI</strong>, which provides access to <strong>Google Gemini</strong> models for all AI-powered functionality within our platform.
             </p>
@@ -35,7 +35,7 @@ const PoweredByAI = () => {
 
           {/* 2. What AI Powers */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">2. Features Powered by AI</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">2. Features Powered by AI</h2>
             <p className="mb-4">The following features within Mind Module are powered by AI:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>AI Self-Mastery Coach</strong> – Real-time conversational coaching that adapts to your context, patterns, and goals</li>
@@ -50,7 +50,7 @@ const PoweredByAI = () => {
 
           {/* 3. How AI Processing Works */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">3. How AI Processing Works</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">3. How AI Processing Works</h2>
             <p className="mb-4">
               All AI processing happens <strong>server-side</strong> via secure backend functions. The client application does not make direct calls to any AI service.
             </p>
@@ -68,7 +68,7 @@ const PoweredByAI = () => {
 
           {/* 4. Data Sent to AI */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">4. Data Sent to AI Services</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">4. Data Sent to AI Services</h2>
             <p className="mb-4">
               We send <strong>anonymised and contextual data</strong> to the AI service to generate personalised responses. This includes:
             </p>
@@ -92,7 +92,7 @@ const PoweredByAI = () => {
 
           {/* 5. AI Limitations and Disclaimers */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">5. AI Limitations and Disclaimers</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">5. AI Limitations and Disclaimers</h2>
             <p className="mb-4"><strong>Important:</strong></p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>The AI Coach is <strong>not</strong> a licensed therapist, psychologist, psychiatrist, counsellor, or medical professional</li>
@@ -106,7 +106,7 @@ const PoweredByAI = () => {
 
           {/* 6. Human Oversight */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">6. Human Oversight</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">6. Human Oversight</h2>
             <p className="mb-4">
               AI-generated responses are <strong>not</strong> reviewed by humans in real-time. However:
             </p>
@@ -120,7 +120,7 @@ const PoweredByAI = () => {
 
           {/* 7. User Control */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">7. Your Control Over AI Features</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">7. Your Control Over AI Features</h2>
             <p className="mb-4">You have control over how AI is used with your data:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Conversation history</strong> – Your AI Coach conversations are stored for continuity; you can request deletion at any time</li>
@@ -132,7 +132,7 @@ const PoweredByAI = () => {
 
           {/* 8. Data Security */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">8. Data Security</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">8. Data Security</h2>
             <p className="mb-4">
               All communication between our application and AI services is encrypted using <strong>TLS 1.3</strong>. Sensitive data stored in our database is encrypted at rest using <strong>AES-256-GCM</strong>.
             </p>
@@ -143,7 +143,7 @@ const PoweredByAI = () => {
 
           {/* 9. Third-Party AI Policies */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">9. Third-Party AI Policies</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">9. Third-Party AI Policies</h2>
             <p className="mb-4">
               For more information about how the underlying AI services handle data:
             </p>
@@ -156,7 +156,7 @@ const PoweredByAI = () => {
 
           {/* 10. Contact Us */}
           <section>
-            <h2 className="text-2xl font-subheadline text-foreground mb-3">10. Contact Us</h2>
+            <h2 className="text-2xl font-body text-foreground mb-3">10. Contact Us</h2>
             <p className="mb-4">
               If you have questions about how AI is used in Mind Module, or wish to exercise any of your data rights:
             </p>
