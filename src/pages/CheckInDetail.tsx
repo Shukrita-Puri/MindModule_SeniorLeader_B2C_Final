@@ -141,8 +141,8 @@ const CheckInDetail = () => {
             {/* Confidence Slider */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-foreground font-body">Confidence</span>
-                <span className="text-base font-semibold text-primary font-body">{confidenceLabels[confidence - 1]}</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Confidence</span>
+                <span className="text-[15px] font-medium text-primary font-body">{confidenceLabels[confidence - 1]}</span>
               </div>
               <Slider
                 value={[confidence]}
