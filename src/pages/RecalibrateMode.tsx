@@ -7,7 +7,6 @@ import architecturalPresence from "@/assets/recalibrate/presence/architectural-p
 const RecalibrateMode = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  useScrollToTop();
 
   // Check if we're on a nested route (session page)
   const isSessionPage = location.pathname !== '/recalibrate';
