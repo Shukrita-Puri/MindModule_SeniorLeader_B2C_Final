@@ -348,10 +348,10 @@ const DailyCheckIn = () => {
                     <IconComponent className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="text-base font-headline text-white tracking-tight">
+                    <h3 className="text-[15px] font-medium font-headline text-white tracking-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-xs text-white/70 font-body italic">
+                    <p className="text-[12px] text-white/70 font-body italic">
                       {outcome.subtitle}
                     </p>
                   </div>
