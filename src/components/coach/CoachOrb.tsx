@@ -7,7 +7,7 @@ interface CoachOrbProps {
 
 /**
  * Dynamic animated orb for the Mind Performance Coach.
- * Swirling engraved lines converge to a still dark centre —
+ * Warm saffron/amber swirling engraved lines converge to a deep amber centre —
  * the coach as the calm at the centre of complexity.
  * Slow, meditative rotation inspired by "active calm" positioning.
  */
@@ -22,25 +22,24 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
 
   return (
     <div className={cn("relative", sizeClasses[size], className)}>
-      {/* Outer glow */}
+      {/* Outer warm glow */}
       <div className="absolute inset-[-12%] rounded-full blur-xl" style={{
-        background: 'radial-gradient(circle, hsla(30, 10%, 50%, 0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, hsla(30, 70%, 55%, 0.2) 0%, transparent 70%)',
       }} />
 
       {/* Main orb container */}
       <div className="relative w-full h-full rounded-full overflow-hidden">
-        {/* Dark centre — the still point */}
+        {/* Warm amber base — the still centre */}
         <div className="absolute inset-0 z-10" style={{
-          background: 'radial-gradient(circle, hsl(20, 10%, 5%) 0%, hsla(20, 8%, 8%, 0.95) 40%, hsla(25, 6%, 15%, 0.8) 100%)',
+          background: 'radial-gradient(circle, hsl(25, 60%, 18%) 0%, hsla(28, 55%, 25%, 0.95) 40%, hsla(30, 50%, 35%, 0.85) 100%)',
         }} />
 
         {/* Swirling engraved line layers — each rotates at different speeds */}
         <svg
           viewBox="0 0 200 200"
           className="absolute inset-0 w-full h-full z-20 animate-[spin_45s_linear_infinite]"
-          style={{ opacity: 0.35 }}
+          style={{ opacity: 0.4 }}
         >
-          {/* Spiral engraved lines converging to centre */}
           {Array.from({ length: 24 }).map((_, i) => {
             const angle = (i * 15) * (Math.PI / 180);
             const r1 = 95;
@@ -51,7 +50,6 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
             const y1 = cy + r1 * Math.sin(angle);
             const x2 = cx + r2 * Math.cos(angle + 0.8);
             const y2 = cy + r2 * Math.sin(angle + 0.8);
-            // Control points for the curve
             const cpx = cx + (r1 * 0.5) * Math.cos(angle + 0.4);
             const cpy = cy + (r1 * 0.5) * Math.sin(angle + 0.4);
 
@@ -60,7 +58,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
                 key={`line-a-${i}`}
                 d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
                 fill="none"
-                stroke="hsl(30, 10%, 65%)"
+                stroke="hsl(35, 65%, 65%)"
                 strokeWidth={strokeWidth}
                 strokeLinecap="round"
               />
@@ -72,7 +70,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
         <svg
           viewBox="0 0 200 200"
           className="absolute inset-0 w-full h-full z-20 animate-[spin_60s_linear_infinite_reverse]"
-          style={{ opacity: 0.25 }}
+          style={{ opacity: 0.3 }}
         >
           {Array.from({ length: 36 }).map((_, i) => {
             const angle = (i * 10) * (Math.PI / 180);
@@ -92,7 +90,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
                 key={`line-b-${i}`}
                 d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
                 fill="none"
-                stroke="hsl(30, 15%, 55%)"
+                stroke="hsl(30, 55%, 58%)"
                 strokeWidth={strokeWidth * 0.7}
                 strokeLinecap="round"
               />
@@ -104,7 +102,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
         <svg
           viewBox="0 0 200 200"
           className="absolute inset-0 w-full h-full z-20 animate-[spin_90s_linear_infinite]"
-          style={{ opacity: 0.18 }}
+          style={{ opacity: 0.22 }}
         >
           {Array.from({ length: 48 }).map((_, i) => {
             const angle = (i * 7.5) * (Math.PI / 180);
@@ -124,7 +122,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
                 key={`line-c-${i}`}
                 d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
                 fill="none"
-                stroke="hsl(25, 20%, 50%)"
+                stroke="hsl(28, 50%, 52%)"
                 strokeWidth={strokeWidth * 0.5}
                 strokeLinecap="round"
               />
@@ -136,7 +134,7 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
         <svg
           viewBox="0 0 200 200"
           className="absolute inset-0 w-full h-full z-20"
-          style={{ opacity: 0.12 }}
+          style={{ opacity: 0.15 }}
         >
           {[75, 60, 45, 30].map((r) => (
             <circle
@@ -145,30 +143,35 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
               cy="100"
               r={r}
               fill="none"
-              stroke="hsl(30, 8%, 60%)"
+              stroke="hsl(32, 45%, 60%)"
               strokeWidth={strokeWidth * 0.4}
             />
           ))}
         </svg>
 
-        {/* Centre void — deep darkness, the still point */}
+        {/* Centre void — deep warm amber, the still point */}
         <div className="absolute inset-0 z-30 flex items-center justify-center">
-          <div className="w-[18%] h-[18%] rounded-full bg-stone-950 shadow-[0_0_20px_8px_rgba(12,10,9,0.8)]" />
+          <div className="w-[18%] h-[18%] rounded-full" style={{
+            background: 'hsl(25, 55%, 12%)',
+            boxShadow: '0 0 20px 8px hsla(25, 50%, 10%, 0.8)',
+          }} />
         </div>
 
         {/* Subtle warm edge highlight */}
         <div className="absolute inset-0 z-30 rounded-full" style={{
-          background: 'radial-gradient(circle at 35% 30%, hsla(30, 60%, 70%, 0.08) 0%, transparent 50%)',
+          background: 'radial-gradient(circle at 35% 30%, hsla(35, 70%, 65%, 0.12) 0%, transparent 50%)',
         }} />
 
-        {/* Glass rim */}
-        <div className="absolute inset-0 z-30 rounded-full border border-stone-600/20" />
+        {/* Glass rim — warm tint */}
+        <div className="absolute inset-0 z-30 rounded-full" style={{
+          border: '1px solid hsla(30, 40%, 50%, 0.25)',
+        }} />
       </div>
 
       {/* Pulsing ambient aura — very slow breathing */}
       <div
-        className="absolute inset-[-6%] rounded-full border border-stone-500/10 animate-[pulse_6s_ease-in-out_infinite]"
-        style={{ opacity: 0.4 }}
+        className="absolute inset-[-6%] rounded-full animate-[pulse_6s_ease-in-out_infinite]"
+        style={{ opacity: 0.4, border: '1px solid hsla(30, 50%, 55%, 0.12)' }}
       />
     </div>
   );
