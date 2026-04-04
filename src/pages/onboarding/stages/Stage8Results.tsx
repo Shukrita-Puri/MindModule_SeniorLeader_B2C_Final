@@ -201,7 +201,7 @@ export default function Stage8Results() {
             animationDuration: '1.5s',
           }} />
         </div>
-        <h2 className="text-2xl font-headline font-bold text-foreground">Analysing Your Pattern...</h2>
+        <h2 className="text-[20px] font-headline font-bold text-foreground">Analysing Your Pattern...</h2>
         <p className="text-sm text-muted-foreground">Mapping your self-mastery profile</p>
       </div>
     );
