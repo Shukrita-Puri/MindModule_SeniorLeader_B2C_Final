@@ -68,7 +68,7 @@ const Login = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-sm mx-auto p-6 space-y-4">
-          <p className="text-lg font-semibold text-foreground">Login requires a full browser window</p>
+          <p className="text-[15px] font-medium text-foreground">Login requires a full browser window</p>
           <p className="text-sm text-muted-foreground">
             Auth0 cannot load inside an iframe. Please open the app in a new tab to sign in.
           </p>

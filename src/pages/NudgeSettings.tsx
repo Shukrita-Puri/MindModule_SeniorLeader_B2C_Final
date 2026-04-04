@@ -169,7 +169,7 @@ const NudgeSettings = () => {
         {/* Data Sources */}
         <Card className="bg-white border-gray-200">
           <CardHeader>
-            <CardTitle className="text-lg text-gray-900">Data Sources</CardTitle>
+            <CardTitle className="text-[15px] text-gray-900">Data Sources</CardTitle>
             <CardDescription className="text-gray-600">
               Connect data sources for smarter nudges
             </CardDescription>

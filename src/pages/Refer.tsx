@@ -161,7 +161,7 @@ const Refer = () => {
 
         {/* Referral Code */}
         <Card className="p-6">
-          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">Your Referral Code</h3>
+          <h3 className="text-[15px] font-headline font-medium text-foreground mb-4">Your Referral Code</h3>
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
