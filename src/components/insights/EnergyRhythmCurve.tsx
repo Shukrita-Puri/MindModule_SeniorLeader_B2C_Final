@@ -90,7 +90,7 @@ export function EnergyRhythmCurve() {
                 </div>
               ) : !hasEnoughData ? (
                 <div className="text-center py-8 space-y-4">
-                  <p className="text-sm md:text-base text-muted-foreground">
+                  <p className="text-[13px] text-muted-foreground">
                     Complete 7 sessions to see your energy curve
                   </p>
                   <div className="max-w-md mx-auto">
