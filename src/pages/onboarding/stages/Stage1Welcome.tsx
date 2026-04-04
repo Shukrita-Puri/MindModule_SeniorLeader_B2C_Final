@@ -15,19 +15,19 @@ export default function Stage1Welcome() {
       </div>
 
       <div className="text-center space-y-4 animate-fade-in delay-100">
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline text-foreground tracking-tight">
+        <h1 className="text-[28px] sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
           Welcome to<br/>MIND MODULE
         </h1>
       </div>
 
       <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] animate-fade-in delay-200 space-y-5">
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
           Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
         </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Six questions build your Leadership Performance Profile — the intelligence layer that makes everything personal to you and your day.
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
+          Six questions build your Leadership Performance Profile – the intelligence layer that makes everything personal to you and your day.
         </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
           The more honest you are, the sharper it gets.
         </p>
       </div>
@@ -36,7 +36,7 @@ export default function Stage1Welcome() {
         size="lg"
         variant="critical"
         onClick={() => navigate("/onboarding/identity")}
-        className="w-full text-lg py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
+        className="w-full text-[15px] font-medium py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
       >
         Let's begin
         <ArrowRight size={20} className="ml-2" />

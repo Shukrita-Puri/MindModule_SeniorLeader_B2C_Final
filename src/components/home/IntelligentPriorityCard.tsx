@@ -32,7 +32,7 @@ const IntelligentPriorityCard = ({ priority }: Props) => {
         </div>
         
         <div className="flex-1">
-          <h3 className="text-base font-editorial font-medium text-foreground mb-1">
+          <h3 className="text-[15px] font-editorial font-medium text-foreground mb-1">
             {priority.title}
           </h3>
           

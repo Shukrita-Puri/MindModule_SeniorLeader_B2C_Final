@@ -755,7 +755,7 @@ const PerformancePreparationInterventions = () => {
       {/* Title with Info Icon - constrained width */}
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-[15px] font-medium text-foreground">
             Your Performance Preparation
           </h2>
           <MetricInfoModal
@@ -836,7 +836,7 @@ const PerformancePreparationInterventions = () => {
                           </span>
                           
                           {/* Title */}
-                          <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
+                          <h4 className="text-[15px] font-medium text-foreground line-clamp-2 mt-1 leading-snug">
                             {intervention.content.title}
                           </h4>
                           

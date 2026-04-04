@@ -99,11 +99,11 @@ const CheckInDetail = () => {
       
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-3xl font-headline text-foreground tracking-tight">
+          <h1 className="text-[22px] sm:text-3xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-base font-semibold uppercase tracking-widest text-foreground/70 font-body">Clarity & Confidence State</p>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+          <p className="text-[11px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Clarity & Confidence State</p>
+          <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-relaxed context-clamp">
             Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated.
           </p>
         </div>
@@ -120,8 +120,8 @@ const CheckInDetail = () => {
             {/* Clarity Slider */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-foreground font-body">Clarity</span>
-                <span className="text-base font-semibold text-primary font-body">{clarityLabels[clarity - 1]}</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[15px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
               </div>
               <Slider
                 value={[clarity]}
@@ -141,8 +141,8 @@ const CheckInDetail = () => {
             {/* Confidence Slider */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-foreground font-body">Confidence</span>
-                <span className="text-base font-semibold text-primary font-body">{confidenceLabels[confidence - 1]}</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Confidence</span>
+                <span className="text-[15px] font-medium text-primary font-body">{confidenceLabels[confidence - 1]}</span>
               </div>
               <Slider
                 value={[confidence]}
@@ -164,7 +164,7 @@ const CheckInDetail = () => {
               <button
                 onClick={handleSave}
                 disabled={saving || !bothTouched}
-                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-all duration-200 ${
+                className={`w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
                   bothTouched
                     ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
                     : 'bg-muted text-foreground/60 cursor-not-allowed'

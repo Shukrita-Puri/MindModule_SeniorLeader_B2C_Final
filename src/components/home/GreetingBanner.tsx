@@ -31,7 +31,7 @@ const GreetingBanner = () => {
         <h1 className="text-3xl font-headline text-foreground mb-1 tracking-tight">
           {greeting}, {firstName}
         </h1>
-        <p className="text-base font-body italic text-muted-foreground">Mind Module - Your daily practice</p>
+        <p className="text-[13px] font-body italic text-muted-foreground">Mind Module - Your daily practice</p>
       </div>
     </div>
   );

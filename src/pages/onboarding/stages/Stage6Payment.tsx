@@ -155,7 +155,7 @@ export default function Stage6Payment() {
     return (
       <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
         <div className="py-12">
-          <p className="text-lg font-medium mb-2">You're on the best plan!</p>
+          <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
           <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
           <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
         </div>
@@ -202,7 +202,7 @@ export default function Stage6Payment() {
       </div>
 
       {/* Title */}
-      <h1 className="text-3xl font-headline font-bold mb-6">
+      <h1 className="text-[22px] sm:text-3xl font-headline font-bold mb-6">
         {currentTier === 'none' || currentTier === 'trial' ? 'Pricing' : 'Upgrade Plan'}
       </h1>
 
@@ -276,7 +276,7 @@ export default function Stage6Payment() {
 
       {/* CTA */}
       <Button
-        className="w-full h-12 text-base font-semibold mb-6"
+        className="w-full h-12 text-[15px] font-medium mb-6"
         variant="critical"
         onClick={handleStartTrial}
         disabled={loading}
@@ -292,8 +292,8 @@ export default function Stage6Payment() {
       </Button>
 
       {/* ROI */}
-      <p className="font-body italic leading-relaxed text-center mb-8 text-base text-foreground/70">
-        30+ touchpoints/month – <span className="text-xl font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
+      <p className="font-body italic leading-relaxed text-center mb-8 text-[13px] text-foreground/70">
+        30+ touchpoints/month – <span className="text-[15px] font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
       {/* Legal links */}

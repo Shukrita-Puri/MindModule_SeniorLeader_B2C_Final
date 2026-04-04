@@ -103,11 +103,11 @@ const RecalibrateMode = () => {
       {/* Hero Banner */}
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-          <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
+          <h1 className="text-[22px] sm:text-4xl font-headline mb-2 text-foreground tracking-tight">
             Reset Studio
           </h1>
-          <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Practical mind reset tools used by high performers — from centuries of proven techniques to modern execution. Mindset reframes, and Somatic protocols. Curated for the demands of real leadership — designed to restore mental agility, resilience, and executive poise.
+          <p className="text-[13px] text-muted-foreground max-w-3xl mx-auto leading-relaxed context-clamp">
+            Practical mind reset tools used by high performers – from centuries of proven techniques to modern execution. Mindset reframes, and Somatic protocols.
           </p>
         </div>
       </div>

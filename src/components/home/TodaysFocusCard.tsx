@@ -133,7 +133,7 @@ const TodaysFocusCard = () => {
               <div key={index} className={`min-w-[340px] bg-gradient-to-r ${pillar.bgColor} rounded-2xl p-4 border ${pillar.borderColor}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="font-bold text-base text-black">{item.title}</h3>
+                    <h3 className="font-medium text-[15px] text-black">{item.title}</h3>
                     <p className="text-gray-600 text-sm">{item.subtitle}</p>
                   </div>
                   <Badge className="bg-hyper-coral text-white animate-pulse">Priority</Badge>
