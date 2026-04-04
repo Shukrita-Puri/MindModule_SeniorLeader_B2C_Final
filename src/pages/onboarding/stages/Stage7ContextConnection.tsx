@@ -338,7 +338,7 @@ export default function Stage7ContextConnection() {
 
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-headline tracking-tight">
+          <h1 className="text-[20px] font-headline tracking-tight">
             Connect Your Intelligence Layer
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
