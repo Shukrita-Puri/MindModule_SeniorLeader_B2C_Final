@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <CardTitle className="text-xl text-gray-800">Something went wrong</CardTitle>
+              <CardTitle className="text-[15px] text-gray-800">Something went wrong</CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-4">
               <p className="text-gray-600">

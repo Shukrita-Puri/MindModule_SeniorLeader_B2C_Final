@@ -104,7 +104,7 @@ export default function IntegrationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold mb-2">Data Integrations</h3>
+        <h3 className="text-[15px] font-medium mb-2">Data Integrations</h3>
         <p className="text-sm text-muted-foreground">
           Connect your calendar and wearable devices for context-aware recommendations
         </p>
