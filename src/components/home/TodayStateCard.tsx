@@ -73,7 +73,7 @@ const TodayStateCard = () => {
     )}>
       {/* Header with info button - aligned */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Decision Readiness</h2>
+        <h2 className="text-[11px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Decision Readiness</h2>
         <MetricInfoModal
           title="How Your Decision Readiness Score is Calculated"
           description="Your Decision Readiness Score is where your internal signals meet. It combines how you feel right now – your energy, clarity about direction, and confidence in execution – with the natural rhythm of the time of day and what your body is telling you through wearable data. The result is a triangulated read of where you stand internally: how resourced, clear, and confident you are before you engage with the demands of the day. Not a status check. A performance-calibrated readiness profile. This is your internal world. How to orient it against today's outer demands lives in your Outer Readiness Brief."
