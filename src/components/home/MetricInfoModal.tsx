@@ -38,7 +38,7 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
             className="relative bg-card border border-border rounded-xl p-6 max-w-sm shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold text-foreground mb-2">{title}</h3>
+            <h3 className="text-[15px] font-medium text-foreground mb-2">{title}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
             <button
               onClick={() => setIsOpen(false)}

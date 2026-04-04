@@ -2262,7 +2262,7 @@ const MicroPracticePlayerCards = () => {
                         {card.content.map((paragraph, i) => (
                           <p
                             key={i}
-                            className="text-base text-white/80 leading-relaxed"
+                            className="text-[15px] text-white/80 leading-relaxed"
                           >
                             {paragraph}
                           </p>

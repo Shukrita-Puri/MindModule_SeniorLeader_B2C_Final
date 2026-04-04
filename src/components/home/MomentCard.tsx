@@ -163,7 +163,7 @@ export default function MomentCard({
             
             {/* Event Title */}
             {moment.event_context && (
-              <h3 className="font-semibold text-foreground text-base line-clamp-1">
+              <h3 className="font-medium text-foreground text-[15px] line-clamp-1">
                 {moment.event_context.event_title}
               </h3>
             )}

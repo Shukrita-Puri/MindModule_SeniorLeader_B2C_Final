@@ -70,7 +70,7 @@ const DailyRitualCard = () => {
           <IconComponent size={24} className="text-primary" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-headline font-semibold text-foreground">
+          <h3 className="text-[17px] font-headline font-medium text-foreground">
             {masteryTitle}
           </h3>
           <p className="text-sm text-muted-foreground">

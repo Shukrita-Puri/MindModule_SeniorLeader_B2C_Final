@@ -146,7 +146,7 @@ const MomentCarousel = ({
           <Badge variant="secondary" className="text-xs">
             {moment.label}
           </Badge>
-          <h3 className="text-base font-semibold text-foreground line-clamp-1">
+          <h3 className="text-[15px] font-medium text-foreground line-clamp-1">
             {moment.event_context?.event_title || getMomentTitle(moment)}
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -208,7 +208,7 @@ const MomentCarousel = ({
                       </span>
                       
                       {/* Title */}
-                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
+                      <h4 className="text-[15px] font-medium text-foreground line-clamp-2 mt-1 leading-snug">
                         {step.content.title}
                       </h4>
                       
@@ -253,7 +253,7 @@ const MomentCarousel = ({
       <div className="px-4 space-y-3">
         <Button 
           onClick={onStartPack}
-          className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+          className="w-full h-12 text-[15px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
         >
           Start Pack
         </Button>

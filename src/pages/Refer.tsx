@@ -200,7 +200,7 @@ const Refer = () => {
 
         {/* Stats */}
         <Card className="p-6 text-center">
-          <p className="text-lg font-body font-medium text-foreground">
+          <p className="text-[15px] font-body font-medium text-foreground">
             <span className="text-saffron font-semibold">{signedUpCount}</span> signed up · <span className="text-saffron font-semibold">{convertedCount}</span> converted
           </p>
           {signedUpCount === 0 && (
