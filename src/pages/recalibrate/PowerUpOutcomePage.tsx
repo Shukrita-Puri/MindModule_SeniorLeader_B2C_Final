@@ -281,7 +281,7 @@ const PowerUpOutcomePage = () => {
                 className="cursor-pointer group overflow-hidden"
                 onClick={() => handleItemClick(item)}
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-36 overflow-hidden">
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
