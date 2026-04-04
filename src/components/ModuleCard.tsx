@@ -24,7 +24,7 @@ const ModuleCard = ({ title, subtitle, description, onClick }: ModuleCardProps) 
           <h3 className="text-foreground text-2xl font-headline font-bold leading-tight mb-3">
             {title}
           </h3>
-          <p className="text-secondary text-base font-body font-normal leading-normal mb-4">
+          <p className="text-secondary text-[13px] font-body font-normal leading-normal mb-4">
             {subtitle}
           </p>
         </div>

@@ -272,7 +272,7 @@ const MicroPracticePlayer = () => {
 
         {/* Begin Practice Button */}
         <Button 
-          className="w-full rounded-xl py-6 text-base font-body"
+          className="w-full rounded-xl py-6 text-[15px] font-body"
           onClick={handleBeginPractice}
         >
           Begin Practice
