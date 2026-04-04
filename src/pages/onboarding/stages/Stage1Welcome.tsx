@@ -21,13 +21,13 @@ export default function Stage1Welcome() {
       </div>
 
       <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] animate-fade-in delay-200 space-y-5">
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
           Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
         </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Six questions build your Leadership Performance Profile — the intelligence layer that makes everything personal to you and your day.
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
+          Six questions build your Leadership Performance Profile – the intelligence layer that makes everything personal to you and your day.
         </p>
-        <p className="text-base text-foreground/90 font-body leading-relaxed">
+        <p className="text-[15px] text-foreground/90 font-body leading-relaxed">
           The more honest you are, the sharper it gets.
         </p>
       </div>
