@@ -89,12 +89,12 @@ const TodayStateCard = () => {
         </span>
       </div>
       
-      <p className="text-base font-medium text-foreground mb-3 font-body">
+      <p className="text-[15px] font-medium text-foreground mb-3 font-body">
         {tierLabel}
       </p>
 
       {/* Contextual Insight - Enriched */}
-      <p className="text-sm text-muted-foreground leading-relaxed mb-2 font-body">
+      <p className="text-[15px] leading-[1.5] text-muted-foreground mb-2 font-body context-clamp">
         {insight}
       </p>
 
