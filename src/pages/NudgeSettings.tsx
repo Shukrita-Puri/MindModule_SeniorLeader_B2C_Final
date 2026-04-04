@@ -68,7 +68,7 @@ const NudgeSettings = () => {
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-900 uppercase">SMART NUDGE SETTINGS</h1>
+            <h1 className="text-[15px] font-bold text-gray-900 uppercase">SMART NUDGE SETTINGS</h1>
             <p className="text-sm text-gray-600">Configure your intelligent notifications</p>
           </div>
           <div className="w-10 h-10" />

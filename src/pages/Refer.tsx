@@ -131,7 +131,7 @@ const Refer = () => {
 
 
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
-            <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
+            <h2 className="text-[20px] font-headline font-semibold text-foreground mb-2">
               Share the Gift of Inner Mastery
             </h2>
             <p className="text-muted-foreground font-body max-w-xs">
