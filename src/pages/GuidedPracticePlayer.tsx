@@ -1544,7 +1544,7 @@ const GuidedPracticePlayer = () => {
                 <h2 className="text-[15px] font-medium text-gold">Expected Outcomes</h2>
                 <ul className="space-y-2">
                   {practice.expectedOutcomes.map((outcome, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm md:text-base text-muted-foreground">
+                    <li key={index} className="flex items-start gap-2 text-[13px] md:text-sm text-muted-foreground">
                       <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-gold mt-1" />
                       <span>{outcome}</span>
                     </li>
