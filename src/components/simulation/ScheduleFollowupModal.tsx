@@ -70,7 +70,7 @@ const ScheduleFollowupModal = ({
 
           <Button
             variant="outline"
-            className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-shadow"
+            className="w-full h-12 text-[15px] font-medium shadow-md hover:shadow-lg transition-shadow"
             onClick={handleOutlookCalendar}
           >
             Outlook Calendar
