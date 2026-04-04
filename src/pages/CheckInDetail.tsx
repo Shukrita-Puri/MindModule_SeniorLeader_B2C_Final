@@ -120,8 +120,8 @@ const CheckInDetail = () => {
             {/* Clarity Slider */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-foreground font-body">Clarity</span>
-                <span className="text-base font-semibold text-primary font-body">{clarityLabels[clarity - 1]}</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[15px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
               </div>
               <Slider
                 value={[clarity]}
