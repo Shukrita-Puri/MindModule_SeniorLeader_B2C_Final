@@ -1500,7 +1500,7 @@ const GuidedPracticePlayer = () => {
               <Card>
                 <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
                   <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                    <h2 className="text-base md:text-lg font-semibold text-gold">Origin & History</h2>
+                    <h2 className="text-[15px] font-medium text-gold">Origin & History</h2>
                     <ChevronDown className={`h-4 w-4 text-gold transition-transform ${isOriginOpen ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
