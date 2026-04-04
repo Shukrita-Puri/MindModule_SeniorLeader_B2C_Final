@@ -193,7 +193,7 @@ const PowerUpOutcomePage = () => {
       
       {/* Minimal Header */}
       <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <h1 className="text-[22px] md:text-4xl font-headline font-semibold text-foreground mb-2">
+        <h1 className="text-[28px] md:text-4xl font-headline font-semibold text-foreground mb-2">
           Recharge Mastery
         </h1>
         <p className="text-muted-foreground text-[13px] font-body">Rebuild energy, resilience, and readiness for high-stakes moments.</p>
