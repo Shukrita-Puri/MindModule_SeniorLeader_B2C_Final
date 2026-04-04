@@ -197,8 +197,8 @@ const PresenceOutcomePage = () => {
         {/* Mindset Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-[17px] sm:text-xl font-headline text-foreground mb-2">Mindset Protocol</h2>
-            <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
+            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2">Mindset Protocol</h2>
+            <p className="text-[13px] text-muted-foreground italic font-body">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {mindsetItems.map((item) => (
