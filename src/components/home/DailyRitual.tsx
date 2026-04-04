@@ -722,7 +722,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       {/* Action Button */}
       <div className="px-4 max-w-lg mx-auto">
         {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
-              <Button onClick={handleStartRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+              <Button onClick={handleStartRitual} className="w-full h-12 text-[15px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
                 Start Sequence
               </Button>
             )}
