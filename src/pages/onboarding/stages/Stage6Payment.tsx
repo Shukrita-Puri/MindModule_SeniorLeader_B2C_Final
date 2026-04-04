@@ -155,7 +155,7 @@ export default function Stage6Payment() {
     return (
       <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
         <div className="py-12">
-          <p className="text-lg font-medium mb-2">You're on the best plan!</p>
+          <p className="text-[15px] font-medium mb-2">You're on the best plan!</p>
           <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
           <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
         </div>
