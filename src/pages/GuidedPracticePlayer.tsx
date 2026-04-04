@@ -1641,7 +1641,7 @@ const GuidedPracticePlayer = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-8 md:py-12 max-w-3xl mx-auto">
           {/* Step Title */}
-          <h2 className="text-xl md:text-3xl font-serif text-center mb-3 md:mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+          <h2 className="text-[20px] md:text-3xl font-serif text-center mb-3 md:mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
             {currentStepData.title}
           </h2>
 
