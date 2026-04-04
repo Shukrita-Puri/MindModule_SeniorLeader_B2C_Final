@@ -172,7 +172,7 @@ const Refer = () => {
                 onClick={handleCopyCode}
                 className="w-full rounded-xl border border-saffron/20 bg-saffron/5 px-6 py-4 text-center transition-colors hover:bg-saffron/10 active:scale-[0.98]"
               >
-                <p className="text-2xl font-mono font-bold tracking-wider text-foreground">{referralCode}</p>
+                <p className="text-[20px] font-mono font-bold tracking-wider text-foreground">{referralCode}</p>
                 <p className="text-xs text-muted-foreground mt-1">Tap to copy code</p>
               </button>
 
