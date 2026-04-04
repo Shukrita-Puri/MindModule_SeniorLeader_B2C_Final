@@ -1556,8 +1556,8 @@ const GuidedPracticePlayer = () => {
             {/* Step Preview */}
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-                <h2 className="text-base md:text-lg font-semibold text-gold">Practice Journey</h2>
-                <p className="text-sm md:text-base text-muted-foreground">
+                <h2 className="text-[15px] font-medium text-gold">Practice Journey</h2>
+                <p className="text-[13px] md:text-sm text-muted-foreground">
                   {practice.steps.length} steps • {Math.floor(practice.totalDuration / 60)} minutes
                 </p>
                 <div className="space-y-2">
