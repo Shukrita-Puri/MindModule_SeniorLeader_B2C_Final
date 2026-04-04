@@ -366,7 +366,7 @@ const DailyCheckIn = () => {
           onClick={handleConfirm}
           disabled={!selectedOutcome || isSubmitting}
           className={`
-            mt-6 w-full py-4 rounded-xl font-body text-sm font-semibold tracking-wide
+            mt-6 w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
             transition-all duration-200
             ${selectedOutcome
               ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'

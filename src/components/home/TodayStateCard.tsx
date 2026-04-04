@@ -100,7 +100,7 @@ const TodayStateCard = () => {
 
       {/* Layer 3: Wearable Context – separate line for visibility */}
       {layer3Statement && layersActive.includes('wearable') && (
-        <p className="text-xs text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
+        <p className="text-[12px] text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
           {layer3Statement}
         </p>
       )}

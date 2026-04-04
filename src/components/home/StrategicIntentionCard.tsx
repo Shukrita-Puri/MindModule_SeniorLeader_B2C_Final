@@ -101,7 +101,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         <div className="space-y-1 pt-1">
           {renderLeanOn(brief.leanOn)}
           <p className="text-[13px] text-muted-foreground/80 font-subheadline leading-relaxed">
-            <span className="font-semibold">Watch for:</span>{' '}
+            <span className="typo-lean-label">Watch for:</span>{' '}
             {brief.watchFor}
           </p>
         </div>

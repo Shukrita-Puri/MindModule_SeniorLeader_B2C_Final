@@ -537,3 +537,43 @@ body {
       0 0 24px rgba(212, 175, 55, 0.4);
   }
 }
+
+/* ═══ Mobile-first typography scale ═══ */
+@layer components {
+  .typo-score        { font-size: 48px; font-weight: 500; }
+  .typo-page-title   { font-size: 17px; font-weight: 500; }
+  .typo-section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .typo-context      { font-size: 15px; font-weight: 400; line-height: 1.5; }
+  .typo-supporting   { font-size: 12px; font-weight: 400; }
+  .typo-btn          { font-size: 15px; font-weight: 500; }
+  .typo-state-label  { font-size: 15px; font-weight: 500; }
+  .typo-state-sub    { font-size: 12px; font-weight: 400; }
+  .typo-lean-label   { font-size: 11px; font-weight: 500; text-transform: uppercase; }
+  .typo-lean-value   { font-size: 13px; font-weight: 400; }
+  .typo-tab          { font-size: 14px; }
+  .typo-hero-sub     { font-size: 15px; }
+
+  .context-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+    box-shadow: 
+      0 4px 8px rgba(0,0,0,0.15),
+      inset 0 1px 2px rgba(255,255,255,0.15),
+      0 0 16px rgba(212, 175, 55, 0.2);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+    box-shadow: 
+      0 4px 8px rgba(0,0,0,0.15),
+      inset 0 1px 2px rgba(255,255,255,0.15),
+      0 0 24px rgba(212, 175, 55, 0.4);
+  }
+}

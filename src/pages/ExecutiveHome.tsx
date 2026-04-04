@@ -282,10 +282,10 @@ const ExecutiveHome = () => {
                   key={key}
                   data-tour={`tab-${key}`}
                   onClick={() => setActiveTab(key)}
-                  className={`text-sm font-medium font-body transition-all relative ${
+                  className={`typo-tab font-body transition-all relative ${
                     activeTab === key
-                      ? 'text-foreground'
-                      : 'text-muted-foreground hover:text-foreground/70'
+                      ? 'font-medium text-foreground'
+                      : 'font-normal text-muted-foreground hover:text-foreground/70'
                   }`}
                 >
                   {label}

@@ -70,7 +70,7 @@ const RecalibrateMode = () => {
                 
                 {/* Content */}
                 <div className="p-8 space-y-3">
-                  <h3 className="text-2xl font-headline font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
+                  <h3 className="text-[17px] sm:text-xl font-headline font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
                   

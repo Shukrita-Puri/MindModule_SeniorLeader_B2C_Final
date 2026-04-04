@@ -733,7 +733,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
             )}
             {ritualStatus.status === 'completed' && (
               <div className="flex items-center gap-2">
-                <Button disabled className="flex-1 h-12 text-base font-semibold bg-taupe/80 text-white rounded-xl cursor-default">
+                <Button disabled className="flex-1 h-12 text-[15px] font-medium bg-taupe/80 text-white rounded-xl cursor-default">
                   <Check size={18} className="mr-2" />
                   Completed
                 </Button>
