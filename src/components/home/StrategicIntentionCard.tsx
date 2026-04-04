@@ -7,6 +7,7 @@
 
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
+import CoachSurfaceMessage from '@/components/coach/CoachSurfaceMessage';
 
 import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
@@ -92,6 +93,9 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
             <span className="text-xs text-muted-foreground font-body">{brief.coachInsightLabel}</span>
           </div>
         )}
+
+        {/* Coach Surface Message — renders nothing when empty */}
+        <CoachSurfaceMessage />
 
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">

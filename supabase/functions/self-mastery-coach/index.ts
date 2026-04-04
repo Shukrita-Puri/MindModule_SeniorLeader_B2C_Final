@@ -2089,6 +2089,15 @@ interface CoachContext {
     lastAction: string | null;
     triggeredBy: string | null;
   };
+
+  // === Insights Intelligence (server-fetched) ===
+  insightsIntelligence?: {
+    topRecurringThemes: string[];
+    stateTrajectory: 'improving' | 'declining' | 'stable';
+    bestTimeWindow: string | null;
+    worstTimeWindow: string | null;
+    dominantPatternLast30Days: string | null;
+  };
 }
 
 // =============================================================================
@@ -2138,6 +2147,9 @@ async function buildServerContext(
     journeyBreakthroughResult,
     // === GAP 5: Practice Ratings query ===
     practiceRatingsResult,
+    // === Insights Intelligence queries ===
+    insightsRecurringThemesResult,
+    insightsStateRhythmResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -2285,6 +2297,21 @@ async function buildServerContext(
       .select('content_id, star_rating')
       .eq('user_id', userId)
       .not('star_rating', 'is', null),
+    // 24. Insights Intelligence – recurring themes from session summaries
+    supabase
+      .from('coach_session_summaries')
+      .select('key_topics, recurring_themes, dominant_pattern')
+      .eq('user_id', userId)
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // 25. Insights Intelligence – state rhythm (14-day check-ins)
+    supabase
+      .from('daily_checkins')
+      .select('outcome, time_window, checkin_date')
+      .eq('user_id', userId)
+      .gte('checkin_date', new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0])
+      .order('checkin_date', { ascending: false }),
   ]);
 
   // --- Populate context from server results ---
@@ -2556,6 +2583,98 @@ async function buildServerContext(
   // === GAP 1: Entry Context (pass through from client) ===
   if (clientContext?.entryContext) {
     context.entryContext = clientContext.entryContext;
+  }
+
+  // === Insights Intelligence ===
+  const ENABLE_INSIGHTS_INTELLIGENCE = Deno.env.get('ENABLE_INSIGHTS_INTELLIGENCE') !== 'false';
+  if (ENABLE_INSIGHTS_INTELLIGENCE) {
+    try {
+      // Recurring themes aggregation
+      const themeSummaries = insightsRecurringThemesResult?.data || [];
+      const themeFrequency: Record<string, number> = {};
+      let dominantPatternLast30Days: string | null = null;
+      const patternCounts: Record<string, number> = {};
+
+      for (const s of themeSummaries) {
+        const rt = (s as any).recurring_themes || [];
+        for (const theme of rt) {
+          if (typeof theme === 'string') {
+            themeFrequency[theme] = (themeFrequency[theme] || 0) + 1;
+          }
+        }
+        const kt = (s as any).key_topics || [];
+        for (const topic of kt) {
+          if (typeof topic === 'string') {
+            themeFrequency[topic] = (themeFrequency[topic] || 0) + 1;
+          }
+        }
+        const dp = (s as any).dominant_pattern;
+        if (dp) patternCounts[dp] = (patternCounts[dp] || 0) + 1;
+      }
+
+      const topRecurringThemes = Object.entries(themeFrequency)
+        .filter(([, count]) => count >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([theme]) => theme);
+
+      dominantPatternLast30Days = Object.entries(patternCounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+      // State trajectory & time windows
+      const stateCheckins = insightsStateRhythmResult?.data || [];
+      let stateTrajectory: 'improving' | 'declining' | 'stable' = 'stable';
+      let bestTimeWindow: string | null = null;
+      let worstTimeWindow: string | null = null;
+
+      if (stateCheckins.length >= 4) {
+        const positiveStates = new Set(['thriving', 'strong', 'energised', 'grounded', 'focused']);
+        const negativeStates = new Set(['depleted', 'overwhelmed', 'reactive', 'scattered', 'strained']);
+
+        // Trajectory: compare first half vs second half
+        const half = Math.floor(stateCheckins.length / 2);
+        const recentHalf = stateCheckins.slice(0, half);
+        const olderHalf = stateCheckins.slice(half);
+
+        const scoreOutcome = (o: string) => positiveStates.has(o) ? 1 : negativeStates.has(o) ? -1 : 0;
+        const recentAvg = recentHalf.reduce((sum: number, c: any) => sum + scoreOutcome(c.outcome), 0) / recentHalf.length;
+        const olderAvg = olderHalf.reduce((sum: number, c: any) => sum + scoreOutcome(c.outcome), 0) / olderHalf.length;
+
+        if (recentAvg - olderAvg > 0.2) stateTrajectory = 'improving';
+        else if (olderAvg - recentAvg > 0.2) stateTrajectory = 'declining';
+
+        // Best/worst time windows
+        const windowScores: Record<string, { sum: number; count: number }> = {};
+        for (const c of stateCheckins) {
+          const tw = (c as any).time_window;
+          if (!tw) continue;
+          if (!windowScores[tw]) windowScores[tw] = { sum: 0, count: 0 };
+          windowScores[tw].sum += scoreOutcome((c as any).outcome);
+          windowScores[tw].count++;
+        }
+        const windowAvgs = Object.entries(windowScores)
+          .filter(([, d]) => d.count >= 2)
+          .map(([tw, d]) => ({ tw, avg: d.sum / d.count }))
+          .sort((a, b) => b.avg - a.avg);
+
+        if (windowAvgs.length >= 2) {
+          bestTimeWindow = windowAvgs[0].tw;
+          worstTimeWindow = windowAvgs[windowAvgs.length - 1].tw;
+        }
+      }
+
+      if (topRecurringThemes.length > 0 || stateTrajectory !== 'stable' || bestTimeWindow) {
+        context.insightsIntelligence = {
+          topRecurringThemes,
+          stateTrajectory,
+          bestTimeWindow,
+          worstTimeWindow,
+          dominantPatternLast30Days,
+        };
+      }
+    } catch (e) {
+      console.error('[buildServerContext] Insights intelligence error (non-fatal):', e);
+    }
   }
 
   return context;
@@ -3563,6 +3682,37 @@ User is physiologically strong today (high HRV, high clarity, high confidence). 
       prompt += praLines.join('\n');
     } catch (e) {
       console.error('[buildSystemPrompt] Practice awareness error (non-fatal):', e);
+    }
+  }
+
+  // === INSIGHTS INTELLIGENCE ===
+  const ENABLE_INSIGHTS_INTELLIGENCE = Deno.env.get('ENABLE_INSIGHTS_INTELLIGENCE') !== 'false';
+  if (ENABLE_INSIGHTS_INTELLIGENCE && context?.insightsIntelligence) {
+    try {
+      const ii = context.insightsIntelligence;
+      const iiLines: string[] = ['\n\n# INSIGHTS INTELLIGENCE'];
+
+      if (ii.topRecurringThemes.length > 0) {
+        iiLines.push(`Themes recurring across sessions: ${ii.topRecurringThemes.join(', ')}. These represent persistent patterns worth naming or resolving.`);
+      }
+
+      if (ii.stateTrajectory === 'declining') {
+        iiLines.push("User's state has been declining over 14 days. Approach with care — this may need acknowledgment before challenge.");
+      } else if (ii.stateTrajectory === 'improving') {
+        iiLines.push("User's state is trending upward. Reinforce what's working.");
+      }
+
+      if (ii.bestTimeWindow && ii.worstTimeWindow) {
+        iiLines.push(`User tends to be strongest in the ${ii.bestTimeWindow} and most challenged in the ${ii.worstTimeWindow}. Use this for timing recommendations.`);
+      }
+
+      if (ii.dominantPatternLast30Days) {
+        iiLines.push(`Dominant coaching pattern last 30 days: ${ii.dominantPatternLast30Days}.`);
+      }
+
+      prompt += iiLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Insights intelligence error (non-fatal):', e);
     }
   }
 
