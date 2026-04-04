@@ -1142,7 +1142,7 @@ const GuidedPracticePlayer = () => {
               <h1 className="text-[28px] md:text-5xl font-headline font-semibold text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
-              <p className="text-white/80 text-sm md:text-base font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+              <p className="text-white/80 text-[13px] md:text-sm font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                 {contentData.storyHook}
               </p>
             </div>
