@@ -238,7 +238,7 @@ const PauseOutcomePage = () => {
                   </button>
                 </div>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardTitle className="text-[15px] font-medium font-body">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
                     {getCredibilitySubtitle(item)}
