@@ -74,7 +74,7 @@ const LeftSidebar = () => {
           <img src={appLogo} alt="Mind Module" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
           {!hideLabels && (
             <div className="flex flex-col ml-2">
-              <span className="font-headline text-base font-semibold tracking-widest text-foreground">
+              <span className="font-headline text-[15px] font-semibold tracking-widest text-foreground">
                 MIND MODULE
               </span>
               <span className="text-[10px] tracking-wider text-muted-foreground uppercase">

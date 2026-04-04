@@ -47,8 +47,8 @@ const RecalibrateMode = () => {
   const renderToolSelection = () => (
     <>
       {/* Tools Selection */}
-      <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 auto-rows-fr">
+      <div className="flex-1 px-4 md:px-8 max-w-5xl mx-auto pb-32 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-10 auto-rows-fr">
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
@@ -58,7 +58,7 @@ const RecalibrateMode = () => {
             >
               <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500 flex flex-col">
                 {/* Image Container */}
-                <div className="relative w-full aspect-square overflow-hidden bg-card">
+                <div className="relative w-full aspect-[4/3] overflow-hidden bg-card">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
@@ -69,12 +69,12 @@ const RecalibrateMode = () => {
                 </div>
                 
                 {/* Content */}
-                <div className="p-8 space-y-3">
-                  <h3 className="text-[17px] sm:text-xl font-headline font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
+                <div className="p-5 space-y-2">
+                  <h3 className="text-[20px] sm:text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
                   
-                  <p className="text-sm text-muted-foreground leading-relaxed font-body">
+                  <p className="text-[13px] text-muted-foreground leading-relaxed font-body">
                     {tool.description}
                   </p>
                 </div>
@@ -101,9 +101,9 @@ const RecalibrateMode = () => {
       <FloatingNavigation />
 
       {/* Hero Banner */}
-      <div className="relative h-auto py-8 overflow-hidden">
+      <div className="relative h-auto py-6 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-          <h1 className="text-[22px] sm:text-4xl font-headline mb-2 text-foreground tracking-tight">
+          <h1 className="text-[28px] sm:text-4xl font-headline font-semibold mb-2 text-foreground tracking-tight">
             Reset Studio
           </h1>
           <p className="text-[13px] text-muted-foreground max-w-3xl mx-auto leading-relaxed context-clamp">

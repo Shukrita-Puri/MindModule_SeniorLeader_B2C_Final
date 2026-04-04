@@ -94,7 +94,7 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
           
           {/* Archetype info */}
           <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-foreground truncate">
+            <p className="text-[15px] font-medium text-foreground truncate">
               {archetypeInfo.title}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">

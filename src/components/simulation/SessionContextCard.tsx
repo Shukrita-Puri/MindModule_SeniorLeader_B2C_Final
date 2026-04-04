@@ -57,7 +57,7 @@ const SessionContextCard = ({
   return (
     <div className="py-4">
       {line1Parts.length > 0 && (
-        <p className="text-sm md:text-base font-medium text-foreground font-body">
+        <p className="text-[13px] md:text-sm font-medium text-foreground font-body">
           {line1Parts.join(' • ')}
         </p>
       )}

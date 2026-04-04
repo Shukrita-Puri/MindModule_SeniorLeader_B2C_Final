@@ -72,7 +72,7 @@ export function WeeklyRhythmHeatmap() {
         <div className="p-4 md:p-6">
           <CollapsibleTrigger className="w-full flex items-center justify-between group">
             <div className="text-left">
-              <h2 className="text-base md:text-lg font-semibold text-foreground">
+              <h2 className="text-[15px] font-medium text-foreground">
                 Weekly Rhythm
               </h2>
               <p className="text-xs md:text-sm text-muted-foreground mt-1">

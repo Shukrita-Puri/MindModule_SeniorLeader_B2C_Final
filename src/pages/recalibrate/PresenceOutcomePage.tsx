@@ -187,7 +187,7 @@ const PresenceOutcomePage = () => {
       
       {/* Minimal Header */}
       <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <h1 className="text-[22px] md:text-4xl font-headline font-semibold text-foreground mb-2">
+        <h1 className="text-[28px] md:text-4xl font-headline font-semibold text-foreground mb-2">
           Flow Mastery
         </h1>
         <p className="text-muted-foreground text-[13px] font-body">Enter deep focus, accelerate productivity, and sustain peak mental performance.</p>
@@ -197,13 +197,13 @@ const PresenceOutcomePage = () => {
         {/* Mindset Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-[17px] sm:text-xl font-headline text-foreground mb-2">Mindset Protocol</h2>
-            <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
+            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2">Mindset Protocol</h2>
+            <p className="text-[13px] text-muted-foreground italic font-body">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {mindsetItems.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-36 overflow-hidden">
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
@@ -231,7 +231,7 @@ const PresenceOutcomePage = () => {
                   </button>
                 </div>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardTitle className="text-[15px] font-medium font-body">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
                     {getSubtitle(item)}
@@ -254,8 +254,8 @@ const PresenceOutcomePage = () => {
         {/* Somatic Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-[17px] sm:text-xl font-headline text-foreground mb-2">Somatic Protocol</h2>
-            <p className="text-sm text-muted-foreground italic">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
+            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2">Somatic Protocol</h2>
+            <p className="text-[13px] text-muted-foreground italic font-body">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {somaticItems.map((item) => (
@@ -264,7 +264,7 @@ const PresenceOutcomePage = () => {
                 className="cursor-pointer group overflow-hidden"
                 onClick={() => handleItemClick(item)}
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-36 overflow-hidden">
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
@@ -293,7 +293,7 @@ const PresenceOutcomePage = () => {
                 </div>
                 
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardTitle className="text-[15px] font-medium font-body">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
                     {getCredibilitySubtitle(item)}

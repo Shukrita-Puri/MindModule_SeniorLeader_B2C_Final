@@ -305,7 +305,7 @@ const DailyCheckIn = () => {
       {/* Hero Banner */}
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-[22px] sm:text-3xl font-headline text-foreground tracking-tight">
+          <h1 className="text-[28px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
           <p className="text-[11px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>

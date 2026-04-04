@@ -151,20 +151,20 @@ const Profile = () => {
       <UnifiedTopBar hideCoach backPath="/executive-home" />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
-        <h1 className="text-xl font-headline font-semibold">Profile</h1>
+        <h1 className="text-[28px] font-headline font-semibold">Profile</h1>
         {/* Profile Card */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-6">
               <Avatar className="h-20 w-20">
                 <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
-                <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                <AvatarFallback className="bg-primary/10 text-primary text-xl">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-headline font-semibold">{user?.name || 'User'}</h2>
+                  <h2 className="text-[20px] font-headline font-medium">{user?.name || 'User'}</h2>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditName}>
                     <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
@@ -178,7 +178,7 @@ const Profile = () => {
         {/* Account Details */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-[15px] font-medium flex items-center gap-2">
               <User className="h-5 w-5 text-muted-foreground" />
               Account Details
             </CardTitle>
@@ -268,7 +268,7 @@ const Profile = () => {
         {/* Settings */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Settings</CardTitle>
+            <CardTitle className="text-[15px] font-medium">Settings</CardTitle>
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

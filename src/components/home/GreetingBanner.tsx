@@ -28,7 +28,7 @@ const GreetingBanner = () => {
   return (
     <div className="bg-card border-b border-black/[0.08]">
       <div className="p-6 text-center">
-        <h1 className="text-3xl font-headline text-foreground mb-1 tracking-tight">
+        <h1 className="text-[28px] font-headline font-semibold text-foreground mb-1 tracking-tight">
           {greeting}, {firstName}
         </h1>
         <p className="text-[13px] font-body italic text-muted-foreground">Mind Module - Your daily practice</p>
