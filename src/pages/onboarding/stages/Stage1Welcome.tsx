@@ -15,7 +15,7 @@ export default function Stage1Welcome() {
       </div>
 
       <div className="text-center space-y-4 animate-fade-in delay-100">
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline text-foreground tracking-tight">
+        <h1 className="text-[28px] sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
           Welcome to<br/>MIND MODULE
         </h1>
       </div>
