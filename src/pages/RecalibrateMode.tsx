@@ -92,23 +92,21 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pt-16">
-      {/* Navigation - outside hero for consistent positioning */}
+    <div className="h-screen h-[100dvh] bg-background flex flex-col pt-16">
+      {/* Navigation */}
       <FloatingNavigation />
 
-      {/* Hero Banner */}
-      <div className="relative h-auto py-6 overflow-hidden">
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-          <h1 className="text-[28px] sm:text-4xl font-headline font-semibold mb-2 text-foreground tracking-tight">
-            Reset Studio
-          </h1>
-          <p className="text-[13px] text-muted-foreground max-w-3xl mx-auto leading-relaxed context-clamp">
-            Practical mind reset tools used by high performers – from centuries of proven techniques to modern execution. Mindset reframes, and Somatic protocols.
-          </p>
-        </div>
+      {/* Hero Banner — compact */}
+      <div className="px-4 pt-4 pb-2 text-center">
+        <h1 className="text-[24px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
+          Reset Studio
+        </h1>
+        <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
+          Practical mind reset tools used by high performers – from centuries of proven techniques to modern execution.
+        </p>
       </div>
 
-      {/* Tool Selection */}
+      {/* Tool Selection — fills remaining space */}
       {renderToolSelection()}
     </div>
   );
