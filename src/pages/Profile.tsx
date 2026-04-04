@@ -164,7 +164,7 @@ const Profile = () => {
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-headline font-semibold">{user?.name || 'User'}</h2>
+                  <h2 className="text-[20px] font-headline font-medium">{user?.name || 'User'}</h2>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditName}>
                     <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
