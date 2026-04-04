@@ -38,14 +38,14 @@ interface CoachSplitViewProps {
 const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
   <div
     className={cn(
-      "rounded-full overflow-hidden shrink-0 border border-stone-200",
+      "rounded-full overflow-hidden shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center",
       size === 'sm' ? "w-8 h-8" : "w-14 h-14"
     )}
   >
     <img
       src={coachVisual}
       alt="Mind Performance Coach"
-      className="w-full h-full object-cover object-top"
+      className={cn("object-contain", size === 'sm' ? "w-6 h-6" : "w-10 h-10")}
     />
   </div>
 );
