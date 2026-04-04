@@ -276,7 +276,7 @@ export default function Stage6Payment() {
 
       {/* CTA */}
       <Button
-        className="w-full h-12 text-base font-semibold mb-6"
+        className="w-full h-12 text-[15px] font-medium mb-6"
         variant="critical"
         onClick={handleStartTrial}
         disabled={loading}
