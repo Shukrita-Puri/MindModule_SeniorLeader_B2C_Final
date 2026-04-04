@@ -3685,6 +3685,37 @@ User is physiologically strong today (high HRV, high clarity, high confidence). 
     }
   }
 
+  // === INSIGHTS INTELLIGENCE ===
+  const ENABLE_INSIGHTS_INTELLIGENCE = Deno.env.get('ENABLE_INSIGHTS_INTELLIGENCE') !== 'false';
+  if (ENABLE_INSIGHTS_INTELLIGENCE && context?.insightsIntelligence) {
+    try {
+      const ii = context.insightsIntelligence;
+      const iiLines: string[] = ['\n\n# INSIGHTS INTELLIGENCE'];
+
+      if (ii.topRecurringThemes.length > 0) {
+        iiLines.push(`Themes recurring across sessions: ${ii.topRecurringThemes.join(', ')}. These represent persistent patterns worth naming or resolving.`);
+      }
+
+      if (ii.stateTrajectory === 'declining') {
+        iiLines.push("User's state has been declining over 14 days. Approach with care — this may need acknowledgment before challenge.");
+      } else if (ii.stateTrajectory === 'improving') {
+        iiLines.push("User's state is trending upward. Reinforce what's working.");
+      }
+
+      if (ii.bestTimeWindow && ii.worstTimeWindow) {
+        iiLines.push(`User tends to be strongest in the ${ii.bestTimeWindow} and most challenged in the ${ii.worstTimeWindow}. Use this for timing recommendations.`);
+      }
+
+      if (ii.dominantPatternLast30Days) {
+        iiLines.push(`Dominant coaching pattern last 30 days: ${ii.dominantPatternLast30Days}.`);
+      }
+
+      prompt += iiLines.join('\n');
+    } catch (e) {
+      console.error('[buildSystemPrompt] Insights intelligence error (non-fatal):', e);
+    }
+  }
+
   // --- Pattern-area conditional prompts ---
   const dominantPattern = detectDominantPattern(context);
   if (dominantPattern === 'recalibration') prompt += RECALIBRATION_PATTERN_PROMPT;
