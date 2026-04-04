@@ -341,7 +341,7 @@ export default function Stage7ContextConnection() {
           <h1 className="text-[20px] font-headline tracking-tight">
             Connect Your Intelligence Layer
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-[13px] text-muted-foreground leading-relaxed">
             Your calendar and wearable data powers everything you just saw – the state read, the proactive plans, the resets.
           </p>
         </div>

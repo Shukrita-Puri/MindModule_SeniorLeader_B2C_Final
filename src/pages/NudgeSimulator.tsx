@@ -167,7 +167,7 @@ const NudgeSimulator = () => {
           <div className="text-7xl font-ultralight tracking-wider mb-2">
             {timeString}
           </div>
-          <div className="text-xl font-light opacity-80">
+          <div className="text-[15px] font-light opacity-80">
             {dateString}
           </div>
         </div>

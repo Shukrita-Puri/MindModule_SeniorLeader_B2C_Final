@@ -1659,7 +1659,7 @@ const GuidedPracticePlayer = () => {
           {/* Instruction */}
           <Card className="w-full mb-4 md:mb-6">
             <CardContent className="pt-4 md:pt-6">
-              <p className="text-sm md:text-base leading-relaxed text-center">
+              <p className="text-[13px] md:text-sm leading-relaxed text-center">
                 {currentStepData.instruction}
               </p>
             </CardContent>

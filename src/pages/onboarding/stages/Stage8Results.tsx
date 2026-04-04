@@ -244,7 +244,7 @@ export default function Stage8Results() {
         <h2 className="text-[28px] md:text-4xl font-headline font-bold text-foreground tracking-tight">
           You are {archetypeTitle}.
         </h2>
-        <p className="text-base max-w-md mx-auto font-subheadline italic text-saffron">
+        <p className="text-[13px] max-w-md mx-auto font-subheadline italic text-saffron">
           {archetypeDescription}
         </p>
       </div>

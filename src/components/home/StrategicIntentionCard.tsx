@@ -68,7 +68,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
       {/* Theme content */}
       <div key={brief.phrase} className="animate-fade-in space-y-3">
         {/* Theme phrase */}
-        <p className="text-[17px] md:text-xl font-headline italic text-foreground leading-snug">
+        <p className="text-[20px] md:text-xl font-headline italic text-foreground leading-snug">
           "{brief.phrase}"
         </p>
 
