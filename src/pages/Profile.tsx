@@ -178,7 +178,7 @@ const Profile = () => {
         {/* Account Details */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-[15px] font-medium flex items-center gap-2">
               <User className="h-5 w-5 text-muted-foreground" />
               Account Details
             </CardTitle>
