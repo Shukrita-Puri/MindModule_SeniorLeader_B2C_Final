@@ -11,7 +11,27 @@ const CoachAccessButton = ({ surfaceHint }: CoachAccessButtonProps) => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex items-center gap-1.5">
+      {/* Label — left of button */}
+      <div className="flex flex-col items-end sm:hidden">
+        {surfaceHint ? (
+          <span className="text-[9px] text-saffron/80 font-body text-right max-w-[80px] leading-tight animate-pulse">
+            {surfaceHint}
+          </span>
+        ) : (
+          <span className="text-[10px] text-saffron font-body text-right leading-tight">
+            Prepare me
+          </span>
+        )}
+      </div>
+
+      {/* Desktop: surfaceHint badge left of button */}
+      {surfaceHint && (
+        <span className="hidden sm:block text-[9px] text-saffron/80 font-body text-right max-w-[72px] leading-tight animate-pulse">
+          {surfaceHint}
+        </span>
+      )}
+
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -27,10 +47,6 @@ const CoachAccessButton = ({ surfaceHint }: CoachAccessButtonProps) => {
           <p>Mind Performance Coach</p>
         </TooltipContent>
       </Tooltip>
-      {/* Mobile label — tooltip doesn't work on touch */}
-      <span className="text-[9px] text-white/60 font-body sm:hidden leading-tight">
-        {surfaceHint || 'Coach'}
-      </span>
     </div>
   );
 };
