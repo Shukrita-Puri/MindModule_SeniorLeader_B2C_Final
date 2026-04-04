@@ -2297,6 +2297,21 @@ async function buildServerContext(
       .select('content_id, star_rating')
       .eq('user_id', userId)
       .not('star_rating', 'is', null),
+    // 24. Insights Intelligence – recurring themes from session summaries
+    supabase
+      .from('coach_session_summaries')
+      .select('key_topics, recurring_themes, dominant_pattern')
+      .eq('user_id', userId)
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // 25. Insights Intelligence – state rhythm (14-day check-ins)
+    supabase
+      .from('daily_checkins')
+      .select('outcome, time_window, checkin_date')
+      .eq('user_id', userId)
+      .gte('checkin_date', new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0])
+      .order('checkin_date', { ascending: false }),
   ]);
 
   // --- Populate context from server results ---
