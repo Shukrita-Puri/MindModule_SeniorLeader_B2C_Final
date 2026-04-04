@@ -1541,7 +1541,7 @@ const GuidedPracticePlayer = () => {
             {/* Expected Outcomes */}
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-                <h2 className="text-base md:text-lg font-semibold text-gold">Expected Outcomes</h2>
+                <h2 className="text-[15px] font-medium text-gold">Expected Outcomes</h2>
                 <ul className="space-y-2">
                   {practice.expectedOutcomes.map((outcome, index) => (
                     <li key={index} className="flex items-start gap-2 text-sm md:text-base text-muted-foreground">
