@@ -151,7 +151,7 @@ const Profile = () => {
       <UnifiedTopBar hideCoach backPath="/executive-home" />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
-        <h1 className="text-xl font-headline font-semibold">Profile</h1>
+        <h1 className="text-[28px] font-headline font-semibold">Profile</h1>
         {/* Profile Card */}
         <Card>
           <CardContent className="pt-6">
