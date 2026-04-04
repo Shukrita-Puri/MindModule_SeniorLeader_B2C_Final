@@ -280,6 +280,106 @@ Return ONLY the JSON object.`
 
     // Tools/practices are now handled by dedicated extract-tool-commitments EF
 
+    // === GAP 6: Coach Surface Messages ===
+    const ENABLE_COACH_SURFACE = Deno.env.get('ENABLE_COACH_SURFACE') !== 'false';
+    if (ENABLE_COACH_SURFACE) {
+      try {
+        // Get ALL pending commitments (new + existing)
+        const allPendingCommitments = [
+          ...(pendingCommitments || []).map(c => c.commitment_text),
+          ...commitments,
+        ];
+
+        if (allPendingCommitments.length > 0) {
+          // Query upcoming calendar events (next 24hrs)
+          const { data: upcomingEvents } = await supabase
+            .from('calendar_events')
+            .select('title, start_time')
+            .eq('user_id', userId)
+            .gte('start_time', new Date().toISOString())
+            .lte('start_time', new Date(Date.now() + 24 * 3600000).toISOString())
+            .order('start_time', { ascending: true })
+            .limit(10);
+
+          if (upcomingEvents && upcomingEvents.length > 0) {
+            // Keyword-match commitments against event titles
+            let matchedCommitment: string | null = null;
+            let matchedEvent: { title: string; start_time: string } | null = null;
+
+            for (const commitment of allPendingCommitments) {
+              const commitWords = commitment.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+              for (const event of upcomingEvents) {
+                const eventTitle = (event.title || '').toLowerCase();
+                const hasMatch = commitWords.some(word => eventTitle.includes(word));
+                if (hasMatch) {
+                  matchedCommitment = commitment;
+                  matchedEvent = event as { title: string; start_time: string };
+                  break;
+                }
+              }
+              if (matchedCommitment) break;
+            }
+
+            if (matchedCommitment && matchedEvent) {
+              // Check if surface message already exists today (not dismissed)
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
+              const { data: existingMessages } = await supabase
+                .from('coach_surface_messages')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('dismissed', false)
+                .gte('created_at', todayStart.toISOString())
+                .limit(1);
+
+              if (!existingMessages || existingMessages.length === 0) {
+                // Generate surface message via LLM
+                const surfaceResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash-lite',
+                    messages: [{
+                      role: 'user',
+                      content: `Generate a 15-word max coaching message connecting this commitment to an upcoming event. Voice: direct, C-suite executive coach, no fluff.
+
+Commitment: "${matchedCommitment}"
+Event: "${matchedEvent.title}"
+
+Return ONLY the message text, no quotes, no prefix.`
+                    }],
+                    temperature: 0.5,
+                    max_tokens: 60
+                  })
+                });
+
+                if (surfaceResponse.ok) {
+                  const surfaceData = await surfaceResponse.json();
+                  const surfaceMessage = (surfaceData.choices?.[0]?.message?.content || '').trim();
+                  if (surfaceMessage && surfaceMessage.length > 5 && surfaceMessage.length < 200) {
+                    await supabase
+                      .from('coach_surface_messages')
+                      .insert({
+                        user_id: userId,
+                        message: surfaceMessage,
+                        trigger_condition: 'commitment_event_match',
+                        expires_at: new Date(Date.now() + 8 * 3600000).toISOString(),
+                      });
+                    console.log(`[generate-coach-summary] Surface message created for user ${userId}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[generate-coach-summary] Coach surface message error (non-fatal):', e);
+      }
+    }
+
     console.log(`[generate-coach-summary] Summary stored for session ${sessionId}, ${commitmentsUpdated} commitments updated`);
 
     return new Response(JSON.stringify({ 

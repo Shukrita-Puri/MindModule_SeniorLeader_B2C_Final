@@ -94,6 +94,9 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
           </div>
         )}
 
+        {/* Coach Surface Message — renders nothing when empty */}
+        <CoachSurfaceMessage />
+
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
           {renderLeanOn(brief.leanOn)}
