@@ -1,108 +1,63 @@
 
 
-# Typography Hierarchy Fix + Reset Studio Mobile Optimization
+# Global Mobile UX Fix — Navigation, Scroll, and Sticky CTAs
 
-## Problems Identified
+## What This Fixes
+1. **FloatingNavigation scrolls away** on pages like DailyCheckIn, Insights, RecalibrateMode, and Coach — back/coach buttons disappear on scroll
+2. **Pages can open mid-scroll** — only 2 of ~20 pages use `useScrollToTop`
+3. **Primary CTA buttons (Confirm, Continue, Save)** sit below the fold on DailyCheckIn, CheckInDetail, and onboarding pages — user must scroll to act
+4. **No safe-area handling on FloatingNavigation** — buttons can sit under the notch/Dynamic Island
 
-1. **No clear size hierarchy** – Page titles (22px), section headers (17px), and card titles (`text-lg` = 18px) are nearly the same size. Headlines don't feel prominent. "Reset Studio" at 22px looks insignificant.
-2. **Reset Studio cards too large for mobile** – `aspect-square` images on 390px screen means each card is ~340px tall. User must scroll 3x screen heights to see all 3 tools.
-3. **Remaining `text-lg`, `text-base`, `text-2xl`, `text-3xl` violations** across Profile, ConnectedData, GreetingBanner, insight cards, recalibrate outcome pages, SmartNudge, and others.
+## Approach
 
-## Revised Typography Hierarchy (Mobile)
+### Part A: Fix FloatingNavigation (the main offender)
+`FloatingNavigation` is `relative z-40` — it scrolls with content. Used on: DailyCheckIn, RecalibrateMode, Insights, SelfMasteryCoach.
 
-```text
-Level 1 – Page Title:     28px  font-headline  font-semibold
-Level 2 – Section Header: 20px  font-headline  font-medium
-Level 3 – Card Title:     15px  font-body      font-medium
-Level 4 – Body/Context:   13px  font-body      font-normal
-Level 5 – Supporting:     12px  font-body
-Level 6 – Label:          11px  uppercase tracking
+**Change**: Make it `fixed top-0 left-0 right-0 z-50 safe-area-top` with a glass background (`bg-background/80 backdrop-blur-sm`), matching what `TopNavigation` and `UnifiedTopBar` already do. Add corresponding `pt-16` (or similar) to the page content below it so nothing hides behind the bar.
+
+This single change fixes back-button visibility on 4+ pages at once.
+
+### Part B: Global Scroll-to-Top
+The existing `useScrollToTop` hook works but is only used in 2 pages. Instead of adding it to every page individually:
+
+**Change**: Add a `ScrollToTop` component inside the router `Layout` wrapper in `App.tsx` that fires `window.scrollTo(0, 0)` on every pathname change. This covers all routes globally with one change.
+
+### Part C: Sticky Bottom CTAs
+Pages with primary action buttons that can fall below the fold:
+
+| Page | Button | Current |
+|------|--------|---------|
+| DailyCheckIn | "Confirm" | `mt-6` in scrollable content, `pb-32` spacer |
+| CheckInDetail | "Continue to my Performance Dashboard" | Inside card, scrollable |
+
+**Change**: Extract CTAs into a sticky bottom container:
+```
+fixed bottom-0 left-0 right-0 z-50 px-4 pb-[env(safe-area-inset-bottom,16px)] pt-3 bg-gradient-to-t from-background via-background to-background/0
 ```
 
-Key change: Page titles go UP from 22px → 28px to create dominance. Card titles come DOWN from 18px → 15px. This creates clear visual separation at every level.
+### Part D: Verify existing fixed navs
+- `TopNavigation` — already `fixed top-0 ... z-50 safe-area-top` — correct
+- `UnifiedTopBar` — already `fixed top-0 ... z-50 safe-area-top` — correct
+- No changes needed for these two
 
-## Changes
+## Files Changed
 
-### 1. RecalibrateMode.tsx – Reset Studio page
-- Page title: `text-[22px]` → `text-[28px]` for mobile prominence
-- Card images: `aspect-square` → `aspect-[4/3]` (shorter, mobile-native ratio)
-- Card padding: `p-8` → `p-5` (tighter)
-- Grid gap: `gap-8` → `gap-5`
-- Container padding: `pt-8 px-6` → `pt-4 px-4`
-- Hero padding: `py-8` → `py-6`
-- Description: keep `text-sm` (14px) – correct for card body
-
-### 2. All 3 Recalibrate Outcome Pages (Pause/Flow/Recharge)
-- Page title h1: `text-[22px]` → `text-[28px]`
-- Section header h2 ("Mindset Protocol"): keep `text-[17px]` → bump to `text-[20px]` for clear separation from card titles
-- Card titles: `text-lg` (18px) → `text-[15px]` font-body
-- Protocol description: `text-sm italic` → `text-[13px] font-body italic`
-- Card image height: `h-48` → `h-36` (mobile-native)
-
-### 3. GreetingBanner.tsx
-- Greeting h1: `text-3xl` (30px) → `text-[28px]` (consistent page title)
-
-### 4. Profile.tsx
-- Page title: `text-xl` → `text-[28px]`
-- User name h2: `text-2xl` → `text-[20px]`
-- Avatar fallback: `text-2xl` → `text-xl` (fine for initials)
-- Card titles ("Account Details", "Settings"): `text-lg` → `text-[15px]`
-
-### 5. ConnectedData.tsx
-- Page title: `text-xl` → `text-[28px]`
-
-### 6. DailyCheckIn.tsx
-- Page title: `text-[22px]` → `text-[28px]`
-
-### 7. Insights components (EnergyRhythmCurve, WeeklyRhythmHeatmap, BaselineReferenceCard)
-- Section titles: `text-base md:text-lg` → `text-[15px]`
-- Body text: `text-base` → `text-[13px]`
-
-### 8. SmartNudge.tsx + SmartNudgeNotification.tsx
-- Titles: `text-base` → `text-[15px]`
-
-### 9. LeftSidebar.tsx
-- Brand name: `text-base` → `text-[15px]`
-
-### 10. SoundscapePlayer.tsx
-- Title on loading: `text-3xl` → `text-[28px]`
-- Title on playing: `text-xl` → `text-[20px]`
-
-### 11. MicroPracticePlayerCards.tsx
-- Subtitle: `text-base` → `text-[13px]`
-
-### 12. simulation/ScheduleFollowupModal.tsx
-- Button text: `text-base` → `text-[15px]`
-
-### 13. simulation/SessionContextCard.tsx
-- Context text: `text-base` → `text-[13px]`
-
-## Files Changed (18 files)
-
-| File | Key change |
-|------|-----------|
-| RecalibrateMode.tsx | Title 28px, card images 4:3, tighter spacing |
-| PauseOutcomePage.tsx | Title 28px, h2 20px, card titles 15px, images h-36 |
-| PresenceOutcomePage.tsx | Same as Pause |
-| PowerUpOutcomePage.tsx | Same as Pause |
-| GreetingBanner.tsx | Title 28px |
-| Profile.tsx | Title 28px, name 20px, card titles 15px |
-| ConnectedData.tsx | Title 28px |
-| DailyCheckIn.tsx | Title 28px |
-| EnergyRhythmCurve.tsx | Section title 15px |
-| WeeklyRhythmHeatmap.tsx | Section title 15px |
-| BaselineReferenceCard.tsx | Text 15px |
-| SmartNudge.tsx | Title 15px |
-| SmartNudgeNotification.tsx | Title 15px |
-| LeftSidebar.tsx | Brand 15px |
-| SoundscapePlayer.tsx | Titles 28px/20px |
-| MicroPracticePlayerCards.tsx | Subtitle 13px |
-| ScheduleFollowupModal.tsx | Buttons 15px |
-| SessionContextCard.tsx | Text 13px |
+| File | Change |
+|------|--------|
+| `src/components/navigation/FloatingNavigation.tsx` | `relative z-40` → `fixed top-0 left-0 right-0 z-50 safe-area-top bg-background/80 backdrop-blur-sm` |
+| `src/App.tsx` | Add `ScrollToTop` component inside Layout that scrolls to top on route change |
+| `src/pages/DailyCheckIn.tsx` | Add `pt-16` to clear fixed nav; move Confirm button to sticky bottom container |
+| `src/pages/CheckInDetail.tsx` | Add `pt-16`; move Save button to sticky bottom container |
+| `src/pages/Insights.tsx` | Add `pt-16` to clear fixed nav |
+| `src/pages/RecalibrateMode.tsx` | Add `pt-16`; remove redundant `useScrollToTop` import |
+| `src/pages/SelfMasteryCoach.tsx` | Verify padding (Coach page is `h-screen` flex — may just need minor top padding adjustment) |
+| `src/hooks/useScrollToTop.tsx` | Keep file but it becomes optional — global solution in App.tsx handles it |
 
 ## What Does NOT Change
-- Logic, data, routing, copy content
-- Desktop scaling (all `sm:`/`md:` breakpoints preserved)
-- Color palette, font families
-- `font-headline` stays on all headlines; `font-body` on all functional text
+- Logic, data fetching, state management
+- Component structure beyond CSS positioning
+- Content, copy, routing, navigation logic
+- Colors, card designs, visual identity, icons
+- TopNavigation and UnifiedTopBar (already correct)
+- Onboarding pages (already use UnifiedTopBar which is fixed)
 
