@@ -1,49 +1,108 @@
 
 
-# Fix Cursive Font Overuse – Replace with Inter for Readability
+# Typography Hierarchy Fix + Reset Studio Mobile Optimization
 
-## Problem
-`font-subheadline` maps to **Crimson Pro** (a serif/cursive font). It's currently applied to body descriptions, button labels, sub-section headers, onboarding option descriptions, legal page headings, and practice player text. At small sizes (11–15px) on mobile, this font is hard to read – especially for volume text that users need to scan quickly.
+## Problems Identified
 
-## Recommendation
+1. **No clear size hierarchy** – Page titles (22px), section headers (17px), and card titles (`text-lg` = 18px) are nearly the same size. Headlines don't feel prominent. "Reset Studio" at 22px looks insignificant.
+2. **Reset Studio cards too large for mobile** – `aspect-square` images on 390px screen means each card is ~340px tall. User must scroll 3x screen heights to see all 3 tools.
+3. **Remaining `text-lg`, `text-base`, `text-2xl`, `text-3xl` violations** across Profile, ConnectedData, GreetingBanner, insight cards, recalibrate outcome pages, SmartNudge, and others.
 
-**Keep Crimson Pro (`font-subheadline`) only for decorative accent text** – short italic phrases that convey tone, not information. Examples:
-- Archetype descriptions on Stage8Results ("You are The Architect")
-- Theme/intention quotes (short italic one-liners)
+## Revised Typography Hierarchy (Mobile)
 
-**Switch everything else to Inter (`font-body`)** – all body copy, descriptions, sub-headers, legal text, option descriptions, button labels, practice descriptions.
+```text
+Level 1 – Page Title:     28px  font-headline  font-semibold
+Level 2 – Section Header: 20px  font-headline  font-medium
+Level 3 – Card Title:     15px  font-body      font-medium
+Level 4 – Body/Context:   13px  font-body      font-normal
+Level 5 – Supporting:     12px  font-body
+Level 6 – Label:          11px  uppercase tracking
+```
 
-This follows Apple's HIG and Material Design guidance: use a single sans-serif for all functional text; reserve decorative fonts for brand moments only.
+Key change: Page titles go UP from 22px → 28px to create dominance. Card titles come DOWN from 18px → 15px. This creates clear visual separation at every level.
 
----
+## Changes
 
-## Files Changed (16 files)
+### 1. RecalibrateMode.tsx – Reset Studio page
+- Page title: `text-[22px]` → `text-[28px]` for mobile prominence
+- Card images: `aspect-square` → `aspect-[4/3]` (shorter, mobile-native ratio)
+- Card padding: `p-8` → `p-5` (tighter)
+- Grid gap: `gap-8` → `gap-5`
+- Container padding: `pt-8 px-6` → `pt-4 px-4`
+- Hero padding: `py-8` → `py-6`
+- Description: keep `text-sm` (14px) – correct for card body
 
-| File | What changes |
-|------|-------------|
-| `src/components/home/GreetingBanner.tsx` | Subtitle → `font-body` |
-| `src/components/home/StrategicIntentionCard.tsx` | Lean on / Watch for values → `font-body` |
-| `src/components/onboarding/QuestionCard.tsx` | Subtitle → `font-body` |
-| `src/pages/DailyCheckIn.tsx` | Description paragraph → `font-body` |
-| `src/pages/GuidedPracticePlayer.tsx` | Story hook, technique/benefits labels, full story label → `font-body` |
-| `src/pages/PoweredByAI.tsx` | Body descriptions → `font-body` |
-| `src/pages/Privacy.tsx` | All section headings + body → `font-body` |
-| `src/pages/Terms.tsx` | All section headings + body → `font-body` |
-| `src/pages/SoundscapePlayer.tsx` | Description text → `font-body` |
-| `src/pages/onboarding/stages/Stage3EmotionalAwareness.tsx` | Option descriptions → `font-body` |
-| `src/pages/onboarding/stages/Stage4StressResponse.tsx` | Option descriptions → `font-body` |
-| `src/pages/onboarding/stages/Stage5RecoveryPatterns.tsx` | Option descriptions → `font-body` |
-| `src/pages/onboarding/stages/Stage6MentalClarity.tsx` | Option descriptions → `font-body` |
-| `src/pages/onboarding/stages/Stage6Payment.tsx` | ROI line → `font-body` |
-| `src/pages/onboarding/stages/Stage8Results.tsx` | **KEEP** `font-subheadline italic` here – this is the archetype accent moment |
-| `src/pages/onboarding/stages/StageUSPIntro.tsx` | Slide subtitles → `font-body` |
+### 2. All 3 Recalibrate Outcome Pages (Pause/Flow/Recharge)
+- Page title h1: `text-[22px]` → `text-[28px]`
+- Section header h2 ("Mindset Protocol"): keep `text-[17px]` → bump to `text-[20px]` for clear separation from card titles
+- Card titles: `text-lg` (18px) → `text-[15px]` font-body
+- Protocol description: `text-sm italic` → `text-[13px] font-body italic`
+- Card image height: `h-48` → `h-36` (mobile-native)
 
-## Rule
-Every instance of `font-subheadline` is replaced with `font-body`, **except** `Stage8Results.tsx` where the italic archetype description is an intentional brand moment. The `italic` modifier is kept where it adds appropriate tone (e.g., onboarding option hints), but paired with `font-body` for legibility.
+### 3. GreetingBanner.tsx
+- Greeting h1: `text-3xl` (30px) → `text-[28px]` (consistent page title)
+
+### 4. Profile.tsx
+- Page title: `text-xl` → `text-[28px]`
+- User name h2: `text-2xl` → `text-[20px]`
+- Avatar fallback: `text-2xl` → `text-xl` (fine for initials)
+- Card titles ("Account Details", "Settings"): `text-lg` → `text-[15px]`
+
+### 5. ConnectedData.tsx
+- Page title: `text-xl` → `text-[28px]`
+
+### 6. DailyCheckIn.tsx
+- Page title: `text-[22px]` → `text-[28px]`
+
+### 7. Insights components (EnergyRhythmCurve, WeeklyRhythmHeatmap, BaselineReferenceCard)
+- Section titles: `text-base md:text-lg` → `text-[15px]`
+- Body text: `text-base` → `text-[13px]`
+
+### 8. SmartNudge.tsx + SmartNudgeNotification.tsx
+- Titles: `text-base` → `text-[15px]`
+
+### 9. LeftSidebar.tsx
+- Brand name: `text-base` → `text-[15px]`
+
+### 10. SoundscapePlayer.tsx
+- Title on loading: `text-3xl` → `text-[28px]`
+- Title on playing: `text-xl` → `text-[20px]`
+
+### 11. MicroPracticePlayerCards.tsx
+- Subtitle: `text-base` → `text-[13px]`
+
+### 12. simulation/ScheduleFollowupModal.tsx
+- Button text: `text-base` → `text-[15px]`
+
+### 13. simulation/SessionContextCard.tsx
+- Context text: `text-base` → `text-[13px]`
+
+## Files Changed (18 files)
+
+| File | Key change |
+|------|-----------|
+| RecalibrateMode.tsx | Title 28px, card images 4:3, tighter spacing |
+| PauseOutcomePage.tsx | Title 28px, h2 20px, card titles 15px, images h-36 |
+| PresenceOutcomePage.tsx | Same as Pause |
+| PowerUpOutcomePage.tsx | Same as Pause |
+| GreetingBanner.tsx | Title 28px |
+| Profile.tsx | Title 28px, name 20px, card titles 15px |
+| ConnectedData.tsx | Title 28px |
+| DailyCheckIn.tsx | Title 28px |
+| EnergyRhythmCurve.tsx | Section title 15px |
+| WeeklyRhythmHeatmap.tsx | Section title 15px |
+| BaselineReferenceCard.tsx | Text 15px |
+| SmartNudge.tsx | Title 15px |
+| SmartNudgeNotification.tsx | Title 15px |
+| LeftSidebar.tsx | Brand 15px |
+| SoundscapePlayer.tsx | Titles 28px/20px |
+| MicroPracticePlayerCards.tsx | Subtitle 13px |
+| ScheduleFollowupModal.tsx | Buttons 15px |
+| SessionContextCard.tsx | Text 13px |
 
 ## What Does NOT Change
-- `font-headline` (Cormorant Garamond) usage – stays on all main titles and score numbers
-- Any logic, data, routing, or component structure
-- Desktop/iPad layouts
-- Color palette
+- Logic, data, routing, copy content
+- Desktop scaling (all `sm:`/`md:` breakpoints preserved)
+- Color palette, font families
+- `font-headline` stays on all headlines; `font-body` on all functional text
 
