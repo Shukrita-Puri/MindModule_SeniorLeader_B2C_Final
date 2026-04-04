@@ -94,7 +94,7 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pt-16">
       {/* Navigation - outside hero for consistent positioning */}
       <FloatingNavigation />
 

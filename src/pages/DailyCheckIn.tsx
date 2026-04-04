@@ -312,7 +312,7 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col px-4 pb-32 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col px-4 pb-24 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
         <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide text-center">
@@ -357,21 +357,25 @@ const DailyCheckIn = () => {
             );
           })}
         </div>
+      </div>
 
-        {/* Confirm button */}
-        <button
-          onClick={handleConfirm}
-          disabled={!selectedOutcome || isSubmitting}
-          className={`
-            mt-6 w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
-            transition-all duration-200
-            ${selectedOutcome
-              ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
-              : 'bg-muted text-muted-foreground cursor-not-allowed'}
-          `}
-        >
-          {isSubmitting ? 'Saving…' : 'Confirm'}
-        </button>
+      {/* Sticky bottom CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
+        <div className="max-w-lg mx-auto">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedOutcome || isSubmitting}
+            className={`
+              w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
+              transition-all duration-200
+              ${selectedOutcome
+                ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'}
+            `}
+          >
+            {isSubmitting ? 'Saving…' : 'Confirm'}
+          </button>
+        </div>
       </div>
       {/* First Session Guide overlay */}
       {showGuide && (

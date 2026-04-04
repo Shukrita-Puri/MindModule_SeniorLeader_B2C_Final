@@ -20,7 +20,7 @@ const FloatingNavigation = ({
   const navigate = useNavigate();
 
   return (
-    <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
+    <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
       {/* Back Button */}
       <Tooltip>
         <TooltipTrigger asChild>

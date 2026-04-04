@@ -68,10 +68,20 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Global scroll-to-top on every route change
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [pathname]);
+  return null;
+};
+
 // Simple layout wrapper with push notification handler
 const Layout = () => {
   return (
     <AuthProvider>
+      <ScrollToTop />
       <PushNotificationProvider />
       <PushNotificationActionHandler />
       <Outlet />
