@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { ArrowUp, Loader2, Mic } from 'lucide-react';
-import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
+import coachVisual from '@/assets/shared/coach-avatar-geometric.png';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -38,14 +38,14 @@ interface CoachSplitViewProps {
 const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
   <div
     className={cn(
-      "rounded-full overflow-hidden shrink-0 border border-stone-200",
+      "rounded-full overflow-hidden shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center",
       size === 'sm' ? "w-8 h-8" : "w-14 h-14"
     )}
   >
     <img
       src={coachVisual}
       alt="Mind Performance Coach"
-      className="w-full h-full object-cover object-top"
+      className={cn("object-contain", size === 'sm' ? "w-6 h-6" : "w-10 h-10")}
     />
   </div>
 );
@@ -253,9 +253,9 @@ const CoachSplitView = ({
               Mind Performance Coach
             </h1>
 
-            {/* Large circular coach avatar */}
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 border-stone-200 shadow-xl shadow-stone-300/40">
-              <img src={coachVisual} alt="Mind Performance Coach" className="w-full h-full object-cover object-top" />
+            {/* Large geometric coach avatar */}
+            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 border-stone-200 shadow-xl shadow-stone-300/40 bg-stone-50 flex items-center justify-center">
+              <img src={coachVisual} alt="Mind Performance Coach" className="w-20 h-20 md:w-28 md:h-28 object-contain" />
             </div>
 
             <div className="space-y-3 max-w-sm">
