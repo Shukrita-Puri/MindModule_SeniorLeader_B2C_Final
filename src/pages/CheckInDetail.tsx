@@ -94,7 +94,7 @@ const CheckInDetail = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background pt-16">
       <FloatingNavigation backPath="/daily-check-in" />
       
       <div className="relative h-auto py-8 overflow-hidden">
@@ -109,7 +109,7 @@ const CheckInDetail = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pb-32">
+      <div className="flex-1 flex items-center justify-center p-4 pb-24">
         <div className="w-full max-w-md animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
@@ -158,22 +158,24 @@ const CheckInDetail = () => {
                 <span>Certain</span>
               </div>
             </div>
-
-            {/* Save button */}
-            <div className="pt-2">
-              <button
-                onClick={handleSave}
-                disabled={saving || !bothTouched}
-                className={`w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
-                  bothTouched
-                    ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
-                    : 'bg-muted text-foreground/60 cursor-not-allowed'
-                }`}
-              >
-                {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
-              </button>
-            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Sticky bottom CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
+        <div className="max-w-md mx-auto">
+          <button
+            onClick={handleSave}
+            disabled={saving || !bothTouched}
+            className={`w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
+              bothTouched
+                ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
+                : 'bg-muted text-foreground/60 cursor-not-allowed'
+            }`}
+          >
+            {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
+          </button>
         </div>
       </div>
     </div>

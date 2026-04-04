@@ -1,5 +1,4 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import useScrollToTop from "@/hooks/useScrollToTop";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import architecturalPowerUp from "@/assets/recalibrate/power-up/architectural-power-up.jpg";
 import architecturalPause from "@/assets/recalibrate/pause/architectural-pause.jpg";
@@ -8,7 +7,6 @@ import architecturalPresence from "@/assets/recalibrate/presence/architectural-p
 const RecalibrateMode = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  useScrollToTop();
 
   // Check if we're on a nested route (session page)
   const isSessionPage = location.pathname !== '/recalibrate';
@@ -96,7 +94,7 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pt-16">
       {/* Navigation - outside hero for consistent positioning */}
       <FloatingNavigation />
 
