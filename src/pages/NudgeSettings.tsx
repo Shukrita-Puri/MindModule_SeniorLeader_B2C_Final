@@ -141,7 +141,7 @@ const NudgeSettings = () => {
 
         {/* Nudge Types */}
         <div className="space-y-4">
-          <h3 className="font-bold text-gray-900 text-lg">Nudge Types</h3>
+          <h3 className="font-bold text-gray-900 text-[15px]">Nudge Types</h3>
           
           {nudgeTypes.map((nudgeType) => (
             <Card key={nudgeType.id} className="bg-white border-gray-200">
