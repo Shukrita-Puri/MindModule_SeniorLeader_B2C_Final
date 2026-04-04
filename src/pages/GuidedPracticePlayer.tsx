@@ -1504,7 +1504,7 @@ const GuidedPracticePlayer = () => {
                     <ChevronDown className={`h-4 w-4 text-gold transition-transform ${isOriginOpen ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                    <p className="text-[13px] md:text-sm text-muted-foreground leading-relaxed">
                       {practice.fullStory}
                     </p>
                     <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground pt-2">
