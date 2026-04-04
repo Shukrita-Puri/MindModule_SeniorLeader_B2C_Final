@@ -81,10 +81,10 @@ const TodayStateCard = () => {
       </div>
       {/* Score and Tier */}
       <div className="flex items-baseline gap-3 mb-2">
-        <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums font-body">
+        <span className="text-[48px] font-medium text-saffron tabular-nums font-body">
           {energyState.overallBalance}
         </span>
-        <span className="text-lg text-muted-foreground/60 font-body">
+        <span className="text-[13px] text-muted-foreground/60 font-body">
           / 100
         </span>
       </div>
