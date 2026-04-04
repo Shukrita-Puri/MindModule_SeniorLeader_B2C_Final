@@ -202,7 +202,7 @@ export default function Stage6Payment() {
       </div>
 
       {/* Title */}
-      <h1 className="text-3xl font-headline font-bold mb-6">
+      <h1 className="text-[22px] sm:text-3xl font-headline font-bold mb-6">
         {currentTier === 'none' || currentTier === 'trial' ? 'Pricing' : 'Upgrade Plan'}
       </h1>
 
