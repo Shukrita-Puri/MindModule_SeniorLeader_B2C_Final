@@ -23,7 +23,9 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
   return (
     <div className={cn("relative", sizeClasses[size], className)}>
       {/* Outer glow */}
-      <div className="absolute inset-[-12%] rounded-full bg-gradient-radial from-stone-400/15 via-transparent to-transparent blur-xl" />
+      <div className="absolute inset-[-12%] rounded-full blur-xl" style={{
+        background: 'radial-gradient(circle, hsla(30, 10%, 50%, 0.15) 0%, transparent 70%)',
+      }} />
 
       {/* Main orb container */}
       <div className="relative w-full h-full rounded-full overflow-hidden">
