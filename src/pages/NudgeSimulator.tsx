@@ -132,7 +132,7 @@ const NudgeSimulator = () => {
         >
           <ArrowLeft size={20} className="text-white" />
         </button>
-        <h1 className="text-xl font-bold text-white uppercase">SMART NUDGE PREVIEW</h1>
+        <h1 className="text-[15px] font-bold text-white uppercase">SMART NUDGE PREVIEW</h1>
         <Button onClick={nextNudge} variant="outline" size="sm" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
           <RefreshCw size={16} className="mr-2" />
           Next ({currentNudgeIndex + 1}/{mockNudges.length})
@@ -167,7 +167,7 @@ const NudgeSimulator = () => {
           <div className="text-7xl font-ultralight tracking-wider mb-2">
             {timeString}
           </div>
-          <div className="text-xl font-light opacity-80">
+          <div className="text-[15px] font-light opacity-80">
             {dateString}
           </div>
         </div>

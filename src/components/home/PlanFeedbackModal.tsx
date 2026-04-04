@@ -64,7 +64,7 @@ const PlanFeedbackModal = ({
       <div className="bg-background/95 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-border shadow-2xl">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 space-y-1">
-          <h2 className="text-lg md:text-xl font-semibold tracking-tight">
+          <h2 className="text-[15px] md:text-[20px] font-medium tracking-tight">
             {title}
           </h2>
           <p className="text-xs text-muted-foreground animate-in fade-in duration-700">

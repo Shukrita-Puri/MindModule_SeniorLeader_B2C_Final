@@ -100,10 +100,10 @@ const CoachConversationCard = ({
           {!hasMessages && (
             <div className="text-center py-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center mx-auto mb-4 border border-saffron/20">
-                <span className="text-xl font-headline text-saffron leading-none">SM</span>
+                <span className="text-[15px] font-headline text-saffron leading-none">SM</span>
                 <span className="text-[6px] uppercase tracking-[0.15em] text-muted-foreground/70 mt-0.5">Coach</span>
               </div>
-              <h2 className="text-xl font-headline text-foreground mb-2">
+              <h2 className="text-[20px] font-headline text-foreground mb-2">
                 Hello, {firstName}
               </h2>
               <p className="text-muted-foreground text-sm whitespace-pre-line max-w-sm mx-auto">

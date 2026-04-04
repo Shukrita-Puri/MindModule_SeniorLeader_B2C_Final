@@ -102,7 +102,7 @@ const Refer = () => {
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
         <div>
-          <h1 className="text-xl font-headline font-semibold text-foreground">Refer Friends</h1>
+          <h1 className="text-[28px] font-headline font-semibold text-foreground">Refer Friends</h1>
           <p className="text-sm text-muted-foreground font-body">Share the mental edge</p>
         </div>
         {/* Hero Section */}
@@ -131,7 +131,7 @@ const Refer = () => {
 
 
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
-            <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
+            <h2 className="text-[20px] font-headline font-semibold text-foreground mb-2">
               Share the Gift of Inner Mastery
             </h2>
             <p className="text-muted-foreground font-body max-w-xs">
@@ -142,7 +142,7 @@ const Refer = () => {
 
         {/* How It Works */}
         <Card className="p-6">
-          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">How It Works</h3>
+          <h3 className="text-[15px] font-headline font-medium text-foreground mb-4">How It Works</h3>
           <div className="space-y-4">
             {[
               'Share your referral code',
@@ -161,7 +161,7 @@ const Refer = () => {
 
         {/* Referral Code */}
         <Card className="p-6">
-          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">Your Referral Code</h3>
+          <h3 className="text-[15px] font-headline font-medium text-foreground mb-4">Your Referral Code</h3>
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -172,7 +172,7 @@ const Refer = () => {
                 onClick={handleCopyCode}
                 className="w-full rounded-xl border border-saffron/20 bg-saffron/5 px-6 py-4 text-center transition-colors hover:bg-saffron/10 active:scale-[0.98]"
               >
-                <p className="text-2xl font-mono font-bold tracking-wider text-foreground">{referralCode}</p>
+                <p className="text-[20px] font-mono font-bold tracking-wider text-foreground">{referralCode}</p>
                 <p className="text-xs text-muted-foreground mt-1">Tap to copy code</p>
               </button>
 

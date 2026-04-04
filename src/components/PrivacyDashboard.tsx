@@ -143,7 +143,7 @@ const PrivacyDashboard = () => {
       <Collapsible open={personalInfoOpen} onOpenChange={setPersonalInfoOpen}>
         <GoldCard variant="subtle" className="overflow-hidden">
           <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
-            <h3 className="text-xl font-semibold text-foreground">Personal Information</h3>
+            <h3 className="text-[15px] font-medium text-foreground">Personal Information</h3>
             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${personalInfoOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
           
@@ -195,7 +195,7 @@ const PrivacyDashboard = () => {
       <Collapsible open={dataSourcesOpen} onOpenChange={setDataSourcesOpen}>
         <GoldCard variant="prominent" className="overflow-hidden">
           <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
-            <h3 className="text-xl font-semibold text-foreground">Connected Data Sources</h3>
+            <h3 className="text-[15px] font-medium text-foreground">Connected Data Sources</h3>
             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dataSourcesOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
           
@@ -221,7 +221,7 @@ const PrivacyDashboard = () => {
       <Collapsible open={privacyOpen} onOpenChange={setPrivacyOpen}>
         <GoldCard variant="glowing" className="overflow-hidden">
           <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
-            <h3 className="text-xl font-semibold text-foreground">Privacy & Security</h3>
+            <h3 className="text-[15px] font-medium text-foreground">Privacy & Security</h3>
             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${privacyOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
           
@@ -283,7 +283,7 @@ const PrivacyDashboard = () => {
           <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-gold" />
-              <h3 className="text-xl font-semibold text-foreground">What's New</h3>
+              <h3 className="text-[15px] font-medium text-foreground">What's New</h3>
             </div>
             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${whatsNewOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
@@ -318,7 +318,7 @@ const PrivacyDashboard = () => {
           <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
             <div className="flex items-center gap-2">
               <Share2 className="h-5 w-5 text-primary" />
-              <h3 className="text-xl font-semibold text-foreground">Refer to Friends</h3>
+              <h3 className="text-[15px] font-medium text-foreground">Refer to Friends</h3>
             </div>
             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${referOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>

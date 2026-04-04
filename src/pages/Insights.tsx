@@ -800,7 +800,7 @@ const Insights = () => {
         {/* Hero Banner */}
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-            <h1 className="text-[22px] sm:text-4xl font-headline mb-2 text-foreground tracking-tight">
+            <h1 className="text-[28px] sm:text-4xl font-headline font-semibold mb-2 text-foreground tracking-tight">
               Performance Intelligence
             </h1>
             <p className="text-[13px] text-muted-foreground max-w-3xl mx-auto leading-relaxed context-clamp">
@@ -894,11 +894,11 @@ const Insights = () => {
                         <>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                            <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
+                            <p className="text-[20px] font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
                             <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
                           </div>
                            <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                            <p className="text-2xl font-headline text-foreground">{dominantCount}</p>
+                            <p className="text-[20px] font-headline text-foreground">{dominantCount}</p>
                             <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
                           </div>
                         </div>

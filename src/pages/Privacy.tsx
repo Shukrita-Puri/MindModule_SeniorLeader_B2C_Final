@@ -7,7 +7,7 @@ const Privacy = () => {
     <div className="min-h-screen bg-background">
       <UnifiedTopBar hideCoach />
       <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
-        <h1 className="text-4xl font-headline text-foreground mb-2">Privacy Policy</h1>
+        <h1 className="text-[28px] font-headline font-semibold text-foreground mb-2">Privacy Policy</h1>
         <p className="text-muted-foreground mb-8">Effective Date: March 11, 2026</p>
         
         <div className="space-y-8 text-foreground/80 font-body">

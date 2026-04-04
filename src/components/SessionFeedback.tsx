@@ -135,7 +135,7 @@ const SessionFeedback = ({ sessionId, onSubmit, onSkip }: SessionFeedbackProps) 
       <div className="bg-card/95 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-border shadow-2xl">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">Dialogue Reflection</h2>
+          <h2 className="text-[15px] font-medium tracking-tight">Dialogue Reflection</h2>
           <p className="text-xs text-muted-foreground animate-in fade-in duration-700">
             Take 5 seconds to tune the next conversation.
           </p>

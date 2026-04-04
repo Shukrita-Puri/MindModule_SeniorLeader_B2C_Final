@@ -68,7 +68,7 @@ const NudgeSettings = () => {
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-900 uppercase">SMART NUDGE SETTINGS</h1>
+            <h1 className="text-[15px] font-bold text-gray-900 uppercase">SMART NUDGE SETTINGS</h1>
             <p className="text-sm text-gray-600">Configure your intelligent notifications</p>
           </div>
           <div className="w-10 h-10" />
@@ -96,7 +96,7 @@ const NudgeSettings = () => {
         {/* Global Settings */}
         <Card className="bg-white border-gray-200">
           <CardHeader>
-            <CardTitle className="text-lg text-gray-900">Global Settings</CardTitle>
+            <CardTitle className="text-[15px] text-gray-900">Global Settings</CardTitle>
             <CardDescription className="text-gray-600">
               Configure when and how you receive nudges
             </CardDescription>
@@ -141,7 +141,7 @@ const NudgeSettings = () => {
 
         {/* Nudge Types */}
         <div className="space-y-4">
-          <h3 className="font-bold text-gray-900 text-lg">Nudge Types</h3>
+          <h3 className="font-bold text-gray-900 text-[15px]">Nudge Types</h3>
           
           {nudgeTypes.map((nudgeType) => (
             <Card key={nudgeType.id} className="bg-white border-gray-200">
@@ -169,7 +169,7 @@ const NudgeSettings = () => {
         {/* Data Sources */}
         <Card className="bg-white border-gray-200">
           <CardHeader>
-            <CardTitle className="text-lg text-gray-900">Data Sources</CardTitle>
+            <CardTitle className="text-[15px] text-gray-900">Data Sources</CardTitle>
             <CardDescription className="text-gray-600">
               Connect data sources for smarter nudges
             </CardDescription>

@@ -221,7 +221,7 @@ const MicroPracticePlayer = () => {
           </div>
           
           {/* Title */}
-          <h2 className="text-2xl font-headline font-medium text-foreground mb-3 leading-tight">
+          <h2 className="text-[20px] font-headline font-medium text-foreground mb-3 leading-tight">
             {practice.title}
           </h2>
           

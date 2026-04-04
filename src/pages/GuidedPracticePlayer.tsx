@@ -1139,10 +1139,10 @@ const GuidedPracticePlayer = () => {
           /* Initial State - Center everything */
           <div className="relative flex flex-col items-center justify-center min-h-screen px-6">
             <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-5xl font-headline text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+              <h1 className="text-[28px] md:text-5xl font-headline font-semibold text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
-              <p className="text-white/80 text-sm md:text-base font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+              <p className="text-white/80 text-[13px] md:text-sm font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                 {contentData.storyHook}
               </p>
             </div>
@@ -1162,7 +1162,7 @@ const GuidedPracticePlayer = () => {
               <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
             </Button>
 
-            <p className="text-white/80 text-sm md:text-base font-hint tracking-wide mb-8">
+            <p className="text-white/80 text-[13px] md:text-sm font-hint tracking-wide mb-8">
               Tap to begin
             </p>
 
@@ -1226,7 +1226,7 @@ const GuidedPracticePlayer = () => {
           /* Playing State - Title at top, controls at bottom */
           <>
             <div className="relative z-20 pt-24 px-4 text-center">
-              <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+              <h1 className="text-[20px] md:text-2xl font-headline font-medium text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
               <p className="text-white/80 text-xs md:text-sm font-body leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
@@ -1479,7 +1479,7 @@ const GuidedPracticePlayer = () => {
 
             {/* Header */}
             <div>
-              <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
+              <h1 className="text-[20px] md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
                 {practice.title}
               </h1>
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
@@ -1500,11 +1500,11 @@ const GuidedPracticePlayer = () => {
               <Card>
                 <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
                   <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                    <h2 className="text-base md:text-lg font-semibold text-gold">Origin & History</h2>
+                    <h2 className="text-[15px] font-medium text-gold">Origin & History</h2>
                     <ChevronDown className={`h-4 w-4 text-gold transition-transform ${isOriginOpen ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                    <p className="text-[13px] md:text-sm text-muted-foreground leading-relaxed">
                       {practice.fullStory}
                     </p>
                     <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground pt-2">
@@ -1519,12 +1519,12 @@ const GuidedPracticePlayer = () => {
             {/* What You'll Need */}
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-                <h2 className="text-base md:text-lg font-semibold text-gold">What You'll Need</h2>
+                <h2 className="text-[15px] font-medium text-gold">What You'll Need</h2>
                 <ul className="space-y-2">
                   {practice.whatYouNeed.map((item, index) => (
                     <li 
                       key={index} 
-                      className={`flex items-start gap-2 text-sm md:text-base ${
+                      className={`flex items-start gap-2 text-[13px] md:text-sm ${
                         item.startsWith('⚠️') || item.includes('DO NOT') 
                           ? 'text-red-500 font-semibold' 
                           : 'text-muted-foreground'
@@ -1541,10 +1541,10 @@ const GuidedPracticePlayer = () => {
             {/* Expected Outcomes */}
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-                <h2 className="text-base md:text-lg font-semibold text-gold">Expected Outcomes</h2>
+                <h2 className="text-[15px] font-medium text-gold">Expected Outcomes</h2>
                 <ul className="space-y-2">
                   {practice.expectedOutcomes.map((outcome, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm md:text-base text-muted-foreground">
+                    <li key={index} className="flex items-start gap-2 text-[13px] md:text-sm text-muted-foreground">
                       <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-gold mt-1" />
                       <span>{outcome}</span>
                     </li>
@@ -1556,8 +1556,8 @@ const GuidedPracticePlayer = () => {
             {/* Step Preview */}
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-                <h2 className="text-base md:text-lg font-semibold text-gold">Practice Journey</h2>
-                <p className="text-sm md:text-base text-muted-foreground">
+                <h2 className="text-[15px] font-medium text-gold">Practice Journey</h2>
+                <p className="text-[13px] md:text-sm text-muted-foreground">
                   {practice.steps.length} steps • {Math.floor(practice.totalDuration / 60)} minutes
                 </p>
                 <div className="space-y-2">
@@ -1641,7 +1641,7 @@ const GuidedPracticePlayer = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-8 md:py-12 max-w-3xl mx-auto">
           {/* Step Title */}
-          <h2 className="text-xl md:text-3xl font-serif text-center mb-3 md:mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+          <h2 className="text-[20px] md:text-3xl font-serif text-center mb-3 md:mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
             {currentStepData.title}
           </h2>
 
@@ -1659,7 +1659,7 @@ const GuidedPracticePlayer = () => {
           {/* Instruction */}
           <Card className="w-full mb-4 md:mb-6">
             <CardContent className="pt-4 md:pt-6">
-              <p className="text-sm md:text-base leading-relaxed text-center">
+              <p className="text-[13px] md:text-sm leading-relaxed text-center">
                 {currentStepData.instruction}
               </p>
             </CardContent>
