@@ -241,7 +241,7 @@ export default function Stage8Results() {
       {/* Archetype Reveal */}
       <div className="text-center space-y-3">
         <p className="text-xs text-muted-foreground uppercase tracking-widest font-body">Your Leadership Pattern</p>
-        <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
+        <h2 className="text-[28px] md:text-4xl font-headline font-bold text-foreground tracking-tight">
           You are {archetypeTitle}.
         </h2>
         <p className="text-base max-w-md mx-auto font-subheadline italic text-saffron">
