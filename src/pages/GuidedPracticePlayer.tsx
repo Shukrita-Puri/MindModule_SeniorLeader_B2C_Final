@@ -1162,7 +1162,7 @@ const GuidedPracticePlayer = () => {
               <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
             </Button>
 
-            <p className="text-white/80 text-sm md:text-base font-hint tracking-wide mb-8">
+            <p className="text-white/80 text-[13px] md:text-sm font-hint tracking-wide mb-8">
               Tap to begin
             </p>
 
