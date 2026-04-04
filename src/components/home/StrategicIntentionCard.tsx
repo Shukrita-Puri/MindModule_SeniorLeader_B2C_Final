@@ -16,11 +16,11 @@ import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 /** Parse leanOn text for contextual enrichment blocks (text after \n\n_..._) */
 function renderLeanOn(text: string) {
   const parts = text.split('\n\n_');
-  if (parts.length === 1) return <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed"><span className="font-semibold">Lean on:</span> {text}</p>;
+  if (parts.length === 1) return <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed"><span className="typo-lean-label">Lean on:</span> {text}</p>;
   return (
     <>
       <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
-        <span className="font-semibold">Lean on:</span> {parts[0]}
+        <span className="typo-lean-label">Lean on:</span> {parts[0]}
       </p>
       <p className="text-[12px] text-muted-foreground/70 font-body leading-relaxed italic mt-2 pt-2 border-t border-border/30">
         {parts[1].replace(/_$/, '')}
@@ -58,7 +58,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
     )}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
+        <h2 className="text-[11px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
         <MetricInfoModal
           title="Your Outer Readiness Brief"
           description="Your Compass is where your inner world meets the outer demands of the day. It takes your Decision Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
@@ -68,12 +68,12 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
       {/* Theme content */}
       <div key={brief.phrase} className="animate-fade-in space-y-3">
         {/* Theme phrase */}
-        <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
+        <p className="text-[17px] md:text-xl font-headline italic text-foreground leading-snug">
           "{brief.phrase}"
         </p>
 
         {/* Context line */}
-        <p className="text-sm text-muted-foreground leading-relaxed font-body">
+        <p className="text-[15px] leading-[1.5] text-muted-foreground font-body context-clamp">
           <TextWithEventEmphasis text={brief.context} />
         </p>
 
@@ -101,7 +101,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         <div className="space-y-1 pt-1">
           {renderLeanOn(brief.leanOn)}
           <p className="text-[13px] text-muted-foreground/80 font-subheadline leading-relaxed">
-            <span className="font-semibold">Watch for:</span>{' '}
+            <span className="typo-lean-label">Watch for:</span>{' '}
             {brief.watchFor}
           </p>
         </div>

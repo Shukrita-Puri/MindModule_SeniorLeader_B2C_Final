@@ -305,11 +305,11 @@ const DailyCheckIn = () => {
       {/* Hero Banner */}
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-4xl font-headline text-foreground tracking-tight">
+          <h1 className="text-[22px] sm:text-3xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-base font-semibold uppercase tracking-widest text-foreground/70 font-body">Mental Sharpness State</p>
-          <p className="text-base font-subheadline italic text-muted-foreground max-w-md mx-auto leading-relaxed">
+          <p className="text-[11px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>
+          <p className="text-[15px] font-subheadline italic text-muted-foreground max-w-md mx-auto leading-relaxed context-clamp">
             Awareness First. Action Follows. Take a moment to check your inner state, guiding today's performance plan.
           </p>
         </div>
@@ -348,10 +348,10 @@ const DailyCheckIn = () => {
                     <IconComponent className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="text-base font-headline text-white tracking-tight">
+                    <h3 className="text-[15px] font-medium font-headline text-white tracking-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-xs text-white/70 font-body italic">
+                    <p className="text-[12px] text-white/70 font-body italic">
                       {outcome.subtitle}
                     </p>
                   </div>
@@ -366,7 +366,7 @@ const DailyCheckIn = () => {
           onClick={handleConfirm}
           disabled={!selectedOutcome || isSubmitting}
           className={`
-            mt-6 w-full py-4 rounded-xl font-body text-sm font-semibold tracking-wide
+            mt-6 w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
             transition-all duration-200
             ${selectedOutcome
               ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'

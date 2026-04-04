@@ -73,7 +73,7 @@ const TodayStateCard = () => {
     )}>
       {/* Header with info button - aligned */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Decision Readiness</h2>
+        <h2 className="text-[11px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Decision Readiness</h2>
         <MetricInfoModal
           title="How Your Decision Readiness Score is Calculated"
           description="Your Decision Readiness Score is where your internal signals meet. It combines how you feel right now – your energy, clarity about direction, and confidence in execution – with the natural rhythm of the time of day and what your body is telling you through wearable data. The result is a triangulated read of where you stand internally: how resourced, clear, and confident you are before you engage with the demands of the day. Not a status check. A performance-calibrated readiness profile. This is your internal world. How to orient it against today's outer demands lives in your Outer Readiness Brief."
@@ -81,26 +81,26 @@ const TodayStateCard = () => {
       </div>
       {/* Score and Tier */}
       <div className="flex items-baseline gap-3 mb-2">
-        <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums font-body">
+        <span className="text-[48px] font-medium text-saffron tabular-nums font-body">
           {energyState.overallBalance}
         </span>
-        <span className="text-lg text-muted-foreground/60 font-body">
+        <span className="text-[13px] text-muted-foreground/60 font-body">
           / 100
         </span>
       </div>
       
-      <p className="text-base font-medium text-foreground mb-3 font-body">
+      <p className="text-[15px] font-medium text-foreground mb-3 font-body">
         {tierLabel}
       </p>
 
       {/* Contextual Insight - Enriched */}
-      <p className="text-sm text-muted-foreground leading-relaxed mb-2 font-body">
+      <p className="text-[15px] leading-[1.5] text-muted-foreground mb-2 font-body context-clamp">
         {insight}
       </p>
 
       {/* Layer 3: Wearable Context – separate line for visibility */}
       {layer3Statement && layersActive.includes('wearable') && (
-        <p className="text-xs text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
+        <p className="text-[12px] text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
           {layer3Statement}
         </p>
       )}

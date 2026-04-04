@@ -569,7 +569,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground font-body">
+              <span className="text-[15px] font-medium text-foreground font-body">
                 {plan?.timeOfDayPlan?.label || 'Today'}
               </span>
               <span className="text-[11px] text-muted-foreground/60 font-body">
@@ -693,7 +693,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
                     <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                   </div>
                   <div className="flex items-start gap-1 mt-1.5">
-                    <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
+                    <h4 className={cn("text-[15px] font-medium line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
                     {!isCoach && isFavorite(module.contentId) && (
                       <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                     )}
@@ -722,18 +722,18 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       {/* Action Button */}
       <div className="px-4 max-w-lg mx-auto">
         {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
-              <Button onClick={handleStartRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+              <Button onClick={handleStartRitual} className="w-full h-12 text-[15px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
                 Start Sequence
               </Button>
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
-              <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+              <Button onClick={handleContinueRitual} className="w-full h-12 text-[15px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
                 Continue Sequence
               </Button>
             )}
             {ritualStatus.status === 'completed' && (
               <div className="flex items-center gap-2">
-                <Button disabled className="flex-1 h-12 text-base font-semibold bg-taupe/80 text-white rounded-xl cursor-default">
+                <Button disabled className="flex-1 h-12 text-[15px] font-medium bg-taupe/80 text-white rounded-xl cursor-default">
                   <Check size={18} className="mr-2" />
                   Completed
                 </Button>

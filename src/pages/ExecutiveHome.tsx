@@ -265,10 +265,10 @@ const ExecutiveHome = () => {
             </header>
             
             <div className="relative z-10 pt-6 pb-32 max-w-lg mx-auto text-center">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
+            <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
-              <p className="text-base text-muted-foreground mt-2 font-body">
+              <p className="text-[15px] text-muted-foreground/70 mt-2 font-body">
                 {getSubheadline()}
               </p>
             </div>
@@ -282,10 +282,10 @@ const ExecutiveHome = () => {
                   key={key}
                   data-tour={`tab-${key}`}
                   onClick={() => setActiveTab(key)}
-                  className={`text-sm font-medium font-body transition-all relative ${
+                  className={`typo-tab font-body transition-all relative ${
                     activeTab === key
-                      ? 'text-foreground'
-                      : 'text-muted-foreground hover:text-foreground/70'
+                      ? 'font-medium text-foreground'
+                      : 'font-normal text-muted-foreground hover:text-foreground/70'
                   }`}
                 >
                   {label}
