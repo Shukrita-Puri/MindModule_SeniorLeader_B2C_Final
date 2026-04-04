@@ -127,7 +127,7 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
-              <h3 className="text-xl md:text-2xl font-heading font-bold text-primary mb-1">
+              <h3 className="text-[20px] md:text-2xl font-heading font-bold text-primary mb-1">
                 Your Meta-Skill Progress
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground font-body">

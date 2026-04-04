@@ -103,7 +103,7 @@ const CoachConversationCard = ({
                 <span className="text-[15px] font-headline text-saffron leading-none">SM</span>
                 <span className="text-[6px] uppercase tracking-[0.15em] text-muted-foreground/70 mt-0.5">Coach</span>
               </div>
-              <h2 className="text-xl font-headline text-foreground mb-2">
+              <h2 className="text-[20px] font-headline text-foreground mb-2">
                 Hello, {firstName}
               </h2>
               <p className="text-muted-foreground text-sm whitespace-pre-line max-w-sm mx-auto">

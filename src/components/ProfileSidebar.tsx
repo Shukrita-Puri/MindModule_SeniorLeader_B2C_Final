@@ -38,7 +38,7 @@ const ProfileSidebar = () => {
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="p-6 border-b border-border">
-        <h2 className="text-xl font-semibold">Profile & Settings</h2>
+        <h2 className="text-[20px] font-semibold">Profile & Settings</h2>
       </div>
 
       {/* Scrollable Content */}
