@@ -18,7 +18,7 @@ const RecalibrateMode = () => {
       description: "Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.",
       illustration: architecturalPause,
       path: "/recalibrate/pause",
-      imagePosition: "object-top"
+      imagePosition: "object-center"
     },
     {
       id: "presence",
@@ -26,7 +26,7 @@ const RecalibrateMode = () => {
       description: "Enter deep focus, accelerate productivity, and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence",
-      imagePosition: "object-top"
+      imagePosition: "object-center"
     },
     {
       id: "power-up", 
