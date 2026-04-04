@@ -90,7 +90,7 @@ const SmartNudge = ({
 
       {/* Notification Content */}
       <div className="px-4 pb-4 bg-white">
-        <h3 className="font-bold text-black text-base mb-2 leading-tight">{title}</h3>
+        <h3 className="font-bold text-black text-[15px] mb-2 leading-tight">{title}</h3>
         <p className="text-gray-700 text-sm leading-relaxed mb-3">{message}</p>
         
         {context && (

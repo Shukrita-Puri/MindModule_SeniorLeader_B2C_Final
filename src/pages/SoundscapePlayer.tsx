@@ -693,7 +693,7 @@ const SoundscapePlayer = () => {
         /* Playing State - Title at top, controls at bottom */
         <>
           <div className="relative z-20 pt-24 px-4 text-center">
-            <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+            <h1 className="text-[20px] md:text-2xl font-headline font-medium text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
               {soundscape.title}
             </h1>
             <p className="text-white/80 text-xs md:text-sm font-body leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">

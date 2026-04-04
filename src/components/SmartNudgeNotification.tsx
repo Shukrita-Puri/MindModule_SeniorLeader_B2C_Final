@@ -97,7 +97,7 @@ const SmartNudgeNotification = ({
 
       {/* Notification Content */}
       <div className="p-4 bg-white/95 backdrop-blur-sm">
-        <h3 className="font-bold text-black text-base mb-2">{title}</h3>
+        <h3 className="font-bold text-black text-[15px] mb-2">{title}</h3>
         <p className="text-gray-700 text-sm mb-4 leading-relaxed">{message}</p>
         
         {/* Action Buttons */}

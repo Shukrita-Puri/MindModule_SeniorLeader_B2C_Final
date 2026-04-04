@@ -531,7 +531,7 @@ const ConnectedData = () => {
       <UnifiedTopBar hideCoach backPath="/profile" />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-4">
-        <h1 className="text-xl font-headline font-semibold">Connected Data Sources</h1>
+        <h1 className="text-[28px] font-headline font-semibold">Connected Data Sources</h1>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

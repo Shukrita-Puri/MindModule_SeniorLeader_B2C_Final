@@ -268,7 +268,7 @@ const Profile = () => {
         {/* Settings */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Settings</CardTitle>
+            <CardTitle className="text-[15px] font-medium">Settings</CardTitle>
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
