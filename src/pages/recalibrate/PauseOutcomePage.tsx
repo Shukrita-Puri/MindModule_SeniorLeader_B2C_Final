@@ -194,10 +194,10 @@ const PauseOutcomePage = () => {
       
       {/* Minimal Header */}
       <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
+        <h1 className="text-[22px] md:text-4xl font-headline font-semibold text-foreground mb-2">
           Pause Mastery
         </h1>
-        <p className="text-muted-foreground text-base font-body">Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.</p>
+        <p className="text-muted-foreground text-[13px] font-body context-clamp">Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.</p>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">

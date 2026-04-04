@@ -187,10 +187,10 @@ const PresenceOutcomePage = () => {
       
       {/* Minimal Header */}
       <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
+        <h1 className="text-[22px] md:text-4xl font-headline font-semibold text-foreground mb-2">
           Flow Mastery
         </h1>
-        <p className="text-muted-foreground text-base font-body">Enter deep focus, accelerate productivity, and sustain peak mental performance.</p>
+        <p className="text-muted-foreground text-[13px] font-body">Enter deep focus, accelerate productivity, and sustain peak mental performance.</p>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">

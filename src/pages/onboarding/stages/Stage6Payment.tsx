@@ -292,8 +292,8 @@ export default function Stage6Payment() {
       </Button>
 
       {/* ROI */}
-      <p className="font-body italic leading-relaxed text-center mb-8 text-base text-foreground/70">
-        30+ touchpoints/month – <span className="text-xl font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
+      <p className="font-body italic leading-relaxed text-center mb-8 text-[13px] text-foreground/70">
+        30+ touchpoints/month – <span className="text-[15px] font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
       {/* Legal links */}

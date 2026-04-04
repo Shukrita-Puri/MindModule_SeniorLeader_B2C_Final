@@ -164,7 +164,7 @@ const CheckInDetail = () => {
               <button
                 onClick={handleSave}
                 disabled={saving || !bothTouched}
-                className={`w-full h-12 rounded-xl font-body text-sm font-semibold transition-all duration-200 ${
+                className={`w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
                   bothTouched
                     ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
                     : 'bg-muted text-foreground/60 cursor-not-allowed'
