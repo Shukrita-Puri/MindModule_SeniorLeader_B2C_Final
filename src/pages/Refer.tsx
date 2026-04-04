@@ -142,7 +142,7 @@ const Refer = () => {
 
         {/* How It Works */}
         <Card className="p-6">
-          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">How It Works</h3>
+          <h3 className="text-[15px] font-headline font-medium text-foreground mb-4">How It Works</h3>
           <div className="space-y-4">
             {[
               'Share your referral code',
