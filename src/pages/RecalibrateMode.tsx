@@ -45,8 +45,8 @@ const RecalibrateMode = () => {
   const renderToolSelection = () => (
     <>
       {/* Tools Selection */}
-      <div className="flex-1 px-4 md:px-8 max-w-5xl mx-auto pb-32 pt-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-10 auto-rows-fr">
+      <div className="flex-1 px-4 md:px-8 max-w-5xl mx-auto pb-8 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
@@ -54,25 +54,23 @@ const RecalibrateMode = () => {
               className="group cursor-pointer animate-fade-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500 flex flex-col">
+              <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-500 flex flex-row md:flex-col items-center md:items-stretch">
                 {/* Image Container */}
-                <div className="relative w-full aspect-[4/3] overflow-hidden bg-card">
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-full md:aspect-[16/9] shrink-0 overflow-hidden bg-card rounded-l-2xl md:rounded-l-none md:rounded-t-2xl">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay group-hover:scale-105 transition-all duration-700"
                   />
-                  {/* Subtle gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-transparent" />
                 </div>
                 
                 {/* Content */}
-                <div className="p-5 space-y-2">
-                  <h3 className="text-[20px] sm:text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
+                <div className="p-3 md:p-4 space-y-1 min-w-0">
+                  <h3 className="text-base font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
-                  
-                  <p className="text-[13px] text-muted-foreground leading-relaxed font-body">
+                  <p className="text-xs text-muted-foreground leading-snug font-body line-clamp-2">
                     {tool.description}
                   </p>
                 </div>
