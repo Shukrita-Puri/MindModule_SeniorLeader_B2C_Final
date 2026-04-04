@@ -94,7 +94,7 @@ const CheckInDetail = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background pt-16">
       <FloatingNavigation backPath="/daily-check-in" />
       
       <div className="relative h-auto py-8 overflow-hidden">
