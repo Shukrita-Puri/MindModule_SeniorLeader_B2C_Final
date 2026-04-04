@@ -30,7 +30,9 @@ const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
       {/* Main orb container */}
       <div className="relative w-full h-full rounded-full overflow-hidden">
         {/* Dark centre — the still point */}
-        <div className="absolute inset-0 bg-gradient-radial from-stone-950 via-stone-900/95 to-stone-800/80 z-10" />
+        <div className="absolute inset-0 z-10" style={{
+          background: 'radial-gradient(circle, hsl(20, 10%, 5%) 0%, hsla(20, 8%, 8%, 0.95) 40%, hsla(25, 6%, 15%, 0.8) 100%)',
+        }} />
 
         {/* Swirling engraved line layers — each rotates at different speeds */}
         <svg
