@@ -14,7 +14,7 @@ const Terms = () => {
 
           {/* 1. Agreement to Terms */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">1. Agreement to Terms</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">1. Agreement to Terms</h2>
             <p className="mb-4">
               These Terms of Use ("Terms") govern your access to and use of the Mind Module mobile application and website at mindmodule.me (collectively, the "Service"), operated by Mind Module ("we," "our," or "us").
             </p>
@@ -25,7 +25,7 @@ const Terms = () => {
 
           {/* 2. Eligibility */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">2. Eligibility</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">2. Eligibility</h2>
             <p>
               You must be at least 18 years old to use the Service. By using the Service, you represent that you meet this age requirement and have the legal capacity to enter into this agreement.
             </p>
@@ -33,7 +33,7 @@ const Terms = () => {
 
           {/* 3. Description of the Service */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">3. Description of the Service</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">3. Description of the Service</h2>
             <p className="mb-4">
               Mind Module is a professional development and performance optimisation platform designed for leaders and high-performing professionals. The Service provides AI-powered coaching, self-assessment tools, personalised guidance, progress tracking, and related features.
             </p>
@@ -44,7 +44,7 @@ const Terms = () => {
 
           {/* 4. Account Registration and Security */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">4. Account Registration and Security</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">4. Account Registration and Security</h2>
             <p className="mb-4">You agree to:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Provide accurate and complete information during registration</li>
@@ -59,9 +59,9 @@ const Terms = () => {
 
           {/* 5. Subscriptions and Payment */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">5. Subscriptions and Payment</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">5. Subscriptions and Payment</h2>
             
-            <h3 className="text-xl font-body text-foreground mb-2">5.1 Subscription Plans</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">5.1 Subscription Plans</h3>
             <p className="mb-4">Mind Module offers subscription plans billed on a recurring basis:</p>
             
             <p className="mb-2"><strong>United Kingdom & European Union:</strong></p>
@@ -77,12 +77,12 @@ const Terms = () => {
             </ul>
             <p className="mb-4">Prices are displayed in your local currency where supported.</p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">5.2 Billing and Renewals</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">5.2 Billing and Renewals</h3>
             <p className="mb-4">
               Payments are processed by <strong>Stripe</strong>. By subscribing, you authorise Stripe to charge your selected payment method on a recurring basis. Subscriptions automatically renew unless cancelled before the end of the current billing period.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">5.3 Cancellation and Refunds</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">5.3 Cancellation and Refunds</h3>
             <p className="mb-4">
               You may cancel your subscription at any time via account settings. Cancellation takes effect at the end of the current billing period – you retain access until then.
             </p>
@@ -90,7 +90,7 @@ const Terms = () => {
               Refunds are handled on a case-by-case basis. Contact <a href="mailto:contact@mindmodule.me" className="text-primary underline">contact@mindmodule.me</a> for billing enquiries.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">5.4 Price Changes</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">5.4 Price Changes</h3>
             <p>
               We may change subscription prices with 30 days' advance notice. Price changes apply to renewals after the notice period. You may cancel before the new price takes effect.
             </p>
@@ -98,7 +98,7 @@ const Terms = () => {
 
           {/* 6. Beta Access */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">6. Beta Access</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">6. Beta Access</h2>
             <p>
               Beta access may be granted at our discretion for a limited time. Beta features are provided "as-is" without warranty. Beta access may be revoked at any time.
             </p>
@@ -106,7 +106,7 @@ const Terms = () => {
 
           {/* 7. Referral Programme */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">7. Referral Programme</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">7. Referral Programme</h2>
             <p className="mb-4">
               Mind Module may offer a referral programme for subscribers. Full terms are available at <strong>mindmodule.me/referral-terms</strong>. We reserve the right to modify or discontinue the programme at any time.
             </p>
@@ -114,7 +114,7 @@ const Terms = () => {
 
           {/* 8. AI Coach and Professional Disclaimer */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">8. AI Coach and Professional Disclaimer</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">8. AI Coach and Professional Disclaimer</h2>
             <p className="mb-4">
               The Service includes an AI Coach powered by third-party artificial intelligence models.
             </p>
@@ -134,7 +134,7 @@ const Terms = () => {
 
           {/* 9. Health and Medical Disclaimer */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">9. Health and Medical Disclaimer</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">9. Health and Medical Disclaimer</h2>
             <p className="mb-4"><strong>Mind Module is NOT a health application, medical device, or diagnostic tool.</strong></p>
             <p className="mb-4">The Service:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
@@ -153,7 +153,7 @@ const Terms = () => {
 
           {/* 10. Third-Party Integrations */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">10. Third-Party Integrations</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">10. Third-Party Integrations</h2>
             <p className="mb-4">The Service may integrate with third-party platforms including:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>Google Calendar</strong> (read-only access for scheduling context)</li>
@@ -170,7 +170,7 @@ const Terms = () => {
 
           {/* 11. Acceptable Use */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">11. Acceptable Use</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">11. Acceptable Use</h2>
             <p className="mb-4">You agree <strong>not</strong> to:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Use the Service for unlawful purposes</li>
@@ -188,7 +188,7 @@ const Terms = () => {
 
           {/* 12. Intellectual Property */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">12. Intellectual Property</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">12. Intellectual Property</h2>
             <p className="mb-4">
               All content, features, and functionality of the Service – including software, text, graphics, logos, methodologies, and assessment frameworks – are the exclusive property of Mind Module and are protected by copyright, trademark, patent, and other intellectual property laws.
             </p>
@@ -199,9 +199,9 @@ const Terms = () => {
 
           {/* 13. Disclaimers and Limitation of Liability */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">13. Disclaimers and Limitation of Liability</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">13. Disclaimers and Limitation of Liability</h2>
             
-            <h3 className="text-xl font-body text-foreground mb-2">13.1 Service Provided "As-Is"</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">13.1 Service Provided "As-Is"</h3>
             <p className="mb-4">
               The Service is provided on an "as-is" and "as-available" basis without warranties of any kind, whether express or implied, including warranties of merchantability, fitness for a particular purpose, or non-infringement.
             </p>
@@ -212,7 +212,7 @@ const Terms = () => {
               <li>Third-party integrations will function without interruption</li>
             </ul>
 
-            <h3 className="text-xl font-body text-foreground mb-2">13.2 Limitation of Liability</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">13.2 Limitation of Liability</h3>
             <p className="mb-4">
               To the maximum extent permitted by law, Mind Module and its affiliates, officers, directors, employees, and agents shall <strong>not</strong> be liable for any indirect, incidental, special, consequential, or punitive damages arising from:
             </p>
@@ -227,7 +227,7 @@ const Terms = () => {
               <strong>Maximum Liability:</strong> Our total liability shall not exceed the amount you paid us in the 12 months preceding the claim.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">13.3 Essential Purpose</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">13.3 Essential Purpose</h3>
             <p>
               Some jurisdictions do not allow exclusions of certain warranties or limitations of liability. In such cases, our liability is limited to the maximum extent permitted by law.
             </p>
@@ -235,7 +235,7 @@ const Terms = () => {
 
           {/* 14. Indemnification */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">14. Indemnification</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">14. Indemnification</h2>
             <p className="mb-4">
               You agree to indemnify, defend, and hold harmless Mind Module and its affiliates from any claims, liabilities, damages, losses, and expenses (including legal fees) arising from:
             </p>
@@ -249,7 +249,7 @@ const Terms = () => {
 
           {/* 15. Termination */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">15. Termination</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">15. Termination</h2>
             <p className="mb-4">We may suspend or terminate your account at any time for:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Violations of these Terms</li>
@@ -266,19 +266,19 @@ const Terms = () => {
 
           {/* 16. Governing Law and Dispute Resolution */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">16. Governing Law and Dispute Resolution</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">16. Governing Law and Dispute Resolution</h2>
             
-            <h3 className="text-xl font-body text-foreground mb-2">16.1 Governing Law</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">16.1 Governing Law</h3>
             <p className="mb-4">
               These Terms are governed by the laws of <strong>England and Wales</strong>, without regard to conflict of law principles.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">16.2 Jurisdiction</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">16.2 Jurisdiction</h3>
             <p className="mb-4">
               Any disputes arising from these Terms or the Service shall be subject to the <strong>exclusive jurisdiction of the courts of England and Wales</strong>.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">16.3 Consumer Rights</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">16.3 Consumer Rights</h3>
             <p>
               Nothing in these Terms limits any mandatory consumer protection rights you may have under the laws of your country of residence, including rights under EU, UK, US, MENA, or APAC consumer protection regulations.
             </p>
@@ -286,7 +286,7 @@ const Terms = () => {
 
           {/* 17. Changes to These Terms */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">17. Changes to These Terms</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">17. Changes to These Terms</h2>
             <p className="mb-4">
               We may modify these Terms at any time. Material changes will be communicated via email or in-app notification at least 30 days before the effective date. Your continued use of the Service after changes constitutes acceptance.
             </p>
@@ -297,29 +297,29 @@ const Terms = () => {
 
           {/* 18. Miscellaneous */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">18. Miscellaneous</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">18. Miscellaneous</h2>
             
-            <h3 className="text-xl font-body text-foreground mb-2">18.1 Entire Agreement</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">18.1 Entire Agreement</h3>
             <p className="mb-4">
               These Terms, together with our Privacy Policy and any other legal notices published on the Service, constitute the entire agreement between you and Mind Module.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">18.2 Severability</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">18.2 Severability</h3>
             <p className="mb-4">
               If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will remain in full force and effect.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">18.3 Waiver</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">18.3 Waiver</h3>
             <p className="mb-4">
               Our failure to enforce any provision does not constitute a waiver of that provision or our right to enforce it in the future.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">18.4 Assignment</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">18.4 Assignment</h3>
             <p className="mb-4">
               You may not assign or transfer these Terms without our prior written consent. We may assign these Terms in connection with a merger, acquisition, or sale of assets.
             </p>
 
-            <h3 className="text-xl font-body text-foreground mb-2">18.5 Force Majeure</h3>
+            <h3 className="text-[15px] sm:text-lg font-body text-foreground mb-2">18.5 Force Majeure</h3>
             <p className="mb-4">
               We are not liable for any failure or delay in performance due to circumstances beyond our reasonable control.
             </p>
@@ -327,7 +327,7 @@ const Terms = () => {
 
           {/* 19. Contact Us */}
           <section>
-            <h2 className="text-2xl font-body text-foreground mb-3">19. Contact Us</h2>
+            <h2 className="text-[17px] sm:text-[15px] sm:text-lg font-body text-foreground mb-3">19. Contact Us</h2>
             <p className="mb-4">For questions about these Terms:</p>
             <p>
               <a href="mailto:contact@mindmodule.me" className="text-primary underline">contact@mindmodule.me</a>

@@ -1651,7 +1651,7 @@ const StepCardContent = ({ card }: { card: any }) => {
       </h2>
 
       {/* Core instruction – the ONE thing to do */}
-      <p className="text-base text-white/85 leading-relaxed max-w-[280px]">
+      <p className="text-[15px] text-white/85 leading-relaxed max-w-[280px]">
         {card.instruction}
       </p>
 
@@ -2294,7 +2294,7 @@ const MicroPracticePlayerCards = () => {
           {isLastCard && (
             <Button
               onClick={handleComplete}
-              className="w-full h-14 text-base font-semibold rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-white"
+              className="w-full h-14 text-[15px] font-medium rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-white"
             >
               Mark Complete
             </Button>

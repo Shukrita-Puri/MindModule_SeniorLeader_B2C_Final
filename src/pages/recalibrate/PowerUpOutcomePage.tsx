@@ -203,7 +203,7 @@ const PowerUpOutcomePage = () => {
         {/* Mindset Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-2xl font-headline text-foreground mb-2">Mindset Protocol</h2>
+            <h2 className="text-[17px] sm:text-xl font-headline text-foreground mb-2">Mindset Protocol</h2>
             <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -271,7 +271,7 @@ const PowerUpOutcomePage = () => {
         {/* Somatic Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-2xl font-headline text-foreground mb-2">Somatic Protocol</h2>
+            <h2 className="text-[17px] sm:text-xl font-headline text-foreground mb-2">Somatic Protocol</h2>
             <p className="text-sm text-muted-foreground italic">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
