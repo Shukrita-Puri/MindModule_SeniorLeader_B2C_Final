@@ -2147,6 +2147,9 @@ async function buildServerContext(
     journeyBreakthroughResult,
     // === GAP 5: Practice Ratings query ===
     practiceRatingsResult,
+    // === Insights Intelligence queries ===
+    insightsRecurringThemesResult,
+    insightsStateRhythmResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
