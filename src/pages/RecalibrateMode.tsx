@@ -26,7 +26,7 @@ const RecalibrateMode = () => {
       description: "Enter deep focus, accelerate productivity, and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence",
-      imagePosition: "object-top"
+      imagePosition: "object-center"
     },
     {
       id: "power-up", 
