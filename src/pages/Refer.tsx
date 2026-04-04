@@ -102,7 +102,7 @@ const Refer = () => {
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
         <div>
-          <h1 className="text-xl font-headline font-semibold text-foreground">Refer Friends</h1>
+          <h1 className="text-[28px] font-headline font-semibold text-foreground">Refer Friends</h1>
           <p className="text-sm text-muted-foreground font-body">Share the mental edge</p>
         </div>
         {/* Hero Section */}
