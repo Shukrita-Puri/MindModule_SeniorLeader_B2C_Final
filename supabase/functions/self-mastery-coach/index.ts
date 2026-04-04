@@ -2089,6 +2089,15 @@ interface CoachContext {
     lastAction: string | null;
     triggeredBy: string | null;
   };
+
+  // === Insights Intelligence (server-fetched) ===
+  insightsIntelligence?: {
+    topRecurringThemes: string[];
+    stateTrajectory: 'improving' | 'declining' | 'stable';
+    bestTimeWindow: string | null;
+    worstTimeWindow: string | null;
+    dominantPatternLast30Days: string | null;
+  };
 }
 
 // =============================================================================
