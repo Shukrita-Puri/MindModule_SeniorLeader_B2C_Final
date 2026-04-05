@@ -108,12 +108,12 @@ export const HeroVisual: FC<HeroVisualProps> = ({ tier, timeOfDay, variant = nul
         )}
       </CameraDrift>
 
-      {/* Vignette overlay */}
+      {/* Vignette overlay — reduced opacity for lighter feel */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(ellipse 75% 65% at 50% 50%, transparent 40%, ${config.vignetteColor} / 0.5) 100%)`,
+          background: `radial-gradient(ellipse 80% 70% at 50% 50%, transparent 50%, ${config.vignetteColor} / 0.25) 100%)`,
           pointerEvents: "none",
         }}
       />
