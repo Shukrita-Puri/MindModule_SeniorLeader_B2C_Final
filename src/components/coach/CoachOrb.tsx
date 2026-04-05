@@ -1,177 +1,284 @@
-import { cn } from '@/lib/utils';
+import { useRef, useEffect, useState, useCallback } from 'react';
+
+type OrbState = 'idle' | 'listening' | 'thinking' | 'responding';
+type OrbSize = 'sm' | 'md' | 'lg';
 
 interface CoachOrbProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: OrbSize;
+  state?: OrbState;
   className?: string;
 }
 
-/**
- * Dynamic animated orb for the Mind Performance Coach.
- * Warm saffron/amber swirling engraved lines converge to a deep amber centre —
- * the coach as the calm at the centre of complexity.
- * Slow, meditative rotation inspired by "active calm" positioning.
- */
-const CoachOrb = ({ size = 'lg', className }: CoachOrbProps) => {
-  const sizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-14 h-14',
-    lg: 'w-32 h-32 md:w-40 md:h-40',
-  };
+const SIZE_MAP: Record<OrbSize, number> = {
+  sm: 48,
+  md: 96,
+  lg: 200,
+};
 
-  const strokeWidth = size === 'sm' ? 0.8 : size === 'md' ? 0.6 : 0.4;
+/**
+ * Three.js powered 3D orb for the Mind Performance Coach.
+ * Deep navy sphere with orange/blue iridescent edge lighting.
+ * Responds to coach state with rotation, breathing, and light changes.
+ */
+const CoachOrb = ({ size = 'lg', state = 'idle', className }: CoachOrbProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sceneRef = useRef<any>(null);
+  const frameRef = useRef<number>(0);
+  const [webglAvailable, setWebglAvailable] = useState(true);
+  const isSmall = size === 'sm';
+  const px = SIZE_MAP[size];
+
+  const initScene = useCallback(() => {
+    const THREE = (window as any).THREE;
+    if (!THREE || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const dpr = Math.min(window.devicePixelRatio, 2);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: !isSmall,
+    });
+    renderer.setSize(px, px);
+    renderer.setPixelRatio(dpr);
+
+    // Scene & camera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 3.2;
+
+    // Sphere
+    const segments = isSmall ? 32 : 64;
+    const geometry = new THREE.SphereGeometry(1, segments, segments);
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#0A1628'),
+      roughness: 0.1,
+      metalness: 0.9,
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
+
+    // Store original positions for vertex displacement
+    const posAttr = geometry.attributes.position;
+    const originalPositions = new Float32Array(posAttr.array.length);
+    originalPositions.set(posAttr.array);
+
+    // Lights
+    const ambient = new THREE.AmbientLight(new THREE.Color('#1a1a2e'), 0.4);
+    scene.add(ambient);
+
+    const orangeLight = new THREE.PointLight(new THREE.Color('#E87A2F'), 1.2, 20);
+    orangeLight.position.set(3, 2, 3);
+    scene.add(orangeLight);
+
+    const blueLight = new THREE.PointLight(new THREE.Color('#1E3A5F'), 0.8, 20);
+    blueLight.position.set(-3, -1, 2);
+    scene.add(blueLight);
+
+    const topLight = new THREE.PointLight(new THREE.Color('#ffffff'), 0.3, 20);
+    topLight.position.set(0, 4, 0);
+    scene.add(topLight);
+
+    sceneRef.current = {
+      renderer,
+      scene,
+      camera,
+      sphere,
+      geometry,
+      material,
+      originalPositions,
+      orangeLight,
+      blueLight,
+      topLight,
+      // Mutable animation state
+      hovered: false,
+      currentRotSpeedY: 0.003,
+      currentRotSpeedX: 0.001,
+      currentDisplacement: 0.08,
+      currentOrangeIntensity: 1.2,
+      currentBlueIntensity: 0.8,
+    };
+  }, [px, isSmall]);
+
+  // Load Three.js from CDN
+  useEffect(() => {
+    // Check WebGL
+    try {
+      const testCanvas = document.createElement('canvas');
+      const gl = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+      if (!gl) { setWebglAvailable(false); return; }
+    } catch { setWebglAvailable(false); return; }
+
+    if ((window as any).THREE) {
+      initScene();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    script.async = true;
+    script.onload = () => initScene();
+    script.onerror = () => setWebglAvailable(false);
+    document.head.appendChild(script);
+
+    return () => {
+      // Don't remove script — other instances may use it
+    };
+  }, [initScene]);
+
+  // Animation loop
+  useEffect(() => {
+    if (!webglAvailable) return;
+    const s = sceneRef.current;
+    if (!s) return;
+
+    let running = true;
+    const clock = { start: performance.now() };
+
+    const animate = () => {
+      if (!running || !s) return;
+      frameRef.current = requestAnimationFrame(animate);
+
+      const elapsed = (performance.now() - clock.start) / 1000;
+
+      // Target values based on state
+      let targetRotY = 0.003;
+      let targetRotX = 0.001;
+      let targetDisp = 0.08;
+      let targetOrange = 1.2;
+      let targetBlue = 0.8;
+
+      if (!isSmall) {
+        switch (state) {
+          case 'listening':
+            targetRotY = 0.005;
+            targetDisp = 0.1;
+            targetBlue = 1.2;
+            break;
+          case 'thinking':
+            targetRotY = 0.008;
+            targetRotX = 0.003;
+            targetDisp = 0.12;
+            // Pulsing lights
+            targetOrange = 1.2 + Math.sin(elapsed * 3) * 0.5;
+            targetBlue = 0.8 + Math.cos(elapsed * 3) * 0.5;
+            break;
+          case 'responding':
+            targetRotY = 0.003;
+            targetRotX = 0.001;
+            targetDisp = 0.06;
+            targetOrange = 1.4;
+            targetBlue = 0.6;
+            break;
+        }
+
+        if (s.hovered) {
+          targetRotY *= 1.5;
+          targetDisp *= 1.3;
+        }
+      }
+
+      // Lerp current values
+      const lerp = 0.05;
+      s.currentRotSpeedY += (targetRotY - s.currentRotSpeedY) * lerp;
+      s.currentRotSpeedX += (targetRotX - s.currentRotSpeedX) * lerp;
+      s.currentDisplacement += (targetDisp - s.currentDisplacement) * lerp;
+      s.currentOrangeIntensity += (targetOrange - s.currentOrangeIntensity) * lerp;
+      s.currentBlueIntensity += (targetBlue - s.currentBlueIntensity) * lerp;
+
+      // Rotation
+      s.sphere.rotation.y += s.currentRotSpeedY;
+      s.sphere.rotation.x += s.currentRotSpeedX;
+
+      // Vertex displacement (skip for small size)
+      if (!isSmall) {
+        const posAttr = s.geometry.attributes.position;
+        const orig = s.originalPositions;
+        const breathCycle = Math.sin(elapsed * (Math.PI * 2) / 4); // 4s cycle
+
+        for (let i = 0; i < posAttr.count; i++) {
+          const ix = i * 3;
+          const ox = orig[ix], oy = orig[ix + 1], oz = orig[ix + 2];
+          const displacement = Math.sin(elapsed * 1.5 + ox * 3 + oy * 2 + oz) * s.currentDisplacement * (0.7 + 0.3 * breathCycle);
+          const len = Math.sqrt(ox * ox + oy * oy + oz * oz);
+          if (len > 0) {
+            const nx = ox / len, ny = oy / len, nz = oz / len;
+            posAttr.array[ix] = ox + nx * displacement;
+            posAttr.array[ix + 1] = oy + ny * displacement;
+            posAttr.array[ix + 2] = oz + nz * displacement;
+          }
+        }
+        posAttr.needsUpdate = true;
+      }
+
+      // Update light intensities
+      s.orangeLight.intensity = s.currentOrangeIntensity;
+      s.blueLight.intensity = s.currentBlueIntensity;
+
+      s.renderer.render(s.scene, s.camera);
+    };
+
+    animate();
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(frameRef.current);
+    };
+  }, [webglAvailable, state, isSmall]);
+
+  // Cleanup renderer on unmount
+  useEffect(() => {
+    return () => {
+      const s = sceneRef.current;
+      if (s) {
+        s.renderer.dispose();
+        s.geometry.dispose();
+        s.material.dispose();
+        sceneRef.current = null;
+      }
+    };
+  }, []);
+
+  // Hover handlers
+  const onMouseEnter = useCallback(() => {
+    if (sceneRef.current) sceneRef.current.hovered = true;
+  }, []);
+  const onMouseLeave = useCallback(() => {
+    if (sceneRef.current) sceneRef.current.hovered = false;
+  }, []);
+
+  // Fallback
+  if (!webglAvailable) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          background: '#0A1628',
+          border: '1.5px solid #E87A2F',
+        }}
+      />
+    );
+  }
 
   return (
-    <div className={cn("relative", sizeClasses[size], className)}>
-      {/* Outer warm glow */}
-      <div className="absolute inset-[-12%] rounded-full blur-xl" style={{
-        background: 'radial-gradient(circle, hsla(30, 70%, 55%, 0.2) 0%, transparent 70%)',
-      }} />
-
-      {/* Main orb container */}
-      <div className="relative w-full h-full rounded-full overflow-hidden">
-        {/* Warm amber base — the still centre */}
-        <div className="absolute inset-0 z-10" style={{
-          background: 'radial-gradient(circle, hsl(25, 60%, 18%) 0%, hsla(28, 55%, 25%, 0.95) 40%, hsla(30, 50%, 35%, 0.85) 100%)',
-        }} />
-
-        {/* Swirling engraved line layers — each rotates at different speeds */}
-        <svg
-          viewBox="0 0 200 200"
-          className="absolute inset-0 w-full h-full z-20 animate-[spin_45s_linear_infinite]"
-          style={{ opacity: 0.4 }}
-        >
-          {Array.from({ length: 24 }).map((_, i) => {
-            const angle = (i * 15) * (Math.PI / 180);
-            const r1 = 95;
-            const r2 = 12;
-            const cx = 100;
-            const cy = 100;
-            const x1 = cx + r1 * Math.cos(angle);
-            const y1 = cy + r1 * Math.sin(angle);
-            const x2 = cx + r2 * Math.cos(angle + 0.8);
-            const y2 = cy + r2 * Math.sin(angle + 0.8);
-            const cpx = cx + (r1 * 0.5) * Math.cos(angle + 0.4);
-            const cpy = cy + (r1 * 0.5) * Math.sin(angle + 0.4);
-
-            return (
-              <path
-                key={`line-a-${i}`}
-                d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-                fill="none"
-                stroke="hsl(35, 65%, 65%)"
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Second layer — counter-rotating, finer lines */}
-        <svg
-          viewBox="0 0 200 200"
-          className="absolute inset-0 w-full h-full z-20 animate-[spin_60s_linear_infinite_reverse]"
-          style={{ opacity: 0.3 }}
-        >
-          {Array.from({ length: 36 }).map((_, i) => {
-            const angle = (i * 10) * (Math.PI / 180);
-            const r1 = 90;
-            const r2 = 18;
-            const cx = 100;
-            const cy = 100;
-            const x1 = cx + r1 * Math.cos(angle);
-            const y1 = cy + r1 * Math.sin(angle);
-            const x2 = cx + r2 * Math.cos(angle - 0.6);
-            const y2 = cy + r2 * Math.sin(angle - 0.6);
-            const cpx = cx + (r1 * 0.55) * Math.cos(angle - 0.25);
-            const cpy = cy + (r1 * 0.55) * Math.sin(angle - 0.25);
-
-            return (
-              <path
-                key={`line-b-${i}`}
-                d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-                fill="none"
-                stroke="hsl(30, 55%, 58%)"
-                strokeWidth={strokeWidth * 0.7}
-                strokeLinecap="round"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Third layer — slowest, densest engraving arcs */}
-        <svg
-          viewBox="0 0 200 200"
-          className="absolute inset-0 w-full h-full z-20 animate-[spin_90s_linear_infinite]"
-          style={{ opacity: 0.22 }}
-        >
-          {Array.from({ length: 48 }).map((_, i) => {
-            const angle = (i * 7.5) * (Math.PI / 180);
-            const r1 = 85;
-            const r2 = 25;
-            const cx = 100;
-            const cy = 100;
-            const x1 = cx + r1 * Math.cos(angle);
-            const y1 = cy + r1 * Math.sin(angle);
-            const x2 = cx + r2 * Math.cos(angle + 1.2);
-            const y2 = cy + r2 * Math.sin(angle + 1.2);
-            const cpx = cx + (r1 * 0.45) * Math.cos(angle + 0.6);
-            const cpy = cy + (r1 * 0.45) * Math.sin(angle + 0.6);
-
-            return (
-              <path
-                key={`line-c-${i}`}
-                d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-                fill="none"
-                stroke="hsl(28, 50%, 52%)"
-                strokeWidth={strokeWidth * 0.5}
-                strokeLinecap="round"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Concentric engraved rings */}
-        <svg
-          viewBox="0 0 200 200"
-          className="absolute inset-0 w-full h-full z-20"
-          style={{ opacity: 0.15 }}
-        >
-          {[75, 60, 45, 30].map((r) => (
-            <circle
-              key={`ring-${r}`}
-              cx="100"
-              cy="100"
-              r={r}
-              fill="none"
-              stroke="hsl(32, 45%, 60%)"
-              strokeWidth={strokeWidth * 0.4}
-            />
-          ))}
-        </svg>
-
-        {/* Centre void — deep warm amber, the still point */}
-        <div className="absolute inset-0 z-30 flex items-center justify-center">
-          <div className="w-[18%] h-[18%] rounded-full" style={{
-            background: 'hsl(25, 55%, 12%)',
-            boxShadow: '0 0 20px 8px hsla(25, 50%, 10%, 0.8)',
-          }} />
-        </div>
-
-        {/* Subtle warm edge highlight */}
-        <div className="absolute inset-0 z-30 rounded-full" style={{
-          background: 'radial-gradient(circle at 35% 30%, hsla(35, 70%, 65%, 0.12) 0%, transparent 50%)',
-        }} />
-
-        {/* Glass rim — warm tint */}
-        <div className="absolute inset-0 z-30 rounded-full" style={{
-          border: '1px solid hsla(30, 40%, 50%, 0.25)',
-        }} />
-      </div>
-
-      {/* Pulsing ambient aura — very slow breathing */}
-      <div
-        className="absolute inset-[-6%] rounded-full animate-[pulse_6s_ease-in-out_infinite]"
-        style={{ opacity: 0.4, border: '1px solid hsla(30, 50%, 55%, 0.12)' }}
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ width: px, height: px, cursor: 'pointer' }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <canvas
+        ref={canvasRef}
+        width={px}
+        height={px}
+        style={{ width: px, height: px, display: 'block' }}
       />
     </div>
   );
