@@ -242,8 +242,8 @@ const CoachSplitView = ({
               Mind Performance Coach
             </h1>
 
-            {/* Dynamic coach orb */}
-            <CoachOrb size="lg" />
+            {/* Dynamic 3D coach orb */}
+            <CoachOrb size="lg" state="idle" />
 
             <div className="space-y-3 max-w-sm">
               <h2 className="text-xl md:text-2xl font-headline text-foreground/90">
