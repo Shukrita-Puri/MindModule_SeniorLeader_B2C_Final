@@ -1,63 +1,56 @@
 
 
-# Global Mobile UX Fix — Navigation, Scroll, and Sticky CTAs
+# Evening Depleted Hero Video — Woodcut Engraving Style
 
-## What This Fixes
-1. **FloatingNavigation scrolls away** on pages like DailyCheckIn, Insights, RecalibrateMode, and Coach — back/coach buttons disappear on scroll
-2. **Pages can open mid-scroll** — only 2 of ~20 pages use `useScrollToTop`
-3. **Primary CTA buttons (Confirm, Continue, Save)** sit below the fold on DailyCheckIn, CheckInDetail, and onboarding pages — user must scroll to act
-4. **No safe-area handling on FloatingNavigation** — buttons can sit under the notch/Dynamic Island
+## Goal
+Replace the current "wellness" hero video for the Evening Depleted state with an "active calm" engraving-style animation matching the brand's heritage illustration language (as seen on the landing page and onboarding).
 
-## Approach
+## Output
+One seamless-loop MP4 (6–10 seconds), placed at `public/all-visuals/videos/depleted-evening.mp4`.
 
-### Part A: Fix FloatingNavigation (the main offender)
-`FloatingNavigation` is `relative z-40` — it scrolls with content. Used on: DailyCheckIn, RecalibrateMode, Insights, SelfMasteryCoach.
+## Creative Direction
 
-**Change**: Make it `fixed top-0 left-0 right-0 z-50 safe-area-top` with a glass background (`bg-background/80 backdrop-blur-sm`), matching what `TopNavigation` and `UnifiedTopBar` already do. Add corresponding `pt-16` (or similar) to the page content below it so nothing hides behind the bar.
+**Style**: Woodcut/stipple engraving — monochrome with selective warm tones. Matches the uploaded reference (sun, clouds, rolling hills rendered in fine line work).
 
-This single change fixes back-button visibility on 4+ pages at once.
+**Scene**: Post-sunset landscape. Dark sky dominates. Sun fully below horizon. A thin amber/gold line traces the far horizon. Dense stippled hills in deep shadow. Faint stars slowly brightening above.
 
-### Part B: Global Scroll-to-Top
-The existing `useScrollToTop` hook works but is only used in 2 pages. Instead of adding it to every page individually:
+**Colour palette**:
+- Sky: `#0A0F1A` (near-black navy) → `#1A1F2E` (deep slate)
+- Horizon line: `#C4873B` (muted gold/amber), very thin
+- Hills/landscape: `#12161F` with `#2A2F3A` stipple texture
+- Stars: `#D4C5A0` (warm cream), subtle
 
-**Change**: Add a `ScrollToTop` component inside the router `Layout` wrapper in `App.tsx` that fires `window.scrollTo(0, 0)` on every pathname change. This covers all routes globally with one change.
+**Motion** (all frame-based via Remotion interpolate):
+- Very slow downward camera drift (translateY ~5px over full loop)
+- Horizon amber line slowly dims (~opacity 0.6 → 0.3)
+- 3–4 stars slowly brighten (opacity 0 → 0.4, staggered)
+- Subtle parallax: foreground hills drift slightly faster than background
+- No cuts, no sudden movement
 
-### Part C: Sticky Bottom CTAs
-Pages with primary action buttons that can fall below the fold:
+**Mood**: "The day cost something. Rest is earned and necessary."
 
-| Page | Button | Current |
-|------|--------|---------|
-| DailyCheckIn | "Confirm" | `mt-6` in scrollable content, `pb-32` spacer |
-| CheckInDetail | "Continue to my Performance Dashboard" | Inside card, scrollable |
+## Technical Approach
 
-**Change**: Extract CTAs into a sticky bottom container:
-```
-fixed bottom-0 left-0 right-0 z-50 px-4 pb-[env(safe-area-inset-bottom,16px)] pt-3 bg-gradient-to-t from-background via-background to-background/0
-```
+1. **Set up Remotion project** in `remotion/` directory with dependencies
+2. **Generate the base engraving illustration** using Nano banana pro (google/gemini-3-pro-image-preview) — a dark evening landscape in woodcut/stipple style matching the brand reference
+3. **Layer the image** in Remotion with subtle animated overlays:
+   - Slow parallax drift on the landscape layers
+   - Animated horizon glow (interpolated opacity)
+   - Star fade-in (staggered interpolate sequences)
+   - Overall slow downward camera drift
+4. **Render** as 1080×1920 (portrait, mobile-first) at 30fps, ~8 seconds seamless loop
+5. **Copy** output to `public/all-visuals/videos/depleted-evening.mp4`
 
-### Part D: Verify existing fixed navs
-- `TopNavigation` — already `fixed top-0 ... z-50 safe-area-top` — correct
-- `UnifiedTopBar` — already `fixed top-0 ... z-50 safe-area-top` — correct
-- No changes needed for these two
+## Composition Specs
+- Resolution: 1080×1920 (portrait for mobile hero)
+- FPS: 30
+- Duration: 240 frames (8 seconds)
+- Codec: H.264
+- Loop: seamless (start and end states match via sinusoidal motion)
 
-## Files Changed
+## Files Created/Modified
+- `remotion/` — full Remotion project (source preserved for future videos)
+- `public/all-visuals/videos/depleted-evening.mp4` — final output
 
-| File | Change |
-|------|--------|
-| `src/components/navigation/FloatingNavigation.tsx` | `relative z-40` → `fixed top-0 left-0 right-0 z-50 safe-area-top bg-background/80 backdrop-blur-sm` |
-| `src/App.tsx` | Add `ScrollToTop` component inside Layout that scrolls to top on route change |
-| `src/pages/DailyCheckIn.tsx` | Add `pt-16` to clear fixed nav; move Confirm button to sticky bottom container |
-| `src/pages/CheckInDetail.tsx` | Add `pt-16`; move Save button to sticky bottom container |
-| `src/pages/Insights.tsx` | Add `pt-16` to clear fixed nav |
-| `src/pages/RecalibrateMode.tsx` | Add `pt-16`; remove redundant `useScrollToTop` import |
-| `src/pages/SelfMasteryCoach.tsx` | Verify padding (Coach page is `h-screen` flex — may just need minor top padding adjustment) |
-| `src/hooks/useScrollToTop.tsx` | Keep file but it becomes optional — global solution in App.tsx handles it |
-
-## What Does NOT Change
-- Logic, data fetching, state management
-- Component structure beyond CSS positioning
-- Content, copy, routing, navigation logic
-- Colors, card designs, visual identity, icons
-- TopNavigation and UnifiedTopBar (already correct)
-- Onboarding pages (already use UnifiedTopBar which is fixed)
+No changes to `ExecutiveHome.tsx` or any other app logic — the video URL path already exists in the video map.
 
