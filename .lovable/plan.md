@@ -1,122 +1,78 @@
 
 
-# Complete Hero Visual System — 21 Engraved Videos
+# Redesign Hero Visuals — Diverse Nature Scenes, Lighter Palette, Active Calm
 
-## Summary
-Build all 21 hero videos (15 primary + 6 divergence variants) using the existing Remotion pipeline and AI image generation, with a parametric composition system that reuses motion layers.
+## Problem Summary
+1. **All 15 base images are the same scene** — rolling hills with sun/horizon. No variety.
+2. **Too dark** — sky gradients and vignettes make everything nearly black, especially evening.
+3. **Sun shown at night** — evening images inaccurately depict the sun.
+4. **Not empowering** — dark, heavy imagery doesn't convey strength, inspiration, or the "active calm" executive energy the app requires.
+5. **Video appears at sky level** — the composition is cropped so only sky is visible on the homepage, hiding the landscape.
 
-## Architecture
+## Design Direction
 
-The existing `EveningDepleted.tsx` + `NaturalMotionLayers.tsx` prove the pattern works. Instead of 21 separate components, we build **one parametric composition** that accepts `tier`, `timeOfDay`, and `variant` as props, controlling:
-- Which base illustration to load
-- Color palette for overlays/gradients
-- Motion behavior (morning = forward drift, afternoon = fixed, evening = settling)
-- Which motion layers to show (birds, clouds, sun rays, stars, mist)
+Each of the 15 states gets a **unique nature scene** — not just "hills + sun" repeated. The scenes should feel like standing at the edge of something extraordinary: elevated, powerful, calm. Inspired by the original depleted-evening's use of color and engraved texture, but lighter and more varied.
 
-```text
-┌─────────────────────────────────────────────┐
-│  Parametric Composition (HeroVisual.tsx)    │
-│  ┌─────────────┐  ┌──────────────────────┐  │
-│  │ Base Image   │  │ Motion Layers        │  │
-│  │ (AI-gen PNG) │  │ - Clouds (all)       │  │
-│  │              │  │ - Sun/Rays (morn/aft)│  │
-│  │              │  │ - Stars (evening)    │  │
-│  │              │  │ - Birds (morn/eve)   │  │
-│  │              │  │ - Mist (eve/depleted)│  │
-│  │              │  │ - Horizon glow       │  │
-│  └─────────────┘  └──────────────────────┘  │
-│  ┌──────────────────────────────────────┐   │
-│  │ Camera Motion                        │   │
-│  │ Morning: slow drift toward horizon   │   │
-│  │ Afternoon: static, commanding        │   │
-│  │ Evening: slow downward settle        │   │
-│  └──────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
-```
+### Scene Assignments (unique per state)
 
-## Step-by-step
+| State | Scene | Why |
+|-------|-------|-----|
+| depleted-morning | Misty coastal cliffs, fog rolling over dark water | Challenge ahead, solid ground |
+| managing-morning | River valley at dawn, light touching the water | Steady flow, day beginning |
+| strong-morning | Mountain ridge with wildflowers, sun breaking through | Elevated, ready |
+| peak-morning | Vast alpine panorama, eagles in flight, golden light | Everything visible, commanding |
+| veryhigh-morning | Open ocean horizon from high headland, infinite sky | No resistance, pure forward |
+| depleted-afternoon | Dense forest with a single clearing of light | Heavy canopy, but light exists |
+| managing-afternoon | Rolling wheat fields under mixed sky | Getting through, steady |
+| strong-afternoon | Lake reflecting mountains, crisp clear water | Clarity, command |
+| peak-afternoon | Desert mesa / canyon viewed from summit, vast expanse | Full capacity, full view |
+| veryhigh-afternoon | Volcanic island coast, open Pacific horizon | Nothing can obscure this |
+| depleted-evening | Rain on a stone terrace, city lights in far distance | Rest is earned (night, no sun) |
+| managing-evening | Autumn forest path, last amber light through trees | Day handled, winding down |
+| strong-evening | Harbour with moored boats, calm water, twilight sky | Day delivered, satisfaction |
+| peak-evening | Mountain lake under starlight, reflection of stars | Exceptional day, dignity |
+| veryhigh-evening | Open starfield from high plateau, warm horizon glow | Well done, cosmic calm |
 
-### 1. Generate 15 base illustrations
-Use AI image generation (Gemini image model) with the exact prompts from the brief. Each gets a unique PNG saved to `remotion/public/images/`. The base style prompt is constant; tier × time additions vary per image.
+### Lighter Palette Standard
+- **Morning**: Sky gradients start at 35-55% lightness (not 14-26%)
+- **Afternoon**: Sky gradients at 40-60% lightness
+- **Evening**: Sky gradients at 18-30% lightness (was 10-14%) — dark but not black
+- Vignette opacity reduced from 50% to 25%
+- Bottom fade lightened by 15-20% across the board
 
-Files: `remotion/public/images/{tier}-{time}.png` (e.g. `depleted-morning.png`, `peak-evening.png`)
+### Composition Fix
+- Base images use **lower horizon line** (landscape fills bottom 50-60% of frame)
+- This ensures when displayed on the homepage, the landscape is visible — not just sky
 
-### 2. Build parametric motion system
-Refactor the existing motion layers into a configurable system:
+## Implementation Steps
 
-**`remotion/src/motionLayers/`** — shared components:
-- `DriftingClouds.tsx` — cloud count, speed, opacity, color configurable per tier
-- `SunRays.tsx` — new component for morning/afternoon sun with pulsing rays
-- `TwinklingStars.tsx` — existing, used for evening scenes
-- `HorizonGlow.tsx` — refactored from `HorizonLight`, color-configurable (amber for evening, gold for morning, silver for afternoon)
-- `BirdFlocks.tsx` — existing, used for morning/evening
-- `RisingMist.tsx` — existing, heavier for depleted tiers
-- `CameraDrift.tsx` — wrapper that applies the time-of-day camera motion to children
+### 1. Rewrite image generation prompts
+Update `remotion/scripts/generate-images.mjs` with 15 unique nature scene prompts. Each prompt includes:
+- The engraved/woodcut art style (unchanged)
+- The specific unique scene described above
+- A lighter color palette directive ("use warm, visible tones — not dark")
+- Composition: "horizon line in upper third, landscape fills 50-60% of frame"
+- No sun in evening images
 
-**`remotion/src/HeroVisual.tsx`** — single parametric component:
-- Props: `{ tier, timeOfDay, variant? }`
-- Selects correct base image, gradient palette, motion layers, and camera behavior
-- Tier controls: cloud density, sun brightness, landscape shadow depth, overall warmth
-- Time controls: which layers appear, camera direction
+### 2. Regenerate all 15 base images
+Run the updated script with `FORCE=1` to overwrite existing images.
 
-**`remotion/src/config/visualConfig.ts`** — palette and motion config per tier×time:
-- Gradient colors, overlay opacities, motion speeds, layer visibility flags
+### 3. Lighten the visual config
+Update `remotion/src/config/visualConfig.ts`:
+- Raise all `skyGradient` HSL lightness values by 15-25%
+- Lighten `vignetteColor` and `bottomFadeColor` correspondingly
+- Reduce vignette overlay opacity in `HeroVisual.tsx`
 
-### 3. Register compositions and render
-Update `Root.tsx` to register all 21 compositions (or use `calculateMetadata` for dynamic props).
+### 4. Re-render all 21 videos
+Run the batch render script to produce new MP4s with the lighter palette and diverse scenes.
 
-**Render script** iterates through all 21 combinations, rendering each to `public/all-visuals/videos/{name}.mp4`.
+### 5. Verify on homepage
+Confirm the videos appear with visible landscape, lighter treatment, and diverse nature scenes.
 
-### 4. Generate 6 divergence variants
-For "masked high" and "recovery underway" states (×3 time periods):
-- Use the same base images but apply a color overlay shift:
-  - **Recovery**: warmer tone (amber/sepia overlay ~10% opacity)
-  - **Masked high**: cooler tone (blue/steel overlay ~10% opacity)
-- File names: `recovery-morning.mp4`, `masked-morning.mp4`, etc.
-
-### 5. Update ExecutiveHome.tsx video map
-- Add `very_high` tier (currently missing — mapped to `default`)
-- Add divergence variant logic: when wearable/check-in diverge, select the variant video
-- This requires checking the energy state for divergence flags
-
-### Video inventory (21 total)
-
-| # | File | Key motion |
-|---|------|-----------|
-| 1 | depleted-morning.mp4 | Heavy clouds drift R, faint sun pulse |
-| 2 | managing-morning.mp4 | Partial clouds drift, moderate sun rays |
-| 3 | strong-morning.mp4 | Organized clouds, strong sun rays breaking |
-| 4 | peak-morning.mp4 | Clear sky, dramatic sun, bird flocks |
-| 5 | veryhigh-morning.mp4 | Open sky, commanding sun, birds |
-| 6 | depleted-afternoon.mp4 | Dense overcast drifting, one light shaft |
-| 7 | managing-afternoon.mp4 | Mixed cloud/clear, diffuse rays |
-| 8 | strong-afternoon.mp4 | Clear blue, single cloud formation drifts |
-| 9 | peak-afternoon.mp4 | Max sky, full sun rays across frame |
-| 10 | veryhigh-afternoon.mp4 | Cloudless, dominant sun |
-| 11 | depleted-evening.mp4 | ✅ Already done — stars, mist, horizon dim |
-| 12 | managing-evening.mp4 | Amber horizon, deepening blue, mist |
-| 13 | strong-evening.mp4 | Rich sunset glow, clouds lit from below |
-| 14 | peak-evening.mp4 | Dramatic indigo/gold, stars appearing |
-| 15 | veryhigh-evening.mp4 | Stars visible, warm horizon, open sky |
-| 16-18 | recovery-{time}.mp4 | Warmer color treatment overlay |
-| 19-21 | masked-{time}.mp4 | Cooler color treatment overlay |
-
-### Files created/modified
-
-**Created:**
-- `remotion/src/HeroVisual.tsx` — parametric composition
-- `remotion/src/config/visualConfig.ts` — tier×time config
-- `remotion/src/motionLayers/SunRays.tsx` — new sun component
-- `remotion/src/motionLayers/CameraDrift.tsx` — camera wrapper
-- `remotion/src/motionLayers/*.tsx` — refactored shared layers
-- `remotion/scripts/render-all.mjs` — batch render script
-- `remotion/public/images/*.png` — 15 base illustrations
-- `public/all-visuals/videos/*.mp4` — 20 new videos (1 exists)
-
-**Modified:**
-- `remotion/src/Root.tsx` — register all compositions
-- `src/pages/ExecutiveHome.tsx` — add `very_high` tier + divergence logic
-
-### Rendering approach
-Each video renders in ~60-90s. With 21 videos, batch rendering will take multiple execution rounds. We'll render in groups of 3-4 to stay within timeout limits, prioritizing by time-of-day (evening first since user is testing now).
+### Files Modified
+- `remotion/scripts/generate-images.mjs` — 15 new unique prompts
+- `remotion/src/config/visualConfig.ts` — lighter gradients across all 15 configs
+- `remotion/src/HeroVisual.tsx` — reduce vignette overlay opacity
+- `remotion/public/images/*.png` — 15 regenerated base illustrations
+- `public/all-visuals/videos/*.mp4` — 21 re-rendered videos
 
