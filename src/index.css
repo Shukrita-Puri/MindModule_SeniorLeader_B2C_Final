@@ -187,9 +187,9 @@ body {
     mix-blend-mode: multiply;
   }
 
-  /* Rich warm luxury filter for video backgrounds */
+  /* Subtle warm filter for engraved video backgrounds — light touch to preserve illustration detail */
   .video-warm-luxury {
-    filter: sepia(30%) saturate(160%) brightness(95%) contrast(110%) hue-rotate(-8deg);
+    filter: sepia(10%) saturate(120%) brightness(105%) contrast(105%) hue-rotate(-4deg);
   }
 
   /* Elevated Taupe Effects */

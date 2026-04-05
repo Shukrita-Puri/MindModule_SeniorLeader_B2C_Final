@@ -267,7 +267,7 @@ const ExecutiveHome = () => {
                 className="w-full h-full object-cover video-warm-luxury"
                 style={{ opacity: 0 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-background/30 to-background pointer-events-none" />
             </div>
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
