@@ -202,14 +202,29 @@ const ExecutiveHome = () => {
         afternoon: '/all-visuals/videos/peak-afternoon.mp4',
         evening: '/all-visuals/videos/peak-evening.mp4',
       },
+      very_high: {
+        morning: '/all-visuals/videos/veryhigh-morning.mp4',
+        afternoon: '/all-visuals/videos/veryhigh-afternoon.mp4',
+        evening: '/all-visuals/videos/veryhigh-evening.mp4',
+      },
       default: {
-        morning: '/all-visuals/videos/default-morning.mp4',
-        afternoon: '/all-visuals/videos/default-afternoon.mp4',
-        evening: '/all-visuals/videos/default-evening.mp4',
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
       },
     };
+
+    // Divergence variant override: when wearable/check-in signals diverge
+    const divergenceFlag = energyState?.divergenceFlag;
+    if (divergenceFlag === 'recovery') {
+      return `/all-visuals/videos/recovery-${timeOfDay}.mp4`;
+    }
+    if (divergenceFlag === 'masked_high') {
+      return `/all-visuals/videos/masked-${timeOfDay}.mp4`;
+    }
+
     return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
-  }, [energyState?.energyTier]);
+  }, [energyState?.energyTier, energyState?.divergenceFlag]);
   
   const videoFadedIn = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
