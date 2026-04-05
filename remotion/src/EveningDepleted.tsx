@@ -1,8 +1,8 @@
 import type { FC } from "react";
 import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { IllustratedCloudBands } from "./eveningDepleted/IllustratedCloudBands";
 import {
   BirdFlocks,
-  DriftingClouds,
   HorizonLight,
   RisingMist,
   TwinklingStars,
@@ -50,7 +50,7 @@ export const EveningDepleted: FC = () => {
       </div>
 
       <TwinklingStars frame={frame} durationInFrames={durationInFrames} />
-      <DriftingClouds frame={frame} durationInFrames={durationInFrames} />
+      <IllustratedCloudBands frame={frame} durationInFrames={durationInFrames} />
       <HorizonLight frame={frame} durationInFrames={durationInFrames} />
       <RisingMist frame={frame} durationInFrames={durationInFrames} />
       <BirdFlocks frame={frame} durationInFrames={durationInFrames} />
