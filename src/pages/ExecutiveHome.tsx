@@ -178,7 +178,7 @@ const ExecutiveHome = () => {
     return 'evening';
   };
 
-  const heroVideoUrl = useMemo(() => {
+  const heroVideoConfig = useMemo(() => {
     const timeOfDay = getTimeOfDay();
     const tier = energyState?.energyTier || 'default';
     const videoMap: Record<string, Record<string, string>> = {
@@ -208,7 +208,23 @@ const ExecutiveHome = () => {
         evening: '/all-visuals/videos/default-evening.mp4',
       },
     };
-    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
+
+    const baseUrl = videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
+    const isEveningDepletedHero = tier === 'depleted' && timeOfDay === 'evening';
+
+    return {
+      overlayClassName: isEveningDepletedHero
+        ? 'absolute inset-0 bg-gradient-to-b from-background/5 via-background/28 to-background pointer-events-none'
+        : 'absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none',
+      targetOpacity: isEveningDepletedHero ? '0.72' : '0.4',
+      url: isEveningDepletedHero ? `${baseUrl}?v=clouds-visible-2` : baseUrl,
+      videoClassName: isEveningDepletedHero
+        ? 'w-full h-full object-cover object-top video-warm-luxury'
+        : 'w-full h-full object-cover video-warm-luxury',
+      videoStyle: isEveningDepletedHero
+        ? { opacity: 0, objectPosition: 'center 22%' as const }
+        : { opacity: 0, objectPosition: 'center center' as const },
+    };
   }, [energyState?.energyTier]);
   
   const videoFadedIn = useRef(false);
@@ -217,7 +233,7 @@ const ExecutiveHome = () => {
   const fadeInVideo = useCallback((el?: HTMLVideoElement | null) => {
     const target = el || videoRef.current;
     if (!videoFadedIn.current && target) {
-      target.style.opacity = '0.4';
+      target.style.opacity = target.dataset.targetOpacity || '0.4';
       videoFadedIn.current = true;
     }
   }, []);
@@ -226,7 +242,7 @@ const ExecutiveHome = () => {
     videoFadedIn.current = false;
     const timer = setTimeout(() => fadeInVideo(), 3000);
     return () => clearTimeout(timer);
-  }, [heroVideoUrl, fadeInVideo]);
+  }, [heroVideoConfig.url, fadeInVideo]);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -240,19 +256,20 @@ const ExecutiveHome = () => {
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
               <video 
                 ref={videoRef}
-                key={heroVideoUrl}
-                src={heroVideoUrl}
+                key={heroVideoConfig.url}
+                src={heroVideoConfig.url}
                 autoPlay
                 loop
                 muted
                 playsInline
                 preload="auto"
+                data-target-opacity={heroVideoConfig.targetOpacity}
                 onCanPlay={(e) => fadeInVideo(e.currentTarget)}
                 onLoadedData={(e) => fadeInVideo(e.currentTarget)}
-                className="w-full h-full object-cover video-warm-luxury"
-                style={{ opacity: 0 }}
+                className={heroVideoConfig.videoClassName}
+                style={heroVideoConfig.videoStyle}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
+              <div className={heroVideoConfig.overlayClassName} />
             </div>
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
