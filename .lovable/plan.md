@@ -1,56 +1,79 @@
 
+Goal: fix the Evening Depleted hero so only the actual illustrated clouds move horizontally across the frame, with no duplicated suns, no chopped rectangles, and no extra synthetic sky effects.
 
-# Evening Depleted Hero Video — Woodcut Engraving Style
+What I found
+- The current bug is not “video playback is broken” — it is the animation method.
+- `IllustratedCloudBands.tsx` is moving rectangular crops of the full image (`evening-depleted-v2.png`) inside fixed boxes.
+- Because each crop contains more than just clouds, the animation reveals duplicated horizon/sun details and visible cut-box artifacts, exactly like your screenshot.
+- `EveningDepleted.tsx` still layers extra stars, mist, shimmer, and birds on top, which is the opposite of your latest direction.
+- The video is portrait (`1080x1920`) and then cropped into a short hero on `/executive-home`, so subtle motion becomes even harder to notice unless the cloud movement is very clean and intentional.
 
-## Goal
-Replace the current "wellness" hero video for the Evening Depleted state with an "active calm" engraving-style animation matching the brand's heritage illustration language (as seen on the landing page and onboarding).
+Plan
+1. Strip the scene back to the artwork only
+- Remove the extra motion layers from `remotion/src/EveningDepleted.tsx` for this composition:
+  - `TwinklingStars`
+  - `HorizonLight`
+  - `RisingMist`
+  - `BirdFlocks`
+- Keep the base image and a single cloud-animation layer only.
 
-## Output
-One seamless-loop MP4 (6–10 seconds), placed at `public/all-visuals/videos/depleted-evening.mp4`.
+2. Replace the current “moving crop boxes” approach
+- Rebuild `remotion/src/eveningDepleted/IllustratedCloudBands.tsx` so it does not animate plain rectangular windows of the full artwork.
+- Instead, use cloud-shaped masks aligned to the existing cloud formations in the image.
+- Each mask will reveal only the cloud silhouette region, not the sun/horizon/land beneath it.
 
-## Creative Direction
+3. Animate only the existing clouds
+- Create 3–5 cloud masks matching the major visible cloud bands in the art.
+- For each cloud group:
+  - move horizontally left-to-right or right-to-left
+  - keep vertical movement at zero or near-zero
+  - use small independent speeds so it feels natural
+- Keep motion stronger than before so it reads inside the cropped hero, but still tasteful.
 
-**Style**: Woodcut/stipple engraving — monochrome with selective warm tones. Matches the uploaded reference (sun, clouds, rolling hills rendered in fine line work).
+4. Prevent seams and visual tearing
+- Overscan the source image behind each mask so horizontal movement never exposes empty edges.
+- Ensure each animated cloud layer is large enough to slide without showing box boundaries.
+- Feather mask edges slightly so movement blends into the static painting.
 
-**Scene**: Post-sunset landscape. Dark sky dominates. Sun fully below horizon. A thin amber/gold line traces the far horizon. Dense stippled hills in deep shadow. Faint stars slowly brightening above.
+5. Keep the rest of the artwork static
+- Sun, hills, horizon lines, and lower landscape remain fixed.
+- No pulsing glow, no added mist, no birds, no star twinkle for this version.
 
-**Colour palette**:
-- Sky: `#0A0F1A` (near-black navy) → `#1A1F2E` (deep slate)
-- Horizon line: `#C4873B` (muted gold/amber), very thin
-- Hills/landscape: `#12161F` with `#2A2F3A` stipple texture
-- Stars: `#D4C5A0` (warm cream), subtle
+6. Re-render and update the app-facing asset
+- Re-render the Remotion composition to `depleted-evening.mp4`.
+- Keep the existing hero hookup in `src/pages/ExecutiveHome.tsx`, since the main issue is the rendered motion design, not the page wiring.
 
-**Motion** (all frame-based via Remotion interpolate):
-- Very slow downward camera drift (translateY ~5px over full loop)
-- Horizon amber line slowly dims (~opacity 0.6 → 0.3)
-- 3–4 stars slowly brighten (opacity 0 → 0.4, staggered)
-- Subtle parallax: foreground hills drift slightly faster than background
-- No cuts, no sudden movement
+Technical details
+```text
+Current problem:
+full image
+  -> cropped into rectangles
+  -> rectangles translated
+  -> non-cloud content inside those rectangles also moves
+  -> duplicated sun / horizon seams appear
 
-**Mood**: "The day cost something. Rest is earned and necessary."
+Planned fix:
+full image as static background
+  + cloud-shaped masked duplicates of same image
+  + only masked cloud regions translate horizontally
+  + everything else stays locked
+```
 
-## Technical Approach
+Files to update
+- `remotion/src/EveningDepleted.tsx`
+- `remotion/src/eveningDepleted/IllustratedCloudBands.tsx`
 
-1. **Set up Remotion project** in `remotion/` directory with dependencies
-2. **Generate the base engraving illustration** using Nano banana pro (google/gemini-3-pro-image-preview) — a dark evening landscape in woodcut/stipple style matching the brand reference
-3. **Layer the image** in Remotion with subtle animated overlays:
-   - Slow parallax drift on the landscape layers
-   - Animated horizon glow (interpolated opacity)
-   - Star fade-in (staggered interpolate sequences)
-   - Overall slow downward camera drift
-4. **Render** as 1080×1920 (portrait, mobile-first) at 30fps, ~8 seconds seamless loop
-5. **Copy** output to `public/all-visuals/videos/depleted-evening.mp4`
+Expected result
+- The exact clouds already present in the illustration visibly drift sideways.
+- No fake overlay clouds.
+- No rectangular cutout artifacts.
+- No duplicated sun slices.
+- The hero reads as a calm animated painting instead of a broken collage.
 
-## Composition Specs
-- Resolution: 1080×1920 (portrait for mobile hero)
-- FPS: 30
-- Duration: 240 frames (8 seconds)
-- Codec: H.264
-- Loop: seamless (start and end states match via sinusoidal motion)
-
-## Files Created/Modified
-- `remotion/` — full Remotion project (source preserved for future videos)
-- `public/all-visuals/videos/depleted-evening.mp4` — final output
-
-No changes to `ExecutiveHome.tsx` or any other app logic — the video URL path already exists in the video map.
-
+Verification after implementation
+- Check the motion directly in the hero on `/executive-home`, not just in the file viewer.
+- Confirm on the mobile-sized hero crop that:
+  - clouds visibly move
+  - the sun and hills do not move
+  - no seams/boxes appear
+  - loop feels smooth end-to-end
