@@ -216,10 +216,10 @@ const ExecutiveHome = () => {
 
     // Divergence variant override: when wearable/check-in signals diverge
     const divergenceFlag = energyState?.divergenceFlag;
-    if (divergenceFlag === 'recovery') {
+    if (divergenceFlag === 'RECOVERY_UNDERWAY') {
       return `/all-visuals/videos/recovery-${timeOfDay}.mp4`;
     }
-    if (divergenceFlag === 'masked_high') {
+    if (divergenceFlag === 'MASKED_HIGH') {
       return `/all-visuals/videos/masked-${timeOfDay}.mp4`;
     }
 
