@@ -295,7 +295,7 @@ const CoachSplitView = ({
           // Coach message
           return (
             <div key={message.id} className="flex items-start gap-2.5">
-              <CoachAvatar size="sm" />
+              <CoachAvatar size="sm" state={orbState} />
               <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white border border-stone-200">
                 <CoachMessageContent content={message.content} variant="default" />
               </div>
