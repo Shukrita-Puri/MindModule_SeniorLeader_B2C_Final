@@ -28,9 +28,6 @@ export const EveningDepleted: FC = () => {
         }}
       />
 
-      <TwinklingStars frame={frame} durationInFrames={durationInFrames} />
-      <DriftingClouds frame={frame} durationInFrames={durationInFrames} />
-
       <div
         style={{
           position: "absolute",
@@ -52,6 +49,8 @@ export const EveningDepleted: FC = () => {
         />
       </div>
 
+      <TwinklingStars frame={frame} durationInFrames={durationInFrames} />
+      <DriftingClouds frame={frame} durationInFrames={durationInFrames} />
       <HorizonLight frame={frame} durationInFrames={durationInFrames} />
       <RisingMist frame={frame} durationInFrames={durationInFrames} />
       <BirdFlocks frame={frame} durationInFrames={durationInFrames} />
