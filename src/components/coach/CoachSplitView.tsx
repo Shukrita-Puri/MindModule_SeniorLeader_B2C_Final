@@ -36,7 +36,7 @@ interface CoachSplitViewProps {
 
 /** Small circular coach avatar used in message bubbles */
 const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
-  <CoachOrb size={size} />
+  <CoachOrb size={size} state="idle" />
 );
 
 /** Render parsed coach message content (text + protocol/wisdom cards) */
