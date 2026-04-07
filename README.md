@@ -90,3 +90,4 @@ To generate iOS app icons using `@capacitor/assets`:
    npx cap sync ios
    ```
 4. Open in Xcode and verify the icons appear under **Assets.xcassets → AppIcon**.
+
