@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
@@ -57,8 +58,13 @@ export default function StageUSPIntro() {
   }, [currentSlide, isIntro, navigate]);
 
   const goPrev = useCallback(() => {
-    if (currentSlide > -1) setCurrentSlide((s) => s - 1);
-  }, [currentSlide]);
+    if (currentSlide === -1) {
+      // On intro screen, go back to previous onboarding step
+      navigate("/onboarding/payment");
+    } else {
+      setCurrentSlide((s) => s - 1);
+    }
+  }, [currentSlide, navigate]);
 
   const skip = useCallback(() => {
     navigate("/onboarding/context-connection", { replace: true });
@@ -66,12 +72,26 @@ export default function StageUSPIntro() {
 
   useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
 
+  /* ── Back button top bar (shared across all sub-screens) ── */
+  const topBar = (
+    <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center justify-between px-4 py-2">
+        <Button variant="glass" size="sm" onClick={goPrev}>
+          <ArrowLeft size={20} />
+        </Button>
+        <div />
+      </div>
+    </div>
+  );
+
   /* ── Intro screen ── */
   if (isIntro) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col">
+        {topBar}
+
         {/* Progress bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-10">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-[60]">
           <div
             className="h-full bg-saffron transition-all duration-500 ease-out"
             style={{ width: `${progressFraction * 100}%` }}
@@ -80,30 +100,38 @@ export default function StageUSPIntro() {
 
         {/* Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <img
-            src={mmLogo}
-            alt="Mind Module logo"
-            className="w-20 h-20 mb-4"
-          />
-          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground font-body mb-10">
+          {/* Logo in circle */}
+          <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center mb-4 shadow-lg">
+            <img
+              src={mmLogo}
+              alt="Mind Module logo"
+              className="w-20 h-20 rounded-full"
+            />
+          </div>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground font-headline mb-10">
             Mind Module
           </p>
 
           <h1 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-foreground mb-4">
             A new era of executive performance.
           </h1>
-          <p className="font-body text-[1.0625rem] sm:text-lg text-muted-foreground leading-relaxed max-w-sm mx-auto mb-12">
+          <p className="font-body text-[1.0625rem] sm:text-lg text-muted-foreground leading-relaxed max-w-sm mx-auto">
             This isn't self-improvement. This is self-mastery.
           </p>
+        </div>
 
-          <Button
-            variant="critical"
-            size="lg"
-            className="w-full max-w-xs rounded-2xl"
-            onClick={goNext}
-          >
-            See how it works →
-          </Button>
+        {/* CTA pinned to bottom, same position as USP buttons */}
+        <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+          <div className="space-y-3">
+            <Button
+              variant="critical"
+              size="lg"
+              className="w-full rounded-2xl"
+              onClick={goNext}
+            >
+              See how it works →
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -111,11 +139,14 @@ export default function StageUSPIntro() {
 
   /* ── USP slides ── */
   const slide = slides[currentSlide];
+  const isLastSlide = currentSlide === slides.length - 1;
 
   return (
     <div className="fixed inset-0 bg-background">
+      {topBar}
+
       {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-10">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-[60]">
         <div
           className="h-full bg-saffron transition-all duration-500 ease-out"
           style={{ width: `${progressFraction * 100}%` }}
@@ -174,7 +205,7 @@ export default function StageUSPIntro() {
             className="w-full rounded-2xl"
             onClick={goNext}
           >
-            {currentSlide < slides.length - 1 ? "Continue" : "Let\u2019s Go"}
+            {isLastSlide ? "Connect your Intelligence" : "Continue"}
           </Button>
         </div>
       </div>
