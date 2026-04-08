@@ -279,8 +279,8 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16">
-      <FloatingNavigation />
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[132px]">
+      <FloatingNavigation showCoachButton={false} />
 
       {/* Already checked in banner */}
       {alreadyCheckedIn && (
@@ -312,7 +312,7 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col px-4 pb-24 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col px-4 pb-32 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
         <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide text-center">
@@ -360,7 +360,9 @@ const DailyCheckIn = () => {
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-[200] px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
+      <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
+      >
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleConfirm}
