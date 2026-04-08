@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { DEV_MODE } from "@/config/devMode";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
@@ -101,20 +101,22 @@ const DailyCheckIn = () => {
     // Dev/testing: ?tour=1 forces the guide regardless of DB state
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
+      const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
       sessionStorage.setItem('first_session_guide_step', '0');
       sessionStorage.setItem('first_session_guide_active', '1');
-      if (user?.id) sessionStorage.setItem('first_session_guide_user', user.id);
+      if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
       sessionStorage.removeItem('first_session_intro_seen');
       setShowGuide(true);
       return;
     }
 
-    if (!user?.id || (!DEV_MODE && !user?.onboarding_completed_at)) {
+    if (!DEV_MODE && (!user?.id || !user?.onboarding_completed_at)) {
       setShowGuide(false);
       return;
     }
 
     // Check DB: only show if onboarding complete AND walkthrough never completed
+    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
     getAuthToken().then(async (token) => {
       if (!token) return;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -135,8 +137,8 @@ const DailyCheckIn = () => {
           const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
           const isActiveForUser =
             sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
-            sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
-          const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === user.id;
+            sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+          const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
 
           if (walkthroughDone && !isRetakeForUser) {
             sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
@@ -149,7 +151,7 @@ const DailyCheckIn = () => {
           if (!isActiveForUser) {
             sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
             sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
-            sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, user.id);
+            if (effectiveId) sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, effectiveId);
           }
 
           if (!cancelled) setShowGuide(true);
