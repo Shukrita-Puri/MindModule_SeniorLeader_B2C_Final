@@ -22,6 +22,28 @@ export interface OuterReadinessData {
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
   coachInsightAge?: number;
   coachInsightLabel?: string;
+  // New fields for DecisionReadinessBrief
+  bodyText?: string;
+  leanOnSource?: string;
+  watchForSource?: string;
+  hasWearable?: boolean;
+  wearableDaysConnected?: number;
+  hrvDeviation?: number | null;
+  sleepDeviation?: number | null;
+  sleepDuration?: number | null;
+  rhrValue?: number | null;
+  sleepScore?: number | null;
+  hrvValue?: number | null;
+  hasCalendar?: boolean;
+  calendarLoad?: string;
+  meetingCount?: number;
+  highStakesEvents?: string[];
+  nextHighStakesEvent?: { title: string; minutesUntil: number } | null;
+  checkInCountTotal?: number;
+  consecutiveLowConfidence?: number;
+  coachStrength?: string | null;
+  clarityLevel?: number | null;
+  confidenceLevel?: number | null;
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {

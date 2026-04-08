@@ -535,11 +535,11 @@ const DecisionReadinessBrief = () => {
                   )}
                 </>
               )}
-              {(outerBrief?.clarityLevel ?? energyState?.clarityLevel) != null && (
-                <div>Clarity: {outerBrief?.clarityLevel ?? energyState?.clarityLevel}/5</div>
+              {(outerBrief?.clarityLevel) != null && (
+                <div>Clarity: {outerBrief.clarityLevel}/5</div>
               )}
-              {(outerBrief?.confidenceLevel ?? energyState?.confidenceLevel) != null && (
-                <div>Confidence: {outerBrief?.confidenceLevel ?? energyState?.confidenceLevel}/5</div>
+              {(outerBrief?.confidenceLevel) != null && (
+                <div>Confidence: {outerBrief.confidenceLevel}/5</div>
               )}
               <div>Score: {score ?? '--'} ({getTierLabel(tier).toLowerCase()})</div>
             </div>
