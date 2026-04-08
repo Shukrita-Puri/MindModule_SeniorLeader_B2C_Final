@@ -1905,7 +1905,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-      userId = await verifyAuth0JWT(authHeader);
+      userId = await verifyAuth0JWT(authHeader, req);
     }
     
     const {

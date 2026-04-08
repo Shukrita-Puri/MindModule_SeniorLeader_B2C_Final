@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   try {
     // 1. Verify Auth0 JWT – this is our source of truth for identity
     const authHeader = req.headers.get("Authorization");
-    const userId = await verifyAuth0JWT(authHeader);
+    const userId = await verifyAuth0JWT(authHeader, req);
 
     // 2. Get user details from Auth0 /userinfo (has email, name, picture)
     const token = authHeader!.replace("Bearer ", "");

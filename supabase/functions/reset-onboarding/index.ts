@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    const userId = await verifyAuth0JWT(authHeader);
+    const userId = await verifyAuth0JWT(authHeader, req);
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
