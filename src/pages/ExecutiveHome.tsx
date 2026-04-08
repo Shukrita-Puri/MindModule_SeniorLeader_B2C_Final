@@ -284,8 +284,10 @@ const ExecutiveHome = () => {
             </div>
           </div>
 
+          <CheckInBanner />
+
           {/* All sections stacked on one page */}
-          <div className="flex-1 w-full pb-8">
+          <div className="flex-1 w-full pb-[100px]">
 
             {/* STATE */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
