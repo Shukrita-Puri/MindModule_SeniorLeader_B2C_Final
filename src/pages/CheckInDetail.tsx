@@ -94,8 +94,8 @@ const CheckInDetail = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16">
-      <FloatingNavigation backPath="/daily-check-in" />
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[132px]">
+      <FloatingNavigation backPath="/daily-check-in" showCoachButton={false} />
       
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
@@ -109,7 +109,7 @@ const CheckInDetail = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pb-24">
+      <div className="flex-1 flex items-center justify-center p-4 pb-32">
         <div className="w-full max-w-md animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
@@ -163,7 +163,9 @@ const CheckInDetail = () => {
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-[200] px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
+      <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
+      >
         <div className="max-w-md mx-auto">
           <button
             onClick={handleSave}
