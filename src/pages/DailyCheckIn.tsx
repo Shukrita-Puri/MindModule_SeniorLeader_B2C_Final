@@ -279,7 +279,7 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-14 pb-[160px]">
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[112px]">
       <FloatingNavigation showCoachButton={false} />
 
       {/* Already checked in banner */}
@@ -303,9 +303,9 @@ const DailyCheckIn = () => {
         </div>
       )}
       {/* Hero Banner – compact for single-fold */}
-      <div className="relative py-4 overflow-hidden">
-        <div className="flex flex-col items-center justify-center px-4 text-center space-y-1">
-          <h1 className="text-[24px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
+      <div className="relative h-auto py-8 overflow-hidden">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+          <h1 className="text-[28px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
             Performance Readiness
           </h1>
           <p className="text-[10px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>
@@ -315,12 +315,12 @@ const DailyCheckIn = () => {
       <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-xs text-muted-foreground/70 font-body mb-3 tracking-wide text-center">
+        <p className="text-[13px] text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
           Select your current state
         </p>
 
         {/* Vertical state list – compact gaps */}
-        <div data-tour="check-in-carousel" className="flex flex-col gap-2 w-full">
+        <div data-tour="check-in-carousel" className="flex flex-col gap-3 w-full">
           {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -333,22 +333,22 @@ const DailyCheckIn = () => {
                 <div
                   className={`
                     w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
-                    flex items-center gap-3 px-4 py-3
+                    flex items-center gap-4 px-5 py-4
                     border backdrop-blur-sm cursor-pointer
                     transition-all duration-200
                     ${isSelected
-                      ? 'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.30)] border-white/40 opacity-100'
-                      : 'border-white/20 opacity-70 hover:opacity-85'}
+                      ? 'scale-[1.02] shadow-[0_8px_28px_rgba(0,0,0,0.30)] border-white/40 opacity-100'
+                      : 'border-white/20 opacity-85 hover:opacity-100'}
                   `}
                 >
-                  <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
                     <IconComponent className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="text-[14px] font-medium font-headline text-white tracking-tight leading-tight">
+                    <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-[11px] text-white/70 font-body italic">
+                    <p className="text-[13px] text-white/80 font-body leading-tight">
                       {outcome.subtitle}
                     </p>
                   </div>
@@ -361,14 +361,14 @@ const DailyCheckIn = () => {
 
       {/* Sticky bottom CTA – sits above pill nav */}
       <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
             className={`
-              w-full py-3.5 rounded-xl font-body text-[15px] font-medium tracking-wide
+              w-full py-4 rounded-xl font-body text-[16px] font-medium tracking-wide
               transition-all duration-200
               ${selectedOutcome
                 ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'

@@ -94,7 +94,7 @@ const CheckInDetail = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[132px]">
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[108px]">
       <FloatingNavigation backPath="/daily-check-in" showCoachButton={false} />
       
       <div className="relative h-auto py-8 overflow-hidden">
@@ -109,7 +109,7 @@ const CheckInDetail = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pb-32">
+      <div className="flex-1 flex items-center justify-center p-4 pb-24">
         <div className="w-full max-w-md animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
@@ -164,7 +164,7 @@ const CheckInDetail = () => {
 
       {/* Sticky bottom CTA */}
       <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
       >
         <div className="max-w-md mx-auto">
           <button
