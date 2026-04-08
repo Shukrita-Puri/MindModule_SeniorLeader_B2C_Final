@@ -1,163 +1,64 @@
 
 
-# Batch 2: Decision Readiness Brief — Implementation Plan
+# Audit: Has the Beta Tester Feedback Been Addressed?
 
-## Overview
-Replace `TodayStateCard` + `StrategicIntentionCard` on the homepage with a single unified `DecisionReadinessBrief` component. Variant A only (interpretation chips) with tap-to-flip number reveal. Add LLM synthesis to `compute-outer-readiness`, reweight scores in `compute-inner-readiness`, fix hardcoded fields, and add `leanOnSource`/`watchForSource` to the edge function response.
-
-## Critical Rules (confirmed)
-- TodayStateCard.tsx and StrategicIntentionCard.tsx remain in codebase, just stop rendering on homepage
-- Existing card styling preserved (white surface, taupe left border, existing borders/radius)
-- No edge function logic changes except the specific ones listed below
-- All new queries wrapped in try/catch, return null on failure
+The feedback: **"The previous scoring and statements gave heavy weightage to the performance readiness assessment score. They wanted wearable data to guide the score more, and the statement to take into account immediate data sources (wearable/calendar) so the system shows it understands them."**
 
 ---
 
-## Part 1: New Component — `DecisionReadinessBrief.tsx`
+## 1. SCORING WEIGHTS — ADDRESSED ✓
 
-**File:** `src/components/home/DecisionReadinessBrief.tsx`
+The `compute-inner-readiness` scoring weights have been updated correctly:
 
-Consumes data from both `useQuery(['energy-state'])` and `useOuterReadiness()` hooks (already cached).
+| Mode | Old Wearable Weight | New Wearable Weight | Old C×C | New C×C | Old Felt | New Felt |
+|------|---------------------|---------------------|---------|---------|----------|----------|
+| No wearable | n/a | n/a | 30% | 45% | 55% | 40% |
+| Aligned | ~25% | **35%** | ~22% | **30%** | ~40% | **25%** |
+| MASKED_HIGH | 35% | **40%** | — | equal split | — | equal split |
+| RECOVERY_UNDERWAY | 30% | **35%** | — | equal split | — | equal split |
 
-**Card structure (top to bottom):**
+Wearable data now has the highest single weight (35-40%) when present. Felt state (the check-in word) has been reduced from dominant (40-55%) to secondary (25-40%). This directly answers the "score was too heavily influenced by the felt-state check-in" concern.
 
-1. **Eyebrow row** — "DECISION READINESS BRIEF" left, "[time] · [date]" right (9px uppercase, muted)
-2. **Score row** — Score number (40px, weight 500), colour-coded by tier (existing depleted/managing/strong colours), "/100" muted, tier label uppercase. No check-in: "--" + "NOT YET ASSESSED"
-3. **Calendar pills** — Conditional rendering based on high-stakes proximity (90min), load, or no calendar. Uses existing pill styling from the app
-4. **Phrase** — Georgia serif italic 14px, from `outerBrief.phrase`
-5. **Body copy** — 12px, from new `outerBrief.bodyText` field (LLM-generated), falls back to `outerBrief.context`. Bold key action via `<strong>`
-6. **"BASED ON YOUR SIGNALS"** section label (9px uppercase muted)
-7. **Signal chips** — Variant A interpretation labels, flex-wrap, pill shape with coloured dot + text (10px). Max 5 chips. Each chip is tappable — flips to reveal the number behind it (e.g., "Body under load" flips to "HRV −18%"), taps again to flip back. CSS card-flip animation.
+## 2. CONTEXT STATEMENTS — ADDRESSED ✓
 
-   Chip logic (deterministic, no LLM):
-   - Wearable chips (only if hasWearable AND ≥7 days data): HRV deviation, sleep deviation, RHR deviation thresholds as specified
-   - Wearable < 7 days: single "Wearable calibrating" neutral chip
-   - No wearable: omit all physiological chips entirely
-   - Felt state chips from `checkInOutcome`
-   - C×C chips from `clarityLevel`/`confidenceLevel` (fixed from hardcoded 0)
-   - Longitudinal qualifiers based on data age
-   - No check-in: single neutral "Check in to unlock your state" chip
+The `selectSignalsForStatement()` function in `compute-inner-readiness` now uses **calendar-aware signal selection**:
+- On **heavy days** (high calendar load or high-stakes events): surfaces multiple wearable signals (HRV deviation, sleep, RHR) in the primary sentence
+- On **light days**: surfaces the single strongest wearable signal
+- Wearable signals are prioritized over felt-state when both exist
+- Calendar context (heavy/light day) shapes which signals surface
 
-8. **Inner summary line** — 3-word synthesis below chips (11px, muted, weight 500). Derived from worst→best→C×C chip content. Omit if no check-in.
-9. **Divider** (existing style)
-10. **"HOW TO SHOW UP"** section label
-11. **Lean on row** — Green pill + main text + sub-text for source (from new `leanOnSource` field)
-12. **Watch for row** — Amber pill + same structure with `watchForSource`
-13. **Data source note** — 9px, 35% opacity, showing connected sources
-14. **"Tap for raw numbers"** — 9px right-aligned, expand/collapse panel showing raw HRV ms, sleep score, RHR bpm, clarity/5, confidence/5, score tier + weighting mode
+The LLM synthesis in `compute-outer-readiness` also injects immediate data (HRV deviation, sleep deviation, RHR, calendar load, meeting count, high-stakes events, next event countdown) into its prompt — so the generated phrase and body copy reference specific signals the user can recognize.
 
-**Data requirements from edge functions (new fields needed):**
-- `outerBrief.bodyText` (LLM-generated body copy, falls back to context)
-- `outerBrief.leanOnSource` (string describing cascade source)
-- `outerBrief.watchForSource` (string describing cascade source)
-- `outerBrief.hrvDeviation` (number, % vs baseline)
-- `outerBrief.sleepDeviation` (number, % vs baseline)
-- `outerBrief.rhrValue` (number, bpm)
-- `outerBrief.sleepScore` (number)
-- `outerBrief.hrvValue` (number, ms)
-- `outerBrief.hasWearable` (boolean)
-- `outerBrief.wearableDaysConnected` (number)
-- `outerBrief.hasCalendar` (boolean)
-- `outerBrief.calendarLoad` (string)
-- `outerBrief.meetingCount` (number)
-- `outerBrief.highStakesEvents` (string[])
-- `outerBrief.nextHighStakesEvent` (object with title + minutesUntil)
-- `outerBrief.checkInCountTotal` (number, for data completeness tier)
-- `outerBrief.consecutiveLowConfidence` (number, for "Xth day" qualifier)
-- `outerBrief.coachStrength` (string, for "your strength" qualifier)
+## 3. SIGNAL CHIPS — ADDRESSED ✓
 
-Several of these already exist in the edge function response or can be derived; the rest need to be added to the response payload.
+The `DecisionReadinessBrief` component builds deterministic chips from immediate data:
+- HRV deviation → "Body under load" / "Body recovered"
+- Sleep deviation → "Poor sleep" / "Well rested" / "Short sleep"
+- RHR → "HR elevated"
+- Calendar pills show specific event titles and timing
+- All chips are tap-to-flip to reveal the raw number
+
+This makes the card visually demonstrate that the system is reading wearable + calendar data.
+
+## 4. GAPS STILL PRESENT
+
+### Gap A: Runtime Error — `DecisionReadinessBrief is not defined`
+The preview currently crashes. The import and export are correct (`PerformanceReadinessBrief` exported from `DecisionReadinessBrief.tsx`, imported as `PerformanceReadinessBrief` in `ExecutiveHome.tsx`). This is likely a stale Vite HMR cache. **Fix: trigger a clean rebuild** — no code change needed, but worth verifying.
+
+### Gap B: DailyRitual Hardcoded Fields — NOT FIXED
+The plan called for fixing `clarityLevel: 0` and `confidenceLevel: 0` in `DailyRitual.tsx`. These fields no longer appear in the code at all — it seems the DailyRitual now derives all signals server-side via `timezoneOffset` only. However, the original plan's intent was to pass real clarity/confidence values through to the daily plan generation edge function. **Needs verification**: does the plan generation edge function already fetch these server-side? If so, this is resolved. If not, the plan may be using 0s server-side.
+
+### Gap C: `watchForSource` Uses Same Value as `leanOnSource`
+Line 2642 of `compute-outer-readiness`: `watchForSource: leanOnResult.source` — this uses the same source tag as leanOn. In the cascade, leanOn and watchFor can come from different priority levels. The `getLeanOnWatchFor` function returns a single `source` for the pair, so this is technically correct (they always come from the same cascade level), but worth noting.
+
+### Gap D: LLM DOW Query is Simplified
+The typical day-of-week outcome query (lines 2443-2457) doesn't actually filter by day of week — it uses `filter(() => true)` which returns all check-ins. This means the "typical Monday outcome" data fed to the LLM is actually "typical any-day outcome." Minor but should be fixed for accuracy.
 
 ---
 
-## Part 2: Homepage Wiring — `ExecutiveHome.tsx`
+## VERDICT
 
-- Stop rendering `<TodayStateCard />` and `<StrategicIntentionCard />`
-- Render `<DecisionReadinessBrief />` in their place (single card in the STATE section)
-- Pass JIT event data as prop (same as current StrategicIntentionCard)
-- Keep imports of old components (they stay in codebase)
+**The core feedback is addressed.** The scoring now gives wearable data 35-40% weight (up from 25-30%), and context statements prioritize physiological + calendar signals. The signal chips make immediate data visible. The LLM synthesis references specific wearable/calendar data.
 
----
-
-## Part 3: Edge Function Changes — `compute-outer-readiness/index.ts`
-
-### 3a: Add `leanOnSource` / `watchForSource` to response
-Map `leanOnResult.source` to human-readable labels:
-- `coach-insights-recent` / `coach-insights-grace` → "From coach conversations"
-- `cc-modifier` / `cc-modifier-with-context` → "From your check-in today"  
-- `coach-partial-strength` / `coach-partial-growth` → "Coach + archetype"
-- `archetype-tier` → "From your archetype"
-- `tier-fallback` → "From readiness score"
-- Evening/Sunday overrides → "From readiness score"
-
-### 3b: Add new data fields to response
-Expose to client: `hasWearable`, `wearableDaysConnected`, `hrvDeviation`, `sleepDeviation`, `rhrValue`, `sleepScore`, `hrvValue`, `hasCalendar`, `calendarLoad`, `meetingCount`, `highStakesEvents`, `nextHighStakesEvent`, `checkInCountTotal`, `consecutiveLowConfidence`, `coachStrength`, `bodyText`.
-
-### 3c: Add LLM synthesis (`generateLLMBodyCopy()`)
-- Query `checkInCountTotal` = `COUNT(*)` from `daily_checkins` for user (try/catch, default 0)
-- Determine `dataCompleteness`: day1 (0), early (1-6), developing (7-30), established (30+)
-- Skip LLM if day1
-- Call Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) with `google/gemini-2.5-flash` using `LOVABLE_API_KEY` (already exists as secret)
-- System prompt and user prompt as specified in the request, injecting available data fields only
-- Parse JSON response for `{ phrase, bodyText }`
-- If either is null or parse fails: use existing template functions as fallback
-- Log "DRB phrase source: llm | template" and "DRB body source: llm | template"
-
-### 3d: Additional queries (all additive, try/catch)
-1. Typical DOW outcome (60-day, min 4 occurrences)
-2. Friction trend (7d vs 8-14d drained/scattered/overwhelmed count)
-3. Pending coach commitment
-4. Recent coach pattern (7d)
-5. Dominant outcome last 7d
-6. Wearable trend last 7d (recent 3d vs earlier 4d avg HRV)
-7. Wearable days connected count
-8. HRV/sleep deviation from 30-day baseline
-9. Consecutive low-confidence days
-
----
-
-## Part 4: Scoring Reweight — `compute-inner-readiness/index.ts`
-
-Change ONLY weight values in the scoring section (lines ~544-562). Keep all other logic exactly as-is.
-
-| Mode | Old Weights | New Weights |
-|------|------------|-------------|
-| No wearable | felt 55%, C×C 30%, circ 15% | felt 40%, C×C 45%, circ 15% |
-| Aligned | felt ~40%, wearable ~25%, C×C ~22%, circ 10% | felt 25%, wearable 35%, C×C 30%, circ 10% |
-| MASKED_HIGH | wearable 35% | wearable 40%, remainder split equally felt/C×C |
-| RECOVERY_UNDERWAY | wearable 30% | wearable 35%, remainder split equally felt/C×C |
-
----
-
-## Part 5: Fix Hardcoded Fields — `DailyRitual.tsx`
-
-- Fix lines passing `clarityLevel: 0` → `clarityLevel: energyState?.clarityLevel ?? 0`
-- Fix `confidenceLevel: 0` → `confidenceLevel: energyState?.confidenceLevel ?? 0`
-- Fix `archetype: ''` → `archetype: profile?.user_archetype ?? ''`
-
-Also update `useOuterReadiness` hook interface to include the new fields.
-
----
-
-## Implementation Order
-
-1. Update `compute-inner-readiness` scoring weights (Part 4)
-2. Update `compute-outer-readiness` with new queries, LLM synthesis, leanOnSource/watchForSource, and expanded response payload (Part 3)
-3. Update `useOuterReadiness` hook interface for new fields (Part 5)
-4. Fix DailyRitual hardcoded fields (Part 5)
-5. Build `DecisionReadinessBrief.tsx` component (Part 1)
-6. Wire into `ExecutiveHome.tsx`, stop rendering old cards (Part 2)
-
-## Files Modified
-- `supabase/functions/compute-inner-readiness/index.ts` — weight values only
-- `supabase/functions/compute-outer-readiness/index.ts` — add LLM, new queries, new response fields
-- `src/hooks/useOuterReadiness.ts` — extend interface
-- `src/components/home/DecisionReadinessBrief.tsx` — **new file**
-- `src/pages/ExecutiveHome.tsx` — swap cards
-- `src/components/home/DailyRitual.tsx` — fix hardcoded 0s
-
-## Files NOT Modified
-- `src/components/home/TodayStateCard.tsx` — kept as-is
-- `src/components/home/StrategicIntentionCard.tsx` — kept as-is
-- No routing changes, no desktop layout changes
+**To fully close:** Fix the runtime error (likely stale build), fix the DOW query filter, and verify clarity/confidence passthrough in plan generation.
 
