@@ -85,6 +85,7 @@ const ExecutiveHome = () => {
       return;
     }
 
+    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
     getAuthToken().then(async (token) => {
       if (!token) return;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -107,8 +108,8 @@ const ExecutiveHome = () => {
         const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
         const isActiveForUser =
           sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
-          sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === user.id;
-        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === user.id;
+          sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
 
         if (walkthroughDone && !isRetakeForUser) {
           sessionStorage.removeItem(ACTIVE_TOUR_KEY);
