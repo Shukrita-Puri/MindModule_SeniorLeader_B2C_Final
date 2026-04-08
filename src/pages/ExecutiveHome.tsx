@@ -18,6 +18,7 @@ import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
+import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 

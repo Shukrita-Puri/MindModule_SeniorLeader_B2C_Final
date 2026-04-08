@@ -792,7 +792,7 @@ const Insights = () => {
   const winsProgressMessage = getWinsProgressMessage();
 
   return (
-    <div className="min-h-screen bg-background pt-16">
+    <div className="min-h-screen bg-background pt-16 pb-[100px]">
       {/* Header with Navigation */}
       <div className="relative">
         <FloatingNavigation />
