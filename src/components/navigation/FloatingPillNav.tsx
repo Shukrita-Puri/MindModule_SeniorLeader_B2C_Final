@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { House, Sparkles, TrendingUp } from 'lucide-react';
 
-const ACTIVE_COLOR = '#E87A2F';
+const ACTIVE_COLOR = '#F26A50';
 const INACTIVE_COLOR = 'rgba(255,255,255,0.45)';
 
 const TABS = [
@@ -24,14 +24,12 @@ const FloatingPillNav = () => {
       }}
     >
       <div
-        className="flex items-center backdrop-blur-md"
+        className="flex items-center bg-white/15 backdrop-blur-md border border-white/40"
         style={{
-          background: 'rgba(15,15,15,0.65)',
           borderRadius: 30,
           padding: '10px 28px',
           gap: 36,
           minWidth: 240,
-          border: '0.5px solid rgba(255,255,255,0.1)',
         }}
       >
         {TABS.map((tab) => {

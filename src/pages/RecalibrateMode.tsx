@@ -93,7 +93,7 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="h-screen h-[100dvh] bg-background flex flex-col pt-16">
+    <div className="h-screen h-[100dvh] bg-background flex flex-col pt-16 pb-[100px]">
       {/* Navigation */}
       <FloatingNavigation />
 

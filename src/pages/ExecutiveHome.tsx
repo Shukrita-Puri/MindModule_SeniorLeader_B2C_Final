@@ -18,6 +18,7 @@ import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
+import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 
@@ -269,7 +270,7 @@ const ExecutiveHome = () => {
               <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
                 <SidebarDiscoveryPulse />
               </div>
-              <div data-tour="coach-access-wrap" className="p-2 -m-2 rounded-full">
+              <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
                 <div data-tour="coach-access"><CoachAccessButton /></div>
               </div>
             </header>
@@ -284,8 +285,10 @@ const ExecutiveHome = () => {
             </div>
           </div>
 
+          <CheckInBanner />
+
           {/* All sections stacked on one page */}
-          <div className="flex-1 w-full pb-8">
+          <div className="flex-1 w-full pb-[100px]">
 
             {/* STATE */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">

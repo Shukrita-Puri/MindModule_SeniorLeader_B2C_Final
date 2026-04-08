@@ -35,8 +35,6 @@ const FEATURES = [
   },
 ];
 
-const ACCENT_COLOR = "#F26A50";
-
 const SidebarDiscoveryPulse = () => {
   const navigate = useNavigate();
   const { state } = useSidebar();
@@ -45,8 +43,6 @@ const SidebarDiscoveryPulse = () => {
   });
   const [showDiscovery, setShowDiscovery] = useState(false);
   const [prevState, setPrevState] = useState(state);
-
-  const shouldPulse = openCount < PULSE_THRESHOLD;
 
   useEffect(() => {
     if (state === "expanded" && prevState === "collapsed") {
@@ -68,60 +64,9 @@ const SidebarDiscoveryPulse = () => {
 
   return (
     <>
-      <style>{`
-        @keyframes discovery-ping-1 {
-          0% {
-            transform: scale(1);
-            opacity: 0.9;
-          }
-          100% {
-            transform: scale(1.9);
-            opacity: 0;
-          }
-        }
-        @keyframes discovery-ping-2 {
-          0% {
-            transform: scale(1);
-            opacity: 0;
-          }
-          33% {
-            opacity: 0;
-            transform: scale(1);
-          }
-          33.1% {
-            opacity: 0.7;
-            transform: scale(1);
-          }
-          100% {
-            transform: scale(2.1);
-            opacity: 0;
-          }
-        }
-      `}</style>
-
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="relative">
-            {shouldPulse && (
-              <>
-                <span
-                  className="absolute rounded-full pointer-events-none"
-                  style={{
-                    inset: "-6px",
-                    animation: "discovery-ping-1 1.8s ease-out infinite",
-                    border: `2.5px solid ${ACCENT_COLOR}`,
-                  }}
-                />
-                <span
-                  className="absolute rounded-full pointer-events-none"
-                  style={{
-                    inset: "-6px",
-                    animation: "discovery-ping-2 1.8s ease-out infinite",
-                    border: `2.5px solid ${ACCENT_COLOR}`,
-                  }}
-                />
-              </>
-            )}
             <SidebarTrigger
               data-tour="sidebar-trigger"
               className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20 relative z-10"

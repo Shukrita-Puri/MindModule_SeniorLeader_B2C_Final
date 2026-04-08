@@ -77,6 +77,9 @@ const ScrollToTop = () => {
   return null;
 };
 
+import FloatingPillNav from "./components/navigation/FloatingPillNav";
+import FloatingCoachButton from "./components/navigation/FloatingCoachButton";
+
 // Simple layout wrapper with push notification handler
 const Layout = () => {
   return (
@@ -84,6 +87,8 @@ const Layout = () => {
       <ScrollToTop />
       <PushNotificationProvider />
       <PushNotificationActionHandler />
+      <FloatingPillNav />
+      <FloatingCoachButton />
       <Outlet />
     </AuthProvider>
   );
