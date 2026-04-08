@@ -67,7 +67,7 @@ const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const { recordStep } = useOnboardingProgress();
-  const [activeTab, setActiveTab] = useState<'state' | 'compass' | 'action'>('state');
+  
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
