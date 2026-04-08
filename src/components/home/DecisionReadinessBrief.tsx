@@ -225,8 +225,8 @@ function buildSignalChips(
   }
 
   // ── C×C chips ──
-  const clarity = outerBrief?.clarityLevel ?? energyState?.clarityLevel;
-  const confidence = outerBrief?.confidenceLevel ?? energyState?.confidenceLevel;
+  const clarity = outerBrief?.clarityLevel;
+  const confidence = outerBrief?.confidenceLevel;
   if (clarity != null) {
     if (clarity >= 4) chips.push({ id: 'clarity', label: 'Clarity strong', backLabel: `Clarity ${clarity}/5`, color: 'green' });
     else if (clarity <= 2) chips.push({ id: 'clarity', label: 'Clarity low', backLabel: `Clarity ${clarity}/5`, color: 'red' });
