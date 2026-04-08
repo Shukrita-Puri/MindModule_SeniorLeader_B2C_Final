@@ -286,7 +286,8 @@ function FlippableChip({ chip }: { chip: SignalChip }) {
       onClick={() => hasBack && setFlipped(!flipped)}
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
-        "bg-card border border-border/40",
+        "border",
+        chipBgColor(chip.color),
         hasBack && "cursor-pointer active:scale-95",
         !hasBack && "cursor-default"
       )}
