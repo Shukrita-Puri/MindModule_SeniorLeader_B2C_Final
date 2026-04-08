@@ -101,9 +101,10 @@ const DailyCheckIn = () => {
     // Dev/testing: ?tour=1 forces the guide regardless of DB state
     const params = new URLSearchParams(window.location.search);
     if (params.get('tour') === '1') {
+      const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
       sessionStorage.setItem('first_session_guide_step', '0');
       sessionStorage.setItem('first_session_guide_active', '1');
-      if (user?.id) sessionStorage.setItem('first_session_guide_user', user.id);
+      if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
       sessionStorage.removeItem('first_session_intro_seen');
       setShowGuide(true);
       return;
