@@ -2449,7 +2449,11 @@ serve(async (req) => {
               .gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]);
             if (dowCheckins && dowCheckins.length >= 4) {
               const today = new Date().getDay();
-              const sameDayCheckins = dowCheckins.filter(() => true); // simplified - all recent
+              // Filter to same day-of-week as today
+              const sameDayCheckins = dowCheckins.filter((c: any) => {
+                const d = new Date(c.checkin_date + 'T00:00:00');
+                return d.getDay() === today;
+              });
               const counts: Record<string, number> = {};
               for (const c of sameDayCheckins) { counts[c.outcome] = (counts[c.outcome] || 0) + 1; }
               const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
