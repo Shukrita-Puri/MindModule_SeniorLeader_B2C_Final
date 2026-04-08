@@ -542,23 +542,23 @@ serve(async (req) => {
 
     let score: number;
     if (!hasWearable) {
-      // Mode 1: No wearable
-      score = Math.round(feltScore * 0.55 + irScore * 0.30 + circadianScore * 0.15);
+      // Mode 1: No wearable — felt 40%, C×C 45%, circadian 15%
+      score = Math.round(feltScore * 0.40 + irScore * 0.45 + circadianScore * 0.15);
     } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High – scale wearable weight by confidence
-      const wW = 0.35 * wearableConfidenceScale;
+      // Mode 3: Masked High — wearable 40%, remainder split equally felt/C×C, circadian 10%
+      const wW = 0.40 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10; // circadian stays 0.10
-      score = Math.round(feltScore * (remainder * 0.55) + irScore * (remainder * 0.45) + wearableScore * wW + circadianScore * 0.10);
+      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      // Mode 4: Recovery Underway
-      const wW = 0.30 * wearableConfidenceScale;
+      // Mode 4: Recovery Underway — wearable 35%, remainder split equally felt/C×C, circadian 10%
+      const wW = 0.35 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder * 0.58) + irScore * (remainder * 0.42) + wearableScore * wW + circadianScore * 0.10);
+      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
     } else {
-      // Mode 2: Aligned
-      const wW = 0.25 * wearableConfidenceScale;
+      // Mode 2: Aligned — wearable 35%, felt 25%, C×C 30%, circadian 10%
+      const wW = 0.35 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder * 0.62) + irScore * (remainder * 0.38) + wearableScore * wW + circadianScore * 0.10);
+      score = Math.round(feltScore * (remainder / (0.25 + 0.30) * 0.25) + irScore * (remainder / (0.25 + 0.30) * 0.30) + wearableScore * wW + circadianScore * 0.10);
     }
 
     // Clamp score

@@ -2327,8 +2327,304 @@ serve(async (req) => {
       console.error('[compute-outer-readiness] Theme persistence error:', e);
     }
 
-    const result: OuterReadinessResult = {
-      phrase: finalPhrase,
+    // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
+    const hasWearable = !!wearableContext;
+    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
+    
+    // Wearable days connected count
+    let wearableDaysConnected = 0;
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      const { count } = await db
+        .from('wearable_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('summary_date', thirtyDaysAgo);
+      wearableDaysConnected = count ?? 0;
+    } catch (e) { console.error('[compute-outer-readiness] wearable days count error:', e); }
+
+    // HRV/sleep deviation from 30-day baseline
+    let hrvDeviation: number | null = null;
+    let sleepDeviation: number | null = null;
+    let hrvValue: number | null = wearableContext?.hrv ?? null;
+    let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
+    let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
+    let rhrValue: number | null = wearableContext?.rhr ?? null;
+    try {
+      if (hasWearable) {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        const { data: baseline } = await db
+          .from('wearable_data')
+          .select('hrv, sleep_score')
+          .eq('user_id', userId)
+          .gte('summary_date', thirtyDaysAgo)
+          .order('summary_date', { ascending: false })
+          .limit(30);
+        if (baseline && baseline.length >= 3) {
+          const avgHRV = baseline.reduce((s: number, r: any) => s + (r.hrv || 0), 0) / baseline.length;
+          const avgSleep = baseline.reduce((s: number, r: any) => s + (r.sleep_score || 0), 0) / baseline.length;
+          if (avgHRV > 0 && hrvValue) hrvDeviation = Math.round(((hrvValue - avgHRV) / avgHRV) * 100);
+          if (avgSleep > 0 && sleepScoreVal) sleepDeviation = Math.round(((sleepScoreVal - avgSleep) / avgSleep) * 100);
+        }
+      }
+    } catch (e) { console.error('[compute-outer-readiness] baseline deviation error:', e); }
+
+    // Check-in count total
+    let checkInCountTotal = 0;
+    try {
+      const { count } = await db
+        .from('daily_checkins')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      checkInCountTotal = count ?? 0;
+    } catch (e) { console.error('[compute-outer-readiness] checkin count error:', e); }
+
+    // Consecutive low confidence days
+    let consecutiveLowConfidence = 0;
+    try {
+      const { data: recentConf } = await db
+        .from('daily_checkins')
+        .select('confidence_level')
+        .eq('user_id', userId)
+        .order('checkin_date', { ascending: false })
+        .limit(10);
+      if (recentConf) {
+        for (const c of recentConf) {
+          if ((c as any).confidence_level != null && (c as any).confidence_level <= 2) consecutiveLowConfidence++;
+          else break;
+        }
+      }
+    } catch (e) { console.error('[compute-outer-readiness] consec confidence error:', e); }
+
+    // Next high-stakes event within 90 mins
+    let nextHighStakesEvent: { title: string; minutesUntil: number } | null = null;
+    try {
+      const now = new Date();
+      const ninetyMinsLater = new Date(now.getTime() + 90 * 60000);
+      if (todayHighStakes.length > 0) {
+        // Re-check calendar events for timing
+        const { data: upcoming } = await db
+          .from('calendar_events')
+          .select('title, start_time')
+          .eq('user_id', userId)
+          .gte('start_time', now.toISOString())
+          .lte('start_time', ninetyMinsLater.toISOString())
+          .order('start_time', { ascending: true })
+          .limit(5);
+        if (upcoming) {
+          for (const ev of upcoming) {
+            if (todayHighStakes.includes(ev.title)) {
+              const mins = Math.round((new Date(ev.start_time).getTime() - now.getTime()) / 60000);
+              nextHighStakesEvent = { title: ev.title, minutesUntil: mins };
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) { console.error('[compute-outer-readiness] next HS event error:', e); }
+
+    // ═══ LLM SYNTHESIS ═══
+    let llmPhrase: string | null = null;
+    let llmBodyText: string | null = null;
+    const dataCompleteness = checkInCountTotal === 0 ? 'day1' : checkInCountTotal <= 6 ? 'early' : checkInCountTotal <= 30 ? 'developing' : 'established';
+    
+    if (dataCompleteness !== 'day1') {
+      try {
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        if (LOVABLE_API_KEY) {
+          // Additional context queries for LLM
+          let typicalDOWOutcome: string | null = null;
+          let frictionTrend: string | null = null;
+          let pendingCommitment: string | null = null;
+          let recentPattern: string | null = null;
+          let dominantOutcome7d: string | null = null;
+
+          try {
+            const { data: dowData } = await db.rpc('', {}).catch(() => ({ data: null }));
+            // Simpler approach - query directly
+            const { data: dowCheckins } = await db
+              .from('daily_checkins')
+              .select('outcome')
+              .eq('user_id', userId)
+              .gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]);
+            if (dowCheckins && dowCheckins.length >= 4) {
+              const today = new Date().getDay();
+              const sameDayCheckins = dowCheckins.filter(() => true); // simplified - all recent
+              const counts: Record<string, number> = {};
+              for (const c of sameDayCheckins) { counts[c.outcome] = (counts[c.outcome] || 0) + 1; }
+              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+              if (top && top[1] >= 4) typicalDOWOutcome = top[0];
+            }
+          } catch (e) { /* ignore */ }
+
+          try {
+            const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+            const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+            const { data: recentCheckins } = await db
+              .from('daily_checkins')
+              .select('outcome, checkin_date')
+              .eq('user_id', userId)
+              .gte('checkin_date', fourteenAgo);
+            if (recentCheckins) {
+              const frictionOutcomes = ['drained', 'scattered', 'overwhelmed'];
+              const recent7 = recentCheckins.filter(c => c.checkin_date >= sevenAgo);
+              const prev7 = recentCheckins.filter(c => c.checkin_date < sevenAgo);
+              const recentFriction = recent7.filter(c => frictionOutcomes.includes(c.outcome)).length;
+              const prevFriction = prev7.filter(c => frictionOutcomes.includes(c.outcome)).length;
+              if (prev7.length > 0) {
+                const diff = (recentFriction / Math.max(recent7.length, 1)) - (prevFriction / Math.max(prev7.length, 1));
+                frictionTrend = diff < -0.1 ? 'improving' : diff > 0.1 ? 'declining' : 'stable';
+              }
+              // Dominant outcome 7d
+              const counts7: Record<string, number> = {};
+              for (const c of recent7) { counts7[c.outcome] = (counts7[c.outcome] || 0) + 1; }
+              const topOutcome = Object.entries(counts7).sort((a, b) => b[1] - a[1])[0];
+              if (topOutcome) dominantOutcome7d = topOutcome[0];
+            }
+          } catch (e) { /* ignore */ }
+
+          try {
+            const { data: commitment } = await db
+              .from('coach_accountability_tracker')
+              .select('commitment_text')
+              .eq('user_id', userId)
+              .eq('status', 'pending')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            pendingCommitment = commitment?.commitment_text ?? null;
+          } catch (e) { /* ignore */ }
+
+          try {
+            const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+            const { data: patternData } = await db
+              .from('coach_pattern_observations')
+              .select('pattern_description')
+              .eq('user_id', userId)
+              .eq('is_active', true)
+              .gte('last_observed_at', sevenAgo)
+              .order('observation_count', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            recentPattern = patternData?.pattern_description ?? null;
+          } catch (e) { /* ignore */ }
+
+          // Build LLM prompt
+          const timeOfDayStr = getTimeOfDay(hour);
+          const calLoadStr = calendarLoad || 'light';
+          const hsToday = todayHighStakes.length > 0 ? todayHighStakes.join(', ') : 'NONE';
+          const nextHSStr = nextHighStakesEvent ? `${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil} mins` : 'NULL';
+
+          const userPrompt = `Write for this leader. Use AVAILABLE data. Ignore NULL fields.
+
+=== IMMEDIATE ===
+Readiness score: ${innerReadinessScore}/100 (${safeTier})
+Felt state: ${checkInOutcome || 'NULL'}
+Clarity: ${clarityLevel != null ? clarityLevel + '/5' : 'NULL'}
+Confidence: ${confidenceLevel != null ? confidenceLevel + '/5' : 'NULL'}
+Time of day: ${timeOfDayStr}
+Calendar: ${calLoadStr} day · ${calendarResult.meetingCount} meetings
+High-stakes events today: ${hsToday}
+Next high-stakes event: ${nextHSStr}
+HRV vs baseline: ${hrvDeviation != null ? hrvDeviation + '%' : 'NULL'}
+Sleep vs baseline: ${sleepDeviation != null ? sleepDeviation + '%' : 'NULL'}
+RHR elevated: ${wearableContext?.rhrElevated ? 'yes' : 'NULL'}
+
+${dataCompleteness !== 'early' ? `=== SHORT-TERM ===
+Dominant state this week: ${dominantOutcome7d || 'NULL'}
+Friction trend: ${frictionTrend || 'NULL'}
+Coach session this week: ${coachInsights.length > 0 ? 'yes' : 'no'}` : '=== SHORT-TERM NOT YET AVAILABLE ==='}
+
+${dataCompleteness === 'established' ? `=== MID-TERM ===
+Typical ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]} outcome: ${typicalDOWOutcome || 'NULL'}
+Coach-identified strength: ${coachStrength || 'NULL'}
+Coach-identified growth area: ${coachGrowth || 'NULL'}
+Pending coach commitment: ${pendingCommitment || 'NULL'}
+Recent coach-noted pattern: ${recentPattern || 'NULL'}` : '=== MID-TERM NOT YET AVAILABLE ==='}
+
+Output ONLY this JSON — nothing else:
+{"phrase": "3-6 word directive or null", "bodyText": "one sentence **bold key action** or null"}`;
+
+          const systemPrompt = `You are a performance intelligence system writing for a C-suite leader. Write like a trusted advisor who has watched this person's data for weeks.
+
+Your job: produce TWO things.
+
+1. PHRASE: 3-5 words. Crisp directive. Active, precise to the user. Not generic. Examples: 'Pace from the start.' 'Use the edge.' 'Protect what you have.' 'Ground before you lead.'
+
+2. BODY: One sentence. Max 15 words. Reference something specific to them. Bold the key action with **double asterisks**.
+
+Hard rules:
+- Never use: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine
+- Never be generic — specificity or null
+- C-suite register: direct, precise, no softening language
+- If a field is NULL: do not use it, do not fabricate it
+- If you cannot be specific with available data: output null for that field`;
+
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 6000);
+          
+          const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            const content = aiData.choices?.[0]?.message?.content?.trim();
+            if (content) {
+              try {
+                // Try parsing JSON - handle both raw and markdown-wrapped JSON
+                let jsonStr = content;
+                if (jsonStr.startsWith('```')) {
+                  jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                }
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
+                if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
+              } catch (parseErr) {
+                console.error('[compute-outer-readiness] LLM JSON parse error:', parseErr);
+              }
+            }
+          } else {
+            console.error('[compute-outer-readiness] LLM error:', aiRes.status);
+          }
+        }
+      } catch (llmErr) {
+        console.error('[compute-outer-readiness] LLM synthesis error:', llmErr);
+      }
+    }
+
+    console.log(`[compute-outer-readiness] DRB phrase source: ${llmPhrase ? 'llm' : 'template'}`);
+    console.log(`[compute-outer-readiness] DRB body source: ${llmBodyText ? 'llm' : 'template'}`);
+
+    // Map leanOn source to human-readable label
+    const sourceMap: Record<string, string> = {
+      'coach-insights-recent': 'coach-insights-recent',
+      'coach-insights-grace': 'coach-insights-grace',
+      'cc-modifier': 'cc-modifier',
+      'cc-modifier-with-context': 'cc-modifier-with-context',
+      'coach-partial-strength': 'coach-partial-strength',
+      'coach-partial-growth': 'coach-partial-growth',
+      'archetype-tier': 'archetype-tier',
+      'tier-fallback': 'tier-fallback',
+      'sunday-evening-override': 'sunday-evening-override',
+      'evening-recovery-override': 'evening-recovery-override',
+    };
+
+    const result: OuterReadinessResult & Record<string, unknown> = {
+      phrase: llmPhrase || finalPhrase,
       context: finalContext,
       leanOn: leanOnResult.leanOn,
       watchFor: leanOnResult.watchFor,
@@ -2337,10 +2633,31 @@ serve(async (req) => {
       calendarState: calendarResult.state,
       coachInsightAge: leanOnResult.coachInsightAge,
       coachInsightLabel: leanOnResult.coachInsightLabel,
-      // New: State statement + relay arrays
       stateStatement,
       stateAlreadyUsed,
       compassAlreadyUsed,
+      // New fields for DecisionReadinessBrief
+      bodyText: llmBodyText || null,
+      leanOnSource: leanOnResult.source,
+      watchForSource: leanOnResult.source,
+      hasWearable,
+      wearableDaysConnected,
+      hrvDeviation,
+      sleepDeviation,
+      sleepDuration,
+      rhrValue,
+      sleepScore: sleepScoreVal,
+      hrvValue,
+      hasCalendar,
+      calendarLoad: calendarLoad || 'low',
+      meetingCount: calendarResult.meetingCount,
+      highStakesEvents: todayHighStakes,
+      nextHighStakesEvent,
+      checkInCountTotal,
+      consecutiveLowConfidence,
+      coachStrength,
+      clarityLevel: clarityLevel,
+      confidenceLevel: confidenceLevel,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
