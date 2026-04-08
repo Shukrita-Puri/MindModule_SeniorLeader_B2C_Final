@@ -24,7 +24,7 @@ const FloatingPillNav = () => {
       }}
     >
       <div
-        className="flex items-center bg-white/15 backdrop-blur-md border border-white/40"
+        className="flex items-center bg-black/30 backdrop-blur-xl border border-white/15"
         style={{
           borderRadius: 30,
           padding: '10px 28px',

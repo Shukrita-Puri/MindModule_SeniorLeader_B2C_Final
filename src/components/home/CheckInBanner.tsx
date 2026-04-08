@@ -40,18 +40,14 @@ const CheckInBanner = () => {
 
   return (
     <div
-      className="mx-4 my-2 flex items-center justify-between rounded-lg px-3 py-2"
-      style={{
-        background: '#fff8ed',
-        border: '0.5px solid #f5d5b8',
-      }}
+      className="mx-4 my-2 flex items-center justify-between rounded-xl px-4 py-3 bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
     >
       <div className="flex items-center gap-1.5">
         <span
-          className="shrink-0 rounded-full"
-          style={{ width: 6, height: 6, background: ACCENT }}
+          className="shrink-0 rounded-full bg-muted-foreground/50"
+          style={{ width: 6, height: 6 }}
         />
-        <span className="text-[11px] font-body" style={{ color: ACCENT }}>
+        <span className="text-[11px] font-body text-foreground/70">
           Check in to sharpen your brief
         </span>
       </div>
@@ -70,8 +66,7 @@ const CheckInBanner = () => {
         </button>
         <button
           onClick={() => setDismissed(true)}
-          className="text-sm leading-none"
-          style={{ color: ACCENT, opacity: 0.6 }}
+          className="text-sm leading-none text-muted-foreground/60"
         >
           <X size={14} />
         </button>
