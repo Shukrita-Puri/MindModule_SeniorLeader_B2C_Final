@@ -59,11 +59,6 @@ interface PreEventPlan {
   progressTracked: boolean;
 }
 
-const TAB_LABELS = [
-  { key: 'state' as const, label: 'State' },
-  { key: 'compass' as const, label: 'Compass' },
-  { key: 'action' as const, label: 'Action' },
-];
 
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
