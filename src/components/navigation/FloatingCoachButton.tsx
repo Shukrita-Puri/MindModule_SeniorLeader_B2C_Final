@@ -1,18 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { ChatCircle } from '@phosphor-icons/react';
 
-const ACCENT = '#F26A50';
-
 const FloatingCoachButton = () => {
   const navigate = useNavigate();
 
   return (
     <>
       <style>{`
-        @keyframes coach-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(242,106,80,0.35); }
-          70% { box-shadow: 0 0 0 8px rgba(242,106,80,0); }
-          100% { box-shadow: 0 0 0 0 rgba(242,106,80,0); }
+        @keyframes coach-sonar {
+          0% { box-shadow: 0 0 0 0 rgba(242,106,80,0.4), 0 0 0 0 rgba(242,106,80,0.2); }
+          50% { box-shadow: 0 0 0 6px rgba(242,106,80,0), 0 0 0 12px rgba(242,106,80,0); }
+          100% { box-shadow: 0 0 0 0 rgba(242,106,80,0.4), 0 0 0 0 rgba(242,106,80,0.2); }
         }
       `}</style>
       <button
@@ -27,14 +25,13 @@ const FloatingCoachButton = () => {
             },
           })
         }
-        className="fixed z-[200] sm:hidden flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm"
+        className="fixed z-[200] sm:hidden flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20"
         style={{
           right: 16,
           bottom: 84,
           width: 48,
           height: 48,
-          border: `2px solid ${ACCENT}`,
-          animation: 'coach-pulse 2.5s infinite',
+          animation: 'coach-sonar 2.5s infinite',
         }}
       >
         <ChatCircle size={24} weight="duotone" className="text-saffron" />

@@ -279,12 +279,12 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[132px]">
+    <div className="min-h-screen flex flex-col bg-background pt-14 pb-[160px]">
       <FloatingNavigation showCoachButton={false} />
 
       {/* Already checked in banner */}
       {alreadyCheckedIn && (
-        <div className="mx-4 mt-4 p-4 rounded-xl bg-muted border border-border text-center space-y-3">
+        <div className="mx-4 mt-2 p-3 rounded-xl bg-muted border border-border text-center space-y-2">
           <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
           <div className="flex gap-3 justify-center">
             <button
@@ -302,25 +302,25 @@ const DailyCheckIn = () => {
           </div>
         </div>
       )}
-      {/* Hero Banner */}
-      <div className="relative h-auto py-8 overflow-hidden">
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-[28px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
-            Performance Readiness Assessment
+      {/* Hero Banner – compact for single-fold */}
+      <div className="relative py-4 overflow-hidden">
+        <div className="flex flex-col items-center justify-center px-4 text-center space-y-1">
+          <h1 className="text-[24px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
+            Performance Readiness
           </h1>
-          <p className="text-[11px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>
+          <p className="text-[10px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col px-4 pb-32 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-sm text-muted-foreground/70 font-body mb-4 tracking-wide text-center">
+        <p className="text-xs text-muted-foreground/70 font-body mb-3 tracking-wide text-center">
           Select your current state
         </p>
 
-        {/* Vertical state list */}
-        <div data-tour="check-in-carousel" className="flex flex-col gap-3 w-full">
+        {/* Vertical state list – compact gaps */}
+        <div data-tour="check-in-carousel" className="flex flex-col gap-2 w-full">
           {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -333,7 +333,7 @@ const DailyCheckIn = () => {
                 <div
                   className={`
                     w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
-                    flex items-center gap-4 px-5 py-4
+                    flex items-center gap-3 px-4 py-3
                     border backdrop-blur-sm cursor-pointer
                     transition-all duration-200
                     ${isSelected
@@ -341,14 +341,14 @@ const DailyCheckIn = () => {
                       : 'border-white/20 opacity-70 hover:opacity-85'}
                   `}
                 >
-                  <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
-                    <IconComponent className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
+                    <IconComponent className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="text-[15px] font-medium font-headline text-white tracking-tight">
+                    <h3 className="text-[14px] font-medium font-headline text-white tracking-tight leading-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-[12px] text-white/70 font-body italic">
+                    <p className="text-[11px] text-white/70 font-body italic">
                       {outcome.subtitle}
                     </p>
                   </div>
@@ -359,16 +359,16 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      {/* Sticky bottom CTA */}
-      <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
+      {/* Sticky bottom CTA – sits above pill nav */}
+      <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
             className={`
-              w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
+              w-full py-3.5 rounded-xl font-body text-[15px] font-medium tracking-wide
               transition-all duration-200
               ${selectedOutcome
                 ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'

@@ -11,9 +11,12 @@ interface FloatingNavigationProps {
   rightContent?: React.ReactNode;
 }
 
+// Coach button removed from top-right by default across the entire app.
+// The floating coach FAB is the single entry point for coach access.
+
 const FloatingNavigation = ({
   backPath = '/executive-home',
-  showCoachButton = true,
+  showCoachButton = false,
   centerContent,
   rightContent
 }: FloatingNavigationProps) => {
