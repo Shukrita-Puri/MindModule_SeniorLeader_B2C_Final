@@ -16,7 +16,7 @@ import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
-import DecisionReadinessBrief from "@/components/home/DecisionReadinessBrief";
+import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
