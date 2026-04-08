@@ -35,7 +35,7 @@ const FEATURES = [
   },
 ];
 
-const ACCENT_COLOR = "#FF8C42";
+const ACCENT_COLOR = "#F26A50";
 
 const SidebarDiscoveryPulse = () => {
   const navigate = useNavigate();

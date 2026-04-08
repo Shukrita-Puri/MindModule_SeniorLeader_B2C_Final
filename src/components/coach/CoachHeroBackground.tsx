@@ -11,7 +11,7 @@ const CoachHeroBackground = ({ className }: CoachHeroBackgroundProps) => {
       <div className="absolute inset-0 bg-gradient-to-b from-saffron/5 via-taupe/3 to-transparent" />
       
       {/* Subtle radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,140,66,0.08)_0%,transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(242,106,80,0.08)_0%,transparent_60%)]" />
       
       {/* Large transparent text - positioned behind content */}
       <div className="absolute inset-0 flex flex-col items-center justify-start pt-20 select-none">
@@ -46,12 +46,12 @@ const CoachHeroBackground = ({ className }: CoachHeroBackgroundProps) => {
           className={cn(
             "font-headline font-extrabold uppercase tracking-[-0.02em] leading-[0.85]",
             "text-transparent bg-clip-text",
-            "[-webkit-text-stroke:1px_rgba(255,140,66,0.15)]",
+            "[-webkit-text-stroke:1px_rgba(242,106,80,0.15)]",
             "text-[18vw] sm:text-[15vw] md:text-[12vw]",
             "-mt-2 sm:-mt-4"
           )}
           style={{
-            WebkitTextStroke: '1px rgba(255, 140, 66, 0.15)',
+            WebkitTextStroke: '1px rgba(242, 106, 80, 0.15)',
           }}
         >
           COACH

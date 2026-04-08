@@ -38,7 +38,7 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
       {/* Top glass highlight */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       {/* Subtle saffron glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,140,66,0.05)_0%,transparent_50%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(242,106,80,0.05)_0%,transparent_50%)] pointer-events-none" />
       
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
