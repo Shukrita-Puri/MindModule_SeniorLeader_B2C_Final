@@ -463,7 +463,7 @@ export default function Stage7ContextConnection() {
             className="w-full rounded-2xl"
             disabled={loading}
           >
-            Continue
+            Take me to App Tour
           </Button>
         </div>
       </div>

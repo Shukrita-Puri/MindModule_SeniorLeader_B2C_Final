@@ -86,6 +86,17 @@ const ExecutiveHome = () => {
     }
 
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+
+    if (DEV_MODE) {
+      const isActiveForUser =
+        sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+        sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+      const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+
+      if (!cancelled) setShowGuide(isActiveForUser || isRetakeForUser);
+      return;
+    }
+
     getAuthToken().then(async (token) => {
       if (!token) return;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;

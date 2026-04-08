@@ -115,8 +115,27 @@ const DailyCheckIn = () => {
       return;
     }
 
-    // Check DB: only show if onboarding complete AND walkthrough never completed
+    // In dev mode, don't call backend eligibility checks with a non-JWT token.
+    // Start the guide locally for the dev user unless it was explicitly completed in-session.
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+
+    if (DEV_MODE) {
+      const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+      const isActiveForUser =
+        sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+        sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+
+      if (!isActiveForUser || isRetakeForUser) {
+        sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
+        sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
+        if (effectiveId) sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, effectiveId);
+      }
+
+      if (!cancelled) setShowGuide(true);
+      return;
+    }
+
+    // Check DB: only show if onboarding complete AND walkthrough never completed
     getAuthToken().then(async (token) => {
       if (!token) return;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
