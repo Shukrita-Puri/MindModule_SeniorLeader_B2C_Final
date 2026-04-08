@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { useAuth } from '@/hooks/useAuth';
 
+const ACCENT = '#F26A50';
+
 const CheckInBanner = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -47,9 +49,9 @@ const CheckInBanner = () => {
       <div className="flex items-center gap-1.5">
         <span
           className="shrink-0 rounded-full"
-          style={{ width: 6, height: 6, background: '#E87A2F' }}
+          style={{ width: 6, height: 6, background: ACCENT }}
         />
-        <span className="text-[11px] font-body" style={{ color: '#E87A2F' }}>
+        <span className="text-[11px] font-body" style={{ color: ACCENT }}>
           Check in to sharpen your brief
         </span>
       </div>
@@ -59,7 +61,7 @@ const CheckInBanner = () => {
           onClick={() => navigate('/daily-check-in')}
           className="rounded-md text-[10px] font-medium text-white"
           style={{
-            background: '#E87A2F',
+            background: ACCENT,
             padding: '4px 10px',
             borderRadius: 6,
           }}
@@ -69,7 +71,7 @@ const CheckInBanner = () => {
         <button
           onClick={() => setDismissed(true)}
           className="text-sm leading-none"
-          style={{ color: '#E87A2F', opacity: 0.6 }}
+          style={{ color: ACCENT, opacity: 0.6 }}
         >
           <X size={14} />
         </button>

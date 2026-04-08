@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ChatCircle } from '@phosphor-icons/react';
 
-const ACCENT = '#E87A2F';
+const ACCENT = '#F26A50';
 
 const FloatingCoachButton = () => {
   const navigate = useNavigate();
@@ -10,9 +10,9 @@ const FloatingCoachButton = () => {
     <>
       <style>{`
         @keyframes coach-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(232,122,47,0.35); }
-          70% { box-shadow: 0 0 0 8px rgba(232,122,47,0); }
-          100% { box-shadow: 0 0 0 0 rgba(232,122,47,0); }
+          0% { box-shadow: 0 0 0 0 rgba(242,106,80,0.35); }
+          70% { box-shadow: 0 0 0 8px rgba(242,106,80,0); }
+          100% { box-shadow: 0 0 0 0 rgba(242,106,80,0); }
         }
       `}</style>
       <button
@@ -37,7 +37,7 @@ const FloatingCoachButton = () => {
           animation: 'coach-pulse 2.5s infinite',
         }}
       >
-        <ChatCircle size={22} weight="duotone" className="text-saffron" />
+        <ChatCircle size={24} weight="duotone" className="text-saffron" />
       </button>
     </>
   );
