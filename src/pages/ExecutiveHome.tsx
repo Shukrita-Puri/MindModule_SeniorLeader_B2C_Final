@@ -313,7 +313,7 @@ const ExecutiveHome = () => {
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <DecisionReadinessBrief />
+                <PerformanceReadinessBrief />
               </section>
             </div>
 

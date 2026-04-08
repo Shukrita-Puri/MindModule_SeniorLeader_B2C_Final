@@ -560,4 +560,4 @@ const PerformanceReadinessBrief = () => {
   );
 };
 
-export default DecisionReadinessBrief;
+export default PerformanceReadinessBrief;
