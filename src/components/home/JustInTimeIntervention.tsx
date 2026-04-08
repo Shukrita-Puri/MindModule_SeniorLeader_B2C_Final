@@ -553,7 +553,7 @@ const JustInTimeIntervention = () => {
           {/* Action */}
           <Button 
             onClick={handleStartReset}
-            className="w-full h-11 text-sm font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
+            className="w-full h-11 text-sm font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(242,106,80,0.25)]"
           >
             Start Reset
           </Button>

@@ -46,12 +46,12 @@ const CoachHeroBackground = ({ className }: CoachHeroBackgroundProps) => {
           className={cn(
             "font-headline font-extrabold uppercase tracking-[-0.02em] leading-[0.85]",
             "text-transparent bg-clip-text",
-            "[-webkit-text-stroke:1px_rgba(255,140,66,0.15)]",
+            "[-webkit-text-stroke:1px_rgba(242,106,80,0.15)]",
             "text-[18vw] sm:text-[15vw] md:text-[12vw]",
             "-mt-2 sm:-mt-4"
           )}
           style={{
-            WebkitTextStroke: '1px rgba(255, 140, 66, 0.15)',
+            WebkitTextStroke: '1px rgba(242, 106, 80, 0.15)',
           }}
         >
           COACH

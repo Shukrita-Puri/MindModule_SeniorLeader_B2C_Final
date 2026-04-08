@@ -57,7 +57,7 @@ const ProgressiveUnlockMessage = ({
             className={cn(
               "w-2.5 h-2.5 rounded-full transition-all",
               i < currentCount 
-                ? "bg-saffron shadow-[0_0_8px_rgba(255,140,66,0.4)]" 
+                ? "bg-saffron shadow-[0_0_8px_rgba(242,106,80,0.4)]" 
                 : "bg-muted-foreground/20"
             )}
           />
