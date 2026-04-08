@@ -93,12 +93,6 @@ export async function verifyAuth0JWT(authHeader: string | null, req?: Request): 
   const token = authHeader.replace('Bearer ', '');
   const rawDomain = Deno.env.get('VITE_AUTH0_DOMAIN');
   if (!rawDomain) throw new Error('VITE_AUTH0_DOMAIN not configured');
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid Authorization header');
-  }
-
-  const token = authHeader.replace('Bearer ', '');
   const domain = sanitizeDomain(rawDomain);
 
   try {
