@@ -65,6 +65,15 @@ const chipDotColor = (color: SignalChip['color']) => {
   }
 };
 
+const chipBgColor = (color: SignalChip['color']) => {
+  switch (color) {
+    case 'red': return 'bg-red-500/8 border-red-500/15';
+    case 'amber': return 'bg-amber-500/8 border-amber-500/15';
+    case 'green': return 'bg-emerald-500/8 border-emerald-500/15';
+    default: return 'bg-muted/50 border-border/30';
+  }
+};
+
 // Map leanOnSource keys to human-readable source labels
 const getSourceLabel = (source: string | undefined): string => {
   if (!source) return '';
