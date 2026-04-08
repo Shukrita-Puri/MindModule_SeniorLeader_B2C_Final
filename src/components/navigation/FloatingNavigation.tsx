@@ -16,7 +16,7 @@ interface FloatingNavigationProps {
 
 const FloatingNavigation = ({
   backPath = '/executive-home',
-  showCoachButton = true,
+  showCoachButton = false,
   centerContent,
   rightContent
 }: FloatingNavigationProps) => {
