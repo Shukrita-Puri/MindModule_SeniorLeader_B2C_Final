@@ -269,7 +269,7 @@ const ExecutiveHome = () => {
               <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
                 <SidebarDiscoveryPulse />
               </div>
-              <div data-tour="coach-access-wrap" className="p-2 -m-2 rounded-full">
+              <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
                 <div data-tour="coach-access"><CoachAccessButton /></div>
               </div>
             </header>
