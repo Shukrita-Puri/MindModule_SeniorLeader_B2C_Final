@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { DEV_MODE } from "@/config/devMode";
 import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
