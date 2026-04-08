@@ -70,7 +70,7 @@ serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
+    const userId = await verifyAuth0JWT(req);
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     const now = new Date();

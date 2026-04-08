@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const userId = await verifyAuth0JWT(req);
     const { reason, reasonDetails, immediate } = await req.json();
 
     const stripeConfig = getStripeConfig();

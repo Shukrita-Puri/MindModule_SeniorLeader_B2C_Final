@@ -162,7 +162,7 @@ serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
+    const userId = await verifyAuth0JWT(req);
 
     const { days = 30 } = await req.json().catch(() => ({}));
 

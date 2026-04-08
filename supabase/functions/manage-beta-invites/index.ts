@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
   try {
     // Verify caller is authenticated
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const userId = await verifyAuth0JWT(req);
 
     // Simple admin check: userId must be in ADMIN_SUBS_CSV
     const adminCsv = Deno.env.get('ADMIN_SUBS_CSV') || '';

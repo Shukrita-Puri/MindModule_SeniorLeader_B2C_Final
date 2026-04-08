@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
   try {
     // Auth – shared JWT verification
     const tAuth = Date.now();
-    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
+    const userId = await verifyAuth0JWT(req);
     stepTimer("auth", tAuth);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
