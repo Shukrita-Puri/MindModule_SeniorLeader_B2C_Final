@@ -271,7 +271,7 @@ export default function Stage7ContextConnection() {
       completed: true,
     });
 
-    if (import.meta.env.DEV || (await import("@/config/devMode")).DEV_MODE) {
+    if (DEV_MODE) {
       navigate("/daily-check-in?tour=1");
       return;
     }
