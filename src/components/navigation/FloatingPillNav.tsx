@@ -1,8 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { House, Sparkles, TrendingUp } from 'lucide-react';
 
-const ACTIVE_COLOR = '#F26A50';
-const INACTIVE_COLOR = '#8B7E74';
+const ICON_COLOR = '#8B7E74';
 
 const TABS = [
   { icon: House, label: 'Today', path: '/executive-home' },
@@ -27,22 +26,27 @@ const FloatingPillNav = () => {
         className="flex items-center bg-black/30 backdrop-blur-xl border border-white/15"
         style={{
           borderRadius: 30,
-          padding: '10px 28px',
-          gap: 36,
+          padding: '8px 20px',
+          gap: 8,
           minWidth: 240,
         }}
       >
         {TABS.map((tab) => {
           const isActive = pathname === tab.path || pathname.startsWith(tab.path + '/');
-          const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
           return (
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="flex flex-col items-center gap-0.5"
+              className="flex flex-col items-center gap-0.5 relative"
+              style={{
+                padding: '6px 16px',
+                borderRadius: 20,
+                background: isActive ? 'rgba(242,106,80,0.2)' : 'transparent',
+                transition: 'background 0.2s ease',
+              }}
             >
-              <tab.icon size={20} style={{ color }} />
-              <span className="font-body" style={{ fontSize: 9, color }}>
+              <tab.icon size={20} style={{ color: ICON_COLOR }} />
+              <span className="font-body" style={{ fontSize: 9, color: ICON_COLOR }}>
                 {tab.label}
               </span>
             </button>

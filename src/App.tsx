@@ -80,15 +80,21 @@ const ScrollToTop = () => {
 import FloatingPillNav from "./components/navigation/FloatingPillNav";
 import FloatingCoachButton from "./components/navigation/FloatingCoachButton";
 
+// Pages where coach FAB should be hidden (check-in flow)
+const COACH_HIDDEN_ROUTES = ['/daily-check-in', '/check-in-detail'];
+
 // Simple layout wrapper with push notification handler
 const Layout = () => {
+  const { pathname } = useLocation();
+  const hideCoach = COACH_HIDDEN_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
+
   return (
     <AuthProvider>
       <ScrollToTop />
       <PushNotificationProvider />
       <PushNotificationActionHandler />
       <FloatingPillNav />
-      <FloatingCoachButton />
+      {!hideCoach && <FloatingCoachButton />}
       <Outlet />
     </AuthProvider>
   );

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { useAuth } from '@/hooks/useAuth';
@@ -39,38 +38,14 @@ const CheckInBanner = () => {
   if (dismissed || hasCheckinToday === null || hasCheckinToday) return null;
 
   return (
-    <div
-      className="mx-4 my-2 flex items-center justify-between rounded-xl px-4 py-3 bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
-    >
-      <div className="flex items-center gap-1.5">
-        <span
-          className="shrink-0 rounded-full bg-muted-foreground/50"
-          style={{ width: 6, height: 6 }}
-        />
-        <span className="text-[11px] font-body text-foreground/70">
-          Check in to sharpen your brief
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => navigate('/daily-check-in')}
-          className="rounded-md text-[10px] font-medium text-white"
-          style={{
-            background: ACCENT,
-            padding: '4px 10px',
-            borderRadius: 6,
-          }}
-        >
-          Check in
-        </button>
-        <button
-          onClick={() => setDismissed(true)}
-          className="text-sm leading-none text-muted-foreground/60"
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <div className="mx-4 my-2">
+      <button
+        onClick={() => navigate('/daily-check-in')}
+        className="w-full rounded-xl py-3 px-5 text-[13px] font-medium font-body text-white tracking-wide transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+        style={{ background: ACCENT }}
+      >
+        Check in to sharpen your brief
+      </button>
     </div>
   );
 };

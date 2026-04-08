@@ -163,7 +163,7 @@ const CheckInDetail = () => {
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
+      <div className="fixed bottom-0 left-0 right-0 z-[200] px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background to-background/0">
         <div className="max-w-md mx-auto">
           <button
             onClick={handleSave}
@@ -174,7 +174,7 @@ const CheckInDetail = () => {
                 : 'bg-muted text-foreground/60 cursor-not-allowed'
             }`}
           >
-            {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
+            {saving ? 'Saving...' : "Continue to Today's Performance"}
           </button>
         </div>
       </div>
