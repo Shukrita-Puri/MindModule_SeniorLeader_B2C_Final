@@ -11,7 +11,7 @@ const CoachHeroBackground = ({ className }: CoachHeroBackgroundProps) => {
       <div className="absolute inset-0 bg-gradient-to-b from-saffron/5 via-taupe/3 to-transparent" />
       
       {/* Subtle radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,140,66,0.08)_0%,transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(242,106,80,0.08)_0%,transparent_60%)]" />
       
       {/* Large transparent text - positioned behind content */}
       <div className="absolute inset-0 flex flex-col items-center justify-start pt-20 select-none">
