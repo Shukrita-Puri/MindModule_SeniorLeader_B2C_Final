@@ -120,10 +120,16 @@ const DailyCheckIn = () => {
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
 
     if (DEV_MODE) {
+      const tourDone = sessionStorage.getItem('first_session_guide_done') === '1';
       const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
       const isActiveForUser =
         sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
         sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+
+      if (tourDone && !isRetakeForUser) {
+        if (!cancelled) setShowGuide(false);
+        return;
+      }
 
       if (!isActiveForUser || isRetakeForUser) {
         sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');

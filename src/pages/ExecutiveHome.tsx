@@ -88,10 +88,16 @@ const ExecutiveHome = () => {
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
 
     if (DEV_MODE) {
+      const tourDone = sessionStorage.getItem('first_session_guide_done') === '1';
       const isActiveForUser =
         sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
         sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
       const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+
+      if (tourDone && !isRetakeForUser) {
+        if (!cancelled) setShowGuide(false);
+        return;
+      }
 
       if (!cancelled) setShowGuide(isActiveForUser || isRetakeForUser);
       return;
