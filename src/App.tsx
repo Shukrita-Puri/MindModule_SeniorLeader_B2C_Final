@@ -81,7 +81,7 @@ import FloatingPillNav from "./components/navigation/FloatingPillNav";
 import FloatingCoachButton from "./components/navigation/FloatingCoachButton";
 
 // Pages where coach FAB should be hidden (check-in flow)
-const COACH_HIDDEN_ROUTES = ['/daily-check-in', '/check-in-detail'];
+const COACH_HIDDEN_ROUTES = ['/daily-check-in', '/check-in-detail', '/onboarding', '/signup', '/login', '/callback', '/join'];
 
 // Bottom pill nav is only shown on core app destinations after the executive home entry point.
 const PILL_NAV_VISIBLE_ROUTES = [

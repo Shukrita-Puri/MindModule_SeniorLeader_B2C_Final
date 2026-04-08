@@ -108,7 +108,7 @@ const DailyCheckIn = () => {
       return;
     }
 
-    if (!user?.id || !user?.onboarding_completed_at) {
+    if (!user?.id || (!DEV_MODE && !user?.onboarding_completed_at)) {
       setShowGuide(false);
       return;
     }
