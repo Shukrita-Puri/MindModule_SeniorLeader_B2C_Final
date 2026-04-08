@@ -1,5 +1,5 @@
 /**
- * DecisionReadinessBrief – unified card replacing TodayStateCard + StrategicIntentionCard
+ * PerformanceReadinessBrief – unified card replacing TodayStateCard + StrategicIntentionCard
  * Variant A only: interpretation chips with tap-to-flip number reveal.
  */
 
