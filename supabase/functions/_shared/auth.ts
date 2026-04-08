@@ -78,9 +78,20 @@ function recordUserinfoSuccess(): void {
  * Returns the Auth0 user ID (sub claim).
  * Throws on invalid/missing token.
  */
-export async function verifyAuth0JWT(authHeader: string | null, req?: Request): Promise<string> {
+export async function verifyAuth0JWT(authHeaderOrReq: string | Request | null, req?: Request): Promise<string> {
+  // Resolve authHeader and request object from flexible args
+  let authHeader: string | null;
+  let request: Request | undefined;
+  if (authHeaderOrReq instanceof Request) {
+    authHeader = authHeaderOrReq.headers.get('Authorization');
+    request = authHeaderOrReq;
+  } else {
+    authHeader = authHeaderOrReq;
+    request = req;
+  }
+
   // ── Dev bypass: accept x-dev-user-id header (skips Auth0 entirely) ──
-  const devUserId = req?.headers.get('x-dev-user-id');
+  const devUserId = request?.headers.get('x-dev-user-id');
   if (devUserId) {
     console.log(`[shared/auth] DEV BYPASS – using x-dev-user-id: ${devUserId}`);
     return devUserId;
