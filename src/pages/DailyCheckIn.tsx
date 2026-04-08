@@ -359,16 +359,16 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      {/* Sticky bottom CTA */}
-      <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
+      {/* Sticky bottom CTA – sits above pill nav */}
+      <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
             className={`
-              w-full py-4 rounded-xl font-body text-[15px] font-medium tracking-wide
+              w-full py-3.5 rounded-xl font-body text-[15px] font-medium tracking-wide
               transition-all duration-200
               ${selectedOutcome
                 ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'

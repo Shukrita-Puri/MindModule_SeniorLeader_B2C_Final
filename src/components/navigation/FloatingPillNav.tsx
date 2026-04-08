@@ -21,7 +21,7 @@ const FloatingPillNav = () => {
       }}
     >
       <div
-        className="flex items-center border border-background/15 bg-foreground/70 backdrop-blur-2xl shadow-2xl"
+        className="flex items-center border border-white/10 bg-black/70 backdrop-blur-2xl shadow-2xl"
         style={{
           borderRadius: 999,
           padding: '6px 10px',
@@ -37,7 +37,7 @@ const FloatingPillNav = () => {
               onClick={() => navigate(tab.path)}
               className={`relative flex min-w-[72px] flex-col items-center gap-0.5 rounded-full px-4 py-2 transition-all duration-200 ${
                 isActive
-                  ? 'bg-background/18 shadow-[inset_0_1px_0_hsl(var(--background)/0.35)]'
+                  ? 'bg-white/15'
                   : 'bg-transparent'
               }`}
               style={{
@@ -46,11 +46,11 @@ const FloatingPillNav = () => {
             >
               <tab.icon
                 size={19}
-                className={isActive ? 'text-primary-foreground' : 'text-primary-foreground/90'}
+                className="text-white"
               />
               <span
-                className={`font-body text-[9px] tracking-[0.01em] ${
-                  isActive ? 'text-primary-foreground' : 'text-primary-foreground/80'
+                className={`font-body text-[9px] tracking-[0.01em] text-white ${
+                  isActive ? 'opacity-100' : 'opacity-70'
                 }`}
               >
                 {tab.label}
