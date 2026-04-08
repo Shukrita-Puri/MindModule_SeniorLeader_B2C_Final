@@ -41,7 +41,7 @@ const CheckInBanner = () => {
     <div className="mx-4 my-2">
       <button
         onClick={() => navigate('/daily-check-in')}
-        className="w-full rounded-xl py-3 px-5 text-[13px] font-medium font-body text-white tracking-wide transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
+        className="w-full rounded-xl py-3 px-5 text-[15px] font-medium font-body text-white tracking-wide transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
         style={{ background: ACCENT }}
       >
         Check in to sharpen your brief
