@@ -36,8 +36,8 @@ const slides: Slide[] = [
   },
 ];
 
-// Total dots: intro + 3 USP slides = 4
-const TOTAL_DOTS = 4;
+// Total dots: intro + 3 USP slides + context-connection = 5
+const TOTAL_DOTS = 5;
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
