@@ -1,14 +1,13 @@
 /**
  * First Session Spotlight Walkthrough
  *
- * A 10-step guided demo that highlights real UI elements on the actual pages.
- * Phase A (steps 0-4): Core daily loop – starts on /daily-check-in, moves to /executive-home
- * Phase B (steps 5-9): Navigation features – all on /executive-home
+ * A 3-step guided demo that highlights real UI elements on the actual pages.
+ * Step 1: Check-in carousel on /daily-check-in
+ * Step 2: Today State card on /executive-home
+ * Step 3: Daily Plan on /executive-home
  *
  * Key behaviours:
  * - Two-pass tooltip: hidden mount → measure height → compute position → reveal.
- * - Mobile sidebar uses setOpenMobile; desktop uses setOpen.
- * - Demo steps programmatically open sidebar, navigate to profile, etc.
  * - SVG mask spotlight with circular or rounded-rect shapes.
  */
 
@@ -27,155 +26,42 @@ interface GuideStep {
   targetSelector: string;
   title: string;
   body: string;
-  richBody?: React.ReactNode;
-  page: 'check-in' | 'home' | 'profile';
-  phase: 'A' | 'B';
+  page: 'check-in' | 'home';
   phaseLabel: string;
   scrollToTop?: boolean;
   scrollBlock?: ScrollLogicalPosition;
   spotlightPad?: number;
   spotlightCircle?: boolean;
   tooltipPosition?: 'above' | 'below' | 'auto';
-  /** Actions to run before highlighting */
-  action?: 'open-sidebar' | 'close-sidebar' | 'navigate-profile';
-  /** Elevate sidebar panel above overlay */
-  elevateSidebar?: boolean;
-  /** Activate a tab before highlighting (clicks data-tour="tab-{value}") */
   activateTab?: 'state' | 'compass' | 'action';
 }
 
 const STEPS: GuideStep[] = [
-  // ── Phase A – Daily Loop ──────────────────────────────────────
   {
     targetSelector: '[data-tour="check-in-carousel"]',
     title: 'Performance Readiness Assessment',
     body: "One tap to tell the system how you're performing right now – your sharpness, clarity, and confidence. This is where every day starts.",
     page: 'check-in',
-    phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
   },
   {
     targetSelector: '[data-tour="today-state"]',
-    title: 'Your State – Decision Readiness Score',
-    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now – your sharpness, clarity, and confidence, with an understanding from your wearable (if available) – based on your time of day.',
+    title: 'Your Decision Engine',
+    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now with an understanding from your wearable – based on your time of day.',
     page: 'home',
-    phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     tooltipPosition: 'below',
     activateTab: 'state',
   },
   {
-    targetSelector: '[data-tour="compass"]',
-    title: 'Your Compass – Outer Readiness Brief',
-    body: 'Your calendar, energy, and patterns shape a strategic read on your day. What to lean on. What to watch for.',
-    page: 'home',
-    phase: 'A',
-    phaseLabel: 'YOUR DAILY LOOP',
-    scrollBlock: 'start',
-    tooltipPosition: 'above',
-    activateTab: 'compass',
-  },
-  {
     targetSelector: '[data-tour="daily-plan"]',
-    title: 'Your Action – Performance Readiness Plan',
+    title: 'Performance Mastery Plan',
     body: 'Practices and sessions built for today – designed to close the gap between where you are and where the day needs you to be.',
     page: 'home',
-    phase: 'A',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'start',
     tooltipPosition: 'above',
     activateTab: 'action',
-  },
-  {
-    targetSelector: 'fullscreen',
-    title: 'The System Learns',
-    body: 'Every practice you complete feeds back. Over time, it learns what works for you and adapts.',
-    page: 'home',
-    phase: 'A',
-    phaseLabel: 'YOUR DAILY LOOP',
-  },
-
-  // ── Phase B – Navigation ──────────────────────────────────────
-  {
-    // Step 5 – Menu button
-    targetSelector: '[data-tour="sidebar-trigger-wrap"]',
-    title: 'Your Menu',
-    body: 'Open this to access all your features – Assessment, Reset Studio, Coach, and Intelligence.',
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    scrollToTop: true,
-    spotlightPad: 14,
-    spotlightCircle: true,
-    tooltipPosition: 'below',
-  },
-  {
-    // Step 6 – Mental Performance Suite
-    targetSelector: 'fullscreen',
-    title: 'Your Mental Performance Suite',
-    body: '',
-    richBody: (
-      <div className="space-y-2.5">
-        <div>
-          <span className="font-semibold text-foreground text-xs">Performance Readiness Assessment</span>
-          <p className="text-xs text-muted-foreground">Check your mental state daily</p>
-        </div>
-        <div>
-          <span className="font-semibold text-foreground text-xs">Reset Studio</span>
-          <p className="text-xs text-muted-foreground">Guided practices to restore energy</p>
-        </div>
-        <div>
-          <span className="font-semibold text-foreground text-xs">Mind Performance Coach</span>
-          <p className="text-xs text-muted-foreground">AI coaching built around your patterns</p>
-        </div>
-        <div>
-          <span className="font-semibold text-foreground text-xs">Performance Intelligence</span>
-          <p className="text-xs text-muted-foreground">Track trends and growth over time</p>
-        </div>
-      </div>
-    ),
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    action: 'open-sidebar',
-    tooltipPosition: 'below',
-  },
-  {
-    // Step 7 – Connect Your Data (show profile entry in sidebar)
-    targetSelector: 'fullscreen',
-    title: 'Connect Your Data',
-    body: 'To sync Google Calendar and Apple Health, open the menu and tap your profile. From there, go to Connected Data Sources. This syncs automatically every 6 hours – the more context, the sharper your system.',
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    action: 'open-sidebar',
-    spotlightPad: 14,
-    spotlightCircle: true,
-    tooltipPosition: 'above',
-  },
-  {
-    // Step 8 – Coach button
-    targetSelector: '[data-tour="coach-access-wrap"]',
-    title: 'Mind Performance Coach',
-    body: 'Instant AI-powered coaching – available from any screen. Built around your patterns and context.',
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    action: 'close-sidebar',
-    scrollToTop: true,
-    spotlightPad: 14,
-    spotlightCircle: true,
-    tooltipPosition: 'below',
-  },
-  {
-    // Step 9 – Ready
-    targetSelector: 'fullscreen',
-    title: "You're Ready",
-    body: 'Start with your first check-in.',
-    page: 'home',
-    phase: 'B',
-    phaseLabel: 'YOUR NAVIGATION',
-    action: 'close-sidebar',
   },
 ];
 
@@ -184,7 +70,6 @@ const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 const TARGET_WAIT_MS = 1800;
-const SIDEBAR_WAIT_MS = 1800;
 const RETRY_INTERVAL_MS = 150;
 const MAX_RETRIES = 10;
 const STEP_FAILSAFE_MS = 3500;
@@ -203,10 +88,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const sidebarCtx = useSidebarSafe();
 
   const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
-  // Show intro overlay only when tour starts from step 0 and hasn't been dismissed yet
   const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !sessionStorage.getItem('first_session_intro_seen'));
   const [currentStep, setCurrentStep] = useState(savedStep);
-  const [ready, setReady] = useState(false); // two-pass: only true when position is final
+  const [ready, setReady] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
 
@@ -216,7 +100,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const previousElRef = useRef<HTMLElement | null>(null);
   const currentStepRef = useRef(currentStep);
   const readyRef = useRef(ready);
-  const pinnedSidebarRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failsafeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -228,7 +111,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const step = STEPS[currentStep];
   const isFullscreen = step?.targetSelector === 'fullscreen';
   const isLastStep = currentStep === STEPS.length - 1;
-  const shouldPinSidebarOpen = currentStep === 6 || currentStep === 7;
 
   // Persist step
   useEffect(() => {
@@ -247,13 +129,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       previousElRef.current.style.margin = '';
       previousElRef.current = null;
     }
-    const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
-    if (sp) sp.style.zIndex = '';
-    // Reset mobile sheet dialog + overlay z-indexes
-    const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
-    if (sheetDialog) sheetDialog.style.zIndex = '';
-    const sheetOverlayEl = sheetDialog?.previousElementSibling as HTMLElement | null;
-    if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '';
     setSpotRect(null);
   }, []);
 
@@ -280,7 +155,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
   }, []);
 
-  /** Open/close sidebar respecting mobile vs desktop */
+  /** Close sidebar if open */
   const setSidebar = useCallback((open: boolean) => {
     if (!sidebarCtx) return;
     if (sidebarCtx.isMobile) {
@@ -290,21 +165,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     }
   }, [sidebarCtx]);
 
-  const forceSidebarState = useCallback((open: boolean) => {
-    setSidebar(open);
-
-    // Mobile sheet open/close is state-driven; clicking the trigger immediately after
-    // setting state can re-toggle it closed before the DOM mounts.
-    if (!sidebarCtx || sidebarCtx.isMobile) return;
-
-    const trigger = document.querySelector('[data-tour="sidebar-trigger"]') as HTMLElement | null;
-    if (!trigger) return;
-
-    if ((sidebarCtx.state === 'expanded') !== open) {
-      trigger.click();
-    }
-  }, [setSidebar, sidebarCtx]);
-
   /* ---- measure & position (two-pass) ---- */
 
   const computePosition = useCallback(() => {
@@ -313,7 +173,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     if (!s || s.targetSelector === 'fullscreen') {
       setSpotRect(null);
       setTooltipPos(null);
-      return true; // ready
+      return true;
     }
 
     const el = document.querySelector(s.targetSelector) as HTMLElement | null;
@@ -330,7 +190,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
     setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
 
-    // Measure tooltip height (hidden-rendered)
     const tooltipEl = tooltipRef.current;
     const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
     const GAP = 16;
@@ -378,7 +237,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     if (!isElementVisible(el)) {
       retryCountRef.current++;
       if (retryCountRef.current >= MAX_RETRIES) {
-        console.warn(`[FirstSessionGuide] Target "${s.targetSelector}" not found after ${MAX_RETRIES} retries – falling back to centered tour card for step ${idx}`);
+        console.warn(`[FirstSessionGuide] Target "${s.targetSelector}" not found after ${MAX_RETRIES} retries – falling back`);
         retryCountRef.current = 0;
         enableFallback('We could not spotlight this area right now, but you can keep moving through the tour.');
         return;
@@ -394,7 +253,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const scrollBlock = s.scrollBlock || 'center';
     el.scrollIntoView({ behavior: 'smooth', block: scrollBlock });
 
-    // Wait for scroll + sidebar animation to settle
     setTimeout(() => {
       if (currentStepRef.current !== idx) return;
 
@@ -404,17 +262,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       el.style.zIndex = '61';
       el.style.borderRadius = s.spotlightCircle ? '9999px' : '12px';
       previousElRef.current = el;
-
-      if (s.elevateSidebar) {
-        const sp = document.querySelector('[data-sidebar="sidebar"]') as HTMLElement | null;
-        if (sp) sp.style.zIndex = '900';
-        const sheetDialog = document.querySelector('[data-sidebar="sidebar"]')?.closest('[role="dialog"]') as HTMLElement | null;
-        if (sheetDialog) {
-          sheetDialog.style.zIndex = '900';
-          const sheetOverlayEl = sheetDialog.previousElementSibling as HTMLElement | null;
-          if (sheetOverlayEl) sheetOverlayEl.style.zIndex = '899';
-        }
-      }
 
       computePosition();
       requestAnimationFrame(() => {
@@ -428,10 +275,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   /* ---- run actions before highlighting ---- */
 
-  /**
-   * Polls for DOM target availability after an action (e.g. opening sidebar).
-   * Calls cb() once the step's target selector is found or after maxWait ms.
-   */
   const waitForTargetThenCb = useCallback((selector: string, cb: () => void, maxWait = TARGET_WAIT_MS) => {
     if (selector === 'fullscreen') {
       cb();
@@ -441,12 +284,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const poll = () => {
       const el = document.querySelector(selector);
       if (isElementVisible(el)) {
-        // Small settle delay after element appears
         setTimeout(cb, 150);
         return;
       }
       if (Date.now() - start > maxWait) {
-        // Target never appeared – proceed anyway (highlightElement will retry/skip)
         cb();
         return;
       }
@@ -455,104 +296,13 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     poll();
   }, [isElementVisible]);
 
-  const waitForSidebarReady = useCallback((cb: () => void, selector?: string) => {
-    const start = Date.now();
-    let enforceCount = 0;
-    const poll = () => {
-      const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
-      const targetEl = selector ? document.querySelector(selector) : null;
-      const sidebarReady = sidebarCtx?.isMobile
-        ? isElementVisible(sidebarEl)
-        : sidebarCtx?.state === 'expanded';
-      const targetReady = !selector || selector === 'fullscreen' ? true : isElementVisible(targetEl);
-
-      if (sidebarReady && targetReady) {
-        pinnedSidebarRef.current = true;
-        setTimeout(cb, 150);
-        return;
-      }
-
-      if (enforceCount < 1) {
-        forceSidebarState(true);
-        enforceCount++;
-      }
-
-      if (Date.now() - start > SIDEBAR_WAIT_MS) {
-        cb();
-        return;
-      }
-
-      setTimeout(poll, 100);
-    };
-    poll();
-  }, [forceSidebarState, isElementVisible, sidebarCtx]);
-
-  const waitForSidebarClosed = useCallback((cb: () => void, selector?: string) => {
-    const start = Date.now();
-    let enforceCount = 0;
-    const poll = () => {
-      const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
-      const targetEl = selector ? document.querySelector(selector) : null;
-      const sidebarClosed = sidebarCtx?.isMobile
-        ? !isElementVisible(sidebarEl)
-        : sidebarCtx?.state === 'collapsed';
-      const targetReady = !selector || selector === 'fullscreen' ? true : isElementVisible(targetEl);
-
-      if (sidebarClosed && targetReady) {
-        pinnedSidebarRef.current = false;
-        setTimeout(cb, 150);
-        return;
-      }
-
-      if (enforceCount < 1) {
-        forceSidebarState(false);
-        enforceCount++;
-      }
-
-      if (Date.now() - start > SIDEBAR_WAIT_MS) {
-        cb();
-        return;
-      }
-
-      setTimeout(poll, 100);
-    };
-    poll();
-  }, [forceSidebarState, isElementVisible, sidebarCtx]);
-
   const runStepAction = useCallback((s: GuideStep, cb: () => void) => {
     if (s.activateTab) {
       const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
       if (tabBtn) tabBtn.click();
     }
-
-    if (!s.action) { cb(); return; }
-
-    switch (s.action) {
-      case 'open-sidebar':
-        setTransitionMessage('Opening the menu for the next step...');
-        pinnedSidebarRef.current = true;
-        forceSidebarState(true);
-        waitForSidebarReady(() => waitForTargetThenCb(s.targetSelector, cb), s.targetSelector);
-        break;
-      case 'close-sidebar':
-        setTransitionMessage('Closing the menu and preparing the next step...');
-        pinnedSidebarRef.current = false;
-        forceSidebarState(false);
-        waitForSidebarClosed(() => waitForTargetThenCb(s.targetSelector, cb), s.targetSelector);
-        break;
-      case 'navigate-profile':
-        setTransitionMessage('Taking you to the next screen...');
-        pinnedSidebarRef.current = false;
-        setSidebar(false);
-        setTimeout(() => {
-          navigate('/profile');
-          waitForTargetThenCb(s.targetSelector, cb);
-        }, 400);
-        break;
-      default:
-        cb();
-    }
-  }, [forceSidebarState, navigate, waitForSidebarClosed, waitForSidebarReady, waitForTargetThenCb]);
+    cb();
+  }, []);
 
   /* ---- step lifecycle ---- */
 
@@ -561,7 +311,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     cleanupPrevious();
     setReady(false);
     setFallbackMode(false);
-    setTransitionMessage(stepTransitionCopy(currentStep));
+    setTransitionMessage('Preparing the next part of the tour...');
     setTooltipPos(null);
     setSpotRect(null);
 
@@ -574,11 +324,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       navigate('/executive-home');
     } else if (s.page === 'check-in' && cur !== '/daily-check-in') {
       navigate('/daily-check-in');
-    } else if (s.page === 'profile' && cur !== '/profile') {
-      navigate('/profile');
     }
 
-    // Run action then highlight, with delay for page transitions
     const startDelay = cur !== getPagePath(s.page) ? 400 : 100;
     const timer = setTimeout(() => {
       runStepAction(s, highlightElement);
@@ -604,12 +351,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       setSidebar(false);
     };
   }, [cleanupPrevious, clearRetry, setSidebar]);
-
-  useEffect(() => {
-    if (!shouldPinSidebarOpen) return;
-    pinnedSidebarRef.current = true;
-    forceSidebarState(true);
-  }, [forceSidebarState, shouldPinSidebarOpen]);
 
   // Re-measure on scroll/resize (only when ready)
   useEffect(() => {
@@ -649,7 +390,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     sessionStorage.removeItem(ACTIVE_TOUR_KEY);
     sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
     sessionStorage.removeItem(RETAKE_TOUR_KEY);
-    pinnedSidebarRef.current = false;
     setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
@@ -672,26 +412,20 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   if (showIntro) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true">
-        {/* Dark backdrop */}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-        {/* Centred card */}
         <div className="relative z-10 bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
           <h2 className="text-2xl font-headline text-foreground leading-tight mb-3">
             Let's show you around.
           </h2>
           <p className="text-sm text-muted-foreground font-body leading-relaxed mb-8">
-            A 60-second guided tour of how Mind Module works — starting with your daily check-in.
-            Follow the steps and you'll know exactly what to do from day one.
+            A quick 3-step tour of how Mind Module works — starting with your daily check-in.
           </p>
-
           <button
             onClick={dismissIntroAndStart}
             className="w-full py-3.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20 mb-3"
           >
             Start Tour
           </button>
-
           <button
             onClick={skipTourEntirely}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
@@ -757,39 +491,13 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         />
       )}
 
-      {/* Block interactions outside the spotlight while leaving the highlighted area usable */}
+      {/* Block interactions outside the spotlight */}
       {spotRect ? (
         <>
-          <div
-            className="absolute left-0 right-0 top-0"
-            style={{ height: Math.max(spotRect.y, 0), pointerEvents: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div
-            className="absolute left-0"
-            style={{
-              top: Math.max(spotRect.y, 0),
-              width: Math.max(spotRect.x, 0),
-              height: Math.max(spotRect.h, 0),
-              pointerEvents: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div
-            className="absolute right-0"
-            style={{
-              top: Math.max(spotRect.y, 0),
-              width: Math.max(window.innerWidth - (spotRect.x + spotRect.w), 0),
-              height: Math.max(spotRect.h, 0),
-              pointerEvents: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div
-            className="absolute left-0 right-0 bottom-0"
-            style={{ top: Math.max(spotRect.y + spotRect.h, 0), pointerEvents: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="absolute left-0 right-0 top-0" style={{ height: Math.max(spotRect.y, 0), pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
+          <div className="absolute left-0" style={{ top: Math.max(spotRect.y, 0), width: Math.max(spotRect.x, 0), height: Math.max(spotRect.h, 0), pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
+          <div className="absolute right-0" style={{ top: Math.max(spotRect.y, 0), width: Math.max(window.innerWidth - (spotRect.x + spotRect.w), 0), height: Math.max(spotRect.h, 0), pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
+          <div className="absolute left-0 right-0 bottom-0" style={{ top: Math.max(spotRect.y + spotRect.h, 0), pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
         </>
       ) : (
         <div className="absolute inset-0" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
@@ -804,7 +512,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         Skip <X size={14} />
       </button>
 
-      {/* Tooltip Card – hidden until ready for two-pass measurement */}
+      {/* Tooltip Card */}
       <div
         ref={tooltipRef}
         className={cn(
@@ -824,12 +532,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         </div>
 
         <h2 className="text-lg font-headline text-foreground leading-tight mb-2">{step.title}</h2>
-
-        {step.richBody ? (
-          <div className="mb-4">{step.richBody}</div>
-        ) : (
-          <p className="text-sm text-muted-foreground font-body leading-relaxed mb-5">{step.body}</p>
-        )}
+        <p className="text-sm text-muted-foreground font-body leading-relaxed mb-5">{step.body}</p>
 
         {/* Footer */}
         <div className="flex items-center justify-between">
@@ -902,21 +605,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   , document.body);
 };
 
-function stepTransitionCopy(stepIndex: number): string {
-  if (stepIndex >= 5 && stepIndex <= 7) {
-    return 'Opening the right part of the app for you...';
-  }
-  if (stepIndex === 8) {
-    return 'Wrapping up the tour...';
-  }
-  return 'Preparing the next part of the tour...';
-}
-
 function getPagePath(page: string): string {
   switch (page) {
     case 'home': return '/executive-home';
     case 'check-in': return '/daily-check-in';
-    case 'profile': return '/profile';
     default: return '/';
   }
 }
