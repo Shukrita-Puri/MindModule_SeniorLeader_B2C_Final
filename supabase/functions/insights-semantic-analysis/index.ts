@@ -111,7 +111,7 @@ serve(async (req) => {
       );
     }
 
-    const userId = await verifyAuth0JWT(authHeader);
+    const userId = await verifyAuth0JWT(authHeader, req);
 
     const requestBody = await req.json();
     const { days = 30, action = 'analyze', keyword } = requestBody;

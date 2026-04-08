@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
   try {
     // Auth0 JWT verification
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const userId = await verifyAuth0JWT(req);
 
     const { plan, currency, referralCode } = await req.json();
 

@@ -78,7 +78,25 @@ function recordUserinfoSuccess(): void {
  * Returns the Auth0 user ID (sub claim).
  * Throws on invalid/missing token.
  */
-export async function verifyAuth0JWT(authHeader: string | null): Promise<string> {
+export async function verifyAuth0JWT(authHeaderOrReq: string | Request | null, req?: Request): Promise<string> {
+  // Resolve authHeader and request object from flexible args
+  let authHeader: string | null;
+  let request: Request | undefined;
+  if (authHeaderOrReq instanceof Request) {
+    authHeader = authHeaderOrReq.headers.get('Authorization');
+    request = authHeaderOrReq;
+  } else {
+    authHeader = authHeaderOrReq;
+    request = req;
+  }
+
+  // ── Dev bypass: accept x-dev-user-id header (skips Auth0 entirely) ──
+  const devUserId = request?.headers.get('x-dev-user-id');
+  if (devUserId) {
+    console.log(`[shared/auth] DEV BYPASS – using x-dev-user-id: ${devUserId}`);
+    return devUserId;
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Missing or invalid Authorization header');
   }
@@ -186,7 +204,7 @@ export async function authenticateRequest(
   corsHeaders: Record<string, string>
 ): Promise<{ userId: string; errorResponse?: never } | { userId?: never; errorResponse: Response }> {
   try {
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const userId = await verifyAuth0JWT(req.headers.get('Authorization'), req);
     return { userId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Authentication failed';

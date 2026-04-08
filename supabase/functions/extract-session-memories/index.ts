@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const verifiedUserId = await verifyAuth0JWT(req);
     const { sessionId, userId } = await req.json();
 
     if (verifiedUserId !== userId) {

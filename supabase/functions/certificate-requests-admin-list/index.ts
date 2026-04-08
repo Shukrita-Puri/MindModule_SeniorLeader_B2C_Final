@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     }
 
     // Verify Auth0 token
-    const userId = await verifyAuth0JWT(req.headers.get("Authorization"));
+    const userId = await verifyAuth0JWT(req);
     console.log("Verified Auth0 user:", userId);
 
     // Check admin status
