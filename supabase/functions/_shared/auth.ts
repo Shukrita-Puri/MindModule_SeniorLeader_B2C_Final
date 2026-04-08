@@ -78,14 +78,23 @@ function recordUserinfoSuccess(): void {
  * Returns the Auth0 user ID (sub claim).
  * Throws on invalid/missing token.
  */
-export async function verifyAuth0JWT(authHeader: string | null): Promise<string> {
+export async function verifyAuth0JWT(authHeader: string | null, req?: Request): Promise<string> {
+  // ── Dev bypass: when VITE_AUTH0_DOMAIN is not configured, accept x-dev-user-id header ──
+  const rawDomain = Deno.env.get('VITE_AUTH0_DOMAIN');
+  if (!rawDomain) {
+    const devUserId = req?.headers.get('x-dev-user-id');
+    if (devUserId) {
+      console.log(`[shared/auth] DEV BYPASS – using x-dev-user-id: ${devUserId}`);
+      return devUserId;
+    }
+    throw new Error('VITE_AUTH0_DOMAIN not configured');
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Missing or invalid Authorization header');
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const rawDomain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!rawDomain) throw new Error('VITE_AUTH0_DOMAIN not configured');
   const domain = sanitizeDomain(rawDomain);
 
   try {
