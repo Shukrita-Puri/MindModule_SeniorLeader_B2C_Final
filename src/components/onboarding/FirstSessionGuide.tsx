@@ -555,7 +555,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
             )}
             {isLastStep ? (
               <button onClick={finish} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-saffron text-black font-semibold text-sm hover:bg-saffron/90 transition-colors shadow-lg shadow-saffron/20" style={{ pointerEvents: 'auto' }}>
-                <Rocket size={16} /> Begin
+                <Rocket size={16} /> Let's Go!
               </button>
             ) : (
               <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors" style={{ pointerEvents: 'auto' }}>
