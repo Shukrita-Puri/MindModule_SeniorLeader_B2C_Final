@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { DEV_MODE } from "@/config/devMode";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -270,6 +271,11 @@ export default function Stage7ContextConnection() {
       completed: true,
     });
 
+    if (DEV_MODE) {
+      navigate("/daily-check-in?tour=1");
+      return;
+    }
+
     let completionSucceeded = false;
 
     try {
@@ -458,7 +464,7 @@ export default function Stage7ContextConnection() {
             className="w-full rounded-2xl"
             disabled={loading}
           >
-            Continue
+            Take me to App Tour
           </Button>
         </div>
       </div>
