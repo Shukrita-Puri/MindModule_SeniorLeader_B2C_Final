@@ -303,12 +303,12 @@ const DailyCheckIn = () => {
         </div>
       )}
       {/* Hero Banner – compact for single-fold */}
-      <div className="relative h-auto py-8 overflow-hidden">
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-          <h1 className="text-[28px] sm:text-3xl font-headline font-semibold text-foreground tracking-tight">
-            Performance Readiness
+      <div className="relative h-auto py-6 overflow-hidden">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
+          <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground/60 tracking-tight">
+            Performance Readiness Assessment
           </h1>
-          <p className="text-[10px] tracking-[0.08em] font-medium uppercase text-foreground/70 font-body">Mental Sharpness State</p>
+          <p className="text-[14px] tracking-[0.04em] font-semibold text-foreground/50 font-body">Mental Sharpness State</p>
         </div>
       </div>
 
