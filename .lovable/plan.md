@@ -1,70 +1,163 @@
 
 
-## Plan: Onboarding intro screen, streamlined tour (3 steps), dev mode tour fix
+# Batch 2: Decision Readiness Brief — Implementation Plan
 
-### What changes
+## Overview
+Replace `TodayStateCard` + `StrategicIntentionCard` on the homepage with a single unified `DecisionReadinessBrief` component. Variant A only (interpretation chips) with tap-to-flip number reveal. Add LLM synthesis to `compute-outer-readiness`, reweight scores in `compute-inner-readiness`, fix hardcoded fields, and add `leanOnSource`/`watchForSource` to the edge function response.
 
-**1. New "See How It Works" intro screen before USP slides**
+## Critical Rules (confirmed)
+- TodayStateCard.tsx and StrategicIntentionCard.tsx remain in codebase, just stop rendering on homepage
+- Existing card styling preserved (white surface, taupe left border, existing borders/radius)
+- No edge function logic changes except the specific ones listed below
+- All new queries wrapped in try/catch, return null on failure
 
-Add a new full-screen intro slide (slide index -1 / pre-slide state) inside `StageUSPIntro.tsx` itself. Before showing the 3 USP slides, show:
-- Mind Module logo (`mm-logo-circle.png`) centered
-- "MIND MODULE" text below
-- Headline: "A new era of executive performance."
-- Subheadline: "This isn't self-improvement. This is self-mastery."
-- CTA button: "See how it works →" (saffron/`#ff825a`)
-- Dark background matching the app theme
-- Tapping CTA advances to USP slide 1
+---
 
-**2. Add progress bar to the USP intro flow**
+## Part 1: New Component — `DecisionReadinessBrief.tsx`
 
-Add a thin orange (`#ff825a`) progress bar at the top of `StageUSPIntro.tsx`:
-- Intro screen: 0/4 (0%)
-- USP slide 1: 1/4 (25%)
-- USP slide 2: 2/4 (50%)  
-- USP slide 3: 3/4 (75%)
-- Fills to 100% on final slide before navigating to context-connection
+**File:** `src/components/home/DecisionReadinessBrief.tsx`
 
-This is self-contained within the component (not the OnboardingFlow progress bar, which is hidden at this stage index).
+Consumes data from both `useQuery(['energy-state'])` and `useOuterReadiness()` hooks (already cached).
 
-**3. Reduce tour from 10 steps to 3**
+**Card structure (top to bottom):**
 
-In `FirstSessionGuide.tsx`, replace the 10-step `STEPS` array with 3 steps:
+1. **Eyebrow row** — "DECISION READINESS BRIEF" left, "[time] · [date]" right (9px uppercase, muted)
+2. **Score row** — Score number (40px, weight 500), colour-coded by tier (existing depleted/managing/strong colours), "/100" muted, tier label uppercase. No check-in: "--" + "NOT YET ASSESSED"
+3. **Calendar pills** — Conditional rendering based on high-stakes proximity (90min), load, or no calendar. Uses existing pill styling from the app
+4. **Phrase** — Georgia serif italic 14px, from `outerBrief.phrase`
+5. **Body copy** — 12px, from new `outerBrief.bodyText` field (LLM-generated), falls back to `outerBrief.context`. Bold key action via `<strong>`
+6. **"BASED ON YOUR SIGNALS"** section label (9px uppercase muted)
+7. **Signal chips** — Variant A interpretation labels, flex-wrap, pill shape with coloured dot + text (10px). Max 5 chips. Each chip is tappable — flips to reveal the number behind it (e.g., "Body under load" flips to "HRV −18%"), taps again to flip back. CSS card-flip animation.
 
-| Step | Page | Target | Title |
-|------|------|--------|-------|
-| 1 | check-in | `[data-tour="check-in-carousel"]` | Performance Readiness Assessment |
-| 2 | home | `[data-tour="today-state"]` | Your Decision Engine |
-| 3 | home | `[data-tour="daily-plan"]` | Performance Readiness Plan |
+   Chip logic (deterministic, no LLM):
+   - Wearable chips (only if hasWearable AND ≥7 days data): HRV deviation, sleep deviation, RHR deviation thresholds as specified
+   - Wearable < 7 days: single "Wearable calibrating" neutral chip
+   - No wearable: omit all physiological chips entirely
+   - Felt state chips from `checkInOutcome`
+   - C×C chips from `clarityLevel`/`confidenceLevel` (fixed from hardcoded 0)
+   - Longitudinal qualifiers based on data age
+   - No check-in: single neutral "Check in to unlock your state" chip
 
-Update all hardcoded step-index references:
-- `shouldPinSidebarOpen` (currently `currentStep === 6 || 7`) → remove (no sidebar steps)
-- `isLastStep` already uses `STEPS.length - 1` → works automatically
-- `stepTransitionCopy()` → simplify for 3 steps
-- Remove sidebar-related actions (`open-sidebar`, `close-sidebar`, `navigate-profile`) from step logic since no steps use them
+8. **Inner summary line** — 3-word synthesis below chips (11px, muted, weight 500). Derived from worst→best→C×C chip content. Omit if no check-in.
+9. **Divider** (existing style)
+10. **"HOW TO SHOW UP"** section label
+11. **Lean on row** — Green pill + main text + sub-text for source (from new `leanOnSource` field)
+12. **Watch for row** — Amber pill + same structure with `watchForSource`
+13. **Data source note** — 9px, 35% opacity, showing connected sources
+14. **"Tap for raw numbers"** — 9px right-aligned, expand/collapse panel showing raw HRV ms, sleep score, RHR bpm, clarity/5, confidence/5, score tier + weighting mode
 
-**4. Dev mode tour fix (already partially done but needs reinforcement)**
+**Data requirements from edge functions (new fields needed):**
+- `outerBrief.bodyText` (LLM-generated body copy, falls back to context)
+- `outerBrief.leanOnSource` (string describing cascade source)
+- `outerBrief.watchForSource` (string describing cascade source)
+- `outerBrief.hrvDeviation` (number, % vs baseline)
+- `outerBrief.sleepDeviation` (number, % vs baseline)
+- `outerBrief.rhrValue` (number, bpm)
+- `outerBrief.sleepScore` (number)
+- `outerBrief.hrvValue` (number, ms)
+- `outerBrief.hasWearable` (boolean)
+- `outerBrief.wearableDaysConnected` (number)
+- `outerBrief.hasCalendar` (boolean)
+- `outerBrief.calendarLoad` (string)
+- `outerBrief.meetingCount` (number)
+- `outerBrief.highStakesEvents` (string[])
+- `outerBrief.nextHighStakesEvent` (object with title + minutesUntil)
+- `outerBrief.checkInCountTotal` (number, for data completeness tier)
+- `outerBrief.consecutiveLowConfidence` (number, for "Xth day" qualifier)
+- `outerBrief.coachStrength` (string, for "your strength" qualifier)
 
-Both `DailyCheckIn.tsx` (line 112) and `ExecutiveHome.tsx` (line 83) already have the `DEV_MODE` bypass:
-```
-if (!user?.id || (!DEV_MODE && !user?.onboarding_completed_at))
-```
+Several of these already exist in the edge function response or can be derived; the rest need to be added to the response payload.
 
-The issue is that in DEV_MODE, `user?.id` can still be falsy if the auth hook returns null. Add a fallback: when `DEV_MODE` is true, use `DEV_USER.id` as the user ID for tour session storage keys, and skip the `!user?.id` guard entirely in DEV_MODE so the tour always initializes.
+---
 
-### Files to modify
+## Part 2: Homepage Wiring — `ExecutiveHome.tsx`
 
-| File | Change |
-|------|--------|
-| `src/pages/onboarding/stages/StageUSPIntro.tsx` | Add intro screen + top progress bar |
-| `src/components/onboarding/FirstSessionGuide.tsx` | Reduce STEPS to 3, remove sidebar/profile step logic |
-| `src/pages/DailyCheckIn.tsx` | Strengthen DEV_MODE bypass for tour |
-| `src/pages/ExecutiveHome.tsx` | Strengthen DEV_MODE bypass for tour |
+- Stop rendering `<TodayStateCard />` and `<StrategicIntentionCard />`
+- Render `<DecisionReadinessBrief />` in their place (single card in the STATE section)
+- Pass JIT event data as prop (same as current StrategicIntentionCard)
+- Keep imports of old components (they stay in codebase)
 
-### Not changing
-- State card labels/icons/content
-- Step 2 sliders (CheckInDetail)
-- Routing or submission logic
-- Any other page or component
-- Bottom nav visibility rules (already correct)
-- Coach FAB visibility (already fixed)
+---
+
+## Part 3: Edge Function Changes — `compute-outer-readiness/index.ts`
+
+### 3a: Add `leanOnSource` / `watchForSource` to response
+Map `leanOnResult.source` to human-readable labels:
+- `coach-insights-recent` / `coach-insights-grace` → "From coach conversations"
+- `cc-modifier` / `cc-modifier-with-context` → "From your check-in today"  
+- `coach-partial-strength` / `coach-partial-growth` → "Coach + archetype"
+- `archetype-tier` → "From your archetype"
+- `tier-fallback` → "From readiness score"
+- Evening/Sunday overrides → "From readiness score"
+
+### 3b: Add new data fields to response
+Expose to client: `hasWearable`, `wearableDaysConnected`, `hrvDeviation`, `sleepDeviation`, `rhrValue`, `sleepScore`, `hrvValue`, `hasCalendar`, `calendarLoad`, `meetingCount`, `highStakesEvents`, `nextHighStakesEvent`, `checkInCountTotal`, `consecutiveLowConfidence`, `coachStrength`, `bodyText`.
+
+### 3c: Add LLM synthesis (`generateLLMBodyCopy()`)
+- Query `checkInCountTotal` = `COUNT(*)` from `daily_checkins` for user (try/catch, default 0)
+- Determine `dataCompleteness`: day1 (0), early (1-6), developing (7-30), established (30+)
+- Skip LLM if day1
+- Call Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) with `google/gemini-2.5-flash` using `LOVABLE_API_KEY` (already exists as secret)
+- System prompt and user prompt as specified in the request, injecting available data fields only
+- Parse JSON response for `{ phrase, bodyText }`
+- If either is null or parse fails: use existing template functions as fallback
+- Log "DRB phrase source: llm | template" and "DRB body source: llm | template"
+
+### 3d: Additional queries (all additive, try/catch)
+1. Typical DOW outcome (60-day, min 4 occurrences)
+2. Friction trend (7d vs 8-14d drained/scattered/overwhelmed count)
+3. Pending coach commitment
+4. Recent coach pattern (7d)
+5. Dominant outcome last 7d
+6. Wearable trend last 7d (recent 3d vs earlier 4d avg HRV)
+7. Wearable days connected count
+8. HRV/sleep deviation from 30-day baseline
+9. Consecutive low-confidence days
+
+---
+
+## Part 4: Scoring Reweight — `compute-inner-readiness/index.ts`
+
+Change ONLY weight values in the scoring section (lines ~544-562). Keep all other logic exactly as-is.
+
+| Mode | Old Weights | New Weights |
+|------|------------|-------------|
+| No wearable | felt 55%, C×C 30%, circ 15% | felt 40%, C×C 45%, circ 15% |
+| Aligned | felt ~40%, wearable ~25%, C×C ~22%, circ 10% | felt 25%, wearable 35%, C×C 30%, circ 10% |
+| MASKED_HIGH | wearable 35% | wearable 40%, remainder split equally felt/C×C |
+| RECOVERY_UNDERWAY | wearable 30% | wearable 35%, remainder split equally felt/C×C |
+
+---
+
+## Part 5: Fix Hardcoded Fields — `DailyRitual.tsx`
+
+- Fix lines passing `clarityLevel: 0` → `clarityLevel: energyState?.clarityLevel ?? 0`
+- Fix `confidenceLevel: 0` → `confidenceLevel: energyState?.confidenceLevel ?? 0`
+- Fix `archetype: ''` → `archetype: profile?.user_archetype ?? ''`
+
+Also update `useOuterReadiness` hook interface to include the new fields.
+
+---
+
+## Implementation Order
+
+1. Update `compute-inner-readiness` scoring weights (Part 4)
+2. Update `compute-outer-readiness` with new queries, LLM synthesis, leanOnSource/watchForSource, and expanded response payload (Part 3)
+3. Update `useOuterReadiness` hook interface for new fields (Part 5)
+4. Fix DailyRitual hardcoded fields (Part 5)
+5. Build `DecisionReadinessBrief.tsx` component (Part 1)
+6. Wire into `ExecutiveHome.tsx`, stop rendering old cards (Part 2)
+
+## Files Modified
+- `supabase/functions/compute-inner-readiness/index.ts` — weight values only
+- `supabase/functions/compute-outer-readiness/index.ts` — add LLM, new queries, new response fields
+- `src/hooks/useOuterReadiness.ts` — extend interface
+- `src/components/home/DecisionReadinessBrief.tsx` — **new file**
+- `src/pages/ExecutiveHome.tsx` — swap cards
+- `src/components/home/DailyRitual.tsx` — fix hardcoded 0s
+
+## Files NOT Modified
+- `src/components/home/TodayStateCard.tsx` — kept as-is
+- `src/components/home/StrategicIntentionCard.tsx` — kept as-is
+- No routing changes, no desktop layout changes
 
