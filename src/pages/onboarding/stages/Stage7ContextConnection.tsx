@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -84,6 +84,10 @@ async function requestCalendarAuthUrl(redirectPath: string): Promise<string | nu
     return null;
   }
 }
+
+// This is dot index 4 in the 5-dot sequence (intro=0, usp1=1, usp2=2, usp3=3, context=4)
+const TOTAL_DOTS = 5;
+const ACTIVE_DOT = 4;
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
@@ -201,7 +205,7 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  // Handle Apple Health toggle – verify actual HealthKit access + sync
+  // Handle Apple Health toggle
   const handleWatchToggle = async (checked: boolean) => {
     if (!checked) {
       setWatchEnabled(false);
@@ -219,7 +223,6 @@ export default function Stage7ContextConnection() {
       console.log("[Stage7] Starting Apple Health connect flow...");
       setWatchSyncStatus("Requesting permission...");
 
-      // Request + verify HealthKit permission
       const granted = await requestHealthKitPermissions();
       
       if (!granted) {
@@ -233,7 +236,6 @@ export default function Stage7ContextConnection() {
       setWatchEnabled(true);
       setWatchSyncStatus("Syncing data...");
 
-      // Immediately trigger sync to persist data
       const result = await syncHealthKitToBackend();
       console.log("[Stage7] Sync result:", JSON.stringify(result));
 
@@ -294,7 +296,6 @@ export default function Stage7ContextConnection() {
           await refreshProfile();
         } else {
           console.warn("[Stage7] ⚠️ complete-onboarding failed:", res.status);
-          // Retry once
           const retry = await fetch(
             `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
             {
@@ -321,8 +322,6 @@ export default function Stage7ContextConnection() {
 
     if (completionSucceeded) {
       console.log("[Stage7] Context preferences saved, navigating to daily check-in");
-      // Tour eligibility is determined by DB (first_session_walkthrough_at null)
-      // No need to set session flags here – DailyCheckIn will check DB on mount
       navigate("/daily-check-in");
     } else {
       console.warn("[Stage7] Completion failed, staying on context step");
@@ -331,108 +330,137 @@ export default function Stage7ContextConnection() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <UnifiedTopBar hideCoach />
-      <div className="flex items-center justify-center p-6 pt-16 min-h-[calc(100vh-4rem)]">
-      <div className="w-full max-w-sm space-y-10">
-
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-[20px] font-headline tracking-tight">
-            Connect Your Intelligence Layer
-          </h1>
-          <p className="text-[13px] text-muted-foreground leading-relaxed">
-            Your calendar and wearable data powers everything you just saw – the state read, the proactive plans, the resets.
-          </p>
-        </div>
-
-        {/* Integration Options with Toggles */}
-        <div className="space-y-3">
-
-          {/* Google Calendar */}
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-            <div className="flex items-center gap-3">
-              <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 rounded-lg object-contain" />
-              <div className="flex flex-col">
-                <span className="font-medium">Google Calendar</span>
-                <span className="text-xs text-muted-foreground">
-                  {checkingStatus
-                    ? "Checking…"
-                    : calendarEnabled
-                      ? "Connected"
-                      : "Sync your schedule"}
-                </span>
-              </div>
-            </div>
-            <Switch
-              checked={calendarEnabled}
-              onCheckedChange={handleCalendarToggle}
-              disabled={loading || checkingStatus}
-            />
-          </div>
-
-          {/* Apple Health */}
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-            <div className="flex items-center gap-3">
-              <img src={appleHealthIcon} alt="Apple Health" className="w-8 h-8 rounded-lg object-contain" />
-              <div className="flex flex-col">
-                <span className="font-medium">Apple Health</span>
-                <span className="text-xs text-muted-foreground">
-                  {watchSyncStatus 
-                    ? watchSyncStatus
-                    : isNativeApp() 
-                      ? "HealthKit integration" 
-                      : "Available in mobile app"}
-                </span>
-              </div>
-            </div>
-            <Switch
-              checked={watchEnabled}
-              onCheckedChange={handleWatchToggle}
-            />
-          </div>
-
-        </div>
-
-        {/* Coming soon note */}
-        <p className="text-center text-xs text-muted-foreground/70">
-          More calendars, wearables & email integrations coming soon
-        </p>
-
-        {/* CTAs */}
-        <div className="space-y-3">
-          <Button onClick={handleComplete} variant="default" className="w-full" disabled={loading}>
-            Continue
+    <div className="fixed inset-0 bg-background flex flex-col">
+      {/* Back button top bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center justify-between px-4 py-2">
+          <Button variant="glass" size="sm" onClick={() => navigate("/onboarding/app-intro")}>
+            <ArrowLeft size={20} />
           </Button>
+          <div />
+        </div>
+      </div>
+
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto pt-14 px-6">
+        <div className="w-full max-w-sm mx-auto py-8 space-y-8">
+
+          {/* Header */}
+          <div className="text-center space-y-3">
+            <h1 className="text-[1.75rem] font-headline font-bold tracking-tight text-foreground leading-tight">
+              Connect Your Intelligence Layer
+            </h1>
+            <p className="text-[14px] text-muted-foreground leading-relaxed">
+              Your calendar and wearable powers everything you saw – the state read, the proactive plans, the patterns.
+            </p>
+          </div>
+
+          {/* Integration Options with Toggles */}
+          <div className="space-y-3">
+            {/* Google Calendar */}
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+              <div className="flex items-center gap-3">
+                <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 rounded-lg object-contain" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Google Calendar</span>
+                  <span className="text-xs text-muted-foreground">
+                    {checkingStatus
+                      ? "Checking…"
+                      : calendarEnabled
+                        ? "Connected"
+                        : "Sync your schedule"}
+                  </span>
+                </div>
+              </div>
+              <Switch
+                checked={calendarEnabled}
+                onCheckedChange={handleCalendarToggle}
+                disabled={loading || checkingStatus}
+              />
+            </div>
+
+            {/* Apple Health */}
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+              <div className="flex items-center gap-3">
+                <img src={appleHealthIcon} alt="Apple Health" className="w-8 h-8 rounded-lg object-contain" />
+                <div className="flex flex-col">
+                  <span className="font-medium">Apple Health</span>
+                  <span className="text-xs text-muted-foreground">
+                    {watchSyncStatus 
+                      ? watchSyncStatus
+                      : isNativeApp() 
+                        ? "HealthKit integration" 
+                        : "Available in mobile app"}
+                  </span>
+                </div>
+              </div>
+              <Switch
+                checked={watchEnabled}
+                onCheckedChange={handleWatchToggle}
+              />
+            </div>
+          </div>
+
+          {/* Coming soon note */}
+          <p className="text-center text-xs text-muted-foreground/70">
+            More calendars, wearables & email integrations coming soon
+          </p>
+
+          {/* Subtle footer with legal links */}
+          <div className="text-center space-y-2">
+            <p className="text-xs text-muted-foreground/60">
+              You can change this anytime in settings
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Privacy Policy
+              </Link>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Terms of Use
+              </Link>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <Link to="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Powered by AI
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom: dots + CTAs pinned */}
+      <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-2 mb-6">
+          {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === ACTIVE_DOT
+                  ? "w-6 bg-saffron"
+                  : "w-2 bg-muted-foreground/30"
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="space-y-3">
           <button
             onClick={handleComplete}
-            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors py-2"
           >
             Skip for now
           </button>
+          <Button
+            onClick={handleComplete}
+            variant="critical"
+            size="lg"
+            className="w-full rounded-2xl"
+            disabled={loading}
+          >
+            Continue
+          </Button>
         </div>
-
-        {/* Subtle footer with legal links */}
-        <div className="text-center space-y-2">
-          <p className="text-xs text-muted-foreground/60">
-            You can change this anytime in settings
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <span className="text-muted-foreground/40 text-xs">·</span>
-            <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Terms of Use
-            </Link>
-            <span className="text-muted-foreground/40 text-xs">·</span>
-            <Link to="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Powered by AI
-            </Link>
-          </div>
-        </div>
-
-      </div>
       </div>
     </div>
   );

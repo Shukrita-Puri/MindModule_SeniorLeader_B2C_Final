@@ -36,8 +36,8 @@ const slides: Slide[] = [
   },
 ];
 
-// Total steps: intro (0) + 3 USP slides (1-3) = 4
-const TOTAL_STEPS = 4;
+// Total dots: intro + 3 USP slides + context-connection = 5
+const TOTAL_DOTS = 5;
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
@@ -45,7 +45,8 @@ export default function StageUSPIntro() {
   const [currentSlide, setCurrentSlide] = useState(-1);
 
   const isIntro = currentSlide === -1;
-  const progressFraction = isIntro ? 0 : (currentSlide + 1) / TOTAL_STEPS;
+  // dot index: intro=0, slide0=1, slide1=2, slide2=3
+  const activeDot = isIntro ? 0 : currentSlide + 1;
 
   const goNext = useCallback(() => {
     if (isIntro) {
@@ -59,7 +60,6 @@ export default function StageUSPIntro() {
 
   const goPrev = useCallback(() => {
     if (currentSlide === -1) {
-      // On intro screen, go back to previous onboarding step
       navigate("/onboarding/payment");
     } else {
       setCurrentSlide((s) => s - 1);
@@ -72,7 +72,7 @@ export default function StageUSPIntro() {
 
   useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
 
-  /* ── Back button top bar (shared across all sub-screens) ── */
+  /* ── Back button top bar ── */
   const topBar = (
     <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-between px-4 py-2">
@@ -84,28 +84,37 @@ export default function StageUSPIntro() {
     </div>
   );
 
+  /* ── Dot indicators ── */
+  const dots = (
+    <div className="flex justify-center gap-2 mb-6">
+      {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-2 rounded-full transition-all duration-300 ${
+            i === activeDot
+              ? "w-6 bg-saffron"
+              : isIntro
+                ? "w-2 bg-muted-foreground/30"
+                : "w-2 bg-white/30"
+          }`}
+        />
+      ))}
+    </div>
+  );
+
   /* ── Intro screen ── */
   if (isIntro) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col">
         {topBar}
 
-        {/* Progress bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-[60]">
-          <div
-            className="h-full bg-saffron transition-all duration-500 ease-out"
-            style={{ width: `${progressFraction * 100}%` }}
-          />
-        </div>
-
         {/* Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          {/* Logo in circle */}
-          <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center mb-4 shadow-lg">
+          <div className="w-20 h-20 rounded-full overflow-hidden mb-4 shadow-lg">
             <img
               src={mmLogo}
               alt="Mind Module logo"
-              className="w-20 h-20 rounded-full"
+              className="w-full h-full object-cover"
             />
           </div>
           <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground font-headline mb-10">
@@ -120,18 +129,17 @@ export default function StageUSPIntro() {
           </p>
         </div>
 
-        {/* CTA pinned to bottom, same position as USP buttons */}
+        {/* Bottom: dots + CTA */}
         <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-          <div className="space-y-3">
-            <Button
-              variant="critical"
-              size="lg"
-              className="w-full rounded-2xl"
-              onClick={goNext}
-            >
-              See how it works →
-            </Button>
-          </div>
+          {dots}
+          <Button
+            variant="critical"
+            size="lg"
+            className="w-full rounded-2xl"
+            onClick={goNext}
+          >
+            See how it works →
+          </Button>
         </div>
       </div>
     );
@@ -144,14 +152,6 @@ export default function StageUSPIntro() {
   return (
     <div className="fixed inset-0 bg-background">
       {topBar}
-
-      {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-[60]">
-        <div
-          className="h-full bg-saffron transition-all duration-500 ease-out"
-          style={{ width: `${progressFraction * 100}%` }}
-        />
-      </div>
 
       {/* Full-screen background image */}
       <img
@@ -176,18 +176,7 @@ export default function StageUSPIntro() {
         </div>
 
         {/* Dot indicators */}
-        <div className="flex justify-center gap-2 mb-6">
-          {slides.map((_, i) => (
-            <div
-              key={i}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                i === currentSlide
-                  ? "w-6 bg-saffron"
-                  : "w-2 bg-white/30"
-              }`}
-            />
-          ))}
-        </div>
+        {dots}
 
         {/* Buttons */}
         <div className="space-y-3">
