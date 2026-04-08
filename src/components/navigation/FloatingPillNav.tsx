@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { House, Sparkles, TrendingUp } from 'lucide-react';
 
 const ACTIVE_COLOR = '#F26A50';
-const INACTIVE_COLOR = 'rgba(255,255,255,0.45)';
+const INACTIVE_COLOR = '#8B7E74';
 
 const TABS = [
   { icon: House, label: 'Today', path: '/executive-home' },
