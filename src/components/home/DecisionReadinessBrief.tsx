@@ -1,5 +1,5 @@
 /**
- * DecisionReadinessBrief – unified card replacing TodayStateCard + StrategicIntentionCard
+ * PerformanceReadinessBrief – unified card replacing TodayStateCard + StrategicIntentionCard
  * Variant A only: interpretation chips with tap-to-flip number reveal.
  */
 
@@ -62,6 +62,15 @@ const chipDotColor = (color: SignalChip['color']) => {
     case 'amber': return 'bg-amber-500';
     case 'green': return 'bg-emerald-500';
     default: return 'bg-muted-foreground/40';
+  }
+};
+
+const chipBgColor = (color: SignalChip['color']) => {
+  switch (color) {
+    case 'red': return 'bg-red-500/8 border-red-500/15';
+    case 'amber': return 'bg-amber-500/8 border-amber-500/15';
+    case 'green': return 'bg-emerald-500/8 border-emerald-500/15';
+    default: return 'bg-muted/50 border-border/30';
   }
 };
 
@@ -277,7 +286,8 @@ function FlippableChip({ chip }: { chip: SignalChip }) {
       onClick={() => hasBack && setFlipped(!flipped)}
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
-        "bg-card border border-border/40",
+        "border",
+        chipBgColor(chip.color),
         hasBack && "cursor-pointer active:scale-95",
         !hasBack && "cursor-default"
       )}
@@ -345,7 +355,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 }
 
 // ─── MAIN COMPONENT ───
-const DecisionReadinessBrief = () => {
+const PerformanceReadinessBrief = () => {
   const { user } = useAuth();
   const [rawExpanded, setRawExpanded] = useState(false);
 
@@ -392,12 +402,12 @@ const DecisionReadinessBrief = () => {
   const watchForSource = outerBrief?.watchForSource ? getSourceLabel(outerBrief.watchForSource) : '';
 
   return (
-    <div className="rounded-xl border border-border/40 bg-card p-4 border-l-[3px] border-l-[hsl(var(--taupe))]">
+    <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
 
       {/* 1. EYEBROW ROW */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/60 font-body font-medium">
-          Decision Readiness Brief
+        <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+          Performance Readiness Brief
         </span>
         <span className="text-[9px] text-muted-foreground/50 font-body">
           {getTimeLabel()} · {getDateLabel()}
@@ -550,4 +560,4 @@ const DecisionReadinessBrief = () => {
   );
 };
 
-export default DecisionReadinessBrief;
+export default PerformanceReadinessBrief;

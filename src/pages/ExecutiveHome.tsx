@@ -16,7 +16,7 @@ import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
-import DecisionReadinessBrief from "@/components/home/DecisionReadinessBrief";
+import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
@@ -313,7 +313,7 @@ const ExecutiveHome = () => {
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <DecisionReadinessBrief />
+                <PerformanceReadinessBrief />
               </section>
             </div>
 

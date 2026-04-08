@@ -2329,7 +2329,7 @@ serve(async (req) => {
 
     // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
     const hasWearable = !!wearableContext;
-    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
+    const hasCal = calendarLoad !== null && calendarPressure !== null;
     
     // Wearable days connected count
     let wearableDaysConnected = 0;
@@ -2648,7 +2648,7 @@ Hard rules:
       rhrValue,
       sleepScore: sleepScoreVal,
       hrvValue,
-      hasCalendar,
+      hasCalendar: hasCal,
       calendarLoad: calendarLoad || 'low',
       meetingCount: calendarResult.meetingCount,
       highStakesEvents: todayHighStakes,
