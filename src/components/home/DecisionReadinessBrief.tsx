@@ -402,7 +402,7 @@ const DecisionReadinessBrief = () => {
   const watchForSource = outerBrief?.watchForSource ? getSourceLabel(outerBrief.watchForSource) : '';
 
   return (
-    <div className="rounded-xl border border-border/40 bg-card p-4 border-l-[3px] border-l-[hsl(var(--taupe))]">
+    <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
 
       {/* 1. EYEBROW ROW */}
       <div className="flex items-center justify-between">
