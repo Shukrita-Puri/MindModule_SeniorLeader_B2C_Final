@@ -195,7 +195,7 @@ export async function authenticateRequest(
   corsHeaders: Record<string, string>
 ): Promise<{ userId: string; errorResponse?: never } | { userId?: never; errorResponse: Response }> {
   try {
-    const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const userId = await verifyAuth0JWT(req.headers.get('Authorization'), req);
     return { userId };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Authentication failed';
