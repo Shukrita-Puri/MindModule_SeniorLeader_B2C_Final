@@ -2648,7 +2648,7 @@ Hard rules:
       rhrValue,
       sleepScore: sleepScoreVal,
       hrvValue,
-      hasCalendar,
+      hasCalendar: hasCal,
       calendarLoad: calendarLoad || 'low',
       meetingCount: calendarResult.meetingCount,
       highStakesEvents: todayHighStakes,
