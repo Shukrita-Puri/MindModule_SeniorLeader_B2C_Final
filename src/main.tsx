@@ -5,6 +5,10 @@ import './index.css'
 // AuthProvider is now inside App.tsx Layout component
 import { DEV_MODE } from './config/devMode'
 import { getRedirectUri, initNativeAuthListener, getSanitisedAuth0Audience } from './utils/nativeAuth'
+import { installDevInterceptor } from './lib/devInterceptor'
+
+// Install dev mode interceptor for edge function calls (no-op in production)
+installDevInterceptor();
 
 // Boot the deep-link listener for iOS Capacitor auth callbacks (safe no-op on web)
 initNativeAuthListener().catch((e) =>
