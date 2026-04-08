@@ -1,60 +1,27 @@
 
 
-# Batch 1: Homepage Layout Restructure — Implementation Plan
-
-## Summary
-Wire the three existing components (CheckInBanner, FloatingCoachButton, FloatingPillNav) into the app, update colors to `#F26A50`, restyle the pill nav to match micro-practice glass cards, remove sidebar pulse, and hide CoachAccessButton on all viewports (FAB replaces it everywhere).
+# Fix CheckInBanner styling, FloatingPillNav visibility & glass effect
 
 ## Changes
 
-### 1. `FloatingPillNav.tsx` — Glass restyle, no orange active state
-- Replace `ACTIVE_COLOR = '#E87A2F'` with `#F26A50`
-- Change pill background from `rgba(15,15,15,0.65)` to `bg-white/15 backdrop-blur-md border border-white/40` (matching `MicroPracticePlayerCards.tsx` line 2194: `bg-white/15 backdrop-blur-md border border-white/40`)
-- Remove the hardcoded dark background style, use Tailwind classes instead
+### 1. `CheckInBanner.tsx` — Match Outer Readiness Brief box styling
+- Remove cream background (`#fff8ed`) and orange border (`#f5d5b8`)
+- Apply same card styling as StrategicIntentionCard: `bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)]`
+- Change text color from orange to charcoal/muted (`text-foreground/70`)
+- Change dot color from orange to `text-muted-foreground`
+- Change dismiss X icon to `text-muted-foreground` (no orange)
+- Keep only the "Check in" button in `#F26A50`
+- Already only shows when no check-in exists today — no logic change needed
 
-### 2. `FloatingCoachButton.tsx` — Color update
-- Change `ACCENT` from `#E87A2F` to `#F26A50`
-- Update pulse keyframe rgba from `232,122,47` to `242,106,80`
+### 2. `FloatingPillNav.tsx` — Fix inactive icon visibility + true glass
+- Change `INACTIVE_COLOR` from `rgba(255,255,255,0.45)` (invisible on light backgrounds) to a taupe/muted tone: `#8B7E74` (taupe from app palette) so icons are always visible
+- The glass background `bg-white/15 backdrop-blur-md border border-white/40` matches the micro-practice cards exactly — but the issue is likely that the page background behind it is light, making `white/15` look opaque/washed out. Change to `bg-black/20 backdrop-blur-xl border border-white/20` for better contrast on any background, or use `bg-background/80 backdrop-blur-md` to match the app's own background token with translucency.
 
-### 3. `CheckInBanner.tsx` — Color update
-- Replace all `#E87A2F` references with `#F26A50` (dot, text, button bg, dismiss icon)
+Actually, looking at the micro-practice cards reference (`bg-white/15 backdrop-blur-md border border-white/40`), those render on dark image backgrounds. The homepage has a lighter background, so the same values look washed out. I'll use `bg-black/30 backdrop-blur-xl border border-white/15` for a darker glass that reads well on the homepage.
 
-### 4. `ExecutiveHome.tsx` — Wire CheckInBanner + hide CoachAccessButton
-- Import and render `<CheckInBanner />` between hero section (after line 285 `</div>`) and the STATE section
-- Hide `CoachAccessButton` wrapper: change line 272 from no visibility class to `hidden` (hide on all viewports — FAB replaces it on both mobile and desktop per user request)
-- Change `pb-8` (line 288) to `pb-[100px]`
-
-### 5. `App.tsx` — Add floating nav components to Layout
-- Import `FloatingPillNav` and `FloatingCoachButton`
-- Add both to the `Layout` component (after `<PushNotificationActionHandler />`, before `<Outlet />`)
-- They already have `sm:hidden` so desktop unaffected
-
-### 6. `SidebarDiscoveryPulse.tsx` — Remove pulse rings
-- Remove the `<style>` block (lines 71-100) with keyframe animations
-- Remove the two `<span>` pulse elements (lines 107-123)
-- Keep `shouldPulse` logic and everything else unchanged
-
-### 7. `Insights.tsx` — Bottom padding
-- Add `pb-[100px]` to the root div (line 795): `min-h-screen bg-background pt-16 pb-[100px]`
-
-### 8. `RecalibrateMode.tsx` — Bottom padding
-- Add `pb-[100px]` to the root div (line 96): `h-screen h-[100dvh] bg-background flex flex-col pt-16 pb-[100px]`
-
-## Files Modified
+### Files
 | File | Change |
 |------|--------|
-| `src/components/navigation/FloatingPillNav.tsx` | Glass styling from micro-practice cards, color to `#F26A50` |
-| `src/components/navigation/FloatingCoachButton.tsx` | Color to `#F26A50` |
-| `src/components/home/CheckInBanner.tsx` | Color to `#F26A50` |
-| `src/pages/ExecutiveHome.tsx` | Add CheckInBanner, hide CoachAccessButton, padding |
-| `src/App.tsx` | Add FloatingPillNav + FloatingCoachButton to Layout |
-| `src/components/navigation/SidebarDiscoveryPulse.tsx` | Remove pulse rings |
-| `src/pages/Insights.tsx` | Add bottom padding |
-| `src/pages/RecalibrateMode.tsx` | Add bottom padding |
-
-## What Does NOT Change
-- Hero, TodayStateCard, StrategicIntentionCard, DailyRitual internals
-- All data fetching, scoring, energy state logic
-- Routing, auth flows, hamburger menu
-- Card colours and styling
+| `src/components/home/CheckInBanner.tsx` | Restyle to match Outer Readiness Brief card; text in charcoal; only button stays orange |
+| `src/components/navigation/FloatingPillNav.tsx` | Inactive color to taupe `#8B7E74`; darker glass background for visibility |
 
