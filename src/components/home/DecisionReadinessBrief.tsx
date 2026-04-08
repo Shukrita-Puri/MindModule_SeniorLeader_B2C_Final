@@ -406,8 +406,8 @@ const DecisionReadinessBrief = () => {
 
       {/* 1. EYEBROW ROW */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/60 font-body font-medium">
-          Decision Readiness Brief
+        <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+          Performance Readiness Brief
         </span>
         <span className="text-[9px] text-muted-foreground/50 font-body">
           {getTimeLabel()} · {getDateLabel()}
