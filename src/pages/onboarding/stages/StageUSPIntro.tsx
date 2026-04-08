@@ -41,8 +41,10 @@ const TOTAL_DOTS = 5;
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const resumeSlide = (location.state as { resumeSlide?: number } | null)?.resumeSlide;
   // -1 = intro screen, 0-2 = USP slides
-  const [currentSlide, setCurrentSlide] = useState(-1);
+  const [currentSlide, setCurrentSlide] = useState(resumeSlide ?? -1);
 
   const isIntro = currentSlide === -1;
   // dot index: intro=0, slide0=1, slide1=2, slide2=3
