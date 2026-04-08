@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { DEV_MODE } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthToken } from "@/services/authTokenService";
@@ -79,7 +80,7 @@ const ExecutiveHome = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if (!user?.id || !user?.onboarding_completed_at) {
+    if (!user?.id || (!DEV_MODE && !user?.onboarding_completed_at)) {
       setShowGuide(false);
       return;
     }

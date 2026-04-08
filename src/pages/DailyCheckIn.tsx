@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { DEV_MODE } from "@/config/devMode";
 import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
@@ -108,7 +109,7 @@ const DailyCheckIn = () => {
       return;
     }
 
-    if (!user?.id || !user?.onboarding_completed_at) {
+    if (!user?.id || (!DEV_MODE && !user?.onboarding_completed_at)) {
       setShowGuide(false);
       return;
     }
