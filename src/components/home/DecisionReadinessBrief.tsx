@@ -355,7 +355,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 }
 
 // ─── MAIN COMPONENT ───
-const DecisionReadinessBrief = () => {
+const PerformanceReadinessBrief = () => {
   const { user } = useAuth();
   const [rawExpanded, setRawExpanded] = useState(false);
 
