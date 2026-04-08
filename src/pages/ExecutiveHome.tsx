@@ -309,17 +309,10 @@ const ExecutiveHome = () => {
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[100px]">
 
-            {/* STATE */}
+            {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <TodayStateCard />
-              </section>
-            </div>
-
-            {/* COMPASS */}
-            <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
-              <section data-tour="compass" className="animate-in fade-in duration-500">
-                <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
+                <DecisionReadinessBrief />
               </section>
             </div>
 
