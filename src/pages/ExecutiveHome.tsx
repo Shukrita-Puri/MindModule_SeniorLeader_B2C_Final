@@ -59,11 +59,6 @@ interface PreEventPlan {
   progressTracked: boolean;
 }
 
-const TAB_LABELS = [
-  { key: 'state' as const, label: 'State' },
-  { key: 'compass' as const, label: 'Compass' },
-  { key: 'action' as const, label: 'Action' },
-];
 
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
@@ -72,7 +67,7 @@ const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const { recordStep } = useOnboardingProgress();
-  const [activeTab, setActiveTab] = useState<'state' | 'compass' | 'action'>('state');
+  
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
   const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
@@ -289,88 +284,59 @@ const ExecutiveHome = () => {
             </div>
           </div>
 
-          {/* Sticky Tab Bar */}
-          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
-            <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
-              {TAB_LABELS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  data-tour={`tab-${key}`}
-                  onClick={() => setActiveTab(key)}
-                  className={`typo-tab font-body transition-all relative ${
-                    activeTab === key
-                      ? 'font-medium text-foreground'
-                      : 'font-normal text-muted-foreground hover:text-foreground/70'
-                  }`}
-                >
-                  {label}
-                  {activeTab === key && (
-                    <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tab Content – all rendered, toggle via display */}
+          {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-8">
 
-            {/* STATE tab */}
-            <div style={{ display: activeTab === 'state' ? 'block' : 'none' }}>
-              <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
-                <section data-tour="today-state" className="animate-in fade-in duration-500">
-                  <TodayStateCard />
-                </section>
-              </div>
+            {/* STATE */}
+            <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+              <section data-tour="today-state" className="animate-in fade-in duration-500">
+                <TodayStateCard />
+              </section>
             </div>
 
-            {/* COMPASS tab */}
-            <div style={{ display: activeTab === 'compass' ? 'block' : 'none' }}>
-              <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
-                <section data-tour="compass" className="animate-in fade-in duration-500">
-                  <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
-                </section>
-              </div>
+            {/* COMPASS */}
+            <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+              <section data-tour="compass" className="animate-in fade-in duration-500">
+                <StrategicIntentionCard jitEvent={jitPriority && preEventPlan ? { title: preEventPlan.eventTitle, minutesUntil: preEventPlan.minutesUntil } : undefined} />
+              </section>
             </div>
 
-            {/* ACTION tab */}
-            <div style={{ display: activeTab === 'action' ? 'block' : 'none' }}>
-              <div data-tour="daily-plan">
-                <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
-                  <section className="animate-in fade-in duration-500">
-                    <div className="flex items-center justify-between py-2">
-                      <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Performance Readiness Plan</h2>
-                      <MetricInfoModal
-                        title="Your Performance Readiness Plan"
-                        description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-                      />
-                    </div>
-                  </section>
-                </div>
-
-                {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
-                {jitPriority && (
-                  <div className="animate-in fade-in duration-500 mt-4">
-                    <JitCarousel preEventPlan={preEventPlan} />
+            {/* ACTION */}
+            <div data-tour="daily-plan">
+              <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+                <section className="animate-in fade-in duration-500">
+                  <div className="flex items-center justify-between py-2">
+                    <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Performance Readiness Plan</h2>
+                    <MetricInfoModal
+                      title="Your Performance Readiness Plan"
+                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    />
                   </div>
-                )}
-
-                {/* Time-of-Day Plan */}
-                <div className="animate-in fade-in duration-500">
-                  <DailyRitual
-                    onPreEventPlanReady={setPreEventPlan}
-                    onJitPriorityChange={setJitPriority}
-                    jitPriority={jitPriority}
-                  />
-                </div>
-
-                {/* JIT Preparation – below ToD when NOT primary */}
-                {!jitPriority && (
-                  <div className="animate-in fade-in duration-500 mt-4">
-                    <JitCarousel preEventPlan={preEventPlan} />
-                  </div>
-                )}
+                </section>
               </div>
+
+              {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
+              {jitPriority && (
+                <div className="animate-in fade-in duration-500 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
+
+              {/* Time-of-Day Plan */}
+              <div className="animate-in fade-in duration-500">
+                <DailyRitual
+                  onPreEventPlanReady={setPreEventPlan}
+                  onJitPriorityChange={setJitPriority}
+                  jitPriority={jitPriority}
+                />
+              </div>
+
+              {/* JIT Preparation – below ToD when NOT primary */}
+              {!jitPriority && (
+                <div className="animate-in fade-in duration-500 mt-4">
+                  <JitCarousel preEventPlan={preEventPlan} />
+                </div>
+              )}
             </div>
 
             <div className="mt-8">
