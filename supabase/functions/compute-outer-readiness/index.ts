@@ -56,13 +56,12 @@ interface CalendarMetricsResult {
 interface WearableContext {
   hrv: number | null;
   rhr: number | null;
-  peakHR: number | null;
   sleepScore: number | null;
   sleepDuration: number | null;
   hrvElevated: boolean; // HRV significantly below baseline
-  hrElevated: boolean;  // Peak HR notably high (>100 or >120% of RHR)
   poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
-  rhrElevated: boolean; // RHR > 75bpm – resting heart rate above baseline
+  rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
+  dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
@@ -1947,39 +1946,46 @@ serve(async (req) => {
 
     // ── Fetch wearable data (always – mornings use sleep, evenings use HR/HRV) ──
     let wearableContext: WearableContext | null = null;
+    let wearableDataSource: string | null = null;
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
+        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, data_source')
         .eq('user_id', userId)
-        .order('recorded_date', { ascending: false })
+        .order('summary_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (wearableRow) {
         const rhr = wearableRow.resting_heart_rate || null;
-        const peakHR = wearableRow.heart_rate || null;
         const hrv = wearableRow.hrv || null;
         const sleepScore = wearableRow.sleep_score || null;
-        const sleepDuration = wearableRow.sleep_duration || null;
-        // Elevated HR: peak > 100 or > 120% of RHR
-        const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
-        // HRV stress: below 30ms absolute (low) – a simple heuristic
+        const rawSleepDuration = wearableRow.total_sleep_minutes || null;
+        const source = wearableRow.data_source || null;
+        wearableDataSource = source;
+
+        // Apple Health correction: reported duration includes "in bed" time
+        const sleepDuration = (rawSleepDuration !== null && source === 'apple-healthkit')
+          ? Math.round(rawSleepDuration * 0.85)
+          : rawSleepDuration;
+
+        // HRV stress: below 30ms absolute (low) – a simple heuristic (will be refined by deviation below)
         const hrvElevated = hrv !== null && hrv < 30;
         // Poor sleep: score < 60 or duration < 6 hours (360 min)
         const poorSleep = (sleepScore !== null && sleepScore < 60) || (sleepDuration !== null && sleepDuration < 360);
-        // RHR elevated: resting heart rate above 75bpm baseline
-        const rhrElevated = rhr !== null && rhr > 75;
+
+        // RHR elevated will be computed from baseline below – placeholder false
+        const rhrElevated = false;
+
         wearableContext = {
           hrv,
           rhr,
-          peakHR,
           sleepScore,
           sleepDuration,
           hrvElevated,
-          hrElevated,
           poorSleep,
           rhrElevated,
+          dataSource: source,
         };
       }
     } catch (err) {
@@ -2343,28 +2349,68 @@ serve(async (req) => {
       wearableDaysConnected = count ?? 0;
     } catch (e) { console.error('[compute-outer-readiness] wearable days count error:', e); }
 
-    // HRV/sleep deviation from 30-day baseline
+    // HRV/sleep/RHR deviation from 30-day baseline
     let hrvDeviation: number | null = null;
     let sleepDeviation: number | null = null;
+    let rhrDeviation: number | null = null;
     let hrvValue: number | null = wearableContext?.hrv ?? null;
     let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
     let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
     let rhrValue: number | null = wearableContext?.rhr ?? null;
+    let hrvBaseline: number | null = null;
+    let sleepBaseline: number | null = null;
+    let rhrBaseline: number | null = null;
+    const hasHistoricalData = wearableDaysConnected >= 7;
     try {
       if (hasWearable) {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score')
+          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, data_source')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
           .limit(30);
         if (baseline && baseline.length >= 3) {
-          const avgHRV = baseline.reduce((s: number, r: any) => s + (r.hrv || 0), 0) / baseline.length;
-          const avgSleep = baseline.reduce((s: number, r: any) => s + (r.sleep_score || 0), 0) / baseline.length;
-          if (avgHRV > 0 && hrvValue) hrvDeviation = Math.round(((hrvValue - avgHRV) / avgHRV) * 100);
-          if (avgSleep > 0 && sleepScoreVal) sleepDeviation = Math.round(((sleepScoreVal - avgSleep) / avgSleep) * 100);
+          // HRV baseline
+          const hrvRows = baseline.filter((r: any) => r.hrv != null && r.hrv > 0);
+          if (hrvRows.length >= 3) {
+            const avgHRV = hrvRows.reduce((s: number, r: any) => s + r.hrv, 0) / hrvRows.length;
+            hrvBaseline = Math.round(avgHRV);
+            if (hrvValue) hrvDeviation = Math.round(((hrvValue - avgHRV) / avgHRV) * 100);
+          }
+
+          // Sleep baseline: prefer sleep_score, fallback to duration
+          const sleepScoreRows = baseline.filter((r: any) => r.sleep_score != null && r.sleep_score > 0);
+          if (sleepScoreRows.length >= 3 && sleepScoreVal != null) {
+            const avgSleep = sleepScoreRows.reduce((s: number, r: any) => s + r.sleep_score, 0) / sleepScoreRows.length;
+            sleepBaseline = Math.round(avgSleep);
+            sleepDeviation = Math.round(((sleepScoreVal - avgSleep) / avgSleep) * 100);
+          } else if (sleepDuration != null) {
+            // Duration-based fallback (Apple Health)
+            const durRows = baseline.filter((r: any) => r.total_sleep_minutes != null && r.total_sleep_minutes > 0);
+            if (durRows.length >= 3) {
+              const isApple = wearableDataSource === 'apple-healthkit';
+              const avgDur = durRows.reduce((s: number, r: any) => {
+                const raw = r.total_sleep_minutes;
+                return s + (isApple ? raw * 0.85 : raw);
+              }, 0) / durRows.length;
+              sleepBaseline = Math.round(avgDur);
+              sleepDeviation = Math.round(((sleepDuration - avgDur) / avgDur) * 100);
+            }
+          }
+
+          // RHR baseline (deviation-based, replacing absolute thresholds)
+          const rhrRows = baseline.filter((r: any) => r.resting_heart_rate != null && r.resting_heart_rate > 0);
+          if (rhrRows.length >= 3 && rhrValue != null) {
+            const avgRHR = rhrRows.reduce((s: number, r: any) => s + r.resting_heart_rate, 0) / rhrRows.length;
+            rhrBaseline = Math.round(avgRHR);
+            rhrDeviation = Math.round(((rhrValue - avgRHR) / avgRHR) * 100);
+            // Update wearableContext with deviation-based rhrElevated
+            if (wearableContext) {
+              wearableContext.rhrElevated = rhrDeviation > 10;
+            }
+          }
         }
       }
     } catch (e) { console.error('[compute-outer-readiness] baseline deviation error:', e); }
@@ -2648,10 +2694,16 @@ Hard rules:
       wearableDaysConnected,
       hrvDeviation,
       sleepDeviation,
+      rhrDeviation,
       sleepDuration,
       rhrValue,
       sleepScore: sleepScoreVal,
       hrvValue,
+      hrvBaseline,
+      sleepBaseline,
+      rhrBaseline,
+      wearableDataSource,
+      hasHistoricalData,
       hasCalendar: hasCal,
       calendarLoad: calendarLoad || 'low',
       meetingCount: calendarResult.meetingCount,
