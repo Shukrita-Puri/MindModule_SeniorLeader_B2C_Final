@@ -2473,146 +2473,733 @@ serve(async (req) => {
     let llmPhrase: string | null = null;
     let llmBodyText: string | null = null;
     const dataCompleteness = checkInCountTotal === 0 ? 'day1' : checkInCountTotal <= 6 ? 'early' : checkInCountTotal <= 30 ? 'developing' : 'established';
-    
+
+    // ── Additional enrichment data for the upgraded LLM prompt ──
+    let yesterdayScore: number | null = null;
+    let scoreTrend: string | null = null;
+    let hasBackToBack = false;
+    let longestBackToBackHrs: number | null = null;
+    let nextEventAny: { title: string; minutesUntil: number } | null = null;
+    let practicesCompletedThisWeek = 0;
+    let practiceCompletionRate = 0;
+    let daysSinceCoachSession: number | null = null;
+    let coachSessionImpactDelta: number | null = null;
+    let avgScore7d: number | null = null;
+    let scoreTrajectory7d: string | null = null;
+    let wearableTrend7d: string | null = null;
+    let typicalDOWOutcome: string | null = null;
+    let typicalDOWScore: number | null = null;
+    let frictionTrend: string | null = null;
+    let dominantOutcome7d: string | null = null;
+    let pendingCommitment: string | null = null;
+    let recentPattern: string | null = null;
+    let divergenceMode: string | null = null;
+    let isPublicHoliday = false;
+    let holidayName: string | null = null;
+    let isDayBeforeRestDay = false;
+    let tomorrowFirstEventTime: string | null = null;
+    let tomorrowVsTodayLoad: string | null = null;
+    let tomorrowHighStakesTitles: string[] = [];
+    let weekAheadShape: Record<string, unknown> | null = null;
+    let hrvEventCorrelation: string | null = null;
+    let mostEffectivePractice: string | null = null;
+    let stateShiftToday = false;
+    let stateShiftDirection: string | null = null;
+
     if (dataCompleteness !== 'day1') {
+      // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
+      {
+        const today2 = new Date().toISOString().split('T')[0];
+        const todayCheckins2 = recentCheckIns.filter((c: any) => c.checkin_date === today2);
+        if (todayCheckins2.length >= 2) {
+          const latestEB = todayCheckins2[0].energy_balance ?? 50;
+          const prevEB = todayCheckins2[1].energy_balance ?? 50;
+          const delta = latestEB - prevEB;
+          if (Math.abs(delta) >= 15) {
+            stateShiftToday = true;
+            stateShiftDirection = delta > 0 ? 'improving' : 'declining';
+          }
+        }
+      }
+
+      // ── Wearable divergence mode ──
+      if (wearableContext && checkInOutcome) {
+        const positiveStates = ['thriving', 'steady', 'focused', 'energised', 'confident'];
+        const negativeStates = ['drained', 'scattered', 'overwhelmed', 'struggling', 'depleted'];
+        const feltPositive = positiveStates.includes(checkInOutcome);
+        const feltNegative = negativeStates.includes(checkInOutcome);
+        const wearableStrained = wearableContext.hrvElevated || wearableContext.poorSleep || wearableContext.rhrElevated;
+        const wearableGood = !wearableContext.hrvElevated && !wearableContext.poorSleep && !wearableContext.rhrElevated
+          && (wearableContext.sleepScore ? wearableContext.sleepScore >= 75 : true);
+        if (feltPositive && wearableStrained) divergenceMode = 'MASKED_HIGH';
+        else if (feltNegative && wearableGood) divergenceMode = 'RECOVERY_UNDERWAY';
+        else divergenceMode = 'ALIGNED';
+      }
+
+      // ── Static holiday lookup (UK/US/UAE/SG/AU 2025-2026) ──
+      const HOLIDAYS: Record<string, Array<{ date: string; name: string }>> = {
+        'GB': [
+          { date: '2025-01-01', name: "New Year's Day" }, { date: '2025-04-18', name: 'Good Friday' },
+          { date: '2025-04-21', name: 'Easter Monday' }, { date: '2025-05-05', name: 'Early May Bank Holiday' },
+          { date: '2025-05-26', name: 'Spring Bank Holiday' }, { date: '2025-08-25', name: 'Summer Bank Holiday' },
+          { date: '2025-12-25', name: 'Christmas Day' }, { date: '2025-12-26', name: 'Boxing Day' },
+          { date: '2026-01-01', name: "New Year's Day" }, { date: '2026-04-03', name: 'Good Friday' },
+          { date: '2026-04-06', name: 'Easter Monday' }, { date: '2026-05-04', name: 'Early May Bank Holiday' },
+          { date: '2026-05-25', name: 'Spring Bank Holiday' }, { date: '2026-08-31', name: 'Summer Bank Holiday' },
+          { date: '2026-12-25', name: 'Christmas Day' }, { date: '2026-12-28', name: 'Boxing Day (substitute)' },
+        ],
+        'US': [
+          { date: '2025-01-01', name: "New Year's Day" }, { date: '2025-01-20', name: 'MLK Day' },
+          { date: '2025-02-17', name: "Presidents' Day" }, { date: '2025-05-26', name: 'Memorial Day' },
+          { date: '2025-07-04', name: 'Independence Day' }, { date: '2025-09-01', name: 'Labor Day' },
+          { date: '2025-11-27', name: 'Thanksgiving' }, { date: '2025-12-25', name: 'Christmas Day' },
+          { date: '2026-01-01', name: "New Year's Day" }, { date: '2026-01-19', name: 'MLK Day' },
+          { date: '2026-05-25', name: 'Memorial Day' }, { date: '2026-07-03', name: 'Independence Day (observed)' },
+          { date: '2026-09-07', name: 'Labor Day' }, { date: '2026-11-26', name: 'Thanksgiving' },
+          { date: '2026-12-25', name: 'Christmas Day' },
+        ],
+        'AE': [
+          { date: '2025-01-01', name: "New Year's Day" }, { date: '2025-03-30', name: 'Eid al-Fitr' },
+          { date: '2025-03-31', name: 'Eid al-Fitr' }, { date: '2025-06-06', name: 'Eid al-Adha' },
+          { date: '2025-06-07', name: 'Eid al-Adha' }, { date: '2025-12-02', name: 'National Day' },
+          { date: '2025-12-03', name: 'National Day' },
+          { date: '2026-01-01', name: "New Year's Day" }, { date: '2026-03-20', name: 'Eid al-Fitr' },
+          { date: '2026-05-27', name: 'Eid al-Adha' }, { date: '2026-12-02', name: 'National Day' },
+        ],
+        'SG': [
+          { date: '2025-01-01', name: "New Year's Day" }, { date: '2025-01-29', name: 'Chinese New Year' },
+          { date: '2025-01-30', name: 'Chinese New Year' }, { date: '2025-04-18', name: 'Good Friday' },
+          { date: '2025-05-01', name: 'Labour Day' }, { date: '2025-05-12', name: 'Vesak Day' },
+          { date: '2025-06-07', name: 'Hari Raya Haji' }, { date: '2025-08-09', name: 'National Day' },
+          { date: '2025-10-20', name: 'Deepavali' }, { date: '2025-12-25', name: 'Christmas Day' },
+          { date: '2026-01-01', name: "New Year's Day" }, { date: '2026-02-17', name: 'Chinese New Year' },
+          { date: '2026-02-18', name: 'Chinese New Year' }, { date: '2026-04-03', name: 'Good Friday' },
+          { date: '2026-05-01', name: 'Labour Day' }, { date: '2026-08-09', name: 'National Day' },
+          { date: '2026-12-25', name: 'Christmas Day' },
+        ],
+        'AU': [
+          { date: '2025-01-01', name: "New Year's Day" }, { date: '2025-01-27', name: 'Australia Day' },
+          { date: '2025-04-18', name: 'Good Friday' }, { date: '2025-04-21', name: 'Easter Monday' },
+          { date: '2025-04-25', name: 'ANZAC Day' }, { date: '2025-12-25', name: 'Christmas Day' },
+          { date: '2025-12-26', name: 'Boxing Day' },
+          { date: '2026-01-01', name: "New Year's Day" }, { date: '2026-01-26', name: 'Australia Day' },
+          { date: '2026-04-03', name: 'Good Friday' }, { date: '2026-04-06', name: 'Easter Monday' },
+          { date: '2026-04-25', name: 'ANZAC Day' }, { date: '2026-12-25', name: 'Christmas Day' },
+          { date: '2026-12-28', name: 'Boxing Day (substitute)' },
+        ],
+      };
+
+      // Derive country from timezone
+      const tzToCountry: Record<string, string> = {
+        'Europe/London': 'GB', 'Europe/Belfast': 'GB',
+        'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
+        'America/Phoenix': 'US', 'America/Anchorage': 'US', 'Pacific/Honolulu': 'US',
+        'Asia/Dubai': 'AE', 'Asia/Abu_Dhabi': 'AE',
+        'Asia/Singapore': 'SG',
+        'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Brisbane': 'AU',
+        'Australia/Perth': 'AU', 'Australia/Adelaide': 'AU',
+      };
+
+      try {
+        const { data: profileTz } = await db.from('profiles').select('timezone').eq('id', userId).maybeSingle();
+        const userTz = (profileTz as any)?.timezone || null;
+        const userCountry = userTz ? tzToCountry[userTz] || null : null;
+        const localDate = userTime.toISOString().split('T')[0];
+        const tomorrowDate = new Date(userTime.getTime() + 86400000).toISOString().split('T')[0];
+
+        if (userCountry && HOLIDAYS[userCountry]) {
+          const todayHol = HOLIDAYS[userCountry].find(h => h.date === localDate);
+          if (todayHol) { isPublicHoliday = true; holidayName = todayHol.name; }
+          const tomorrowHol = HOLIDAYS[userCountry].find(h => h.date === tomorrowDate);
+          if (tomorrowHol) isDayBeforeRestDay = true;
+        }
+      } catch (e) { /* ignore holiday lookup failure */ }
+
+      // Friday = day before rest
+      if (dayOfWeek === 5) isDayBeforeRestDay = true;
+
+      // Check for personal holiday/OOO in tomorrow's calendar
+      if (tomorrowResult && tomorrowResult.state === 'active') {
+        try {
+          const oooPatterns = /\b(holiday|ooo|pto|leave|day\s*off|vacation|annual\s*leave|out\s*of\s*office)\b/i;
+          const tomorrowDateObj = new Date(userTime.getTime() + 86400000);
+          const tStart = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 0, 0, 0));
+          const tEnd = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 23, 59, 59));
+          const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
+          const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
+          const { data: tomorrowEvents } = await db
+            .from('calendar_events')
+            .select('title, start_time, end_time')
+            .eq('user_id', userId)
+            .gte('start_time', tStartUTC.toISOString())
+            .lte('start_time', tEndUTC.toISOString());
+          if (tomorrowEvents) {
+            for (const ev of tomorrowEvents) {
+              const dur = (new Date(ev.end_time).getTime() - new Date(ev.start_time).getTime()) / 3600000;
+              if (dur >= 4 && ev.title && oooPatterns.test(ev.title)) {
+                isDayBeforeRestDay = true;
+                break;
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // ── Parallel enrichment queries ──
+      try {
+        const nowISO = new Date().toISOString();
+        const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+        const thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+        const [
+          yesterdayRes,
+          nextEventRes,
+          practicesRes,
+          coachSessionRes,
+          wearable7dRes,
+          dowCheckinsRes,
+          commitmentRes,
+          patternRes,
+          effectivePracticeRes,
+          recentCheckinsRes,
+        ] = await Promise.all([
+          // 1. Yesterday's score
+          db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', yesterdayDate).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          // 3. Next event (any)
+          db.from('calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          // 4. Practice completion this week
+          db.from('sanctuary_events').select('id, content_id').eq('user_id', userId).eq('event_type', 'completed').gte('created_at', sevenAgo).catch(() => ({ data: null })),
+          // 5. Coach session recency
+          db.from('coach_session_summaries').select('created_at, session_id, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          // 7. Wearable trend (7d)
+          hasWearable ? db.from('wearable_data').select('hrv_rmssd, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          // 8. DOW checkins (60 days)
+          db.from('daily_checkins').select('outcome, energy_balance, checkin_date').eq('user_id', userId).gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]).catch(() => ({ data: null })),
+          // Pending commitment
+          db.from('coach_accountability_tracker').select('commitment_text').eq('user_id', userId).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          // Recent pattern
+          db.from('coach_pattern_observations').select('pattern_description').eq('user_id', userId).eq('is_active', true).gte('last_observed_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('observation_count', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          // Most effective practice
+          db.from('sanctuary_events').select('content_id, effectiveness_rating').eq('user_id', userId).not('effectiveness_rating', 'is', null).order('effectiveness_rating', { ascending: false }).limit(10).catch(() => ({ data: null })),
+          // 14-day checkins for friction trend
+          db.from('daily_checkins').select('outcome, checkin_date, energy_balance').eq('user_id', userId).gte('checkin_date', fourteenAgo).order('checkin_date', { ascending: false }).catch(() => ({ data: null })),
+        ]);
+
+        // 1. Yesterday score + trend
+        if (yesterdayRes.data) {
+          yesterdayScore = (yesterdayRes.data as any).energy_balance ?? null;
+          if (yesterdayScore != null) {
+            const delta = innerReadinessScore - yesterdayScore;
+            scoreTrend = delta > 5 ? 'improving' : delta < -5 ? 'declining' : 'stable';
+          }
+        }
+
+        // 2. Back-to-back detection (from calendarResult events — re-query sorted events)
+        try {
+          if (calendarResult.state === 'active' && calendarResult.eventCount > 1) {
+            const userNow2 = new Date(new Date().getTime() - timezoneOffset * 60000);
+            const dayStart = new Date(Date.UTC(userNow2.getUTCFullYear(), userNow2.getUTCMonth(), userNow2.getUTCDate(), 0, 0, 0));
+            const dayEnd = new Date(Date.UTC(userNow2.getUTCFullYear(), userNow2.getUTCMonth(), userNow2.getUTCDate(), 23, 59, 59));
+            const startUTC2 = new Date(dayStart.getTime() + timezoneOffset * 60000);
+            const endUTC2 = new Date(dayEnd.getTime() + timezoneOffset * 60000);
+            const { data: sortedEvts } = await db
+              .from('calendar_events')
+              .select('start_time, end_time, title')
+              .eq('user_id', userId)
+              .gte('start_time', startUTC2.toISOString())
+              .lte('start_time', endUTC2.toISOString())
+              .order('start_time', { ascending: true });
+            if (sortedEvts && sortedEvts.length > 1) {
+              let maxBlock = 0;
+              let currentBlock = 0;
+              for (let i = 0; i < sortedEvts.length - 1; i++) {
+                const gap = (new Date(sortedEvts[i + 1].start_time).getTime() - new Date(sortedEvts[i].end_time).getTime()) / 60000;
+                if (gap < 10) {
+                  if (currentBlock === 0) {
+                    currentBlock = (new Date(sortedEvts[i].end_time).getTime() - new Date(sortedEvts[i].start_time).getTime()) / 3600000;
+                  }
+                  currentBlock += (new Date(sortedEvts[i + 1].end_time).getTime() - new Date(sortedEvts[i + 1].start_time).getTime()) / 3600000;
+                  hasBackToBack = true;
+                } else {
+                  if (currentBlock > maxBlock) maxBlock = currentBlock;
+                  currentBlock = 0;
+                }
+              }
+              if (currentBlock > maxBlock) maxBlock = currentBlock;
+              if (maxBlock > 0) longestBackToBackHrs = Math.round(maxBlock * 10) / 10;
+            }
+          }
+        } catch (e) { /* ignore */ }
+
+        // 3. Next event (any)
+        if (nextEventRes.data) {
+          const ev = nextEventRes.data as any;
+          const mins = Math.round((new Date(ev.start_time).getTime() - Date.now()) / 60000);
+          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins };
+        }
+
+        // 4. Practices this week
+        if (practicesRes.data) {
+          practicesCompletedThisWeek = (practicesRes.data as any[]).length;
+          practiceCompletionRate = Math.round((practicesCompletedThisWeek / 7) * 100);
+        }
+
+        // 5. Coach session recency + impact
+        if (coachSessionRes.data) {
+          const sessionDate = new Date((coachSessionRes.data as any).created_at);
+          daysSinceCoachSession = Math.floor((Date.now() - sessionDate.getTime()) / 86400000);
+          // Impact: compare day-of-session vs next-day check-in
+          try {
+            const sessionDateStr = sessionDate.toISOString().split('T')[0];
+            const nextDayStr = new Date(sessionDate.getTime() + 86400000).toISOString().split('T')[0];
+            const [{ data: sessionDay }, { data: nextDay }] = await Promise.all([
+              db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', sessionDateStr).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+              db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', nextDayStr).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            ]);
+            if (sessionDay?.energy_balance != null && nextDay?.energy_balance != null) {
+              coachSessionImpactDelta = nextDay.energy_balance - sessionDay.energy_balance;
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        // 6. 7-day avg + trajectory from recentCheckIns
+        if (recentCheckIns.length >= 2) {
+          const scores = recentCheckIns.filter((c: any) => c.energy_balance != null).map((c: any) => c.energy_balance as number);
+          if (scores.length >= 2) {
+            avgScore7d = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+            const mid = Math.floor(scores.length / 2);
+            const firstHalf = scores.slice(mid); // older (recentCheckIns is desc)
+            const secondHalf = scores.slice(0, mid); // newer
+            const avgFirst = firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length;
+            const diff = avgSecond - avgFirst;
+            scoreTrajectory7d = diff > 5 ? 'improving' : diff < -5 ? 'declining' : 'stable';
+          }
+        }
+
+        // 7. Wearable trend (7d)
+        if (wearable7dRes.data && (wearable7dRes.data as any[]).length >= 4) {
+          const rows = (wearable7dRes.data as any[]).filter(r => r.hrv_rmssd != null);
+          if (rows.length >= 4) {
+            const mid = Math.floor(rows.length / 2);
+            const first = rows.slice(0, mid);
+            const second = rows.slice(mid);
+            const avgFirst = first.reduce((s: number, r: any) => s + r.hrv_rmssd, 0) / first.length;
+            const avgSecond = second.reduce((s: number, r: any) => s + r.hrv_rmssd, 0) / second.length;
+            const diff = ((avgSecond - avgFirst) / avgFirst) * 100;
+            wearableTrend7d = diff > 10 ? 'improving' : diff < -10 ? 'declining' : 'stable';
+          }
+        }
+
+        // 8. DOW typical outcome + score
+        if (dowCheckinsRes.data && (dowCheckinsRes.data as any[]).length >= 4) {
+          const allDow = (dowCheckinsRes.data as any[]);
+          const sameDow = allDow.filter((c: any) => {
+            const d = new Date(c.checkin_date + 'T00:00:00');
+            return d.getDay() === dayOfWeek;
+          });
+          if (sameDow.length >= 4) {
+            const counts: Record<string, number> = {};
+            for (const c of sameDow) { counts[c.outcome] = (counts[c.outcome] || 0) + 1; }
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            if (top) typicalDOWOutcome = top[0];
+            const dowScores = sameDow.filter((c: any) => c.energy_balance != null).map((c: any) => c.energy_balance as number);
+            if (dowScores.length >= 4) typicalDOWScore = Math.round(dowScores.reduce((s, v) => s + v, 0) / dowScores.length);
+          }
+        }
+
+        // Friction trend + dominant outcome 7d
+        if (recentCheckinsRes.data) {
+          const allCheckins = recentCheckinsRes.data as any[];
+          const frictionOutcomes = ['drained', 'scattered', 'overwhelmed'];
+          const recent7 = allCheckins.filter(c => c.checkin_date >= sevenAgo);
+          const prev7 = allCheckins.filter(c => c.checkin_date < sevenAgo);
+          const recentFriction = recent7.filter(c => frictionOutcomes.includes(c.outcome)).length;
+          const prevFriction = prev7.filter(c => frictionOutcomes.includes(c.outcome)).length;
+          if (prev7.length > 0) {
+            const diff = (recentFriction / Math.max(recent7.length, 1)) - (prevFriction / Math.max(prev7.length, 1));
+            frictionTrend = diff < -0.1 ? 'improving' : diff > 0.1 ? 'declining' : 'stable';
+          }
+          const counts7: Record<string, number> = {};
+          for (const c of recent7) { counts7[c.outcome] = (counts7[c.outcome] || 0) + 1; }
+          const topOutcome = Object.entries(counts7).sort((a, b) => b[1] - a[1])[0];
+          if (topOutcome) dominantOutcome7d = topOutcome[0];
+        }
+
+        // Pending commitment
+        pendingCommitment = (commitmentRes.data as any)?.commitment_text ?? null;
+
+        // Recent pattern
+        recentPattern = (patternRes.data as any)?.pattern_description ?? null;
+
+        // Most effective practice
+        if (effectivePracticeRes.data && (effectivePracticeRes.data as any[]).length > 0) {
+          mostEffectivePractice = (effectivePracticeRes.data as any[])[0].content_id ?? null;
+        }
+
+        // 9. Tomorrow enhanced
+        if (tomorrowResult && tomorrowResult.state === 'active') {
+          tomorrowHighStakesTitles = tomorrowHighStakes;
+          // Tomorrow vs today load comparison
+          const loadRank: Record<string, number> = { 'low': 1, 'medium': 2, 'high': 3 };
+          const todayRank = loadRank[calendarLoad || 'low'] || 1;
+          const tomorrowRank = loadRank[tomorrowLoad || 'low'] || 1;
+          tomorrowVsTodayLoad = tomorrowRank > todayRank ? 'heavier' : tomorrowRank < todayRank ? 'lighter' : 'similar';
+
+          // Tomorrow first event time
+          try {
+            const tomorrowDateObj = new Date(userTime.getTime() + 86400000);
+            const tStart = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 0, 0, 0));
+            const tEnd = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 23, 59, 59));
+            const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
+            const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
+            const { data: tFirstEvt } = await db.from('calendar_events').select('start_time').eq('user_id', userId)
+              .gte('start_time', tStartUTC.toISOString()).lte('start_time', tEndUTC.toISOString())
+              .order('start_time', { ascending: true }).limit(1).maybeSingle();
+            if (tFirstEvt) {
+              const evTime = new Date(new Date(tFirstEvt.start_time).getTime() - timezoneOffset * 60000);
+              tomorrowFirstEventTime = `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        // 10. Week-ahead (Sunday evening only)
+        const isSundayEvening = dayOfWeek === 0 && hour >= 17;
+        if (isSundayEvening && calendarResult.state !== 'not_connected') {
+          try {
+            const weekEvents: Array<{ day: string; count: number; hsCount: number }> = [];
+            for (let d = 1; d <= 5; d++) { // Mon-Fri
+              const targetDayRes = await getServerCalendarMetrics(db as any, userId, timezoneOffset, d);
+              const targetDate = new Date(userTime.getTime() + d * 86400000);
+              const dayName = dayNames[targetDate.getDay()];
+              weekEvents.push({
+                day: dayName,
+                count: targetDayRes.meetingCount,
+                hsCount: targetDayRes.highStakesEvents.length,
+              });
+            }
+            const heaviest = weekEvents.reduce((max, d) => d.count > max.count ? d : max, weekEvents[0]);
+            const totalHS = weekEvents.reduce((s, d) => s + d.hsCount, 0);
+            const lightDays = weekEvents.filter(d => d.count <= 1).map(d => d.day);
+            const firstHS = weekEvents.find(d => d.hsCount > 0);
+
+            // Monday first event
+            let mondayFirstEvent: { title: string; time: string; isHighStakes: boolean } | null = null;
+            try {
+              const monDate = new Date(userTime.getTime() + 86400000);
+              const mStart = new Date(Date.UTC(monDate.getUTCFullYear(), monDate.getUTCMonth(), monDate.getUTCDate(), 0, 0, 0));
+              const mEnd = new Date(Date.UTC(monDate.getUTCFullYear(), monDate.getUTCMonth(), monDate.getUTCDate(), 23, 59, 59));
+              const mStartUTC = new Date(mStart.getTime() + timezoneOffset * 60000);
+              const mEndUTC = new Date(mEnd.getTime() + timezoneOffset * 60000);
+              const { data: monFirst } = await db.from('calendar_events').select('title, start_time')
+                .eq('user_id', userId).gte('start_time', mStartUTC.toISOString()).lte('start_time', mEndUTC.toISOString())
+                .order('start_time', { ascending: true }).limit(1).maybeSingle();
+              if (monFirst) {
+                const evTime = new Date(new Date(monFirst.start_time).getTime() - timezoneOffset * 60000);
+                const timeStr = `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+                const monMetrics = weekEvents[0]; // Monday is index 0
+                mondayFirstEvent = { title: monFirst.title || 'Untitled', time: timeStr, isHighStakes: monMetrics.hsCount > 0 };
+              }
+            } catch (e) { /* ignore */ }
+
+            weekAheadShape = {
+              heaviestDay: heaviest.day,
+              heaviestDayLoad: heaviest.count >= 4 ? 'high' : heaviest.count >= 2 ? 'medium' : 'low',
+              totalHighStakesNextWeek: totalHS,
+              firstHighStakesDay: firstHS?.day ?? null,
+              lightDaysNextWeek: lightDays,
+              mondayLoad: weekEvents[0].count >= 4 ? 'high' : weekEvents[0].count >= 2 ? 'medium' : weekEvents[0].count > 0 ? 'low' : 'none',
+              mondayHasHighStakes: weekEvents[0].hsCount > 0,
+              mondayFirstEvent,
+            };
+          } catch (e) { console.error('[compute-outer-readiness] week-ahead error:', e); }
+        }
+
+        // 14. HRV correlation for event type (lightweight)
+        if (hasWearable && todayHighStakes.length > 0 && wearableDaysConnected >= 7) {
+          try {
+            const keyword = todayHighStakes[0].split(/\s+/).filter(w => w.length > 3 && !/^(the|and|for|with|from)$/i.test(w))[0];
+            if (keyword) {
+              const { data: similarEvents } = await db.from('calendar_events')
+                .select('start_time').eq('user_id', userId)
+                .ilike('title', `%${keyword}%`)
+                .gte('start_time', thirtyAgo)
+                .lt('start_time', new Date().toISOString());
+              if (similarEvents && similarEvents.length >= 3) {
+                const eventDates = similarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]);
+                const uniqueDates = [...new Set(eventDates)];
+                if (uniqueDates.length >= 3) {
+                  const { data: eventDayHRV } = await db.from('wearable_data')
+                    .select('hrv_rmssd, summary_date').eq('user_id', userId)
+                    .in('summary_date', uniqueDates);
+                  const { data: allHRV } = await db.from('wearable_data')
+                    .select('hrv_rmssd').eq('user_id', userId)
+                    .gte('summary_date', thirtyAgo);
+                  if (eventDayHRV && allHRV) {
+                    const eventHRVs = (eventDayHRV as any[]).filter(r => r.hrv_rmssd != null).map(r => r.hrv_rmssd);
+                    const allHRVs = (allHRV as any[]).filter(r => r.hrv_rmssd != null).map(r => r.hrv_rmssd);
+                    if (eventHRVs.length >= 3 && allHRVs.length >= 5) {
+                      const avgEvent = eventHRVs.reduce((s, v) => s + v, 0) / eventHRVs.length;
+                      const avgAll = allHRVs.reduce((s, v) => s + v, 0) / allHRVs.length;
+                      const pctDiff = Math.round(((avgEvent - avgAll) / avgAll) * 100);
+                      if (Math.abs(pctDiff) >= 10) {
+                        const direction = pctDiff < 0 ? 'drops' : 'rises';
+                        hrvEventCorrelation = `HRV ${direction} avg ${Math.abs(pctDiff)}% before ${keyword} meetings — ${eventHRVs.length} occurrences`;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) { /* ignore HRV correlation failure */ }
+        }
+
+      } catch (enrichErr) {
+        console.error('[compute-outer-readiness] Enrichment queries error:', enrichErr);
+      }
+
+      // ── Build & call LLM ──
       try {
         const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
         if (LOVABLE_API_KEY) {
-          // Additional context queries for LLM
-          let typicalDOWOutcome: string | null = null;
-          let frictionTrend: string | null = null;
-          let pendingCommitment: string | null = null;
-          let recentPattern: string | null = null;
-          let dominantOutcome7d: string | null = null;
-
-          try {
-            const { data: dowData } = await db.rpc('', {}).catch(() => ({ data: null }));
-            // Simpler approach - query directly
-            const { data: dowCheckins } = await db
-              .from('daily_checkins')
-              .select('outcome')
-              .eq('user_id', userId)
-              .gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]);
-            if (dowCheckins && dowCheckins.length >= 4) {
-              const today = new Date().getDay();
-              // Filter to same day-of-week as today
-              const sameDayCheckins = dowCheckins.filter((c: any) => {
-                const d = new Date(c.checkin_date + 'T00:00:00');
-                return d.getDay() === today;
-              });
-              const counts: Record<string, number> = {};
-              for (const c of sameDayCheckins) { counts[c.outcome] = (counts[c.outcome] || 0) + 1; }
-              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-              if (top && top[1] >= 4) typicalDOWOutcome = top[0];
-            }
-          } catch (e) { /* ignore */ }
-
-          try {
-            const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-            const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
-            const { data: recentCheckins } = await db
-              .from('daily_checkins')
-              .select('outcome, checkin_date')
-              .eq('user_id', userId)
-              .gte('checkin_date', fourteenAgo);
-            if (recentCheckins) {
-              const frictionOutcomes = ['drained', 'scattered', 'overwhelmed'];
-              const recent7 = recentCheckins.filter(c => c.checkin_date >= sevenAgo);
-              const prev7 = recentCheckins.filter(c => c.checkin_date < sevenAgo);
-              const recentFriction = recent7.filter(c => frictionOutcomes.includes(c.outcome)).length;
-              const prevFriction = prev7.filter(c => frictionOutcomes.includes(c.outcome)).length;
-              if (prev7.length > 0) {
-                const diff = (recentFriction / Math.max(recent7.length, 1)) - (prevFriction / Math.max(prev7.length, 1));
-                frictionTrend = diff < -0.1 ? 'improving' : diff > 0.1 ? 'declining' : 'stable';
-              }
-              // Dominant outcome 7d
-              const counts7: Record<string, number> = {};
-              for (const c of recent7) { counts7[c.outcome] = (counts7[c.outcome] || 0) + 1; }
-              const topOutcome = Object.entries(counts7).sort((a, b) => b[1] - a[1])[0];
-              if (topOutcome) dominantOutcome7d = topOutcome[0];
-            }
-          } catch (e) { /* ignore */ }
-
-          try {
-            const { data: commitment } = await db
-              .from('coach_accountability_tracker')
-              .select('commitment_text')
-              .eq('user_id', userId)
-              .eq('status', 'pending')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            pendingCommitment = commitment?.commitment_text ?? null;
-          } catch (e) { /* ignore */ }
-
-          try {
-            const sevenAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-            const { data: patternData } = await db
-              .from('coach_pattern_observations')
-              .select('pattern_description')
-              .eq('user_id', userId)
-              .eq('is_active', true)
-              .gte('last_observed_at', sevenAgo)
-              .order('observation_count', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            recentPattern = patternData?.pattern_description ?? null;
-          } catch (e) { /* ignore */ }
-
-          // Build LLM prompt
           const timeOfDayStr = getTimeOfDay(hour);
-          const calLoadStr = calendarLoad || 'light';
-          const hsToday = todayHighStakes.length > 0 ? todayHighStakes.join(', ') : 'NONE';
-          const nextHSStr = nextHighStakesEvent ? `${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil} mins` : 'NULL';
+          const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          const dayName = dayNames2[dayOfWeek];
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isMondayMorning = dayOfWeek === 1 && hour < 12;
+          const isFridayEvening = dayOfWeek === 5 && hour >= 17;
+          const isSundayEvening2 = dayOfWeek === 0 && hour >= 17;
+          const hoursRemaining = hour < 19 ? 19 - hour : null;
+          const localTimeStr = `${String(hour).padStart(2, '0')}:${String(userTime.getMinutes()).padStart(2, '0')}`;
 
-          const userPrompt = `Write for this leader. Use AVAILABLE data. Ignore NULL fields.
+          // Wearable confidence
+          const wearableConfidence = !hasWearable ? null : wearableDaysConnected >= 14 ? 'high' : wearableDaysConnected >= 7 ? 'medium' : 'low';
+          // HRV unusual (worst/best 10%)
+          let hrvUnusual: boolean | null = null;
+          if (hrvDeviation != null) hrvUnusual = Math.abs(hrvDeviation) >= 25;
+          // Sleep hard floor
+          const sleepHardFloor = sleepDuration != null && sleepDuration < 360;
+          // Day after poor sleep
+          let dayAfterPoorSleep = false;
+          try {
+            if (hasWearable) {
+              const ydayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+              const { data: ydaySleep } = await db.from('wearable_data').select('total_sleep_minutes').eq('user_id', userId).eq('summary_date', ydayDate).maybeSingle();
+              if (ydaySleep && (ydaySleep as any).total_sleep_minutes != null && (ydaySleep as any).total_sleep_minutes < 360) dayAfterPoorSleep = true;
+            }
+          } catch (e) { /* ignore */ }
 
-=== IMMEDIATE ===
-Readiness score: ${innerReadinessScore}/100 (${safeTier})
+          // Consecutive low days
+          let consecutiveLowDays = 0;
+          for (const c of recentCheckIns) {
+            if ((c as any).energy_balance != null && (c as any).energy_balance < 50) consecutiveLowDays++;
+            else break;
+          }
+
+          // DOW score comparison
+          let scoreVsTypicalDOW: string | null = null;
+          if (typicalDOWScore != null) {
+            const diff = innerReadinessScore - typicalDOWScore;
+            scoreVsTypicalDOW = diff > 8 ? 'better' : diff < -8 ? 'worse' : 'consistent';
+          }
+
+          // ── System Prompt ──
+          const systemPrompt = `You are a performance intelligence system writing a ${timeOfDayStr} brief for a C-suite leader.
+
+Your voice: a trusted chief of staff who has watched this person's data for weeks and speaks with precision, never fluff.
+
+Your job: produce two things.
+
+1. PHRASE: 3-6 words. A crisp directive. Active, specific, earned by their data.
+   Examples: 'Pace from the start.' 'Use the edge now.' 'Protect what you have.' 'Ground before the board.' 'This is your window.'
+
+2. BODY: One sentence. Maximum 15 words. References something specific to them. Bolds the key action with **double asterisks**. Never generic. Never a template.
+
+Hard rules — no exceptions:
+- No wellness words ever: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine, nourish, recharge
+- No affirmations or encouragement
+- No softening language
+- C-suite register only: direct, precise, data-referenced
+- Wearable data > felt state when both exist and diverge
+- Coach memory > generic patterns when available
+- If a field is NULL: ignore it entirely, never reference it, never fabricate
+- If you cannot produce something specific and non-generic: output null for that field
+- JIT event within 90 mins: the brief MUST orient around it
+- Never repeat the phrase in the body
+- Never use the word 'readiness'
+- If calendar load is 'none': user has no calendar connected — do not reference meetings, calendar density, or scheduling
+
+SUNDAY EVENING RULE:
+When Is Sunday evening = yes:
+  This is the highest-value brief of the week. The leader is mentally preparing to re-enter.
+  Do NOT write a reflection brief. Do NOT summarise the weekend. Write a forward brief.
+  Orient around: (1) What Monday looks like (specific), (2) The week's pressure point (heaviest day / first high-stakes event), (3) One thing to carry in vs leave behind.
+  If Monday is heavy: directive phrase. If Monday is light: spacious phrase.
+  Never write: 'Reflect on your week' or 'Prepare for tomorrow' (too generic).
+  Always write toward the specific shape of what's coming.
+
+FRIDAY/PRE-REST-DAY EVENING RULE:
+When Is day before a rest day = yes (Friday evening, eve of public holiday, eve of personal holiday):
+  This is a transition brief. The leader is closing out and heading into recovery.
+  Frame as closure and release — not planning.
+  If next week has immediate high-stakes visible: "Don't fully unplug — [event] needs mental space."
+  If no upcoming pressure: "Disconnect fully. You have runway."
+  Never write operational preparation language for the next workday.`;
+
+          // ── User Prompt (conditional sections) ──
+          let userPrompt = `Write a brief for this leader. Use only AVAILABLE data. Ignore and never reference NULL fields.
+
+=== TIME CONTEXT ===
+Current time: ${localTimeStr} local
+Time of day: ${timeOfDayStr}
+Day: ${dayName}
+Is weekend: ${isWeekend ? 'yes' : 'no'}
+Is day before a rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}
+Hour of day: ${hour}
+Hours remaining in workday: ${hoursRemaining != null ? hoursRemaining : 'NULL'}
+
+=== TODAY'S READINESS ===
+Score today: ${innerReadinessScore}/100 (${safeTier})
+Score yesterday: ${yesterdayScore != null ? yesterdayScore + '/100' : 'NULL'}
+Score trend: ${scoreTrend || 'NULL'}
+Score vs typical ${dayName}: ${scoreVsTypicalDOW || 'NULL'}
 Felt state: ${checkInOutcome || 'NULL'}
 Clarity: ${clarityLevel != null ? clarityLevel + '/5' : 'NULL'}
-Confidence: ${confidenceLevel != null ? confidenceLevel + '/5' : 'NULL'}
-Time of day: ${timeOfDayStr}
-Calendar: ${calLoadStr} day · ${calendarResult.meetingCount} meetings
+Confidence: ${confidenceLevel != null ? confidenceLevel + '/5' : 'NULL'}`;
+
+          // Wearable section
+          if (hasWearable) {
+            userPrompt += `
+
+=== WEARABLE ===
+HRV vs 30-day baseline: ${hrvDeviation != null ? (hrvDeviation > 0 ? '+' : '') + hrvDeviation + '%' : 'NULL'}
+  Is this unusual for them: ${hrvUnusual != null ? (hrvUnusual ? 'yes' : 'no') : 'NULL'}
+Sleep vs 30-day baseline: ${sleepDeviation != null ? (sleepDeviation > 0 ? '+' : '') + sleepDeviation + '%' : 'NULL'}
+  Hard floor breach (<6hrs): ${sleepHardFloor ? 'yes' : 'no'}
+RHR vs 30-day baseline: ${rhrDeviation != null ? (rhrDeviation > 0 ? '+' : '') + rhrDeviation + '%' : 'NULL'}
+Wearable divergence mode: ${divergenceMode || 'NULL'}
+  MASKED_HIGH = wearable much worse than felt state — body under load the leader hasn't registered
+  RECOVERY_UNDERWAY = wearable much better than felt state — body recovering faster than perceived
+Wearable confidence: ${wearableConfidence || 'NULL'}`;
+          }
+
+          // Calendar section
+          if (calendarResult.state === 'active') {
+            const hsToday = todayHighStakes.length > 0 ? todayHighStakes.join(', ') : 'NONE';
+            const nextEvStr = nextEventAny ? `${nextEventAny.title}` : 'NULL';
+            const nextEvMins = nextEventAny ? `${nextEventAny.minutesUntil}` : 'NULL';
+            const nextHSStr = nextHighStakesEvent ? nextHighStakesEvent.title : 'NULL';
+            const nextHSMins = nextHighStakesEvent ? `${nextHighStakesEvent.minutesUntil}` : 'NULL';
+
+            userPrompt += `
+
+=== CALENDAR TODAY ===
+Load: ${calendarLoad || 'low'}
+Total meetings: ${calendarResult.meetingCount}
+Meetings remaining today: ${calendarResult.remainingMeetings}
+Back-to-back meetings: ${hasBackToBack ? 'yes' : 'no'}${hasBackToBack && longestBackToBackHrs ? `\n  Longest back-to-back block: ${longestBackToBackHrs} hrs` : ''}
 High-stakes events today: ${hsToday}
-Next high-stakes event: ${nextHSStr}
-HRV vs baseline: ${hrvDeviation != null ? hrvDeviation + '%' : 'NULL'}
-Sleep vs baseline: ${sleepDeviation != null ? sleepDeviation + '%' : 'NULL'}
-RHR elevated: ${wearableContext?.rhrElevated ? 'yes' : 'NULL'}
+Next event title: ${nextEvStr}
+Next event in: ${nextEvMins} minutes
+Next high-stakes event title: ${nextHSStr}
+Next high-stakes event in: ${nextHSMins} minutes
+  < 30 mins: orient entirely around this event
+  30-90 mins: surface preparation angle
+  > 90 mins: context only, mention but don't dominate`;
+          }
 
-${dataCompleteness !== 'early' ? `=== SHORT-TERM ===
+          // Tomorrow context (evenings, Friday, Sunday)
+          if (isEvening || isFridayEvening || isSundayEvening2) {
+            const tomorrowDayName = dayNames2[(dayOfWeek + 1) % 7];
+            userPrompt += `
+
+=== TOMORROW CONTEXT ===
+Tomorrow is: ${tomorrowDayName}
+Tomorrow load: ${tomorrowLoad || 'none'}
+Tomorrow first event: ${tomorrowFirstEventTime || 'NULL'}${tomorrowFirstEventTime && parseInt(tomorrowFirstEventTime.split(':')[0]) < 8 ? ' (early start)' : ''}
+Tomorrow has high-stakes events: ${tomorrowHighStakesTitles.length > 0 ? 'yes' : 'no'}
+Tomorrow high-stakes titles: ${tomorrowHighStakesTitles.length > 0 ? tomorrowHighStakesTitles.join(', ') : 'NULL'}
+Tomorrow vs today load: ${tomorrowVsTodayLoad || 'NULL'}`;
+          }
+
+          // Week ahead (Sunday evening only)
+          if (isSundayEvening2 && weekAheadShape) {
+            const wa = weekAheadShape as any;
+            const monFirst = wa.mondayFirstEvent;
+            userPrompt += `
+
+=== WEEK AHEAD ===
+Heaviest day next week: ${wa.heaviestDay} (${wa.heaviestDayLoad})
+First high-stakes event: ${wa.firstHighStakesDay || 'NULL'}
+Total high-stakes events next week: ${wa.totalHighStakesNextWeek}
+Light days next week: ${wa.lightDaysNextWeek?.length > 0 ? wa.lightDaysNextWeek.join(', ') : 'NONE'}
+Monday load: ${wa.mondayLoad}
+Monday first event: ${monFirst ? monFirst.title + ' · ' + monFirst.time : 'NULL'}
+Monday has high-stakes: ${wa.mondayHasHighStakes ? 'yes' : 'no'}`;
+          }
+
+          // Short-term patterns
+          if (checkInCountTotal >= 3) {
+            userPrompt += `
+
+=== SHORT-TERM PATTERNS ===
 Dominant state this week: ${dominantOutcome7d || 'NULL'}
-Friction trend: ${frictionTrend || 'NULL'}
-Coach session this week: ${coachInsights.length > 0 ? 'yes' : 'no'}` : '=== SHORT-TERM NOT YET AVAILABLE ==='}
+7-day average score: ${avgScore7d != null ? avgScore7d + '/100' : 'NULL'}
+Score trajectory this week: ${scoreTrajectory7d || 'NULL'}
+Wearable trend this week: ${wearableTrend7d || 'NULL'}
+Practices completed this week: ${practicesCompletedThisWeek}
+Practice completion rate this week: ${practiceCompletionRate}%
+Coach session this week: ${daysSinceCoachSession != null && daysSinceCoachSession <= 7 ? 'yes' : 'no'}
+Coach session impact: ${coachSessionImpactDelta != null ? (coachSessionImpactDelta > 0 ? '+' : '') + coachSessionImpactDelta + ' points next-day delta' : 'NULL'}
+Days since last coach session: ${daysSinceCoachSession != null ? daysSinceCoachSession : 'NULL'}`;
+          }
 
-${dataCompleteness === 'established' ? `=== MID-TERM ===
-Typical ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]} outcome: ${typicalDOWOutcome || 'NULL'}
+          // Mid-term patterns
+          if (checkInCountTotal >= 7) {
+            userPrompt += `
+
+=== MID-TERM PATTERNS ===
+Typical ${dayName} outcome: ${typicalDOWOutcome || 'NULL'}
+Typical ${dayName} score: ${typicalDOWScore != null ? typicalDOWScore + '/100' : 'NULL'}
+Friction trend (30 days): ${frictionTrend || 'NULL'}
+HRV correlation for today's event type: ${hrvEventCorrelation || 'NULL'}
+Most effective practice for this user: ${mostEffectivePractice || 'NULL'}
 Coach-identified strength: ${coachStrength || 'NULL'}
 Coach-identified growth area: ${coachGrowth || 'NULL'}
 Pending coach commitment: ${pendingCommitment || 'NULL'}
-Recent coach-noted pattern: ${recentPattern || 'NULL'}` : '=== MID-TERM NOT YET AVAILABLE ==='}
+Recent coach-noted pattern: ${recentPattern || 'NULL'}`;
+          }
 
-Output ONLY this JSON — nothing else:
-{"phrase": "3-6 word directive or null", "bodyText": "one sentence **bold key action** or null"}`;
+          // Long-term
+          if (checkInCountTotal >= 30) {
+            userPrompt += `
 
-          const systemPrompt = `You are a performance intelligence system writing for a C-suite leader. Write like a trusted advisor who has watched this person's data for weeks.
+=== LONG-TERM ===
+Archetype: ${serverArchetype || 'NULL'}`;
+          }
 
-Your job: produce TWO things.
+          // Special context flags
+          userPrompt += `
 
-1. PHRASE: 3-5 words. Crisp directive. Active, precise to the user. Not generic. Examples: 'Pace from the start.' 'Use the edge.' 'Protect what you have.' 'Ground before you lead.'
+=== SPECIAL CONTEXT FLAGS ===
+Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}
+Is Friday evening: ${isFridayEvening ? 'yes' : 'no'}
+Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'}
+Is public holiday: ${isPublicHoliday ? 'yes · ' + holidayName : 'no'}
+Is day after poor sleep: ${dayAfterPoorSleep ? 'yes' : 'no'}
+Is consecutive low day: ${consecutiveLowDays >= 2 ? 'yes · consecutive_count = ' + consecutiveLowDays + ' days' : 'no'}
+State shift today: ${stateShiftToday ? 'yes · direction = ' + stateShiftDirection : 'no'}
 
-2. BODY: One sentence. Max 15 words. Reference something specific to them. Bold the key action with **double asterisks**.
+Output ONLY valid JSON:
+{"phrase": "3-6 word directive or null", "bodyText": "one sentence **bold action** or null"}`;
 
-Hard rules:
-- Never use: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine
-- Never be generic — specificity or null
-- C-suite register: direct, precise, no softening language
-- If a field is NULL: do not use it, do not fabricate it
-- If you cannot be specific with available data: output null for that field`;
-
+          // ── Call LLM ──
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 6000);
-          
+
           const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -2635,7 +3222,6 @@ Hard rules:
             const content = aiData.choices?.[0]?.message?.content?.trim();
             if (content) {
               try {
-                // Try parsing JSON - handle both raw and markdown-wrapped JSON
                 let jsonStr = content;
                 if (jsonStr.startsWith('```')) {
                   jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
