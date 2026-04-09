@@ -1,54 +1,62 @@
 
 
-# Fix: Today's 3 Performance Priorities Visibility
+# Two-Part Fix: Today's 3 Visibility + Backend Tag Infrastructure
 
-## Root Cause (Confirmed via Live Testing)
+## Part A: Today's 3 Visibility Bug
 
-The backend works correctly — `generate-mastery-plan` returns 3 `horizonModules` with status 200. The frontend component does render, but:
+**Root cause confirmed**: The edge function works (returns 3 horizonModules, status 200 via curl). The browser call fails with `FunctionsFetchError: Failed to fetch` — a transient network error during build/deploy cycles. The `loadPlan()` catch block (line 242) sets `loading = false` without setting `plan`, so `horizonModules` stays null → `onEmpty()` fires → DailyRitual fallback renders "Your plan is being prepared."
 
-1. **Cards are pushed below the bottom navigation bar** — The Performance Readiness Brief consumes ~700px of vertical space. On a 390×844 viewport, only the "TODAY'S ... 0 of 3" header peeks above the fixed 80px bottom nav. The actual practice slots are completely hidden.
+**Fix**: Add retry logic to `loadPlan()` — on `FunctionsFetchError`, retry up to 2 times with a 2-second delay before giving up. This handles transient edge function unavailability during deploys.
 
-2. **RLS upsert failure in DEV_MODE** — `daily_ritual_completions` upsert fails with `42501` (row-level security). This is a non-blocking error (the plan still renders), but it causes `upsertRitual` to fail silently, preventing completion tracking from working in dev mode.
+Additionally, the `onEmpty` callback fires permanently (no way to recover once set). Add a mechanism so that if a retry succeeds later, `prioritiesEmpty` resets to `false`.
 
-3. **Potential stale cache from user's session** — The user's screenshot shows NO priorities section at all (just Brief → Privacy Footer), suggesting their browser may have had a stale session cache from before `horizonModules` existed. The cache invalidation logic IS now in the code, but if the user's preview was from a previous build cycle, it wouldn't have had that fix.
+### Changes
+**`src/components/home/TodayThreePriorities.tsx`**:
+- Add retry logic (2 retries, 2s delay) in `loadPlan()` when the error is a `FunctionsFetchError`
+- Signal non-empty state when plan loads successfully (call an `onLoad` callback or reset via the existing `onEmpty` pattern)
 
-## Fixes
+**`src/pages/ExecutiveHome.tsx`**:
+- Reset `prioritiesEmpty` to `false` when `TodayThreePriorities` successfully loads (add `onLoad` prop or modify the `onEmpty` approach)
 
-### Fix 1: Move priorities section higher / ensure visibility
-**File**: `src/pages/ExecutiveHome.tsx`
+---
 
-Remove the extra `pt-4` padding on the Brief section and reduce spacing between Brief and Priorities. Add `mt-4` instead of the current gap to keep the priorities section well within the initial scroll area.
+## Part B: Backend Tag Infrastructure for sanctuary_content_metadata
 
-### Fix 2: Add `overflow-y-auto` to ensure scrollability
-**File**: `src/pages/ExecutiveHome.tsx`
+**Current state**: `sanctuary_content_metadata` has 0 rows and lacks the 6 new columns (horizon, meta_skill, is_foundational, moment, state_signal, duration_band).
 
-The `SidebarInset` has `overflow-x-hidden` but no explicit vertical scroll. On some viewport configurations the content may not scroll. Add `overflow-y-auto` to the content wrapper to guarantee scrollability.
+### Step 1: Database Migration
+Add 6 columns to `sanctuary_content_metadata`:
+```sql
+ALTER TABLE sanctuary_content_metadata 
+ADD COLUMN IF NOT EXISTS horizon text[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS meta_skill text[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS is_foundational boolean DEFAULT false,
+ADD COLUMN IF NOT EXISTS moment text[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS state_signal text[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS duration_band text DEFAULT 'short';
+```
 
-### Fix 3: Fallback guard — render DailyRitual when TodayThreePriorities returns null
-**File**: `src/pages/ExecutiveHome.tsx`
+### Step 2: Populate Tag Data
+Since `sanctuary_content_metadata` has 0 rows, we need to INSERT (not UPDATE) rows for all 40 practices. Each row maps `content_id` to the 6 tag fields per the spec provided. All 40 practices from the spec will be inserted.
 
-Wrap `TodayThreePriorities` in a state-based fallback: if the component signals it has no data (via a callback prop or by checking render output), show `DailyRitual` instead. This ensures something always renders in the action section.
+### Step 3: Edge Function Update (generate-mastery-plan)
+Update content scoring in `buildHorizonModules()` to:
 
-Implementation approach: Add an `onEmpty` callback prop to `TodayThreePriorities` that fires when `horizonModules` is empty. `ExecutiveHome` tracks this state and conditionally renders `DailyRitual` as fallback.
+1. **Fetch metadata tags** — JOIN or separate query for `sanctuary_content_metadata` horizon/moment/state_signal/meta_skill/is_foundational/duration_band
+2. **Horizon filter** — Slot 1 requires `horizon-immediate`, Slot 2 prefers `tactical`/`immediate`, Slot 3 prefers `strategic`
+3. **State signal boost** — Add scoring weights: body-under-load +15, masked-high +20, clarity-low +15, confidence-low +15, poor-sleep +10
+4. **Foundational filter** — Users with < 7 check-ins: at least 2 of 3 slots must be `is_foundational = true`
+5. **Duration band filter** — High/extreme calendar load: only `micro`/`short` for slots 1 & 2
 
-### Fix 4: DEV_MODE RLS bypass for daily_ritual_completions
-**File**: `src/utils/dailyRituals.ts`
-
-The DEV_MODE direct Supabase queries use the anon key which doesn't have insert/update permissions due to RLS. Add the `x-dev-user-id` header approach or use the edge function path even in DEV_MODE for mutations (upsert). Alternatively, since this is dev-only, add a simpler fix: wrap the upsert in a try/catch that silently succeeds in DEV_MODE by storing completion state in localStorage as fallback.
-
-### Fix 5: End-to-end verification
-After fixes, test:
-- DEV_MODE: 3 cards visible on initial load without scrolling
-- Cards expand/collapse correctly
-- Start button navigates to practice
-- Completion tracking works (or gracefully degrades in DEV_MODE)
-- Auth users: same flow with real JWT
+No existing scoring logic is removed — these additions layer on top.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/pages/ExecutiveHome.tsx` | Add overflow-y-auto, reduce Brief-to-Priorities spacing, add DailyRitual fallback guard |
-| `src/components/home/TodayThreePriorities.tsx` | Add `onEmpty` callback prop for fallback signaling |
-| `src/utils/dailyRituals.ts` | DEV_MODE upsert fallback (localStorage) to avoid RLS errors |
+| `src/components/home/TodayThreePriorities.tsx` | Add retry logic for transient network errors, add success callback |
+| `src/pages/ExecutiveHome.tsx` | Reset `prioritiesEmpty` on successful load |
+| Database migration | Add 6 columns to `sanctuary_content_metadata` |
+| Database data | Insert 40 rows with tag assignments per spec |
+| `supabase/functions/generate-mastery-plan/index.ts` | Fetch and apply metadata tags in content scoring |
 
