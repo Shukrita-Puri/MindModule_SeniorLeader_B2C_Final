@@ -2453,6 +2453,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
   const { maxDuration } = getDurationCeiling(req.calendarLoad);
 
+  // ════════════════════════════════════════════
+  // BUILD HORIZON MODULES (Today's 3 Performance Priorities)
+  // ════════════════════════════════════════════
+
+  const horizonModules = buildHorizonModules(
+    todModules, preEventPlan, topEvent, req, shared, hrvCorrelations,
+    timeOfDay, todCoachCard, enrichedContent, pendingCommitments
+  );
+
   return {
     timeOfDayPlan: {
       label: periodLabels[timeOfDay],
@@ -2466,6 +2475,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     calendarPills,
     preEventPlan,
     jitPriority,
+    horizonModules,
     meta: {
       generatedAt: new Date().toISOString(),
       scenarioId: filteredEvents[0]?.scenario?.id || null,
