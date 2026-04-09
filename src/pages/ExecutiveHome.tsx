@@ -74,8 +74,6 @@ const ExecutiveHome = () => {
   const location = useLocation();
   const { recordStep } = useOnboardingProgress();
   
-  const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
-  const [jitPriority, setJitPriority] = useState(false);
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
@@ -329,42 +327,24 @@ const ExecutiveHome = () => {
               </section>
             </div>
 
-            {/* ACTION */}
+            {/* ACTION — Today's 3 Performance Priorities */}
             <div data-tour="daily-plan">
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
                 <section className="animate-in fade-in duration-500">
                   <div className="flex items-center justify-between py-2">
-                    <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Performance Readiness Plan</h2>
+                    <h2 className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">Today's 3 Performance Priorities</h2>
                     <MetricInfoModal
-                      title="Your Performance Readiness Plan"
-                      description="Your Performance Readiness Plan is built from your Decision Readiness Score and Outer Readiness Brief – what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                      title="Today's 3 Performance Priorities"
+                      description="Three horizon-classified practices built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each priority is timed and sequenced to close the gap between where you are and where the day needs you to be."
                     />
                   </div>
                 </section>
               </div>
 
-              {/* JIT Preparation – rendered ABOVE ToD when JIT is primary */}
-              {jitPriority && (
-                <div className="animate-in fade-in duration-500 mt-4">
-                  <JitCarousel preEventPlan={preEventPlan} />
-                </div>
-              )}
-
-              {/* Time-of-Day Plan */}
+              {/* Unified 3-slot horizon system */}
               <div className="animate-in fade-in duration-500">
-                <DailyRitual
-                  onPreEventPlanReady={setPreEventPlan}
-                  onJitPriorityChange={setJitPriority}
-                  jitPriority={jitPriority}
-                />
+                <TodayThreePriorities />
               </div>
-
-              {/* JIT Preparation – below ToD when NOT primary */}
-              {!jitPriority && (
-                <div className="animate-in fade-in duration-500 mt-4">
-                  <JitCarousel preEventPlan={preEventPlan} />
-                </div>
-              )}
             </div>
 
             <div className="mt-8">
