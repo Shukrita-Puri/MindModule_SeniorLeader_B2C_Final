@@ -3165,16 +3165,22 @@ export type Database = {
           created_at: string | null
           cue: string | null
           delivery_modality: string[] | null
+          duration_band: string | null
           essence: string | null
           expected_outcomes: string[] | null
           full_story: string | null
+          horizon: string[] | null
           id: string
           intro_summary: string | null
+          is_foundational: boolean | null
           mastery_category: Json | null
+          meta_skill: string[] | null
           meta_skills: Json | null
+          moment: string[] | null
           parallel: string | null
           real_examples: Json | null
           soft_skills: string[] | null
+          state_signal: string[] | null
           structured_tags: Json | null
           sub_skills: Json | null
           technique: string | null
@@ -3191,16 +3197,22 @@ export type Database = {
           created_at?: string | null
           cue?: string | null
           delivery_modality?: string[] | null
+          duration_band?: string | null
           essence?: string | null
           expected_outcomes?: string[] | null
           full_story?: string | null
+          horizon?: string[] | null
           id?: string
           intro_summary?: string | null
+          is_foundational?: boolean | null
           mastery_category?: Json | null
+          meta_skill?: string[] | null
           meta_skills?: Json | null
+          moment?: string[] | null
           parallel?: string | null
           real_examples?: Json | null
           soft_skills?: string[] | null
+          state_signal?: string[] | null
           structured_tags?: Json | null
           sub_skills?: Json | null
           technique?: string | null
@@ -3217,16 +3229,22 @@ export type Database = {
           created_at?: string | null
           cue?: string | null
           delivery_modality?: string[] | null
+          duration_band?: string | null
           essence?: string | null
           expected_outcomes?: string[] | null
           full_story?: string | null
+          horizon?: string[] | null
           id?: string
           intro_summary?: string | null
+          is_foundational?: boolean | null
           mastery_category?: Json | null
+          meta_skill?: string[] | null
           meta_skills?: Json | null
+          moment?: string[] | null
           parallel?: string | null
           real_examples?: Json | null
           soft_skills?: string[] | null
+          state_signal?: string[] | null
           structured_tags?: Json | null
           sub_skills?: Json | null
           technique?: string | null

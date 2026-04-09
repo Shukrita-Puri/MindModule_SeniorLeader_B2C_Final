@@ -84,7 +84,7 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
+const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
@@ -196,19 +196,38 @@ const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
         }
       }
 
-      // Fetch fresh plan
-      const headers: Record<string, string> = {};
-      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
-      const token = await getAuthToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // Fetch fresh plan with retry logic for transient network errors
+      let planData: any = null;
+      let fetchError: any = null;
+      const MAX_RETRIES = 2;
+      const RETRY_DELAY_MS = 2000;
 
-      const { data: planData, error } = await supabase.functions.invoke('generate-mastery-plan', {
-        headers,
-        body: { timezoneOffset: new Date().getTimezoneOffset() },
-      });
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const headers: Record<string, string> = {};
+        if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+        const token = await getAuthToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      if (error) {
-        console.error('Error calling generate-mastery-plan:', error);
+        const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
+          headers,
+          body: { timezoneOffset: new Date().getTimezoneOffset() },
+        });
+
+        if (!error) {
+          planData = data;
+          fetchError = null;
+          break;
+        }
+
+        fetchError = error;
+        console.warn(`[TodayThreePriorities] Attempt ${attempt + 1} failed:`, error.message || error);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+
+      if (fetchError || !planData) {
+        console.error('Error calling generate-mastery-plan after retries:', fetchError);
         setLoading(false);
         return;
       }
@@ -375,12 +394,14 @@ const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
 
   const horizonModules = plan?.horizonModules;
 
-  // Signal empty state to parent for fallback rendering
+  // Signal empty/loaded state to parent for fallback rendering
   useEffect(() => {
     if (!loading && (!horizonModules || horizonModules.length === 0)) {
       onEmpty?.();
+    } else if (!loading && horizonModules && horizonModules.length > 0) {
+      onLoaded?.();
     }
-  }, [loading, horizonModules, onEmpty]);
+  }, [loading, horizonModules, onEmpty, onLoaded]);
 
   // ── Render ──
   if (loading) {
