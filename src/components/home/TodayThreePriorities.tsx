@@ -400,12 +400,25 @@ const TodayThreePriorities = () => {
         <PostEventReflection />
       </div>
 
-      {/* Progress */}
+      {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
-          <span className="text-[15px] font-medium text-foreground font-body">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
             Today's 3 Performance Priorities
           </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-xs font-medium font-body whitespace-nowrap",
+              allComplete ? "text-saffron" : completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
+            )}>
+              {completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
+              {completedCount} of {horizonModules.length}
+            </span>
+            <MetricInfoModal
+              title="Today's 3 Performance Priorities"
+              description="Three horizon-classified practices built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each priority is timed and sequenced to close the gap between where you are and where the day needs you to be."
+            />
+          </div>
           <span className={cn(
             "text-xs font-medium font-body whitespace-nowrap",
             allComplete ? "text-saffron" : completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"

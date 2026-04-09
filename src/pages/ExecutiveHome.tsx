@@ -24,7 +24,7 @@ import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallbac
 import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebase
 import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
-import MetricInfoModal from "@/components/home/MetricInfoModal";
+
 
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
