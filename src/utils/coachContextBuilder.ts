@@ -76,6 +76,8 @@ export interface CoachContext {
   // User Profile
   userArchetype?: string;
   identityRole?: string;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string;
   
   // Recent Practices (last 7 days)
   recentPractices?: string[];
@@ -248,17 +250,21 @@ async function getRecentPractices(userId: string): Promise<string[]> {
 async function getUserProfile(userId: string): Promise<{
   archetype?: string;
   identityRole?: string;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string;
 } | undefined> {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('user_archetype, identity_role')
+      .select('user_archetype, identity_role, component_scores, practice_priority_tag')
       .eq('id', userId)
       .maybeSingle();
     
     return {
       archetype: data?.user_archetype || undefined,
-      identityRole: data?.identity_role || undefined
+      identityRole: data?.identity_role || undefined,
+      componentScores: data?.component_scores as any || null,
+      practicePriorityTag: data?.practice_priority_tag as string || undefined,
     };
   } catch {
     return undefined;
@@ -466,6 +472,8 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     if (profile) {
       context.userArchetype = profile.archetype;
       context.identityRole = profile.identityRole;
+      context.componentScores = profile.componentScores;
+      context.practicePriorityTag = profile.practicePriorityTag;
     }
     
     if (recentPractices.length > 0) {
