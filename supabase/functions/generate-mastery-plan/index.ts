@@ -1525,11 +1525,13 @@ function calculateContentScore(
   else if (content.tags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
 
   // Onboarding signal boosts – full weight when no dynamic signals exist, decayed otherwise
+  // Priority boost kept moderate (+20/+7) — onboarding goal is a system recommendation,
+  // not explicit user behaviour. Actual behaviour (favorites +30, coach +25) always outweighs.
   const onboardingFullWeight = !hasFavorites && !hasCoachInsights;
-  const priorityBoost = onboardingFullWeight ? 15 : 5;
+  const priorityBoost = onboardingFullWeight ? 20 : 7;
   const pressureBoost = onboardingFullWeight ? 8 : 3;
 
-  // Practice priority tag match (+15 full / +5 decayed)
+  // Practice priority tag match (+20 full / +7 decayed)
   if (practicePriorityTag) {
     const focusTags = PRIORITY_TAG_FOCUS_MAP[practicePriorityTag] || [];
     const contentTags = [
