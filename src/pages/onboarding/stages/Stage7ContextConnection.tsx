@@ -464,7 +464,7 @@ export default function Stage7ContextConnection() {
             className="w-full rounded-2xl"
             disabled={loading}
           >
-            Take me to App Tour
+            Show me how my day is calibrated
           </Button>
         </div>
       </div>
