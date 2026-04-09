@@ -413,9 +413,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   if (!hasCalendar && calendarState === 'not_connected') {
     return (
       <div className="flex gap-2 mt-2">
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30">
+        <button
+          onClick={() => window.location.href = '/connected-data'}
+          className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
+        >
           Connect calendar
-        </span>
+        </button>
       </div>
     );
   }
@@ -455,6 +458,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [rawExpanded, setRawExpanded] = useState(false);
 
   const { data: energyState } = useQuery({
@@ -536,7 +540,7 @@ const PerformanceReadinessBrief = () => {
       <CalendarPills outerBrief={outerBrief} />
 
       {/* 4. PHRASE */}
-      <p className="mt-4 text-[14px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+      <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
         {phrase}
       </p>
 
@@ -555,9 +559,21 @@ const PerformanceReadinessBrief = () => {
 
         {/* 7. SIGNAL CHIPS */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {chips.map(chip => (
-            <FlippableChip key={chip.id} chip={chip} />
-          ))}
+          {chips.map(chip => {
+            const navMap: Record<string, string> = {
+              'no-checkin': '/daily-check-in',
+              'wearable-prompt': '/connected-data',
+              'calendar-prompt': '/connected-data',
+            };
+            const navTarget = navMap[chip.id];
+            return (
+              <FlippableChip
+                key={chip.id}
+                chip={chip}
+                onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+              />
+            );
+          })}
         </div>
 
         {/* 8. INNER SUMMARY */}
@@ -577,18 +593,18 @@ const PerformanceReadinessBrief = () => {
       </span>
 
       {/* 11. LEAN ON */}
-      {(outerBrief?.leanOn || !hasCheckIn) && (
+      {outerBrief?.leanOn && (
         <div className="flex items-start gap-2 mt-3">
           <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
             Lean on
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-              {hasCheckIn ? outerBrief?.leanOn : "Your honesty in the check-in"}
+              {outerBrief.leanOn}
             </p>
             {leanOnSource && (
               <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                {hasCheckIn ? leanOnSource : "This shapes everything today"}
+                {leanOnSource}
               </p>
             )}
           </div>
@@ -596,7 +612,7 @@ const PerformanceReadinessBrief = () => {
       )}
 
       {/* 12. WATCH FOR */}
-      {hasCheckIn && outerBrief?.watchFor && (
+      {outerBrief?.watchFor && (
         <div className="flex items-start gap-2 mt-2">
           <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
             Watch for
