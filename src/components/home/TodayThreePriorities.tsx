@@ -158,6 +158,12 @@ const TodayThreePriorities = () => {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
+          // Cache version invalidation: old plans without horizonModules must be regenerated
+          if (!parsed.horizonModules || parsed.horizonModules.length === 0) {
+            sessionStorage.removeItem(sessionKey);
+            sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+            shouldRegenerate = true;
+          }
           // JIT cache invalidation
           const jitCacheKey = `plan-jit-checked-${todayDate}-${currentPeriod}`;
           const lastJitCheck = sessionStorage.getItem(jitCacheKey);
@@ -251,7 +257,8 @@ const TodayThreePriorities = () => {
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
   const checkCompletion = async () => {
-    if (!user?.id || !plan) return;
+    const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
+    if (!effectiveUserId || !plan) return;
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
     const horizonIds = (plan.horizonModules || []).map(m => m.practice.contentId);
@@ -378,7 +385,10 @@ const TodayThreePriorities = () => {
   }
 
   const horizonModules = plan?.horizonModules;
-  if (!horizonModules || horizonModules.length === 0) return null;
+  if (!horizonModules || horizonModules.length === 0) {
+    // Fallback: render nothing here; ExecutiveHome handles DailyRitual fallback
+    return null;
+  }
 
   const allPractices = horizonModules.map(m => m.practice);
   const allComplete = horizonModules.every(m => completedPracticeIds.includes(m.practice.contentId));
