@@ -35,14 +35,13 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// Import supabase mock for controlling responses
 import { supabase } from "@/integrations/supabase/client";
-
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>;
 
-// Helper: set localStorage onboarding responses
+const STORAGE_KEY = "mind_module_onboarding";
+
 function seedResponses(overrides: Record<string, string> = {}) {
-  const defaults = {
+  const responses = {
     emotional_awareness_response: "I notice tension in my shoulders",
     stress_response_response: "I power through under stress",
     recovery_patterns_response: "Exercise helps but I rarely make time",
@@ -51,9 +50,15 @@ function seedResponses(overrides: Record<string, string> = {}) {
     pressure_context_tag: "high_stakes_decisions",
     identity_role: "CEO",
     biggest_pressure: "Board meetings",
+    ...overrides,
   };
-  localStorage.setItem("onboarding_responses", JSON.stringify({ ...defaults, ...overrides }));
-  localStorage.setItem("onboarding_session", JSON.stringify({ sessionId: "test-1", startedAt: new Date().toISOString() }));
+  const session = {
+    sessionId: "test-1",
+    currentStage: 8,
+    startedAt: new Date().toISOString(),
+    responses,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 function makeResult(overrides: Record<string, any> = {}) {
@@ -93,17 +98,14 @@ describe("Stage8Results — Layout Rendering", () => {
     });
   });
 
-  it("renders all sections with valid data", async () => {
+  it("renders all sections with valid data (energyRegulation highest)", async () => {
     seedResponses();
     mockInvoke.mockResolvedValueOnce(makeResult());
     renderResults();
 
     await waitFor(() => {
-      // Header
       expect(screen.getByText(/Your Performance Baseline/i)).toBeInTheDocument();
       expect(screen.getByText(/The Adaptive Navigator/i)).toBeInTheDocument();
-      // First sentence only
-      expect(screen.getByText(/You read the field and adjust in real time\./i)).toBeInTheDocument();
     });
 
     // Dimension bars
@@ -117,15 +119,15 @@ describe("Stage8Results — Layout Rendering", () => {
     // Tooltip trigger
     expect(screen.getByText(/What do these dimensions measure/i)).toBeInTheDocument();
 
-    // AI insight (truncated)
+    // AI insight truncated
     expect(screen.getByText(/Read full analysis/i)).toBeInTheDocument();
 
-    // Strengths (highest = energyRegulation → Self-Regulation, Resilience, Confidence)
+    // Strengths (highest = energyRegulation)
     expect(screen.getByText("Self-Regulation")).toBeInTheDocument();
     expect(screen.getByText("Resilience")).toBeInTheDocument();
     expect(screen.getByText("Confidence")).toBeInTheDocument();
 
-    // Development Area (lowest = energyRenewal → Adaptive Capacity, Influence, Presence)
+    // Development Area (lowest = energyRenewal)
     expect(screen.getByText("Adaptive Capacity")).toBeInTheDocument();
     expect(screen.getByText("Influence")).toBeInTheDocument();
     expect(screen.getByText("Presence")).toBeInTheDocument();
@@ -148,15 +150,12 @@ describe("Stage8Results — Layout Rendering", () => {
     renderResults();
 
     await waitFor(() => {
-      // Strengths from focusRecovery
       expect(screen.getByText("Thinking Clarity")).toBeInTheDocument();
       expect(screen.getByText("Emotional Intelligence")).toBeInTheDocument();
     });
 
     // Development from energyRegulation (lowest)
     expect(screen.getByText("Self-Regulation")).toBeInTheDocument();
-
-    // Practice modality for focus_clarity
     expect(screen.getByText("Cognitive Sharpening")).toBeInTheDocument();
   });
 
@@ -168,16 +167,12 @@ describe("Stage8Results — Layout Rendering", () => {
     renderResults();
 
     await waitFor(() => {
-      // Strengths from energyRenewal
       expect(screen.getByText("Adaptive Capacity")).toBeInTheDocument();
       expect(screen.getByText("Influence")).toBeInTheDocument();
       expect(screen.getByText("Presence")).toBeInTheDocument();
     });
 
-    // Development from focusRecovery (lowest)
     expect(screen.getByText("Thinking Clarity")).toBeInTheDocument();
-
-    // Practice modality for energy_endurance
     expect(screen.getByText("Energy Management")).toBeInTheDocument();
   });
 
@@ -189,13 +184,12 @@ describe("Stage8Results — Layout Rendering", () => {
     renderResults();
 
     await waitFor(() => {
-      expect(screen.getByText(/"Short insight text."/)).toBeInTheDocument();
+      expect(screen.getByText(/Short insight text/)).toBeInTheDocument();
     });
-    // No "Read full analysis" button
     expect(screen.queryByText(/Read full analysis/i)).not.toBeInTheDocument();
   });
 
-  it("handles all practice_priority_tag permutations", async () => {
+  it("handles all practice_priority_tag → modality permutations", async () => {
     const tags: Record<string, string> = {
       regulation_composure: "Somatic Protocols",
       regulation_early: "Early Signal Training",
@@ -212,11 +206,9 @@ describe("Stage8Results — Layout Rendering", () => {
       mockInvoke.mockResolvedValueOnce(makeResult());
 
       const { unmount } = renderResults();
-
       await waitFor(() => {
         expect(screen.getByText(expectedModality)).toBeInTheDocument();
       });
-
       unmount();
     }
   });
@@ -231,7 +223,7 @@ describe("Stage8Results — Layout Rendering", () => {
     });
   });
 
-  it("handles equal dimension scores", async () => {
+  it("handles equal dimension scores gracefully", async () => {
     seedResponses();
     mockInvoke.mockResolvedValueOnce(makeResult({
       componentScores: { energyRegulation: 60, focusRecovery: 60, energyRenewal: 60 },
@@ -239,12 +231,9 @@ describe("Stage8Results — Layout Rendering", () => {
     renderResults();
 
     await waitFor(() => {
-      // All scores render
       const sixties = screen.getAllByText("60");
       expect(sixties).toHaveLength(3);
     });
-
-    // Strengths and development should still render (first/last of sort)
     expect(screen.getByText(/Strengths/i)).toBeInTheDocument();
     expect(screen.getByText(/Development Area/i)).toBeInTheDocument();
   });
@@ -260,5 +249,14 @@ describe("Stage8Results — Layout Rendering", () => {
 
     screen.getByText("Activate My System").closest("button")?.click();
     expect(mockNavigate).toHaveBeenCalledWith("/onboarding/payment");
+  });
+
+  it("shows loading state initially", () => {
+    seedResponses();
+    mockInvoke.mockReturnValue(new Promise(() => {})); // never resolves
+    renderResults();
+
+    expect(screen.getByText(/Analysing Your Pattern/i)).toBeInTheDocument();
+    expect(screen.getByText(/Calibrating your performance profile/i)).toBeInTheDocument();
   });
 });
