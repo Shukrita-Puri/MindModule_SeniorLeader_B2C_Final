@@ -251,6 +251,8 @@ interface QualifiedNudge {
   type: string;
   copy: NudgeCopy;
   eventReference?: string;
+  commitmentText?: string;  // Change 6: P3 coach context pass-through
+  meetingTitle?: string;     // Change 6: P3 coach context pass-through
   priority: number;
 }
 
