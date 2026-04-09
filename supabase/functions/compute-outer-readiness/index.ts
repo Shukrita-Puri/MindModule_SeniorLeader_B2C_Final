@@ -3103,8 +3103,8 @@ serve(async (req) => {
               ? `Pending coach commitment: ${pendingCommitment}`
             : coachGrowth
               ? `Coach growth area: ${coachGrowth}`
-            : (archetypeWatchFor)
-              ? `Archetype watch for: ${archetypeWatchFor}`
+            : (leanOnResult.watchFor)
+              ? `Archetype watch for: ${leanOnResult.watchFor}`
             : null;
 
           // Cross-horizon connection
@@ -3190,8 +3190,8 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
 
           if (serverArchetype) {
             userPrompt += `\n\nArchetype: ${serverArchetype}`;
-            if (archetypeLeanOn) userPrompt += ` — lean on ${archetypeLeanOn}`;
-            if (archetypeWatchFor) userPrompt += `, watch for ${archetypeWatchFor}`;
+            if (leanOnResult.leanOn) userPrompt += ` — lean on ${leanOnResult.leanOn}`;
+            if (leanOnResult.watchFor) userPrompt += `, watch for ${leanOnResult.watchFor}`;
           }
 
           // ── Call LLM ──
