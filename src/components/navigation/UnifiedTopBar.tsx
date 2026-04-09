@@ -1,8 +1,6 @@
 import { ArrowLeft } from "lucide-react";
-import { ChatCircle } from "@phosphor-icons/react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UnifiedTopBarProps {
   backPath?: string;
@@ -10,10 +8,8 @@ interface UnifiedTopBarProps {
   hideCoach?: boolean;
 }
 
-const UnifiedTopBar = ({ backPath, onBack, hideCoach }: UnifiedTopBarProps) => {
+const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isCoachPage = location.pathname === '/coach';
 
   const handleBack = () => {
     if (onBack) {
@@ -32,24 +28,7 @@ const UnifiedTopBar = ({ backPath, onBack, hideCoach }: UnifiedTopBarProps) => {
         <Button variant="glass" size="sm" onClick={handleBack}>
           <ArrowLeft size={20} />
         </Button>
-
-        {/* Right: Coach Button (hidden on coach page) */}
-        {!isCoachPage && !hideCoach && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="glass" 
-                size="sm" 
-                onClick={() => navigate('/coach')}
-              >
-                <ChatCircle size={20} weight="duotone" className="icon-duotone-luxury text-saffron" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Mind Performance Coach</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <div className="w-10" />
       </div>
     </div>
   );
