@@ -73,7 +73,7 @@ export default function StageUSPIntro() {
   useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
 
   /* ── Dot indicators ── */
-  const dots = (
+  const dots = (inactiveDotClass = "w-2 bg-white/30") => (
     <div className="flex justify-center gap-2 mb-6">
       {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
         <div
@@ -81,7 +81,7 @@ export default function StageUSPIntro() {
           className={`h-2 rounded-full transition-all duration-300 ${
             i === activeDot
               ? "w-6 bg-saffron"
-              : "w-2 bg-white/30"
+              : inactiveDotClass
           }`}
         />
       ))}
@@ -141,7 +141,7 @@ export default function StageUSPIntro() {
 
           {/* Bottom: dots + CTA */}
           <div className="w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
-            {dots}
+            {dots()}
             <Button
               variant="critical"
               size="lg"
@@ -191,7 +191,7 @@ export default function StageUSPIntro() {
 
       {/* Bottom: dots + CTAs pinned */}
       <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-        {dots}
+        {dots("w-2 bg-muted-foreground/30")}
 
         <div className="space-y-3">
           <button
