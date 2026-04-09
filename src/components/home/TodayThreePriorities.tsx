@@ -20,6 +20,7 @@ import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
+import MetricInfoModal from '@/components/home/MetricInfoModal';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
