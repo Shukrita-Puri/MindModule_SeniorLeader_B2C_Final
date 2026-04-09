@@ -127,7 +127,11 @@ function buildSignalChips(
   const wearableDays = outerBrief?.wearableDaysConnected ?? 0;
 
   if (!hasCheckIn) {
-    return [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
+    const promptChips: SignalChip[] = [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
+    if (tier === 'none') {
+      promptChips.push({ id: 'wearable-prompt', label: 'Connect wearable', color: 'neutral' });
+    }
+    return promptChips;
   }
 
   // Longitudinal qualifier – suppressed for Apple Health < 14 days
@@ -363,19 +367,27 @@ function buildInnerSummary(chips: SignalChip[]): string | null {
 }
 
 // ─── FLIPPABLE CHIP COMPONENT ───
-function FlippableChip({ chip }: { chip: SignalChip }) {
+function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const hasBack = !!chip.backLabel;
 
+  const handleClick = () => {
+    if (onNavigate) {
+      onNavigate();
+      return;
+    }
+    if (hasBack) setFlipped(!flipped);
+  };
+
   return (
     <button
-      onClick={() => hasBack && setFlipped(!flipped)}
+      onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
         "border",
         chipBgColor(chip.color),
-        hasBack && "cursor-pointer active:scale-95",
-        !hasBack && "cursor-default"
+        (hasBack || onNavigate) && "cursor-pointer active:scale-95",
+        !hasBack && !onNavigate && "cursor-default"
       )}
     >
       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", chipDotColor(chip.color))} />
