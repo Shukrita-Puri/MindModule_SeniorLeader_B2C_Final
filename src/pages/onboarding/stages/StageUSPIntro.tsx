@@ -112,15 +112,18 @@ export default function StageUSPIntro() {
 
         {/* Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="w-20 h-20 rounded-full overflow-hidden mb-4 shadow-lg">
+          <div className="w-24 h-24 rounded-full overflow-hidden mb-4 shadow-lg">
             <img
               src={mmLogo}
               alt="Mind Module logo"
               className="w-full h-full object-cover"
             />
           </div>
-          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground font-headline mb-10">
+          <h2 className="text-[28px] sm:text-4xl font-headline text-foreground tracking-tight uppercase mb-1">
             Mind Module
+          </h2>
+          <p className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground font-headline mb-10">
+            Executive Edition
           </p>
 
           <h1 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-foreground mb-4">
