@@ -3209,6 +3209,32 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             if (leanOnResult.watchFor) userPrompt += `, watch for ${leanOnResult.watchFor}`;
           }
 
+          // Component scores (onboarding baseline) — explicit strengths/development area
+          if (serverComponentScores) {
+            const cs = serverComponentScores as any;
+            const dims = [
+              { name: 'Recalibration', score: cs.energyRegulation || 0 },
+              { name: 'Clarity', score: cs.focusRecovery || 0 },
+              { name: 'Renewal', score: cs.energyRenewal || 0 },
+            ].sort((a, b) => b.score - a.score);
+            userPrompt += `\n\nBaseline dimensions: ${dims.map(d => `${d.name} ${Math.round(d.score)}`).join(', ')}`;
+            userPrompt += ` — strength: ${dims[0].name}, development area: ${dims[dims.length - 1].name}`;
+          }
+
+          // Goal focus from onboarding
+          if (serverPracticePriorityTag) {
+            const goalLabels: Record<string, string> = {
+              regulation_composure: 'Composure under pressure',
+              regulation_early: 'Early signal detection',
+              recovery_resilience: 'Recovery and resilience',
+              energy_endurance: 'Energy endurance',
+              focus_clarity: 'Focus and clarity',
+              mindset_reframe: 'Mindset reframing',
+            };
+            const goalLabel = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
+            userPrompt += `\n\nGoal focus: ${goalLabel}`;
+          }
+
           // ── Call LLM ──
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 6000);
