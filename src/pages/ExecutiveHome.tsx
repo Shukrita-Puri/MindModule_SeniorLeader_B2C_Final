@@ -19,8 +19,9 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
 import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
-import DailyRitual from "@/components/home/DailyRitual";
-import JitCarousel from "@/components/home/JitCarousel";
+import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
+import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebase
 import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
