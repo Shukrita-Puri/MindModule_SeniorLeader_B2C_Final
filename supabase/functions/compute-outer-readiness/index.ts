@@ -58,6 +58,7 @@ interface WearableContext {
   rhr: number | null;
   sleepScore: number | null;
   sleepDuration: number | null;
+  hrElevated: boolean;  // Derived: HRV significantly below baseline implies sympathetic dominance (elevated HR)
   hrvElevated: boolean; // HRV significantly below baseline
   poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
@@ -1535,7 +1536,7 @@ function detectCCContradiction(
 }
 
 // Feature flag for Phase 2 wearable recovery override
-const ENABLE_WEARABLE_RECOVERY_TRIGGER = false;
+const ENABLE_WEARABLE_RECOVERY_TRIGGER = true;
 
 // ==================== PHASE 2: WEARABLE RECOVERY TRIGGER (flagged OFF) ====================
 async function checkWearableRecoveryTrigger(
@@ -1976,12 +1977,16 @@ serve(async (req) => {
 
         // RHR elevated will be computed from baseline below – placeholder false
         const rhrElevated = false;
+        // hrElevated: derived from HRV being significantly depressed (sympathetic dominance = elevated HR)
+        // Will be refined by baseline deviation below; initial heuristic: HRV < 25ms
+        const hrElevated = hrv !== null && hrv < 25;
 
         wearableContext = {
           hrv,
           rhr,
           sleepScore,
           sleepDuration,
+          hrElevated,
           hrvElevated,
           poorSleep,
           rhrElevated,
@@ -2410,6 +2415,12 @@ serve(async (req) => {
             if (wearableContext) {
               wearableContext.rhrElevated = rhrDeviation > 10;
             }
+          }
+
+          // Refine hrElevated from HRV baseline deviation (>25% below = sympathetic dominance)
+          if (wearableContext && hrvBaseline && hrvValue != null) {
+            const hrvPctBelow = ((hrvBaseline - hrvValue) / hrvBaseline) * 100;
+            wearableContext.hrElevated = hrvPctBelow > 25;
           }
         }
       }
