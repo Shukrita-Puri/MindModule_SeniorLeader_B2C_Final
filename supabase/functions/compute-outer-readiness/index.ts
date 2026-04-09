@@ -1950,7 +1950,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, data_source')
+        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1961,7 +1961,7 @@ serve(async (req) => {
         const hrv = wearableRow.hrv || null;
         const sleepScore = wearableRow.sleep_score || null;
         const rawSleepDuration = wearableRow.total_sleep_minutes || null;
-        const source = wearableRow.data_source || null;
+        const source = wearableRow.source || null;
         wearableDataSource = source;
 
         // Apple Health correction: reported duration includes "in bed" time
@@ -2366,7 +2366,7 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, data_source')
+          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, source')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2675,7 +2675,7 @@ serve(async (req) => {
           // 5. Coach session recency
           db.from('coach_session_summaries').select('created_at, session_id, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
           // 7. Wearable trend (7d)
-          hasWearable ? db.from('wearable_data').select('hrv_rmssd, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          hasWearable ? db.from('wearable_data').select('hrv, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
           // 8. DOW checkins (60 days)
           db.from('daily_checkins').select('outcome, energy_balance, checkin_date').eq('user_id', userId).gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]).catch(() => ({ data: null })),
           // Pending commitment
@@ -2782,13 +2782,13 @@ serve(async (req) => {
 
         // 7. Wearable trend (7d)
         if (wearable7dRes.data && (wearable7dRes.data as any[]).length >= 4) {
-          const rows = (wearable7dRes.data as any[]).filter(r => r.hrv_rmssd != null);
+          const rows = (wearable7dRes.data as any[]).filter(r => r.hrv != null);
           if (rows.length >= 4) {
             const mid = Math.floor(rows.length / 2);
             const first = rows.slice(0, mid);
             const second = rows.slice(mid);
-            const avgFirst = first.reduce((s: number, r: any) => s + r.hrv_rmssd, 0) / first.length;
-            const avgSecond = second.reduce((s: number, r: any) => s + r.hrv_rmssd, 0) / second.length;
+            const avgFirst = first.reduce((s: number, r: any) => s + r.hrv, 0) / first.length;
+            const avgSecond = second.reduce((s: number, r: any) => s + r.hrv, 0) / second.length;
             const diff = ((avgSecond - avgFirst) / avgFirst) * 100;
             wearableTrend7d = diff > 10 ? 'improving' : diff < -10 ? 'declining' : 'stable';
           }
@@ -2933,14 +2933,14 @@ serve(async (req) => {
                 const uniqueDates = [...new Set(eventDates)];
                 if (uniqueDates.length >= 3) {
                   const { data: eventDayHRV } = await db.from('wearable_data')
-                    .select('hrv_rmssd, summary_date').eq('user_id', userId)
+                    .select('hrv, summary_date').eq('user_id', userId)
                     .in('summary_date', uniqueDates);
                   const { data: allHRV } = await db.from('wearable_data')
-                    .select('hrv_rmssd').eq('user_id', userId)
+                    .select('hrv').eq('user_id', userId)
                     .gte('summary_date', thirtyAgo);
                   if (eventDayHRV && allHRV) {
-                    const eventHRVs = (eventDayHRV as any[]).filter(r => r.hrv_rmssd != null).map(r => r.hrv_rmssd);
-                    const allHRVs = (allHRV as any[]).filter(r => r.hrv_rmssd != null).map(r => r.hrv_rmssd);
+                    const eventHRVs = (eventDayHRV as any[]).filter(r => r.hrv != null).map(r => r.hrv);
+                    const allHRVs = (allHRV as any[]).filter(r => r.hrv != null).map(r => r.hrv);
                     if (eventHRVs.length >= 3 && allHRVs.length >= 5) {
                       const avgEvent = eventHRVs.reduce((s, v) => s + v, 0) / eventHRVs.length;
                       const avgAll = allHRVs.reduce((s, v) => s + v, 0) / allHRVs.length;
