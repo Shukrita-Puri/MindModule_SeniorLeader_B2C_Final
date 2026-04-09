@@ -1342,14 +1342,16 @@ async function evaluatePatternAlert(
     }
   }
 
-  // Pattern 3: Streak milestone
+  // Pattern 3: Streak milestone — Change 5: Route to /executive-home, calibration language
   if (!recentPatternTypes.has('streak_milestone')) {
     const milestones = [30, 14, 7];
     for (const milestone of milestones) {
       if (ctx.currentStreak === milestone) {
-        const desc = `${milestone} days. Your practice is becoming a rhythm.`;
-        const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'streak_milestone' });
-        const copy = aiCopy || { title: 'Rhythm Forming', body: desc, variantId: 'PA-3' };
+        const copy: NudgeCopy = { 
+          title: 'Calibration', 
+          body: `Day ${milestone}. The system is learning you.`, 
+          variantId: 'PA-3-cal' 
+        };
         return { type: 'pattern_alert', copy, eventReference: 'streak_milestone', priority: 6 };
       }
     }
@@ -1679,7 +1681,7 @@ serve(async (req) => {
 
       // P1: JIT Pre-Event (exempt from signal gate, overrides 2h suppression)
       if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('pre_event_prep')) {
-        const nudge = await evaluateJitPreEvent(ctx, alreadySentTypes, sentEventRefs);
+        const nudge = await evaluateJitPreEvent(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge) qualified.push(nudge);
       }
 
@@ -1787,20 +1789,42 @@ serve(async (req) => {
       }
     }
 
-    // Deep link route mapping
+    // Deep link route mapping — Change 2, 4, 5: Artifact-aligned routes
+    // P6 sub-types get dynamic routing below
     const DEEP_LINK_ROUTES: Record<string, string> = {
       morning_prep: '/daily-check-in',
       pre_event_prep: '/executive-home',
-      calendar_gap: '/daily-check-in',
+      calendar_gap: '/executive-home',         // Change 4: was /daily-check-in
       coach_meeting_match: '/self-mastery-coach',
-      state_aware_nudge: '/executive-home',
+      state_aware_nudge: '/daily-check-in',    // Change 2: was /executive-home
       evening_close: '/daily-check-in',
-      pattern_alert: '/insights',
+      pattern_alert: '/insights',              // Default for problem patterns
       daily_fallback: '/executive-home',
     };
 
+    // Change 5: P6 sub-type route overrides
+    const PATTERN_ALERT_ROUTES: Record<string, string> = {
+      feature_performance: '/executive-home',  // Practice is in Today's 3
+      streak_milestone: '/executive-home',     // Calibration milestone
+      consecutive_low: '/insights?highlight=consecutive_low',
+      recovery_deficit: '/insights?highlight=recovery_deficit',
+      calendar_correlation: '/insights?highlight=calendar_correlation',
+    };
+
     for (const notif of allNotifications) {
-      const effectiveRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
+      // Dynamic route for P6 pattern_alert sub-types
+      let effectiveRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
+      if (notif.type === 'pattern_alert' && notif.eventReference) {
+        effectiveRoute = PATTERN_ALERT_ROUTES[notif.eventReference] || `/insights?highlight=${notif.eventReference}`;
+      }
+      // Change 6: P3 coach_meeting_match passes commitment context in deep link
+      if (notif.type === 'coach_meeting_match' && notif.eventReference) {
+        const commitmentText = (notif as any).commitmentText || '';
+        const meetingTitle = (notif as any).meetingTitle || '';
+        if (commitmentText && meetingTitle) {
+          effectiveRoute = `/self-mastery-coach?context=commitment&commitment=${encodeURIComponent(commitmentText)}&meeting=${encodeURIComponent(meetingTitle)}`;
+        }
+      }
 
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
@@ -1809,7 +1833,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'signal-first-v2',
+        architecture: 'signal-first-v3',
       };
 
       if (notif.type === 'pattern_alert' && notif.eventReference) {
