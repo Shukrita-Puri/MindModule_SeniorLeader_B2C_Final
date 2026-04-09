@@ -2,13 +2,15 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAllResponses, saveResponse, updateSession, getSession } from "@/utils/onboardingStorage";
 import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { GradientProgress } from "@/components/ui/gradient-progress";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
@@ -16,7 +18,14 @@ const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRenewal: ['Adaptive Capacity', 'Influence', 'Presence'],
 };
 
-// Dimension descriptors removed – pills communicate the detail now
+const PRACTICE_MODALITY_MAP: Record<string, string> = {
+  regulation_composure: 'Somatic Protocols',
+  regulation_early: 'Early Signal Training',
+  recovery_resilience: 'Recovery Protocols',
+  energy_endurance: 'Energy Management',
+  focus_clarity: 'Cognitive Sharpening',
+  mindset_reframe: 'Mindset Reframes',
+};
 
 interface ResultsData {
   baselineScore: number;
@@ -26,6 +35,7 @@ interface ResultsData {
   archetypeDescription: string;
   insight: string;
   practiceGoalLabel: string;
+  practicePriorityTag: string;
 }
 
 export default function Stage8Results() {
@@ -35,6 +45,7 @@ export default function Stage8Results() {
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [insightOpen, setInsightOpen] = useState(false);
   const completionPersisted = useRef(false);
   const resultsStepPersisted = useRef(false);
 
@@ -126,8 +137,6 @@ export default function Stage8Results() {
         if (fnError) throw fnError;
 
         const { baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight } = data;
-        
-        // Results are persisted to Cloud DB only (no localStorage writes for sensitive data)
 
         const goalLabel = PRACTICE_PRIORITY_LABELS[responses.practice_priority_tag] || 'your highest-leverage area';
 
@@ -143,6 +152,7 @@ export default function Stage8Results() {
           archetypeDescription,
           insight,
           practiceGoalLabel: goalLabel,
+          practicePriorityTag: responses.practice_priority_tag,
         });
 
       } catch (err) {
@@ -177,7 +187,6 @@ export default function Stage8Results() {
   if (loading) {
     return (
       <div className="space-y-8 py-16 text-center animate-fade-in flex flex-col items-center">
-        {/* Animated analysing orb */}
         <div className="relative w-32 h-32">
           <div className="absolute inset-0 rounded-full animate-spin" style={{
             background: 'conic-gradient(from 0deg, #08d780, #3b82f6, #8b5cf6, #ec4899, #08d780)',
@@ -202,7 +211,7 @@ export default function Stage8Results() {
           }} />
         </div>
         <h2 className="text-[20px] font-headline font-bold text-foreground">Analysing Your Pattern...</h2>
-        <p className="text-sm text-muted-foreground">Mapping your self-mastery profile</p>
+        <p className="text-sm text-muted-foreground">Calibrating your performance profile</p>
       </div>
     );
   }
@@ -218,97 +227,58 @@ export default function Stage8Results() {
 
   const { scores, archetypeTitle, archetypeDescription, insight } = results;
 
-  const radarPoints = [
-    { key: 'energyRegulation' as keyof ComponentScoresV2, label: COMPONENT_LABELS.energyRegulation, value: scores.energyRegulation },
-    { key: 'focusRecovery' as keyof ComponentScoresV2, label: COMPONENT_LABELS.focusRecovery, value: scores.focusRecovery },
-    { key: 'energyRenewal' as keyof ComponentScoresV2, label: COMPONENT_LABELS.energyRenewal, value: scores.energyRenewal },
-  ];
+  // Extract first sentence of archetype description for subtitle
+  const firstSentence = archetypeDescription.split(/(?<=\.)\s/)[0] || archetypeDescription;
 
-  const cx = 150, cy = 120, radius = 105;
-  const angleStep = (2 * Math.PI) / 3;
-  const startAngle = -Math.PI / 2;
-  
-  const getPoint = (index: number, value: number) => {
-    const angle = startAngle + index * angleStep;
-    const r = (value / 100) * radius;
-    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-  };
+  // Derive strengths and development areas from dimension scores
+  const dimensionKeys = Object.keys(scores) as (keyof ComponentScoresV2)[];
+  const sorted = [...dimensionKeys].sort((a, b) => scores[b] - scores[a]);
+  const strongestDimension = sorted[0];
+  const weakestDimension = sorted[sorted.length - 1];
+  const strengths = DIMENSION_META_SKILLS[strongestDimension];
+  const developmentAreas = DIMENSION_META_SKILLS[weakestDimension];
 
-  const gridLevels = [25, 50, 75, 100];
+  // Dimension bars data
+  const dimensions = dimensionKeys.map(key => ({
+    key,
+    label: COMPONENT_LABELS[key],
+    value: scores[key],
+  }));
+
+  // Collapsible insight preview
+  const insightPreview = insight.length > 120 ? insight.slice(0, 120).replace(/\s+\S*$/, '…') : insight;
+  const needsTruncation = insight.length > 120;
+
+  // Practice modality
+  const practiceModality = PRACTICE_MODALITY_MAP[results.practicePriorityTag] || 'Targeted Protocols';
 
   return (
-    <div className="space-y-6 py-8 animate-fade-in">
-      {/* Archetype Reveal */}
+    <div className="space-y-5 py-8 animate-fade-in">
+      {/* Header */}
       <div className="text-center space-y-3">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest font-body">Your Leadership Pattern</p>
-        <h2 className="text-[28px] md:text-4xl font-headline font-bold text-foreground tracking-tight">
+        <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Your Performance Baseline</p>
+        <h2 className="text-[26px] md:text-3xl font-headline font-bold text-foreground tracking-tight">
           You are {archetypeTitle}.
         </h2>
-        <p className="text-[13px] max-w-md mx-auto font-subheadline italic text-saffron">
-          {archetypeDescription}
+        <p className="text-[14px] max-w-md mx-auto font-body text-foreground/70 leading-relaxed">
+          {firstSentence}
         </p>
       </div>
 
-      {/* Your Self-Mastery Map – Unified */}
-      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-2">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center font-body pt-1">Your Self-Mastery Map</h3>
-        <svg viewBox="0 0 300 250" className="w-full max-w-xs mx-auto">
-          <defs>
-            <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#08d780" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#08d780" stopOpacity="0.05" />
-            </radialGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          {gridLevels.map((level) => (
-            <polygon
-              key={level}
-              points={radarPoints.map((_, i) => {
-                const pt = getPoint(i, level);
-                return `${pt.x},${pt.y}`;
-              }).join(' ')}
-              fill="none"
-              stroke="hsl(var(--border))"
-              strokeWidth="1.2"
-              opacity={0.9}
-            />
-          ))}
-          {radarPoints.map((_, i) => {
-            const pt = getPoint(i, 100);
-            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.8" opacity={0.6} />;
-          })}
-          <polygon
-            points={radarPoints.map((p, i) => {
-              const pt = getPoint(i, p.value);
-              return `${pt.x},${pt.y}`;
-            }).join(' ')}
-            fill="url(#radarFill)"
-            stroke="#08d780"
-            strokeWidth="2"
-            filter="url(#glow)"
-          />
-          {radarPoints.map((p, i) => {
-            const pt = getPoint(i, p.value);
-            return <circle key={i} cx={pt.x} cy={pt.y} r="5" fill="#08d780" stroke="hsl(var(--background))" strokeWidth="2" />;
-          })}
-          {radarPoints.map((p, i) => {
-            const labelPt = getPoint(i, 125);
-            return (
-              <text key={i} x={labelPt.x} y={labelPt.y} textAnchor="middle" dominantBaseline="middle" className="text-[10px] fill-foreground font-medium">
-                {p.label} ({p.value})
-              </text>
-            );
-          })}
-        </svg>
+      {/* Dimension Scores */}
+      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-4">
+        {dimensions.map((dim) => (
+          <div key={dim.key} className="space-y-1.5">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[13px] font-medium text-foreground/80">{dim.label}</span>
+              <span className="text-[13px] font-semibold text-foreground tabular-nums">{dim.value}</span>
+            </div>
+            <GradientProgress value={dim.value} />
+          </div>
+        ))}
 
         <TooltipProvider delayDuration={200}>
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center pt-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="text-[10px] text-muted-foreground/60 underline underline-offset-2 cursor-help">
@@ -316,11 +286,11 @@ export default function Stage8Results() {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[260px] space-y-2 p-3">
-                {radarPoints.map((point) => (
-                  <div key={point.key} className="space-y-0.5">
-                    <span className="text-[11px] font-semibold">{point.label}</span>
+                {dimensions.map((dim) => (
+                  <div key={dim.key} className="space-y-0.5">
+                    <span className="text-[11px] font-semibold">{dim.label}</span>
                     <div className="flex gap-1 flex-wrap">
-                      {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                      {DIMENSION_META_SKILLS[dim.key as keyof ComponentScoresV2].map((skill) => (
                         <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10">
                           {skill}
                         </span>
@@ -334,42 +304,71 @@ export default function Stage8Results() {
         </TooltipProvider>
       </div>
 
-      {/* AI Pattern Insight */}
+      {/* AI Pattern Insight — Collapsible */}
       {insight && (
-        <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-6">
-          <p className="text-sm leading-relaxed text-foreground/90">
-            "{insight}"
-          </p>
+        <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5">
+          {needsTruncation ? (
+            <Collapsible open={insightOpen} onOpenChange={setInsightOpen}>
+              <p className="text-sm leading-relaxed text-foreground/90">
+                "{insightOpen ? insight : insightPreview}"
+              </p>
+              <CollapsibleTrigger asChild>
+                <button className="mt-2 text-[12px] text-saffron font-medium flex items-center gap-1 hover:opacity-80 transition-opacity">
+                  {insightOpen ? 'Show less' : 'Read full analysis'}
+                  <ChevronDown size={14} className={`transition-transform ${insightOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
+            </Collapsible>
+          ) : (
+            <p className="text-sm leading-relaxed text-foreground/90">
+              "{insight}"
+            </p>
+          )}
         </div>
       )}
 
-      {/* Development Path */}
-      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          Your practice will prioritise <span className="font-semibold text-saffron">{results.practiceGoalLabel}</span> – the highest-leverage area given your pattern.
-        </p>
+      {/* Strengths & Development Area */}
+      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5 space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Strengths</p>
+          <div className="flex gap-2 flex-wrap">
+            {strengths.map((skill) => (
+              <span key={skill} className="text-[12px] px-3 py-1 rounded-full bg-saffron/10 text-saffron font-medium">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="w-full h-px bg-black/[0.06]" />
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Development Area</p>
+          <div className="flex gap-2 flex-wrap">
+            {developmentAreas.map((skill) => (
+              <span key={skill} className="text-[12px] px-3 py-1 rounded-full bg-foreground/5 text-foreground/70 font-medium">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Value Proposition */}
-      <div className="bg-transparent border-l-2 border-[#8B7D6B] pl-5 py-2 space-y-3">
-        <h3 className="text-lg font-headline font-bold text-[#8B7D6B] italic">
-          Perform at your highest level. Consistently.
-        </h3>
-        <div className="space-y-3">
-          <p className="text-sm text-[#8B7D6B]/80 italic leading-relaxed">
-            Your baseline tells the system who you are. How you regulate under pressure, where you recover, where you lead from strength.
-          </p>
-          <p className="text-sm text-[#8B7D6B]/80 italic leading-relaxed">
-            As your day shifts, the calendar, the stakes, the load, your practice moves with it. What you need at 7am is not what you need at 9pm.
-          </p>
-          <p className="text-sm text-[#8B7D6B] font-medium italic leading-relaxed">
-            The result is not a programme you follow. It is a system that works around you.
-          </p>
+      {/* Development Path */}
+      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5 space-y-4">
+        <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Development Path</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">Goal Focus</p>
+            <p className="text-[14px] font-medium text-foreground capitalize">{results.practiceGoalLabel}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">Practice Focus</p>
+            <p className="text-[14px] font-medium text-foreground">{practiceModality}</p>
+          </div>
         </div>
       </div>
 
       <Button variant="critical" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg border-0">
-        Unlock My Practice
+        Activate My System
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
     </div>
