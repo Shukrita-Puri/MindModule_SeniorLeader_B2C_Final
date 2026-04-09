@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -69,6 +70,7 @@ const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const { recordStep } = useOnboardingProgress();
   
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
@@ -77,6 +79,17 @@ const ExecutiveHome = () => {
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
+
+  // Immediate sessionStorage check on mount/navigation — catches cross-page tour handoff
+  useEffect(() => {
+    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+    if (!effectiveId) return;
+    const isActive =
+      sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+      sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+    const isRetake = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+    if (isActive || isRetake) setShowGuide(true);
+  }, [location.pathname, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,7 +150,7 @@ const ExecutiveHome = () => {
           return;
         }
 
-        if (!cancelled) setShowGuide(isActiveForUser);
+        if (!cancelled) setShowGuide(isActiveForUser || isRetakeForUser);
       } catch {
         if (!cancelled) setShowGuide(false);
       }
@@ -146,7 +159,7 @@ const ExecutiveHome = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.onboarding_completed_at]);
+  }, [user?.id, user?.onboarding_completed_at, location.pathname]);
 
   // Check for plan feedback flag on mount
   useEffect(() => {

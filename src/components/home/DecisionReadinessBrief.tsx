@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -126,7 +127,11 @@ function buildSignalChips(
   const wearableDays = outerBrief?.wearableDaysConnected ?? 0;
 
   if (!hasCheckIn) {
-    return [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
+    const promptChips: SignalChip[] = [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
+    if (tier === 'none') {
+      promptChips.push({ id: 'wearable-prompt', label: 'Connect wearable', color: 'neutral' });
+    }
+    return promptChips;
   }
 
   // Longitudinal qualifier – suppressed for Apple Health < 14 days
@@ -362,19 +367,27 @@ function buildInnerSummary(chips: SignalChip[]): string | null {
 }
 
 // ─── FLIPPABLE CHIP COMPONENT ───
-function FlippableChip({ chip }: { chip: SignalChip }) {
+function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const hasBack = !!chip.backLabel;
 
+  const handleClick = () => {
+    if (onNavigate) {
+      onNavigate();
+      return;
+    }
+    if (hasBack) setFlipped(!flipped);
+  };
+
   return (
     <button
-      onClick={() => hasBack && setFlipped(!flipped)}
+      onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
         "border",
         chipBgColor(chip.color),
-        hasBack && "cursor-pointer active:scale-95",
-        !hasBack && "cursor-default"
+        (hasBack || onNavigate) && "cursor-pointer active:scale-95",
+        !hasBack && !onNavigate && "cursor-default"
       )}
     >
       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", chipDotColor(chip.color))} />
@@ -400,9 +413,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   if (!hasCalendar && calendarState === 'not_connected') {
     return (
       <div className="flex gap-2 mt-2">
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30">
+        <button
+          onClick={() => window.location.href = '/connected-data'}
+          className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
+        >
           Connect calendar
-        </span>
+        </button>
       </div>
     );
   }
@@ -442,6 +458,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [rawExpanded, setRawExpanded] = useState(false);
 
   const { data: energyState } = useQuery({
@@ -523,7 +540,7 @@ const PerformanceReadinessBrief = () => {
       <CalendarPills outerBrief={outerBrief} />
 
       {/* 4. PHRASE */}
-      <p className="mt-4 text-[14px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+      <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
         {phrase}
       </p>
 
@@ -542,9 +559,21 @@ const PerformanceReadinessBrief = () => {
 
         {/* 7. SIGNAL CHIPS */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {chips.map(chip => (
-            <FlippableChip key={chip.id} chip={chip} />
-          ))}
+          {chips.map(chip => {
+            const navMap: Record<string, string> = {
+              'no-checkin': '/daily-check-in',
+              'wearable-prompt': '/connected-data',
+              'calendar-prompt': '/connected-data',
+            };
+            const navTarget = navMap[chip.id];
+            return (
+              <FlippableChip
+                key={chip.id}
+                chip={chip}
+                onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+              />
+            );
+          })}
         </div>
 
         {/* 8. INNER SUMMARY */}
@@ -564,18 +593,18 @@ const PerformanceReadinessBrief = () => {
       </span>
 
       {/* 11. LEAN ON */}
-      {(outerBrief?.leanOn || !hasCheckIn) && (
+      {outerBrief?.leanOn && (
         <div className="flex items-start gap-2 mt-3">
           <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
             Lean on
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-              {hasCheckIn ? outerBrief?.leanOn : "Your honesty in the check-in"}
+              {outerBrief.leanOn}
             </p>
             {leanOnSource && (
               <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                {hasCheckIn ? leanOnSource : "This shapes everything today"}
+                {leanOnSource}
               </p>
             )}
           </div>
@@ -583,7 +612,7 @@ const PerformanceReadinessBrief = () => {
       )}
 
       {/* 12. WATCH FOR */}
-      {hasCheckIn && outerBrief?.watchFor && (
+      {outerBrief?.watchFor && (
         <div className="flex items-start gap-2 mt-2">
           <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
             Watch for
