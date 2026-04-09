@@ -1563,6 +1563,8 @@ serve(async (req) => {
       type: string;
       copy: NudgeCopy;
       eventReference?: string;
+      commitmentText?: string;  // Change 6: P3 coach context
+      meetingTitle?: string;    // Change 6: P3 coach context
       tokens: Array<{ token: string; platform: string }>;
     }> = [];
 
