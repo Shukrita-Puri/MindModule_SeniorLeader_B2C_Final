@@ -1954,11 +1954,12 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
     console.log(`[buildSharedContext] wearable: sleep=${w.sleep_score}, hrv=${w.hrv}, hrvDev=${hrvDeviation?.toFixed(1)}%`);
   }
 
-  // ── Profile tags ──
+  // ── Profile tags + component scores ──
   if (profileRes.data) {
     req.practicePriorityTag = profileRes.data.practice_priority_tag || '';
     req.pressureContextTag = profileRes.data.pressure_context_tag || '';
     req.archetype = profileRes.data.archetype || '';
+    req.componentScores = profileRes.data.component_scores || null;
   }
 
   // ── Engagement signals ──
