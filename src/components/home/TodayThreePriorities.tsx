@@ -84,7 +84,7 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = () => {
+const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
@@ -386,8 +386,14 @@ const TodayThreePriorities = () => {
   }
 
   const horizonModules = plan?.horizonModules;
+
+  useEffect(() => {
+    if (!loading && (!horizonModules || horizonModules.length === 0)) {
+      onEmpty?.();
+    }
+  }, [loading, horizonModules, onEmpty]);
+
   if (!horizonModules || horizonModules.length === 0) {
-    // Fallback: render nothing here; ExecutiveHome handles DailyRitual fallback
     return null;
   }
 

@@ -54,6 +54,7 @@ const ExecutiveHome = () => {
   const { recordStep } = useOnboardingProgress();
   
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
+  const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
@@ -255,7 +256,7 @@ const ExecutiveHome = () => {
       <div className="min-h-screen flex w-full bg-background">
         <LeftSidebar />
         
-        <SidebarInset className="w-full overflow-x-hidden">
+        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
           {/* Immersive Hero Visual */}
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -308,10 +309,14 @@ const ExecutiveHome = () => {
 
             {/* ACTION — Today's 3 Performance Priorities */}
             <div data-tour="daily-plan">
-              {/* Unified 3-slot horizon system */}
               <div className="animate-in fade-in duration-500">
-                <TodayThreePriorities />
+                <TodayThreePriorities onEmpty={() => setPrioritiesEmpty(true)} />
               </div>
+              {prioritiesEmpty && (
+                <div className="animate-in fade-in duration-500">
+                  <DailyRitual />
+                </div>
+              )}
             </div>
 
             <div className="mt-8">
