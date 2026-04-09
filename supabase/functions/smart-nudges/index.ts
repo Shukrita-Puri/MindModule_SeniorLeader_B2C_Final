@@ -1173,7 +1173,7 @@ async function evaluateCoachMeetingMatch(
         });
         const copy = aiCopy || getFallbackCoachMatchCopy(commitment.text, event.title || 'upcoming meeting');
 
-        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, priority: 3 };
+        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, commitmentText: commitment.text, meetingTitle: event.title || 'upcoming meeting', priority: 3 };
       }
     }
   }
@@ -1193,7 +1193,7 @@ async function evaluateCoachMeetingMatch(
         });
         const copy = aiCopy || getFallbackCoachMatchCopy(signal.topic, event.title || 'upcoming meeting');
 
-        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, priority: 3 };
+        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, commitmentText: signal.topic, meetingTitle: event.title || 'upcoming meeting', priority: 3 };
       }
     }
   }
