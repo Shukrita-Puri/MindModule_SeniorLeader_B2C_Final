@@ -1525,11 +1525,13 @@ function calculateContentScore(
   else if (content.tags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
 
   // Onboarding signal boosts – full weight when no dynamic signals exist, decayed otherwise
+  // Priority boost kept moderate (+20/+7) — onboarding goal is a system recommendation,
+  // not explicit user behaviour. Actual behaviour (favorites +30, coach +25) always outweighs.
   const onboardingFullWeight = !hasFavorites && !hasCoachInsights;
-  const priorityBoost = onboardingFullWeight ? 15 : 5;
+  const priorityBoost = onboardingFullWeight ? 20 : 7;
   const pressureBoost = onboardingFullWeight ? 8 : 3;
 
-  // Practice priority tag match (+15 full / +5 decayed)
+  // Practice priority tag match (+20 full / +7 decayed)
   if (practicePriorityTag) {
     const focusTags = PRIORITY_TAG_FOCUS_MAP[practicePriorityTag] || [];
     const contentTags = [
@@ -1818,7 +1820,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
     supabaseClient.from('calendar_connections').select('is_active').eq('user_id', req.userId).eq('is_active', true).maybeSingle(),
     supabaseClient.from('daily_checkins').select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window').eq('user_id', req.userId).order('checkin_date', { ascending: false }).limit(10),
     supabaseClient.from('wearable_data').select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date').eq('user_id', req.userId).gte('summary_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('summary_date', { ascending: false }).limit(1).maybeSingle(),
-    supabaseClient.from('profiles').select('practice_priority_tag, pressure_context_tag, archetype').eq('id', req.userId).maybeSingle(),
+    supabaseClient.from('profiles').select('practice_priority_tag, pressure_context_tag, archetype, component_scores').eq('id', req.userId).maybeSingle(),
     supabaseClient.from('user_favorites').select('content_id').eq('user_id', req.userId),
     supabaseClient.from('daily_ritual_completions').select('completed_practice_ids').eq('user_id', req.userId).eq('ritual_date', today).eq('session_period', timeOfDay).maybeSingle(),
     supabaseClient.from('content_relevance_feedback').select('content_id').eq('user_id', req.userId).gte('star_rating', 4),
@@ -1952,11 +1954,12 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
     console.log(`[buildSharedContext] wearable: sleep=${w.sleep_score}, hrv=${w.hrv}, hrvDev=${hrvDeviation?.toFixed(1)}%`);
   }
 
-  // ── Profile tags ──
+  // ── Profile tags + component scores ──
   if (profileRes.data) {
     req.practicePriorityTag = profileRes.data.practice_priority_tag || '';
     req.pressureContextTag = profileRes.data.pressure_context_tag || '';
     req.archetype = profileRes.data.archetype || '';
+    req.componentScores = profileRes.data.component_scores || null;
   }
 
   // ── Engagement signals ──
@@ -2000,6 +2003,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
         userId: req.userId, timezoneOffset: req.timezoneOffset,
         innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
         clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
+        componentScores: req.componentScores || null,
+        practicePriorityTag: req.practicePriorityTag || null,
       }),
     });
     if (outerRes.ok) {

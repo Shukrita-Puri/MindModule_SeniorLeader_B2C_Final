@@ -76,6 +76,8 @@ export interface CoachContext {
   // User Profile
   userArchetype?: string;
   identityRole?: string;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string;
   
   // Recent Practices (last 7 days)
   recentPractices?: string[];
@@ -248,17 +250,21 @@ async function getRecentPractices(userId: string): Promise<string[]> {
 async function getUserProfile(userId: string): Promise<{
   archetype?: string;
   identityRole?: string;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string;
 } | undefined> {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('user_archetype, identity_role')
+      .select('user_archetype, identity_role, component_scores, practice_priority_tag')
       .eq('id', userId)
       .maybeSingle();
     
     return {
       archetype: data?.user_archetype || undefined,
-      identityRole: data?.identity_role || undefined
+      identityRole: data?.identity_role || undefined,
+      componentScores: data?.component_scores as any || null,
+      practicePriorityTag: data?.practice_priority_tag as string || undefined,
     };
   } catch {
     return undefined;
@@ -466,6 +472,8 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     if (profile) {
       context.userArchetype = profile.archetype;
       context.identityRole = profile.identityRole;
+      context.componentScores = profile.componentScores;
+      context.practicePriorityTag = profile.practicePriorityTag;
     }
     
     if (recentPractices.length > 0) {
@@ -815,6 +823,31 @@ export function formatContextForPrompt(context: CoachContext): string {
   // User archetype
   if (context.userArchetype) {
     lines.push(`- Executive Archetype: ${context.userArchetype}`);
+  }
+  
+  // Baseline strengths & development area from onboarding
+  if (context.componentScores) {
+    const cs = context.componentScores;
+    const dims = [
+      { name: 'Recalibration', score: cs.energyRegulation || 0 },
+      { name: 'Clarity', score: cs.focusRecovery || 0 },
+      { name: 'Renewal', score: cs.energyRenewal || 0 },
+    ].sort((a, b) => b.score - a.score);
+    lines.push(`- Baseline Strength: ${dims[0].name} (${Math.round(dims[0].score)})`);
+    lines.push(`- Development Area: ${dims[dims.length - 1].name} (${Math.round(dims[dims.length - 1].score)})`);
+  }
+  
+  // Goal focus from onboarding
+  if (context.practicePriorityTag) {
+    const goalLabels: Record<string, string> = {
+      regulation_composure: 'Composure under pressure',
+      regulation_early: 'Early signal detection',
+      recovery_resilience: 'Recovery and resilience',
+      energy_endurance: 'Energy endurance',
+      focus_clarity: 'Focus and clarity',
+      mindset_reframe: 'Mindset reframing',
+    };
+    lines.push(`- Goal Focus: ${goalLabels[context.practicePriorityTag] || context.practicePriorityTag}`);
   }
   
   // Plan status - IMPORTANT: Completed protocols section

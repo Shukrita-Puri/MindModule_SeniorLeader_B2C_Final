@@ -38,6 +38,8 @@ interface ComputeRequest {
   confidenceLevel: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string | null;
 }
 
 // ==================== SERVER-SIDE CALENDAR METRICS ====================
@@ -2039,7 +2041,7 @@ serve(async (req) => {
         .order('checkin_date', { ascending: false })
         .limit(10),
       db.from('profiles')
-        .select('user_archetype')
+        .select('user_archetype, component_scores, practice_priority_tag')
         .eq('id', userId)
         .maybeSingle(),
       // Coach memory: recent memories with importance ≥ 5
@@ -2068,6 +2070,8 @@ serve(async (req) => {
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
     const serverArchetype = profileRes.data?.user_archetype || null;
+    const serverComponentScores = (profileRes.data as any)?.component_scores || body.componentScores || null;
+    const serverPracticePriorityTag = (profileRes.data as any)?.practice_priority_tag || body.practicePriorityTag || null;
     const coachMemories = coachMemoryRes.data || [];
     const coachCommitments = coachCommitmentsRes.data || [];
     const coachBreakthroughs = coachBreakthroughsRes.data || [];
@@ -3203,6 +3207,32 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             userPrompt += `\n\nArchetype: ${serverArchetype}`;
             if (leanOnResult.leanOn) userPrompt += ` — lean on ${leanOnResult.leanOn}`;
             if (leanOnResult.watchFor) userPrompt += `, watch for ${leanOnResult.watchFor}`;
+          }
+
+          // Component scores (onboarding baseline) — explicit strengths/development area
+          if (serverComponentScores) {
+            const cs = serverComponentScores as any;
+            const dims = [
+              { name: 'Recalibration', score: cs.energyRegulation || 0 },
+              { name: 'Clarity', score: cs.focusRecovery || 0 },
+              { name: 'Renewal', score: cs.energyRenewal || 0 },
+            ].sort((a, b) => b.score - a.score);
+            userPrompt += `\n\nBaseline dimensions: ${dims.map(d => `${d.name} ${Math.round(d.score)}`).join(', ')}`;
+            userPrompt += ` — strength: ${dims[0].name}, development area: ${dims[dims.length - 1].name}`;
+          }
+
+          // Goal focus from onboarding
+          if (serverPracticePriorityTag) {
+            const goalLabels: Record<string, string> = {
+              regulation_composure: 'Composure under pressure',
+              regulation_early: 'Early signal detection',
+              recovery_resilience: 'Recovery and resilience',
+              energy_endurance: 'Energy endurance',
+              focus_clarity: 'Focus and clarity',
+              mindset_reframe: 'Mindset reframing',
+            };
+            const goalLabel = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
+            userPrompt += `\n\nGoal focus: ${goalLabel}`;
           }
 
           // ── Call LLM ──
