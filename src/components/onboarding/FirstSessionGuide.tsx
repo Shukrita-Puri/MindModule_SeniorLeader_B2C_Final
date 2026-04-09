@@ -40,14 +40,14 @@ const STEPS: GuideStep[] = [
   {
     targetSelector: '[data-tour="check-in-carousel"]',
     title: 'Performance Readiness Assessment',
-    body: "One tap to tell the system how you're performing right now – your sharpness, clarity, and confidence. This is where every day starts.",
+    body: "One tap. The system reads your sharpness, clarity, and confidence.",
     page: 'check-in',
     phaseLabel: 'YOUR DAILY LOOP',
   },
   {
     targetSelector: '[data-tour="today-state"]',
     title: 'Your Decision Engine',
-    body: 'Your Decision Readiness is where your internal signals meet. It combines how you feel right now with an understanding from your wearable – based on your time of day.',
+    body: 'Internal signals, calendar pressure, and wearable data — triangulated into one readiness brief.',
     page: 'home',
     phaseLabel: 'YOUR DAILY LOOP',
     tooltipPosition: 'below',
@@ -56,7 +56,7 @@ const STEPS: GuideStep[] = [
   {
     targetSelector: '[data-tour="daily-plan"]',
     title: 'Performance Mastery Plan',
-    body: 'Practices and sessions built for today – designed to close the gap between where you are and where the day needs you to be.',
+    body: "Today's plan — built to close the gap between state and demand.",
     page: 'home',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'center',
@@ -416,11 +416,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <div className="relative z-10 bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
-          <h2 className="text-2xl font-headline text-foreground leading-tight mb-3">
+        <div className="relative z-10 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
+          <h2 className="text-2xl font-headline text-white leading-tight mb-3">
             Let's show you around.
           </h2>
-          <p className="text-sm text-muted-foreground font-body leading-relaxed mb-8">
+          <p className="text-sm text-white/60 font-body leading-relaxed mb-8">
             A quick 3-step tour of how Mind Module works — starting with your daily check-in.
           </p>
           <button
@@ -431,7 +431,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           </button>
           <button
             onClick={skipTourEntirely}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
+            className="text-sm text-white/50 hover:text-white transition-colors font-medium"
           >
             Skip tour
           </button>
@@ -519,7 +519,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       <div
         ref={tooltipRef}
         className={cn(
-          'fixed z-[10010] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300',
+          'fixed z-[10010] bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300',
           ready ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
         style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: ready ? 'auto' : 'none' }}
@@ -529,13 +529,13 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
             {step.phaseLabel}
           </p>
-          <p className="text-[10px] text-muted-foreground font-medium">
+          <p className="text-[10px] text-white/50 font-medium">
             {currentStep + 1} of {STEPS.length}
           </p>
         </div>
 
-        <h2 className="text-lg font-headline text-foreground leading-tight mb-2">{step.title}</h2>
-        <p className="text-sm text-muted-foreground font-body leading-relaxed mb-5">{step.body}</p>
+        <h2 className="text-lg font-headline text-white leading-tight mb-2">{step.title}</h2>
+        <p className="text-sm text-white/70 font-body leading-relaxed mb-5">{step.body}</p>
 
         {/* Footer */}
         <div className="flex items-center justify-between">
@@ -545,14 +545,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
                 key={idx}
                 className={cn(
                   'h-1.5 rounded-full transition-all duration-300',
-                  idx === currentStep ? 'w-5 bg-saffron' : idx < currentStep ? 'w-1.5 bg-saffron/40' : 'w-1.5 bg-muted-foreground/25',
+                  idx === currentStep ? 'w-5 bg-saffron' : idx < currentStep ? 'w-1.5 bg-saffron/40' : 'w-1.5 bg-white/25',
                 )}
               />
             ))}
           </div>
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
-              <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground text-sm transition-colors" style={{ pointerEvents: 'auto' }}>
+              <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-white/60 hover:text-white text-sm transition-colors" style={{ pointerEvents: 'auto' }}>
                 <ArrowLeft size={14} /> Back
               </button>
             )}
@@ -561,7 +561,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
                 <Rocket size={16} /> Let's Go!
               </button>
             ) : (
-              <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-foreground font-medium text-sm border border-white/10 transition-colors" style={{ pointerEvents: 'auto' }}>
+              <button onClick={handleNext} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-sm border border-white/10 transition-colors" style={{ pointerEvents: 'auto' }}>
                 Next <ArrowRight size={14} />
               </button>
             )}
@@ -571,22 +571,22 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       {showTransitionCard && (
         <div
-          className="fixed z-[10010] bg-card/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto"
+          className="fixed z-[10010] bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl mx-auto"
           style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)', maxWidth: '360px' }}
         >
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
               {step.phaseLabel}
             </p>
-            <p className="text-[10px] text-muted-foreground font-medium">
+            <p className="text-[10px] text-white/50 font-medium">
               {currentStep + 1} of {STEPS.length}
             </p>
           </div>
           <div className="flex items-start gap-3 mb-4">
             <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-saffron flex-shrink-0" />
             <div>
-              <h2 className="text-lg font-headline text-foreground leading-tight mb-1">{step.title}</h2>
-              <p className="text-sm text-muted-foreground font-body leading-relaxed">
+              <h2 className="text-lg font-headline text-white leading-tight mb-1">{step.title}</h2>
+              <p className="text-sm text-white/60 font-body leading-relaxed">
                 {transitionMessage || 'Preparing the next part of the tour...'}
               </p>
             </div>
@@ -597,7 +597,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
                 key={idx}
                 className={cn(
                   'h-1.5 rounded-full transition-all duration-300',
-                  idx === currentStep ? 'w-5 bg-saffron' : idx < currentStep ? 'w-1.5 bg-saffron/40' : 'w-1.5 bg-muted-foreground/25',
+                  idx === currentStep ? 'w-5 bg-saffron' : idx < currentStep ? 'w-1.5 bg-saffron/40' : 'w-1.5 bg-white/25',
                 )}
               />
             ))}
