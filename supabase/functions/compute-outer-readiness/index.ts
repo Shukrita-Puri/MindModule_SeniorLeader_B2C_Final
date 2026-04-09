@@ -2041,7 +2041,7 @@ serve(async (req) => {
         .order('checkin_date', { ascending: false })
         .limit(10),
       db.from('profiles')
-        .select('user_archetype')
+        .select('user_archetype, component_scores, practice_priority_tag')
         .eq('id', userId)
         .maybeSingle(),
       // Coach memory: recent memories with importance ≥ 5
