@@ -7,7 +7,7 @@ import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 import uspPulseSignal from "@/assets/onboarding/usp-pulse-signal.jpg";
 import uspConstellation from "@/assets/onboarding/usp-constellation.jpg";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
-import heroBg from "@/assets/onboarding/onboarding-hero-calm.jpg";
+import heroBg from "@/assets/onboarding/onboarding-intro-active.jpg";
 
 interface Slide {
   headline: string;
