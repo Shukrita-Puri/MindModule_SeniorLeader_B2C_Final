@@ -8,6 +8,8 @@ import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/services/authTokenService";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { GradientProgress } from "@/components/ui/gradient-progress";
