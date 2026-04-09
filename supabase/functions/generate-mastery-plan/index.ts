@@ -2062,7 +2062,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const metadataMap = new Map((contentMetadata || []).map((m: any) => [m.content_id, m]));
   const enrichedContent = (contentLibrary || []).map((c: any) => {
     const meta = metadataMap.get(c.id);
-    return { ...c, structured_tags: (meta as any)?.structured_tags, mastery_category: (meta as any)?.mastery_category };
+    return {
+      ...c,
+      structured_tags: (meta as any)?.structured_tags,
+      mastery_category: (meta as any)?.mastery_category,
+      horizonTags: (meta as any)?.horizon || [],
+      metaSkillTags: (meta as any)?.meta_skill || [],
+      isFoundational: (meta as any)?.is_foundational ?? false,
+      momentTags: (meta as any)?.moment || [],
+      stateSignalTags: (meta as any)?.state_signal || [],
+      durationBand: (meta as any)?.duration_band || 'short',
+    };
   });
 
   // 3. Fetch HRV × Calendar correlations
