@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield } from "lucide-react";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
-import heroBg from "@/assets/onboarding/onboarding-hero-calm.jpg";
+import heroBg from "@/assets/onboarding/onboarding-welcome-active.jpg";
 
 export default function Stage1Welcome() {
   const navigate = useNavigate();
