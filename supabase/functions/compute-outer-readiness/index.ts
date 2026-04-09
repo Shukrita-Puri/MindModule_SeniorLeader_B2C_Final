@@ -1977,12 +1977,16 @@ serve(async (req) => {
 
         // RHR elevated will be computed from baseline below – placeholder false
         const rhrElevated = false;
+        // hrElevated: derived from HRV being significantly depressed (sympathetic dominance = elevated HR)
+        // Will be refined by baseline deviation below; initial heuristic: HRV < 25ms
+        const hrElevated = hrv !== null && hrv < 25;
 
         wearableContext = {
           hrv,
           rhr,
           sleepScore,
           sleepDuration,
+          hrElevated,
           hrvElevated,
           poorSleep,
           rhrElevated,
