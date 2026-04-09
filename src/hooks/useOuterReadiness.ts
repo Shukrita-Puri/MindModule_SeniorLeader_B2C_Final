@@ -50,6 +50,24 @@ export interface OuterReadinessData {
   coachStrength?: string | null;
   clarityLevel?: number | null;
   confidenceLevel?: number | null;
+  // Enrichment fields
+  yesterdayScore?: number | null;
+  scoreTrend?: string | null;
+  hasBackToBack?: boolean;
+  longestBackToBackHrs?: number | null;
+  nextEvent?: { title: string; minutesUntil: number } | null;
+  practicesCompletedThisWeek?: number;
+  practiceCompletionRate?: number;
+  daysSinceCoachSession?: number | null;
+  coachSessionImpactDelta?: number | null;
+  avgScore7d?: number | null;
+  scoreTrajectory7d?: string | null;
+  wearableTrend7d?: string | null;
+  typicalDOWScore?: number | null;
+  divergenceMode?: string | null;
+  weekAheadShape?: Record<string, unknown> | null;
+  hrvEventCorrelation?: string | null;
+  mostEffectivePractice?: string | null;
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
