@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
