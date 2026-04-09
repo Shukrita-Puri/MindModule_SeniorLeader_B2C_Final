@@ -2056,7 +2056,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Also fetch structured tags from metadata
   const { data: contentMetadata } = await supabaseClient
     .from('sanctuary_content_metadata')
-    .select('content_id, structured_tags, mastery_category');
+    .select('content_id, structured_tags, mastery_category, horizon, meta_skill, is_foundational, moment, state_signal, duration_band');
 
   // Merge metadata into content
   const metadataMap = new Map((contentMetadata || []).map((m: any) => [m.content_id, m]));
