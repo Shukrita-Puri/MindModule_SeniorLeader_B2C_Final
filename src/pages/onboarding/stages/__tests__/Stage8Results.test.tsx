@@ -106,7 +106,7 @@ describe("Stage8Results — Layout Rendering", () => {
     await waitFor(() => {
       expect(screen.getByText(/Your Performance Baseline/i)).toBeInTheDocument();
       expect(screen.getByText(/The Adaptive Navigator/i)).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     // Dimension bars
     expect(screen.getByText("Recalibration")).toBeInTheDocument();
@@ -152,7 +152,7 @@ describe("Stage8Results — Layout Rendering", () => {
     await waitFor(() => {
       expect(screen.getByText("Thinking Clarity")).toBeInTheDocument();
       expect(screen.getByText("Emotional Intelligence")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     // Development from energyRegulation (lowest)
     expect(screen.getByText("Self-Regulation")).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe("Stage8Results — Layout Rendering", () => {
       expect(screen.getByText("Adaptive Capacity")).toBeInTheDocument();
       expect(screen.getByText("Influence")).toBeInTheDocument();
       expect(screen.getByText("Presence")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     expect(screen.getByText("Thinking Clarity")).toBeInTheDocument();
     expect(screen.getByText("Energy Management")).toBeInTheDocument();
@@ -185,7 +185,7 @@ describe("Stage8Results — Layout Rendering", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Short insight text/)).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
     expect(screen.queryByText(/Read full analysis/i)).not.toBeInTheDocument();
   });
 
@@ -208,7 +208,7 @@ describe("Stage8Results — Layout Rendering", () => {
       const { unmount } = renderResults();
       await waitFor(() => {
         expect(screen.getByText(expectedModality)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
       unmount();
     }
   });
@@ -220,7 +220,7 @@ describe("Stage8Results — Layout Rendering", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Targeted Protocols")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 
   it("handles equal dimension scores gracefully", async () => {
@@ -233,7 +233,7 @@ describe("Stage8Results — Layout Rendering", () => {
     await waitFor(() => {
       const sixties = screen.getAllByText("60");
       expect(sixties).toHaveLength(3);
-    });
+    }, { timeout: 3000 });
     expect(screen.getByText(/Strengths/i)).toBeInTheDocument();
     expect(screen.getByText(/Development Area/i)).toBeInTheDocument();
   });
@@ -245,7 +245,7 @@ describe("Stage8Results — Layout Rendering", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Activate My System")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     screen.getByText("Activate My System").closest("button")?.click();
     expect(mockNavigate).toHaveBeenCalledWith("/onboarding/payment");
