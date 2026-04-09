@@ -3272,7 +3272,7 @@ Output ONLY valid JSON:
       stateStatement,
       stateAlreadyUsed,
       compassAlreadyUsed,
-      // New fields for DecisionReadinessBrief
+      // DecisionReadinessBrief fields
       bodyText: llmBodyText || null,
       leanOnSource: leanOnResult.source,
       watchForSource: leanOnResult.source,
@@ -3300,6 +3300,24 @@ Output ONLY valid JSON:
       coachStrength,
       clarityLevel: clarityLevel,
       confidenceLevel: confidenceLevel,
+      // New enrichment fields
+      yesterdayScore,
+      scoreTrend,
+      hasBackToBack,
+      longestBackToBackHrs,
+      nextEvent: nextEventAny,
+      practicesCompletedThisWeek,
+      practiceCompletionRate,
+      daysSinceCoachSession,
+      coachSessionImpactDelta,
+      avgScore7d,
+      scoreTrajectory7d,
+      wearableTrend7d,
+      typicalDOWScore,
+      divergenceMode,
+      weekAheadShape,
+      hrvEventCorrelation,
+      mostEffectivePractice,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
