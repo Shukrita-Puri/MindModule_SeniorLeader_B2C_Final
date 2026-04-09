@@ -1,8 +1,6 @@
 import { ArrowLeft } from "lucide-react";
-import { ChatCircle } from "@phosphor-icons/react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopNavigationProps {
   backPath?: string;
@@ -11,8 +9,6 @@ interface TopNavigationProps {
 
 const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isCoachPage = location.pathname === '/coach';
 
   const handleBack = () => {
     if (backPath) {
@@ -34,29 +30,7 @@ const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) =>
         >
           <ArrowLeft size={20} className={transparent ? "text-white" : "text-foreground"} />
         </Button>
-
-        {/* Right: Coach Button (hidden on coach page) */}
-        {!isCoachPage && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => navigate('/coach')}
-                className={transparent ? "hover:bg-white/10" : "hover:bg-muted/50"}
-              >
-                <ChatCircle 
-                  size={20} 
-                  weight="duotone" 
-                  className="icon-duotone-luxury text-saffron"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Mind Performance Coach</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <div className="w-10" />
       </div>
     </div>
   );
