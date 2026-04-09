@@ -825,6 +825,31 @@ export function formatContextForPrompt(context: CoachContext): string {
     lines.push(`- Executive Archetype: ${context.userArchetype}`);
   }
   
+  // Baseline strengths & development area from onboarding
+  if (context.componentScores) {
+    const cs = context.componentScores;
+    const dims = [
+      { name: 'Recalibration', score: cs.energyRegulation || 0 },
+      { name: 'Clarity', score: cs.focusRecovery || 0 },
+      { name: 'Renewal', score: cs.energyRenewal || 0 },
+    ].sort((a, b) => b.score - a.score);
+    lines.push(`- Baseline Strength: ${dims[0].name} (${Math.round(dims[0].score)})`);
+    lines.push(`- Development Area: ${dims[dims.length - 1].name} (${Math.round(dims[dims.length - 1].score)})`);
+  }
+  
+  // Goal focus from onboarding
+  if (context.practicePriorityTag) {
+    const goalLabels: Record<string, string> = {
+      regulation_composure: 'Composure under pressure',
+      regulation_early: 'Early signal detection',
+      recovery_resilience: 'Recovery and resilience',
+      energy_endurance: 'Energy endurance',
+      focus_clarity: 'Focus and clarity',
+      mindset_reframe: 'Mindset reframing',
+    };
+    lines.push(`- Goal Focus: ${goalLabels[context.practicePriorityTag] || context.practicePriorityTag}`);
+  }
+  
   // Plan status - IMPORTANT: Completed protocols section
   if (context.planStatus && context.planStatus.completedModules.length > 0) {
     lines.push('');
