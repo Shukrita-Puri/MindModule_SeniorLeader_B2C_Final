@@ -134,7 +134,7 @@ describe("Stage8Results — Layout Rendering", () => {
 
     // Development Path
     expect(screen.getByText("Goal Focus")).toBeInTheDocument();
-    expect(screen.getByText("Composure under pressure")).toBeInTheDocument();
+    expect(screen.getByText("composure under pressure")).toBeInTheDocument();
     expect(screen.getByText("Practice Focus")).toBeInTheDocument();
     expect(screen.getByText("Somatic Protocols")).toBeInTheDocument();
 
