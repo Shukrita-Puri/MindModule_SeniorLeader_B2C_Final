@@ -13,7 +13,7 @@ const FloatingPillNav = () => {
 
   return (
     <nav
-      className="fixed z-[180] sm:hidden flex items-center justify-center"
+      className="fixed z-[40] sm:hidden flex items-center justify-center"
       style={{
         bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
         left: '50%',
