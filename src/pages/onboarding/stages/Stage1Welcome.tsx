@@ -34,7 +34,7 @@ export default function Stage1Welcome() {
           </p>
 
           {/* Descriptive text — glass card for readability */}
-          <div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+          <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
             <div className="space-y-4">
               <p className="text-[15px] text-white/90 font-body leading-relaxed">
                 Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.

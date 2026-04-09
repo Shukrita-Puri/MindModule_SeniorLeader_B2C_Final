@@ -129,7 +129,7 @@ export default function StageUSPIntro() {
               Executive Edition
             </p>
 
-            <div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+            <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
               <h2 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-white">
                 A new era of executive performance.
               </h2>
