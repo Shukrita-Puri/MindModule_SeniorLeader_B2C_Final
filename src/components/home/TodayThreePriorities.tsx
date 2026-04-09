@@ -373,6 +373,15 @@ const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
     setExpandedSlot(-1);
   }, [completedPracticeIds, plan]);
 
+  const horizonModules = plan?.horizonModules;
+
+  // Signal empty state to parent for fallback rendering
+  useEffect(() => {
+    if (!loading && (!horizonModules || horizonModules.length === 0)) {
+      onEmpty?.();
+    }
+  }, [loading, horizonModules, onEmpty]);
+
   // ── Render ──
   if (loading) {
     return (
@@ -384,14 +393,6 @@ const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
       </div>
     );
   }
-
-  const horizonModules = plan?.horizonModules;
-
-  useEffect(() => {
-    if (!loading && (!horizonModules || horizonModules.length === 0)) {
-      onEmpty?.();
-    }
-  }, [loading, horizonModules, onEmpty]);
 
   if (!horizonModules || horizonModules.length === 0) {
     return null;
