@@ -265,13 +265,38 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       el.style.borderRadius = s.spotlightCircle ? '9999px' : '12px';
       previousElRef.current = el;
 
-      computePosition();
-      requestAnimationFrame(() => {
+      // Secondary scroll adjustment: ensure tooltip fits and feature is centered
+      const pref = s.tooltipPosition || 'below';
+      const tooltipH = tooltipRef.current?.offsetHeight || 220;
+      const GAP = 16;
+      const rect = el.getBoundingClientRect();
+      const vH = window.innerHeight;
+
+      if (pref === 'above') {
+        // Ensure enough space above the feature for the tooltip
+        const minTop = tooltipH + GAP + 60; // 60px top safe area
+        if (rect.top < minTop) {
+          window.scrollBy({ top: rect.top - minTop, behavior: 'smooth' });
+        }
+      } else if (pref === 'below') {
+        // Ensure feature is in upper portion so tooltip fits below
+        const maxFeatureTop = vH * 0.35;
+        if (rect.top > maxFeatureTop) {
+          window.scrollBy({ top: rect.top - maxFeatureTop, behavior: 'smooth' });
+        }
+      }
+
+      // Allow secondary scroll to settle, then compute position
+      setTimeout(() => {
+        if (currentStepRef.current !== idx) return;
         computePosition();
-        setFallbackMode(false);
-        setTransitionMessage(null);
-        setReady(true);
-      });
+        requestAnimationFrame(() => {
+          computePosition();
+          setFallbackMode(false);
+          setTransitionMessage(null);
+          setReady(true);
+        });
+      }, 300);
     }, 450);
   }, [cleanupPrevious, computePosition, enableFallback, isElementVisible]);
 
@@ -534,7 +559,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
+          <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-white/60">
             {step.phaseLabel}
           </p>
           <p className="text-[10px] text-white/50 font-medium">
@@ -583,7 +608,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)', maxWidth: '360px' }}
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-saffron">
+            <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-white/60">
               {step.phaseLabel}
             </p>
             <p className="text-[10px] text-white/50 font-medium">
