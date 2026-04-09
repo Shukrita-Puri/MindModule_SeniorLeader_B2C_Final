@@ -656,17 +656,16 @@ All columns referenced exist and are correctly named.
 
 | Issue | Impact | Location |
 |-------|--------|----------|
-| ~~`data_source` column doesn't exist~~ | ~~Wearable source detection fails~~ | ~~Line 1953, 1964, 2369~~ **FIXED → `source`** |
-| ~~`hrv_rmssd` column doesn't exist~~ | ~~7-day HRV trend + HRV×event correlation silently fail~~ | ~~Lines 2678, 2785-2791, 2936-2943~~ **FIXED → `hrv`** |
-| `oura_daily_data` table missing | Oura sync completely broken | `sync-oura/index.ts:104` |
+| ~~`data_source` column doesn't exist~~ | ~~Wearable source detection fails~~ | **FIXED → `source`** |
+| ~~`hrv_rmssd` column doesn't exist~~ | ~~7-day HRV trend silently fails~~ | **FIXED → `hrv`** |
+| `oura_daily_data` table missing | Oura sync completely broken (deprioritised) | `sync-oura/index.ts:104` |
 
 ### 13.2 Architecture Gaps
 
 | Gap | Description |
 |-----|-------------|
-| No heart rate (HR) tracking | `wearable_data` has no `heart_rate` column. Edge function references `wearable.hrElevated` which checks `peakHR > 100` but this field is never populated from the DB. The `hrElevated` flag is always `false`. |
-| Wearable recovery trigger OFF | `ENABLE_WEARABLE_RECOVERY_TRIGGER = false` — sustained HRV deficit detection exists but is feature-flagged off |
-| Sustained deficit warning OFF | `ENABLE_SUSTAINED_DEFICIT_WARNING = false` — consecutive day HRV suppression warning is off |
+| No dedicated heart rate (HR) column | `wearable_data` has no `heart_rate` column. `hrElevated` is now **derived** from HRV baseline deviation: when HRV is >25% below personal 30-day baseline, sympathetic dominance is inferred. Initial absolute heuristic: HRV < 25ms. |
+| ~~Wearable recovery trigger OFF~~ | **FIXED** — `ENABLE_WEARABLE_RECOVERY_TRIGGER = true`. Sustained HRV deficit detection (≥3 consecutive days <-20% below baseline) now active. |
 | No LinkedIn analysis | Listed in priority cascade as future source |
 | No LLM conversation analysis | Listed as future personal data source |
 
@@ -692,3 +691,5 @@ All columns referenced exist and are correctly named.
 | Week-ahead shape | ✅ Working | Sunday evening only |
 | State shift (intra-day) | ✅ Working | ≥15 energy_balance change |
 | Divergence mode | ✅ Working | MASKED_HIGH / RECOVERY_UNDERWAY |
+| hrElevated (peak HR proxy) | ✅ Fixed | Derived from HRV deviation >25% below baseline |
+| Wearable recovery trigger | ✅ Enabled | Sustained HRV deficit (≥3 days <-20%) triggers recovery override |
