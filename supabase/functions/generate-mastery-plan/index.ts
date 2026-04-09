@@ -2003,6 +2003,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
         userId: req.userId, timezoneOffset: req.timezoneOffset,
         innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
         clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
+        componentScores: req.componentScores || null,
+        practicePriorityTag: req.practicePriorityTag || null,
       }),
     });
     if (outerRes.ok) {
