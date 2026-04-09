@@ -272,7 +272,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
         setTransitionMessage(null);
         setReady(true);
       });
-    }, 250);
+    }, 450);
   }, [cleanupPrevious, computePosition, enableFallback, isElementVisible]);
 
   /* ---- run actions before highlighting ---- */
