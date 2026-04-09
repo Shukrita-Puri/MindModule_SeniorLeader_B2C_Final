@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Check, Heart, ChevronRight, X } from 'lucide-react';
+import { Check, Heart, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -91,9 +91,11 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const prevCompletedIdsRef = useRef<string[]>([]);
+  const autoRetryDoneRef = useRef(false);
 
   // ── Celebration ──
   const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean) => {
@@ -128,6 +130,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Load plan ──
   const loadPlan = useCallback(async () => {
     setLoading(true);
+    setFetchFailed(false);
     try {
       const currentPeriod = getCurrentTimeWindow();
       const todayDate = new Date().toISOString().split('T')[0];
@@ -228,7 +231,13 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
       if (fetchError || !planData) {
         console.error('Error calling generate-mastery-plan after retries:', fetchError);
+        setFetchFailed(true);
         setLoading(false);
+        // Auto-retry once after 3s if not already tried
+        if (!autoRetryDoneRef.current) {
+          autoRetryDoneRef.current = true;
+          setTimeout(() => { loadPlan(); }, 3000);
+        }
         return;
       }
 
@@ -395,28 +404,95 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const horizonModules = plan?.horizonModules;
 
   // Signal empty/loaded state to parent for fallback rendering
+  // Only fire onEmpty when genuinely no data AND not a transient fetch failure
   useEffect(() => {
-    if (!loading && (!horizonModules || horizonModules.length === 0)) {
+    if (!loading && !fetchFailed && (!horizonModules || horizonModules.length === 0)) {
       onEmpty?.();
     } else if (!loading && horizonModules && horizonModules.length > 0) {
       onLoaded?.();
     }
-  }, [loading, horizonModules, onEmpty, onLoaded]);
+  }, [loading, fetchFailed, horizonModules, onEmpty, onLoaded]);
 
   // ── Render ──
+  // ── Loading skeleton with visible card structure ──
   if (loading) {
     return (
-      <div className="px-4 py-5">
-        <div className="space-y-3">
-          <div className="h-4 bg-muted/30 rounded-lg" />
-          <div className="h-4 bg-muted/30 rounded-lg w-3/4" />
+      <div className="space-y-4 pt-2">
+        <div className="px-4 max-w-lg mx-auto">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+            Today's 3 Performance Priorities
+          </span>
+        </div>
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/30 animate-pulse flex items-center justify-center text-xs text-muted-foreground/40 font-bold">
+                {n}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 bg-muted/20 rounded-md w-16 animate-pulse" />
+                <div className="h-3.5 bg-muted/20 rounded-md w-3/4 animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
+  // ── Empty / error state — always show card shell ──
   if (!horizonModules || horizonModules.length === 0) {
-    return null;
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="px-4 max-w-lg mx-auto">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+            Today's 3 Performance Priorities
+          </span>
+        </div>
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+
+          {/* Contextual prompt */}
+          <div className="pt-2">
+            {fetchFailed ? (
+              <div className="flex flex-col items-center gap-2 py-3">
+                <p className="text-xs text-muted-foreground/60 font-body">
+                  Your plan is loading...
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { autoRetryDoneRef.current = false; loadPlan(); }}
+                  className="h-8 text-xs gap-1.5 rounded-lg border-muted-foreground/20"
+                >
+                  <RefreshCw size={12} />
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/daily-check-in')}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
+              >
+                <span className="text-xs text-muted-foreground/70 font-body">
+                  Check in to build your plan
+                </span>
+                <ChevronRight size={12} className="text-muted-foreground/40" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const allPractices = horizonModules.map(m => m.practice);
