@@ -90,9 +90,9 @@ export default function StageUSPIntro() {
 
   /* ── Back button top bar ── */
   const topBar = (
-    <div className={`fixed top-0 left-0 right-0 z-50 safe-area-top ${isIntro ? 'bg-black/30 backdrop-blur-md' : 'bg-black/30 backdrop-blur-md'} border-b border-white/[0.08]`}>
+    <div className={`fixed top-0 left-0 right-0 z-50 safe-area-top ${isIntro ? 'bg-black/30 backdrop-blur-md border-b border-white/[0.08]' : 'bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]'}`}>
       <div className="flex items-center justify-between px-4 py-2">
-        <Button variant="glass" size="sm" onClick={goPrev} className="text-white">
+        <Button variant="glass" size="sm" onClick={goPrev} className={isIntro ? "text-white" : "text-foreground"}>
           <ArrowLeft size={20} />
         </Button>
         <div />
@@ -129,12 +129,14 @@ export default function StageUSPIntro() {
               Executive Edition
             </p>
 
-            <h2 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-white mt-10">
-              A new era of executive performance.
-            </h2>
-            <p className="font-body text-[1.0625rem] sm:text-lg text-white/60 leading-relaxed max-w-sm mx-auto">
-              This isn't self-improvement. This is self-mastery.
-            </p>
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+              <h2 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-white">
+                A new era of executive performance.
+              </h2>
+              <p className="font-body text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed mt-3">
+                This isn't self-improvement. This is self-mastery.
+              </p>
+            </div>
           </div>
 
           {/* Bottom: dots + CTA */}
@@ -159,44 +161,45 @@ export default function StageUSPIntro() {
   const isLastSlide = currentSlide === slides.length - 1;
 
   return (
-    <div className="fixed inset-0 bg-background">
+    <div className="fixed inset-0 bg-background flex flex-col">
       {topBar}
 
-      {/* Full-screen background image */}
-      <img
-        src={slide.image}
-        alt={slide.alt}
-        className="absolute inset-0 w-full h-full object-cover"
-      />
+      {/* Contained image window */}
+      <div className="pt-14 px-4">
+        <div className="relative rounded-2xl overflow-hidden" style={{ height: '42vh' }}>
+          <img
+            src={slide.image}
+            alt={slide.alt}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* Bottom fade into background */}
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background to-transparent" />
+        </div>
+      </div>
 
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-
-      {/* Content pinned to bottom */}
-      <div className="absolute inset-x-0 bottom-0 flex flex-col px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-        {/* Text */}
-        <div className="space-y-3 text-center mb-8">
-          <h1 className="font-headline text-[2rem] sm:text-4xl font-bold italic leading-tight tracking-tight text-white">
+      {/* Text below image */}
+      <div className="flex-1 flex flex-col px-6 pt-5">
+        <div className="space-y-3 text-center">
+          <h1 className="font-headline text-[1.75rem] sm:text-3xl font-bold italic leading-tight tracking-tight text-foreground">
             {slide.headline}
           </h1>
-          <p className="font-body text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed max-w-sm mx-auto">
+          <p className="font-body text-[1rem] sm:text-lg text-muted-foreground leading-relaxed max-w-sm mx-auto">
             {slide.subtitle}
           </p>
         </div>
+      </div>
 
-        {/* Dot indicators */}
+      {/* Bottom: dots + CTAs pinned */}
+      <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
         {dots}
 
-        {/* Buttons */}
         <div className="space-y-3">
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full rounded-2xl border-white/20 text-white hover:bg-white/10 hover:text-white bg-white/5 backdrop-blur-sm"
+          <button
             onClick={skip}
+            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors py-2"
           >
             Skip
-          </Button>
+          </button>
           <Button
             variant="critical"
             size="lg"

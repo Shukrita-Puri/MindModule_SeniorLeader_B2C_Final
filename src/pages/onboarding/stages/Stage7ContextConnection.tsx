@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@/utils/openUrl";
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
+import uspConstellation from '@/assets/onboarding/usp-constellation.jpg';
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
@@ -337,6 +338,15 @@ export default function Stage7ContextConnection() {
 
   return (
     <div className="fixed inset-0 bg-background flex flex-col">
+      {/* Subtle background accent image */}
+      <img
+        src={uspConstellation}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 w-full h-[40vh] object-cover opacity-10 pointer-events-none"
+      />
+      <div className="absolute inset-x-0 top-0 h-[40vh] bg-gradient-to-b from-transparent via-background/70 to-background pointer-events-none" />
+
       {/* Back button top bar */}
       <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between px-4 py-2">
@@ -348,7 +358,7 @@ export default function Stage7ContextConnection() {
       </div>
 
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto pt-14 px-6">
+      <div className="relative z-10 flex-1 overflow-y-auto pt-14 px-6">
         <div className="w-full max-w-sm mx-auto py-8 space-y-8">
 
           {/* Header */}
