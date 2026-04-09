@@ -163,7 +163,7 @@ const LeftSidebar = () => {
       </SidebarContent>
 
       {/* Footer - User Settings */}
-      <SidebarFooter className="border-t border-border" data-tour="sidebar-footer">
+      <SidebarFooter className="border-t border-border pb-[calc(env(safe-area-inset-bottom,0px)+72px)] sm:pb-2" data-tour="sidebar-footer">
         <UserSettingsPopover />
       </SidebarFooter>
     </Sidebar>

@@ -59,7 +59,7 @@ const STEPS: GuideStep[] = [
     body: 'Practices and sessions built for today – designed to close the gap between where you are and where the day needs you to be.',
     page: 'home',
     phaseLabel: 'YOUR DAILY LOOP',
-    scrollBlock: 'start',
+    scrollBlock: 'center',
     tooltipPosition: 'above',
     activateTab: 'action',
   },
@@ -194,10 +194,12 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
     const GAP = 16;
     const vH = window.innerHeight;
+    // Reserve space for bottom safe area (nav hidden during tour, but keep margin)
+    const BOTTOM_SAFE = 80;
 
     const spaceAbove = sy;
-    const spaceBelow = vH - (sy + sh);
-    const pref = s.tooltipPosition || 'auto';
+    const spaceBelow = vH - (sy + sh) - BOTTOM_SAFE;
+    const pref = s.tooltipPosition || 'below';
 
     let top: number;
     if (pref === 'above' && spaceAbove >= tooltipH + GAP) {
@@ -212,7 +214,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       top = sy + sh + GAP;
     }
 
-    top = Math.max(8, Math.min(top, vH - tooltipH - 8));
+    top = Math.max(8, Math.min(top, vH - tooltipH - BOTTOM_SAFE));
     setTooltipPos({ top });
     return true;
   }, []);
