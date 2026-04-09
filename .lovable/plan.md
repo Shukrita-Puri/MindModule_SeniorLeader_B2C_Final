@@ -1,40 +1,57 @@
 
 
-# Replace Onboarding Background Images with Active Calm B&W Woodcuts
+# Fix Text Readability, USP Visual Hierarchy, and Context-Connection Consistency
 
-## Problem
-- `/onboarding` and `/onboarding/app-intro` use a photographic golden-hour grassland (`onboarding-hero-calm.jpg`) — passive, "Headspace" energy
-- The main page `/` uses a B&W woodcut engraving (`usp-sky-light.jpeg`) — authoritative, premium
-- These two onboarding pages are visually inconsistent with the main page
+## Overview
 
-## Approach
-Generate 2 new B&W woodcut/engraving illustrations using AI image generation, each distinct but sharing the same visual language as the Front page. Images should convey "active calm" — commanding perspective, forward momentum, elevated vantage — not passive relaxation. Keep compositions clean (not busy) so text remains the focal point.
+Three changes: (1) glass cards for text readability on welcome/intro screens with "Executive Edition" kept as brand subtitle, (2) USP slides switch to contained image on light/white background to differentiate from intro and match app aesthetic, (3) context-connection page gets light theme with contained accent image to visually tie it to USP section.
 
-### Image 1 — Stage1Welcome (`/onboarding`)
-**Prompt concept**: A lone figure standing at the edge of a high cliff or promontory, looking out over a vast landscape at dawn. B&W stipple engraving. Clean composition with open sky in the upper half. Conveys readiness, command, forward vision.
-- Save as `src/assets/onboarding/onboarding-welcome-active.jpg`
+## Changes
 
-### Image 2 — StageUSPIntro intro (`/onboarding/app-intro`)
-**Prompt concept**: An expansive aerial view of a river cutting through a mountain valley, seen from a high summit. B&W line engraving. Horizon in the lower third. Conveys clarity, flow, and strategic overview — the "seeing the whole board" metaphor.
-- Save as `src/assets/onboarding/onboarding-intro-active.jpg`
+### 1. Glass card for body text (Stage1Welcome + StageUSPIntro intro)
 
-## Code Changes
+Both pages keep the B&W woodcut full-bleed background. "Executive Edition" stays directly under "MIND MODULE" as a brand subtitle (not inside the glass card). The glass card wraps only the body/descriptive text below:
 
-### `src/pages/onboarding/stages/Stage1Welcome.tsx`
-- Change import from `onboarding-hero-calm.jpg` → `onboarding-welcome-active.jpg`
+**Stage1Welcome** (lines 37-47): Wrap the 3 body paragraphs in a glass container:
+```
+<div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+  <div className="space-y-4">...3 paragraphs...</div>
+</div>
+```
 
-### `src/pages/onboarding/stages/StageUSPIntro.tsx`
-- Change import of `heroBg` from `onboarding-hero-calm.jpg` → `onboarding-intro-active.jpg` (used only on the intro screen, not the USP slides)
+**StageUSPIntro intro** (lines 132-137): Wrap the "A new era..." heading and subtitle in the same glass treatment:
+```
+<div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+  <h2>...</h2>
+  <p>...</p>
+</div>
+```
 
-### No changes to
-- Front page (`/`) — untouched
-- USP slide images (sunrise-engraved, constellation, pulse-signal) — untouched
+### 2. USP slides — contained image on white/light background
+
+Replace full-bleed dark image treatment with a light layout:
+- Background: `bg-background` (white/light, matching the rest of the app)
+- Image in a contained rounded window (~45vh) in the upper portion with `rounded-2xl overflow-hidden` and a subtle vignette/fade at the bottom edge
+- Text below in dark foreground colors (`text-foreground`, `text-muted-foreground`)
+- Top bar switches to light theme for USP slides: `bg-white/85 backdrop-blur-[30px] border-black/[0.08]`
+- Dots: active `bg-saffron`, inactive `bg-muted-foreground/30`
+- Buttons: Skip gets light outline styling, Continue stays `variant="critical"`
+
+### 3. Context-connection — light theme with subtle accent image
+
+Keep the existing light/white theme (it already matches the app). Add visual continuity with the USP section:
+- Add a subtle background accent: one of the USP images (e.g., `usp-constellation.jpg`) at very low opacity (`opacity-10`) positioned in the upper portion, with a white gradient fade over it
+- Integration cards keep their current light glass styling (`bg-white/65`)
+- Top bar stays light (already is)
+- Dots: change inactive from `bg-muted-foreground/30` to match USP slides styling
+
+This keeps the page functional and readable while tying it visually to the USP flow.
 
 ## Files Modified
+
 | File | Change |
 |------|--------|
-| `src/assets/onboarding/onboarding-welcome-active.jpg` | New AI-generated B&W woodcut |
-| `src/assets/onboarding/onboarding-intro-active.jpg` | New AI-generated B&W woodcut |
-| `src/pages/onboarding/stages/Stage1Welcome.tsx` | Update image import |
-| `src/pages/onboarding/stages/StageUSPIntro.tsx` | Update image import |
+| `src/pages/onboarding/stages/Stage1Welcome.tsx` | Glass card around body paragraphs only |
+| `src/pages/onboarding/stages/StageUSPIntro.tsx` | Glass card on intro text; USP slides: contained image + light bg; top bar light on slides |
+| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Add subtle background accent image, align dot styling |
 
