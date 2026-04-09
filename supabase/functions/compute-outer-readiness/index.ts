@@ -1950,7 +1950,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, data_source')
+        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1961,7 +1961,7 @@ serve(async (req) => {
         const hrv = wearableRow.hrv || null;
         const sleepScore = wearableRow.sleep_score || null;
         const rawSleepDuration = wearableRow.total_sleep_minutes || null;
-        const source = wearableRow.data_source || null;
+        const source = wearableRow.source || null;
         wearableDataSource = source;
 
         // Apple Health correction: reported duration includes "in bed" time
@@ -2366,7 +2366,7 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, data_source')
+          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, source')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2675,7 +2675,7 @@ serve(async (req) => {
           // 5. Coach session recency
           db.from('coach_session_summaries').select('created_at, session_id, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
           // 7. Wearable trend (7d)
-          hasWearable ? db.from('wearable_data').select('hrv_rmssd, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          hasWearable ? db.from('wearable_data').select('hrv, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
           // 8. DOW checkins (60 days)
           db.from('daily_checkins').select('outcome, energy_balance, checkin_date').eq('user_id', userId).gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]).catch(() => ({ data: null })),
           // Pending commitment
