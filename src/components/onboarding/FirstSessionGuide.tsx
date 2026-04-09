@@ -50,6 +50,7 @@ const STEPS: GuideStep[] = [
     body: 'Internal signals, calendar pressure, and wearable data — triangulated into one readiness brief.',
     page: 'home',
     phaseLabel: 'YOUR DAILY LOOP',
+    scrollBlock: 'start',
     tooltipPosition: 'below',
     activateTab: 'state',
   },
