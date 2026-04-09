@@ -1740,6 +1740,8 @@ serve(async (req) => {
             type: bestNudge.type,
             copy: bestNudge.copy,
             eventReference: bestNudge.eventReference,
+            commitmentText: bestNudge.commitmentText,
+            meetingTitle: bestNudge.meetingTitle,
             tokens: userTokens.get(userId)!,
           });
 
