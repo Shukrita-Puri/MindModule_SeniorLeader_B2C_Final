@@ -84,7 +84,7 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
+const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
