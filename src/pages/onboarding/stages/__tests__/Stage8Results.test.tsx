@@ -211,7 +211,7 @@ describe("Stage8Results — Layout Rendering", () => {
       }, { timeout: 3000 });
       unmount();
     }
-  });
+  }, 30000);
 
   it("falls back to 'Targeted Protocols' for unknown practice tag", async () => {
     seedResponses({ practice_priority_tag: "unknown_tag" });

@@ -8,6 +8,8 @@ import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/services/authTokenService";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { GradientProgress } from "@/components/ui/gradient-progress";
@@ -55,23 +57,28 @@ export default function Stage8Results() {
     completionPersisted.current = true;
 
     try {
-      if (!window.__auth0Client) {
-        console.warn('[Results] No auth client available, skipping DB persistence');
+      const token = await getAuthToken();
+      if (!token) {
+        console.warn('[Results] No auth token available, skipping DB persistence');
         return;
       }
-      const token = await window.__auth0Client.getAccessTokenSilently();
       const responses = getAllResponses();
       const session = getSession();
+
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+      if (DEV_MODE) {
+        headers['x-dev-user-id'] = DEV_USER.id;
+      }
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             skip_completion: true,
             mental_fitness_baseline: baselineScore,
