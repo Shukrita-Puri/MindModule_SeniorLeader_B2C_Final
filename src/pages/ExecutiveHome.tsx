@@ -42,27 +42,6 @@ const TIER_GRADIENTS: Record<string, string> = {
   default: 'from-stone-800/40 via-stone-700/25 to-background',
 };
 
-interface PreEventPlan {
-  eventTitle: string;
-  eventType: string;
-  minutesUntil: number;
-  timePill: string;
-  contextDescription: string;
-  modules: Array<{
-    type: string;
-    contentId: string;
-    title: string;
-    contentType: string;
-    duration: number;
-    focus: string;
-    intensity: string;
-    isFavorite: boolean;
-    isCoachCard?: boolean;
-    reasoning: string;
-  }>;
-  coachCard: unknown;
-  progressTracked: boolean;
-}
 
 
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
