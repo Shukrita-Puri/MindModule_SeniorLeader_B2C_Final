@@ -2605,6 +2605,333 @@ function getContextualReasoning(
   return 'This practice supports your current state and what lies ahead';
 }
 
+// ==================== ARCHETYPE WATCH-FOR MAPPING ====================
+
+const ARCHETYPE_WATCH_FOR: Record<string, string> = {
+  'The Visionary': 'overcommitting to new ideas before finishing existing ones',
+  'The Strategist': 'analysis paralysis and delaying decisive action',
+  'The Driver': 'pushing through exhaustion and ignoring recovery signals',
+  'The Connector': 'absorbing others\' stress and neglecting your own state',
+  'The Architect': 'perfectionism blocking progress on high-stakes deliverables',
+  'The Catalyst': 'spreading energy too thin across too many initiatives',
+};
+
+// ==================== HORIZON MODULES (Today's 3 Performance Priorities) ====================
+
+interface HorizonModule {
+  horizon: 'immediate' | 'tactical' | 'strategic';
+  timeLabel: string;
+  typeLabel: string;
+  whyLine: string;
+  practice: any; // PlanModule
+  isJit: boolean;
+  jitEventTitle: string | null;
+  jitMinutesUntil: number | null;
+  showNavyBorder: boolean;
+  showPulse: boolean;
+  showPriorityPill: boolean;
+}
+
+function determineAllocationPattern(
+  tier: string,
+  calendarLoad: string,
+  hasJitEvent: boolean,
+  jitMinutesUntil: number | null
+): '2immediate-1tactical' | '1immediate-1tactical-1strategic' {
+  if (tier === 'depleted') return '2immediate-1tactical';
+  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) return '2immediate-1tactical';
+  if (calendarLoad === 'high' || calendarLoad === 'extreme') return '2immediate-1tactical';
+  return '1immediate-1tactical-1strategic';
+}
+
+function buildWhyLine(
+  horizon: 'immediate' | 'tactical' | 'strategic',
+  isJit: boolean,
+  eventTitle: string | null,
+  jitMinutesUntil: number | null,
+  tier: string,
+  divergenceMode: string | null,
+  checkInOutcome: string | null,
+  hrvEventCorrelation: { eventType: string; avgHrvDelta: number; occurrences: number } | null,
+  patternInsight: { count: number; state: string } | null,
+  frictionTrend: string | null,
+  scoreTrend: string | null,
+  pendingCommitment: string | null,
+  coachGrowthArea: string | null,
+  practicePriorityTag: string | null,
+  archetypeWatchFor: string | null
+): string {
+  // IMMEDIATE
+  if (horizon === 'immediate') {
+    if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 30) {
+      return `${eventTitle} is almost here — prepare your state now.`;
+    }
+    if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 120) {
+      return `${eventTitle} in ${Math.round(jitMinutesUntil)} mins — prepare before you go in.`;
+    }
+    if (divergenceMode === 'MASKED_HIGH') {
+      return 'Your body is showing load you haven\'t registered yet — address it before it surfaces.';
+    }
+    if (tier === 'depleted') {
+      return 'Your reserves are low — regulate before the day starts.';
+    }
+    if (patternInsight && patternInsight.count >= 3) {
+      return `${patternInsight.count}${patternInsight.count === 3 ? 'rd' : 'th'} ${patternInsight.state} day — start by addressing the state, not just the schedule.`;
+    }
+    return 'Start with your state — everything follows from this.';
+  }
+
+  // TACTICAL
+  if (horizon === 'tactical') {
+    if (isJit && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
+      const direction = hrvEventCorrelation.avgHrvDelta > 0 ? 'elevates' : 'drops';
+      return `Your HRV typically ${direction} ${Math.abs(Math.round(hrvEventCorrelation.avgHrvDelta))}% before ${hrvEventCorrelation.eventType} — this addresses that pattern.`;
+    }
+    if (isJit && patternInsight && patternInsight.count >= 3) {
+      return `${eventTitle} is approaching — you've been ${patternInsight.state} ${patternInsight.count} days running.`;
+    }
+    if (isJit) {
+      return `${eventTitle} qualifies for preparation — this is your window.`;
+    }
+    if (hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
+      return 'Your data shows a pattern on days like this — this addresses it.';
+    }
+    if (patternInsight && patternInsight.count >= 3) {
+      return `You've been ${patternInsight.state} ${patternInsight.count} days — this interrupts the pattern.`;
+    }
+    if (frictionTrend === 'declining') {
+      return 'Clarity has been declining this week — this addresses the pattern.';
+    }
+    if (scoreTrend === 'declining') {
+      return 'Your readiness has been trending down — this is the reset point.';
+    }
+    return 'Based on your patterns this week.';
+  }
+
+  // STRATEGIC
+  if (horizon === 'strategic') {
+    if (pendingCommitment) {
+      return 'You committed to working on this — this is that practice.';
+    }
+    if (coachGrowthArea) {
+      return `Connected to what you're building with your coach: ${coachGrowthArea}.`;
+    }
+    if (practicePriorityTag) {
+      const tagLabels: Record<string, string> = {
+        regulation_composure: 'composure under pressure',
+        regulation_early: 'early regulation',
+        recovery_resilience: 'recovery and resilience',
+        energy_endurance: 'energy and endurance',
+        focus_clarity: 'focus and clarity',
+        mindset_reframe: 'mindset reframing',
+      };
+      return `Matched to your ${tagLabels[practicePriorityTag] || 'development'} focus.`;
+    }
+    if (archetypeWatchFor) {
+      return `Your archetype pattern — ${archetypeWatchFor}. This addresses it.`;
+    }
+    return 'For who you\'re becoming, not just today.';
+  }
+
+  return 'Based on your state and patterns today.';
+}
+
+function buildHorizonModules(
+  todModules: any[],
+  preEventPlan: any,
+  topEvent: any,
+  req: PlanRequest,
+  shared: SharedContext,
+  hrvCorrelations: any,
+  timeOfDay: string,
+  todCoachCard: any,
+  enrichedContent: any[],
+  pendingCommitments: any[]
+): HorizonModule[] {
+  const hasJitEvent = !!preEventPlan;
+  const jitMinutesUntil = preEventPlan?.minutesUntil ?? null;
+  const jitEventTitle = preEventPlan?.eventTitle ?? null;
+
+  const pattern = determineAllocationPattern(
+    req.innerReadinessTier, req.calendarLoad, hasJitEvent, jitMinutesUntil
+  );
+
+  // Derive signals for whyLine
+  const frictionTrend = shared.innerReadinessPattern.trend === 'declining' ? 'declining' : null;
+  const scoreTrend = shared.innerReadinessPattern.trend === 'declining' ? 'declining' : null;
+  const pendingCommitment = pendingCommitments.length > 0 ? pendingCommitments[0].commitment_text : null;
+  const coachGrowthArea = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content || null;
+  const archetypeWatchFor = ARCHETYPE_WATCH_FOR[req.archetype] || null;
+
+  // Divergence mode detection: wearable shows strain but check-in doesn't
+  let divergenceMode: string | null = null;
+  if (req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null) {
+    if (req.wearableContext.hrvDeviation < -15 && req.innerReadinessTier !== 'depleted') {
+      divergenceMode = 'MASKED_HIGH';
+    }
+  }
+
+  // HRV correlation for today's first event type
+  let hrvEventCorrelation: { eventType: string; avgHrvDelta: number; occurrences: number } | null = null;
+  if (hrvCorrelations && topEvent) {
+    const evtType = topEvent.hrvCorrelation?.eventType;
+    if (evtType && hrvCorrelations[evtType]) {
+      const c = hrvCorrelations[evtType];
+      hrvEventCorrelation = { eventType: evtType, avgHrvDelta: c.avgHRVDeviation, occurrences: c.count };
+    }
+  }
+
+  // Get first event for time label context
+  const firstEventTitle = req.calendarEvents?.[0]?.title?.split(' ').slice(0, 4).join(' ') || null;
+  const timeOfDayLabel = timeOfDay === 'morning' ? 'This morning' : timeOfDay === 'afternoon' ? 'Right now' : 'This evening';
+
+  const modules: HorizonModule[] = [];
+
+  // ─── SLOT 1 (Immediate) ───
+  let slot1Practice: any = null;
+  let slot1IsJit = false;
+  let slot1TimeLabel = '';
+
+  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
+    // JIT takes slot 1
+    slot1Practice = preEventPlan.modules?.[0] || todModules[0];
+    slot1IsJit = true;
+    slot1TimeLabel = jitMinutesUntil < 30
+      ? `${jitEventTitle} · now`
+      : `${jitEventTitle} · in ${Math.round(jitMinutesUntil)} mins`;
+  } else if (req.innerReadinessTier === 'depleted') {
+    // Depleted: first regulate module
+    slot1Practice = todModules.find((m: any) => m.type === 'regulate') || todModules[0];
+    slot1TimeLabel = 'Before you start';
+  } else {
+    slot1Practice = todModules[0];
+    slot1TimeLabel = firstEventTitle ? `Before ${firstEventTitle}` : timeOfDayLabel;
+  }
+
+  if (slot1Practice) {
+    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
+    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+    modules.push({
+      horizon: 'immediate',
+      timeLabel: slot1TimeLabel,
+      typeLabel: `${labels[slot1Practice.type] || 'REGULATE'} · ${protocols[slot1Practice.type] || 'Protocol'}`,
+      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      practice: slot1Practice,
+      isJit: slot1IsJit,
+      jitEventTitle: slot1IsJit ? jitEventTitle : null,
+      jitMinutesUntil: slot1IsJit ? jitMinutesUntil : null,
+      showNavyBorder: false,
+      showPulse: slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil < 120,
+      showPriorityPill: slot1IsJit,
+    });
+  }
+
+  // ─── SLOT 2 (Tactical) ───
+  let slot2Practice: any = null;
+  let slot2IsJit = false;
+  let slot2TimeLabel = '';
+  let slot2NavyBorder = false;
+
+  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
+    // JIT takes slot 2 with navy border
+    slot2Practice = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+    slot2IsJit = true;
+    slot2NavyBorder = true;
+    const hrs = Math.round(jitMinutesUntil / 60);
+    slot2TimeLabel = `${jitEventTitle} · in ${hrs} hr${hrs > 1 ? 's' : ''}`;
+  } else if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil > 360) {
+    // JIT early awareness in slot 2
+    slot2Practice = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+    slot2IsJit = true;
+    slot2TimeLabel = `${jitEventTitle} · today`;
+  } else {
+    // Second ToD module
+    const slot1Id = slot1Practice?.contentId;
+    slot2Practice = todModules.find((m: any) => m.contentId !== slot1Id) || todModules[1] || todModules[0];
+    slot2TimeLabel = timeOfDay === 'morning' ? 'Midday reset' : timeOfDay === 'afternoon' ? 'Later today' : 'Before bed';
+  }
+
+  if (slot2Practice) {
+    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
+    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+    modules.push({
+      horizon: 'tactical',
+      timeLabel: slot2TimeLabel,
+      typeLabel: `${labels[slot2Practice.type] || 'ALIGN'} · ${protocols[slot2Practice.type] || 'Protocol'}`,
+      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      practice: slot2Practice,
+      isJit: slot2IsJit,
+      jitEventTitle: slot2IsJit ? jitEventTitle : null,
+      jitMinutesUntil: slot2IsJit ? jitMinutesUntil : null,
+      showNavyBorder: slot2NavyBorder,
+      showPulse: false,
+      showPriorityPill: slot2IsJit,
+    });
+  }
+
+  // ─── SLOT 3 (Strategic or second Immediate) ───
+  let slot3Practice: any = null;
+  let slot3Horizon: 'immediate' | 'tactical' | 'strategic' = 'strategic';
+  let slot3TimeLabel = '';
+
+  const usedIds = new Set([slot1Practice?.contentId, slot2Practice?.contentId].filter(Boolean));
+
+  if (pattern === '2immediate-1tactical') {
+    // Third ToD module as immediate
+    slot3Practice = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    slot3Horizon = 'immediate';
+    slot3TimeLabel = 'Later today';
+  } else {
+    // Strategic content: pendingCommitment > coachGrowthArea > archetype > coach card > fallback
+    // Try to find a practice aligned to strategic content
+    const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
+    if (strategicModule) {
+      slot3Practice = strategicModule;
+    } else {
+      slot3Practice = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    }
+    slot3TimeLabel = timeOfDay === 'morning' ? 'This evening' : timeOfDay === 'afternoon' ? 'When you have space' : 'For your development';
+  }
+
+  if (slot3Practice) {
+    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
+    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+    modules.push({
+      horizon: slot3Horizon,
+      timeLabel: slot3TimeLabel,
+      typeLabel: `${labels[slot3Practice.type] || 'INTEGRATE'} · ${protocols[slot3Practice.type] || 'Protocol'}`,
+      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      practice: slot3Practice,
+      isJit: false,
+      jitEventTitle: null,
+      jitMinutesUntil: null,
+      showNavyBorder: false,
+      showPulse: false,
+      showPriorityPill: false,
+    });
+  }
+
+  // Pad to exactly 3 if needed (shouldn't happen unless todModules < 3)
+  while (modules.length < 3 && todModules.length > 0) {
+    const fallback = todModules[modules.length % todModules.length];
+    modules.push({
+      horizon: 'immediate',
+      timeLabel: 'When ready',
+      typeLabel: 'PRACTICE',
+      whyLine: 'Based on your state and patterns today.',
+      practice: fallback,
+      isJit: false,
+      jitEventTitle: null,
+      jitMinutesUntil: null,
+      showNavyBorder: false,
+      showPulse: false,
+      showPriorityPill: false,
+    });
+  }
+
+  return modules.slice(0, 3);
+}
+
 // ==================== HANDLER ====================
 
 Deno.serve(async (req) => {
