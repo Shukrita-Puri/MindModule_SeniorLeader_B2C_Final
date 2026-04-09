@@ -2931,18 +2931,101 @@ function buildHorizonModules(
     }
   }
 
-  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool
+  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool using metadata tags
   if (deduped.length < 3 && enrichedContent.length > 0) {
-    const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.contentId));
-    for (const c of remaining) {
+    const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
+
+    // Determine state signals for scoring
+    const hasBodyUnderLoad = req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null && req.wearableContext.hrvDeviation < -15;
+    const hasMaskedHigh = divergenceMode === 'MASKED_HIGH';
+    const clarityLow = req.clarityLevel <= 2;
+    const confidenceLow = req.confidenceLevel <= 2;
+    const poorSleep = req.wearableContext?.hasData && req.wearableContext.sleepScore !== null && req.wearableContext.sleepScore < 70;
+    const isNewUser = (shared.innerReadinessPattern.values?.length || 0) < 7;
+    const isHeavyDay = req.calendarLoad === 'high' || req.calendarLoad === 'extreme';
+
+    // Determine which horizon we need to fill
+    const filledHorizons = deduped.map(m => m.horizon);
+    const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] = [];
+    if (!filledHorizons.includes('immediate')) needsHorizons.push('immediate');
+    if (!filledHorizons.includes('tactical')) needsHorizons.push('tactical');
+    if (!filledHorizons.includes('strategic')) needsHorizons.push('strategic');
+    // Fill remaining slots with whatever is needed
+    while (needsHorizons.length < (3 - deduped.length)) needsHorizons.push('tactical');
+
+    for (const targetHorizon of needsHorizons) {
       if (deduped.length >= 3) break;
-      seenContentIds.add(c.contentId);
+
+      // Filter by horizon tag
+      let pool = remaining.filter((c: any) => {
+        const hTags: string[] = c.horizonTags || [];
+        return hTags.includes(targetHorizon);
+      });
+
+      // Foundational filter for new users: at least 2 of 3 slots should be foundational
+      const foundationalCount = deduped.filter(m => {
+        const meta = enrichedContent.find((ec: any) => ec.id === m.practice.contentId);
+        return meta?.isFoundational === true;
+      }).length;
+      if (isNewUser && foundationalCount < 2) {
+        const foundPool = pool.filter((c: any) => c.isFoundational === true);
+        if (foundPool.length > 0) pool = foundPool;
+      }
+
+      // Duration band filter on heavy days: slots 1 & 2 only micro/short
+      const slotIndex = deduped.length;
+      if (isHeavyDay && slotIndex < 2) {
+        pool = pool.filter((c: any) => c.durationBand === 'micro' || c.durationBand === 'short');
+      }
+
+      // If no horizon-matched content, fall back to any remaining
+      if (pool.length === 0) {
+        pool = remaining.filter((c: any) => !seenContentIds.has(c.id));
+      }
+
+      if (pool.length === 0) break;
+
+      // Score with state signal boosts
+      const scored = pool.map((c: any) => {
+        let score = 0;
+        const ssTags: string[] = c.stateSignalTags || [];
+        if (hasBodyUnderLoad && ssTags.includes('signal-body-under-load')) score += 15;
+        if (hasMaskedHigh && ssTags.includes('signal-masked-high')) score += 20;
+        if (clarityLow && ssTags.includes('signal-clarity-low')) score += 15;
+        if (confidenceLow && ssTags.includes('signal-confidence-low')) score += 15;
+        if (poorSleep && ssTags.includes('signal-poor-sleep')) score += 10;
+        if (req.favorites.includes(c.id)) score += 30;
+        if (!isNewUser && c.isFoundational) score -= 5; // Slightly deprioritize foundational for experienced users
+        return { content: c, score };
+      });
+      scored.sort((a: any, b: any) => b.score - a.score);
+
+      const selected = scored[0]?.content;
+      if (!selected) break;
+
+      seenContentIds.add(selected.id);
+      const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
+      const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+      const contentType = selected.content_type || 'micro-practice';
+      const moduleType = contentType === 'soundbath' ? 'regulate' : contentType === 'guided-practice' ? 'regulate' : 'align';
       deduped.push({
-        horizon: 'immediate',
-        timeLabel: 'When ready',
-        typeLabel: `${(c.type || 'regulate').toUpperCase()} · Protocol`,
-        whyLine: 'Based on your state and patterns today.',
-        practice: c,
+        horizon: targetHorizon,
+        timeLabel: targetHorizon === 'immediate' ? 'Right now' : targetHorizon === 'tactical' ? 'Later today' : 'When ready',
+        typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
+        whyLine: buildWhyLine(targetHorizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+        practice: {
+          type: moduleType,
+          contentId: selected.id,
+          title: selected.title,
+          contentType: selected.content_type,
+          duration: selected.duration || 3,
+          focus: moduleType === 'regulate' ? 'composure' : 'clarity',
+          intensity: 'gentle',
+          isFavorite: req.favorites.includes(selected.id),
+          isCoachCard: false,
+          reasoning: 'Based on your state and patterns today.',
+          thumbnailUrl: selected.thumbnail_url,
+        },
         isJit: false,
         jitEventTitle: null,
         jitMinutesUntil: null,
@@ -2954,8 +3037,6 @@ function buildHorizonModules(
   }
 
   return deduped.slice(0, 3);
-
-  return modules.slice(0, 3);
 }
 
 // ==================== HANDLER ====================
