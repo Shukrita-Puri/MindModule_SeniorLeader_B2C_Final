@@ -308,7 +308,27 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
   /* ---- step lifecycle ---- */
 
+  const navigatingRef = useRef(false);
+
   useEffect(() => {
+    const s = STEPS[currentStep];
+    if (!s) return;
+
+    const targetPath = getPagePath(s.page);
+    const cur = location.pathname;
+
+    // If we need to navigate, do it and wait for the pathname to update
+    if (cur !== targetPath) {
+      if (!navigatingRef.current) {
+        navigatingRef.current = true;
+        navigate(targetPath);
+      }
+      return; // Wait for pathname change to re-trigger
+    }
+
+    // We're on the correct page now
+    navigatingRef.current = false;
+
     clearRetry();
     cleanupPrevious();
     setReady(false);
@@ -317,21 +337,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     setTooltipPos(null);
     setSpotRect(null);
 
-    const s = STEPS[currentStep];
-    if (!s) return;
-
-    // Navigate to correct page first
-    const cur = location.pathname;
-    if (s.page === 'home' && cur !== '/executive-home') {
-      navigate('/executive-home');
-    } else if (s.page === 'check-in' && cur !== '/daily-check-in') {
-      navigate('/daily-check-in');
-    }
-
-    const startDelay = cur !== getPagePath(s.page) ? 400 : 100;
     const timer = setTimeout(() => {
       runStepAction(s, highlightElement);
-    }, startDelay);
+    }, 400);
     failsafeTimerRef.current = setTimeout(() => {
       if (!readyRef.current && currentStepRef.current === currentStep) {
         enableFallback('This part of the app is taking longer than expected. You can continue without waiting.');
@@ -416,7 +424,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <div className="relative z-10 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
+        <div className="relative z-10 bg-white/15 backdrop-blur-2xl border border-white/25 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
           <h2 className="text-2xl font-headline text-white leading-tight mb-3">
             Let's show you around.
           </h2>
@@ -519,7 +527,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       <div
         ref={tooltipRef}
         className={cn(
-          'fixed z-[10010] bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300',
+          'fixed z-[10010] bg-white/15 backdrop-blur-2xl border border-white/25 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300',
           ready ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
         style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: ready ? 'auto' : 'none' }}
@@ -571,7 +579,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       {showTransitionCard && (
         <div
-          className="fixed z-[10010] bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl mx-auto"
+          className="fixed z-[10010] bg-white/15 backdrop-blur-2xl border border-white/25 rounded-2xl p-5 shadow-2xl mx-auto"
           style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)', maxWidth: '360px' }}
         >
           <div className="flex items-center justify-between mb-2">
