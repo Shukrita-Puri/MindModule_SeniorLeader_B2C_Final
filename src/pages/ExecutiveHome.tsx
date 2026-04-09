@@ -308,7 +308,7 @@ const ExecutiveHome = () => {
               </div>
             </header>
             
-            <div className="relative z-10 pt-6 pb-32 max-w-lg mx-auto text-center">
+            <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
             <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
@@ -317,8 +317,6 @@ const ExecutiveHome = () => {
               </p>
             </div>
           </div>
-
-          <CheckInBanner />
 
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[100px]">
