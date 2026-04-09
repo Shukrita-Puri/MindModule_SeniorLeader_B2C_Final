@@ -30,10 +30,16 @@ export interface OuterReadinessData {
   wearableDaysConnected?: number;
   hrvDeviation?: number | null;
   sleepDeviation?: number | null;
+  rhrDeviation?: number | null;
   sleepDuration?: number | null;
   rhrValue?: number | null;
   sleepScore?: number | null;
   hrvValue?: number | null;
+  hrvBaseline?: number | null;
+  sleepBaseline?: number | null;
+  rhrBaseline?: number | null;
+  wearableDataSource?: string | null;
+  hasHistoricalData?: boolean;
   hasCalendar?: boolean;
   calendarLoad?: string;
   meetingCount?: number;
