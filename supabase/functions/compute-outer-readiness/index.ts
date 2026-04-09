@@ -2416,6 +2416,12 @@ serve(async (req) => {
               wearableContext.rhrElevated = rhrDeviation > 10;
             }
           }
+
+          // Refine hrElevated from HRV baseline deviation (>25% below = sympathetic dominance)
+          if (wearableContext && hrvBaseline && hrvValue != null) {
+            const hrvPctBelow = ((hrvBaseline - hrvValue) / hrvBaseline) * 100;
+            wearableContext.hrElevated = hrvPctBelow > 25;
+          }
         }
       }
     } catch (e) { console.error('[compute-outer-readiness] baseline deviation error:', e); }
