@@ -2911,23 +2911,39 @@ function buildHorizonModules(
     });
   }
 
-  // Pad to exactly 3 if needed (shouldn't happen unless todModules < 3)
-  while (modules.length < 3 && todModules.length > 0) {
-    const fallback = todModules[modules.length % todModules.length];
-    modules.push({
-      horizon: 'immediate',
-      timeLabel: 'When ready',
-      typeLabel: 'PRACTICE',
-      whyLine: 'Based on your state and patterns today.',
-      practice: fallback,
-      isJit: false,
-      jitEventTitle: null,
-      jitMinutesUntil: null,
-      showNavyBorder: false,
-      showPulse: false,
-      showPriorityPill: false,
-    });
+  // Deduplicate: ensure no two slots share the same contentId
+  const seenContentIds = new Set<string>();
+  const deduped: HorizonModule[] = [];
+  for (const m of modules) {
+    if (!seenContentIds.has(m.practice.contentId)) {
+      seenContentIds.add(m.practice.contentId);
+      deduped.push(m);
+    }
   }
+
+  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool
+  if (deduped.length < 3 && enrichedContent.length > 0) {
+    const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.contentId));
+    for (const c of remaining) {
+      if (deduped.length >= 3) break;
+      seenContentIds.add(c.contentId);
+      deduped.push({
+        horizon: 'immediate',
+        timeLabel: 'When ready',
+        typeLabel: `${(c.type || 'regulate').toUpperCase()} · Protocol`,
+        whyLine: 'Based on your state and patterns today.',
+        practice: c,
+        isJit: false,
+        jitEventTitle: null,
+        jitMinutesUntil: null,
+        showNavyBorder: false,
+        showPulse: false,
+        showPriorityPill: false,
+      });
+    }
+  }
+
+  return deduped.slice(0, 3);
 
   return modules.slice(0, 3);
 }

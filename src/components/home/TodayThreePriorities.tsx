@@ -20,6 +20,7 @@ import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
+import MetricInfoModal from '@/components/home/MetricInfoModal';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -158,6 +159,12 @@ const TodayThreePriorities = () => {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
+          // Cache version invalidation: old plans without horizonModules must be regenerated
+          if (!parsed.horizonModules || parsed.horizonModules.length === 0) {
+            sessionStorage.removeItem(sessionKey);
+            sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+            shouldRegenerate = true;
+          }
           // JIT cache invalidation
           const jitCacheKey = `plan-jit-checked-${todayDate}-${currentPeriod}`;
           const lastJitCheck = sessionStorage.getItem(jitCacheKey);
@@ -251,7 +258,8 @@ const TodayThreePriorities = () => {
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
   const checkCompletion = async () => {
-    if (!user?.id || !plan) return;
+    const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
+    if (!effectiveUserId || !plan) return;
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
     const horizonIds = (plan.horizonModules || []).map(m => m.practice.contentId);
@@ -378,7 +386,10 @@ const TodayThreePriorities = () => {
   }
 
   const horizonModules = plan?.horizonModules;
-  if (!horizonModules || horizonModules.length === 0) return null;
+  if (!horizonModules || horizonModules.length === 0) {
+    // Fallback: render nothing here; ExecutiveHome handles DailyRitual fallback
+    return null;
+  }
 
   const allPractices = horizonModules.map(m => m.practice);
   const allComplete = horizonModules.every(m => completedPracticeIds.includes(m.practice.contentId));
@@ -390,19 +401,25 @@ const TodayThreePriorities = () => {
         <PostEventReflection />
       </div>
 
-      {/* Progress */}
+      {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
-          <span className="text-[15px] font-medium text-foreground font-body">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
             Today's 3 Performance Priorities
           </span>
-          <span className={cn(
-            "text-xs font-medium font-body whitespace-nowrap",
-            allComplete ? "text-saffron" : completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
-          )}>
-            {completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
-            {completedCount} of {horizonModules.length} completed
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-xs font-medium font-body whitespace-nowrap",
+              allComplete ? "text-saffron" : completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
+            )}>
+              {completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
+              {completedCount} of {horizonModules.length}
+            </span>
+            <MetricInfoModal
+              title="Today's 3 Performance Priorities"
+              description="Three horizon-classified practices built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each priority is timed and sequenced to close the gap between where you are and where the day needs you to be."
+            />
+          </div>
         </div>
       </div>
 
