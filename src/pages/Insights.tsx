@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -172,9 +172,31 @@ const INSIGHT_TABS = [
 ];
 
 const Insights = () => {
-  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>('patterns');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightParam = searchParams.get('highlight');
+  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>(highlightParam ? 'patterns' : 'patterns');
   const navigate = useNavigate();
+  const highlightRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+
+  // Change 5: Scroll to highlighted section from nudge deep link
+  useEffect(() => {
+    if (!highlightParam) return;
+    // Switch to patterns tab for pattern highlights
+    setActiveTab('patterns');
+    // Delay to allow render, then scroll and pulse
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-highlight="${highlightParam}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('nudge-highlight-pulse');
+        setTimeout(() => el.classList.remove('nudge-highlight-pulse'), 2500);
+      }
+      // Clean URL
+      setSearchParams({}, { replace: true });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [highlightParam, setSearchParams]);
   // Removed page-level `loading` gate – each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
@@ -837,7 +859,7 @@ const Insights = () => {
 
         {/* PATTERNS tab */}
         <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
             <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
           </div>
         </div>

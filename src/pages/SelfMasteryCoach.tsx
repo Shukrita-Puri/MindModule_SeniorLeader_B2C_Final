@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
@@ -72,6 +72,20 @@ const SelfMasteryCoach = () => {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Change 6: Read nudge commitment context from URL query params
+  const nudgeParams = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const context = params.get('context');
+    if (context === 'commitment') {
+      const commitment = params.get('commitment');
+      const meeting = params.get('meeting');
+      if (commitment && meeting) {
+        return { commitment: decodeURIComponent(commitment), meeting: decodeURIComponent(meeting) };
+      }
+    }
+    return null;
+  }, [location.search]);
 
   // Coach access gate
   const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
@@ -248,6 +262,17 @@ const SelfMasteryCoach = () => {
     }
     return () => setFlowType(null);
   }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext, setEventContext, locationState?.eventTitle, locationState?.fromIntervention, locationState?.fromRitual]);
+
+  // Change 6: Auto-send commitment context from nudge deep link
+  useEffect(() => {
+    if (nudgeParams && messages.length === 0 && !hasInitialized) {
+      const contextMessage = `You're heading into ${nudgeParams.meeting} and you committed to ${nudgeParams.commitment}. How are you feeling about it?`;
+      sendMessage(contextMessage);
+      setHasInitialized(true);
+      // Clean URL params without triggering navigation
+      window.history.replaceState({}, '', '/self-mastery-coach');
+    }
+  }, [nudgeParams, messages.length, hasInitialized, sendMessage]);
 
   // Get subtitle based on flow type
   const getSubtitle = () => {

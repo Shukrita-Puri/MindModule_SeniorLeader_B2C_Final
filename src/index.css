@@ -560,3 +560,13 @@ body {
     overflow: hidden;
   }
 }
+
+/* Smart Nudge highlight pulse — Change 5 */
+@keyframes nudge-highlight-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+  25%, 75% { box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3); }
+}
+.nudge-highlight-pulse {
+  animation: nudge-highlight-pulse 2.5s ease-in-out;
+  border-radius: 12px;
+}
