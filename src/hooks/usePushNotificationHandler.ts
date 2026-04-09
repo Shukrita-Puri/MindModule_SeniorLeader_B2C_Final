@@ -12,9 +12,9 @@ import { useNotificationEngagement } from '@/hooks/useNotificationEngagement';
 const ACTION_ROUTES: Record<string, string> = {
   morning_prep: '/daily-check-in',
   pre_event_prep: '/executive-home',
-  calendar_gap: '/daily-check-in',
+  calendar_gap: '/executive-home',          // Artifact-first: priorities visible
   coach_meeting_match: '/self-mastery-coach',
-  state_aware_nudge: '/executive-home',
+  state_aware_nudge: '/daily-check-in',     // Recalibrate via check-in
   evening_close: '/daily-check-in',
   pattern_alert: '/insights',
   daily_fallback: '/executive-home',

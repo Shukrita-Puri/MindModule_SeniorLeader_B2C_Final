@@ -1507,7 +1507,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting signal-first evaluation run (v2 — data integrity)...');
+    console.log('[smart-nudges] Starting signal-first evaluation run (v3 — artifact-first gating)...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -1531,7 +1531,7 @@ serve(async (req) => {
     }
 
     const userIds = Array.from(userTokens.keys());
-    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first v2)`);
+    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first v3 — artifact gating)`);
 
     // 2. Batch-fetch profiles, preferences, recent engagements
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
