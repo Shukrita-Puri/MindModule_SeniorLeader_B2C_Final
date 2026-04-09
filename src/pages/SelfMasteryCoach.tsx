@@ -263,6 +263,17 @@ const SelfMasteryCoach = () => {
     return () => setFlowType(null);
   }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext, setEventContext, locationState?.eventTitle, locationState?.fromIntervention, locationState?.fromRitual]);
 
+  // Change 6: Auto-send commitment context from nudge deep link
+  useEffect(() => {
+    if (nudgeParams && messages.length === 0 && !hasInitialized) {
+      const contextMessage = `You're heading into ${nudgeParams.meeting} and you committed to ${nudgeParams.commitment}. How are you feeling about it?`;
+      sendMessage(contextMessage);
+      setHasInitialized(true);
+      // Clean URL params without triggering navigation
+      window.history.replaceState({}, '', '/self-mastery-coach');
+    }
+  }, [nudgeParams, messages.length, hasInitialized, sendMessage]);
+
   // Get subtitle based on flow type
   const getSubtitle = () => {
     if (flowType === 'prepare') return 'Pre-performance preparation';
