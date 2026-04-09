@@ -449,3 +449,51 @@ todayEndUtc     = todayStartUtc + 24h
 | 2026-03-26 | **JIT alignment**: Pre-event nudges query `jit_event_context` instead of standalone keyword scoring. |
 | 2026-03-25 | **Major enhancement**: Daily cap (3/day), weekend variants, engagement learning (7-day tap rate), type diversity (3-day lookback), time-of-day priority shifting. |
 | 2026-03-25 | Fixed timezone bug: `todayStr` log query uses UTC-corrected boundaries. |
+
+---
+
+## 12. Artifact-First Gating (v3)
+
+> Added: 2026-04-09. Replaces negative guidance ("don't fabricate") with positive gating ("only fire if the artifact exists").
+
+### Philosophy
+
+Every nudge must reference a concrete artifact that genuinely exists in the app at the moment the nudge fires. If the thing the nudge talks about isn't there, the nudge doesn't go out.
+
+### Per-Type Gating Rules
+
+| Priority | Type | Gate | Deep Link |
+|----------|------|------|-----------|
+| P0 | morning_prep | No check-in today (artifact: check-in flow) | `/daily-check-in` |
+| P1 | pre_event_prep | JIT plan exists with modules (`jit_event_context` row, `jit_horizons_surfaced IS NOT NULL`, not dismissed) | `/executive-home` |
+| P2 | calendar_gap | Uncompleted practice slot exists (`pendingPracticeIds.length > 0`) | `/executive-home` |
+| P3 | coach_meeting_match | Pending commitment + matching event (passes `commitment` + `meeting` in URL) | `/self-mastery-coach?context=commitment&commitment=...&meeting=...` |
+| P4 | state_aware_nudge | Morning check-in was low + afternoon high-stakes event; copy names the event | `/daily-check-in` (recalibrate) |
+| P5 | evening_close | <2 check-ins today, before 21:30 | `/daily-check-in` |
+| P6 | pattern_alert | Sub-type routing: problem patterns → `/insights?highlight=type`; effectiveness/streak → `/executive-home` |
+| P7 | daily_fallback | Only fires if calendar content exists OR no check-in yet; otherwise suppressed entirely | `/executive-home` or `/daily-check-in` |
+
+### P6 Sub-Type Routing
+
+| Sub-Type | Route | Copy Frame |
+|----------|-------|------------|
+| consecutive_low | `/insights?highlight=consecutive_low` | Problem pattern |
+| recovery_deficit | `/insights?highlight=recovery_deficit` | Problem pattern |
+| calendar_correlation | `/insights?highlight=calendar_correlation` | Problem pattern |
+| feature_performance | `/executive-home` | Practice is in Today's 3 |
+| streak_milestone | `/executive-home` | "Day N. The system is learning you." |
+
+### Client-Side Highlight (Insights)
+
+When `/insights?highlight=X` is opened:
+1. Switches to Patterns tab
+2. After 800ms, scrolls to `[data-highlight="X"]` element
+3. Applies 2.5s pulse animation (`nudge-highlight-pulse`)
+4. Cleans URL via `replaceState`
+
+### Client-Side Coach Context (SelfMasteryCoach)
+
+When `/self-mastery-coach?context=commitment&commitment=X&meeting=Y` is opened:
+1. Reads and decodes query params
+2. Auto-sends opening message: "You're heading into [meeting] and you committed to [commitment]. How are you feeling about it?"
+3. Cleans URL via `replaceState`
