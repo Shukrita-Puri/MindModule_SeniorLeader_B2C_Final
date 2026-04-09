@@ -7,6 +7,7 @@ import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 import uspPulseSignal from "@/assets/onboarding/usp-pulse-signal.jpg";
 import uspConstellation from "@/assets/onboarding/usp-constellation.jpg";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
+import heroBg from "@/assets/onboarding/onboarding-hero-calm.jpg";
 
 interface Slide {
   headline: string;
@@ -36,18 +37,15 @@ const slides: Slide[] = [
   },
 ];
 
-// Total dots: intro + 3 USP slides + context-connection = 5
 const TOTAL_DOTS = 5;
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
   const location = useLocation();
   const resumeSlide = (location.state as { resumeSlide?: number } | null)?.resumeSlide;
-  // -1 = intro screen, 0-2 = USP slides
   const [currentSlide, setCurrentSlide] = useState(resumeSlide ?? -1);
 
   const isIntro = currentSlide === -1;
-  // dot index: intro=0, slide0=1, slide1=2, slide2=3
   const activeDot = isIntro ? 0 : currentSlide + 1;
 
   const goNext = useCallback(() => {
@@ -74,18 +72,6 @@ export default function StageUSPIntro() {
 
   useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
 
-  /* ── Back button top bar ── */
-  const topBar = (
-    <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between px-4 py-2">
-        <Button variant="glass" size="sm" onClick={goPrev}>
-          <ArrowLeft size={20} />
-        </Button>
-        <div />
-      </div>
-    </div>
-  );
-
   /* ── Dot indicators ── */
   const dots = (
     <div className="flex justify-center gap-2 mb-6">
@@ -95,56 +81,74 @@ export default function StageUSPIntro() {
           className={`h-2 rounded-full transition-all duration-300 ${
             i === activeDot
               ? "w-6 bg-saffron"
-              : isIntro
-                ? "w-2 bg-muted-foreground/30"
-                : "w-2 bg-white/30"
+              : "w-2 bg-white/30"
           }`}
         />
       ))}
     </div>
   );
 
+  /* ── Back button top bar ── */
+  const topBar = (
+    <div className={`fixed top-0 left-0 right-0 z-50 safe-area-top ${isIntro ? 'bg-black/30 backdrop-blur-md' : 'bg-black/30 backdrop-blur-md'} border-b border-white/[0.08]`}>
+      <div className="flex items-center justify-between px-4 py-2">
+        <Button variant="glass" size="sm" onClick={goPrev} className="text-white">
+          <ArrowLeft size={20} />
+        </Button>
+        <div />
+      </div>
+    </div>
+  );
+
   /* ── Intro screen ── */
   if (isIntro) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col">
+      <div className="fixed inset-0 flex flex-col items-center overflow-hidden">
         {topBar}
 
+        {/* Full-bleed background matching Stage1Welcome / Front */}
+        <img
+          src={heroBg}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+          width={1080}
+          height={1920}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
+
         {/* Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="w-24 h-24 rounded-full overflow-hidden mb-4 shadow-lg">
-            <img
-              src={mmLogo}
-              alt="Mind Module logo"
-              className="w-full h-full object-cover"
-            />
+        <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-6">
+          <div className="flex flex-col items-center space-y-4 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
+            <img src={mmLogo} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+
+            <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
+              MIND MODULE
+            </h1>
+            <p className="text-[9px] sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+              Executive Edition
+            </p>
+
+            <h2 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-white mt-10">
+              A new era of executive performance.
+            </h2>
+            <p className="font-body text-[1.0625rem] sm:text-lg text-white/60 leading-relaxed max-w-sm mx-auto">
+              This isn't self-improvement. This is self-mastery.
+            </p>
           </div>
-          <h2 className="text-[28px] sm:text-4xl font-headline text-foreground tracking-tight uppercase mb-1">
-            Mind Module
-          </h2>
-          <p className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground font-headline mb-10">
-            Executive Edition
-          </p>
 
-          <h1 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-foreground mb-4">
-            A new era of executive performance.
-          </h1>
-          <p className="font-body text-[1.0625rem] sm:text-lg text-muted-foreground leading-relaxed max-w-sm mx-auto">
-            This isn't self-improvement. This is self-mastery.
-          </p>
-        </div>
-
-        {/* Bottom: dots + CTA */}
-        <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-          {dots}
-          <Button
-            variant="critical"
-            size="lg"
-            className="w-full rounded-2xl"
-            onClick={goNext}
-          >
-            See how it works →
-          </Button>
+          {/* Bottom: dots + CTA */}
+          <div className="w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+            {dots}
+            <Button
+              variant="critical"
+              size="lg"
+              className="w-full rounded-2xl"
+              onClick={goNext}
+            >
+              See how it works →
+            </Button>
+          </div>
         </div>
       </div>
     );
