@@ -38,6 +38,8 @@ interface ComputeRequest {
   confidenceLevel: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+  componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
+  practicePriorityTag?: string | null;
 }
 
 // ==================== SERVER-SIDE CALENDAR METRICS ====================
