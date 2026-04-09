@@ -73,6 +73,20 @@ const SelfMasteryCoach = () => {
   const [inputError, setInputError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  // Change 6: Read nudge commitment context from URL query params
+  const nudgeParams = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const context = params.get('context');
+    if (context === 'commitment') {
+      const commitment = params.get('commitment');
+      const meeting = params.get('meeting');
+      if (commitment && meeting) {
+        return { commitment: decodeURIComponent(commitment), meeting: decodeURIComponent(meeting) };
+      }
+    }
+    return null;
+  }, [location.search]);
+
   // Coach access gate
   const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
   const hasValidBetaAccess = Boolean(
