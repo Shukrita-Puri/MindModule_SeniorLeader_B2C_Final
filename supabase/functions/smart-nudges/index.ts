@@ -216,6 +216,7 @@ interface NudgeContext {
   dayType: 'light' | 'moderate' | 'heavy' | 'extreme';
   // Wearable
   wearable: WearableSignals;
+  hasWearableData: boolean; // Fix A: single source of truth
   // Coach
   coach: CoachSignals;
   // Check-in
@@ -288,70 +289,59 @@ async function buildNudgeContext(
     { data: practiceSessions30d },
     { data: checkins30d },
   ] = await Promise.all([
-    // Today's calendar events
     supabase.from('calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
       .gte('start_time', `${todayStr}T00:00:00`)
       .lte('start_time', `${todayStr}T23:59:59`)
       .order('start_time', { ascending: true }),
-    // Tomorrow's calendar events (for Sunday→Monday, evening→tomorrow)
     supabase.from('calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
       .gte('start_time', `${tomorrowStr}T00:00:00`)
       .lte('start_time', `${tomorrowStr}T23:59:59`)
       .order('start_time', { ascending: true }),
-    // Latest wearable data
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
       .eq('user_id', userId)
       .order('summary_date', { ascending: false })
       .limit(1),
-    // 30-day wearable baseline
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate')
       .eq('user_id', userId)
       .gte('summary_date', thirtyDaysAgo.split('T')[0])
       .not('hrv', 'is', null),
-    // Today's energy snapshot
     supabase.from('energy_snapshots')
       .select('oura_readiness, computed_data')
       .eq('user_id', userId)
       .eq('snapshot_date', todayStr)
       .limit(1)
       .maybeSingle(),
-    // Pending coach commitments
     supabase.from('coach_accountability_tracker')
       .select('commitment_text, committed_at, check_in_due_date, status, pattern_area, meta_skill')
       .eq('user_id', userId)
       .eq('status', 'pending'),
-    // Active coach pattern observations
     supabase.from('coach_pattern_observations')
       .select('pattern_description, pattern_area, observation_count')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('observation_count', { ascending: false })
       .limit(5),
-    // Recent coach dialogue sessions (7d)
     supabase.from('dialogue_sessions')
       .select('id, started_at, session_title, flow_type')
       .eq('user_id', userId)
       .eq('flow_type', 'coach')
       .gte('started_at', sevenDaysAgo)
       .order('started_at', { ascending: false }),
-    // Today's check-ins
     supabase.from('daily_checkins')
       .select('outcome, time_window, timestamp')
       .eq('user_id', userId)
       .eq('checkin_date', todayStr)
       .order('timestamp', { ascending: true }),
-    // Today's ritual completions
     supabase.from('daily_ritual_completions')
       .select('recommended_practice_ids, completed_practice_ids, session_period, completion_status')
       .eq('user_id', userId)
       .eq('ritual_date', todayStr),
-    // JIT events (next 90 min, score >= 55)
     supabase.from('jit_event_context')
       .select('id, event_title, event_start, final_score, confidence_band')
       .eq('user_id', userId)
@@ -359,13 +349,11 @@ async function buildNudgeContext(
       .lte('event_start', new Date(now.getTime() + 90 * 60000).toISOString())
       .gte('final_score', 55)
       .order('final_score', { ascending: false }),
-    // Practice sessions (30d) for performance correlation
     supabase.from('practice_sessions')
       .select('completed_at, completed, content_id')
       .eq('user_id', userId)
       .eq('completed', true)
       .gte('created_at', thirtyDaysAgo),
-    // Check-ins (30d) for performance correlation
     supabase.from('daily_checkins')
       .select('checkin_date, outcome, time_window')
       .eq('user_id', userId)
@@ -383,6 +371,9 @@ async function buildNudgeContext(
 
   // Process wearable signals
   const latestW = latestWearable?.[0];
+  // Fix A: hasWearableData — single source of truth
+  const hasWearableData = latestW !== null && latestW !== undefined;
+
   const hrvValues = (wearable30d || []).map(w => w.hrv).filter((v): v is number => v !== null);
   const rhrValues = (wearable30d || []).map(w => w.resting_heart_rate).filter((v): v is number => v !== null);
   const hrvBaseline = hrvValues.length > 0 ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length : null;
@@ -420,7 +411,6 @@ async function buildNudgeContext(
     const gapMs = nextStart.getTime() - currentEnd.getTime();
     const gapMinutes = gapMs / 60000;
     if (gapMinutes >= 20) {
-      // Count post-gap meetings and check for high-stakes
       const postGapEvents = nonNoiseEvents.slice(i + 1);
       calendarGaps.push({
         startTime: currentEnd,
@@ -494,7 +484,6 @@ async function buildNudgeContext(
       }
     }
 
-    // Coach session dates
     const coachSessionDates = new Set((recentSessions || []).map(s => s.started_at?.split('T')[0]).filter(Boolean));
     const coachDayAfterOutcomes: string[] = [];
     const nonCoachDayOutcomes: string[] = [];
@@ -520,7 +509,6 @@ async function buildNudgeContext(
       }
     }
 
-    // Practice completion → next-day outcome correlation
     const practiceDates = new Set(
       (practiceSessions30d || []).map(p => p.completed_at?.split('T')[0]).filter(Boolean)
     );
@@ -553,7 +541,7 @@ async function buildNudgeContext(
     eventTitle: e.event_title,
     eventStart: e.event_start,
     finalScore: e.final_score || 0,
-    externalId: e.id, // use id as reference
+    externalId: e.id,
     confidenceBand: e.confidence_band || 'low',
   }));
 
@@ -585,6 +573,7 @@ async function buildNudgeContext(
       rhrElevated,
       totalSleepMinutes: latestW?.total_sleep_minutes ?? null,
     },
+    hasWearableData, // Fix A
     coach: {
       pendingCommitments: commitments,
       activePatterns: (activePatterns || []).map(p => ({
@@ -613,6 +602,57 @@ async function buildNudgeContext(
 }
 
 // ══════════════════════════════════════════════════════════════
+// ── Fix B: Wearable signal line builders (omit when no data) ──
+// ══════════════════════════════════════════════════════════════
+
+function buildWearableLines(ctx: NudgeContext): string {
+  if (!ctx.hasWearableData) return ''; // Omit entirely — no "unavailable"
+  
+  const lines: string[] = [];
+  if (ctx.wearable.sleepScore !== null) {
+    lines.push(`- Sleep score: ${ctx.wearable.sleepScore}`);
+  }
+  if (ctx.wearable.hrvDeltaPct !== null) {
+    lines.push(`- HRV vs baseline: ${ctx.wearable.hrvDeltaPct}%`);
+  }
+  if (ctx.wearable.rhrElevated) {
+    lines.push(`- RHR: elevated above baseline`);
+  } else if (ctx.wearable.rhr !== null) {
+    lines.push(`- RHR: normal`);
+  }
+  return lines.join('\n');
+}
+
+function buildWearablePriorityLines(ctx: NudgeContext): string {
+  if (!ctx.hasWearableData) return ''; // No wearable → no priority lines
+  
+  const lines: string[] = [];
+  if (ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
+    lines.push('PRIORITY: Lead with recovery signal – sleep was poor');
+  }
+  if (ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
+    lines.push('PRIORITY: Lead with HRV recovery signal');
+  }
+  return lines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Fix C: Post-generation fabrication validation ──
+// ══════════════════════════════════════════════════════════════
+
+const FABRICATION_PATTERNS = [
+  /\d+%/,                          // percentage patterns ("down 40%")
+  /\d+\s*ms/i,                     // HRV millisecond patterns ("45ms")
+  /below baseline|above baseline/i, // baseline references
+  /your HRV|recovery score/i,       // wearable metric references
+];
+
+function containsFabricatedWearableData(body: string, hasWearableData: boolean): boolean {
+  if (hasWearableData) return false; // Real data exists — percentages are legitimate
+  return FABRICATION_PATTERNS.some(pattern => pattern.test(body));
+}
+
+// ══════════════════════════════════════════════════════════════
 // ── AI Copy Generation ──
 // ══════════════════════════════════════════════════════════════
 
@@ -634,10 +674,13 @@ Rules:
 - NEVER use: wellness, mindfulness, relax, well done, great job, amazing
 - For evenings/weekends: use softer, permission-to-stop tone – but still reference specific signals
 - Every nudge must reference something specific (a meeting title, a number, a commitment, a state)
-- If a signal is null, skip it – never fabricate data
+- CRITICAL: Only reference data that is explicitly provided below. Do NOT invent numbers, percentages, or metrics.
+- If no wearable/biometric data is provided, do NOT mention HRV, sleep, recovery, heart rate, or any body metrics.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
+  const wearableLines = buildWearableLines(ctx);
+  const wearablePriorityLines = buildWearablePriorityLines(ctx);
 
   switch (nudgeType) {
     case 'morning_prep': {
@@ -648,22 +691,18 @@ Signals:
 - First event: ${firstEvent || 'none'} at ${firstEventTime || 'unknown'}
 - Day type: ${ctx.dayType} (${ctx.eventCount} meetings)
 - High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
-- Sleep score: ${ctx.wearable.sleepScore ?? 'unavailable'}
-- HRV vs baseline: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
-- RHR: ${ctx.wearable.rhrElevated ? 'elevated above baseline' : 'normal'}
-- Day: ${ctx.dayName}
-${ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60 ? 'PRIORITY: Lead with recovery signal – sleep was poor' : ''}
-${ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15 ? 'PRIORITY: Lead with HRV recovery signal' : ''}
-${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}`;
+${wearableLines ? wearableLines + '\n' : ''}- Day: ${ctx.dayName}
+${wearablePriorityLines ? wearablePriorityLines + '\n' : ''}${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}`;
       break;
     }
 
     case 'jit_pre_event': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
+      const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
+        ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
       userPrompt = `JIT pre-event nudge. The user's mental readiness plan is ready.
 Signals:
-- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes
-- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}% vs baseline` : 'unavailable'}
+- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes${hrvLine}
 - Current state: ${ctx.morningCheckinOutcome || 'unknown'}
 - Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
 Must reference the event by name and mention the prep plan is ready.`;
@@ -672,14 +711,17 @@ Must reference the event by name and mention the prep plan is ready.`;
 
     case 'calendar_gap': {
       const gap = specificSignals as { durationMinutes: number; nextEventTitle: string; postGapHeavy: boolean };
+      const gapWearableLines: string[] = [];
+      if (ctx.hasWearableData) {
+        if (ctx.wearable.hrvDeltaPct !== null) gapWearableLines.push(`- HRV: ${ctx.wearable.hrvDeltaPct}%`);
+        if (ctx.wearable.rhrElevated) gapWearableLines.push(`- RHR: elevated`);
+      }
       userPrompt = `Calendar gap nudge. User has a ${gap.durationMinutes}-minute gap before their next meeting.
 Signals:
 - Gap: ${gap.durationMinutes} mins
 - Next meeting: ${gap.nextEventTitle}
 - Post-gap load: ${gap.postGapHeavy ? 'heavy block ahead' : 'moderate'}
-- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
-- RHR: ${ctx.wearable.rhrElevated ? 'elevated' : 'normal'}
-Reference the gap duration and what comes after it.`;
+${gapWearableLines.length > 0 ? gapWearableLines.join('\n') + '\n' : ''}Reference the gap duration and what comes after it.`;
       break;
     }
 
@@ -705,14 +747,17 @@ Signals:
 - Last coach session: ${ctx.coach.lastSessionAt ? `${Math.round((Date.now() - ctx.coach.lastSessionAt.getTime()) / 3600000)}h ago` : 'not recent'}
 Example: "You perform X% sharper after a coach session – [event] is tomorrow"`;
       } else {
-        // State-aware afternoon
+        // State-aware afternoon — Fix B: omit wearable lines if no data
+        const stateWearableLines: string[] = [];
+        if (ctx.hasWearableData) {
+          if (ctx.wearable.hrvDeltaPct !== null) stateWearableLines.push(`- HRV: ${ctx.wearable.hrvDeltaPct}%`);
+          if (ctx.wearable.rhrElevated) stateWearableLines.push(`- RHR: elevated – body is carrying load`);
+        }
         userPrompt = `State-aware afternoon nudge. User started low and has heavy afternoon.
 Signals:
 - Morning state: ${ctx.morningCheckinOutcome}
 - Afternoon high-stakes: ${ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).map(e => e.title).join(', ') || 'none'}
-- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
-- RHR: ${ctx.wearable.rhrElevated ? 'elevated – body is carrying load' : 'normal'}
-Reference the specific state and what's ahead.`;
+${stateWearableLines.length > 0 ? stateWearableLines.join('\n') + '\n' : ''}Reference the specific state and what's ahead.`;
       }
       break;
     }
@@ -723,14 +768,19 @@ Reference the specific state and what's ahead.`;
       const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
 
+      // Fix B: only include wearable lines if data exists
+      const eveningWearableLines: string[] = [];
+      if (ctx.hasWearableData) {
+        if (ctx.wearable.hrvDeltaPct !== null) eveningWearableLines.push(`- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct}%`);
+        if (ctx.wearable.rhrElevated) eveningWearableLines.push(`- RHR: elevated through the day`);
+      }
+
       userPrompt = `Evening cool-down nudge. ${isWeekendEvening ? 'WEEKEND: Use softer, permission-to-rest tone.' : ''}
 ${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals – ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}.` : ''}
 Today's signals:
 - Meetings today: ${ctx.eventCount}
 - High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
-- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
-- RHR: ${ctx.wearable.rhrElevated ? 'elevated through the day' : 'normal'}
-- Check-ins today: ${ctx.checkinCountToday}
+${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') + '\n' : ''}- Check-ins today: ${ctx.checkinCountToday}
 ${ctx.dayOfWeek === 5 ? 'FRIDAY: Close-the-week tone' : ''}
 ${ctx.dayOfWeek === 6 ? 'SATURDAY: Gentle unwind, no agenda' : ''}
 Tone: permission to stop, not another task. NEVER say: wellness, mindfulness, relax, well done.
@@ -748,16 +798,18 @@ Reference the specific pattern. Tone: curious observation, not alarm.`;
     }
 
     case 'daily_fallback': {
-      // Use best available signal
+      // Fix F: use best available signal — no wearable references if no data
       const bestSignal = ctx.highStakesEvents.length > 0
         ? `High-stakes event today: ${ctx.highStakesEvents[0].title}`
-        : ctx.wearable.sleepScore !== null
+        : (ctx.hasWearableData && ctx.wearable.sleepScore !== null)
           ? `Sleep score: ${ctx.wearable.sleepScore}`
           : ctx.dayType !== 'light'
             ? `${ctx.dayType} day ahead (${ctx.eventCount} meetings)`
             : ctx.currentStreak > 0
               ? `Day ${ctx.currentStreak} of practice streak`
-              : 'Start of day';
+              : ctx.eventCount > 0
+                ? `${ctx.eventCount} meetings today`
+                : 'Start of day';
       userPrompt = `Daily fallback nudge. Use the best available signal.
 Best signal: ${bestSignal}
 Day: ${ctx.dayName}, ${ctx.dayType} (${ctx.eventCount} events)
@@ -807,6 +859,12 @@ Tone: gentle invitation, not pressure.`;
 
     const parsed = JSON.parse(jsonMatch[0]);
     if (parsed.title && parsed.body) {
+      // Fix C: Post-generation validation — reject fabricated wearable data
+      if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
+        console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType} — fabricated wearable data detected: "${parsed.body}"`);
+        return null; // Fall through to static fallback
+      }
+
       return {
         title: parsed.title.substring(0, 60),
         body: parsed.body.substring(0, 120),
@@ -824,20 +882,29 @@ Tone: gentle invitation, not pressure.`;
 // ── Static Fallback Variants ──
 // ══════════════════════════════════════════════════════════════
 
+// Fix F: Signal-aware fallback copy
 function getFallbackMorningCopy(ctx: NudgeContext): NudgeCopy {
-  if (ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
+  // Only reference sleep if wearable data exists
+  if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
     return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-MA-recovery' };
   }
   if (ctx.highStakesEvents.length > 0) {
     return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today. Check in first.`, variantId: 'FB-MA-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: 'Heavy Day Ahead', body: `${ctx.eventCount} meetings today. Your Compass is ready.`, variantId: 'FB-MA-heavy' };
+    return { title: 'Heavy Day Ahead', body: `${ctx.eventCount} meetings today. Check in to set your direction.`, variantId: 'FB-MA-heavy' };
   }
   if (ctx.isWeekend) {
     return { title: 'Weekend Morning', body: 'No calendar pressure today. Check in when you\'re ready.', variantId: 'FB-MA-weekend' };
   }
-  return { title: 'Your Compass is Ready', body: `Your ${ctx.dayName} is mapped. Check in to see your Compass.`, variantId: 'FB-MA-default' };
+  // Fix F: Calendar-aware default instead of generic "Your Compass is Ready"
+  if (ctx.eventCount > 0) {
+    return { title: 'Day Mapped', body: `${ctx.eventCount} meetings today. Check in to set your direction.`, variantId: 'FB-MA-calendar' };
+  }
+  if (!ctx.isWeekend) {
+    return { title: 'Clear Day', body: 'No meetings. A rare chance to set your own agenda.', variantId: 'FB-MA-clear' };
+  }
+  return { title: 'Day Mapped', body: `Your ${ctx.dayName} brief is ready. Check in to see it.`, variantId: 'FB-MA-default' };
 }
 
 function getFallbackJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
@@ -854,7 +921,6 @@ function getFallbackCoachMatchCopy(commitment: string, meetingTitle: string): Nu
 
 function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.dayOfWeek === 0) {
-    // Sunday evening – reference Monday
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
@@ -871,7 +937,8 @@ function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.dayOfWeek === 6) {
     return { title: 'Saturday Close', body: 'No agenda tonight. Just notice how you\'re landing.', variantId: 'FB-EC-sat' };
   }
-  if (ctx.wearable.rhrElevated) {
+  // Fix F: Only reference RHR if wearable data exists
+  if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
     return { title: 'Body Carried Load', body: 'Your body carried load today. A proper close helps you let go.', variantId: 'FB-EC-rhr' };
   }
   if (ctx.eventCount >= 6) {
@@ -880,21 +947,29 @@ function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
   return { title: 'Evening Close', body: `The day is done. A quiet moment to close the loop.`, variantId: 'FB-EC-default' };
 }
 
+// Fix F: Don't fabricate "20%" default for coach lift
 function getFallbackPerformanceStateCopy(ctx: NudgeContext, subType: string): NudgeCopy {
+  if (subType === 'feature_performance' && ctx.coachSessionReadinessLift !== null) {
+    return { title: 'Coach Impact', body: `You perform ${ctx.coachSessionReadinessLift}% sharper after a coach session. Worth one tonight?`, variantId: 'FB-PERF' };
+  }
   if (subType === 'feature_performance') {
-    const lift = ctx.coachSessionReadinessLift || 20;
-    return { title: 'Coach Impact', body: `You perform ${lift}% sharper after a coach session. Worth one tonight?`, variantId: 'FB-PERF' };
+    // No lift data — use qualitative copy instead of fabricating a percentage
+    return { title: 'Coach Impact', body: 'You tend to perform sharper after a coach session. Worth one tonight?', variantId: 'FB-PERF-qual' };
   }
   // State-aware
   const hsCount = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).length;
   return { title: 'Afternoon Reset', body: `You started low. ${hsCount > 0 ? `${hsCount} high-stakes ahead.` : 'Heavy afternoon.'} Reset now.`, variantId: 'FB-STATE' };
 }
 
+// Fix F: Signal-aware daily fallback
 function getFallbackDailyFallbackCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.highStakesEvents.length > 0) {
     return { title: 'Day Mapped', body: `${ctx.highStakesEvents[0].title} today. Check in to prepare.`, variantId: 'FB-DAILY-hs' };
   }
-  return { title: 'Check In', body: 'Take 30 seconds to check in. Your Compass is ready.', variantId: 'FB-DAILY' };
+  if (ctx.eventCount > 0) {
+    return { title: 'Day Mapped', body: `${ctx.eventCount} meetings today. Your brief has your direction.`, variantId: 'FB-DAILY-cal' };
+  }
+  return { title: 'Open Day', body: 'Light calendar today. Check in to set an intention.', variantId: 'FB-DAILY-open' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -904,31 +979,27 @@ function getFallbackDailyFallbackCopy(ctx: NudgeContext): NudgeCopy {
 // P0: Morning Preparation
 async function evaluateMorningPrep(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('morning_prep')) return null;
-  if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
+  if (ctx.morningCheckinOutcome !== null) return null;
 
-  // Calendar-aware timing
   let morningStart = 6.5;
   let morningEnd = 9.5;
 
   if (ctx.firstNonNoiseEvent) {
     const eventTime = new Date(ctx.firstNonNoiseEvent.start_time);
     const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
-    // Estimate commute: virtual events → 20-30 min buffer, otherwise 60-90 min
     const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
     const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
-    const commuteBuffer = isVirtual ? 0.5 : 1.25; // hours
-    const idealStart = eventHour - commuteBuffer - 0.33; // minus 20 min
+    const commuteBuffer = isVirtual ? 0.5 : 1.25;
+    const idealStart = eventHour - commuteBuffer - 0.33;
     morningStart = Math.max(6.5, Math.min(idealStart, 9.5));
     morningEnd = Math.max(morningEnd, morningStart + 1.5);
   }
 
-  // Weekend: shift later
   if (ctx.dayOfWeek === 6) { morningStart = Math.max(morningStart, 7.5); morningEnd = Math.max(morningEnd, 10); }
   if (ctx.dayOfWeek === 0) { morningStart = Math.max(morningStart, 8); morningEnd = Math.max(morningEnd, 10.5); }
 
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
 
-  // Never fire if first event < 30 min away
   if (ctx.firstNonNoiseEvent) {
     const minutesUntil = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
     if (minutesUntil < 30) return null;
@@ -966,7 +1037,7 @@ async function evaluateJitPreEvent(ctx: NudgeContext, alreadySentTypes: Set<stri
       const startMs = new Date(evt.start_time).getTime();
       const minutesUntil = (startMs - now) / 60000;
       if (minutesUntil < 30 || minutesUntil > 90) continue;
-      if (scoreEvent(evt.title) < 50) continue; // require 2+ keyword matches
+      if (scoreEvent(evt.title) < 50) continue;
       if (sentEventRefs.has(evt.external_id)) continue;
 
       const aiCopy = await generateNudgeCopy(ctx, 'jit_pre_event', {
@@ -987,17 +1058,14 @@ async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<stri
   if (alreadySentTypes.has('calendar_gap')) return null;
   if (ctx.inMeetingNow) return null;
 
-  // Suppress if user checked in within 90 min
   if (ctx.lastCheckinTime && (Date.now() - ctx.lastCheckinTime.getTime()) < 90 * 60000) return null;
 
   const now = Date.now();
 
   for (const gap of ctx.calendarGaps) {
-    // Fire 5 min into the gap
     const fiveMinIntoGap = gap.startTime.getTime() + 5 * 60000;
     if (now < fiveMinIntoGap || now > gap.endTime.getTime()) continue;
 
-    // Only if post-gap is heavy or has high stakes
     if (gap.postGapMeetingCount < 2 && !gap.postGapHasHighStakes) continue;
 
     const aiCopy = await generateNudgeCopy(ctx, 'calendar_gap', {
@@ -1022,10 +1090,8 @@ async function evaluateCoachMeetingMatch(
   if (alreadySentTypes.has('coach_meeting_match')) return null;
   if (ctx.coach.pendingCommitments.length === 0 && ctx.coach.stressSignals.length === 0) return null;
 
-  // Suppress if coach opened in last 2 hours
   if (ctx.coach.lastSessionAt && (Date.now() - ctx.coach.lastSessionAt.getTime()) < 2 * 60 * 60 * 1000) return null;
 
-  // Check today's coach sessions
   const { data: todayCoachSessions } = await supabase
     .from('dialogue_sessions')
     .select('id')
@@ -1034,9 +1100,8 @@ async function evaluateCoachMeetingMatch(
     .gte('started_at', `${ctx.todayStr}T00:00:00`)
     .limit(1);
 
-  if (todayCoachSessions && todayCoachSessions.length > 0) return null; // Coach session happened today
+  if (todayCoachSessions && todayCoachSessions.length > 0) return null;
 
-  // Look at next 4 hours of events
   const now = Date.now();
   const fourHoursLater = now + 4 * 60 * 60 * 1000;
   const upcomingEvents = ctx.nonNoiseEvents.filter(e => {
@@ -1044,7 +1109,6 @@ async function evaluateCoachMeetingMatch(
     return startMs > now && startMs < fourHoursLater;
   });
 
-  // Semantic match: commitment keywords vs event title keywords
   for (const commitment of ctx.coach.pendingCommitments) {
     const commitWords = commitment.text.toLowerCase().split(/\s+/);
     const keyCommitWords = commitWords.filter(w => w.length > 3);
@@ -1052,7 +1116,6 @@ async function evaluateCoachMeetingMatch(
     for (const event of upcomingEvents) {
       const titleLower = (event.title || '').toLowerCase();
       const matchCount = keyCommitWords.filter(w => titleLower.includes(w)).length;
-      // Also check pattern area match
       const patternMatch = commitment.patternArea && titleLower.includes(commitment.patternArea.toLowerCase());
 
       if (matchCount >= 1 || patternMatch) {
@@ -1071,7 +1134,6 @@ async function evaluateCoachMeetingMatch(
     }
   }
 
-  // Also check stress signals vs upcoming events
   for (const signal of ctx.coach.stressSignals) {
     const stressWords = signal.topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     for (const event of upcomingEvents) {
@@ -1099,17 +1161,13 @@ async function evaluateCoachMeetingMatch(
 async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('state_aware_nudge')) return null;
 
-  // Skip on weekends; requires structured calendar pressure
   if (ctx.isWeekend) return null;
   if (ctx.localTime < 12 || ctx.localTime >= 15) return null;
 
-  // Only fire if morning check-in was depleted/managing
   if (!ctx.morningCheckinOutcome || !LOW_TIERS.includes(ctx.morningCheckinOutcome)) return null;
 
-  // Suppress if app opened in last 3 hours
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 3 * 60 * 60 * 1000) return null;
 
-  // Check for afternoon high-stakes events
   const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
     const hour = new Date(e.start_time).getHours();
     return hour >= 12;
@@ -1124,22 +1182,29 @@ async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: 
   return null;
 }
 
-// P5: Evening Cool-Down
+// P5: Evening Cool-Down — Fix E: added guards
 async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('evening_close')) return null;
 
-  let eveningStart = 19;
-  let eveningEnd = 22;
+  // Fix E: Skip if user already reflected today (2+ check-ins or afternoon check-in exists)
+  if (ctx.checkinCountToday >= 2) {
+    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins today — skipping evening close`);
+    return null;
+  }
+  if (ctx.afternoonCheckinOutcome !== null) {
+    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in — skipping evening close`);
+    return null;
+  }
 
-  // Sunday: extended for week-prep (18:00-22:00)
-  if (ctx.dayOfWeek === 0) { eveningStart = 18; eveningEnd = 22; }
+  let eveningStart = 19;
+  let eveningEnd = 21.5; // Fix E: 21:30 cutoff (was 22)
+
+  // Sunday: extended for week-prep (18:00-21:30)
+  if (ctx.dayOfWeek === 0) { eveningStart = 18; }
   // Friday: slightly earlier OK
   if (ctx.dayOfWeek === 5) { eveningStart = 18.5; }
 
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
-
-  // Check if evening check-in or ritual already done
-  // (We still send if no evening activity completed)
 
   const aiCopy = await generateNudgeCopy(ctx, 'evening_close');
   const copy = aiCopy || getFallbackEveningCopy(ctx);
@@ -1155,7 +1220,6 @@ async function evaluatePatternAlert(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('pattern_alert')) return null;
 
-  // Suppress if app opened recently (4h)
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000) return null;
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -1173,8 +1237,7 @@ async function evaluatePatternAlert(
     })
   );
 
-  // Pattern 0 (NEW): Feature Performance – coach session readiness lift
-  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
+  // Pattern 0: Feature Performance – coach session readiness lift
   if (!recentPatternTypes.has('feature_performance') &&
       ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
     const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
@@ -1206,8 +1269,8 @@ async function evaluatePatternAlert(
     }
   }
 
-  // Pattern 2: Recovery deficit (3 days low HRV)
-  if (!recentPatternTypes.has('recovery_deficit')) {
+  // Pattern 2: Recovery deficit (3 days low HRV) — only if wearable data exists
+  if (!recentPatternTypes.has('recovery_deficit') && ctx.hasWearableData) {
     const { data: recentSnapshots } = await supabase
       .from('energy_snapshots')
       .select('snapshot_date, computed_data')
@@ -1249,13 +1312,39 @@ async function evaluatePatternAlert(
 
 // P7: Daily Fallback
 async function evaluateDailyFallback(ctx: NudgeContext, alreadySentTypes: Set<string>, todayLogCount: number): Promise<QualifiedNudge | null> {
-  if (todayLogCount > 0) return null; // Only if nothing sent today
+  if (todayLogCount > 0) return null;
   if (ctx.localTime < 10 || ctx.localTime >= 12) return null;
 
   const aiCopy = await generateNudgeCopy(ctx, 'daily_fallback');
   const copy = aiCopy || getFallbackDailyFallbackCopy(ctx);
 
   return { type: 'daily_fallback', copy, priority: 7 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Signal Richness Gate (Fix D) ──
+// ══════════════════════════════════════════════════════════════
+
+const SIGNAL_GATED_TYPES = new Set([
+  'state_aware_nudge', // P4
+  'evening_close',     // P5
+  'pattern_alert',     // P6
+  'daily_fallback',    // P7
+]);
+
+function computeSignalRichness(ctx: NudgeContext): {
+  hasCalendar: boolean;
+  hasWearable: boolean;
+  hasCheckin: boolean;
+  hasCoach: boolean;
+  signalCount: number;
+} {
+  const hasCalendar = ctx.nonNoiseEvents.length > 0;
+  const hasWearable = ctx.hasWearableData;
+  const hasCheckin = ctx.checkinCountToday > 0;
+  const hasCoach = ctx.coach.pendingCommitments.length > 0 || ctx.coach.sessionsIn7d > 0;
+  const signalCount = [hasCalendar, hasWearable, hasCheckin, hasCoach].filter(Boolean).length;
+  return { hasCalendar, hasWearable, hasCheckin, hasCoach, signalCount };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1339,7 +1428,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting signal-first evaluation run...');
+    console.log('[smart-nudges] Starting signal-first evaluation run (v2 — data integrity)...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -1363,7 +1452,7 @@ serve(async (req) => {
     }
 
     const userIds = Array.from(userTokens.keys());
-    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first)`);
+    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first v2)`);
 
     // 2. Batch-fetch profiles, preferences, recent engagements
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
@@ -1411,7 +1500,6 @@ serve(async (req) => {
       const dayOfWeek = localDate.getDay();
       const todayStr = toDateString(localDate);
 
-      // Tomorrow string (for Sunday→Monday signals)
       const tomorrowDate = new Date(localDate);
       tomorrowDate.setDate(tomorrowDate.getDate() + 1);
       const tomorrowStr = toDateString(tomorrowDate);
@@ -1464,7 +1552,6 @@ serve(async (req) => {
       const suppressed = lastSentAt !== null && lastSentAt > twoHoursAgo;
 
       // ── In-meeting suppression ──
-      // (checked inside buildNudgeContext, but also pre-check for app open)
       const lastAppOpen = lastAppOpenMap.get(userId) || null;
       const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < 30 * 60 * 1000;
 
@@ -1492,6 +1579,14 @@ serve(async (req) => {
         lastAppOpen,
       );
 
+      // ── Fix D: Signal Richness Gate ──
+      const signals = computeSignalRichness(ctx);
+      const signalGatePassed = signals.signalCount >= 2;
+
+      if (!signalGatePassed) {
+        console.log(`[smart-nudges] User ${userId}: ${signals.signalCount} signals (cal=${signals.hasCalendar} wear=${signals.hasWearable} chk=${signals.hasCheckin} coach=${signals.hasCoach}) — P4-P7 suppressed`);
+      }
+
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
@@ -1501,50 +1596,50 @@ serve(async (req) => {
       // ══════════════════════════════════════════════════
       const qualified: QualifiedNudge[] = [];
 
-      // P0: Morning Preparation
+      // P0: Morning Preparation (exempt from signal gate)
       if ((prefs?.morning_anchor_enabled ?? true) && !isEngagementSuppressed('morning_prep')) {
         const nudge = await evaluateMorningPrep(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
-      // P1: JIT Pre-Event (overrides 2h suppression)
+      // P1: JIT Pre-Event (exempt from signal gate, overrides 2h suppression)
       if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('pre_event_prep')) {
         const nudge = await evaluateJitPreEvent(ctx, alreadySentTypes, sentEventRefs);
         if (nudge) qualified.push(nudge);
       }
 
-      // P2: Calendar Gap
+      // P2: Calendar Gap (exempt from signal gate)
       if (!isEngagementSuppressed('calendar_gap') && !suppressed) {
         const nudge = await evaluateCalendarGap(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
-      // P3: Coach Commitment + Meeting Match
+      // P3: Coach Commitment + Meeting Match (exempt from signal gate)
       if (!isEngagementSuppressed('coach_meeting_match') && !suppressed) {
         const nudge = await evaluateCoachMeetingMatch(ctx, alreadySentTypes, supabase);
         if (nudge) qualified.push(nudge);
       }
 
-      // P4: State-Aware Afternoon
-      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('state_aware_nudge') && !suppressed) {
+      // P4: State-Aware Afternoon (signal-gated)
+      if (signalGatePassed && (prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('state_aware_nudge') && !suppressed) {
         const nudge = await evaluateStateAwareAfternoon(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
-      // P5: Evening Cool-Down
-      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('evening_close') && !suppressed) {
+      // P5: Evening Cool-Down (signal-gated)
+      if (signalGatePassed && (prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('evening_close') && !suppressed) {
         const nudge = await evaluateEveningClose(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
-      // P6: Pattern Alert
-      if ((prefs?.pattern_alert_enabled ?? true) && !isEngagementSuppressed('pattern_alert') && !suppressed) {
+      // P6: Pattern Alert (signal-gated)
+      if (signalGatePassed && (prefs?.pattern_alert_enabled ?? true) && !isEngagementSuppressed('pattern_alert') && !suppressed) {
         const nudge = await evaluatePatternAlert(ctx, alreadySentTypes, supabase);
         if (nudge) qualified.push(nudge);
       }
 
-      // P7: Daily Fallback
-      if (qualified.length === 0) {
+      // P7: Daily Fallback (signal-gated)
+      if (qualified.length === 0 && signalGatePassed) {
         const nudge = await evaluateDailyFallback(ctx, alreadySentTypes, (todayLogs || []).length);
         if (nudge) qualified.push(nudge);
       }
@@ -1553,11 +1648,9 @@ serve(async (req) => {
       qualified.sort((a, b) => a.priority - b.priority);
 
       if (qualified.length > 0) {
-        // JIT (P1) always wins if present – even over suppression
         const jitNudge = qualified.find(n => n.type === 'pre_event_prep');
         const bestNudge = jitNudge || qualified[0];
 
-        // If suppressed, only allow JIT through
         if (suppressed && !jitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
@@ -1569,7 +1662,6 @@ serve(async (req) => {
             tokens: userTokens.get(userId)!,
           });
 
-          // Allow a second notification if morning + JIT both qualified
           if (!suppressed && qualified.length > 1) {
             const second = qualified.find(n => n !== bestNudge && (n.type === 'morning_prep' || n.type === 'pre_event_prep'));
             if (second && (todayLogs || []).length + allNotifications.filter(n => n.userId === userId).length < DAILY_NOTIFICATION_CAP) {
@@ -1620,7 +1712,7 @@ serve(async (req) => {
       }
     }
 
-    // Deep link route mapping: nudge type → destination route
+    // Deep link route mapping
     const DEEP_LINK_ROUTES: Record<string, string> = {
       morning_prep: '/daily-check-in',
       pre_event_prep: '/executive-home',
@@ -1642,7 +1734,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'signal-first-v1',
+        architecture: 'signal-first-v2',
       };
 
       if (notif.type === 'pattern_alert' && notif.eventReference) {
@@ -1695,7 +1787,7 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'signal-first-v1',
+      architecture: 'signal-first-v2',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
