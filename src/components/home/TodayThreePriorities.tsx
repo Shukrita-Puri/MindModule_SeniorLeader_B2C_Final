@@ -84,7 +84,7 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = () => {
+const TodayThreePriorities = ({ onEmpty }: { onEmpty?: () => void }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
@@ -373,6 +373,15 @@ const TodayThreePriorities = () => {
     setExpandedSlot(-1);
   }, [completedPracticeIds, plan]);
 
+  const horizonModules = plan?.horizonModules;
+
+  // Signal empty state to parent for fallback rendering
+  useEffect(() => {
+    if (!loading && (!horizonModules || horizonModules.length === 0)) {
+      onEmpty?.();
+    }
+  }, [loading, horizonModules, onEmpty]);
+
   // ── Render ──
   if (loading) {
     return (
@@ -385,9 +394,7 @@ const TodayThreePriorities = () => {
     );
   }
 
-  const horizonModules = plan?.horizonModules;
   if (!horizonModules || horizonModules.length === 0) {
-    // Fallback: render nothing here; ExecutiveHome handles DailyRitual fallback
     return null;
   }
 

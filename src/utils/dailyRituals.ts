@@ -166,24 +166,24 @@ export async function getRitualRange(startDate: string, endDate: string): Promis
 }
 
 export async function upsertRitual(ritualData: Omit<RitualData, 'id' | 'user_id'>): Promise<RitualData | null> {
-  // DEV_MODE: Direct database upsert
+  // DEV_MODE: Use edge function path (bypasses RLS via service role)
   if (DEV_MODE) {
-    const upsertData = {
-      ...ritualData,
-      user_id: DEV_USER.id,
-      session_period: ritualData.session_period || getCurrentTimeWindowForRituals()
-    };
-    const { data, error } = await supabase
-      .from('daily_ritual_completions')
-      .upsert(upsertData, { onConflict: 'user_id,ritual_date,session_period' })
-      .select()
-      .maybeSingle();
-    
-    if (error) {
+    try {
+      const { data, error } = await supabase.functions.invoke('daily-rituals', {
+        headers: { 'x-dev-user-id': DEV_USER.id },
+        body: { action: 'UPSERT_RITUAL', ritualData: { ...ritualData, session_period: ritualData.session_period || getCurrentTimeWindowForRituals() } }
+      });
+      if (error) throw error;
+      return data?.data || null;
+    } catch (error) {
       console.error('[dailyRituals] DEV_MODE upsertRitual error:', error);
-      return null;
+      // localStorage fallback so completion state persists in dev
+      const key = `dev_ritual_${ritualData.ritual_date}_${ritualData.session_period || getCurrentTimeWindowForRituals()}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '{}');
+      const merged = { ...existing, ...ritualData, user_id: DEV_USER.id };
+      localStorage.setItem(key, JSON.stringify(merged));
+      return merged as RitualData;
     }
-    return data || null;
   }
   
   // Production: Use edge function
