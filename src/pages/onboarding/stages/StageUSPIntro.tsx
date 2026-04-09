@@ -141,7 +141,7 @@ export default function StageUSPIntro() {
 
           {/* Bottom: dots + CTA */}
           <div className="w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
-            {dots}
+            {dots()}
             <Button
               variant="critical"
               size="lg"
@@ -191,7 +191,7 @@ export default function StageUSPIntro() {
 
       {/* Bottom: dots + CTAs pinned */}
       <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-        {dots}
+        {dots("w-2 bg-muted-foreground/30")}
 
         <div className="space-y-3">
           <button
