@@ -172,9 +172,31 @@ const INSIGHT_TABS = [
 ];
 
 const Insights = () => {
-  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>('patterns');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightParam = searchParams.get('highlight');
+  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>(highlightParam ? 'patterns' : 'patterns');
   const navigate = useNavigate();
+  const highlightRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+
+  // Change 5: Scroll to highlighted section from nudge deep link
+  useEffect(() => {
+    if (!highlightParam) return;
+    // Switch to patterns tab for pattern highlights
+    setActiveTab('patterns');
+    // Delay to allow render, then scroll and pulse
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-highlight="${highlightParam}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('nudge-highlight-pulse');
+        setTimeout(() => el.classList.remove('nudge-highlight-pulse'), 2500);
+      }
+      // Clean URL
+      setSearchParams({}, { replace: true });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [highlightParam, setSearchParams]);
   // Removed page-level `loading` gate – each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
