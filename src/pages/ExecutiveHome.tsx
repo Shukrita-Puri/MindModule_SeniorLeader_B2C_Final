@@ -253,10 +253,10 @@ const ExecutiveHome = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="h-screen flex w-full bg-background overflow-hidden">
         <LeftSidebar />
         
-        <SidebarInset className="w-full overflow-x-hidden">
+        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
           {/* Immersive Hero Visual */}
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
