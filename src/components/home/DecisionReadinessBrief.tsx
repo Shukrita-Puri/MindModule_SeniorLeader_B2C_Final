@@ -98,6 +98,20 @@ const getSourceLabel = (source: string | undefined): string => {
   }
 };
 
+// ─── WEARABLE TIER ───
+type WearableTier = 'none' | 'absolute' | 'partial' | 'full';
+
+function getWearableTier(outerBrief: any): WearableTier {
+  const hasWearable = outerBrief?.hasWearable ?? false;
+  if (!hasWearable) return 'none';
+  const days = outerBrief?.wearableDaysConnected ?? 0;
+  const hasHistorical = outerBrief?.hasHistoricalData ?? false;
+  if (days >= 7 || hasHistorical) return 'full';
+  if (days >= 3) return 'partial';
+  if (days >= 1) return 'absolute';
+  return 'none';
+}
+
 // ─── CHIP BUILDER (deterministic, no LLM) ───
 function buildSignalChips(
   outerBrief: any,
@@ -106,18 +120,21 @@ function buildSignalChips(
 ): SignalChip[] {
   const chips: SignalChip[] = [];
   const hasCheckIn = !!energyState?.checkInOutcome;
-  const hasWearable = outerBrief?.hasWearable ?? false;
+  const tier = getWearableTier(outerBrief);
+  const wearableDataSource = outerBrief?.wearableDataSource ?? null;
+  const isAppleHealth = wearableDataSource === 'apple-healthkit';
   const wearableDays = outerBrief?.wearableDaysConnected ?? 0;
 
   if (!hasCheckIn) {
     return [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
   }
 
-  // Longitudinal qualifier
+  // Longitudinal qualifier – suppressed for Apple Health < 14 days
   const getQualifier = (isWorst10?: boolean, isBest7d?: boolean): string => {
+    if (tier !== 'full') return '';
+    if (isAppleHealth && wearableDays < 14) return ''; // Apple Health HRV inconsistency
     if (checkInCountTotal < 7) return '';
     if (isWorst10) {
-      if (checkInCountTotal >= 30) return ' · unusual for you';
       if (checkInCountTotal >= 15) return ' · unusual for you';
       return ' · unusual this week';
     }
@@ -125,96 +142,164 @@ function buildSignalChips(
     return '';
   };
 
-  // ── Wearable chips ──
-  if (hasWearable && wearableDays >= 7) {
+  // Tier qualifier suffix
+  const tierSuffix = tier === 'absolute' ? ' · establishing baseline' : tier === 'partial' ? ' · early reading' : '';
+
+  // Helper for back labels with baseline context
+  const hrvBaseline = outerBrief?.hrvBaseline;
+  const sleepBaseline = outerBrief?.sleepBaseline;
+  const rhrBaseline = outerBrief?.rhrBaseline;
+
+  const hrvBackLabel = (val: number | null, dev: number | null): string => {
+    if (val == null) return '';
+    if (tier === 'full' && hrvBaseline) return `HRV: ${val}ms (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${hrvBaseline}ms avg)`;
+    return `HRV: ${val}ms (baseline not yet established)`;
+  };
+
+  const sleepBackLabel = (dur: number | null, dev: number | null, score: number | null): string => {
+    if (dur != null) {
+      const hrs = Math.floor(dur / 60);
+      const mins = dur % 60;
+      const durStr = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+      if (tier === 'full' && sleepBaseline) {
+        const avgHrs = Math.floor(sleepBaseline / 60);
+        return `Sleep: ${durStr} (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${avgHrs}h avg)`;
+      }
+      return `Sleep: ${durStr}`;
+    }
+    if (score != null) {
+      if (tier === 'full' && sleepBaseline) return `Sleep score: ${score} (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${sleepBaseline} avg)`;
+      return `Sleep score: ${score}`;
+    }
+    return '';
+  };
+
+  const rhrBackLabel = (val: number | null, dev: number | null): string => {
+    if (val == null) return '';
+    if (tier === 'full' && rhrBaseline) return `RHR: ${val}bpm (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${rhrBaseline}bpm avg)`;
+    return `RHR: ${val}bpm (baseline not yet established)`;
+  };
+
+  // ── Wearable chips by tier ──
+  if (tier === 'full') {
+    // Full deviation-based logic
     const hrvDev = outerBrief?.hrvDeviation;
+    const hrvVal = outerBrief?.hrvValue;
     if (hrvDev != null) {
       if (hrvDev < -15) {
-        chips.push({
-          id: 'hrv',
-          label: 'Body under load',
-          backLabel: `HRV ${hrvDev}%`,
-          color: 'red',
-          qualifier: getQualifier(true),
-        });
+        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: getQualifier(true) });
       } else if (hrvDev >= -15 && hrvDev < -8) {
-        chips.push({
-          id: 'hrv',
-          label: 'Body under mild load',
-          backLabel: `HRV ${hrvDev}%`,
-          color: 'amber',
-        });
+        chips.push({ id: 'hrv', label: 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber' });
       } else if (hrvDev > 15) {
-        chips.push({
-          id: 'hrv',
-          label: 'Body recovered',
-          backLabel: `HRV +${hrvDev}%`,
-          color: 'green',
-          qualifier: getQualifier(false, true),
-        });
+        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: getQualifier(false, true) });
       } else if (hrvDev > 8) {
-        chips.push({
-          id: 'hrv',
-          label: 'Body recovered',
-          backLabel: `HRV +${hrvDev}%`,
-          color: 'green',
-        });
+        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green' });
       }
-      // -8 to +8: omit
     }
 
     // Sleep
     const sleepDev = outerBrief?.sleepDeviation;
     const sleepDur = outerBrief?.sleepDuration;
+    const sleepScore = outerBrief?.sleepScore;
     if (sleepDur != null && sleepDur < 360) {
-      chips.push({
-        id: 'sleep',
-        label: 'Short sleep',
-        backLabel: `${Math.round(sleepDur / 60)}h sleep`,
-        color: 'red',
-      });
+      chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red' });
     } else if (sleepDev != null) {
       if (sleepDev < -15) {
-        chips.push({
-          id: 'sleep',
-          label: 'Poor sleep',
-          backLabel: `Sleep ${sleepDev}%`,
-          color: 'red',
-          qualifier: ' · below your avg',
-        });
+        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: ' · below your avg' });
       } else if (sleepDev > 10) {
-        chips.push({
-          id: 'sleep',
-          label: 'Well rested',
-          backLabel: `Sleep +${sleepDev}%`,
-          color: 'green',
-          qualifier: ' · above your avg',
-        });
+        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: ' · above your avg' });
       }
     }
 
-    // RHR
+    // RHR (deviation-based)
+    const rhrDev = outerBrief?.rhrDeviation;
     const rhrVal = outerBrief?.rhrValue;
-    if (rhrVal != null) {
-      // Use rhrElevated flags from wearable context
-      if (rhrVal > 85) {
-        chips.push({
-          id: 'rhr',
-          label: 'HR elevated',
-          backLabel: `RHR ${rhrVal}bpm`,
-          color: 'red',
-        });
-      } else if (rhrVal > 75) {
-        chips.push({
-          id: 'rhr',
-          label: 'HR elevated',
-          backLabel: `RHR ${rhrVal}bpm`,
-          color: 'amber',
-        });
+    if (rhrDev != null) {
+      if (rhrDev > 20) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red' });
+      } else if (rhrDev > 10) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber' });
+      }
+      // <= 10%: omit (including negative — low RHR is good)
+    }
+  } else if (tier === 'partial') {
+    // Partial: use available deviation with "early reading" suffix, no personal qualifiers
+    const hrvDev = outerBrief?.hrvDeviation;
+    const hrvVal = outerBrief?.hrvValue;
+    if (hrvDev != null) {
+      if (hrvDev < -15) {
+        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: tierSuffix });
+      } else if (hrvDev >= -15 && hrvDev < -8) {
+        chips.push({ id: 'hrv', label: 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber', qualifier: tierSuffix });
+      } else if (hrvDev > 8) {
+        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: tierSuffix });
       }
     }
-  } else if (hasWearable && wearableDays < 7) {
-    chips.push({ id: 'wearable-cal', label: 'Wearable calibrating', color: 'neutral' });
+
+    const sleepDev = outerBrief?.sleepDeviation;
+    const sleepDur = outerBrief?.sleepDuration;
+    const sleepScore = outerBrief?.sleepScore;
+    if (sleepDur != null && sleepDur < 360) {
+      chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
+    } else if (sleepDev != null) {
+      if (sleepDev < -15) {
+        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
+      } else if (sleepDev > 10) {
+        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: tierSuffix });
+      }
+    }
+
+    const rhrDev = outerBrief?.rhrDeviation;
+    const rhrVal = outerBrief?.rhrValue;
+    if (rhrDev != null) {
+      if (rhrDev > 20) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red', qualifier: tierSuffix });
+      } else if (rhrDev > 10) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber', qualifier: tierSuffix });
+      }
+    }
+  } else if (tier === 'absolute') {
+    // Absolute thresholds for day 1-2, no history
+    const hrvVal = outerBrief?.hrvValue;
+    const sleepDur = outerBrief?.sleepDuration;
+    const sleepScore = outerBrief?.sleepScore;
+    const rhrVal = outerBrief?.rhrValue;
+
+    if (hrvVal != null) {
+      if (hrvVal < 20) {
+        chips.push({ id: 'hrv', label: 'Body under significant load', backLabel: hrvBackLabel(hrvVal, null), color: 'red', qualifier: tierSuffix });
+      } else if (hrvVal < 40) {
+        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, null), color: 'amber', qualifier: tierSuffix });
+      } else if (hrvVal > 70) {
+        chips.push({ id: 'hrv', label: 'Body well recovered', backLabel: hrvBackLabel(hrvVal, null), color: 'green', qualifier: tierSuffix });
+      }
+    }
+
+    // Sleep: prefer score if available, else duration
+    if (sleepScore != null) {
+      if (sleepScore < 60) {
+        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'red', qualifier: tierSuffix });
+      } else if (sleepScore > 75) {
+        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'green', qualifier: tierSuffix });
+      }
+    } else if (sleepDur != null) {
+      if (sleepDur < 360) {
+        chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, null, null), color: 'red', qualifier: tierSuffix });
+      } else if (sleepDur < 420) {
+        chips.push({ id: 'sleep', label: 'Light sleep', backLabel: sleepBackLabel(sleepDur, null, null), color: 'amber', qualifier: tierSuffix });
+      }
+    }
+
+    if (rhrVal != null) {
+      if (rhrVal > 90) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, null), color: 'red', qualifier: tierSuffix });
+      } else if (rhrVal > 80) {
+        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, null), color: 'amber', qualifier: tierSuffix });
+      }
+    }
+  } else {
+    // none: prompt chip
+    chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
   }
 
   // ── Felt state chips ──
