@@ -25,7 +25,7 @@ const FloatingCoachButton = () => {
             },
           })
         }
-        className="fixed z-[200] sm:hidden flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20"
+        className="fixed z-[40] sm:hidden flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20"
         style={{
           right: 16,
           bottom: 84,

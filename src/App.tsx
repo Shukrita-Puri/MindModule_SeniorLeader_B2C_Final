@@ -80,8 +80,8 @@ const ScrollToTop = () => {
 import FloatingPillNav from "./components/navigation/FloatingPillNav";
 import FloatingCoachButton from "./components/navigation/FloatingCoachButton";
 
-// Pages where coach FAB should be hidden (check-in flow)
-const COACH_HIDDEN_ROUTES = ['/daily-check-in', '/check-in-detail', '/onboarding', '/signup', '/login', '/callback', '/join'];
+// Coach FAB only appears on these core hub pages
+const COACH_VISIBLE_ROUTES = ['/executive-home', '/recalibrate', '/insights'];
 
 // Bottom pill nav is only shown on core app destinations after the executive home entry point.
 const PILL_NAV_VISIBLE_ROUTES = [
@@ -102,7 +102,7 @@ const matchesRoutePrefix = (pathname: string, route: string) => (
 // Simple layout wrapper with push notification handler
 const Layout = () => {
   const { pathname } = useLocation();
-  const hideCoach = COACH_HIDDEN_ROUTES.some((route) => matchesRoutePrefix(pathname, route));
+  const showCoach = COACH_VISIBLE_ROUTES.some((route) => matchesRoutePrefix(pathname, route));
   const showPillNav = PILL_NAV_VISIBLE_ROUTES.some((route) => matchesRoutePrefix(pathname, route));
 
   // Hide floating nav elements during the onboarding tour
@@ -122,7 +122,7 @@ const Layout = () => {
       <PushNotificationProvider />
       <PushNotificationActionHandler />
       {showPillNav && !tourActive && <FloatingPillNav />}
-      {!hideCoach && !tourActive && <FloatingCoachButton />}
+      {showCoach && !tourActive && <FloatingCoachButton />}
       <Outlet />
     </AuthProvider>
   );
