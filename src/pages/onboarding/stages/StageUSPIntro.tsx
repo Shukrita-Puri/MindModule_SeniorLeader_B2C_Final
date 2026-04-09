@@ -73,7 +73,7 @@ export default function StageUSPIntro() {
   useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
 
   /* ── Dot indicators ── */
-  const dots = (
+  const dots = (inactiveDotClass = "w-2 bg-white/30") => (
     <div className="flex justify-center gap-2 mb-6">
       {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
         <div
@@ -81,7 +81,7 @@ export default function StageUSPIntro() {
           className={`h-2 rounded-full transition-all duration-300 ${
             i === activeDot
               ? "w-6 bg-saffron"
-              : "w-2 bg-white/30"
+              : inactiveDotClass
           }`}
         />
       ))}
