@@ -33,17 +33,19 @@ export default function Stage1Welcome() {
             Executive Edition
           </p>
 
-          {/* Descriptive text */}
-          <div className="space-y-4 max-w-sm mx-auto mt-8">
-            <p className="text-[15px] text-white/80 font-body leading-relaxed">
-              Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
-            </p>
-            <p className="text-[15px] text-white/80 font-body leading-relaxed">
-              Six questions build your Leadership Performance Profile – the intelligence layer that makes everything personal to you and your day.
-            </p>
-            <p className="text-[15px] text-white/80 font-body leading-relaxed">
-              The more honest you are, the sharper it gets.
-            </p>
+          {/* Descriptive text — glass card for readability */}
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
+            <div className="space-y-4">
+              <p className="text-[15px] text-white/90 font-body leading-relaxed">
+                Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
+              </p>
+              <p className="text-[15px] text-white/90 font-body leading-relaxed">
+                Six questions build your Leadership Performance Profile – the intelligence layer that makes everything personal to you and your day.
+              </p>
+              <p className="text-[15px] text-white/90 font-body leading-relaxed">
+                The more honest you are, the sharper it gets.
+              </p>
+            </div>
           </div>
         </div>
 
