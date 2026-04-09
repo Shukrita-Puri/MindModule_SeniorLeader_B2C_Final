@@ -1,120 +1,66 @@
 
 
-# Signal Triage + Temporal Triangulation Refactor
+# Mobile-Native Corrections: Bottom Nav, Tour, and Profile
 
-## The Problem (Claude is right)
+## Problems Identified
 
-The current prompt (lines 3053-3197) sends ~145 lines / ~600 tokens to the LLM, including many "NULL" fields. The LLM must triage noisy data before doing its actual job: writing 2 sentences. This produces inconsistent, often generic output.
+1. **Bottom nav covers content**: The FloatingPillNav (z-180, bottom ~12px) and CoachFAB (z-200, bottom 84px) overlap scrollable content — including the Performance Readiness Plan section and any profile-related elements near the bottom of the sidebar.
 
-## The Fix
+2. **Tour Step 3 (Plan) not scrolled into view**: Step 3 targets `[data-tour="daily-plan"]` with `scrollBlock: 'start'` but the element is far down the page. The bottom nav (and Coach FAB) cover the plan card and tour tooltip. The tour overlay z-index (9999) is above the nav (180), but the spotlighted element is at z-61 — visually buried.
 
-Two new TypeScript functions replace the monolithic prompt construction. All 15 data queries remain unchanged — only the prompt delivery changes.
+3. **Tour tooltip position inconsistency**: Each step places the tooltip in a different screen position (centered, below target, above target), creating a jumpy, non-native feel.
 
-### 1. `buildPrioritisedSignals()` — Signal Triage
+---
 
-Selects max 5 signals in strict priority order. No NULLs ever sent.
+## Fixes
 
-**Priority cascade:**
-1. JIT event < 90 mins (always dominates) + HRV correlation if available
-2. Wearable divergence MASKED_HIGH (body load user hasn't registered)
-3. Most specific personalisation: coach commitment > coach pattern > consecutive low days (3+) > today vs typical DOW
-4. Tomorrow context (evenings only): heavy tomorrow or rest-day-eve
-5. Week ahead (Sunday evening only): heaviest day + first HS event
-6. Physiological deviation (HRV/sleep) if not already covered by divergence
-7. Score trajectory vs yesterday (if delta > 5)
-8. Back-to-back density (if longest block >= 2hrs)
+### Fix 1: Hide FloatingPillNav and CoachFAB during the tour
 
-Cap at 5. Priority order is the filter.
+**File**: `src/App.tsx`
 
-### 2. `triangulateSignals()` — Cross-Horizon Connection
+During the first-session tour, both floating elements should be hidden to prevent overlap. Detect `first_session_guide_active` from sessionStorage (already set) and suppress rendering.
 
-Classifies each available signal into a temporal horizon:
-- **Immediate**: JIT event, divergence mode, current tier/score, felt state
-- **Tactical**: HRV correlation, consecutive patterns, DOW comparison, trajectory, friction trend
-- **Strategic**: Coach commitment, coach growth area, archetype watch-for
+- Add a state/effect in `Layout` that listens for the tour active key.
+- When tour is active: `showPillNav = false`, `hideCoach = true`.
 
-Then computes `crossHorizonConnection`:
-- `immediate_confirms_tactical` — today confirms a pattern
-- `tactical_connects_strategic` — pattern connects to development goal
-- `immediate_activates_strategic` — today tests a growth area
-- `immediate_tactical_strategic` — all three align (strongest signal)
+### Fix 2: Tour Step 3 — scroll plan to center with safe padding
 
-Also determines `dominantHorizon` (which horizon leads the sentence).
+**File**: `src/components/onboarding/FirstSessionGuide.tsx`
 
-### 3. Restructured Prompt (~150 tokens, not ~600)
+- Change Step 3's `scrollBlock` from `'start'` to `'center'` so the plan card is centered in viewport.
+- After `scrollIntoView`, add a delay before measuring to allow scroll to settle.
+- In `computePosition()`, clamp tooltip `top` to account for bottom safe area (add ~80px bottom margin to prevent tooltip from sitting behind where the nav normally lives, even though nav is hidden during tour).
 
-**System prompt** (shorter, adds triangulation core rule):
-```
-You are a performance intelligence system briefing a C-suite leader.
-Voice: trusted chief of staff. Precise. Never generic.
+### Fix 3: Standardize tour tooltip position across all 3 steps
 
-Produce two things:
-1. PHRASE: 3-6 words. Crisp directive.
-2. BODY: One sentence, max 15 words. **Bold** the key action.
+**File**: `src/components/onboarding/FirstSessionGuide.tsx`
 
-Core rule: if triangulation data is provided, the body MUST connect
-at least two time horizons — what is true now AND what pattern or
-goal this connects to.
+Mobile-native best practice: the tooltip should always appear in a **consistent, predictable location** — ideally below the spotlight for steps 1 and 2, and above for step 3 (since the plan is lower on the page). The key fix:
 
-Rules: [same hard rules, condensed — no wellness words, no affirmations,
-no "readiness", JIT < 90 dominates, null = output null]
-```
+- Set all tooltip positions to use `'below'` as default preference, falling back to `'above'` only when insufficient space below.
+- Ensure the tooltip width/padding is consistent (already `calc(100% - 32px)`).
+- Add a max-bottom constraint: `Math.min(top, vH - tooltipH - safeAreaBottom - 16)` to prevent bottom-edge clipping.
 
-**User prompt** (dynamically assembled, zero NULLs):
-```
-[tier] · [score]/100 · [timeOfDay] · [dayName]
+### Fix 4: Profile button clearance
 
-[IF context frame]: Context: [one line — Sunday/Friday/Monday framing]
+**File**: `src/components/navigation/LeftSidebar.tsx`
 
-Key signals:
-[5 lines max from buildPrioritisedSignals()]
+The sidebar footer (`UserSettingsPopover`) needs bottom padding to clear the floating pill nav when the sidebar sheet is open on mobile.
 
-[IF crossHorizonConnection]:
-Triangulation:
-  Now: [immediateSignal]
-  Pattern: [tacticalSignal]
-  Development: [strategicSignal]
-  Connection: [type + framing guide]
-  Lead with: [dominantHorizon]
+- Add `pb-[calc(env(safe-area-inset-bottom)+72px)] sm:pb-0` to the `SidebarFooter` to push the profile/settings button above the pill nav on mobile.
 
-[IF coachStrength]: Their strength: [text]
-[IF archetype]: Archetype: [title]
-```
+Alternatively, hide the pill nav when the sidebar sheet is open (cleaner approach):
+- In `Layout`, detect sidebar open state and suppress `FloatingPillNav` when mobile sidebar is visible.
 
-### 4. Framing guides (in triangulation section only when connection exists)
+---
 
-- `immediate_confirms_tactical`: "Today is confirming a pattern — connect the two explicitly."
-- `tactical_connects_strategic`: "The pattern connects to their development goal — make that connection visible."
-- `immediate_activates_strategic`: "Today's state activates their development area — connect them."
-- `immediate_tactical_strategic`: "All three horizons align — this is the most powerful brief. Be specific."
+## Summary of changes
 
-## What Changes
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Hide pill nav + coach FAB during active tour |
+| `src/components/onboarding/FirstSessionGuide.tsx` | Fix Step 3 scroll to center; standardize tooltip position; add bottom safe-area clamping |
+| `src/components/navigation/LeftSidebar.tsx` | Add bottom padding to sidebar footer for pill nav clearance on mobile |
 
-**File**: `supabase/functions/compute-outer-readiness/index.ts`
-
-1. Add `buildPrioritisedSignals()` function (~60 lines) before the LLM block
-2. Add `triangulateSignals()` function (~80 lines) before the LLM block
-3. Add `getContextFrame()` helper (~10 lines) — returns one context line for Sunday/Friday/Monday or null
-4. Replace lines 3009-3197 (system prompt + user prompt construction) with the new short prompt assembled from triage + triangulation output
-5. LLM call mechanics (lines 3199-3242), fallback logic, and response payload — all unchanged
-
-## What Does NOT Change
-
-- All 15 enrichment data queries (they feed the triage function)
-- The deterministic fallback template system (`getTheme`, `buildMorningTheme`, etc.)
-- The LLM call mechanics (same endpoint, same model, same timeout, same JSON parsing)
-- The response payload structure
-- All auth, scoring, and cascade logic
-
-## Why This Is Better for Gemini Flash
-
-- ~75% fewer tokens per call — Gemini Flash is optimized for short focused prompts
-- Zero NULL noise — model never has to decide what to ignore
-- "Reference at least one specific signal" + only 5 signals = consistently data-grounded output
-- Triangulation instruction produces output that connects horizons (feels intelligent, not just informed)
-- Triage function is deterministic and unit-testable — you can see exactly which signals were selected
-
-## Patent Alignment
-
-The triangulation function directly implements the patent's Core Innovation 1 (temporal triangulation across immediate/tactical/strategic horizons) in code, not just in data collection. The `crossHorizonConnection` computation and the LLM instruction to reference multiple horizons makes the patent claim demonstrable in the output.
+All changes are mobile-only (`sm:hidden` scoped) and preserve desktop behavior.
 
