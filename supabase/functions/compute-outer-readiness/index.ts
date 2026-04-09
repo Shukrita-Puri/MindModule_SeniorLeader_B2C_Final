@@ -3006,195 +3006,193 @@ serve(async (req) => {
             scoreVsTypicalDOW = diff > 8 ? 'better' : diff < -8 ? 'worse' : 'consistent';
           }
 
-          // ── System Prompt ──
-          const systemPrompt = `You are a performance intelligence system writing a ${timeOfDayStr} brief for a C-suite leader.
+          // ── Signal Triage: select max 5 most relevant signals ──
+          const triageSignals: string[] = [];
 
-Your voice: a trusted chief of staff who has watched this person's data for weeks and speaks with precision, never fluff.
-
-Your job: produce two things.
-
-1. PHRASE: 3-6 words. A crisp directive. Active, specific, earned by their data.
-   Examples: 'Pace from the start.' 'Use the edge now.' 'Protect what you have.' 'Ground before the board.' 'This is your window.'
-
-2. BODY: One sentence. Maximum 15 words. References something specific to them. Bolds the key action with **double asterisks**. Never generic. Never a template.
-
-Hard rules — no exceptions:
-- No wellness words ever: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine, nourish, recharge
-- No affirmations or encouragement
-- No softening language
-- C-suite register only: direct, precise, data-referenced
-- Wearable data > felt state when both exist and diverge
-- Coach memory > generic patterns when available
-- If a field is NULL: ignore it entirely, never reference it, never fabricate
-- If you cannot produce something specific and non-generic: output null for that field
-- JIT event within 90 mins: the brief MUST orient around it
-- Never repeat the phrase in the body
-- Never use the word 'readiness'
-- If calendar load is 'none': user has no calendar connected — do not reference meetings, calendar density, or scheduling
-
-SUNDAY EVENING RULE:
-When Is Sunday evening = yes:
-  This is the highest-value brief of the week. The leader is mentally preparing to re-enter.
-  Do NOT write a reflection brief. Do NOT summarise the weekend. Write a forward brief.
-  Orient around: (1) What Monday looks like (specific), (2) The week's pressure point (heaviest day / first high-stakes event), (3) One thing to carry in vs leave behind.
-  If Monday is heavy: directive phrase. If Monday is light: spacious phrase.
-  Never write: 'Reflect on your week' or 'Prepare for tomorrow' (too generic).
-  Always write toward the specific shape of what's coming.
-
-FRIDAY/PRE-REST-DAY EVENING RULE:
-When Is day before a rest day = yes (Friday evening, eve of public holiday, eve of personal holiday):
-  This is a transition brief. The leader is closing out and heading into recovery.
-  Frame as closure and release — not planning.
-  If next week has immediate high-stakes visible: "Don't fully unplug — [event] needs mental space."
-  If no upcoming pressure: "Disconnect fully. You have runway."
-  Never write operational preparation language for the next workday.`;
-
-          // ── User Prompt (conditional sections) ──
-          let userPrompt = `Write a brief for this leader. Use only AVAILABLE data. Ignore and never reference NULL fields.
-
-=== TIME CONTEXT ===
-Current time: ${localTimeStr} local
-Time of day: ${timeOfDayStr}
-Day: ${dayName}
-Is weekend: ${isWeekend ? 'yes' : 'no'}
-Is day before a rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}
-Hour of day: ${hour}
-Hours remaining in workday: ${hoursRemaining != null ? hoursRemaining : 'NULL'}
-
-=== TODAY'S READINESS ===
-Score today: ${innerReadinessScore}/100 (${safeTier})
-Score yesterday: ${yesterdayScore != null ? yesterdayScore + '/100' : 'NULL'}
-Score trend: ${scoreTrend || 'NULL'}
-Score vs typical ${dayName}: ${scoreVsTypicalDOW || 'NULL'}
-Felt state: ${checkInOutcome || 'NULL'}
-Clarity: ${clarityLevel != null ? clarityLevel + '/5' : 'NULL'}
-Confidence: ${confidenceLevel != null ? confidenceLevel + '/5' : 'NULL'}`;
-
-          // Wearable section
-          if (hasWearable) {
-            userPrompt += `
-
-=== WEARABLE ===
-HRV vs 30-day baseline: ${hrvDeviation != null ? (hrvDeviation > 0 ? '+' : '') + hrvDeviation + '%' : 'NULL'}
-  Is this unusual for them: ${hrvUnusual != null ? (hrvUnusual ? 'yes' : 'no') : 'NULL'}
-Sleep vs 30-day baseline: ${sleepDeviation != null ? (sleepDeviation > 0 ? '+' : '') + sleepDeviation + '%' : 'NULL'}
-  Hard floor breach (<6hrs): ${sleepHardFloor ? 'yes' : 'no'}
-RHR vs 30-day baseline: ${rhrDeviation != null ? (rhrDeviation > 0 ? '+' : '') + rhrDeviation + '%' : 'NULL'}
-Wearable divergence mode: ${divergenceMode || 'NULL'}
-  MASKED_HIGH = wearable much worse than felt state — body under load the leader hasn't registered
-  RECOVERY_UNDERWAY = wearable much better than felt state — body recovering faster than perceived
-Wearable confidence: ${wearableConfidence || 'NULL'}`;
+          // RULE 1: JIT event < 90 mins — always first, dominates
+          if (nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 90) {
+            triageSignals.push(`HIGH PRIORITY: ${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil} mins`);
+            if (hrvEventCorrelation) triageSignals.push(`Pattern: ${hrvEventCorrelation}`);
           }
 
-          // Calendar section
-          if (calendarResult.state === 'active') {
-            const hsToday = todayHighStakes.length > 0 ? todayHighStakes.join(', ') : 'NONE';
-            const nextEvStr = nextEventAny ? `${nextEventAny.title}` : 'NULL';
-            const nextEvMins = nextEventAny ? `${nextEventAny.minutesUntil}` : 'NULL';
-            const nextHSStr = nextHighStakesEvent ? nextHighStakesEvent.title : 'NULL';
-            const nextHSMins = nextHighStakesEvent ? `${nextHighStakesEvent.minutesUntil}` : 'NULL';
-
-            userPrompt += `
-
-=== CALENDAR TODAY ===
-Load: ${calendarLoad || 'low'}
-Total meetings: ${calendarResult.meetingCount}
-Meetings remaining today: ${calendarResult.remainingMeetings}
-Back-to-back meetings: ${hasBackToBack ? 'yes' : 'no'}${hasBackToBack && longestBackToBackHrs ? `\n  Longest back-to-back block: ${longestBackToBackHrs} hrs` : ''}
-High-stakes events today: ${hsToday}
-Next event title: ${nextEvStr}
-Next event in: ${nextEvMins} minutes
-Next high-stakes event title: ${nextHSStr}
-Next high-stakes event in: ${nextHSMins} minutes
-  < 30 mins: orient entirely around this event
-  30-90 mins: surface preparation angle
-  > 90 mins: context only, mention but don't dominate`;
+          // RULE 2: Wearable divergence MASKED_HIGH
+          if (divergenceMode === 'MASKED_HIGH') {
+            triageSignals.push(`Body signal: wearable shows load not yet registered (HRV ${hrvDeviation != null ? (hrvDeviation > 0 ? '+' : '') + hrvDeviation : '?'}% vs baseline)`);
+          } else if (divergenceMode === 'RECOVERY_UNDERWAY') {
+            triageSignals.push(`Body signal: recovery underway — wearable improving faster than perceived`);
           }
 
-          // Tomorrow context (evenings, Friday, Sunday)
-          if (isEvening || isFridayEvening || isSundayEvening2) {
-            const tomorrowDayName = dayNames2[(dayOfWeek + 1) % 7];
-            userPrompt += `
-
-=== TOMORROW CONTEXT ===
-Tomorrow is: ${tomorrowDayName}
-Tomorrow load: ${tomorrowLoad || 'none'}
-Tomorrow first event: ${tomorrowFirstEventTime || 'NULL'}${tomorrowFirstEventTime && parseInt(tomorrowFirstEventTime.split(':')[0]) < 8 ? ' (early start)' : ''}
-Tomorrow has high-stakes events: ${tomorrowHighStakesTitles.length > 0 ? 'yes' : 'no'}
-Tomorrow high-stakes titles: ${tomorrowHighStakesTitles.length > 0 ? tomorrowHighStakesTitles.join(', ') : 'NULL'}
-Tomorrow vs today load: ${tomorrowVsTodayLoad || 'NULL'}`;
+          // RULE 3: Most specific personalisation (cascade)
+          if (pendingCommitment) {
+            triageSignals.push(`Coach commitment: ${pendingCommitment}`);
+          } else if (recentPattern) {
+            triageSignals.push(`Coach pattern: ${recentPattern}`);
+          } else if (consecutiveLowDays >= 3) {
+            triageSignals.push(`Pattern: ${consecutiveLowDays} consecutive ${safeTier} days`);
+          } else if (typicalDOWOutcome && scoreVsTypicalDOW && scoreVsTypicalDOW !== 'consistent') {
+            triageSignals.push(`Today vs typical ${dayName}: ${scoreVsTypicalDOW} (usually ${typicalDOWOutcome})`);
           }
 
-          // Week ahead (Sunday evening only)
+          // RULE 4: Tomorrow context on evenings
+          if ((isEvening || isFridayEvening || isSundayEvening2) && tomorrowLoad) {
+            if (isDayBeforeRestDay) {
+              triageSignals.push(`Tomorrow: rest day ahead`);
+            } else if (tomorrowLoad === 'high' || tomorrowHighStakesTitles.length > 0) {
+              triageSignals.push(`Tomorrow: ${tomorrowLoad} load${tomorrowHighStakesTitles.length > 0 ? ' · ' + tomorrowHighStakesTitles[0] : ''}`);
+            }
+          }
+
+          // RULE 5: Week ahead (Sunday evening only)
           if (isSundayEvening2 && weekAheadShape) {
             const wa = weekAheadShape as any;
-            const monFirst = wa.mondayFirstEvent;
-            userPrompt += `
-
-=== WEEK AHEAD ===
-Heaviest day next week: ${wa.heaviestDay} (${wa.heaviestDayLoad})
-First high-stakes event: ${wa.firstHighStakesDay || 'NULL'}
-Total high-stakes events next week: ${wa.totalHighStakesNextWeek}
-Light days next week: ${wa.lightDaysNextWeek?.length > 0 ? wa.lightDaysNextWeek.join(', ') : 'NONE'}
-Monday load: ${wa.mondayLoad}
-Monday first event: ${monFirst ? monFirst.title + ' · ' + monFirst.time : 'NULL'}
-Monday has high-stakes: ${wa.mondayHasHighStakes ? 'yes' : 'no'}`;
+            triageSignals.push(`Week ahead: heaviest day ${wa.heaviestDay}${wa.firstHighStakesDay ? ' · first high-stakes: ' + wa.firstHighStakesDay : ''}`);
           }
 
-          // Short-term patterns
-          if (checkInCountTotal >= 3) {
-            userPrompt += `
-
-=== SHORT-TERM PATTERNS ===
-Dominant state this week: ${dominantOutcome7d || 'NULL'}
-7-day average score: ${avgScore7d != null ? avgScore7d + '/100' : 'NULL'}
-Score trajectory this week: ${scoreTrajectory7d || 'NULL'}
-Wearable trend this week: ${wearableTrend7d || 'NULL'}
-Practices completed this week: ${practicesCompletedThisWeek}
-Practice completion rate this week: ${practiceCompletionRate}%
-Coach session this week: ${daysSinceCoachSession != null && daysSinceCoachSession <= 7 ? 'yes' : 'no'}
-Coach session impact: ${coachSessionImpactDelta != null ? (coachSessionImpactDelta > 0 ? '+' : '') + coachSessionImpactDelta + ' points next-day delta' : 'NULL'}
-Days since last coach session: ${daysSinceCoachSession != null ? daysSinceCoachSession : 'NULL'}`;
+          // RULE 6: Physiological deviation (if not already covered by divergence)
+          if (divergenceMode !== 'MASKED_HIGH' && divergenceMode !== 'RECOVERY_UNDERWAY') {
+            if (hrvDeviation != null && Math.abs(hrvDeviation) > 8) {
+              triageSignals.push(`HRV ${hrvDeviation > 0 ? '+' : ''}${hrvDeviation}% vs baseline`);
+            } else if (sleepHardFloor) {
+              triageSignals.push(`Sleep under 6hrs — hard floor breach`);
+            }
           }
 
-          // Mid-term patterns
-          if (checkInCountTotal >= 7) {
-            userPrompt += `
-
-=== MID-TERM PATTERNS ===
-Typical ${dayName} outcome: ${typicalDOWOutcome || 'NULL'}
-Typical ${dayName} score: ${typicalDOWScore != null ? typicalDOWScore + '/100' : 'NULL'}
-Friction trend (30 days): ${frictionTrend || 'NULL'}
-HRV correlation for today's event type: ${hrvEventCorrelation || 'NULL'}
-Most effective practice for this user: ${mostEffectivePractice || 'NULL'}
-Coach-identified strength: ${coachStrength || 'NULL'}
-Coach-identified growth area: ${coachGrowth || 'NULL'}
-Pending coach commitment: ${pendingCommitment || 'NULL'}
-Recent coach-noted pattern: ${recentPattern || 'NULL'}`;
+          // RULE 7: Score trajectory vs yesterday (if meaningful)
+          if (scoreTrend && yesterdayScore != null && Math.abs(innerReadinessScore - yesterdayScore) > 5) {
+            triageSignals.push(`Score ${scoreTrend} vs yesterday: ${innerReadinessScore} vs ${yesterdayScore}`);
           }
 
-          // Long-term
-          if (checkInCountTotal >= 30) {
-            userPrompt += `
-
-=== LONG-TERM ===
-Archetype: ${serverArchetype || 'NULL'}`;
+          // RULE 8: Back-to-back density
+          if (hasBackToBack && longestBackToBackHrs && longestBackToBackHrs >= 2) {
+            triageSignals.push(`Back-to-back block: ${longestBackToBackHrs}hrs`);
           }
 
-          // Special context flags
-          userPrompt += `
+          // Cap at 5 signals
+          const selectedSignals = triageSignals.slice(0, 5);
 
-=== SPECIAL CONTEXT FLAGS ===
-Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}
-Is Friday evening: ${isFridayEvening ? 'yes' : 'no'}
-Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'}
-Is public holiday: ${isPublicHoliday ? 'yes · ' + holidayName : 'no'}
-Is day after poor sleep: ${dayAfterPoorSleep ? 'yes' : 'no'}
-Is consecutive low day: ${consecutiveLowDays >= 2 ? 'yes · consecutive_count = ' + consecutiveLowDays + ' days' : 'no'}
-State shift today: ${stateShiftToday ? 'yes · direction = ' + stateShiftDirection : 'no'}
+          // ── Temporal Triangulation ──
+          // Immediate: what is true right now
+          const immediateSignal =
+            (nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 90)
+              ? `${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil} mins`
+            : divergenceMode === 'MASKED_HIGH'
+              ? `Body showing load not yet registered (HRV ${hrvDeviation ?? '?'}%)`
+            : safeTier === 'depleted'
+              ? `Depleted state — score ${innerReadinessScore}/100`
+            : checkInOutcome
+              ? `${checkInOutcome} state today`
+            : null;
 
-Output ONLY valid JSON:
-{"phrase": "3-6 word directive or null", "bodyText": "one sentence **bold action** or null"}`;
+          // Tactical: what patterns say
+          const tacticalSignal =
+            hrvEventCorrelation
+              ? hrvEventCorrelation
+            : consecutiveLowDays >= 3
+              ? `${consecutiveLowDays} consecutive ${safeTier} days`
+            : (scoreVsTypicalDOW && scoreVsTypicalDOW !== 'consistent' && typicalDOWOutcome)
+              ? `${scoreVsTypicalDOW} than typical ${dayName} (usually ${typicalDOWOutcome})`
+            : (frictionTrend === 'declining')
+              ? `Friction declining over 30 days`
+            : (scoreTrajectory7d === 'declining' && avgScore7d != null)
+              ? `Score declining this week — avg ${avgScore7d}/100`
+            : null;
+
+          // Strategic: what development goals say
+          const strategicSignal =
+            pendingCommitment
+              ? `Pending coach commitment: ${pendingCommitment}`
+            : coachGrowth
+              ? `Coach growth area: ${coachGrowth}`
+            : (archetypeWatchFor)
+              ? `Archetype watch for: ${archetypeWatchFor}`
+            : null;
+
+          // Cross-horizon connection
+          let crossHorizonConnection: string | null = null;
+          let connectionFraming = '';
+          let dominantHorizon: 'immediate' | 'tactical' | 'strategic' = 'immediate';
+
+          if (immediateSignal && tacticalSignal && strategicSignal) {
+            crossHorizonConnection = 'immediate_tactical_strategic';
+            connectionFraming = 'All three horizons align — this is the most powerful brief. Be specific.';
+            dominantHorizon = 'tactical';
+          } else if (immediateSignal && tacticalSignal) {
+            crossHorizonConnection = 'immediate_confirms_tactical';
+            connectionFraming = 'Today is confirming a pattern — connect the two explicitly.';
+            dominantHorizon = 'tactical';
+          } else if (tacticalSignal && strategicSignal) {
+            crossHorizonConnection = 'tactical_connects_strategic';
+            connectionFraming = 'The pattern connects to their development goal — make that connection visible.';
+            dominantHorizon = 'strategic';
+          } else if (immediateSignal && strategicSignal) {
+            crossHorizonConnection = 'immediate_activates_strategic';
+            connectionFraming = "Today's state activates their development area — connect them.";
+            dominantHorizon = 'strategic';
+          }
+
+          // Override: JIT < 90 always immediate
+          if (nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 90) dominantHorizon = 'immediate';
+
+          // ── Context Frame ──
+          const contextFrame =
+            isSundayEvening2 ? 'Preparing for the week ahead. Write forward, not reflective.'
+            : isDayBeforeRestDay ? 'Heading into rest. Frame as closure and release.'
+            : isMondayMorning ? 'Week is being set right now. Frame as intentional and forward.'
+            : null;
+
+          // ── System Prompt (short, focused) ──
+          const systemPrompt = `You are a performance intelligence system briefing a C-suite leader.
+Voice: trusted chief of staff. Precise. Never generic. Never fluffy.
+
+Produce two things:
+1. PHRASE: 3-6 words. Crisp directive earned by their data.
+2. BODY: One sentence, max 15 words. **Bold** the key action.
+
+Core rule: if triangulation data is provided, the body MUST connect at least two time horizons — what is true now AND what pattern or goal this connects to. This is what makes the brief feel like it knows the leader.
+
+Rules (no exceptions):
+- Reference at least one specific signal provided
+- No wellness words ever: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine, nourish, recharge
+- No affirmations, no softening, no encouragement
+- C-suite register only: direct, precise, data-referenced
+- Wearable data > felt state when they diverge
+- Never say "readiness"
+- Never repeat the phrase in the body
+- JIT event within 90 mins: orient entirely around it
+- If calendar load is 'none': do not reference meetings or scheduling
+- If signals are insufficient for specificity: output null
+
+Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
+
+          // ── User Prompt (dynamically assembled, zero NULLs) ──
+          let userPrompt = `${safeTier} · ${innerReadinessScore}/100 · ${timeOfDayStr} · ${dayName}`;
+
+          if (contextFrame) {
+            userPrompt += `\n\nContext: ${contextFrame}`;
+          }
+
+          if (selectedSignals.length > 0) {
+            userPrompt += `\n\nKey signals for today:\n${selectedSignals.join('\n')}`;
+          }
+
+          if (crossHorizonConnection) {
+            userPrompt += `\n\nTriangulation:`;
+            if (immediateSignal) userPrompt += `\n  Now: ${immediateSignal}`;
+            if (tacticalSignal) userPrompt += `\n  Pattern: ${tacticalSignal}`;
+            if (strategicSignal) userPrompt += `\n  Development: ${strategicSignal}`;
+            userPrompt += `\n  Connection: ${crossHorizonConnection} — ${connectionFraming}`;
+            userPrompt += `\n  Lead with: ${dominantHorizon}`;
+          }
+
+          if (coachStrength) {
+            userPrompt += `\n\nTheir strength (from coach): ${coachStrength}`;
+          }
+
+          if (serverArchetype) {
+            userPrompt += `\n\nArchetype: ${serverArchetype}`;
+            if (archetypeLeanOn) userPrompt += ` — lean on ${archetypeLeanOn}`;
+            if (archetypeWatchFor) userPrompt += `, watch for ${archetypeWatchFor}`;
+          }
 
           // ── Call LLM ──
           const controller = new AbortController();
