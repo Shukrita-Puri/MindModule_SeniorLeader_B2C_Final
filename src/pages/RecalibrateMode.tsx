@@ -103,7 +103,7 @@ const RecalibrateMode = () => {
           Reset Studio
         </h1>
         <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
-          Practical mind reset tools used by high performers – from centuries of proven techniques to modern execution.
+          Performance protocols drawn from centuries of proven wisdom — practiced by the world's highest performers.
         </p>
       </div>
 
