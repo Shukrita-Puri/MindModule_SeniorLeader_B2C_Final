@@ -11,8 +11,6 @@ const ONBOARDING_WHITELIST = ['/onboarding/payment'];
 
 /**
  * Check if onboarding is complete by querying DB progress.
- * Returns true if completed_at is set in onboarding_progress.
- * Used as reconciliation when profile.onboarding_completed_at is missing.
  */
 async function checkDbOnboardingCompletion(): Promise<boolean> {
   try {
@@ -42,12 +40,8 @@ async function checkDbOnboardingCompletion(): Promise<boolean> {
 
 /**
  * Wraps protected routes to enforce onboarding completion.
- * 
- * Resolution order:
- * 1. If user.onboarding_completed_at exists → allow through immediately
- * 2. If missing → check DB onboarding_progress.completed_at (reconciliation)
- *    - If DB says completed → allow through (profile will sync on next refresh)
- *    - If DB says incomplete → fetch resume route and redirect
+ * Shows loading until completion is definitively resolved — never
+ * redirects an authenticated user into /onboarding based on stale state.
  */
 export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, refreshProfile } = useAuth();
@@ -60,25 +54,21 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
     if (loading || !user) return;
     if (resolved) return;
 
-    console.log('[OnboardingGuard] user:', user.id, 'onboarding_completed_at:', user.onboarding_completed_at, 'path:', location.pathname);
-
     // Fast path: profile says completed
     if (user.onboarding_completed_at) {
-      console.log('[OnboardingGuard] ✅ Onboarding completed, allowing access');
       setResolved(true);
       return;
     }
 
-    // Slow path: reconcile via DB
+    // Slow path: reconcile via DB — show loading, never redirect prematurely
     if (resolving) return;
     setResolving(true);
 
     (async () => {
       try {
-        // First check if DB says completed (profile may be stale from sync failure)
         const dbCompleted = await checkDbOnboardingCompletion();
         if (dbCompleted) {
-          console.log('[OnboardingGuard] ✅ DB says onboarding completed (profile was stale), allowing access');
+          console.log('[OnboardingGuard] ✅ DB says onboarding completed, allowing access');
           await refreshProfile();
           setResolved(true);
           setResolving(false);
@@ -86,18 +76,21 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
         }
 
         // Truly incomplete – find resume route
-        console.log('[OnboardingGuard] ⏳ Fetching DB progress for resume route...');
+        console.log('[OnboardingGuard] ⏳ User onboarding incomplete, resolving resume route...');
         const resumeRoute = await getResumeRoute();
-        console.log('[OnboardingGuard] 📍 Resume route resolved:', resumeRoute);
+        console.log('[OnboardingGuard] 📍 Resume route:', resumeRoute);
         navigate(resumeRoute, { replace: true });
       } catch (err) {
         console.warn('[OnboardingGuard] Resume route fetch failed, falling back to /onboarding:', err);
         navigate('/onboarding', { replace: true });
+      } finally {
+        setResolving(false);
       }
     })();
   }, [loading, user, navigate, location.pathname, refreshProfile, resolving, resolved]);
 
-  if (loading || resolving) {
+  // Show loading while auth is loading OR while we're reconciling completion
+  if (loading || (!resolved && user && !user.onboarding_completed_at)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -113,17 +106,15 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 
 /**
  * Wraps the /onboarding route to prevent completed users from re-accessing it.
- * If onboarding_completed_at exists → redirect to /daily-check-in
- * EXCEPTION: whitelisted routes (e.g. /onboarding/payment for upgrade flow)
- * If authenticated but not completed → check DB progress and resume at correct step
- * If not authenticated → allow onboarding (anonymous assessment)
+ * Blocks ALL onboarding subroutes for completed users, not just the root.
+ * Exception: whitelisted routes (e.g. /onboarding/payment for upgrade flow).
  */
 export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, isAuthenticated, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [resumeChecked, setResumeChecked] = useState(false);
-  const [resuming, setResuming] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const isWhitelisted = ONBOARDING_WHITELIST.includes(location.pathname);
   const isOnboardingRoot = location.pathname === '/onboarding';
@@ -133,73 +124,61 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
 
     // DEV_MODE: skip all onboarding guards
     if (DEV_MODE) {
-      console.log('[OnboardingBlockGuard] DEV_MODE active, allowing access');
-      setResumeChecked(true);
+      setChecked(true);
       return;
     }
 
-    // If not authenticated, allow onboarding (anonymous assessment)
+    // Not authenticated → allow onboarding (anonymous assessment)
     if (!isAuthenticated || !user) {
-      console.log('[OnboardingBlockGuard] Not authenticated, allowing onboarding');
-      setResumeChecked(true);
+      setChecked(true);
       return;
     }
 
-    console.log('[OnboardingBlockGuard] user:', user.id, 'onboarding_completed_at:', user.onboarding_completed_at, 'path:', location.pathname, 'whitelisted:', isWhitelisted);
-
-    // Completed user → redirect to dashboard (unless whitelisted)
+    // Fast path: profile says completed → block all onboarding routes (except whitelist)
     if (user.onboarding_completed_at && !isWhitelisted) {
-      console.log('[OnboardingBlockGuard] ❌ Onboarding already completed, redirecting to /daily-check-in');
+      console.log('[OnboardingBlockGuard] ❌ Completed user on', location.pathname, '→ redirecting to /daily-check-in');
       navigate('/daily-check-in', { replace: true });
       return;
     }
 
-    // Authenticated but profile says incomplete → reconcile first, then resume if needed
-    if (!user.onboarding_completed_at && !resumeChecked && !resuming) {
-      setResuming(true);
-      (async () => {
-        try {
-          // Check if DB actually says completed (reconcile stale profile)
-          const dbCompleted = await checkDbOnboardingCompletion();
-          if (dbCompleted && !isWhitelisted) {
-            console.log('[OnboardingBlockGuard] DB says completed, redirecting to /daily-check-in');
-            await refreshProfile();
-            navigate('/daily-check-in', { replace: true });
-            return;
-          }
+    // Already checked this cycle
+    if (checked || checking) return;
+    setChecking(true);
 
-          if (!isOnboardingRoot) {
-            console.log('[OnboardingBlockGuard] Non-root onboarding route with incomplete state, allowing stage gating to handle path');
-            return;
-          }
+    (async () => {
+      try {
+        // Reconcile: check DB for completion
+        const dbCompleted = await checkDbOnboardingCompletion();
 
-          console.log('[OnboardingBlockGuard] ⏳ Authenticated user at /onboarding root, checking DB for resume...');
-          const resumeRoute = await getResumeRoute();
-          console.log('[OnboardingBlockGuard] 📍 DB resume route:', resumeRoute);
-
-          // If DB says they should be past the welcome screen, redirect there
-          if (resumeRoute && resumeRoute !== '/onboarding') {
-            console.log('[OnboardingBlockGuard] 🔀 Resuming user at:', resumeRoute);
-            navigate(resumeRoute, { replace: true });
-          } else {
-            console.log('[OnboardingBlockGuard] ✅ No progress found, allowing welcome screen');
-          }
-        } catch (err) {
-          console.warn('[OnboardingBlockGuard] Resume check failed:', err);
-        } finally {
-          setResumeChecked(true);
-          setResuming(false);
+        if (dbCompleted && !isWhitelisted) {
+          console.log('[OnboardingBlockGuard] DB says completed → redirecting to /daily-check-in');
+          await refreshProfile();
+          navigate('/daily-check-in', { replace: true });
+          return;
         }
-      })();
-      return;
-    }
 
-    setResumeChecked(true);
-    console.log('[OnboardingBlockGuard] ✅ Allowing access');
-  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, refreshProfile, resumeChecked, resuming]);
+        // Authenticated, incomplete — if at root, check for resume
+        if (isOnboardingRoot) {
+          const resumeRoute = await getResumeRoute();
+          if (resumeRoute && resumeRoute !== '/onboarding') {
+            console.log('[OnboardingBlockGuard] 🔀 Resuming at:', resumeRoute);
+            navigate(resumeRoute, { replace: true });
+            return;
+          }
+        }
 
-  // Show loading while checking resume state for authenticated users
-  if (loading || (isAuthenticated && !resumeChecked && !DEV_MODE)) {
+        // For non-root routes: stage gating in OnboardingFlow handles progression
+      } catch (err) {
+        console.warn('[OnboardingBlockGuard] Check failed:', err);
+      } finally {
+        setChecked(true);
+        setChecking(false);
+      }
+    })();
+  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, refreshProfile, checked, checking]);
+
+  // Show loading while checking for authenticated users
+  if (loading || (isAuthenticated && !checked && !DEV_MODE)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -207,7 +186,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
     );
   }
 
-  // If authenticated and onboarding completed and NOT whitelisted, block render while redirect happens
+  // Block render while redirect happens for completed users
   if (!DEV_MODE && !loading && isAuthenticated && user?.onboarding_completed_at && !isWhitelisted) return null;
 
   return <>{children}</>;
