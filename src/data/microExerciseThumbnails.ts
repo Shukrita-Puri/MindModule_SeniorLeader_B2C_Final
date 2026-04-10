@@ -1,17 +1,17 @@
 // Centralized thumbnail imports for micro exercises
-import pauseMauve from "@/assets/recalibrate/pause/mindset-pause-mauve.jpg";
-import flowBlue from "@/assets/recalibrate/presence/mindset-flow-blue.jpg";
-import renewalColorful from "@/assets/recalibrate/power-up/mindset-renewal-colorful.jpg";
+import pauseVisual from "@/assets/recalibrate/pause/soundscape-pause-visual.png";
+import flowVisual from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
+import renewalVisual from "@/assets/recalibrate/power-up/soundscape-renewal-visual.png";
 
 export const getThumbnailByCategory = (category: string): string => {
   switch (category) {
     case 'pause':
-      return pauseMauve;
+      return pauseVisual;
     case 'presence':
-      return flowBlue;
+      return flowVisual;
     case 'power-up':
-      return renewalColorful;
+      return renewalVisual;
     default:
-      return pauseMauve;
+      return pauseVisual;
   }
 };
