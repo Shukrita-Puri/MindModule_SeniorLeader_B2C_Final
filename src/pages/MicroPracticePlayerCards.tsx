@@ -141,7 +141,7 @@ const BUDDHIST_PHOENIX_CARDS = [
   },
 ];
 
-// Energy Through Reframe practice card content
+// Energy Through The Shift practice card content
 const ENERGY_REFRAME_CARDS = [
   {
     type: "overview" as const,
@@ -344,7 +344,7 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
-// Resilience Through Brave Action practice card content
+// Courage Through The Arena practice card content
 const COURAGE_ARENA_CARDS = [
   {
     type: "overview" as const,
