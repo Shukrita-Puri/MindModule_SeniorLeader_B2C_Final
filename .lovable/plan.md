@@ -1,119 +1,110 @@
 
+What I found
 
-# Smart Nudges: Architecture Doc + Data Integrity Fixes
+1. The button itself is wired correctly now
+- In `src/pages/onboarding/stages/Stage7ContextConnection.tsx`, both the primary CTA and “Skip for now” call `handleComplete`.
+- `handleComplete` now ends with an unconditional:
+  - `navigate("/daily-check-in?tour=1")`
+- So the button is not failing because the click handler is missing.
 
-## Summary
+2. The real bug is the redirect chain after click/login
+- `/daily-check-in` is wrapped with:
+  - `ProtectedRoute`
+  - `OnboardingGuard`
+  - `SubscriptionGuard`
+- If the app still thinks the user has not completed onboarding, `OnboardingGuard` redirects them back into onboarding instead of letting `/daily-check-in?tour=1` render.
+- That exactly matches your symptom: the CTA “does nothing”, but in reality it navigates and then gets bounced back into onboarding.
 
-Two deliverables: (1) a comprehensive architecture document replacing the existing `docs/SMART_NUDGES_TECHNICAL_DOCUMENTATION.md`, and (2) six fixes to `supabase/functions/smart-nudges/index.ts` that eliminate fake data fabrication, add signal richness gating, and improve copy quality.
+3. Why existing users are still seeing onboarding pages
+There are two concrete gaps in the current guard logic:
 
----
+A. `OnboardingBlockGuard` only hard-blocks completed users when `user.onboarding_completed_at` is already present
+- File: `src/components/OnboardingGuard.tsx`
+- For authenticated users on non-root onboarding routes (`/onboarding/results`, `/onboarding/app-intro`, `/onboarding/context-connection` etc.), if `user.onboarding_completed_at` is missing, the guard does this:
+  - checks DB completion
+  - but if route is not `/onboarding`, it logs “allowing stage gating to handle path” and returns
+- That means completed users with stale client profile state can still render onboarding subpages.
 
-## File 1: `docs/SMART_NUDGES_ARCHITECTURE.md` (new, replaces existing doc)
+B. `validateStageAccess()` is a progression gate, not a “completed-user blocker”
+- File: `src/utils/onboardingStatus.ts`
+- It checks whether a user has reached a stage, but it does not globally say:
+  - “if onboarding is already complete, block all onboarding routes except allowed upgrade flows”
+- Worse, on fetch errors it “allows through on error”, which makes leakage into results/payment/app-intro/context pages more likely.
 
-Full architecture document covering:
+4. Why login as an existing user can still land in onboarding
+- `Login.tsx` and `AuthCallback.tsx` both default returning users to `/daily-check-in`, which is correct.
+- But if the profile sync or onboarding-completion reconciliation is late/stale, `/daily-check-in` runs through `OnboardingGuard`.
+- If `user.onboarding_completed_at` is missing and DB reconciliation fails/times out/transiently returns no token, `OnboardingGuard` sends the user to:
+  - `getResumeRoute()`
+  - or fallback `/onboarding`
+- That creates the “I logged in as an existing user and still saw onboarding” bug.
 
-- **System diagram**: pg_cron → Edge Function → Signal Assembly → Priority Cascade → AI Copy → APNs → iOS → Client Hooks
-- **Upstream data sources**: 12 tables queried in `buildNudgeContext()` (calendar_events, wearable_data, daily_checkins, energy_snapshots, coach_accountability_tracker, coach_pattern_observations, dialogue_sessions, coach_session_summaries, daily_ritual_completions, jit_event_context, practice_sessions, user_engagements) with what each provides
-- **Signal assembly**: How `NudgeContext` is built from parallel queries, including wearable baseline calculations, calendar gap detection, coach signal extraction, performance correlations
-- **Priority cascade**: P0-P7 with triggers, time windows, and per-type suppression rules
-- **Signal richness gate** (new): Which types are exempt (P0, P1, P2, P3) vs gated (P4, P5, P6, P7)
-- **AI copy generation**: Gemini-2.5-flash-lite pipeline, system prompt, per-type user prompts, fallback variants, post-generation validation
-- **Suppression stack**: Quiet hours (22:00-06:30), DND, 2h gap, in-meeting, daily cap (3), 30min app-open, engagement learning (7d tap rate)
-- **Client-side**: PushNotificationProvider (token registration), usePushNotificationHandler (deep link routing), useNotificationEngagement (tap/dismiss/action tracking)
-- **KPI alignment**: How each nudge type maps to Daily Return Rate, Pre-Event Preparation Rate, 90-Day Retention
-- **Data validation gates**: The fabrication prevention system (new)
+5. Why the issue is especially visible on results/payment/app-intro/context pages
+- `OnboardingFlow` explicitly skips route gating for `/onboarding/payment`.
+- Post-signup stage validation allows-through on backend errors.
+- `OnboardingBlockGuard` does not proactively block completed users on deep onboarding routes when the local profile is stale.
+- Combined, that makes completed users able to see:
+  - `/onboarding/results`
+  - `/onboarding/payment`
+  - `/onboarding/app-intro`
+  - `/onboarding/context-connection`
 
----
+6. Tour behavior is only partially separated today
+- `DailyCheckIn.tsx` correctly supports:
+  - forced tour via `?tour=1`
+  - first-time gating via backend walkthrough state
+  - retake support via session flags
+- So the tour system itself is not the core problem.
+- The problem is route access before `DailyCheckIn` gets a stable “completed onboarding” state.
 
-## File 2: `supabase/functions/smart-nudges/index.ts` — Six Fixes
+What is missing / broken
 
-### Fix A: `hasWearableData` flag on NudgeContext
+✅ Exists
+- Login/callback default return to `/daily-check-in`
+- CTA handler on context connection navigates to `/daily-check-in?tour=1`
+- Daily Check-In supports forced `?tour=1`
+- Backend has `onboarding_completed_at` and walkthrough flags
 
-Add `hasWearableData: boolean` to the `NudgeContext` interface. Computed in `buildNudgeContext()` as `latestW !== null && latestW !== undefined`. Single source of truth for all downstream gating.
+⚠️ Partially implemented
+- Existing-user onboarding blocking
+- Completion reconciliation between profile state and route guards
+- Separation between first-time onboarding tour and manual retake tour
 
-### Fix B: Omit wearable lines from AI prompts
+❌ Missing
+- A single hard rule that completed users cannot view onboarding routes other than explicit allowed upgrade routes
+- A stable “auth/profile/onboarding-ready” gate before redirect decisions
+- Completed-user blocking on onboarding subroutes, not just `/onboarding` root
+- Protection against transient auth/profile sync gaps causing false onboarding redirects
 
-In `generateNudgeCopy()`, for each nudge type that references wearable signals (morning_prep, jit_pre_event, calendar_gap, performance_state, evening_close):
-- When `ctx.hasWearableData === false`, **omit all wearable lines entirely** from the prompt — no "unavailable", no line at all
-- When individual fields are null (e.g., `sleepScore` null but HRV exists), omit only that specific line
-- This removes the LLM's opportunity to fabricate numbers
+Implementation plan
 
-### Fix C: Post-generation validation gate
+1. Harden onboarding route blocking
+- Update `OnboardingBlockGuard` so completed users are redirected away from all onboarding routes except explicit allowed routes, even when they hit deep routes directly.
+- Do not rely only on local `user.onboarding_completed_at`; perform reconciliation before allowing any onboarding subroute render.
 
-After parsing AI JSON response (line 808), scan `body` for fabrication indicators when `ctx.hasWearableData === false`:
-- `/\d+%/` — percentage patterns ("down 40%")
-- `/\d+\s*ms/i` — HRV millisecond patterns ("45ms")
-- `/below baseline|above baseline/i` — baseline references
-- `/your HRV|recovery score/i` — wearable metric references
+2. Add a completed-user short-circuit to stage validation
+- Update `validateStageAccess()` so if DB/profile says onboarding is complete, it redirects to `/daily-check-in` for all onboarding routes except the intended upgrade payment route.
+- Keep `/onboarding/payment` allowed only for real upgrade scenarios, not as a generic leaked page.
 
-If any match found AND `hasWearableData === false`, reject AI copy and fall through to static fallback.
+3. Make `OnboardingGuard` fail safer for returning users
+- Prevent fallback-to-`/onboarding` behavior for authenticated users until onboarding completion has been definitively reconciled.
+- Prefer a loading state over redirecting an existing user into onboarding based on stale client state.
 
-### Fix D: Signal richness gate (with per-type exemptions)
+4. Separate first-time tour from retake tour cleanly
+- Keep `/daily-check-in?tour=1` usable in two contexts:
+  - first-time onboarding completion
+  - explicit retake from profile
+- Ensure only first-time users are shown the onboarding CTA path to it, while existing users can still manually re-trigger it from profile.
 
-After building `NudgeContext`, compute signal availability:
-```
-hasCalendar = ctx.nonNoiseEvents.length > 0
-hasWearable = ctx.hasWearableData
-hasCheckin  = ctx.checkinCountToday > 0
-hasCoach    = ctx.coach.pendingCommitments.length > 0 || ctx.coach.sessionsIn7d > 0
-signalCount = [hasCalendar, hasWearable, hasCheckin, hasCoach].filter(Boolean).length
-```
+5. Verify the context-connection completion path end-to-end
+- After the guard fixes, confirm the click path becomes:
+  `context-connection CTA -> complete onboarding -> /daily-check-in?tour=1 -> guide opens`
+- This should work for both authenticated users and DEV_MODE.
 
-**Exempt from gate** (these have their own internal gates):
-- P0 morning_prep — purpose is to prompt the first signal
-- P1 pre_event_prep — calendar-driven, requires JIT qualifying event
-- P2 calendar_gap — calendar-driven
-- P3 coach_meeting_match — coach-driven
-
-**Gated** (require signalCount >= 2):
-- P4 state_aware_nudge
-- P5 evening_close
-- P6 pattern_alert
-- P7 daily_fallback
-
-When suppressed, log: `[smart-nudges] User ${userId}: ${signalCount} signals — suppressing P4-P7`
-
-### Fix E: Evening close guard
-
-In `evaluateEveningClose()`, add two guards:
-1. If `ctx.afternoonCheckinOutcome !== null` OR `ctx.checkinCountToday >= 2`, return null (already reflected on the day)
-2. If `ctx.localTime >= 21.5`, return null (21:30 cutoff — too late to be useful)
-
-### Fix F: Improved static fallback copy
-
-Replace generic fallbacks with signal-aware copy:
-
-**`getFallbackMorningCopy`** default case (line 840):
-- If `ctx.eventCount > 0`: `{ title: "Day Mapped", body: "${eventCount} meetings today. Check in to set your direction." }`
-- If `ctx.eventCount === 0 && !ctx.isWeekend`: `{ title: "Clear Day", body: "No meetings. A rare chance to set your own agenda." }`
-- Keep existing sleep/high-stakes/heavy/weekend variants (they already reference real data)
-
-**`getFallbackDailyFallbackCopy`** default case (line 897):
-- If `ctx.eventCount > 0`: `{ title: "Day Mapped", body: "${eventCount} meetings today. Your brief has your direction." }`
-- If `ctx.eventCount === 0`: `{ title: "Open Day", body: "Light calendar today. Check in to set an intention." }`
-- Remove: "Take 30 seconds" / "Your Compass is ready" (generic)
-
-**`getFallbackEveningCopy`** RHR variant (line 874):
-- Only show if `ctx.hasWearableData === true` (prevent referencing body load without data)
-
-**`getFallbackPerformanceStateCopy`** (line 885):
-- Replace `ctx.coachSessionReadinessLift || 20` with: only show if `ctx.coachSessionReadinessLift !== null` (don't fabricate "20%" default)
-
----
-
-## What Does NOT Change
-
-- APNs delivery logic (JWT creation, HTTP/2 push)
-- pg_cron schedule
-- Client-side hooks (useNotificationEngagement, usePushNotificationHandler)
-- Deep link route mapping
-- Engagement learning algorithm
-- Daily cap enforcement (3/day — confirmed still enforced at line 1447)
-- Any other edge function
-
-## Technical Details
-
-- The edge function will be redeployed after changes
-- The architecture doc replaces `docs/SMART_NUDGES_TECHNICAL_DOCUMENTATION.md` with a more comprehensive `docs/SMART_NUDGES_ARCHITECTURE.md`
-- All changes are additive guards — no existing scoring or delivery logic is removed
-
+Technical details
+- Primary files to update:
+  - `src/components/OnboardingGuard.tsx`
+  - `src/utils/onboardingStatus.ts`
+  - possibly `src/pages/DailyCheckIn.tsx` only if a small eligibility refinement is needed
+- No evidence suggests the Stage7 button itself is the root bug anymore.
+- Root cause is inconsistent onboarding-completion resolution across route guards, causing existing users to be treated as incomplete during navigation.
