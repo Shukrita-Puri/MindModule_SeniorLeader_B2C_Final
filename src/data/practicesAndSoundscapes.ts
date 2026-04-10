@@ -258,7 +258,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // PAUSE Soundbaths
   {
     id: "harmonic-calm",
-    title: "Deep Rest & Grounding with Harmonic Calm",
+    title: "Nervous System Reset Through Tibetan Bowls",
     contentType: "soundbath",
     category: "pause",
     tags: ['earth', 'post-stress', 'gentle', 'healing', 'meditation'],
@@ -1262,7 +1262,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "jobs-simplicity",
-    title: "Ruthless Focus Through Simplicity",
+    title: "Clarity Through Elimination",
     contentType: "micro-practice",
     category: "presence",
     tags: ['focus', 'priorities', 'essentialism', 'decision-making'],
@@ -1430,7 +1430,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "energy-through-reframe",
-    title: "Energy Through Reframe",
+    title: "Energy Through The Shift",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['energy', 'reframe', 'motivation', 'fatigue'],
@@ -1546,7 +1546,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "courage-arena",
-    title: "Resilience Through Brave Action",
+    title: "Courage Through The Arena",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['courage', 'fear', 'vulnerability', 'bravery', 'social-risk'],

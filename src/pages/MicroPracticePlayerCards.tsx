@@ -141,11 +141,11 @@ const BUDDHIST_PHOENIX_CARDS = [
   },
 ];
 
-// Energy Through Reframe practice card content
+// Energy Through The Shift practice card content
 const ENERGY_REFRAME_CARDS = [
   {
     type: "overview" as const,
-    title: "Energy Through Reframe",
+    title: "Energy Through The Shift",
     subtitle: "Rapid activation when energy runs low",
     source: "Cognitive reappraisal + Yerkes-Dodson arousal curve + Polyvagal Theory (Porges) – Physiological state-shifting techniques observed in athletes, performers and special forces for pre-mission.",
     duration: "1.5 min",
@@ -344,11 +344,11 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
-// Resilience Through Brave Action practice card content
+// Courage Through The Arena practice card content
 const COURAGE_ARENA_CARDS = [
   {
     type: "overview" as const,
-    title: "Resilience Through Brave Action",
+    title: "Courage Through The Arena",
     subtitle: "Step into visibility knowing you might fail – and choose to show up anyway",
     source: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius (simplified)",
     duration: "2 min",
@@ -941,7 +941,7 @@ const MUSHIN_CARDS = [
 const JOBS_SIMPLICITY_CARDS = [
   {
     type: "overview" as const,
-    title: "Ruthless Focus Through Simplicity",
+    title: "Clarity Through Elimination",
     subtitle: "One thing. Nothing else.",
     source: "\"Focus is about saying no.\" – Steve Jobs + Essentialism (Greg McKeown)",
     duration: "2 min",
