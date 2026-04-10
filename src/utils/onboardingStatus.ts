@@ -1,6 +1,5 @@
 import { getSession, getAllResponses } from "./onboardingStorage";
-import { supabase } from "@/integrations/supabase/client";
-import { getAuthToken } from "@/services/authTokenService";
+import { fetchOnboardingProgressSnapshot, hasValidBetaAccess, isOnboardingCompleteSnapshot } from "./onboardingCompletion";
 
 export interface OnboardingStatus {
   isComplete: boolean;
@@ -103,24 +102,7 @@ export async function getResumeRoute(): Promise<string> {
  */
 async function getResumeRouteFromDB(): Promise<string | null> {
   try {
-    const token = await getAuthToken();
-    if (!token) return null;
-
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'GET' }),
-      }
-    );
-
-    if (!res.ok) return null;
-    const { data } = await res.json();
+    const data = await fetchOnboardingProgressSnapshot();
     if (!data) return null;
 
     console.log('[onboardingStatus] DB progress found, current_step:', data.current_step);
@@ -128,10 +110,10 @@ async function getResumeRouteFromDB(): Promise<string | null> {
     // Walk backwards from the end to find the latest incomplete step.
     // For signed-in users, also infer results-stage progress from persisted profile data
     // if the onboarding_progress row is missing or incomplete.
-    const isBetaValid = data.beta_user && data.beta_expires_at && new Date(data.beta_expires_at) > new Date();
+    const isBetaValid = hasValidBetaAccess(data);
     const hasPersistedResults = !!(data.mental_fitness_baseline || data.onboarding_insight || data.user_archetype);
 
-    if (data.completed_at || data.onboarding_completed_at) return '/daily-check-in';
+    if (isOnboardingCompleteSnapshot(data)) return '/daily-check-in';
     if (!data.context_connection_at && (data.payment_at || isBetaValid)) return '/onboarding/app-intro';
     if (!data.payment_at && !isBetaValid && data.results_at) return '/onboarding/payment';
     if (!data.results_at && data.signup_step_at) return '/onboarding/results';
@@ -199,28 +181,12 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
   // For post-signup stages, check DB
   if (targetIndex >= 7) {
     try {
-      const token = await getAuthToken();
-      if (!token) return '/onboarding/signup-step'; // Must auth first
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action: 'GET' }),
-        }
-      );
-
-      if (!res.ok) return null; // Allow through on error (don't block)
-      const { data } = await res.json();
+      const data = await fetchOnboardingProgressSnapshot();
+      if (!data) return await getResumeRoute();
 
       // SHORT-CIRCUIT: If onboarding is already completed, redirect away
       // (except /onboarding/payment which is allowed for upgrade flows)
-      if (data?.completed_at || data?.onboarding_completed_at) {
+      if (isOnboardingCompleteSnapshot(data)) {
         if (targetPath === '/onboarding/payment') {
           return null; // Allow upgrade flow
         }
@@ -237,7 +203,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
         return await getResumeRoute();
       }
       // Gate: app-intro requires payment or beta
-      const isBetaValid = data?.beta_user && data?.beta_expires_at && new Date(data.beta_expires_at) > new Date();
+      const isBetaValid = hasValidBetaAccess(data);
       if (targetPath === '/onboarding/app-intro' && !data?.payment_at && !isBetaValid) {
         return await getResumeRoute();
       }
@@ -246,7 +212,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
         return await getResumeRoute();
       }
     } catch {
-      return null; // Allow through on error
+      return await getResumeRoute();
     }
   }
 

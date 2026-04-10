@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DEV_MODE } from "@/config/devMode";
 import { Loader2 } from "lucide-react";
 import { getResumeRoute } from "@/utils/onboardingStatus";
-import { getAuthToken } from "@/services/authTokenService";
+import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 
 // Routes that completed users can still access (e.g. upgrade flow)
 const ONBOARDING_WHITELIST = ['/onboarding/payment'];
@@ -14,27 +14,20 @@ const ONBOARDING_WHITELIST = ['/onboarding/payment'];
  */
 async function checkDbOnboardingCompletion(): Promise<boolean> {
   try {
-    const token = await getAuthToken();
-    if (!token) return false;
-
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'GET' }),
-      }
-    );
-
-    if (!res.ok) return false;
-    const { data } = await res.json();
-    return !!(data?.completed_at);
+    const snapshot = await fetchOnboardingProgressSnapshot();
+    return isOnboardingCompleteSnapshot(snapshot);
   } catch {
     return false;
+  }
+}
+
+async function resolveDbCompletion(): Promise<'complete' | 'incomplete' | 'unknown'> {
+  try {
+    const snapshot = await fetchOnboardingProgressSnapshot();
+    if (!snapshot) return 'unknown';
+    return isOnboardingCompleteSnapshot(snapshot) ? 'complete' : 'incomplete';
+  } catch {
+    return 'unknown';
   }
 }
 
@@ -66,8 +59,8 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 
     (async () => {
       try {
-        const dbCompleted = await checkDbOnboardingCompletion();
-        if (dbCompleted) {
+        const completionState = await resolveDbCompletion();
+        if (completionState === 'complete') {
           console.log('[OnboardingGuard] ✅ DB says onboarding completed, allowing access');
           await refreshProfile();
           setResolved(true);
@@ -75,11 +68,21 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
           return;
         }
 
-        // Truly incomplete – find resume route
-        console.log('[OnboardingGuard] ⏳ User onboarding incomplete, resolving resume route...');
-        const resumeRoute = await getResumeRoute();
-        console.log('[OnboardingGuard] 📍 Resume route:', resumeRoute);
-        navigate(resumeRoute, { replace: true });
+        if (completionState === 'unknown') {
+          console.log('[OnboardingGuard] ⏳ Completion state unresolved, failing open to avoid false onboarding redirect');
+          setResolved(true);
+          return;
+        }
+
+        await refreshProfile();
+        if (!user?.onboarding_completed_at) {
+          console.log('[OnboardingGuard] ⏳ User onboarding incomplete, resolving resume route...');
+          const resumeRoute = await getResumeRoute();
+          console.log('[OnboardingGuard] 📍 Resume route:', resumeRoute);
+          navigate(resumeRoute, { replace: true });
+          return;
+        }
+        setResolved(true);
       } catch (err) {
         console.warn('[OnboardingGuard] Resume route fetch failed, falling back to /onboarding:', err);
         navigate('/onboarding', { replace: true });

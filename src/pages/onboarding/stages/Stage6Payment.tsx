@@ -7,6 +7,7 @@ import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { hasValidAccess } from "@/utils/subscriptionHelpers";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
@@ -14,9 +15,13 @@ export default function Stage6Payment() {
   const { recordStep } = useOnboardingProgress();
   const { user } = useAuth();
   const currentTier = user?.subscription_tier || 'none';
+  const hasValidUserAccess = hasValidAccess(user);
+  const hasCompletedOnboarding = !!user?.onboarding_completed_at;
 
   // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade
   const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
+  const isExpiredBeta = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) <= new Date());
+  const isExpiredTrial = !!(user?.trial_ends_at && new Date(user.trial_ends_at) <= new Date() && user?.subscription_status !== 'active');
   const querySource = new URLSearchParams(location.search).get('source');
   const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
     ? location.state.source
@@ -24,22 +29,34 @@ export default function Stage6Payment() {
   const hasExplicitUpgradeSource = [querySource, stateSource].some((source) =>
     typeof source === 'string' && source.includes('upgrade')
   );
-  const isUpgradeVisit = hasExplicitUpgradeSource || !!user?.onboarding_completed_at;
+  const isMonthlySubscriber = currentTier === 'monthly_pro' && hasValidUserAccess;
+  const isAnnualSubscriber = currentTier === 'annual_pro' && hasValidUserAccess;
+  const isUpgradeVisit = hasExplicitUpgradeSource || hasCompletedOnboarding;
+  const showUpgradeMode = isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess);
+
   useEffect(() => {
     if (isBetaValid && !isUpgradeVisit) {
       console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
       recordStep('payment', { skipped: true, reason: 'beta_user' });
       navigate('/onboarding/app-intro', { replace: true });
     }
-  }, [isBetaValid, isUpgradeVisit]);
+  }, [isBetaValid, isUpgradeVisit, navigate, recordStep]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (isAnnualSubscriber || (hasValidUserAccess && !showUpgradeMode)) {
+      navigate('/daily-check-in', { replace: true });
+    }
+  }, [user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, navigate]);
 
   // Determine which plans are available (hide the one user is already on)
   const availablePlans = useMemo(() => {
-    const plans: ('monthly' | 'annual')[] = [];
-    if (currentTier !== 'monthly_pro') plans.push('monthly');
-    if (currentTier !== 'annual_pro') plans.push('annual');
+    if (isMonthlySubscriber) return ['annual'] as ('monthly' | 'annual')[];
+    if (isAnnualSubscriber) return [] as ('monthly' | 'annual')[];
+
+    const plans: ('monthly' | 'annual')[] = ['monthly', 'annual'];
     return plans;
-  }, [currentTier]);
+  }, [isMonthlySubscriber, isAnnualSubscriber]);
 
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
@@ -104,7 +121,7 @@ export default function Stage6Payment() {
       throw new Error('No checkout URL returned');
     } catch (err: any) {
       console.error('[Payment] Error:', err?.message || err);
-      const isUpgradeFlow = user?.onboarding_completed_at;
+      const isUpgradeFlow = showUpgradeMode;
       if (isUpgradeFlow) {
         toast.error('Unable to start checkout. Please try again.');
       } else {
@@ -203,7 +220,7 @@ export default function Stage6Payment() {
 
       {/* Title */}
       <h1 className="text-[22px] sm:text-3xl font-headline font-bold mb-6">
-        {currentTier === 'none' || currentTier === 'trial' ? 'Pricing' : 'Upgrade Plan'}
+        {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
       </h1>
 
       {/* Plan Card */}
@@ -269,7 +286,7 @@ export default function Stage6Payment() {
 
       {/* Trial / upgrade note */}
       <p className="text-xs text-center text-muted-foreground mb-4">
-        {isUpgradeVisit
+        {showUpgradeMode
           ? 'Upgrade to unlock full access instantly'
           : 'Includes 7-day free trial · Cancel anytime before for no charge'}
       </p>
@@ -287,7 +304,7 @@ export default function Stage6Payment() {
             Processing...
           </span>
         ) : (
-          isUpgradeVisit ? 'Upgrade Now' : 'Start 7-Day Free Trial'
+          showUpgradeMode ? 'Upgrade Now' : 'Start 7-Day Free Trial'
         )}
       </Button>
 
