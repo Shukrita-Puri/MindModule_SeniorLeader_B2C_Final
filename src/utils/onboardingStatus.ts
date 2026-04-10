@@ -218,16 +218,30 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       if (!res.ok) return null; // Allow through on error (don't block)
       const { data } = await res.json();
 
+      // SHORT-CIRCUIT: If onboarding is already completed, redirect away
+      // (except /onboarding/payment which is allowed for upgrade flows)
+      if (data?.completed_at || data?.onboarding_completed_at) {
+        if (targetPath === '/onboarding/payment') {
+          return null; // Allow upgrade flow
+        }
+        console.log('[validateStageAccess] Onboarding completed, redirecting to /daily-check-in');
+        return '/daily-check-in';
+      }
+
       // Gate: results requires signup_step
       if (targetPath === '/onboarding/results' && !data?.signup_step_at) {
         return '/onboarding/signup-step';
       }
-      // Gate: payment requires results – but allow if user already completed onboarding
-      if (targetPath === '/onboarding/payment' && !data?.results_at && !data?.completed_at) {
+      // Gate: payment requires results
+      if (targetPath === '/onboarding/payment' && !data?.results_at) {
+        return await getResumeRoute();
+      }
+      // Gate: app-intro requires payment or beta
+      const isBetaValid = data?.beta_user && data?.beta_expires_at && new Date(data.beta_expires_at) > new Date();
+      if (targetPath === '/onboarding/app-intro' && !data?.payment_at && !isBetaValid) {
         return await getResumeRoute();
       }
       // Gate: context-connection requires payment (or beta access)
-      const isBetaValid = data?.beta_user && data?.beta_expires_at && new Date(data.beta_expires_at) > new Date();
       if (targetPath === '/onboarding/context-connection' && !data?.payment_at && !isBetaValid) {
         return await getResumeRoute();
       }
