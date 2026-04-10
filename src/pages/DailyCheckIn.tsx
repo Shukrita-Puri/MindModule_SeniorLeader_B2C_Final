@@ -122,18 +122,14 @@ const DailyCheckIn = () => {
     // In dev mode, don't call backend eligibility checks with a non-JWT token.
     // Start the guide locally for the dev user unless it was explicitly completed in-session.
     if (DEV_MODE) {
-      const tourDone = sessionStorage.getItem('first_session_guide_done') === '1';
-      const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
-      const isActiveForUser =
-        sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
-        sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
-
-      if (tourDone && !isRetakeForUser) {
-        if (!cancelled) setShowGuide(false);
-        return;
+      if (!hasTourParam) {
+        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+        if (!isRetakeForUser) {
+          if (!cancelled) setShowGuide(false);
+          return;
+        }
       }
-
-      if (!isActiveForUser || isRetakeForUser) activateGuide();
+      activateGuide();
       if (!cancelled) setShowGuide(true);
       return;
     }
