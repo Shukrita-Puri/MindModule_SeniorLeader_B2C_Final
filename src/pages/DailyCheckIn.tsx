@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -97,16 +98,19 @@ const DailyCheckIn = () => {
   // Show first session guide – DB is the single source of truth for eligibility
   useEffect(() => {
     let cancelled = false;
-
-    // Dev/testing: ?tour=1 forces the guide regardless of DB state
     const params = new URLSearchParams(window.location.search);
-    if (params.get('tour') === '1') {
-      const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+    const hasTourParam = params.get('tour') === '1';
+    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+    const activateGuide = () => {
       sessionStorage.setItem('first_session_guide_step', '0');
       sessionStorage.setItem('first_session_guide_active', '1');
       if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
       sessionStorage.removeItem('first_session_intro_seen');
       setShowGuide(true);
+    };
+
+    if (DEV_MODE && hasTourParam) {
+      activateGuide();
       return;
     }
 
@@ -117,8 +121,6 @@ const DailyCheckIn = () => {
 
     // In dev mode, don't call backend eligibility checks with a non-JWT token.
     // Start the guide locally for the dev user unless it was explicitly completed in-session.
-    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
-
     if (DEV_MODE) {
       const tourDone = sessionStorage.getItem('first_session_guide_done') === '1';
       const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
@@ -131,58 +133,41 @@ const DailyCheckIn = () => {
         return;
       }
 
-      if (!isActiveForUser || isRetakeForUser) {
-        sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
-        sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
-        if (effectiveId) sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, effectiveId);
-      }
-
+      if (!isActiveForUser || isRetakeForUser) activateGuide();
       if (!cancelled) setShowGuide(true);
       return;
     }
 
-    // Check DB: only show if onboarding complete AND walkthrough never completed
-    getAuthToken().then(async (token) => {
-      if (!token) return;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    (async () => {
       try {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ action: 'GET' }),
-          }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const walkthroughDone = !!data?.data?.first_session_walkthrough_at;
-          const isActiveForUser =
-            sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
-            sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
-          const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+        const snapshot = await fetchOnboardingProgressSnapshot();
+        if (cancelled) return;
 
-          if (walkthroughDone && !isRetakeForUser) {
-            sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
-            sessionStorage.removeItem(ACTIVE_TOUR_KEY);
-            sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
-            if (!cancelled) setShowGuide(false);
-            return;
-          }
+        const walkthroughDone = hasCompletedFirstSessionWalkthrough(snapshot);
+        const onboardingComplete = isOnboardingCompleteSnapshot(snapshot) || !!user?.onboarding_completed_at;
+        const isActiveForUser =
+          sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+          sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+        const shouldForceTour = hasTourParam && onboardingComplete && (!walkthroughDone || isRetakeForUser);
 
-          if (!isActiveForUser) {
-            sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
-            sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
-            if (effectiveId) sessionStorage.setItem(ACTIVE_TOUR_USER_KEY, effectiveId);
-          }
-
-          if (!cancelled) setShowGuide(true);
+        if ((!onboardingComplete && !isRetakeForUser) || (walkthroughDone && !isRetakeForUser && !shouldForceTour)) {
+          sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
+          sessionStorage.removeItem(ACTIVE_TOUR_KEY);
+          sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
+          if (!cancelled) setShowGuide(false);
+          return;
         }
-      } catch { /* ignore */ }
-    });
+
+        if (!isActiveForUser || isRetakeForUser || shouldForceTour) {
+          activateGuide();
+        }
+
+        if (!cancelled) setShowGuide(true);
+      } catch {
+        if (!cancelled) setShowGuide(false);
+      }
+    })();
 
     return () => {
       cancelled = true;
