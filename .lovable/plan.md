@@ -1,110 +1,62 @@
 
-What I found
 
-1. The button itself is wired correctly now
-- In `src/pages/onboarding/stages/Stage7ContextConnection.tsx`, both the primary CTA and “Skip for now” call `handleComplete`.
-- `handleComplete` now ends with an unconditional:
-  - `navigate("/daily-check-in?tour=1")`
-- So the button is not failing because the click handler is missing.
+## Problem
 
-2. The real bug is the redirect chain after click/login
-- `/daily-check-in` is wrapped with:
-  - `ProtectedRoute`
-  - `OnboardingGuard`
-  - `SubscriptionGuard`
-- If the app still thinks the user has not completed onboarding, `OnboardingGuard` redirects them back into onboarding instead of letting `/daily-check-in?tour=1` render.
-- That exactly matches your symptom: the CTA “does nothing”, but in reality it navigates and then gets bounced back into onboarding.
+The Confirm button on `/daily-check-in` appears to do nothing because the **FirstSessionGuide overlay** is rendering on top of it and intercepting all clicks.
 
-3. Why existing users are still seeing onboarding pages
-There are two concrete gaps in the current guard logic:
+**Root cause**: In DEV_MODE (lines 124-138 of `DailyCheckIn.tsx`), the tour guide activates on every visit unless `sessionStorage` has `first_session_guide_done === '1'`. On a fresh browser session, this flag is absent, so the guide overlay always shows — even without `?tour=1` — and blocks the Confirm button. The button handler itself is correctly wired; it simply never receives the click event.
 
-A. `OnboardingBlockGuard` only hard-blocks completed users when `user.onboarding_completed_at` is already present
-- File: `src/components/OnboardingGuard.tsx`
-- For authenticated users on non-root onboarding routes (`/onboarding/results`, `/onboarding/app-intro`, `/onboarding/context-connection` etc.), if `user.onboarding_completed_at` is missing, the guard does this:
-  - checks DB completion
-  - but if route is not `/onboarding`, it logs “allowing stage gating to handle path” and returns
-- That means completed users with stale client profile state can still render onboarding subpages.
+In auth mode, a similar issue can occur: if the user's `onboarding_completed_at` is set but the walkthrough completion check fails transiently, the guide can still activate and block the button.
 
-B. `validateStageAccess()` is a progression gate, not a “completed-user blocker”
-- File: `src/utils/onboardingStatus.ts`
-- It checks whether a user has reached a stage, but it does not globally say:
-  - “if onboarding is already complete, block all onboarding routes except allowed upgrade flows”
-- Worse, on fetch errors it “allows through on error”, which makes leakage into results/payment/app-intro/context pages more likely.
+## Fix (2 files)
 
-4. Why login as an existing user can still land in onboarding
-- `Login.tsx` and `AuthCallback.tsx` both default returning users to `/daily-check-in`, which is correct.
-- But if the profile sync or onboarding-completion reconciliation is late/stale, `/daily-check-in` runs through `OnboardingGuard`.
-- If `user.onboarding_completed_at` is missing and DB reconciliation fails/times out/transiently returns no token, `OnboardingGuard` sends the user to:
-  - `getResumeRoute()`
-  - or fallback `/onboarding`
-- That creates the “I logged in as an existing user and still saw onboarding” bug.
+### 1. `src/pages/DailyCheckIn.tsx` — Fix tour activation logic
 
-5. Why the issue is especially visible on results/payment/app-intro/context pages
-- `OnboardingFlow` explicitly skips route gating for `/onboarding/payment`.
-- Post-signup stage validation allows-through on backend errors.
-- `OnboardingBlockGuard` does not proactively block completed users on deep onboarding routes when the local profile is stale.
-- Combined, that makes completed users able to see:
-  - `/onboarding/results`
-  - `/onboarding/payment`
-  - `/onboarding/app-intro`
-  - `/onboarding/context-connection`
+**DEV_MODE branch (lines 112-138)**: Change so that without `?tour=1`, the guide does NOT activate in dev mode. The dev-mode block should mirror the auth-mode behavior: only show the guide when explicitly requested via `?tour=1` or a retake flag.
 
-6. Tour behavior is only partially separated today
-- `DailyCheckIn.tsx` correctly supports:
-  - forced tour via `?tour=1`
-  - first-time gating via backend walkthrough state
-  - retake support via session flags
-- So the tour system itself is not the core problem.
-- The problem is route access before `DailyCheckIn` gets a stable “completed onboarding” state.
+Replace the current DEV_MODE logic:
+```
+// Current: activates guide on every fresh session in dev mode
+if (DEV_MODE) {
+  const tourDone = ...
+  if (!isActiveForUser || isRetakeForUser) activateGuide();
+  setShowGuide(true);  // <-- always true on fresh session
+  return;
+}
+```
 
-What is missing / broken
+With:
+```
+if (DEV_MODE) {
+  // Only show guide if ?tour=1 is present or retake is flagged
+  if (!hasTourParam) {
+    const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+    if (!isRetakeForUser) {
+      setShowGuide(false);
+      return;
+    }
+  }
+  activateGuide();
+  setShowGuide(true);
+  return;
+}
+```
 
-✅ Exists
-- Login/callback default return to `/daily-check-in`
-- CTA handler on context connection navigates to `/daily-check-in?tour=1`
-- Daily Check-In supports forced `?tour=1`
-- Backend has `onboarding_completed_at` and walkthrough flags
+This ensures:
+- Normal dev-mode visits to `/daily-check-in` → no guide, button works
+- `/daily-check-in?tour=1` → guide shows (first-time onboarding completion)
+- Profile retake → guide shows
 
-⚠️ Partially implemented
-- Existing-user onboarding blocking
-- Completion reconciliation between profile state and route guards
-- Separation between first-time onboarding tour and manual retake tour
+**No changes needed to `handleConfirm`** — the button handler, `saveCheckin()`, error handling, and navigation are all correctly implemented already. The issue is purely the overlay blocking clicks.
 
-❌ Missing
-- A single hard rule that completed users cannot view onboarding routes other than explicit allowed upgrade routes
-- A stable “auth/profile/onboarding-ready” gate before redirect decisions
-- Completed-user blocking on onboarding subroutes, not just `/onboarding` root
-- Protection against transient auth/profile sync gaps causing false onboarding redirects
+### 2. Verify no other changes needed
 
-Implementation plan
+- `saveCheckin()` in `src/utils/dailyCheckins.ts` correctly handles both DEV_MODE (direct DB upsert with `DEV_USER.id`) and auth mode (edge function with token). No fix needed.
+- `handleConfirm` already has error handling via toast and keeps `isSubmitting` state correct. No fix needed.
+- Navigation to `/check-in-detail` after save is correct. No fix needed.
+- The `CheckInDetail.tsx` page correctly navigates to `/executive-home` after clarity/confidence save. No fix needed.
 
-1. Harden onboarding route blocking
-- Update `OnboardingBlockGuard` so completed users are redirected away from all onboarding routes except explicit allowed routes, even when they hit deep routes directly.
-- Do not rely only on local `user.onboarding_completed_at`; perform reconciliation before allowing any onboarding subroute render.
+### Summary
 
-2. Add a completed-user short-circuit to stage validation
-- Update `validateStageAccess()` so if DB/profile says onboarding is complete, it redirects to `/daily-check-in` for all onboarding routes except the intended upgrade payment route.
-- Keep `/onboarding/payment` allowed only for real upgrade scenarios, not as a generic leaked page.
+Single targeted fix in `DailyCheckIn.tsx`: change the DEV_MODE tour-activation logic so the guide only shows with `?tour=1` or an explicit retake flag, not on every visit. This unblocks the Confirm button in both modes.
 
-3. Make `OnboardingGuard` fail safer for returning users
-- Prevent fallback-to-`/onboarding` behavior for authenticated users until onboarding completion has been definitively reconciled.
-- Prefer a loading state over redirecting an existing user into onboarding based on stale client state.
-
-4. Separate first-time tour from retake tour cleanly
-- Keep `/daily-check-in?tour=1` usable in two contexts:
-  - first-time onboarding completion
-  - explicit retake from profile
-- Ensure only first-time users are shown the onboarding CTA path to it, while existing users can still manually re-trigger it from profile.
-
-5. Verify the context-connection completion path end-to-end
-- After the guard fixes, confirm the click path becomes:
-  `context-connection CTA -> complete onboarding -> /daily-check-in?tour=1 -> guide opens`
-- This should work for both authenticated users and DEV_MODE.
-
-Technical details
-- Primary files to update:
-  - `src/components/OnboardingGuard.tsx`
-  - `src/utils/onboardingStatus.ts`
-  - possibly `src/pages/DailyCheckIn.tsx` only if a small eligibility refinement is needed
-- No evidence suggests the Stage7 button itself is the root bug anymore.
-- Root cause is inconsistent onboarding-completion resolution across route guards, causing existing users to be treated as incomplete during navigation.
