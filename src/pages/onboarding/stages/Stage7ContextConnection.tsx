@@ -329,7 +329,7 @@ export default function Stage7ContextConnection() {
 
     if (completionSucceeded) {
       console.log("[Stage7] Context preferences saved, navigating to daily check-in");
-      navigate("/daily-check-in");
+      navigate("/daily-check-in?tour=1");
     } else {
       console.warn("[Stage7] Completion failed, staying on context step");
       toast.error("We couldn't finish setup yet. Please try again.");
