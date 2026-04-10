@@ -277,63 +277,48 @@ export default function Stage7ContextConnection() {
       return;
     }
 
-    let completionSucceeded = false;
-
+    // Attempt to mark onboarding complete on the backend
     try {
       const token = await getAuthToken();
       if (token) {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const body = JSON.stringify({
+          calendar_provider: calendarEnabled ? "google" : null,
+          watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
+        });
+        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
         const res = await fetch(
           `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              calendar_provider: calendarEnabled ? "google" : null,
-              watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
-            }),
-          }
+          { method: "POST", headers, body }
         );
+
         if (res.ok) {
           console.log("[Stage7] ✅ Onboarding marked complete");
-          completionSucceeded = true;
           await refreshProfile();
         } else {
-          console.warn("[Stage7] ⚠️ complete-onboarding failed:", res.status);
+          console.warn("[Stage7] ⚠️ complete-onboarding failed:", res.status, "— retrying");
           const retry = await fetch(
             `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
-            {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                calendar_provider: calendarEnabled ? "google" : null,
-                watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
-              }),
-            }
+            { method: "POST", headers, body }
           );
           if (retry.ok) {
             console.log("[Stage7] ✅ Onboarding marked complete (retry)");
-            completionSucceeded = true;
             await refreshProfile();
           } else {
             console.error("[Stage7] ❌ complete-onboarding retry also failed:", retry.status);
           }
         }
+      } else {
+        console.warn("[Stage7] No auth token — skipping completion call");
       }
     } catch (err) {
-      console.warn("[Stage7] ⚠️ complete-onboarding error:", err);
+      console.warn("[Stage7] ⚠️ complete-onboarding error (non-blocking):", err);
     }
 
-    if (completionSucceeded) {
-      console.log("[Stage7] Context preferences saved, navigating to daily check-in");
-      navigate("/daily-check-in?tour=1");
-    } else {
-      console.warn("[Stage7] Completion failed, staying on context step");
-      toast.error("We couldn't finish setup yet. Please try again.");
-    }
+    // Always navigate to the tour regardless of backend outcome
+    console.log("[Stage7] Navigating to daily check-in with tour");
+    navigate("/daily-check-in?tour=1");
   };
 
   return (
