@@ -1,62 +1,40 @@
 
 
-## Problem
+## Title Rename for 4 Reset Studio Practices
 
-The Confirm button on `/daily-check-in` appears to do nothing because the **FirstSessionGuide overlay** is rendering on top of it and intercepting all clicks.
+### Changes Summary
 
-**Root cause**: In DEV_MODE (lines 124-138 of `DailyCheckIn.tsx`), the tour guide activates on every visit unless `sessionStorage` has `first_session_guide_done === '1'`. On a fresh browser session, this flag is absent, so the guide overlay always shows — even without `?tour=1` — and blocks the Confirm button. The button handler itself is correctly wired; it simply never receives the click event.
+| # | Current Title | New Title | ID |
+|---|---|---|---|
+| 1 | Deep Rest & Grounding with Harmonic Calm | Nervous System Reset Through Tibetan Bowls | `harmonic-calm` |
+| 2 | Energy Through Reframe | Energy Through The Shift | `energy-through-reframe` |
+| 3 | Resilience Through Brave Action | Courage Through The Arena | `courage-arena` |
+| 4 | Ruthless Focus Through Simplicity | Clarity Through Elimination | `jobs-simplicity` |
 
-In auth mode, a similar issue can occur: if the user's `onboarding_completed_at` is set but the walkthrough completion check fails transiently, the guide can still activate and block the button.
+### Files to Edit (title string replacements only)
 
-## Fix (2 files)
+**1. `src/data/practicesAndSoundscapes.ts`** — canonical content catalog
+- Line 261: `harmonic-calm` title
+- Line 1433: `energy-through-reframe` title
+- Line 1549: `courage-arena` title
+- Line 1265: `jobs-simplicity` title
 
-### 1. `src/pages/DailyCheckIn.tsx` — Fix tour activation logic
+**2. `src/pages/MicroPracticePlayerCards.tsx`** — card overview titles
+- Line 148: `ENERGY_REFRAME_CARDS` overview title
+- Line 351: `COURAGE_ARENA_CARDS` overview title
+- Line 944: `JOBS_SIMPLICITY_CARDS` overview title
 
-**DEV_MODE branch (lines 112-138)**: Change so that without `?tour=1`, the guide does NOT activate in dev mode. The dev-mode block should mirror the auth-mode behavior: only show the guide when explicitly requested via `?tour=1` or a retake flag.
+**3. `src/pages/recalibrate/PowerUpOutcomePage.tsx`** — hardcoded title overrides
+- Line 66: `energy-through-reframe` → "Energy Through The Shift"
+- Line 78: `courage-arena` → "Courage Through The Arena"
 
-Replace the current DEV_MODE logic:
-```
-// Current: activates guide on every fresh session in dev mode
-if (DEV_MODE) {
-  const tourDone = ...
-  if (!isActiveForUser || isRetakeForUser) activateGuide();
-  setShowGuide(true);  // <-- always true on fresh session
-  return;
-}
-```
+**4. Database update** — `sanctuary_content` table (3 rows; `energy-through-reframe` not in DB)
+- UPDATE `harmonic-calm` title
+- UPDATE `courage-arena` title
+- UPDATE `jobs-simplicity` title
 
-With:
-```
-if (DEV_MODE) {
-  // Only show guide if ?tour=1 is present or retake is flagged
-  if (!hasTourParam) {
-    const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
-    if (!isRetakeForUser) {
-      setShowGuide(false);
-      return;
-    }
-  }
-  activateGuide();
-  setShowGuide(true);
-  return;
-}
-```
-
-This ensures:
-- Normal dev-mode visits to `/daily-check-in` → no guide, button works
-- `/daily-check-in?tour=1` → guide shows (first-time onboarding completion)
-- Profile retake → guide shows
-
-**No changes needed to `handleConfirm`** — the button handler, `saveCheckin()`, error handling, and navigation are all correctly implemented already. The issue is purely the overlay blocking clicks.
-
-### 2. Verify no other changes needed
-
-- `saveCheckin()` in `src/utils/dailyCheckins.ts` correctly handles both DEV_MODE (direct DB upsert with `DEV_USER.id`) and auth mode (edge function with token). No fix needed.
-- `handleConfirm` already has error handling via toast and keeps `isSubmitting` state correct. No fix needed.
-- Navigation to `/check-in-detail` after save is correct. No fix needed.
-- The `CheckInDetail.tsx` page correctly navigates to `/executive-home` after clarity/confidence save. No fix needed.
-
-### Summary
-
-Single targeted fix in `DailyCheckIn.tsx`: change the DEV_MODE tour-activation logic so the guide only shows with `?tour=1` or an explicit retake flag, not on every visit. This unblocks the Confirm button in both modes.
+### What does NOT change
+- No tag, category, id, logic, or structural changes
+- No changes to recommendation engine, content scoring, or routing
+- Works identically for both dev_mode and auth users (titles come from the same source files and DB rows)
 
