@@ -16,14 +16,14 @@ import { getAuthToken } from '@/services/authTokenService';
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
   const content = getContentByCategory('pause');
-  const soundscapes = content.filter(item => item.contentType === 'soundbath');
-  const practices = content.filter(item => item.contentType === 'guided-practice');
+  const soundscapes = content.filter(item => item.contentType === 'soundbath' && item.id !== 'pranayama-clarity');
+  const practices = content.filter(item => item.contentType === 'guided-practice' && item.id !== 'pranayama-clarity');
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
   const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
   
   // IDs to exclude entirely from display
-  const excludedIds = ['grounding-touch'];
+  const excludedIds = ['grounding-touch', 'pranayama-clarity'];
   
   // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
   const microPractices = content.filter(item => 
