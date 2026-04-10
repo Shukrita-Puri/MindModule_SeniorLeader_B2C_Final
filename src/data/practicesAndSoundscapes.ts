@@ -1,57 +1,57 @@
 // Updated structure with contentType and tags for recommendation system
-// Pause category
-import pauseVisual from "@/assets/recalibrate/pause/soundscape-pause-visual.jpg";
-import pauseMauve from "@/assets/recalibrate/pause/mindset-pause-mauve.jpg";
-import pranayamaClarityHero from "@/assets/recalibrate/pause/pranayama-clarity-hero.jpg";
-import harmonicCalmBowl from "@/assets/recalibrate/pause/harmonic-calm-singing-bowl.jpg";
-import forestBathingVisual from "@/assets/recalibrate/pause/forest-bathing-visual.jpg";
-import releaseExhale from "@/assets/recalibrate/pause/release-exhale.jpg";
-import stillnessGap from "@/assets/recalibrate/pause/stillness-gap.jpg";
-import softnessRelease from "@/assets/recalibrate/pause/softness-release.jpg";
-import somaticTouchGrounding from "@/assets/recalibrate/pause/somatic-touch-grounding.jpg";
-import vagusWindDownHero from "@/assets/recalibrate/pause/vagus-wind-down-hero.jpg";
-import inaHero from "@/assets/recalibrate/pause/ina-night-fields-hero.jpg";
+// Pause category — new engraved illustrations (steel blue palette)
+import pauseVisual from "@/assets/recalibrate/pause/soundscape-pause-visual.png";
+import pauseMauve from "@/assets/recalibrate/pause/soundscape-pause-visual.png";
+import pranayamaClarityHero from "@/assets/recalibrate/pause/pranayama-clarity.png";
+import harmonicCalmBowl from "@/assets/recalibrate/pause/harmonic-calm.png";
+import forestBathingVisual from "@/assets/recalibrate/pause/deep-calm-forest-bathing.png";
+import releaseExhale from "@/assets/recalibrate/pause/release-exhale.png";
+import stillnessGap from "@/assets/recalibrate/pause/stillness-gap.png";
+import softnessRelease from "@/assets/recalibrate/pause/softness-release.png";
+import somaticTouchGrounding from "@/assets/recalibrate/pause/somatic-touch-grounding.png";
+import vagusWindDownHero from "@/assets/recalibrate/pause/vagus-wind-down.png";
+import inaHero from "@/assets/recalibrate/power-up/ina-night-fields.png";
 
-// Power-up category
-import renewalVisual from "@/assets/recalibrate/power-up/soundscape-renewal-visual.jpg";
-import renewalColorful from "@/assets/recalibrate/power-up/mindset-renewal-colorful.jpg";
-import didgeridooHero from "@/assets/recalibrate/power-up/didgeridoo-bowls-hero.jpg";
-import warriorDrumsHero from "@/assets/recalibrate/power-up/warrior-drums-hero.jpg";
-import basqueTxalapartaHero from "@/assets/recalibrate/power-up/basque-txalaparta-hero.jpg";
-import renewalStretchIllustration from "@/assets/recalibrate/power-up/renewal-stretch-illustration.jpg";
-import phoenixResilienceHero from "@/assets/recalibrate/power-up/phoenix-resilience-hero.png";
-import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-hero.png";
-import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-evidence-hero.png";
-import energyReframeHero from "@/assets/recalibrate/power-up/energy-reframe-hero.png";
-import energyCompletionHero from "@/assets/recalibrate/power-up/energy-completion-hero.png";
-import braveActionHero from "@/assets/recalibrate/power-up/brave-action-hero.png";
+// Power-up category — new engraved illustrations (warm charcoal/ochre palette)
+import renewalVisual from "@/assets/recalibrate/power-up/soundscape-renewal-visual.png";
+import renewalColorful from "@/assets/recalibrate/power-up/soundscape-renewal-visual.png";
+import didgeridooHero from "@/assets/recalibrate/power-up/energised-focus-didgeridoo-bowls.png";
+import warriorDrumsHero from "@/assets/recalibrate/power-up/warrior-drums.png";
+import basqueTxalapartaHero from "@/assets/recalibrate/power-up/basque-txalaparta.png";
+import renewalStretchIllustration from "@/assets/recalibrate/power-up/soundscape-renewal-visual.png";
+import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.png";
+import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-self.png";
+import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-through-evidence.png";
+import energyReframeHero from "@/assets/recalibrate/power-up/energy-reframe.png";
+import energyCompletionHero from "@/assets/recalibrate/power-up/energy-through-completion.png";
+import braveActionHero from "@/assets/recalibrate/power-up/courage-arena.png";
 // kapalabhati removed from content
-import boxBreathingHero from "@/assets/recalibrate/power-up/box-breathing-hero.png";
-import energyForgeHero from "@/assets/recalibrate/power-up/energy-forge-hero.png";
-import rhythmPulseHero from "@/assets/recalibrate/power-up/rhythm-pulse-hero.png";
+import boxBreathingHero from "@/assets/recalibrate/pause/box-breathing.png";
+import energyForgeHero from "@/assets/recalibrate/power-up/energy-forge-power.png";
+import rhythmPulseHero from "@/assets/recalibrate/presence/rhythm-pulse.png";
 
-// Presence category
-import flowVisual from "@/assets/recalibrate/presence/soundscape-flow-visual.jpg";
-import flowBlue from "@/assets/recalibrate/presence/mindset-flow-blue.jpg";
-import flowMeditationColorful from "@/assets/recalibrate/presence/flow-meditation-colorful.jpg";
-import sustainedFocusChoirHero from "@/assets/recalibrate/presence/sustained-focus-choir-hero.jpg";
-import bhramariHero from "@/assets/recalibrate/presence/bhramari-pranayama-hero.jpg";
-import tratakaHero from "@/assets/recalibrate/presence/trataka-flame-gaze-hero.jpg";
-import monasticResonanceHero from "@/assets/recalibrate/presence/monastic-resonance-hero.jpg";
-import fudoshinImmovableMind from "@/assets/recalibrate/presence/fudoshin-immovable-mind.jpg";
-import presenceGrounding from "@/assets/recalibrate/presence/presence-grounding.jpg";
-import clarityEyeOfStorm from "@/assets/recalibrate/presence/clarity-eye-of-storm.jpg";
-import detachmentObserver from "@/assets/recalibrate/presence/detachment-observer.jpg";
-import singleThreadFocusHero from "@/assets/recalibrate/presence/single-thread-focus-hero.png";
-import firstMoveMomentumHero from "@/assets/recalibrate/presence/first-move-momentum-hero.png";
-import depthSubtractionHero from "@/assets/recalibrate/presence/depth-subtraction-hero.png";
-import eternalNowPresenceHero from "@/assets/recalibrate/presence/eternal-now-presence-hero.png";
-import masteryConstraintHero from "@/assets/recalibrate/presence/mastery-constraint-hero.png";
-import wuWeiFlowHero from "@/assets/recalibrate/presence/wu-wei-flow-hero.png";
-import mushinFlowHero from "@/assets/recalibrate/presence/mushin-flow-hero.png";
-import jobsSimplicityHero from "@/assets/recalibrate/presence/jobs-simplicity-hero.png";
-import ikigaiPurposeHero from "@/assets/recalibrate/presence/ikigai-purpose-hero.png";
-import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection-hero.png";
+// Presence category — new engraved illustrations (deep teal palette)
+import flowVisual from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
+import flowBlue from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
+import flowMeditationColorful from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
+import sustainedFocusChoirHero from "@/assets/recalibrate/presence/sustained-focus-choir-harmonic.png";
+import bhramariHero from "@/assets/recalibrate/presence/bhramari-pranayama.png";
+import tratakaHero from "@/assets/recalibrate/presence/trataka-flame-gaze.png";
+import monasticResonanceHero from "@/assets/recalibrate/presence/deep-focus-monastic-resonance.png";
+import fudoshinImmovableMind from "@/assets/recalibrate/pause/fudoshin-immovable-mind.png";
+import presenceGrounding from "@/assets/recalibrate/pause/grounding-touch.png";
+import clarityEyeOfStorm from "@/assets/recalibrate/pause/eye-of-storm.png";
+import detachmentObserver from "@/assets/recalibrate/pause/detachment-observer.png";
+import singleThreadFocusHero from "@/assets/recalibrate/presence/single-thread-focus.png";
+import firstMoveMomentumHero from "@/assets/recalibrate/presence/first-move-momentum.png";
+import depthSubtractionHero from "@/assets/recalibrate/presence/jobs-simplicity.png";
+import eternalNowPresenceHero from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
+import masteryConstraintHero from "@/assets/recalibrate/presence/mastery-constraint.png";
+import wuWeiFlowHero from "@/assets/recalibrate/presence/wu-wei-flow.png";
+import mushinFlowHero from "@/assets/recalibrate/presence/mushin-no-mind.png";
+import jobsSimplicityHero from "@/assets/recalibrate/presence/jobs-simplicity.png";
+import ikigaiPurposeHero from "@/assets/recalibrate/presence/ikigai-purpose.png";
+import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
