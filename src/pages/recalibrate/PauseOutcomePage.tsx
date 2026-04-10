@@ -23,7 +23,7 @@ const PauseOutcomePage = () => {
   const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
   
   // IDs to exclude entirely from display
-  const excludedIds = ['grounding-touch'];
+  const excludedIds = ['grounding-touch', 'pranayama-clarity'];
   
   // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
   const microPractices = content.filter(item => 
