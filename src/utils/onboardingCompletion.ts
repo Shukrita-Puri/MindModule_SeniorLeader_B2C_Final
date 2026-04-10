@@ -5,11 +5,21 @@ export interface OnboardingProgressSnapshot {
   beta_user?: boolean | null;
   completed_at?: string | null;
   context_connection_at?: string | null;
+  current_step?: string | null;
+  emotional_awareness_at?: string | null;
   first_session_walkthrough_at?: string | null;
+  growth_intention_at?: string | null;
+  identity_at?: string | null;
+  mental_clarity_at?: string | null;
+  mental_fitness_baseline?: unknown;
   onboarding_completed_at?: string | null;
+  onboarding_insight?: unknown;
   payment_at?: string | null;
+  recovery_patterns_at?: string | null;
   results_at?: string | null;
   signup_step_at?: string | null;
+  stress_response_at?: string | null;
+  user_archetype?: string | null;
 }
 
 function getOnboardingProgressUrl() {

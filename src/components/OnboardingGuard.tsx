@@ -21,6 +21,16 @@ async function checkDbOnboardingCompletion(): Promise<boolean> {
   }
 }
 
+async function resolveDbCompletion(): Promise<'complete' | 'incomplete' | 'unknown'> {
+  try {
+    const snapshot = await fetchOnboardingProgressSnapshot();
+    if (!snapshot) return 'unknown';
+    return isOnboardingCompleteSnapshot(snapshot) ? 'complete' : 'incomplete';
+  } catch {
+    return 'unknown';
+  }
+}
+
 /**
  * Wraps protected routes to enforce onboarding completion.
  * Shows loading until completion is definitively resolved — never
@@ -49,8 +59,8 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 
     (async () => {
       try {
-        const dbCompleted = await checkDbOnboardingCompletion();
-        if (dbCompleted) {
+        const completionState = await resolveDbCompletion();
+        if (completionState === 'complete') {
           console.log('[OnboardingGuard] ✅ DB says onboarding completed, allowing access');
           await refreshProfile();
           setResolved(true);
@@ -58,8 +68,12 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
           return;
         }
 
-        // If the profile/backend state is temporarily unavailable, fail open to avoid
-        // bouncing returning users back into first-time onboarding.
+        if (completionState === 'unknown') {
+          console.log('[OnboardingGuard] ⏳ Completion state unresolved, failing open to avoid false onboarding redirect');
+          setResolved(true);
+          return;
+        }
+
         await refreshProfile();
         if (!user?.onboarding_completed_at) {
           console.log('[OnboardingGuard] ⏳ User onboarding incomplete, resolving resume route...');
