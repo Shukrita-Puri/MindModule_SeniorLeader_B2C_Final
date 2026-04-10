@@ -63,7 +63,7 @@ const PowerUpOutcomePage = () => {
       return 'Resilience Through The Phoenix';
     }
     if (item.id === 'energy-through-reframe') {
-      return 'Energy Through Reframe';
+      return 'Energy Through The Shift';
     }
     if (item.id === 'courage-future-self') {
       return 'Courage Through The Future Self';
@@ -75,7 +75,7 @@ const PowerUpOutcomePage = () => {
       return 'Restore Energy Through Completion';
     }
     if (item.id === 'courage-arena') {
-      return 'Resilience Through Brave Action';
+      return 'Courage Through The Arena';
     }
     
     // For other micro practices, use the title directly
