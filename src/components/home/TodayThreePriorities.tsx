@@ -89,6 +89,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
+  const { data: outerReadinessData } = useOuterReadiness();
 
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +98,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const prevCompletedIdsRef = useRef<string[]>([]);
   const autoRetryDoneRef = useRef(false);
+  const authTimeoutRef = useRef(false);
 
   // ── Celebration ──
   const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean) => {
