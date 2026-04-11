@@ -1992,36 +1992,45 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
     }
   } catch { /* ignore */ }
 
-  // ── Outer Readiness (server-to-server) ──
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-      body: JSON.stringify({
-        userId: req.userId, timezoneOffset: req.timezoneOffset,
-        innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
-        clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
-        componentScores: req.componentScores || null,
-        practicePriorityTag: req.practicePriorityTag || null,
-      }),
-    });
-    if (outerRes.ok) {
-      const outerData = await outerRes.json();
-      req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
-      req.outerReadinessDriver = outerData.driver || 'state';
-      req.outerReadinessContext = outerData.context || '';
-      req.outerReadinessLeanOn = outerData.leanOn || '';
-      req.outerReadinessWatchFor = outerData.watchFor || '';
-      ctx.combinedAlreadyUsed = [...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || [])];
+  // ── Outer Readiness (use client cache if provided, else server-to-server) ──
+  if (outerReadinessCache && outerReadinessCache.phrase) {
+    console.log('[generate-mastery-plan] Using cached outer readiness');
+    req.outerReadinessPhrase = outerReadinessCache.phrase || 'Steady execution.';
+    req.outerReadinessDriver = outerReadinessCache.driver || 'state';
+    req.outerReadinessContext = outerReadinessCache.context || outerReadinessCache.contextStatement || '';
+    req.outerReadinessLeanOn = outerReadinessCache.leanOn || '';
+    req.outerReadinessWatchFor = outerReadinessCache.watchFor || '';
+  } else {
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({
+          userId: req.userId, timezoneOffset: req.timezoneOffset,
+          innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
+          clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
+          componentScores: req.componentScores || null,
+          practicePriorityTag: req.practicePriorityTag || null,
+        }),
+      });
+      if (outerRes.ok) {
+        const outerData = await outerRes.json();
+        req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
+        req.outerReadinessDriver = outerData.driver || 'state';
+        req.outerReadinessContext = outerData.context || '';
+        req.outerReadinessLeanOn = outerData.leanOn || '';
+        req.outerReadinessWatchFor = outerData.watchFor || '';
+        ctx.combinedAlreadyUsed = [...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || [])];
+      }
+    } catch {
+      req.outerReadinessPhrase = 'Steady execution.';
+      req.outerReadinessDriver = 'state';
+      req.outerReadinessContext = '';
+      req.outerReadinessLeanOn = '';
+      req.outerReadinessWatchFor = '';
     }
-  } catch {
-    req.outerReadinessPhrase = 'Steady execution.';
-    req.outerReadinessDriver = 'state';
-    req.outerReadinessContext = '';
-    req.outerReadinessLeanOn = '';
-    req.outerReadinessWatchFor = '';
   }
 
   console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
@@ -2030,7 +2039,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
 
 // ==================== MAIN PLAN GENERATION ====================
 
-async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
+async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
 
   // Phase 2: Recovery day override (feature-flagged OFF)
@@ -2075,13 +2084,31 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     };
   });
 
-  // 3. Fetch HRV × Calendar correlations
-  const hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
+  // 3. Fetch HRV × Calendar correlations (defensive – null on failure)
+  let hrvCorrelations: HRVCorrelationMap | null = null;
+  try {
+    hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
+  } catch (hrvError: any) {
+    console.error('[generate-mastery-plan] HRV correlation failed, proceeding without:', hrvError?.message);
+  }
 
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
   const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
-  // Filter out 3+ skipped types
-  const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
+
+  // Suppresses event types skipped 3+ times in last 30 days.
+  // TODO: Replace with query to jit_cancellation_memory:
+  //   SELECT DISTINCT event_type FROM jit_cancellation_memory
+  //   WHERE user_id = userId AND penalty_level >= 3
+  //   AND cancelled_at > NOW() - INTERVAL '30d'
+  const skippedTypes3Plus: string[] = [];
+
+  // Filter out 3+ skipped types (defensive – degrades to unfiltered on error)
+  let filteredEvents = scoredEvents;
+  try {
+    filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
+  } catch (filterError: any) {
+    console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
+  }
 
   // Observability: log calendar scoring summary
   console.log(`[generate-mastery-plan] Calendar: ${req.calendarEvents?.length || 0} events fetched, ${scoredEvents.length} scored, ${filteredEvents.length} after suppression. Top event: ${filteredEvents[0]?.event.title || 'none'} (score: ${filteredEvents[0]?.score || 0})`);
@@ -3123,6 +3150,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     const forceRefresh = body.forceRefresh === true;
+    const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
 
     // Build state fingerprint from latest check-in + completions for cache key
@@ -3201,7 +3229,7 @@ Deno.serve(async (req) => {
 
     // supabaseClient already created above for fingerprint
 
-    const plan = await generateMasteryPlan(planReq, supabaseClient);
+    const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
 
     // Cache response for rate limiting
     rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
@@ -3216,9 +3244,14 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
-  } catch (error) {
-    console.error('Error generating mastery plan:', error);
-    return new Response(JSON.stringify({ error: 'Failed to generate plan', details: String(error) }), {
+  } catch (error: any) {
+    console.error('[generate-mastery-plan] Fatal error:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      userId: userId ?? 'unknown',
+    });
+    return new Response(JSON.stringify({ error: 'Plan generation failed', reason: error?.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     });
