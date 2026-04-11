@@ -49,7 +49,7 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
+  const auth0Domain = Deno.env.get('AUTH0_DOMAIN') || Deno.env.get('VITE_AUTH0_DOMAIN');
   
   if (!auth0Domain) {
     throw new Error('Auth0 domain not configured');
