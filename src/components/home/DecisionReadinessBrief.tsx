@@ -401,7 +401,7 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
         !hasBack && !onNavigate && "cursor-default"
       )}
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", chipDotColor(chip.color))} />
+      
       <span className="whitespace-nowrap">
         {flipped && chip.backLabel ? chip.backLabel : chip.label}
         {!flipped && chip.qualifier && (
