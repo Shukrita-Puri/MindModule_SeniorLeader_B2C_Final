@@ -320,12 +320,16 @@ const ConnectedData = () => {
       const result = await syncHealthKitToBackend();
       console.log('[ConnectedData] Sync result:', JSON.stringify(result));
 
-      if (result.connectionState === 'connected') {
+      if (result.connectionState === 'connected' && result.dbPersisted) {
         toast.success('Apple Health data synced successfully');
+      } else if (result.connectionState === 'connected' && !result.dbPersisted) {
+        toast.warning('Apple Health connected but data could not be saved to server. Will retry.');
       } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.info('Apple Health is connected. Waiting for new HRV data from Apple Health.');
       } else if (result.connectionState === 'sync_delayed') {
-        toast.warning('Apple Health is connected, but sync is delayed. We will retry automatically.');
+        toast.warning(result.hasData && !result.dbPersisted
+          ? 'Data read from Apple Health but server save failed. Will retry automatically.'
+          : 'Apple Health is connected, but sync is delayed. We will retry automatically.');
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission was revoked. Please reconnect in Health settings.');
       } else {
