@@ -2822,6 +2822,9 @@ function buildHorizonModules(
 
   // Build common extra args for all buildWhyLine calls
   const whyLineExtras = [checkInCountTotal, wearableDaysConnected, req.calendarLoad, meetingCount, req.clarityLevel, req.confidenceLevel, timeOfDay, dayOfWeekName] as const;
+
+  // Divergence mode detection: wearable shows strain but check-in doesn't
+  let divergenceMode: string | null = null;
   if (req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null) {
     if (req.wearableContext.hrvDeviation < -15 && req.innerReadinessTier !== 'depleted') {
       divergenceMode = 'MASKED_HIGH';
