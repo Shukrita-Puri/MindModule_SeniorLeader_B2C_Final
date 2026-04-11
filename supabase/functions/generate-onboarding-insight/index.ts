@@ -196,7 +196,7 @@ Write 2-3 sentences that name this leader's specific pattern – what their scor
       const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
