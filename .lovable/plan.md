@@ -1,122 +1,102 @@
 
 
-# Reset Studio Visual Regeneration Plan
+# Plan: Fix LLM Output Pipeline + Supporting Fixes
 
-## Overview
+## Diagnosis from Code + Logs
 
-Generate 40+ new AI illustrations for all Reset Studio practice card thumbnails using an engraved illustration style with palette-specific color direction per mastery bucket. Archive all existing images. Update all code references.
+The logs show the LLM IS being called and returning results (`DRB phrase source: llm`). However, there's a critical enrichment error at line ~2776: `.maybeSingle(...).catch is not a function`. This means the entire enrichment block (lines 2663-2977) throws an error for some queries, causing partial data loss in the prompt. The LLM still gets called but with potentially incomplete signals.
 
-## Image Generation Approach
+Key findings:
+1. **LLM is firing** — logs confirm `phrase source: llm` for the current user
+2. **Enrichment queries crash** — `.catch()` on Supabase query builders that don't support it (the `Promise.all` at line 2683 has queries using `.maybeSingle().catch()` which isn't a function on the Supabase query builder)
+3. **Weekend awareness missing from LLM prompt** — `isWeekend` is computed (line 2986) but no weekend rule exists in the system prompt
+4. **6s timeout is tight** — no retry logic exists
+5. **Module-type mismatch possible** — `todModules[0]` fallback at line 2814 can be a coach card when regulate content is empty
+6. **Why lines not shown on collapsed slots** — collapsed state only renders practice name
 
-Use the AI gateway script (`lovable_ai.py`) with `google/gemini-3-pro-image-preview` to generate each image. Each image gets a detailed prompt combining:
-- Base style (engraved illustration, fine line work, crosshatching, stippling, 19th-century scientific illustration meets New Yorker editorial)
-- Practice-specific scene description (from user spec)
-- Palette-specific color direction (steel blue / deep teal / warm charcoal-ochre)
+---
 
-Images saved to `src/assets/recalibrate/` in new subdirectories to keep archive separate.
+## Changes
 
-## Architecture
+### 1. `supabase/functions/compute-outer-readiness/index.ts`
 
-### Step 1: Archive existing images
-- Rename existing directories:
-  - `src/assets/recalibrate/pause/` → `src/assets/recalibrate/pause-archive/`
-  - `src/assets/recalibrate/presence/` → `src/assets/recalibrate/presence-archive/`
-  - `src/assets/recalibrate/power-up/` → `src/assets/recalibrate/power-up-archive/`
-- Create fresh `pause/`, `presence/`, `power-up/` directories
+**Fix the enrichment query crash (root cause)**
+- Lines 2683-2704: The `Promise.all` uses `.catch()` on Supabase query builders. Some queries chain `.maybeSingle().catch()` which fails because `.maybeSingle()` returns a PromiseLike without `.catch()`. Wrap each query in `Promise.resolve(...)` or use `.then(d => d, () => ({ data: null }))` pattern instead of `.catch()`
+- This fixes: `TypeError: db.from(...).select(...).eq(...).eq(...).order(...).limit(...).maybeSingle(...).catch is not a function`
 
-### Step 2: Generate images (batch script)
+**Add weekend rule to LLM system prompt**
+- After the existing temporal rules in the system prompt (line 3159-3180), add the weekend/holiday daytime rule as specified: recovery framing, no performance-heavy language, spacious tone
 
-Write a generation script that produces one PNG per practice with the exact prompt from the user's spec. ~40 images total across 3 buckets.
+**Increase timeout + add retry**
+- Line 3240: Change timeout from 6000ms to 10000ms
+- Add one retry with 8000ms timeout on abort/failure
+- Log each attempt and duration
 
-**PAUSE MASTERY (steel blue palette) — 14 images:**
-- `grounding-touch.png` — Bare feet on stone at dawn
-- `release-exhale.png` — Breath visible in cold air, scientific illustration
-- `vagus-wind-down.png` — Still water at dusk, figure at water's edge
-- `harmonic-calm.png` — Tibetan bowl from above, concentric rings
-- `deep-calm-forest-bathing.png` — Ancient forest canopy from below
-- `pranayama-clarity.png` — Lungs expanding, anatomical engraving
-- `fudoshin-immovable-mind.png` — Tree in storm, roots in cross-section
-- `eye-of-storm.png` — Hurricane eye from satellite, engraved
-- `stillness-gap.png` — Space between two waves
-- `detachment-observer.png` — Figure on high vantage watching city
-- `softness-release.png` — Hand releasing bird at moment of release
-- `box-breathing.png` — Geometric square, four phases of breath
-- `somatic-touch-grounding.png` (reuse grounding-touch)
-- `soundscape-pause-visual.png` (general pause category image)
+**Add diagnostic logging**
+- Log the user prompt before LLM call
+- Log raw response, parsed result, and fallback reason
+- Log signal values (checkInOutcome, clarityLevel, calendarLoad, isWeekend) before prompt assembly
 
-**FLOW MASTERY (deep teal palette) — 16 images:**
-- `bhramari-pranayama.png` — Sound waves, concentric lines
-- `trataka-flame-gaze.png` — Single flame in detail
-- `kapalabhati-pranayama.png` — Mountain summit at first light
-- `energy-forge.png` — Forge fire in teal
-- `deep-focus-monastic-resonance.png` — Bell cross-section
-- `sustained-focus-choir-harmonic.png` — Sheet music as engraving
-- `wu-wei-flow.png` — Water through rock, overhead
-- `mushin-no-mind.png` — Racing circuit from above, apex line
-- `jobs-simplicity.png` — Single line on vast surface
-- `ikigai-purpose.png` — Dawn light in workshop
-- `single-thread-focus.png` — Spider's web, one thread traced
-- `first-move-momentum.png` — Stone into still water, first ripple
-- `rhythm-pulse.png` — ECG trace as landscape
-- `mastery-constraint.png` — Bonsai tree cross-section
-- `stoic-reflection.png` — Desk at night, lamp, journal
-- `soundscape-flow-visual.png` (general flow category image)
+**Explicit fallback reason tracking**
+- When falling back to template, log the specific reason (day1, timeout, parse_failed, llm_returned_null)
 
-**POWER MASTERY (warm charcoal/ochre palette) — 14 images:**
-- `warrior-drums.png` — Taiko drum face from above
-- `energised-focus-didgeridoo-bowls.png` — Aboriginal elder at dawn
-- `energy-forge-power.png` — Volcanic landscape at dawn
-- `ina-night-fields.png` — Nagano countryside at night from high point
-- `buddhist-phoenix.png` — Phoenix as Japanese woodblock/engraving
-- `energy-reframe.png` — Figure at summit looking back
-- `courage-future-self.png` — Path splitting at headland
-- `confidence-through-evidence.png` — Wall covered in engraved marks
-- `energy-through-completion.png` — Map with all routes completed
-- `courage-arena.png` — View from tunnel toward arena
-- `basque-txalaparta.png` — (Basque wooden percussion instrument)
-- `soundscape-renewal-visual.png` (general power category image)
-- `architectural-power-up.png` (main page card image)
-- `architectural-pause.png` / `architectural-presence.png` (main page cards — regenerated to match new style)
+### 2. `supabase/functions/generate-mastery-plan/index.ts`
 
-### Step 3: Update code references
+**Fix REGULATE slot fallback (Fix 7)**
+- Line 2814: Change `|| todModules[0]` to `|| todModules.find(m => !m.isCoachCard) || todModules[0]` — ensure depleted users never get a coach card in slot 1 when seeking regulate content
+- Add a guard after slot assignment: if slot practice is a coach card AND the slot label says REGULATE, swap with next non-coach module
 
-**Files to edit (imports and filenames only — no logic changes):**
+**Add data sufficiency to buildWhyLine (Fix 8 partial)**
+- Add `checkInCountTotal` and `wearableDaysConnected` parameters
+- Gate pattern references behind `checkInCountTotal >= 3`
+- Gate HRV correlation behind `wearableDaysConnected >= 7`  
+- Change tactical fallback (line 2718) from `"Based on your patterns this week."` to `"For your state and demands today."` when no pattern data
+- Wire counts from `buildSharedContext()` through to `buildWhyLine()` calls
 
-1. **`src/data/practicesAndSoundscapes.ts`** — Update all `import` statements at top to point to new PNG files. Update `thumbnail` field references where variable names change.
+### 3. `src/components/home/TodayThreePriorities.tsx`
 
-2. **`src/pages/MicroPracticePlayerCards.tsx`** — Update `import` statements and `getBackgroundForPractice()` switch to use new images.
+**Show why line on collapsed slots (Fix 8 UI)**
+- Line 575-582: After the practice title in the collapsed state, add the why line in muted italic text:
+```tsx
+<p className="text-[11px] italic text-muted-foreground/50 font-body truncate">
+  {hm.whyLine}
+</p>
+```
 
-3. **`src/data/microExerciseThumbnails.ts`** — Update category fallback thumbnails to new images.
+**Add JIT polling (Fix 4 partial)**
+- Add a 15-minute interval that checks for new qualifying JIT events while the homepage is visible
+- Use `document.visibilityState` to pause when backgrounded
+- Stop polling when all 3 slots completed
+- On new JIT event detected: clear session cache, trigger re-fetch
 
-4. **`src/pages/RecalibrateMode.tsx`** — Update 3 main page card images (architecturalPause, architecturalPresence, architecturalPowerUp).
+### 4. `src/pages/DailyCheckIn.tsx` (Fix 4)
 
-5. **`src/pages/recalibrate/PauseOutcomePage.tsx`**, **`PresenceOutcomePage.tsx`**, **`PowerUpOutcomePage.tsx`** — No code changes needed (they read `item.thumbnail` from the data catalog, which gets updated in step 1).
+- Verify and ensure plan cache keys are cleared on check-in submission (already partially done — confirm `plan-loaded-*` and `plan-data-*` are cleared)
 
-6. **`src/pages/MicroPracticePlayer.tsx`**, **`SoundscapePlayer.tsx`**, **`GuidedPracticePlayer.tsx`** — No code changes needed (they read `practice.thumbnail` or `content.thumbnail` from the data catalog).
+### 5. `src/hooks/useOuterReadiness.ts` (Fix 3 — cache hierarchy)
 
-### Step 4: Verify
+- Add period-awareness to the query key: `['outer-readiness', userId, period]` where period = morning/afternoon/evening
+- This naturally invalidates across time periods without manual cache management
+- React Query's `staleTime` + `refetchOnMount: 'always'` already handles the "serve cache if nothing changed" case
 
-- All practice cards show new engraved illustrations
-- Palette consistency: Pause=steel blue, Flow=deep teal, Power=warm charcoal/ochre
-- No broken image references
-- No content, routing, logic, or DB changes
-- Works identically for dev_mode and auth users (images are static assets)
+---
 
 ## What does NOT change
 
-- Practice titles, content, steps, tags
-- Card layout and structure
-- Routing or navigation
-- Database records
-- Category/bucket assignments
-- Favourite status
-- Any recommendation or scoring logic
+- Score calculation and tier logic
+- Signal chip generation
+- Lean On / Watch For cascade logic
+- DB queries and table schemas
+- Practice card design and styling
+- Completion tracking, streak tracking, auth logic
+- Template fallback function content (they remain as last-resort safety nets)
+- LLM system prompt existing rules (only adding weekend rule)
 
-## Technical notes
+## Deploy & Verify
 
-- Image generation will be done via `code--exec` using the AI gateway script with `google/gemini-3-pro-image-preview` model
-- Each image generated at appropriate resolution for mobile card thumbnails (~800x600 or similar)
-- Images saved as PNG directly into the asset directories
-- Due to the volume (~40 images), generation will be batched with delays to avoid rate limits
-- The 3 main page hero cards (`architectural-*`) will also be regenerated in the new style to maintain visual consistency
+- Deploy `compute-outer-readiness` and `generate-mastery-plan`
+- Check edge function logs for: LLM call firing, enrichment queries succeeding (no more `.catch` error), signal values populated, fallback reasons logged
+- Verify weekend copy appears on Saturday/Sunday
+- Verify why lines show on collapsed slots
+- Verify REGULATE slot never shows coach card
 
