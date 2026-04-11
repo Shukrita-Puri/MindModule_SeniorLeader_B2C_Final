@@ -3141,6 +3141,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     const forceRefresh = body.forceRefresh === true;
+    const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
 
     // Build state fingerprint from latest check-in + completions for cache key
