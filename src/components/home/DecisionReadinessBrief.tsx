@@ -85,7 +85,7 @@ const calendarLoadPillStyle = (load: string) => {
 };
 
 // Event pill style — taupe
-const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe-base))] to-[hsl(var(--taupe-light))] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] border-0';
+const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe))] to-[hsl(var(--taupe-highlight))] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] border-0';
 
 // Map leanOnSource keys to human-readable source labels
 const getSourceLabel = (source: string | undefined): string => {
