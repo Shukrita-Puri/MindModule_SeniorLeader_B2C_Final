@@ -2669,53 +2669,87 @@ function buildWhyLine(
   pendingCommitment: string | null,
   coachGrowthArea: string | null,
   practicePriorityTag: string | null,
-  archetypeWatchFor: string | null
+  archetypeWatchFor: string | null,
+  checkInCountTotal: number = 0,
+  wearableDaysConnected: number = 0,
+  calendarLoad: string | null = null,
+  meetingCount: number = 0,
+  clarityLevel: number | null = null,
+  confidenceLevel: number | null = null,
+  timeOfDay: string | null = null,
+  dayOfWeek: string | null = null
 ): string {
+  const hasWeekData = checkInCountTotal >= 3;
+  const hasWearablePattern = wearableDaysConnected >= 7;
+  const hasCalendar = meetingCount > 0;
+
   // IMMEDIATE
   if (horizon === 'immediate') {
     if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 30) {
-      return `${eventTitle} is almost here — prepare your state now.`;
+      return `${eventTitle} is almost here — prepare now.`;
     }
     if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 120) {
-      return `${eventTitle} in ${Math.round(jitMinutesUntil)} mins — prepare before you go in.`;
+      return `${eventTitle} in ${Math.round(jitMinutesUntil)} mins — go in prepared.`;
     }
     if (divergenceMode === 'MASKED_HIGH') {
-      return 'Your body is showing load you haven\'t registered yet — address it before it surfaces.';
+      return 'Your body is carrying load you haven\'t felt yet — address it now.';
     }
     if (tier === 'depleted') {
-      return 'Your reserves are low — regulate before the day starts.';
+      if (hasCalendar && meetingCount > 0) {
+        return `${meetingCount} meeting${meetingCount > 1 ? 's' : ''} ahead and reserves low — regulate before you start.`;
+      }
+      return 'Reserves low — regulate before the day demands more.';
     }
-    if (patternInsight && patternInsight.count >= 3) {
-      return `${patternInsight.count}${patternInsight.count === 3 ? 'rd' : 'th'} ${patternInsight.state} day — start by addressing the state, not just the schedule.`;
+    if (tier === 'managing' && hasCalendar && meetingCount > 3) {
+      return 'Heavy day ahead — settle your state before it starts.';
     }
-    return 'Start with your state — everything follows from this.';
+    if (checkInOutcome && clarityLevel !== null && clarityLevel <= 2) {
+      return 'Clarity low this morning — this addresses that before it compounds.';
+    }
+    if (checkInOutcome && confidenceLevel !== null && confidenceLevel <= 2) {
+      return 'Low confidence today — ground yourself before your first commitment.';
+    }
+    if (hasWeekData && patternInsight && patternInsight.count >= 3) {
+      return `${patternInsight.count}${patternInsight.count === 3 ? 'rd' : 'th'} ${patternInsight.state} day — start by addressing the state.`;
+    }
+    if (timeOfDay === 'morning') return 'Start with your state — everything follows from this.';
+    if (timeOfDay === 'afternoon') return 'Mid-day reset — your second half starts here.';
+    return 'Regulate now — the rest of the day is still ahead.';
   }
 
   // TACTICAL
   if (horizon === 'tactical') {
-    if (isJit && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
+    if (isJit && hasWearablePattern && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
       const direction = hrvEventCorrelation.avgHrvDelta > 0 ? 'elevates' : 'drops';
-      return `Your HRV typically ${direction} ${Math.abs(Math.round(hrvEventCorrelation.avgHrvDelta))}% before ${hrvEventCorrelation.eventType} — this addresses that pattern.`;
+      return `Your HRV typically ${direction} before ${hrvEventCorrelation.eventType} — this addresses that pattern.`;
     }
-    if (isJit && patternInsight && patternInsight.count >= 3) {
-      return `${eventTitle} is approaching — you've been ${patternInsight.state} ${patternInsight.count} days running.`;
+    if (isJit && hasWeekData && patternInsight && patternInsight.count >= 3) {
+      return `${eventTitle} approaching — you've been ${patternInsight.state} ${patternInsight.count} days running.`;
     }
     if (isJit) {
-      return `${eventTitle} qualifies for preparation — this is your window.`;
+      return `${eventTitle} is ahead — this prepares your state for it.`;
     }
-    if (hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
+    if (hasWearablePattern && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
       return 'Your data shows a pattern on days like this — this addresses it.';
     }
-    if (patternInsight && patternInsight.count >= 3) {
-      return `You've been ${patternInsight.state} ${patternInsight.count} days — this interrupts the pattern.`;
+    if (hasWeekData && patternInsight && patternInsight.count >= 3) {
+      return `${patternInsight.count} ${patternInsight.state} days in a row — this addresses the pattern.`;
     }
-    if (frictionTrend === 'declining') {
-      return 'Clarity has been declining this week — this addresses the pattern.';
+    if (hasWeekData && frictionTrend === 'declining') {
+      return 'Focus has been declining this week — this interrupts it.';
     }
-    if (scoreTrend === 'declining') {
-      return 'Your readiness has been trending down — this is the reset point.';
+    if (hasWeekData && scoreTrend === 'declining') {
+      return 'Your state has been trending down — this is the reset point.';
     }
-    return 'Based on your patterns this week.';
+    if (hasCalendar && meetingCount >= 4) {
+      return `${meetingCount} meetings today — this keeps you sharp through them.`;
+    }
+    if (checkInOutcome && clarityLevel !== null && clarityLevel >= 4) {
+      return 'Clarity strong today — this maintains it through the afternoon.';
+    }
+    if (dayOfWeek === 'Monday') return 'Monday demands more — this builds the week\'s foundation.';
+    if (dayOfWeek === 'Friday') return 'End of week — this sustains your quality through the close.';
+    return 'For your state and demands today.';
   }
 
   // STRATEGIC
@@ -2724,7 +2758,7 @@ function buildWhyLine(
       return 'You committed to working on this — this is that practice.';
     }
     if (coachGrowthArea) {
-      return `Connected to what you're building with your coach: ${coachGrowthArea}.`;
+      return `Connected to what you're building: ${coachGrowthArea}.`;
     }
     if (practicePriorityTag) {
       const tagLabels: Record<string, string> = {
@@ -2738,12 +2772,18 @@ function buildWhyLine(
       return `Matched to your ${tagLabels[practicePriorityTag] || 'development'} focus.`;
     }
     if (archetypeWatchFor) {
-      return `Your archetype pattern — ${archetypeWatchFor}. This addresses it.`;
+      return `Your pattern — ${archetypeWatchFor}. This addresses it.`;
     }
-    return 'For who you\'re becoming, not just today.';
+    if (timeOfDay === 'evening' && (tier === 'strong' || tier === 'peak')) {
+      return 'Strong day — close it with intention.';
+    }
+    if (timeOfDay === 'evening' && tier === 'depleted') {
+      return 'Depleted day — restore before tomorrow.';
+    }
+    return 'For who you\'re building toward — not just today.';
   }
 
-  return 'Based on your state and patterns today.';
+  return 'Based on your state today.';
 }
 
 function buildHorizonModules(
@@ -2772,6 +2812,16 @@ function buildHorizonModules(
   const pendingCommitment = pendingCommitments.length > 0 ? pendingCommitments[0].commitment_text : null;
   const coachGrowthArea = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content || null;
   const archetypeWatchFor = ARCHETYPE_WATCH_FOR[req.archetype] || null;
+
+  // Data sufficiency counts for honest why lines
+  const checkInCountTotal = shared.innerReadinessPattern.values?.length || 0;
+  const wearableDaysConnected = req.wearableContext?.hasData ? 7 : 0; // conservative: treat as 7 only if has data today
+  const meetingCount = req.calendarEvents?.length || 0;
+  const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayOfWeekName = dayNames2[new Date().getDay()];
+
+  // Build common extra args for all buildWhyLine calls
+  const whyLineExtras = [checkInCountTotal, wearableDaysConnected, req.calendarLoad, meetingCount, req.clarityLevel, req.confidenceLevel, timeOfDay, dayOfWeekName] as const;
 
   // Divergence mode detection: wearable shows strain but check-in doesn't
   let divergenceMode: string | null = null;
@@ -2810,8 +2860,8 @@ function buildHorizonModules(
       ? `${jitEventTitle} · now`
       : `${jitEventTitle} · in ${Math.round(jitMinutesUntil)} mins`;
   } else if (req.innerReadinessTier === 'depleted') {
-    // Depleted: first regulate module
-    slot1Practice = todModules.find((m: any) => m.type === 'regulate') || todModules[0];
+    // Depleted: first regulate module (never a coach card for REGULATE)
+    slot1Practice = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1TimeLabel = 'Before you start';
   } else {
     slot1Practice = todModules[0];
@@ -2825,7 +2875,7 @@ function buildHorizonModules(
       horizon: 'immediate',
       timeLabel: slot1TimeLabel,
       typeLabel: `${labels[slot1Practice.type] || 'REGULATE'} · ${protocols[slot1Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot1Practice,
       isJit: slot1IsJit,
       jitEventTitle: slot1IsJit ? jitEventTitle : null,
@@ -2868,7 +2918,7 @@ function buildHorizonModules(
       horizon: 'tactical',
       timeLabel: slot2TimeLabel,
       typeLabel: `${labels[slot2Practice.type] || 'ALIGN'} · ${protocols[slot2Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot2Practice,
       isJit: slot2IsJit,
       jitEventTitle: slot2IsJit ? jitEventTitle : null,
@@ -2910,7 +2960,7 @@ function buildHorizonModules(
       horizon: slot3Horizon,
       timeLabel: slot3TimeLabel,
       typeLabel: `${labels[slot3Practice.type] || 'INTEGRATE'} · ${protocols[slot3Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot3Practice,
       isJit: false,
       jitEventTitle: null,

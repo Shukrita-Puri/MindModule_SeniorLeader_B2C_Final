@@ -2682,25 +2682,25 @@ serve(async (req) => {
           recentCheckinsRes,
         ] = await Promise.all([
           // 1. Yesterday's score
-          db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', yesterdayDate).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          Promise.resolve(db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', yesterdayDate).order('created_at', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 3. Next event (any)
-          db.from('calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          Promise.resolve(db.from('calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 4. Practice completion this week
-          db.from('sanctuary_events').select('id, content_id').eq('user_id', userId).eq('event_type', 'completed').gte('created_at', sevenAgo).catch(() => ({ data: null })),
+          Promise.resolve(db.from('sanctuary_events').select('id, content_id').eq('user_id', userId).eq('event_type', 'completed').gte('created_at', sevenAgo)).then(r => r, () => ({ data: null })),
           // 5. Coach session recency
-          db.from('coach_session_summaries').select('created_at, session_id, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          Promise.resolve(db.from('coach_session_summaries').select('created_at, session_id, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 7. Wearable trend (7d)
-          hasWearable ? db.from('wearable_data').select('hrv, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          hasWearable ? Promise.resolve(db.from('wearable_data').select('hrv, summary_date').eq('user_id', userId).gte('summary_date', sevenAgo).order('summary_date', { ascending: true }).limit(7)).then(r => r, () => ({ data: null })) : Promise.resolve({ data: null }),
           // 8. DOW checkins (60 days)
-          db.from('daily_checkins').select('outcome, energy_balance, checkin_date').eq('user_id', userId).gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]).catch(() => ({ data: null })),
+          Promise.resolve(db.from('daily_checkins').select('outcome, energy_balance, checkin_date').eq('user_id', userId).gte('checkin_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0])).then(r => r, () => ({ data: null })),
           // Pending commitment
-          db.from('coach_accountability_tracker').select('commitment_text').eq('user_id', userId).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          Promise.resolve(db.from('coach_accountability_tracker').select('commitment_text').eq('user_id', userId).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // Recent pattern
-          db.from('coach_pattern_observations').select('pattern_description').eq('user_id', userId).eq('is_active', true).gte('last_observed_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('observation_count', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null })),
+          Promise.resolve(db.from('coach_pattern_observations').select('pattern_description').eq('user_id', userId).eq('is_active', true).gte('last_observed_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('observation_count', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // Most effective practice
-          db.from('sanctuary_events').select('content_id, effectiveness_rating').eq('user_id', userId).not('effectiveness_rating', 'is', null).order('effectiveness_rating', { ascending: false }).limit(10).catch(() => ({ data: null })),
+          Promise.resolve(db.from('sanctuary_events').select('content_id, effectiveness_rating').eq('user_id', userId).not('effectiveness_rating', 'is', null).order('effectiveness_rating', { ascending: false }).limit(10)).then(r => r, () => ({ data: null })),
           // 14-day checkins for friction trend
-          db.from('daily_checkins').select('outcome, checkin_date, energy_balance').eq('user_id', userId).gte('checkin_date', fourteenAgo).order('checkin_date', { ascending: false }).catch(() => ({ data: null })),
+          Promise.resolve(db.from('daily_checkins').select('outcome, checkin_date, energy_balance').eq('user_id', userId).gte('checkin_date', fourteenAgo).order('checkin_date', { ascending: false })).then(r => r, () => ({ data: null })),
         ]);
 
         // 1. Yesterday score + trend
@@ -3177,6 +3177,19 @@ Rules (no exceptions):
 - If calendar load is 'none': do not reference meetings or scheduling
 - If signals are insufficient for specificity: output null
 
+WEEKEND AND HOLIDAY DAYTIME RULE:
+When Is weekend = yes OR Is public holiday = yes OR Is personal holiday = yes:
+This is a rest day. The leader is not in performance mode.
+Do NOT write performance-heavy directives.
+Do NOT reference meetings, calendar density, or strategic priorities.
+Frame as: Recovery as a performance investment. Restoration without guilt.
+The weekend is part of the performance cycle, not a gap in it.
+Tone: spacious, not urgent. Directive: toward rest, not output.
+Correct examples: "Rest is the work today.", "Use the space deliberately.", "Restore at full capacity.", "Today belongs to you."
+WRONG on weekends (never use): "Sustain focus.", "Avoid conviction rigidity.", "Leverage your state.", "Counter the delaying action."
+If depleted on weekend: "Low reserves — the most important thing today is genuine recovery."
+If strong on weekend: "Strong reserves — invest this in restoration, not additional output."
+
 Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
 
           // ── User Prompt (dynamically assembled, zero NULLs) ──
@@ -3235,45 +3248,99 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             userPrompt += `\n\nGoal focus: ${goalLabel}`;
           }
 
-          // ── Call LLM ──
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 6000);
+          // ── Inject weekend/holiday flag into user prompt ──
+          if (isWeekend) userPrompt += `\n\nIs weekend = yes`;
+          if (isPublicHoliday) userPrompt += `\nIs public holiday = yes`;
+          // isPersonalHoliday detection not yet implemented — skip for now
 
-          const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-            }),
-            signal: controller.signal,
+          console.log('[compute-outer-readiness] [LLM] Signals:', JSON.stringify({
+            checkInOutcome, clarityLevel, confidenceLevel,
+            calendarLoad, meetingCount: calendarResult.meetingCount,
+            isWeekend, checkInCountTotal, dataCompleteness,
+            hasWearable, wearableDaysConnected,
+          }));
+
+          // ── Call LLM with retry ──
+          let llmFallbackReason: string | null = null;
+          const llmRequestBody = JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
           });
-          clearTimeout(timeout);
 
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            const content = aiData.choices?.[0]?.message?.content?.trim();
-            if (content) {
-              try {
-                let jsonStr = content;
-                if (jsonStr.startsWith('```')) {
-                  jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            const timeoutMs = attempt === 1 ? 10000 : 8000;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), timeoutMs);
+            const startMs = Date.now();
+
+            try {
+              const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: llmRequestBody,
+                signal: controller.signal,
+              });
+              clearTimeout(timeout);
+              const durationMs = Date.now() - startMs;
+              console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} completed in ${durationMs}ms, status ${aiRes.status}`);
+
+              if (aiRes.ok) {
+                const aiData = await aiRes.json();
+                const content = aiData.choices?.[0]?.message?.content?.trim();
+                if (content) {
+                  try {
+                    let jsonStr = content;
+                    if (jsonStr.startsWith('```')) {
+                      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                    }
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
+                    if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
+                    if (llmPhrase) {
+                      console.log(`[compute-outer-readiness] [LLM] Using LLM phrase: "${llmPhrase}"`);
+                      break; // success, stop retrying
+                    }
+                    llmFallbackReason = 'llm_returned_null';
+                  } catch (parseErr) {
+                    console.error('[compute-outer-readiness] [LLM] JSON parse error:', parseErr, 'Raw:', content);
+                    llmFallbackReason = 'llm_parse_failed';
+                  }
+                } else {
+                  llmFallbackReason = 'llm_returned_null';
                 }
-                const parsed = JSON.parse(jsonStr);
-                if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
-                if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
-              } catch (parseErr) {
-                console.error('[compute-outer-readiness] LLM JSON parse error:', parseErr);
+              } else {
+                console.error(`[compute-outer-readiness] [LLM] HTTP error: ${aiRes.status}`);
+                llmFallbackReason = `llm_http_${aiRes.status}`;
+              }
+
+              if (attempt === 1 && !llmPhrase) {
+                console.log('[compute-outer-readiness] [LLM] Attempt 1 failed, retrying...');
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+              }
+            } catch (err) {
+              clearTimeout(timeout);
+              const durationMs = Date.now() - startMs;
+              const isAbort = err instanceof DOMException && err.name === 'AbortError';
+              llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
+              console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
+              if (attempt === 1) {
+                console.log('[compute-outer-readiness] [LLM] Retrying after failure...');
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
               }
             }
-          } else {
-            console.error('[compute-outer-readiness] LLM error:', aiRes.status);
+            break; // exit loop after attempt 2
+          }
+
+          if (!llmPhrase) {
+            console.log(`[compute-outer-readiness] [LLM] Falling back to template. Reason: ${llmFallbackReason || 'unknown'}`);
           }
         }
       } catch (llmErr) {

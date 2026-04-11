@@ -573,12 +573,19 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                     )}
                   </div>
                   {!isExpanded && (
-                    <p className={cn(
-                      "text-[13px] font-body truncate",
-                      isCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
-                    )}>
-                      {module.title}
-                    </p>
+                    <div>
+                      <p className={cn(
+                        "text-[13px] font-body truncate",
+                        isCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
+                      )}>
+                        {module.title}
+                      </p>
+                      {hm.whyLine && !isCompleted && (
+                        <p className="text-[11px] italic text-muted-foreground/50 font-body truncate">
+                          {hm.whyLine}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
