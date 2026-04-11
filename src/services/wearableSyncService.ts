@@ -53,6 +53,8 @@ export interface WearableSyncResult {
   success: boolean;
   permissionGranted: boolean;
   hasData: boolean;
+  /** Whether wearable data was persisted to the database (not just local cache) */
+  dbPersisted: boolean;
   connectionState: WearableConnectionState;
   syncStatus: WearableSyncStatus;
   lastSyncAttemptAt: string;
