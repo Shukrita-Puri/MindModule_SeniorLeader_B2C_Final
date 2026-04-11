@@ -44,7 +44,7 @@ function jsonOk(body: Record<string, unknown>): Response {
 async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) throw new Error('Missing Authorization header');
   const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
+  const auth0Domain = Deno.env.get('AUTH0_DOMAIN') || Deno.env.get('VITE_AUTH0_DOMAIN');
   if (!auth0Domain) throw new Error('Auth0 domain not configured');
 
   const res = await fetch(`https://${auth0Domain}/userinfo`, {
