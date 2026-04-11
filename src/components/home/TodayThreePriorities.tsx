@@ -212,11 +212,36 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
         const headers: Record<string, string> = {};
         if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
         const token = await getAuthToken();
+
+        // Auth guard: if no token after retries, surface error instead of silent loop
+        if (!token && !DEV_MODE) {
+          if (attempt === MAX_RETRIES) {
+            console.error('[TodayThreePriorities] Auth token unavailable after retries');
+            fetchError = new Error('Auth token unavailable');
+            break;
+          }
+          console.warn(`[TodayThreePriorities] Auth token not ready, attempt ${attempt + 1}`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+          continue;
+        }
+
         if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        // Build request body with outer readiness cache to skip ~2.8s server-to-server call
+        const requestBody: any = { timezoneOffset: new Date().getTimezoneOffset() };
+        if (outerReadinessData?.phrase) {
+          requestBody.outerReadinessCache = {
+            phrase: outerReadinessData.phrase,
+            context: outerReadinessData.context,
+            leanOn: outerReadinessData.leanOn,
+            watchFor: outerReadinessData.watchFor,
+            driver: outerReadinessData.driver,
+          };
+        }
 
         const { data, error } = await supabase.functions.invoke('generate-mastery-plan', {
           headers,
-          body: { timezoneOffset: new Date().getTimezoneOffset() },
+          body: requestBody,
         });
 
         if (!error) {
