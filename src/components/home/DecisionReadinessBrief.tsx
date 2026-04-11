@@ -406,7 +406,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
   const calendarState = outerBrief?.calendarState;
   const nextHS = outerBrief?.nextHighStakesEvent;
-  const remainingHS = outerBrief?.remainingHighStakes ?? [];
+  const remainingHS: string[] = outerBrief?.remainingHighStakes ?? [];
   const calLoad = outerBrief?.calendarLoad ?? 'low';
   const loadLabel = calLoad === 'high' ? 'Heavy' : calLoad === 'medium' ? 'Moderate' : 'Light';
   const meetingCount = outerBrief?.meetingCount ?? 0;
@@ -426,12 +426,18 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
   if (!hasCalendar || meetingCount === 0) return null;
 
-  // High-stakes within 90 mins
-  if (nextHS?.title && nextHS?.minutesUntil <= 90) {
+  // High-stakes within 90 mins — urgent orange pill
+  if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
+    const urgentLabel = nextHS.minutesUntil < 30
+      ? `${nextHS.title} · now`
+      : `${nextHS.title} · in ${nextHS.minutesUntil} mins`;
     return (
-      <div className="flex gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 mt-2">
         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-[hsl(var(--saffron))]/10 text-[hsl(var(--saffron))] border border-[hsl(var(--saffron))]/20 font-medium">
-          {nextHS.title} · in {nextHS.minutesUntil} mins
+          {urgentLabel}
+        </span>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30">
+          {loadLabel} day · {meetingCount} meetings
         </span>
       </div>
     );
@@ -445,7 +451,25 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
     </span>
   );
 
-  if (remainingHS.length > 0) {
+  // Show next remaining high-stakes event with formatted time
+  if (remainingHS.length > 0 && nextHS?.title) {
+    // nextHS has minutesUntil — use it for time label
+    const formatEventTime = (minsUntil: number) => {
+      if (minsUntil < 30) return 'now';
+      if (minsUntil < 90) return `in ${minsUntil} mins`;
+      const eventTime = new Date(Date.now() + minsUntil * 60000);
+      const h = eventTime.getHours();
+      const m = eventTime.getMinutes();
+      return m === 0 ? `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}` : `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`;
+    };
+    const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
+    pills.push(
+      <span key="hs" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30 italic">
+        {remainingHS[0]} · {timeLabel}
+      </span>
+    );
+  } else if (remainingHS.length > 0) {
+    // Fallback: no nextHS timing data, just show "ahead"
     pills.push(
       <span key="hs" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30 italic">
         {remainingHS[0]} · ahead
