@@ -44,6 +44,7 @@ export interface OuterReadinessData {
   calendarLoad?: string;
   meetingCount?: number;
   highStakesEvents?: string[];
+  remainingHighStakes?: string[];
   nextHighStakesEvent?: { title: string; minutesUntil: number } | null;
   checkInCountTotal?: number;
   consecutiveLowConfidence?: number;
