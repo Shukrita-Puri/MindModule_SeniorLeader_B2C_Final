@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 // ── APNs Helper Functions ──
 
@@ -663,9 +664,9 @@ async function generateNudgeCopy(
   nudgeType: string,
   specificSignals: Record<string, unknown> = {}
 ): Promise<NudgeCopy | null> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) {
-    console.warn('[smart-nudges] No LOVABLE_API_KEY – using static fallback');
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!ANTHROPIC_API_KEY) {
+    console.warn('[smart-nudges] No ANTHROPIC_API_KEY – using static fallback');
     return null;
   }
 
@@ -827,32 +828,17 @@ Tone: gentle invitation, not pressure.`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-      }),
+    const content = await callClaudeText({
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      model: CLAUDE_MODELS.HAIKU,
+      max_tokens: 256,
+      temperature: 0.7,
       signal: controller.signal,
     });
 
     clearTimeout(timeout);
 
-    if (!response.ok) {
-      console.warn(`[smart-nudges] AI copy generation failed: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) return null;
 
     // Parse JSON from response (handle markdown code blocks)
