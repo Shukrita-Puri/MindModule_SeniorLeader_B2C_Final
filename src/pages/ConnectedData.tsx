@@ -425,11 +425,24 @@ const ConnectedData = () => {
       ? `Last sample ${formatDistanceToNowStrict(new Date(aw.lastSampleAt), { addSuffix: true })}`
       : undefined;
 
+    // Detect if DB state may be stale (last status update > 2 hours ago on non-native)
+    const statusUpdatedAt = (aw as any).statusUpdatedAt;
+    const hoursSinceStatusUpdate = statusUpdatedAt
+      ? (Date.now() - new Date(statusUpdatedAt).getTime()) / (1000 * 60 * 60)
+      : null;
+    const isDbStateStale = !isNativeApp() && hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > 2;
+
     if (aw.connectionStatus === 'connected') {
+      // Check if sync is very old (> 24h)
+      const hoursSinceSync = aw.lastSync
+        ? (Date.now() - new Date(aw.lastSync).getTime()) / (1000 * 60 * 60)
+        : null;
+      const syncIsOld = hoursSinceSync !== null && hoursSinceSync > 24;
+
       if (aw.syncStatus === 'waiting_for_data') {
         return {
           showConnected: true,
-          statusLabel: 'Connected',
+          statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
           statusNote: [ 'Waiting for new data', lastSyncNote ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
@@ -438,16 +451,23 @@ const ConnectedData = () => {
       if (aw.syncStatus === 'sync_delayed' || aw.syncStatus === 'watch_unavailable') {
         return {
           showConnected: true,
-          statusLabel: 'Connected',
-          statusNote: [ 'Watch unavailable or no recent samples', lastSyncNote, lastSampleNote ].filter(Boolean).join(' · '),
+          statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
+          statusNote: [ 'Sync delayed — open the app on your phone to refresh', lastSyncNote, lastSampleNote ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
       }
 
+      // Normal connected state
+      const staleHint = isDbStateStale
+        ? 'Status verified when you last opened the app'
+        : syncIsOld
+          ? 'Open the app on your phone to refresh'
+          : undefined;
+
       return {
         showConnected: true,
-        statusLabel: 'Connected',
-        statusNote: [ lastSyncNote, lastSampleNote ].filter(Boolean).join(' · ') || undefined,
+        statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
+        statusNote: [ lastSyncNote, lastSampleNote, staleHint ].filter(Boolean).join(' · ') || undefined,
         showReconnect: false,
       };
     }
@@ -455,7 +475,7 @@ const ConnectedData = () => {
     if (aw.connectionStatus === 'connecting') {
       return {
         showConnected: false,
-        statusLabel: 'Connecting...',
+        statusLabel: 'Verifying…',
         statusNote: 'Checking HealthKit authorization',
         showReconnect: false,
       };
@@ -465,7 +485,7 @@ const ConnectedData = () => {
       return {
         showConnected: false,
         statusLabel: 'Permission revoked',
-        statusNote: 'Reconnect Apple Health in iOS Health permissions to resume sync',
+        statusNote: 'Go to iOS Settings → Privacy → Health to re-enable, then tap Reconnect',
         showReconnect: true,
       };
     }

@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
         disconnectedAt: watchIntegration?.watch_disconnected_at || null,
         lastError: watchIntegration?.watch_last_error || null,
         lastErrorAt: watchIntegration?.watch_last_error_at || null,
+        statusUpdatedAt: watchIntegration?.watch_status_updated_at || null,
       },
     };
 

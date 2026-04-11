@@ -21,6 +21,10 @@ interface WearableSyncState {
   hasData: boolean;
   isSyncing: boolean;
   lastSync: Date | null;
+  /** When HealthKit access was last live-verified (null = never verified this session) */
+  lastVerifiedAt: Date | null;
+  /** True when DB state hasn't been verified by a live HealthKit check this session */
+  isStale: boolean;
   hrv: number | null;
   error: string | null;
   triggerSync: () => Promise<boolean>;
@@ -35,6 +39,7 @@ export function useWearableSync(): WearableSyncState {
   const [hasData, setHasData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [lastVerifiedAt, setLastVerifiedAt] = useState<Date | null>(null);
   const [hrv, setHrv] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initRef = useRef(false);
@@ -97,6 +102,7 @@ export function useWearableSync(): WearableSyncState {
       console.log('[useWearableSync] Sync result:', result.connectionState, 'hasData:', result.hasData);
 
       setConnectionState(result.connectionState);
+      setLastVerifiedAt(new Date());
 
       if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
@@ -133,6 +139,7 @@ export function useWearableSync(): WearableSyncState {
       if (!granted) {
         setError('HealthKit permission not granted');
         setConnectionState('permission_revoked');
+        setLastVerifiedAt(new Date());
         setIsSyncing(false);
         return false;
       }
@@ -184,10 +191,12 @@ export function useWearableSync(): WearableSyncState {
         const liveAccess = await verifyHealthKitAccess();
         if (liveAccess) {
           console.log('[useWearableSync] Init: live HealthKit access confirmed');
+          setLastVerifiedAt(new Date());
           await syncIfStale();
         } else {
           console.log('[useWearableSync] Init: live HealthKit access DENIED – marking permission_revoked');
           setConnectionState('permission_revoked');
+          setLastVerifiedAt(new Date());
         }
       } else if (!isNativeApp()) {
         // Web: rely on DB data only for display
@@ -231,5 +240,10 @@ export function useWearableSync(): WearableSyncState {
     return () => clearInterval(interval);
   }, [user?.id, syncIfStale]);
 
-  return { connectionState, hasWearable, hasData, isSyncing, lastSync, hrv, error, triggerSync };
+  // isStale = we have a "connected" DB state but haven't live-verified HealthKit this session
+  const isStale = isNativeApp()
+    && (connectionState === 'connected' || connectionState === 'connected_but_waiting_for_data' || connectionState === 'sync_delayed')
+    && lastVerifiedAt === null;
+
+  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, hrv, error, triggerSync };
 }
