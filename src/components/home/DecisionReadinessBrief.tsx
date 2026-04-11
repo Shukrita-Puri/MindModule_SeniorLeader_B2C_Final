@@ -59,21 +59,33 @@ const getDateLabel = (): string => {
 
 const chipDotColor = (color: SignalChip['color']) => {
   switch (color) {
-    case 'red': return 'bg-red-500';
-    case 'amber': return 'bg-amber-500';
-    case 'green': return 'bg-emerald-500';
-    default: return 'bg-muted-foreground/40';
+    case 'red': return 'bg-white';
+    case 'amber': return 'bg-white/90';
+    case 'green': return 'bg-white';
+    default: return 'bg-white/70';
   }
 };
 
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
-    case 'red': return 'bg-red-500/8 border-red-500/15';
-    case 'amber': return 'bg-amber-500/8 border-amber-500/15';
-    case 'green': return 'bg-emerald-500/8 border-emerald-500/15';
+    case 'red': return 'bg-gradient-to-r from-red-500 to-red-400 text-white shadow-[0_2px_8px_rgba(239,68,68,0.25)] border-0';
+    case 'amber': return 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-[0_2px_8px_rgba(245,158,11,0.25)] border-0';
+    case 'green': return 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] border-0';
     default: return 'bg-muted/50 border-border/30';
   }
 };
+
+// Calendar load pill color based on load level
+const calendarLoadPillStyle = (load: string) => {
+  switch (load) {
+    case 'high': return 'bg-gradient-to-r from-red-500 to-red-400 text-white shadow-[0_2px_8px_rgba(239,68,68,0.2)] border-0';
+    case 'medium': return 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-[0_2px_8px_rgba(245,158,11,0.2)] border-0';
+    default: return 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.2)] border-0';
+  }
+};
+
+// Event pill style — taupe
+const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe-base))] to-[hsl(var(--taupe-light))] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] border-0';
 
 // Map leanOnSource keys to human-readable source labels
 const getSourceLabel = (source: string | undefined): string => {
@@ -384,17 +396,16 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
       onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
-        "border",
         chipBgColor(chip.color),
         (hasBack || onNavigate) && "cursor-pointer active:scale-95",
         !hasBack && !onNavigate && "cursor-default"
       )}
     >
       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", chipDotColor(chip.color))} />
-      <span className="text-foreground/80 whitespace-nowrap">
+      <span className="whitespace-nowrap">
         {flipped && chip.backLabel ? chip.backLabel : chip.label}
         {!flipped && chip.qualifier && (
-          <span className="text-muted-foreground/60">{chip.qualifier}</span>
+          <span className="opacity-70">{chip.qualifier}</span>
         )}
       </span>
     </button>
