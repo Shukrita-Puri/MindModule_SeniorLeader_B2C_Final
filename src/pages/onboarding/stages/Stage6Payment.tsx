@@ -179,16 +179,18 @@ export default function Stage6Payment() {
   }
 
   return (
-    <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
-        <div /> {/* spacer – back button provided by parent OnboardingFlow */}
+    <div className="max-w-md mx-auto pt-2 pb-6 px-4 animate-fade-in">
+      {/* Toggle + Title row */}
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-[20px] font-headline font-bold">
+          {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
+        </h1>
         {availablePlans.length > 1 ? (
-          <div className="bg-muted rounded-full p-1 flex">
+          <div className="bg-muted rounded-full p-0.5 flex">
             {availablePlans.includes('annual') && (
               <button
                 onClick={() => setSelectedPlan('annual')}
-                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
                   selectedPlan === 'annual'
                     ? 'bg-foreground text-background shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -200,7 +202,7 @@ export default function Stage6Payment() {
             {availablePlans.includes('monthly') && (
               <button
                 onClick={() => setSelectedPlan('monthly')}
-                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${
                   selectedPlan === 'monthly'
                     ? 'bg-foreground text-background shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -213,16 +215,10 @@ export default function Stage6Payment() {
         ) : (
           <div />
         )}
-        <div className="w-8" />
       </div>
 
-      {/* Title */}
-      <h1 className="text-[22px] sm:text-3xl font-headline font-bold mb-6">
-        {showUpgradeMode ? 'Upgrade Plan' : 'Pricing'}
-      </h1>
-
       {/* Plan Card */}
-      <div className={`rounded-2xl p-6 mb-5 transition-all ${
+      <div className={`rounded-2xl p-5 mb-4 transition-all ${
         selectedPlan === 'annual'
           ? 'bg-foreground text-background border-2 border-saffron'
           : 'bg-card border border-border'
@@ -262,7 +258,7 @@ export default function Stage6Payment() {
         <div className={`border-t mb-4 ${selectedPlan === 'annual' ? 'border-background/20 border-dashed' : 'border-border border-dashed'}`} />
 
         {/* Features */}
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {features.map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-sm">
               {f.included ? (
@@ -283,7 +279,7 @@ export default function Stage6Payment() {
       </div>
 
       {/* Trial / upgrade note */}
-      <p className="text-xs text-center text-muted-foreground mb-4">
+      <p className="text-xs text-center text-muted-foreground mb-3">
         {showUpgradeMode
           ? 'Upgrade to unlock full access instantly'
           : 'Includes 7-day free trial · Cancel anytime before for no charge'}
@@ -291,7 +287,7 @@ export default function Stage6Payment() {
 
       {/* CTA */}
       <Button
-        className="w-full h-12 text-[15px] font-medium mb-6"
+        className="w-full h-11 text-[14px] font-medium mb-4"
         variant="critical"
         onClick={handleStartTrial}
         disabled={loading}
@@ -307,7 +303,7 @@ export default function Stage6Payment() {
       </Button>
 
       {/* ROI */}
-      <p className="font-body italic leading-relaxed text-center mb-8 text-[13px] text-foreground/70">
+      <p className="font-body italic leading-relaxed text-center mb-4 text-[12px] text-foreground/70">
         30+ touchpoints/month – <span className="text-[15px] font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
