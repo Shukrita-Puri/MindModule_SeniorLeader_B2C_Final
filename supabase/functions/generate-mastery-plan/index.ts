@@ -2080,8 +2080,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
   const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
-  // Filter out 3+ skipped types
-  const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
+
+  // Suppresses event types skipped 3+ times in last 30 days.
+  // TODO: Replace with query to jit_cancellation_memory:
+  //   SELECT DISTINCT event_type FROM jit_cancellation_memory
+  //   WHERE user_id = userId AND penalty_level >= 3
+  //   AND cancelled_at > NOW() - INTERVAL '30d'
+  const skippedTypes3Plus: string[] = [];
+
+  // Filter out 3+ skipped types (defensive – degrades to unfiltered on error)
+  let filteredEvents = scoredEvents;
+  try {
+    filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
+  } catch (filterError: any) {
+    console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
+  }
 
   // Observability: log calendar scoring summary
   console.log(`[generate-mastery-plan] Calendar: ${req.calendarEvents?.length || 0} events fetched, ${scoredEvents.length} scored, ${filteredEvents.length} after suppression. Top event: ${filteredEvents[0]?.event.title || 'none'} (score: ${filteredEvents[0]?.score || 0})`);
@@ -3216,9 +3229,14 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
-  } catch (error) {
-    console.error('Error generating mastery plan:', error);
-    return new Response(JSON.stringify({ error: 'Failed to generate plan', details: String(error) }), {
+  } catch (error: any) {
+    console.error('[generate-mastery-plan] Fatal error:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      userId: userId ?? 'unknown',
+    });
+    return new Response(JSON.stringify({ error: 'Plan generation failed', reason: error?.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     });
