@@ -153,11 +153,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at analyzing coaching conversations to extract meaningful user insights. Return only valid JSON.'
-          },
+        system: 'You are an expert at analyzing coaching conversations to extract meaningful user insights. Return only valid JSON.',
+          messages: [
           {
             role: 'user',
             content: buildExtractionPrompt(meaningfulMessages)

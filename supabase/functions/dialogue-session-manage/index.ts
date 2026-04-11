@@ -506,10 +506,7 @@ async function finalizeCoachSession(
             },
             body: JSON.stringify({
               model: "claude-sonnet-4-20250514",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
+              system: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
@@ -531,8 +528,8 @@ DO treat these as wins:
 - Completing or delivering something
 - Progress on a pattern they've been working on
 
-If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,
-                },
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,,
+          messages: [
                 ...aiMessages,
               ],
               tools: [

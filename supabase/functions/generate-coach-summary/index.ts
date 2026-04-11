@@ -108,11 +108,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        messages: [
-          {
-            role: 'system',
-            content: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.'
-          },
+        system: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.',
+          messages: [
           {
             role: 'user',
             content: `Analyze this coaching session and generate a summary.

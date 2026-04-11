@@ -222,11 +222,8 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "claude-sonnet-4-20250514",
-              messages: [
-                {
-                  role: "system",
-                  content: "You analyze personal wins to extract psychological dimensions. Be specific and accurate."
-                },
+              system: "You analyze personal wins to extract psychological dimensions. Be specific and accurate.",
+          messages: [
                 {
                   role: "user",
                   content: `Analyze this win: "${win.win_content}"`
@@ -369,11 +366,8 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "claude-sonnet-4-20250514",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are a senior executive coach observing patterns in a leader's recent wins. Respond with exactly one sentence. Be direct, specific, and insight-driven. No filler."
-                },
+              system: "You are a senior executive coach observing patterns in a leader's recent wins. Respond with exactly one sentence. Be direct, specific, and insight-driven. No filler.",
+          messages: [
                 { role: "user", content: observationPrompt }
               ],
             }),

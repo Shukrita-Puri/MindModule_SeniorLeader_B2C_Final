@@ -472,11 +472,8 @@ Deno.serve(async (req) => {
           signal: abortController.signal,
           body: JSON.stringify({
             model: "claude-haiku-3-5-20241022",
-            messages: [
-              {
-                role: "system",
-                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
-              },
+            system: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,,
+          messages: [
               {
                 role: "user",
                 content: `Data:\n- Archetype: ${archEvStr}\n- Dimension shifts: ${dimensionDeltaStr}\n- Friction: ${frictionLabel} (${frictionPct}%) – trend: ${trendDirection}\n- Recurring themes: ${themesStr || "none yet"}\n- Coach strength: ${coachStrength || "none yet"}\n- Coach friction: ${coachFriction || "none yet"}\n\nName the pattern.`,

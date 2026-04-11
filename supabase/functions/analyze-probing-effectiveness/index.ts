@@ -90,18 +90,15 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        messages: [
-          {
-            role: "system",
-            content: `You analyze coaching conversations to evaluate probing effectiveness and detect breakthrough moments.
+        system: `You analyze coaching conversations to evaluate probing effectiveness and detect breakthrough moments.
 
 For each exchange, determine:
 1. Is the coach message a probing question (vs statement, protocol recommendation, or greeting)?
 2. If it IS a probe, classify the probe type and evaluate the user's response.
 3. If the user's response shows a breakthrough moment, capture it.
 
-Only analyze exchanges where the coach is genuinely probing (asking questions to surface the user's own knowing).`
-          },
+Only analyze exchanges where the coach is genuinely probing (asking questions to surface the user's own knowing).`,
+          messages: [
           {
             role: "user",
             content: `Analyze these coaching exchanges:\n\n${analysisPrompt}`

@@ -107,8 +107,8 @@ Return ONLY valid JSON.`;
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        messages: [
-          { role: "system", content: systemPrompt },
+        system: systemPrompt,
+          messages: [
           { role: "user", content: userPrompt }
         ],
       }),

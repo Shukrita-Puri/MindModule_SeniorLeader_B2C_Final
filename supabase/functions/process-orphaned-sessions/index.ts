@@ -212,10 +212,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 model: 'claude-haiku-3-5-20241022',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
+                system: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
@@ -238,8 +235,8 @@ DO treat these as wins:
 - Progress on a pattern they've been working on
 
 If the user shared a genuine win, consolidate it into one clear statement.
-If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`
-                  },
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,
+          messages: [
                   ...aiMessages,
                 ],
                 tools: [{

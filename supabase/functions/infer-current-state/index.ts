@@ -105,8 +105,8 @@ Return ONLY a JSON object:
       },
       body: JSON.stringify({
         model: 'claude-haiku-3-5-20241022',
-        messages: [
-          { role: 'system', content: 'You are a precise state prediction system. Return only valid JSON.' },
+        system: 'You are a precise state prediction system. Return only valid JSON.',
+          messages: [
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,

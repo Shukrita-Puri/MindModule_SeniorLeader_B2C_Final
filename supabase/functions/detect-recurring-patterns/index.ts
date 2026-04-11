@@ -79,11 +79,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        messages: [
-          {
-            role: 'system',
-            content: 'You analyze coaching conversations to detect recurring behavioral patterns. Return only valid JSON.'
-          },
+        system: 'You analyze coaching conversations to detect recurring behavioral patterns. Return only valid JSON.',
+          messages: [
           {
             role: 'user',
             content: `Analyze these user messages for behavioral patterns:
