@@ -2075,8 +2075,13 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     };
   });
 
-  // 3. Fetch HRV × Calendar correlations
-  const hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
+  // 3. Fetch HRV × Calendar correlations (defensive – null on failure)
+  let hrvCorrelations: HRVCorrelationMap | null = null;
+  try {
+    hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
+  } catch (hrvError: any) {
+    console.error('[generate-mastery-plan] HRV correlation failed, proceeding without:', hrvError?.message);
+  }
 
   // 4. Score calendar events – bridge to new pipeline (jit_event_context) with legacy fallback
   const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
