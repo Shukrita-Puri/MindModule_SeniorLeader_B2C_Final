@@ -143,7 +143,7 @@ export function useOuterReadiness() {
     queryFn: () => fetchOuterReadiness(effectiveUserId),
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
     refetchOnWindowFocus: true,
     placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
   });

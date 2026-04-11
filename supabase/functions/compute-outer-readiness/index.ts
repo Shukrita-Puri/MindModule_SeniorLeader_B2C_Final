@@ -207,7 +207,7 @@ async function getServerCalendarMetrics(
       // Skip all-day or very long events (>4h) with few attendees – calendar blockers, not meetings
       if (dur > 240 && att <= 1) continue;
 
-      const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
+      const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att >= 2) || dur >= 60);
       if (isHighStakes && e.title) {
         highStakesEvents.push(e.title);
       }
@@ -227,7 +227,7 @@ async function getServerCalendarMetrics(
       const dur = (end.getTime() - start.getTime()) / 60000;
       if (e.title && personalBlockPatterns.test(e.title)) continue;
       if (dur > 240 && att <= 1) continue;
-      const isHS = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
+      const isHS = !e.is_recurring && (att > 5 || (e.is_organizer && att >= 2) || dur >= 60);
       if (isHS && e.title) remainingHighStakes.push(e.title);
       if (remainingHighStakes.length >= 2) break;
     }
