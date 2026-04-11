@@ -27,7 +27,7 @@ export default function Stage6Payment() {
     ? location.state.source
     : null;
   const hasExplicitUpgradeSource = [querySource, stateSource].some((source) =>
-    typeof source === 'string' && source.includes('upgrade')
+    typeof source === 'string' && (source.includes('upgrade') || source.length > 0)
   );
   const isMonthlySubscriber = currentTier === 'monthly_pro' && hasValidUserAccess;
   const isAnnualSubscriber = currentTier === 'annual_pro' && hasValidUserAccess;
@@ -44,10 +44,13 @@ export default function Stage6Payment() {
 
   useEffect(() => {
     if (!user) return;
-    if (isAnnualSubscriber || (hasValidUserAccess && !showUpgradeMode)) {
+    // Only auto-redirect if user has no explicit reason to be on this page
+    if (isAnnualSubscriber && !hasExplicitUpgradeSource) {
+      navigate('/daily-check-in', { replace: true });
+    } else if (hasValidUserAccess && !showUpgradeMode && !hasExplicitUpgradeSource) {
       navigate('/daily-check-in', { replace: true });
     }
-  }, [user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, navigate]);
+  }, [user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, hasExplicitUpgradeSource, navigate]);
 
   // Determine which plans are available (hide the one user is already on)
   const availablePlans = useMemo(() => {
@@ -110,25 +113,20 @@ export default function Stage6Payment() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       if (data.alreadySubscribed && data.portalUrl) {
-        toast.info('You already have an active subscription. Redirecting to billing portal.');
+        toast.info('Redirecting to manage your subscription.');
         await openUrl(data.portalUrl);
+        return;
       }
       if (data.checkoutUrl) {
         // Clear referral code from localStorage after successful handoff to Stripe
         localStorage.removeItem('referral_code');
         await openUrl(data.checkoutUrl);
+        return;
       }
       throw new Error('No checkout URL returned');
     } catch (err: any) {
       console.error('[Payment] Error:', err?.message || err);
-      const isUpgradeFlow = showUpgradeMode;
-      if (isUpgradeFlow) {
-        toast.error('Unable to start checkout. Please try again.');
-      } else {
-        toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
-        recordStep('payment', { selected_plan: selectedPlan });
-        navigate('/onboarding/app-intro');
-      }
+      toast.error('Unable to start checkout. Please try again.');
     } finally {
       setLoading(false);
     }

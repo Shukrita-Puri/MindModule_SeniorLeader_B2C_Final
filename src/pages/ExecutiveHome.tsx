@@ -73,12 +73,24 @@ const ExecutiveHome = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if (!DEV_MODE && (!user?.id || !user?.onboarding_completed_at)) {
+    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+    const isRetakeForUser = effectiveId ? sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId : false;
+    const isActiveForUser = effectiveId
+      ? sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' && sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId
+      : false;
+    const hasTourSignal = isRetakeForUser || isActiveForUser;
+
+    if (!DEV_MODE && !user?.id) {
       setShowGuide(false);
       return;
     }
 
-    const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+    if (!DEV_MODE && !user?.onboarding_completed_at && !hasTourSignal) {
+      setShowGuide(false);
+      return;
+    }
+
+    // effectiveId already defined above
 
     if (DEV_MODE) {
       const tourDone = sessionStorage.getItem('first_session_guide_done') === '1';

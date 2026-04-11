@@ -114,7 +114,19 @@ const DailyCheckIn = () => {
       return;
     }
 
-    if (!DEV_MODE && (!user?.id || !user?.onboarding_completed_at)) {
+    // Allow tour if explicit signals are present, even if onboarding_completed_at is stale
+    const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+    const isActiveForUser =
+      sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+      sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+    const hasTourSignal = hasTourParam || isRetakeForUser || isActiveForUser;
+
+    if (!DEV_MODE && !user?.id) {
+      setShowGuide(false);
+      return;
+    }
+
+    if (!DEV_MODE && !user?.onboarding_completed_at && !hasTourSignal) {
       setShowGuide(false);
       return;
     }
