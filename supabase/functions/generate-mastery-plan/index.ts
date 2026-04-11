@@ -2030,7 +2030,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
 
 // ==================== MAIN PLAN GENERATION ====================
 
-async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
+async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
 
   // Phase 2: Recovery day override (feature-flagged OFF)
@@ -3220,7 +3220,7 @@ Deno.serve(async (req) => {
 
     // supabaseClient already created above for fingerprint
 
-    const plan = await generateMasteryPlan(planReq, supabaseClient);
+    const plan = await generateMasteryPlan(planReq, supabaseClient, outerReadinessCache);
 
     // Cache response for rate limiting
     rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
