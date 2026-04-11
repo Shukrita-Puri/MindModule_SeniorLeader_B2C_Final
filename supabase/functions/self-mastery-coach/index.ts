@@ -3854,10 +3854,10 @@ serve(async (req) => {
     const verifiedUserId = await verifyAuth0JWT(req);
     const { messages, flowType, entryPoint, sessionId, context: clientContext } = await req.json();
     const userId = verifiedUserId;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     // Build context SERVER-SIDE (DB queries happen here, not client)
@@ -3880,7 +3880,6 @@ serve(async (req) => {
         extractAndStoreTinyWin(
           supabaseUrl,
           supabaseServiceKey,
-          LOVABLE_API_KEY,
           userId,
           sessionId,
           userOnlyMessages
@@ -3891,61 +3890,30 @@ serve(async (req) => {
     const isFirstMessage = messages.length === 1;
     const systemPrompt = buildSystemPrompt(fullContext, flowType, entryPoint, isFirstMessage);
     
-    const aiRequestBody = {
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 1024,
-    };
+    // Stream via Claude with OpenAI-compatible SSE transform
+    try {
+      const streamBody = await streamClaudeAsOpenAI({
+        system: systemPrompt,
+        messages,
+        model: CLAUDE_MODELS.SONNET,
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
 
-    const models = ["google/gemini-2.5-flash", "google/gemini-3-flash-preview", "openai/gpt-5-mini"];
-    let response: Response | null = null;
+      console.log(`[self-mastery-coach] Using model: ${CLAUDE_MODELS.SONNET}`);
 
-    for (const model of models) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-        
-        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model, ...aiRequestBody }),
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeout);
-        
-        if (response.ok) {
-          console.log(`[self-mastery-coach] Using model: ${model}`);
-          break;
-        }
-        console.warn(`[self-mastery-coach] Model ${model} returned ${response.status}, trying next...`);
-        response = null;
-      } catch (err) {
-        console.warn(`[self-mastery-coach] Model ${model} failed:`, err instanceof Error ? err.message : err);
-        response = null;
-      }
+      return new Response(streamBody, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } catch (streamErr: any) {
+      console.error('[self-mastery-coach] Claude streaming failed:', streamErr?.message);
+      throw new Error("AI streaming failed");
     }
-
-    if (!response || !response.ok) {
-      throw new Error("All AI models failed");
-    }
-
-    // Stream response back to client
-    return new Response(response.body, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
 
   } catch (error: unknown) {
     console.error('[self-mastery-coach] Error:', error);
