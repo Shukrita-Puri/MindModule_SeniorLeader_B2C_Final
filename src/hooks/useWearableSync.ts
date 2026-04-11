@@ -106,6 +106,7 @@ export function useWearableSync(): WearableSyncState {
 
       setConnectionState(result.connectionState);
       setLastVerifiedAt(new Date());
+      setDbPersistFailed(result.hasData && !result.dbPersisted);
 
       if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
@@ -248,5 +249,5 @@ export function useWearableSync(): WearableSyncState {
     && (connectionState === 'connected' || connectionState === 'connected_but_waiting_for_data' || connectionState === 'sync_delayed')
     && lastVerifiedAt === null;
 
-  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, hrv, error, triggerSync };
+  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, dbPersistFailed, hrv, error, triggerSync };
 }
