@@ -153,16 +153,23 @@ Deno.serve(async (req) => {
       sessionMetadata.referralCode = validatedReferralCode;
     }
 
-    // Create checkout session with 7-day trial
+    // Determine if this is an upgrade (already has active/trialing subscription)
+    const isUpgrade = profile.subscription_status === 'active' || profile.subscription_status === 'trialing';
+
+    // Create checkout session — skip trial for upgrades
+    const subscriptionData: Record<string, unknown> = {
+      metadata: sessionMetadata,
+    };
+    if (!isUpgrade) {
+      subscriptionData.trial_period_days = 7;
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: {
-        trial_period_days: 7,
-        metadata: sessionMetadata,
-      },
+      subscription_data: subscriptionData as any,
       // Stripe Checkout custom field for referral code entry (native iOS users)
       custom_fields: [
         {
