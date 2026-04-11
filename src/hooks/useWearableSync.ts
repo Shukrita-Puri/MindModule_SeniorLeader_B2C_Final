@@ -25,6 +25,8 @@ interface WearableSyncState {
   lastVerifiedAt: Date | null;
   /** True when DB state hasn't been verified by a live HealthKit check this session */
   isStale: boolean;
+  /** True when HealthKit data was read but DB write failed */
+  dbPersistFailed: boolean;
   hrv: number | null;
   error: string | null;
   triggerSync: () => Promise<boolean>;
@@ -42,6 +44,7 @@ export function useWearableSync(): WearableSyncState {
   const [lastVerifiedAt, setLastVerifiedAt] = useState<Date | null>(null);
   const [hrv, setHrv] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dbPersistFailed, setDbPersistFailed] = useState(false);
   const initRef = useRef(false);
   const syncingRef = useRef(false); // guard against duplicate syncs
   const lastSyncRef = useRef<Date | null>(null); // mutable ref for interval checks
@@ -103,6 +106,7 @@ export function useWearableSync(): WearableSyncState {
 
       setConnectionState(result.connectionState);
       setLastVerifiedAt(new Date());
+      setDbPersistFailed(result.hasData && !result.dbPersisted);
 
       if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
@@ -245,5 +249,5 @@ export function useWearableSync(): WearableSyncState {
     && (connectionState === 'connected' || connectionState === 'connected_but_waiting_for_data' || connectionState === 'sync_delayed')
     && lastVerifiedAt === null;
 
-  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, hrv, error, triggerSync };
+  return { connectionState, hasWearable, hasData, isSyncing, lastSync, lastVerifiedAt, isStale, dbPersistFailed, hrv, error, triggerSync };
 }

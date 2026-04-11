@@ -320,12 +320,16 @@ const ConnectedData = () => {
       const result = await syncHealthKitToBackend();
       console.log('[ConnectedData] Sync result:', JSON.stringify(result));
 
-      if (result.connectionState === 'connected') {
+      if (result.connectionState === 'connected' && result.dbPersisted) {
         toast.success('Apple Health data synced successfully');
+      } else if (result.connectionState === 'connected' && !result.dbPersisted) {
+        toast.warning('Apple Health connected but data could not be saved to server. Will retry.');
       } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.info('Apple Health is connected. Waiting for new HRV data from Apple Health.');
       } else if (result.connectionState === 'sync_delayed') {
-        toast.warning('Apple Health is connected, but sync is delayed. We will retry automatically.');
+        toast.warning(result.hasData && !result.dbPersisted
+          ? 'Data read from Apple Health but server save failed. Will retry automatically.'
+          : 'Apple Health is connected, but sync is delayed. We will retry automatically.');
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission was revoked. Please reconnect in Health settings.');
       } else {
@@ -350,14 +354,20 @@ const ConnectedData = () => {
       const result = await syncHealthKitToBackend();
       console.log('[ConnectedData] Manual sync result:', JSON.stringify(result));
 
-      if (result.connectionState === 'connected') {
+      if (result.connectionState === 'connected' && result.dbPersisted) {
         toast.success('Apple Health data synced');
+        await fetchStatus();
+      } else if (result.connectionState === 'connected' && !result.dbPersisted) {
+        toast.warning('Data read from Apple Health but could not be saved. Will retry on next sync.');
         await fetchStatus();
       } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.info('Apple Health is connected. Waiting for new HRV data.');
         await fetchStatus();
       } else if (result.connectionState === 'sync_delayed') {
-        toast.warning('Apple Health is still connected, but sync is delayed.');
+        const msg = result.hasData && !result.dbPersisted
+          ? 'Data read from Apple Health but could not be saved to the server. Will retry.'
+          : 'Apple Health is still connected, but sync is delayed.';
+        toast.warning(msg);
         await fetchStatus();
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission revoked. Please reconnect.');
@@ -425,12 +435,14 @@ const ConnectedData = () => {
       ? `Last sample ${formatDistanceToNowStrict(new Date(aw.lastSampleAt), { addSuffix: true })}`
       : undefined;
 
-    // Detect if DB state may be stale (last status update > 2 hours ago on non-native)
+    // Detect if DB state may be stale
     const statusUpdatedAt = (aw as any).statusUpdatedAt;
     const hoursSinceStatusUpdate = statusUpdatedAt
       ? (Date.now() - new Date(statusUpdatedAt).getTime()) / (1000 * 60 * 60)
       : null;
-    const isDbStateStale = !isNativeApp() && hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > 2;
+    // On web: stale after 2h. On native: stale after 24h (since native re-verifies on resume).
+    const staleThresholdHours = isNativeApp() ? 24 : 2;
+    const isDbStateStale = hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > staleThresholdHours;
 
     if (aw.connectionStatus === 'connected') {
       // Check if sync is very old (> 24h)

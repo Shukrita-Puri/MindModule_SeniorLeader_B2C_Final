@@ -53,6 +53,8 @@ export interface WearableSyncResult {
   success: boolean;
   permissionGranted: boolean;
   hasData: boolean;
+  /** Whether wearable data was persisted to the database (not just local cache) */
+  dbPersisted: boolean;
   connectionState: WearableConnectionState;
   syncStatus: WearableSyncStatus;
   lastSyncAttemptAt: string;
@@ -139,19 +141,24 @@ export async function disconnectAppleHealthFromBackend(): Promise<boolean> {
  */
 export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
   const startedAt = new Date().toISOString();
-  const notConnected: WearableSyncResult = {
+
+  const fail = (
+    overrides: Partial<WearableSyncResult>,
+  ): WearableSyncResult => ({
     success: false,
     permissionGranted: false,
     hasData: false,
+    dbPersisted: false,
     connectionState: 'disconnected',
     syncStatus: 'unknown',
     lastSyncAttemptAt: startedAt,
-    errorCode: 'not_native',
-  };
+    errorCode: null,
+    ...overrides,
+  });
 
   if (!isNativeApp()) {
     console.log('[WearableSync] Not native app, skipping sync');
-    return notConnected;
+    return fail({ errorCode: 'not_native' });
   }
 
   try {
@@ -174,15 +181,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         watch_last_error: 'healthkit_authorization_revoked',
         watch_type: 'apple',
       });
-      return {
-        success: false,
-        permissionGranted: false,
-        hasData: false,
+      return fail({
         connectionState: 'permission_revoked',
         syncStatus: 'error',
-        lastSyncAttemptAt: startedAt,
         errorCode: 'healthkit_authorization_revoked',
-      };
+      });
     }
 
     console.log('[WearableSync] HealthKit access verified, querying 30-day data (HRV + RHR + HR + Sleep)...');
@@ -200,15 +203,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         watch_last_error: 'healthkit_authorization_revoked',
         watch_type: 'apple',
       });
-      return {
-        success: false,
-        permissionGranted: false,
-        hasData: false,
+      return fail({
         connectionState: 'permission_revoked',
         syncStatus: 'error',
-        lastSyncAttemptAt: startedAt,
         errorCode: 'healthkit_authorization_revoked',
-      };
+      });
     }
 
     if (data.readError === 'read_failed') {
@@ -220,15 +219,12 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         watch_last_error: 'healthkit_read_failed',
         watch_type: 'apple',
       });
-      return {
-        success: false,
+      return fail({
         permissionGranted: true,
-        hasData: false,
         connectionState: 'sync_delayed',
         syncStatus: 'sync_delayed',
-        lastSyncAttemptAt: startedAt,
         errorCode: 'healthkit_read_failed',
-      };
+      });
     }
 
     // Check both legacy dailySamples and new dailySummaries
@@ -248,6 +244,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         success: true,
         permissionGranted: true,
         hasData: false,
+        dbPersisted: true, // status was persisted even though no sample data
         connectionState: 'connected_but_waiting_for_data',
         syncStatus: 'waiting_for_data',
         lastSyncAttemptAt: startedAt,
@@ -260,15 +257,13 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     const token = await getAuthToken();
     if (!token) {
       console.warn('[WearableSync] No auth token, skipping persist');
-      return {
-        success: false,
+      return fail({
         permissionGranted: true,
         hasData: true,
         connectionState: 'sync_delayed',
         syncStatus: 'sync_delayed',
-        lastSyncAttemptAt: startedAt,
         errorCode: 'missing_auth_token',
-      };
+      });
     }
 
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -288,107 +283,131 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
     console.log('[WearableSync] Sending bulk persist request:', samples.length, 'samples with enriched metrics');
 
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          samples,
-          raw_data: {
-            synced_at: new Date().toISOString(),
-            total_daily_samples: data.dailySummaries.length,
-            metrics_available: {
-              hrv: data.dailySamples.length,
-              rhr: data.dailySummaries.filter(d => d.restingHeartRate !== null).length,
-              hr: data.dailySummaries.filter(d => d.heartRate !== null).length,
-              sleep: data.dailySummaries.filter(d => d.totalSleepMinutes !== null).length,
+    // --- Persist to DB with one retry on failure ---
+    let persistRes: Response | null = null;
+    let persistError: string | null = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        persistRes = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-          },
-        }),
-      }
-    );
+            body: JSON.stringify({
+              samples,
+              raw_data: {
+                synced_at: new Date().toISOString(),
+                total_daily_samples: data.dailySummaries.length,
+                metrics_available: {
+                  hrv: data.dailySamples.length,
+                  rhr: data.dailySummaries.filter(d => d.restingHeartRate !== null).length,
+                  hr: data.dailySummaries.filter(d => d.heartRate !== null).length,
+                  sleep: data.dailySummaries.filter(d => d.totalSleepMinutes !== null).length,
+                },
+              },
+            }),
+          }
+        );
 
-    if (res.ok) {
-      const result = await res.json();
-      console.log('[WearableSync] ✅ Bulk persist success:', JSON.stringify(result));
+        if (persistRes.ok) {
+          persistError = null;
+          break; // success
+        }
 
-      // Save all daily summaries to local store
-      for (const ds of data.dailySummaries) {
-        saveWearableDataLocally({
-          hrv: ds.hrv,
-          restingHeartRate: ds.restingHeartRate,
-          heartRate: ds.heartRate,
-          totalSleepMinutes: ds.totalSleepMinutes,
-          deepSleepMinutes: ds.deepSleepMinutes,
-          remSleepMinutes: ds.remSleepMinutes,
-          sleepScore: ds.sleepScore,
-          syncedAt: new Date().toISOString(),
-          summaryDate: ds.date,
-        });
+        persistError = await persistRes.text();
+        console.warn(`[WearableSync] Persist attempt ${attempt} failed:`, persistRes.status, persistError);
+
+        if (attempt < 2) {
+          // brief pause before retry
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      } catch (fetchErr) {
+        persistError = fetchErr instanceof Error ? fetchErr.message : 'network_error';
+        console.warn(`[WearableSync] Persist attempt ${attempt} threw:`, persistError);
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
       }
+    }
+
+    // Always save local cache as convenience fallback
+    for (const ds of data.dailySummaries) {
+      saveWearableDataLocally({
+        hrv: ds.hrv,
+        restingHeartRate: ds.restingHeartRate,
+        heartRate: ds.heartRate,
+        totalSleepMinutes: ds.totalSleepMinutes,
+        deepSleepMinutes: ds.deepSleepMinutes,
+        remSleepMinutes: ds.remSleepMinutes,
+        sleepScore: ds.sleepScore,
+        syncedAt: new Date().toISOString(),
+        summaryDate: ds.date,
+      });
+    }
+
+    if (persistRes?.ok) {
+      const result = await persistRes.json();
+      console.log('[WearableSync] ✅ DB persist confirmed:', JSON.stringify(result));
 
       return {
         success: true,
         permissionGranted: true,
         hasData: true,
+        dbPersisted: true,
         connectionState: 'connected',
         syncStatus: 'synced',
         lastSyncAttemptAt: startedAt,
         errorCode: null,
       };
     } else {
-      const errText = await res.text();
-      console.warn('[WearableSync] ⚠️ Persist failed:', res.status, errText);
+      // DB persist failed after retry – report as sync_delayed, NOT success
+      const errorCode = `persist_failed:${persistRes?.status ?? 'network'}`;
+      console.warn('[WearableSync] ⚠️ DB persist failed after retry:', errorCode, persistError);
       await persistWatchStatus({
         watch_connection_status: 'connected',
         watch_sync_status: 'sync_delayed',
         watch_last_sync_at: startedAt,
         watch_last_sample_at: data.latestSampleDate,
-        watch_last_error: `persist_failed:${res.status}`,
+        watch_last_error: errorCode,
         watch_type: 'apple',
       });
       return {
         success: false,
         permissionGranted: true,
         hasData: true,
+        dbPersisted: false,
         connectionState: 'sync_delayed',
         syncStatus: 'sync_delayed',
         lastSyncAttemptAt: startedAt,
-        errorCode: `persist_failed:${res.status}`,
+        errorCode,
       };
     }
   } catch (err) {
     console.error('[WearableSync] ⚠️ Sync error:', err);
+    const errorCode = err instanceof Error ? err.message : 'unknown_sync_error';
     if (isHealthKitPermissionGranted()) {
       await persistWatchStatus({
         watch_connection_status: 'connected',
         watch_sync_status: 'sync_delayed',
         watch_last_sync_at: startedAt,
-        watch_last_error: err instanceof Error ? err.message : 'unknown_sync_error',
+        watch_last_error: errorCode,
         watch_type: 'apple',
       });
-      return {
-        success: false,
+      return fail({
         permissionGranted: true,
-        hasData: false,
         connectionState: 'sync_delayed',
         syncStatus: 'sync_delayed',
-        lastSyncAttemptAt: startedAt,
-        errorCode: err instanceof Error ? err.message : 'unknown_sync_error',
-      };
+        errorCode,
+      });
     }
-    return {
-      success: false,
-      permissionGranted: false,
-      hasData: false,
+    return fail({
       connectionState: 'error',
       syncStatus: 'error',
-      lastSyncAttemptAt: startedAt,
-      errorCode: err instanceof Error ? err.message : 'unknown_sync_error',
-    };
+      errorCode,
+    });
   }
 }
