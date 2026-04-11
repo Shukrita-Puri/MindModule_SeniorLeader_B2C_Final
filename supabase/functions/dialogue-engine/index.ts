@@ -1763,47 +1763,26 @@ serve(async (req) => {
     console.log('[dialogue-engine] Practice duration:', sessionContext.practiceDuration);
     console.log('[dialogue-engine] Safety triggered:', safetyCk.triggered);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 2000
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[dialogue-engine] AI gateway error:', response.status, errorText);
+    let content: string;
+    try {
+      content = await callClaudeText({
+        system: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.',
+        messages: [{ role: 'user', content: prompt }],
+        model: CLAUDE_MODELS.SONNET,
+        max_tokens: 2000,
+      });
+    } catch (aiErr: any) {
+      console.error('[dialogue-engine] Claude error:', aiErr?.message);
       
-      if (response.status === 429) {
+      if (aiErr?.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Usage limit reached. Please add credits.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI error: ${aiErr?.message}`);
     }
-
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content || '';
     
     // Clean markdown formatting if present
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
