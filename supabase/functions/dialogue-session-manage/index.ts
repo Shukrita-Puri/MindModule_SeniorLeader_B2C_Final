@@ -528,7 +528,7 @@ DO treat these as wins:
 - Completing or delivering something
 - Progress on a pattern they've been working on
 
-If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,,
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,
           messages: [
                 ...aiMessages,
               ],
