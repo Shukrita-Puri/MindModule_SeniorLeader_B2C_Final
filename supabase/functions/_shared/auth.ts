@@ -26,8 +26,8 @@ let cachedJWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedDomain: string | null = null;
 
 function getJWKS() {
-  const rawDomain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!rawDomain) throw new Error('VITE_AUTH0_DOMAIN not configured');
+  const rawDomain = Deno.env.get('AUTH0_DOMAIN') || Deno.env.get('VITE_AUTH0_DOMAIN');
+  if (!rawDomain) throw new Error('AUTH0_DOMAIN not configured');
   const domain = sanitizeDomain(rawDomain);
 
   // Invalidate cache if domain changed (unlikely but safe)
@@ -102,12 +102,12 @@ export async function verifyAuth0JWT(authHeaderOrReq: string | Request | null, r
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const rawDomain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!rawDomain) throw new Error('VITE_AUTH0_DOMAIN not configured');
+  const rawDomain = Deno.env.get('AUTH0_DOMAIN') || Deno.env.get('VITE_AUTH0_DOMAIN');
+  if (!rawDomain) throw new Error('AUTH0_DOMAIN not configured');
   const domain = sanitizeDomain(rawDomain);
 
   try {
-    const audience = Deno.env.get('VITE_AUTH0_AUDIENCE');
+    const audience = Deno.env.get('AUTH0_AUDIENCE') || Deno.env.get('VITE_AUTH0_AUDIENCE');
     const issuer = `https://${domain}/`;
 
     const verifyOptions: any = { issuer };
