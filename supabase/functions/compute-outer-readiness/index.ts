@@ -3251,7 +3251,7 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
           // ── Inject weekend/holiday flag into user prompt ──
           if (isWeekend) userPrompt += `\n\nIs weekend = yes`;
           if (isPublicHoliday) userPrompt += `\nIs public holiday = yes`;
-          if (isPersonalHoliday) userPrompt += `\nIs personal holiday = yes`;
+          // isPersonalHoliday detection not yet implemented — skip for now
 
           console.log('[compute-outer-readiness] [LLM] Signals:', JSON.stringify({
             checkInOutcome, clarityLevel, confidenceLevel,
