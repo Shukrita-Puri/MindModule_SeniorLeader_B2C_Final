@@ -1992,36 +1992,45 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promis
     }
   } catch { /* ignore */ }
 
-  // ── Outer Readiness (server-to-server) ──
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-      body: JSON.stringify({
-        userId: req.userId, timezoneOffset: req.timezoneOffset,
-        innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
-        clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
-        componentScores: req.componentScores || null,
-        practicePriorityTag: req.practicePriorityTag || null,
-      }),
-    });
-    if (outerRes.ok) {
-      const outerData = await outerRes.json();
-      req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
-      req.outerReadinessDriver = outerData.driver || 'state';
-      req.outerReadinessContext = outerData.context || '';
-      req.outerReadinessLeanOn = outerData.leanOn || '';
-      req.outerReadinessWatchFor = outerData.watchFor || '';
-      ctx.combinedAlreadyUsed = [...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || [])];
+  // ── Outer Readiness (use client cache if provided, else server-to-server) ──
+  if (outerReadinessCache && outerReadinessCache.phrase) {
+    console.log('[generate-mastery-plan] Using cached outer readiness');
+    req.outerReadinessPhrase = outerReadinessCache.phrase || 'Steady execution.';
+    req.outerReadinessDriver = outerReadinessCache.driver || 'state';
+    req.outerReadinessContext = outerReadinessCache.context || outerReadinessCache.contextStatement || '';
+    req.outerReadinessLeanOn = outerReadinessCache.leanOn || '';
+    req.outerReadinessWatchFor = outerReadinessCache.watchFor || '';
+  } else {
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({
+          userId: req.userId, timezoneOffset: req.timezoneOffset,
+          innerReadinessTier: req.innerReadinessTier, innerReadinessScore: req.innerReadinessScore,
+          clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel, checkInOutcome: req.checkInOutcome,
+          componentScores: req.componentScores || null,
+          practicePriorityTag: req.practicePriorityTag || null,
+        }),
+      });
+      if (outerRes.ok) {
+        const outerData = await outerRes.json();
+        req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
+        req.outerReadinessDriver = outerData.driver || 'state';
+        req.outerReadinessContext = outerData.context || '';
+        req.outerReadinessLeanOn = outerData.leanOn || '';
+        req.outerReadinessWatchFor = outerData.watchFor || '';
+        ctx.combinedAlreadyUsed = [...(outerData.stateAlreadyUsed || []), ...(outerData.compassAlreadyUsed || [])];
+      }
+    } catch {
+      req.outerReadinessPhrase = 'Steady execution.';
+      req.outerReadinessDriver = 'state';
+      req.outerReadinessContext = '';
+      req.outerReadinessLeanOn = '';
+      req.outerReadinessWatchFor = '';
     }
-  } catch {
-    req.outerReadinessPhrase = 'Steady execution.';
-    req.outerReadinessDriver = 'state';
-    req.outerReadinessContext = '';
-    req.outerReadinessLeanOn = '';
-    req.outerReadinessWatchFor = '';
   }
 
   console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
