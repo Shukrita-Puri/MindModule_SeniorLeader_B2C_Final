@@ -95,9 +95,20 @@ export default function OnboardingFlow() {
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
   const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup');
 
-  // Determine if we should show back button (stages 1-6: identity through growth intention)
-  const showBackButton = currentStageIndex >= 1 && currentStageIndex <= 6;
+  // Determine if we should show back button
+  const isPaymentPage = location.pathname === '/onboarding/payment';
+  const showBackButton = (currentStageIndex >= 1 && currentStageIndex <= 6) || isPaymentPage;
   const getBackPath = () => {
+    if (isPaymentPage) {
+      // Upgrade visit (completed onboarding or explicit source) → executive home
+      const querySource = new URLSearchParams(location.search).get('source');
+      const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
+        ? (location.state as Record<string, string>).source : null;
+      const hasUpgradeSource = [querySource, stateSource].some(s => typeof s === 'string' && s.length > 0);
+      // If user already completed onboarding or arrived via upgrade link, go to home
+      // Otherwise they're in initial onboarding flow → go to results
+      return hasUpgradeSource ? '/executive-home' : '/onboarding/results';
+    }
     if (currentStageIndex === 1) return "/onboarding";
     if (currentStageIndex === 2) return "/onboarding/identity";
     if (currentStageIndex === 3) return "/onboarding/emotional-awareness";
