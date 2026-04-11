@@ -21,6 +21,10 @@ interface WearableSyncState {
   hasData: boolean;
   isSyncing: boolean;
   lastSync: Date | null;
+  /** When HealthKit access was last live-verified (null = never verified this session) */
+  lastVerifiedAt: Date | null;
+  /** True when DB state hasn't been verified by a live HealthKit check this session */
+  isStale: boolean;
   hrv: number | null;
   error: string | null;
   triggerSync: () => Promise<boolean>;
@@ -35,6 +39,7 @@ export function useWearableSync(): WearableSyncState {
   const [hasData, setHasData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [lastVerifiedAt, setLastVerifiedAt] = useState<Date | null>(null);
   const [hrv, setHrv] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initRef = useRef(false);
