@@ -3400,6 +3400,7 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
       calendarLoad: calendarLoad || 'low',
       meetingCount: calendarResult.meetingCount,
       highStakesEvents: todayHighStakes,
+      remainingHighStakes: calendarResult.remainingHighStakes ?? [],
       nextHighStakesEvent,
       checkInCountTotal,
       consecutiveLowConfidence,

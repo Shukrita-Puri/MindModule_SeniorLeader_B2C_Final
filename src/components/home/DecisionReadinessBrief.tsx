@@ -406,8 +406,9 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
   const calendarState = outerBrief?.calendarState;
   const nextHS = outerBrief?.nextHighStakesEvent;
-  const highStakes = outerBrief?.highStakesEvents ?? [];
+  const remainingHS = outerBrief?.remainingHighStakes ?? [];
   const calLoad = outerBrief?.calendarLoad ?? 'low';
+  const loadLabel = calLoad === 'high' ? 'Heavy' : calLoad === 'medium' ? 'Moderate' : 'Light';
   const meetingCount = outerBrief?.meetingCount ?? 0;
 
   if (!hasCalendar && calendarState === 'not_connected') {
@@ -440,14 +441,14 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const pills: JSX.Element[] = [];
   pills.push(
     <span key="load" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30">
-      {calLoad} day · {meetingCount} meetings
+      {loadLabel} day · {meetingCount} meetings
     </span>
   );
 
-  if (highStakes.length > 0) {
+  if (remainingHS.length > 0) {
     pills.push(
       <span key="hs" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30 italic">
-        {highStakes[0]} · today
+        {remainingHS[0]} · ahead
       </span>
     );
   }
