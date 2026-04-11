@@ -1713,7 +1713,7 @@ serve(async (req) => {
       let cleanedOpening = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       try {
-        const parsedOpening = JSON.parse(openingContent);
+        const parsedOpening = JSON.parse(cleanedOpening);
         console.log('[dialogue-engine] Opening message generated successfully');
         return new Response(JSON.stringify(parsedOpening), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
