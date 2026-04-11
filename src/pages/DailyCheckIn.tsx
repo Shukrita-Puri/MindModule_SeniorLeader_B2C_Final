@@ -114,7 +114,19 @@ const DailyCheckIn = () => {
       return;
     }
 
-    if (!DEV_MODE && (!user?.id || !user?.onboarding_completed_at)) {
+    // Allow tour if explicit signals are present, even if onboarding_completed_at is stale
+    const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+    const isActiveForUser =
+      sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
+      sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
+    const hasTourSignal = hasTourParam || isRetakeForUser || isActiveForUser;
+
+    if (!DEV_MODE && !user?.id) {
+      setShowGuide(false);
+      return;
+    }
+
+    if (!DEV_MODE && !user?.onboarding_completed_at && !hasTourSignal) {
       setShowGuide(false);
       return;
     }
@@ -141,13 +153,14 @@ const DailyCheckIn = () => {
 
         const walkthroughDone = hasCompletedFirstSessionWalkthrough(snapshot);
         const onboardingComplete = isOnboardingCompleteSnapshot(snapshot) || !!user?.onboarding_completed_at;
-        const isActiveForUser =
+        const isActiveForUserAsync =
           sessionStorage.getItem(ACTIVE_TOUR_KEY) === '1' &&
           sessionStorage.getItem(ACTIVE_TOUR_USER_KEY) === effectiveId;
-        const isRetakeForUser = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
-        const shouldForceTour = hasTourParam && onboardingComplete && (!walkthroughDone || isRetakeForUser);
+        const isRetakeForUserAsync = sessionStorage.getItem(RETAKE_TOUR_KEY) === effectiveId;
+        const shouldForceTour = hasTourParam && (!walkthroughDone || isRetakeForUserAsync);
 
-        if ((!onboardingComplete && !isRetakeForUser) || (walkthroughDone && !isRetakeForUser && !shouldForceTour)) {
+        // Allow tour if explicit tour signals are present even if onboarding not yet marked complete
+        if ((!onboardingComplete && !isRetakeForUserAsync && !hasTourParam && !isActiveForUserAsync) || (walkthroughDone && !isRetakeForUserAsync && !shouldForceTour)) {
           sessionStorage.removeItem(ACTIVE_TOUR_STEP_KEY);
           sessionStorage.removeItem(ACTIVE_TOUR_KEY);
           sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
@@ -155,7 +168,7 @@ const DailyCheckIn = () => {
           return;
         }
 
-        if (!isActiveForUser || isRetakeForUser || shouldForceTour) {
+        if (!isActiveForUserAsync || isRetakeForUserAsync || shouldForceTour) {
           activateGuide();
         }
 

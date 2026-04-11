@@ -95,7 +95,7 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { isAuthenticated, refreshProfile } = useAuth();
+  const { isAuthenticated, refreshProfile, user } = useAuth();
   const { recordStep } = useOnboardingProgress();
 
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -273,11 +273,14 @@ export default function Stage7ContextConnection() {
     });
 
     if (DEV_MODE) {
+      sessionStorage.setItem('first_session_guide_active', '1');
+      sessionStorage.setItem('first_session_guide_step', '0');
       navigate("/daily-check-in?tour=1");
       return;
     }
 
     // Attempt to mark onboarding complete on the backend
+    let completionSucceeded = false;
     try {
       const token = await getAuthToken();
       if (token) {
@@ -295,7 +298,7 @@ export default function Stage7ContextConnection() {
 
         if (res.ok) {
           console.log("[Stage7] ✅ Onboarding marked complete");
-          await refreshProfile();
+          completionSucceeded = true;
         } else {
           console.warn("[Stage7] ⚠️ complete-onboarding failed:", res.status, "— retrying");
           const retry = await fetch(
@@ -304,7 +307,7 @@ export default function Stage7ContextConnection() {
           );
           if (retry.ok) {
             console.log("[Stage7] ✅ Onboarding marked complete (retry)");
-            await refreshProfile();
+            completionSucceeded = true;
           } else {
             console.error("[Stage7] ❌ complete-onboarding retry also failed:", retry.status);
           }
@@ -316,7 +319,20 @@ export default function Stage7ContextConnection() {
       console.warn("[Stage7] ⚠️ complete-onboarding error (non-blocking):", err);
     }
 
-    // Always navigate to the tour regardless of backend outcome
+    // Await profile refresh so onboarding_completed_at is populated before navigation
+    try {
+      await refreshProfile();
+      console.log("[Stage7] ✅ Profile refreshed after completion");
+    } catch (err) {
+      console.warn("[Stage7] ⚠️ refreshProfile error (non-blocking):", err);
+    }
+
+    // Set tour session keys BEFORE navigation so DailyCheckIn sees them immediately
+    const effectiveId = user?.id;
+    sessionStorage.setItem('first_session_guide_active', '1');
+    sessionStorage.setItem('first_session_guide_step', '0');
+    if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
+
     console.log("[Stage7] Navigating to daily check-in with tour");
     navigate("/daily-check-in?tour=1");
   };

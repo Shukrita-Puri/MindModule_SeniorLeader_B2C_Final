@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('email, stripe_customer_id, subscription_status, stripe_subscription_id')
+      .select('email, stripe_customer_id, subscription_status, stripe_subscription_id, subscription_tier')
       .eq('id', userId)
       .single();
 
@@ -53,30 +53,41 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // DUPLICATE SUBSCRIPTION GUARD
-    // If user already has an active/trialing subscription, redirect to billing portal
+    // ACTIVE SUBSCRIPTION HANDLING
+    // If same plan → billing portal. If different plan → allow new checkout for upgrade.
     // ═══════════════════════════════════════════════════════════
     if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
-      console.log(`[create-checkout-session] User ${userId} already has subscription (${profile.subscription_status}), redirecting to portal`);
+      const selectedPlan = plan === 'monthly' ? 'monthly' : 'annual';
+      const currentTier = profile.subscription_tier || '';
+      const isAlreadyOnRequestedPlan =
+        (selectedPlan === 'monthly' && currentTier === 'monthly_pro') ||
+        (selectedPlan === 'annual' && currentTier === 'annual_pro');
 
-      if (profile.stripe_customer_id) {
-        const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
-        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
-        const portalSession = await portalStripe.billingPortal.sessions.create({
-          customer: profile.stripe_customer_id,
-          return_url: `${frontendUrl}/profile`,
-        });
+      if (isAlreadyOnRequestedPlan) {
+        console.log(`[create-checkout-session] User ${userId} already on ${currentTier}, redirecting to portal`);
+
+        if (profile.stripe_customer_id) {
+          const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
+          const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
+          const portalSession = await portalStripe.billingPortal.sessions.create({
+            customer: profile.stripe_customer_id,
+            return_url: `${frontendUrl}/profile`,
+          });
+
+          return new Response(
+            JSON.stringify({ alreadySubscribed: true, portalUrl: portalSession.url }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         return new Response(
-          JSON.stringify({ alreadySubscribed: true, portalUrl: portalSession.url }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'You already have this plan.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      return new Response(
-        JSON.stringify({ error: 'You already have an active subscription.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Different plan requested — allow checkout to proceed as an upgrade (no trial)
+      console.log(`[create-checkout-session] User ${userId} upgrading from ${currentTier} to ${selectedPlan}`);
     }
 
     // Get or create Stripe customer
@@ -142,16 +153,23 @@ Deno.serve(async (req) => {
       sessionMetadata.referralCode = validatedReferralCode;
     }
 
-    // Create checkout session with 7-day trial
+    // Determine if this is an upgrade (already has active/trialing subscription)
+    const isUpgrade = profile.subscription_status === 'active' || profile.subscription_status === 'trialing';
+
+    // Create checkout session — skip trial for upgrades
+    const subscriptionData: Record<string, unknown> = {
+      metadata: sessionMetadata,
+    };
+    if (!isUpgrade) {
+      subscriptionData.trial_period_days = 7;
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: {
-        trial_period_days: 7,
-        metadata: sessionMetadata,
-      },
+      subscription_data: subscriptionData as any,
       // Stripe Checkout custom field for referral code entry (native iOS users)
       custom_fields: [
         {
