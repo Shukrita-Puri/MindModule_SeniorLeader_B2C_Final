@@ -102,6 +102,7 @@ export function useWearableSync(): WearableSyncState {
       console.log('[useWearableSync] Sync result:', result.connectionState, 'hasData:', result.hasData);
 
       setConnectionState(result.connectionState);
+      setLastVerifiedAt(new Date());
 
       if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
@@ -138,6 +139,7 @@ export function useWearableSync(): WearableSyncState {
       if (!granted) {
         setError('HealthKit permission not granted');
         setConnectionState('permission_revoked');
+        setLastVerifiedAt(new Date());
         setIsSyncing(false);
         return false;
       }
