@@ -32,7 +32,7 @@ export default function Stage6Payment() {
   const isMonthlySubscriber = currentTier === 'monthly_pro' && hasValidUserAccess;
   const isAnnualSubscriber = currentTier === 'annual_pro' && hasValidUserAccess;
   const isUpgradeVisit = hasExplicitUpgradeSource || hasCompletedOnboarding;
-  const showUpgradeMode = isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess);
+  const showUpgradeMode = hasExplicitUpgradeSource || (isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess));
 
   useEffect(() => {
     if (isBetaValid && !isUpgradeVisit) {
