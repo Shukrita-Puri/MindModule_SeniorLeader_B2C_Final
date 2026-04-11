@@ -1678,9 +1678,9 @@ serve(async (req) => {
     
     const { type, userMessage, signals, context, conversationHistory, safetyCheck, configuration, previousFrameworks, messagesSinceLastIntervention } = parseResult.data;
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not configured');
     }
 
     // Handle opening message generation
@@ -1690,24 +1690,15 @@ serve(async (req) => {
       
       const openingPrompt = buildOpeningMessagePrompt(configuration, context);
       
-      const openingResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.' },
-            { role: 'user', content: openingPrompt }
-          ],
-          max_tokens: 500
-        }),
+      const openingContent = await callClaudeText({
+        system: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.',
+        messages: [{ role: 'user', content: openingPrompt }],
+        model: CLAUDE_MODELS.SONNET,
+        max_tokens: 500,
       });
 
-      if (!openingResponse.ok) {
-        console.error('[dialogue-engine] Opening message generation failed:', openingResponse.status);
+      if (!openingContent) {
+        console.error('[dialogue-engine] Opening message generation returned empty');
         // Return fallback opening
         return new Response(JSON.stringify({
           opening_message: {
@@ -1719,9 +1710,7 @@ serve(async (req) => {
         });
       }
 
-      const openingData = await openingResponse.json();
-      let openingContent = openingData.choices?.[0]?.message?.content || '';
-      openingContent = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let cleanedOpening = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       try {
         const parsedOpening = JSON.parse(openingContent);
