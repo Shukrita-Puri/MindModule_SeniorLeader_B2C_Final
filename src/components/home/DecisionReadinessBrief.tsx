@@ -447,7 +447,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-[hsl(var(--saffron))]/10 text-[hsl(var(--saffron))] border border-[hsl(var(--saffron))]/20 font-medium">
           {urgentLabel}
         </span>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30">
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
           {loadLabel} day · {meetingCount} meetings
         </span>
       </div>
@@ -457,7 +457,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   // Regular calendar display
   const pills: JSX.Element[] = [];
   pills.push(
-    <span key="load" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30">
+    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
       {loadLabel} day · {meetingCount} meetings
     </span>
   );
@@ -475,14 +475,14 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
     };
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
     pills.push(
-      <span key="hs" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30 italic">
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
         {remainingHS[0]} · {timeLabel}
       </span>
     );
   } else if (remainingHS.length > 0) {
     // Fallback: no nextHS timing data, just show "ahead"
     pills.push(
-      <span key="hs" className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/70 border border-border/30 italic">
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
         {remainingHS[0]} · ahead
       </span>
     );
