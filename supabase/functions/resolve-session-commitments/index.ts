@@ -76,14 +76,15 @@ serve(async (req) => {
       `${i + 1}. [ID: ${c.id}] "${c.commitment_text}"`
     ).join('\n');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'claude-sonnet-4-20250514',
         messages: [
           {
             role: 'system',
@@ -119,7 +120,7 @@ Return as JSON array.`
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || '[]';
+    const content = aiData.content?.[0]?.text || '[]';
 
     let updates: any[] = [];
     try {

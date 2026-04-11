@@ -465,12 +465,13 @@ Deno.serve(async (req) => {
           : "not yet available";
         const archEvStr = archetypeEvolved ? `${baselineArch.title} → ${currentArch!.title} (evolved: yes)` : `${baselineArch.title} (evolved: no)`;
 
-        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
-          headers: { Authorization: `Bearer ${ANTHROPIC_API_KEY}`, "Content-Type": "application/json" },
+          headers: { 'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01', "Content-Type": "application/json" },
           signal: abortController.signal,
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
+            model: "claude-haiku-3-5-20241022",
             messages: [
               {
                 role: "system",
@@ -497,7 +498,7 @@ Deno.serve(async (req) => {
 
         if (aiRes.ok) {
           const aiData = await aiRes.json();
-          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+          const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
           if (toolCall?.function?.arguments) {
             const parsed = JSON.parse(toolCall.function.arguments);
             const obs = parsed.observation || null;

@@ -98,14 +98,15 @@ Return MAX 3-4 of each, prioritizing most important. JSON format:
 
 Return ONLY valid JSON.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${ANTHROPIC_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "claude-sonnet-4-20250514",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -128,7 +129,7 @@ Return ONLY valid JSON.`;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.content?.[0]?.text;
     
     console.log('[generate-debrief-insights] Raw response:', content);
 

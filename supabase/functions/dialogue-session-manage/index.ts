@@ -497,14 +497,15 @@ async function finalizeCoachSession(
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 15000);
 
-          const winResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const winResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${ANTHROPIC_API_KEY}`,
+              'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              model: "claude-sonnet-4-20250514",
               messages: [
                 {
                   role: "system",
@@ -563,7 +564,7 @@ If no genuine win is present, do NOT force one – it's better to miss than to c
 
           if (winResponse.ok) {
             const winData = await winResponse.json();
-            const toolCalls = winData.choices?.[0]?.message?.tool_calls;
+            const toolCalls = winData.content?.filter((c: any) => c.type === 'tool_use');
             if (toolCalls) {
               const NON_WIN_PATTERNS =
                 /^(feeling\s+(overwhelmed|stressed|anxious|burned|drained|exhausted|frustrated|stuck)|struggling\s+with|things\s+are\s+(tough|hard|busy|heavy)|workload\s+is|lots?\s+going\s+on|i('m|\s+am)\s+(overwhelmed|stressed|anxious|burned|drained|exhausted|frustrated|stuck))/i;

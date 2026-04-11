@@ -203,14 +203,15 @@ serve(async (req) => {
               .filter(m => m.sender_type === 'user')
               .map(m => ({ role: 'user' as const, content: m.content }));
 
-            const winResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            const winResponse = await fetch('https://api.anthropic.com/v1/messages', {
               method: 'POST',
               headers: {
-                Authorization: `Bearer ${ANTHROPIC_API_KEY}`,
+                'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'google/gemini-2.5-flash-lite',
+                model: 'claude-haiku-3-5-20241022',
                 messages: [
                   {
                     role: 'system',
@@ -264,7 +265,7 @@ If no genuine win is present, do NOT force one – it's better to miss than to c
 
             if (winResponse.ok) {
               const winData = await winResponse.json();
-              const toolCalls = winData.choices?.[0]?.message?.tool_calls;
+              const toolCalls = winData.content?.filter((c: any) => c.type === 'tool_use');
               if (toolCalls) {
                 for (const tc of toolCalls) {
                   if (tc.function?.name === 'store_tiny_win') {

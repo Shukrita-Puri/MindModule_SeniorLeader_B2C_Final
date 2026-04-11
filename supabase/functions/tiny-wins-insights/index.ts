@@ -213,14 +213,15 @@ serve(async (req) => {
       
       if (ANTHROPIC_API_KEY) {
         try {
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${ANTHROPIC_API_KEY}`,
+              'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: "claude-sonnet-4-20250514",
               messages: [
                 {
                   role: "system",
@@ -259,7 +260,7 @@ serve(async (req) => {
 
           if (aiResponse.ok) {
             const aiData = await aiResponse.json();
-            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+            const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
             if (toolCall?.function?.arguments) {
               dimensions = JSON.parse(toolCall.function.arguments);
             } else {
@@ -359,14 +360,15 @@ serve(async (req) => {
         try {
           const observationPrompt = `This leader's recent wins most reflect ${topEmotion.value} and ${topGrowth.value}. In one sentence, what does this pattern of wins reveal about their current momentum and how they are leading themselves? Speak directly to the leader. No generic language.`;
 
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${ANTHROPIC_API_KEY}`,
+              'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: "claude-sonnet-4-20250514",
               messages: [
                 {
                   role: "system",
@@ -379,7 +381,7 @@ serve(async (req) => {
 
           if (aiResponse.ok) {
             const aiData = await aiResponse.json();
-            const content = aiData.choices?.[0]?.message?.content;
+            const content = aiData.content?.[0]?.text;
             if (content) {
               observation = content.trim();
             }

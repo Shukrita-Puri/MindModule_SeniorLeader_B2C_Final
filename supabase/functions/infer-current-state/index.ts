@@ -96,14 +96,15 @@ Return ONLY a JSON object:
   `.trim();
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('ANTHROPIC_API_KEY')}`
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'claude-haiku-3-5-20241022',
         messages: [
           { role: 'system', content: 'You are a precise state prediction system. Return only valid JSON.' },
           { role: 'user', content: prompt }
@@ -114,7 +115,7 @@ Return ONLY a JSON object:
     });
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const content = data.content?.[0]?.text || '';
     const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
 
     return {
