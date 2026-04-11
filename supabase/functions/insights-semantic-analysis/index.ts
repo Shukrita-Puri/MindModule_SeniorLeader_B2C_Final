@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -200,11 +201,11 @@ serve(async (req) => {
       if (messages && messages.length > 0) {
         const allContent = messages.map(m => m.content).join('\n\n');
         
-        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+        const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
         if (lovableApiKey && allContent.length > 50) {
           try {
             const aiResponse = await fetch(
-              'https://ai.gateway.lovable.dev/v1/chat/completions',
+              'https://api.anthropic.com/v1/messages',
               {
                 method: 'POST',
                 headers: {
@@ -212,7 +213,7 @@ serve(async (req) => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  model: 'google/gemini-2.5-flash-lite',
+                  model: 'claude-haiku-3-5-20241022',
                   messages: [{
                     role: 'user',
                     content: `Analyze these coaching conversation excerpts and:
@@ -237,7 +238,7 @@ ${allContent.slice(0, 3000)}`
 
             if (aiResponse.ok) {
               const aiData = await aiResponse.json();
-              const responseText = aiData.choices?.[0]?.message?.content || '';
+              const responseText = aiData.content?.[0]?.text || '';
               
               const jsonMatch = responseText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -426,12 +427,12 @@ ${allContent.slice(0, 3000)}`
     let aiObservation = '';
     
     if (unifiedThemes.length >= 2) {
-      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+      const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
       if (lovableApiKey) {
         try {
           const top5 = unifiedThemes.slice(0, 5).map(t => `${t.theme} (${t.totalCount} mentions)`).join(', ');
           const observationResponse = await fetch(
-            'https://ai.gateway.lovable.dev/v1/chat/completions',
+            'https://api.anthropic.com/v1/messages',
             {
               method: 'POST',
               headers: {
@@ -439,7 +440,7 @@ ${allContent.slice(0, 3000)}`
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'google/gemini-2.5-flash-lite',
+                model: 'claude-haiku-3-5-20241022',
                 messages: [{
                   role: 'user',
                   content: `These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days: ${top5}. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language.`
@@ -450,7 +451,7 @@ ${allContent.slice(0, 3000)}`
 
           if (observationResponse.ok) {
             const obsData = await observationResponse.json();
-            aiObservation = obsData.choices?.[0]?.message?.content?.trim() || '';
+            aiObservation = obsData.content?.[0]?.text?.trim() || '';
           }
         } catch (obsError) {
           console.error('AI observation error:', obsError);
@@ -525,12 +526,12 @@ async function getNodeSummary(
   const connectedList = connectedThemes.map(c => `${c.theme} (${c.relationshipType})`).join(', ');
 
   let aiSummary = '';
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
   
   if (lovableApiKey && excerpts.length > 20) {
     try {
       const summaryResponse = await fetch(
-        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        'https://api.anthropic.com/v1/messages',
         {
           method: 'POST',
           headers: {
@@ -538,7 +539,7 @@ async function getNodeSummary(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-lite',
+            model: 'claude-haiku-3-5-20241022',
             messages: [{
               role: 'user',
               content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data – not generic. Name the pattern, its context, and what it signals. No soft language.
@@ -557,7 +558,7 @@ ${excerpts}`
 
       if (summaryResponse.ok) {
         const summaryData = await summaryResponse.json();
-        aiSummary = summaryData.choices?.[0]?.message?.content?.trim() || '';
+        aiSummary = summaryData.content?.[0]?.text?.trim() || '';
       }
     } catch (summaryError) {
       console.error('AI node summary error:', summaryError);

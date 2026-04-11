@@ -9,6 +9,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,22 +96,20 @@ serve(async (req) => {
       ? `\nPENDING COMMITMENTS (check if discussed/completed in conversation):\n${pendingCommitments.map(c => `- [${c.id}] "${c.commitment_text}"`).join('\n')}\n`
       : '';
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.'
-          },
+        model: 'claude-sonnet-4-20250514',
+        system: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.',
+          messages: [
           {
             role: 'user',
             content: `Analyze this coaching session and generate a summary.
@@ -148,7 +147,7 @@ Return ONLY the JSON object.`
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || '{}';
+    const content = aiData.content?.[0]?.text || '{}';
     
     let summary;
     try {
@@ -334,14 +333,15 @@ Return ONLY the JSON object.`
 
               if (!existingMessages || existingMessages.length === 0) {
                 // Generate surface message via LLM
-                const surfaceResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                const surfaceResponse = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
                   headers: {
-                    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                    'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
                     'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
-                    model: 'google/gemini-2.5-flash-lite',
+                    model: 'claude-haiku-3-5-20241022',
                     messages: [{
                       role: 'user',
                       content: `Generate a 15-word max coaching message connecting this commitment to an upcoming event. Voice: direct, C-suite executive coach, no fluff.
@@ -358,7 +358,7 @@ Return ONLY the message text, no quotes, no prefix.`
 
                 if (surfaceResponse.ok) {
                   const surfaceData = await surfaceResponse.json();
-                  const surfaceMessage = (surfaceData.choices?.[0]?.message?.content || '').trim();
+                  const surfaceMessage = (surfaceData.content?.[0]?.text || '').trim();
                   if (surfaceMessage && surfaceMessage.length > 5 && surfaceMessage.length < 200) {
                     await supabase
                       .from('coach_surface_messages')

@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,10 +138,10 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY not configured');
     }
 
     // Support both v1 (legacy) and v2 payloads
@@ -187,15 +188,16 @@ Results:
 
 Write 2-3 sentences that name this leader's specific pattern – what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
-    const models = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash-lite', 'openai/gpt-5-nano'];
+    const models = ['claude-sonnet-4-20250514', 'claude-haiku-3-5-20241022', 'openai/gpt-5-nano'];
     let response: Response | null = null;
 
     for (const model of models) {
       console.log(`[Onboarding] Trying model: ${model}`);
-      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -229,7 +231,7 @@ Write 2-3 sentences that name this leader's specific pattern – what their scor
       insight = `Your pattern shows strong capacity across your leadership dimensions. Your practice will focus on strengthening ${lowestLabel} – the area with the most room for growth given your current profile.`;
     } else {
       const data = await response.json();
-      insight = data.choices?.[0]?.message?.content?.trim() || '';
+      insight = data.content?.[0]?.text?.trim() || '';
     }
 
     return new Response(

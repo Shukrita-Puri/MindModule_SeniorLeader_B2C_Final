@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,11 +27,11 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!ANTHROPIC_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing required environment variables");
     }
 
@@ -80,26 +81,24 @@ serve(async (req) => {
       `--- Exchange ${i + 1} ---\nCOACH: ${pair.coachContent}\nUSER: ${pair.userContent}`
     ).join('\n\n');
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You analyze coaching conversations to evaluate probing effectiveness and detect breakthrough moments.
+        model: "claude-sonnet-4-20250514",
+        system: `You analyze coaching conversations to evaluate probing effectiveness and detect breakthrough moments.
 
 For each exchange, determine:
 1. Is the coach message a probing question (vs statement, protocol recommendation, or greeting)?
 2. If it IS a probe, classify the probe type and evaluate the user's response.
 3. If the user's response shows a breakthrough moment, capture it.
 
-Only analyze exchanges where the coach is genuinely probing (asking questions to surface the user's own knowing).`
-          },
+Only analyze exchanges where the coach is genuinely probing (asking questions to surface the user's own knowing).`,
+          messages: [
           {
             role: "user",
             content: `Analyze these coaching exchanges:\n\n${analysisPrompt}`
@@ -168,7 +167,7 @@ Only analyze exchanges where the coach is genuinely probing (asking questions to
     }
 
     const aiData = await response.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
 
     if (!toolCall) {
       console.log("No analysis returned from AI");

@@ -10,6 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -195,25 +196,23 @@ serve(async (req) => {
           .order('message_index', { ascending: true });
 
         if (sessionMessages && sessionMessages.length >= 2) {
-          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-          if (LOVABLE_API_KEY) {
+          const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+          if (ANTHROPIC_API_KEY) {
             // Filter to user-only messages – wins must come from user's own statements
             const aiMessages = sessionMessages
               .filter(m => m.sender_type === 'user')
               .map(m => ({ role: 'user' as const, content: m.content }));
 
-            const winResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            const winResponse = await fetch('https://api.anthropic.com/v1/messages', {
               method: 'POST',
               headers: {
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'google/gemini-2.5-flash-lite',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
+                model: 'claude-haiku-3-5-20241022',
+                system: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
@@ -236,8 +235,8 @@ DO treat these as wins:
 - Progress on a pattern they've been working on
 
 If the user shared a genuine win, consolidate it into one clear statement.
-If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`
-                  },
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`,
+          messages: [
                   ...aiMessages,
                 ],
                 tools: [{
@@ -263,7 +262,7 @@ If no genuine win is present, do NOT force one – it's better to miss than to c
 
             if (winResponse.ok) {
               const winData = await winResponse.json();
-              const toolCalls = winData.choices?.[0]?.message?.tool_calls;
+              const toolCalls = winData.content?.filter((c: any) => c.type === 'tool_use');
               if (toolCalls) {
                 for (const tc of toolCalls) {
                   if (tc.function?.name === 'store_tiny_win') {

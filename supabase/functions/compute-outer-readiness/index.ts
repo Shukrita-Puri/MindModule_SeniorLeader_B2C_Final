@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2982,8 +2983,8 @@ serve(async (req) => {
 
       // ── Build & call LLM ──
       try {
-        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-        if (LOVABLE_API_KEY) {
+        const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+        if (ANTHROPIC_API_KEY) {
           const timeOfDayStr = getTimeOfDay(hour);
           const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
           const dayName = dayNames2[dayOfWeek];
@@ -3266,14 +3267,6 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
 
           // ── Call LLM with retry ──
           let llmFallbackReason: string | null = null;
-          const llmRequestBody = JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-          });
-
           for (let attempt = 1; attempt <= 2; attempt++) {
             const timeoutMs = attempt === 1 ? 10000 : 8000;
             const controller = new AbortController();
@@ -3281,46 +3274,37 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             const startMs = Date.now();
 
             try {
-              const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: llmRequestBody,
+              const content = await callClaudeText({
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }],
+                model: CLAUDE_MODELS.SONNET,
+                max_tokens: 1024,
                 signal: controller.signal,
               });
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
-              console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} completed in ${durationMs}ms, status ${aiRes.status}`);
+              console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} completed in ${durationMs}ms`);
 
-              if (aiRes.ok) {
-                const aiData = await aiRes.json();
-                const content = aiData.choices?.[0]?.message?.content?.trim();
-                if (content) {
-                  try {
-                    let jsonStr = content;
-                    if (jsonStr.startsWith('```')) {
-                      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-                    }
-                    const parsed = JSON.parse(jsonStr);
-                    if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
-                    if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
-                    if (llmPhrase) {
-                      console.log(`[compute-outer-readiness] [LLM] Using LLM phrase: "${llmPhrase}"`);
-                      break; // success, stop retrying
-                    }
-                    llmFallbackReason = 'llm_returned_null';
-                  } catch (parseErr) {
-                    console.error('[compute-outer-readiness] [LLM] JSON parse error:', parseErr, 'Raw:', content);
-                    llmFallbackReason = 'llm_parse_failed';
+              if (content) {
+                try {
+                  let jsonStr = content.trim();
+                  if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
                   }
-                } else {
+                  const parsed = JSON.parse(jsonStr);
+                  if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
+                  if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
+                  if (llmPhrase) {
+                    console.log(`[compute-outer-readiness] [LLM] Using LLM phrase: "${llmPhrase}"`);
+                    break;
+                  }
                   llmFallbackReason = 'llm_returned_null';
+                } catch (parseErr) {
+                  console.error('[compute-outer-readiness] [LLM] JSON parse error:', parseErr, 'Raw:', content);
+                  llmFallbackReason = 'llm_parse_failed';
                 }
               } else {
-                console.error(`[compute-outer-readiness] [LLM] HTTP error: ${aiRes.status}`);
-                llmFallbackReason = `llm_http_${aiRes.status}`;
+                llmFallbackReason = 'llm_returned_null';
               }
 
               if (attempt === 1 && !llmPhrase) {
@@ -3328,7 +3312,7 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
                 await new Promise(r => setTimeout(r, 1000));
                 continue;
               }
-            } catch (err) {
+            } catch (err: any) {
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
@@ -3340,7 +3324,7 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
                 continue;
               }
             }
-            break; // exit loop after attempt 2
+            break;
           }
 
           if (!llmPhrase) {

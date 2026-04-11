@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -449,10 +450,10 @@ Deno.serve(async (req) => {
     // ── AI Observation (with strict timeout) ──
     const tAI = Date.now();
     let aiObservation: string | null = null;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const AI_TIMEOUT_MS = 6000; // 6 second hard cap
 
-    if (LOVABLE_API_KEY && totalCheckins >= 3) {
+    if (ANTHROPIC_API_KEY && totalCheckins >= 3) {
       try {
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
@@ -464,17 +465,15 @@ Deno.serve(async (req) => {
           : "not yet available";
         const archEvStr = archetypeEvolved ? `${baselineArch.title} → ${currentArch!.title} (evolved: yes)` : `${baselineArch.title} (evolved: no)`;
 
-        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { 'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01', "Content-Type": "application/json" },
           signal: abortController.signal,
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
-            messages: [
-              {
-                role: "system",
-                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
-              },
+            model: "claude-haiku-3-5-20241022",
+            system: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
+          messages: [
               {
                 role: "user",
                 content: `Data:\n- Archetype: ${archEvStr}\n- Dimension shifts: ${dimensionDeltaStr}\n- Friction: ${frictionLabel} (${frictionPct}%) – trend: ${trendDirection}\n- Recurring themes: ${themesStr || "none yet"}\n- Coach strength: ${coachStrength || "none yet"}\n- Coach friction: ${coachFriction || "none yet"}\n\nName the pattern.`,
@@ -496,7 +495,7 @@ Deno.serve(async (req) => {
 
         if (aiRes.ok) {
           const aiData = await aiRes.json();
-          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+          const toolCall = aiData.content?.filter((c: any) => c.type === 'tool_use')?.[0];
           if (toolCall?.function?.arguments) {
             const parsed = JSON.parse(toolCall.function.arguments);
             const obs = parsed.observation || null;

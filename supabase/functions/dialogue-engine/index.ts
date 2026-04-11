@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1677,9 +1678,9 @@ serve(async (req) => {
     
     const { type, userMessage, signals, context, conversationHistory, safetyCheck, configuration, previousFrameworks, messagesSinceLastIntervention } = parseResult.data;
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not configured');
     }
 
     // Handle opening message generation
@@ -1689,24 +1690,15 @@ serve(async (req) => {
       
       const openingPrompt = buildOpeningMessagePrompt(configuration, context);
       
-      const openingResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.' },
-            { role: 'user', content: openingPrompt }
-          ],
-          max_tokens: 500
-        }),
+      const openingContent = await callClaudeText({
+        system: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.',
+        messages: [{ role: 'user', content: openingPrompt }],
+        model: CLAUDE_MODELS.SONNET,
+        max_tokens: 500,
       });
 
-      if (!openingResponse.ok) {
-        console.error('[dialogue-engine] Opening message generation failed:', openingResponse.status);
+      if (!openingContent) {
+        console.error('[dialogue-engine] Opening message generation returned empty');
         // Return fallback opening
         return new Response(JSON.stringify({
           opening_message: {
@@ -1718,12 +1710,10 @@ serve(async (req) => {
         });
       }
 
-      const openingData = await openingResponse.json();
-      let openingContent = openingData.choices?.[0]?.message?.content || '';
-      openingContent = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let cleanedOpening = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       try {
-        const parsedOpening = JSON.parse(openingContent);
+        const parsedOpening = JSON.parse(cleanedOpening);
         console.log('[dialogue-engine] Opening message generated successfully');
         return new Response(JSON.stringify(parsedOpening), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1773,47 +1763,26 @@ serve(async (req) => {
     console.log('[dialogue-engine] Practice duration:', sessionContext.practiceDuration);
     console.log('[dialogue-engine] Safety triggered:', safetyCk.triggered);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 2000
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[dialogue-engine] AI gateway error:', response.status, errorText);
+    let content: string;
+    try {
+      content = await callClaudeText({
+        system: 'You are a dialogue simulation engine. Always respond with valid JSON only, no markdown formatting or code blocks.',
+        messages: [{ role: 'user', content: prompt }],
+        model: CLAUDE_MODELS.SONNET,
+        max_tokens: 2000,
+      });
+    } catch (aiErr: any) {
+      console.error('[dialogue-engine] Claude error:', aiErr?.message);
       
-      if (response.status === 429) {
+      if (aiErr?.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Usage limit reached. Please add credits.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI error: ${aiErr?.message}`);
     }
-
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content || '';
     
     // Clean markdown formatting if present
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
