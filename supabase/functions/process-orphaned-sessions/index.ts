@@ -10,6 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -195,7 +196,7 @@ serve(async (req) => {
           .order('message_index', { ascending: true });
 
         if (sessionMessages && sessionMessages.length >= 2) {
-          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+          const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
           if (LOVABLE_API_KEY) {
             // Filter to user-only messages – wins must come from user's own statements
             const aiMessages = sessionMessages

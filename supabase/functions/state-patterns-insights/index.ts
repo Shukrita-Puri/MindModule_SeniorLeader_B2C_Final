@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -449,7 +450,7 @@ Deno.serve(async (req) => {
     // ── AI Observation (with strict timeout) ──
     const tAI = Date.now();
     let aiObservation: string | null = null;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const AI_TIMEOUT_MS = 6000; // 6 second hard cap
 
     if (LOVABLE_API_KEY && totalCheckins >= 3) {

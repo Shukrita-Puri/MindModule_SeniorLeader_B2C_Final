@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -487,7 +488,7 @@ async function finalizeCoachSession(
         .order("message_index", { ascending: true });
 
       if (sessionMessages && sessionMessages.length >= 2) {
-        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
         if (LOVABLE_API_KEY) {
           const aiMessages = sessionMessages
             .filter((m: { sender_type: string }) => m.sender_type === "user")
