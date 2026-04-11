@@ -138,7 +138,7 @@ export default function OnboardingFlow() {
           )}
         </div>
 
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className={`max-w-2xl mx-auto px-4 ${isPaymentPage ? 'py-2' : 'py-8'}`}>
           <Outlet />
         </div>
       </div>
