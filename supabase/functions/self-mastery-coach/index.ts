@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { callClaudeWithTools, streamClaudeAsOpenAI, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3738,24 +3739,12 @@ User is physiologically strong today (high HRV, high clarity, high confidence). 
 const extractAndStoreTinyWin = async (
   supabaseUrl: string,
   supabaseServiceKey: string,
-  lovableApiKey: string,
   userId: string,
   sessionId: string | null,
   messages: Array<{ role: string; content: string }>
 ) => {
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          {
-            role: "system",
-            content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
+    const systemPrompt = `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.
 
@@ -3779,38 +3768,34 @@ DO treat these as wins:
 - Progress on a pattern they've been working on
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`
-          },
-          ...messages,
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "store_tiny_win",
-            description: "Store a tiny win when the user shares a genuine personal achievement, accomplishment, or positive reflection. Extract the core win statement in their own words.",
-            parameters: {
-              type: "object",
-              properties: {
-                win_content: {
-                  type: "string",
-                  description: "The actual win or achievement the user described, consolidated from the conversation. Use their own words where possible."
-                }
-              },
-              required: ["win_content"]
-            }
+If no genuine win is present, do NOT force one – it's better to miss than to capture a complaint as a win.`;
+
+    const result = await callClaudeWithTools({
+      system: systemPrompt,
+      messages,
+      model: CLAUDE_MODELS.HAIKU,
+      max_tokens: 512,
+      tools: [{
+        type: "function",
+        function: {
+          name: "store_tiny_win",
+          description: "Store a tiny win when the user shares a genuine personal achievement, accomplishment, or positive reflection. Extract the core win statement in their own words.",
+          parameters: {
+            type: "object",
+            properties: {
+              win_content: {
+                type: "string",
+                description: "The actual win or achievement the user described, consolidated from the conversation. Use their own words where possible."
+              }
+            },
+            required: ["win_content"]
           }
-        }],
-        stream: false,
-      }),
+        }
+      }],
+      tool_choice: { type: "function", function: { name: "store_tiny_win" } },
     });
 
-    if (!response.ok) {
-      console.error("Win extraction AI call failed:", response.status);
-      return;
-    }
-
-    const data = await response.json();
-    const toolCalls = data.choices?.[0]?.message?.tool_calls;
+    const toolCalls = result.tool_calls;
     
     if (!toolCalls || toolCalls.length === 0) {
       console.log("No tiny win detected by AI");
