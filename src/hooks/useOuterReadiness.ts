@@ -125,12 +125,20 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
   return data;
 }
 
+function getCurrentPeriod(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'morning';
+  if (hour < 18) return 'afternoon';
+  return 'evening';
+}
+
 export function useOuterReadiness() {
   const { user } = useAuth();
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+  const period = getCurrentPeriod();
 
   return useQuery({
-    queryKey: ['outer-readiness', effectiveUserId],
+    queryKey: ['outer-readiness', effectiveUserId, period],
     queryFn: () => fetchOuterReadiness(effectiveUserId),
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,

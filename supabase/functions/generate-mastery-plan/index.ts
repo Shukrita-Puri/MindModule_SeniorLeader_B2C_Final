@@ -2813,8 +2813,15 @@ function buildHorizonModules(
   const coachGrowthArea = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content || null;
   const archetypeWatchFor = ARCHETYPE_WATCH_FOR[req.archetype] || null;
 
-  // Divergence mode detection: wearable shows strain but check-in doesn't
-  let divergenceMode: string | null = null;
+  // Data sufficiency counts for honest why lines
+  const checkInCountTotal = shared.innerReadinessPattern.values?.length || 0;
+  const wearableDaysConnected = req.wearableContext?.hasData ? 7 : 0; // conservative: treat as 7 only if has data today
+  const meetingCount = req.calendarEvents?.length || 0;
+  const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayOfWeekName = dayNames2[new Date().getDay()];
+
+  // Build common extra args for all buildWhyLine calls
+  const whyLineExtras = [checkInCountTotal, wearableDaysConnected, req.calendarLoad, meetingCount, req.clarityLevel, req.confidenceLevel, timeOfDay, dayOfWeekName] as const;
   if (req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null) {
     if (req.wearableContext.hrvDeviation < -15 && req.innerReadinessTier !== 'depleted') {
       divergenceMode = 'MASKED_HIGH';
@@ -2865,7 +2872,7 @@ function buildHorizonModules(
       horizon: 'immediate',
       timeLabel: slot1TimeLabel,
       typeLabel: `${labels[slot1Practice.type] || 'REGULATE'} · ${protocols[slot1Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot1Practice,
       isJit: slot1IsJit,
       jitEventTitle: slot1IsJit ? jitEventTitle : null,
@@ -2908,7 +2915,7 @@ function buildHorizonModules(
       horizon: 'tactical',
       timeLabel: slot2TimeLabel,
       typeLabel: `${labels[slot2Practice.type] || 'ALIGN'} · ${protocols[slot2Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot2Practice,
       isJit: slot2IsJit,
       jitEventTitle: slot2IsJit ? jitEventTitle : null,
@@ -2950,7 +2957,7 @@ function buildHorizonModules(
       horizon: slot3Horizon,
       timeLabel: slot3TimeLabel,
       typeLabel: `${labels[slot3Practice.type] || 'INTEGRATE'} · ${protocols[slot3Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
+      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
       practice: slot3Practice,
       isJit: false,
       jitEventTitle: null,
