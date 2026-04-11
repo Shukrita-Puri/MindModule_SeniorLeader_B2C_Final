@@ -201,7 +201,7 @@ serve(async (req) => {
       if (messages && messages.length > 0) {
         const allContent = messages.map(m => m.content).join('\n\n');
         
-        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+        const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
         if (lovableApiKey && allContent.length > 50) {
           try {
             const aiResponse = await fetch(
@@ -427,7 +427,7 @@ ${allContent.slice(0, 3000)}`
     let aiObservation = '';
     
     if (unifiedThemes.length >= 2) {
-      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+      const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
       if (lovableApiKey) {
         try {
           const top5 = unifiedThemes.slice(0, 5).map(t => `${t.theme} (${t.totalCount} mentions)`).join(', ');
@@ -526,7 +526,7 @@ async function getNodeSummary(
   const connectedList = connectedThemes.map(c => `${c.theme} (${c.relationshipType})`).join(', ');
 
   let aiSummary = '';
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
   
   if (lovableApiKey && excerpts.length > 20) {
     try {

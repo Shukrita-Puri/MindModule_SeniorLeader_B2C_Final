@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const AI_TIMEOUT_MS = 6000; // 6 second hard cap
 
-    if (LOVABLE_API_KEY && totalCheckins >= 3) {
+    if (ANTHROPIC_API_KEY && totalCheckins >= 3) {
       try {
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);

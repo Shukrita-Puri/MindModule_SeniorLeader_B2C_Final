@@ -489,7 +489,7 @@ async function finalizeCoachSession(
 
       if (sessionMessages && sessionMessages.length >= 2) {
         const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-        if (LOVABLE_API_KEY) {
+        if (ANTHROPIC_API_KEY) {
           const aiMessages = sessionMessages
             .filter((m: { sender_type: string }) => m.sender_type === "user")
             .map((m: { content: string }) => ({ role: "user" as const, content: m.content }));

@@ -197,7 +197,7 @@ serve(async (req) => {
 
         if (sessionMessages && sessionMessages.length >= 2) {
           const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-          if (LOVABLE_API_KEY) {
+          if (ANTHROPIC_API_KEY) {
             // Filter to user-only messages – wins must come from user's own statements
             const aiMessages = sessionMessages
               .filter(m => m.sender_type === 'user')

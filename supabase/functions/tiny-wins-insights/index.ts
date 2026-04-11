@@ -211,7 +211,7 @@ serve(async (req) => {
     for (const win of winsToAnalyze) {
       let dimensions: Dimensions;
       
-      if (LOVABLE_API_KEY) {
+      if (ANTHROPIC_API_KEY) {
         try {
           const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
@@ -355,7 +355,7 @@ serve(async (req) => {
     if (topEmotion && topGrowth) {
       patternLine = `Your wins over the past 14 days most reflect ${topEmotion.value} and ${topGrowth.value}`;
 
-      if (LOVABLE_API_KEY) {
+      if (ANTHROPIC_API_KEY) {
         try {
           const observationPrompt = `This leader's recent wins most reflect ${topEmotion.value} and ${topGrowth.value}. In one sentence, what does this pattern of wins reveal about their current momentum and how they are leading themselves? Speak directly to the leader. No generic language.`;
 
