@@ -431,12 +431,14 @@ const ConnectedData = () => {
       ? `Last sample ${formatDistanceToNowStrict(new Date(aw.lastSampleAt), { addSuffix: true })}`
       : undefined;
 
-    // Detect if DB state may be stale (last status update > 2 hours ago on non-native)
+    // Detect if DB state may be stale
     const statusUpdatedAt = (aw as any).statusUpdatedAt;
     const hoursSinceStatusUpdate = statusUpdatedAt
       ? (Date.now() - new Date(statusUpdatedAt).getTime()) / (1000 * 60 * 60)
       : null;
-    const isDbStateStale = !isNativeApp() && hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > 2;
+    // On web: stale after 2h. On native: stale after 24h (since native re-verifies on resume).
+    const staleThresholdHours = isNativeApp() ? 24 : 2;
+    const isDbStateStale = hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > staleThresholdHours;
 
     if (aw.connectionStatus === 'connected') {
       // Check if sync is very old (> 24h)
