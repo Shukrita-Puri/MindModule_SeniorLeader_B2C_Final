@@ -1796,7 +1796,7 @@ interface SharedContext {
   combinedAlreadyUsed: string[];
 }
 
-async function buildSharedContext(req: PlanRequest, supabaseClient: any): Promise<SharedContext> {
+async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
   const today = new Date().toISOString().split('T')[0];
   const now = new Date();
@@ -2051,7 +2051,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   }
 
   // ═══ BUILD SHARED CONTEXT – single consolidated function ═══
-  const shared = await buildSharedContext(req, supabaseClient);
+  const shared = await buildSharedContext(req, supabaseClient, outerReadinessCache);
   const rawCalendarEvents = shared.rawCalendarEvents;
   const combinedAlreadyUsed = shared.combinedAlreadyUsed;
   const pendingCommitments = shared.pendingCommitments;
