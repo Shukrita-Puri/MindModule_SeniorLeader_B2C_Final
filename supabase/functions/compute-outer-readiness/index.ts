@@ -2982,6 +2982,9 @@ serve(async (req) => {
       }
 
       // ── Build & call LLM ──
+      let llmLeanOn: Array<{signal: string; source: string}> | null = null;
+      let llmWatchFor: Array<{signal: string; source: string}> | null = null;
+      let llmFallbackReason: string | null = null;
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
         if (ANTHROPIC_API_KEY) {
@@ -3238,7 +3241,7 @@ Input context: Morning, QBR today, no wearable, archetype = Strategic Operator
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
 
           // ── User Prompt (v4 structured data sections) ──
-          const isEvening = hour >= 17;
+          const isEveningForPrompt = hour >= 17;
 
           let userPrompt = `=== TIME ===\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
 
@@ -3277,7 +3280,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
-          if ((isEvening || isFridayEvening || isSundayEvening2) && tomorrowLoad) {
+          if ((isEveningForPrompt || isFridayEvening || isSundayEvening2) && tomorrowLoad) {
             const dayNames3 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
@@ -3426,9 +3429,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
 
           // ── Call LLM with retry ──
-          let llmLeanOn: Array<{signal: string; source: string}> | null = null;
-          let llmWatchFor: Array<{signal: string; source: string}> | null = null;
-          let llmFallbackReason: string | null = null;
 
           for (let attempt = 1; attempt <= 2; attempt++) {
             const timeoutMs = attempt === 1 ? 10000 : 8000;
