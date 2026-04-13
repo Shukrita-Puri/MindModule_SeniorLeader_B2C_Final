@@ -1,152 +1,173 @@
 
-
-# Fix Performance Readiness Brief — LLM Resilience, Wearable Chips, and Fallback Quality
-
 ## Summary
 
-Four changes across three files: (1) increase Claude retries to 4, add Lovable AI fallback, (2) make deterministic fallback signal-aware, (3) add "Body steady" wearable chip, (4) add shared Lovable AI helper.
+This is not just an LLM-overload issue. The audit shows there is a separate frontend/UI problem in the Performance Readiness Brief, even when data is present.
 
----
+The current card is receiving enough wearable/check-in data to show:
+- a wearable presence pill (`Body steady`)
+- clarity/confidence pills
+- calendar pills
 
-## Changes
+But the UI currently hides or weakens the value of that data in three ways:
+1. the steady-state wearable pill has no back-side/raw-metric content, so it cannot flip
+2. the duplicate summary line under the pills repeats the same text and adds noise
+3. the pills are visually too dominant, while the affordance that they are tappable is too subtle
 
-### File 1: `supabase/functions/_shared/anthropic.ts` (Fix 4)
+## What I found
 
-Add exported `callLovableAIText()` function at bottom of file:
+### 1) Wearable data is reaching the card
+In `DecisionReadinessBrief.tsx`, the chip builder uses:
+- `outerBrief.hrvValue`
+- `outerBrief.sleepDuration`
+- `outerBrief.sleepScore`
+- `outerBrief.rhrValue`
+- `outerBrief.hrvDeviation`
+- `outerBrief.sleepDeviation`
+- `outerBrief.rhrDeviation`
 
-```typescript
-export async function callLovableAIText(params: {
-  system?: string;
-  messages: Array<{ role: string; content: string }>;
-  model?: string;
-  max_tokens?: number;
-  temperature?: number;
-  signal?: AbortSignal;
-}): Promise<string> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
-  if (!apiKey) throw new Error('LOVABLE_API_KEY not configured');
+And `compute-outer-readiness` returns those fields in the response payload.
 
-  const allMessages = [];
-  if (params.system) allMessages.push({ role: 'system', content: params.system });
-  for (const m of params.messages) allMessages.push({ role: m.role, content: m.content });
+So this is not a missing-upstream-wire problem at the UI layer.
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: params.model || 'google/gemini-2.5-flash',
-      messages: allMessages,
-      max_tokens: params.max_tokens || 1024,
-      temperature: params.temperature,
-    }),
-    signal: params.signal,
-  });
+### 2) Why the “Body steady” pill does not flip
+The pill only flips if `chip.backLabel` exists.
+Right now the fallback steady-state chip is created like this:
+- `id: 'wearable-steady'`
+- `label: 'Body steady'`
+- no `backLabel`
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
-  }
+So the button is rendered, but it is intentionally non-flippable.
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-```
+### 3) Why HRV / RHR / sleep-specific pills are often not showing
+The current chip logic only shows those pills when thresholds are crossed.
+If metrics are normal, it collapses to a single steady-state pill.
+That matches the recent update, but it is weaker than the behavior described in the PRB logic doc, which expects more explicit wearable interpretation/back-side visibility.
 
-### File 2: `supabase/functions/compute-outer-readiness/index.ts` (Fix 1 + Fix 2)
+### 4) Why the card still feels like pills are “not working”
+There is almost no affordance that pills flip:
+- no icon
+- no microcopy near the signal row
+- no auto-hint on first render
+- “Tap for raw numbers” is far away at the bottom of the card
 
-**Fix 1 — Increase retries to 4, add Lovable AI fallback:**
+So even when chip flip works, it is easy to miss.
 
-Change the retry loop from `attempt <= 2` to `attempt <= 4` at line 3434. Adjust timeouts: attempts 1-2 get 10s/8s, attempts 3-4 get 6s/5s.
+### 5) Redundant line should be removed
+`buildInnerSummary()` creates the repeated line like:
+`Body steady · Clarity strong`
+This is purely duplicative of the pills and should be removed.
 
-After the Claude loop ends (line 3515), before the archetype fallback (line 3517), add Lovable AI fallback block:
+### 6) Pill colors are currently too loud
+`chipBgColor()` and `calendarLoadPillStyle()` use saturated/dark gradients:
+- red-500/400
+- amber-500/400
+- emerald-600/500
+These visually overpower the phrase/body copy. The user request is reasonable: keep shape/size/gradient treatment, but shift to much lighter/softer tones.
 
-```typescript
-// ── Lovable AI fallback (if Claude failed) ──
-if (!llmPhrase) {
-  console.log('[compute-outer-readiness] [LLM] Claude failed after 4 attempts, trying Lovable AI...');
-  try {
-    const lovableController = new AbortController();
-    const lovableTimeout = setTimeout(() => lovableController.abort(), 8000);
-    const lovableContent = await callLovableAIText({
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-      max_tokens: 380,
-      signal: lovableController.signal,
-    });
-    clearTimeout(lovableTimeout);
-    // Parse same as Claude path (JSON extraction + v4 validation)
-    // ... (identical parse logic)
-  } catch (lovableErr) {
-    console.error('[compute-outer-readiness] [LLM] Lovable AI fallback failed:', lovableErr);
-    llmFallbackReason = 'lovable_ai_failed';
-  }
-}
-```
+## Implementation plan
 
-Import `callLovableAIText` from the shared helper at top of file.
+### A. Fix wearable steady-state pill so it flips
+Update `buildSignalChips()` in `src/components/home/DecisionReadinessBrief.tsx` so `wearable-steady` gets a `backLabel` built from available live metrics.
 
-**Fix 2 — Signal-aware deterministic fallback (lines 3517-3556):**
+Examples:
+- `HRV: 52ms · Sleep: 7h 18m · RHR: 58bpm`
+- if only some values exist, show only those present
+- keep the current front labels:
+  - `Body steady`
+  - `System online`
 
-Replace the current generic fallback with logic that references live variables already in scope: `calendarLoad`, `calendarResult.meetingCount`, `hasWearable`, `hrvDeviation`, `sleepDeviation`, `checkInOutcome`, `todayHighStakes`, `consecutivePattern`, `leanOnResult`:
+This preserves the steady-state concept but restores the “tap to reveal the data underneath” behavior.
 
-**Phrase**: Instead of `"Lead with {lean-on}."`:
-- If `calendarLoad === 'high'` + depleted: `"Protect your energy — heavy calendar ahead."`
-- If `todayHighStakes.length > 0` + wearable strained: `"Steady your system — high-stakes ahead."`
-- If consecutive depleted 3+: `"Break the pattern — {count} depleted days running."`
-- If strong/peak + light calendar: `"Sustain the advantage — light calendar to build on."`
-- Default: `"Lead with ${leanOnResult.leanOn.toLowerCase()}."`
+### B. Restore better wearable signal visibility without changing layout
+Refine steady-state handling so normal wearable data still communicates substance:
+- keep the single wearable pill when thresholds are normal
+- but ensure its back side reveals the actual metric bundle
+- if only one metric exists, show that single metric clearly
+- if multiple exist, prioritize HRV + sleep + RHR in that order
 
-**Body**: Instead of generic goal text, compose from signals:
-- Include meeting count if calendar connected
-- Include wearable state summary if connected (e.g., "body steady" / "body strained")
-- Include check-in outcome if available
-- Goal context as secondary line
+This avoids adding more pills unless truly needed, while making the existing pill meaningful.
 
-**Lean on / Watch for**: Use FULL `leanOnResult.leanOn` and `leanOnResult.watchFor` text (not truncated to 3 words). Add signal-based items:
-- If wearable connected + steady: add `{ signal: 'Body steady — your system supports this', source: 'Wearable' }`
-- If calendar light: add `{ signal: 'Calendar space — use it deliberately', source: 'Calendar' }`
-- If consecutive pattern: add `{ signal: '{count}-day {state} pattern', source: 'Pattern' }`
+### C. Add a subtle UI affordance that pills are flippable
+UI-only refinement, no layout change:
+- add a very small helper line above or beside the pills such as:
+  - `Tap a pill to reveal the signal`
+- or add a tiny rotate/chevron icon inside flippable pills only
+- or both, but keep it understated
 
-### File 3: `src/components/home/DecisionReadinessBrief.tsx` (Fix 3)
+Recommended approach:
+- keep pills visually clean
+- add one subtle helper line near “Based on your signals”
+- optionally add a tiny icon only on hover/touch-capable flippable pills
 
-After each tier block (full at ~line 264, partial at ~line 300, absolute at ~line 339), before the `else` (none) block at line 340, add a check:
+### D. Remove the duplicate summary line
+Delete the rendered `innerSummary` block under the pills in `DecisionReadinessBrief.tsx`.
 
-```typescript
-// After the absolute tier block closes (line 339), before the else:
-// Add steady-state chip if wearable connected but no chip generated
-const hasWearableChip = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
-if (!hasWearableChip && tier !== 'none') {
-  if (tier === 'absolute') {
-    chips.push({ id: 'wearable-steady', label: 'System online', color: 'neutral', qualifier: ' · establishing baseline' });
-  } else if (tier === 'partial') {
-    chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green', qualifier: ' · early reading' });
-  } else {
-    chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green' });
-  }
-}
-```
+Also remove the unused `buildInnerSummary()` helper if no longer needed.
 
-This goes right before line 340 (`} else {` for `tier === 'none'`), consolidating all three tier cases.
+### E. Soften pill colors without changing size/shape/text
+Adjust `chipBgColor()` and `calendarLoadPillStyle()` to lighter gradients:
+- red → pale rose / soft coral
+- amber → light apricot / soft saffron
+- green → pale mint / soft emerald
+- neutral/taupe → softer taupe tint
 
----
+Keep:
+- same rounded pill shape
+- same padding/size
+- same gradient style
+- same text labels
 
-## What Does NOT Change
+But reduce visual intensity so they read as secondary support, not primary focal points.
 
-- Red/amber/green chip thresholds — unchanged
-- Calendar pills rendering
-- Score row, clarity/confidence chip logic
-- LLM system/user prompt content
-- UI layout of the card
-- No migrations or schema changes
+### F. Keep raw data access coherent
+Because the steady pill becomes flippable, the bottom “Tap for raw numbers” section remains useful as the full expanded audit view.
+No structural change needed there.
 
-## Fallback Chain (after fix)
+## Files to update
 
-```text
-Claude (4 attempts: 10s, 8s, 6s, 5s)
-  → Lovable AI (1 attempt: 8s, Gemini 2.5 Flash)
-    → Signal-aware deterministic fallback (calendar + wearable + patterns + archetype)
-```
+### `src/components/home/DecisionReadinessBrief.tsx`
+Primary UI work:
+- add `backLabel` for `wearable-steady`
+- possibly add helper for flippable pills
+- remove repeated summary line
+- soften chip colors
+- optionally add a tiny visual affordance for flippable chips
+- ensure flippable chips remain keyboard/touch friendly
 
+### `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`
+Update documentation so it matches current intended behavior:
+- steady-state wearable pill is flippable and reveals live metrics
+- duplicate summary line removed
+- softer pill color treatment
+- add note about flip affordance
+
+## Notes on scope
+
+This plan is UI-focused as requested:
+- no major layout changes
+- no changes to 1/2/3 priorities layout
+- no backend/schema changes required for these UI fixes
+
+Separately, the Claude/Lovable overload problem may still exist, but it is not the cause of the steady pill not flipping or the duplicate summary line. Those are frontend issues and should be fixed independently.
+
+## After implementation, verify
+
+1. When wearable is connected and metrics are normal:
+- `Body steady` or `System online` appears
+- tapping it reveals HRV / sleep / RHR raw values
+
+2. When clarity/confidence exist:
+- their pills remain visible and readable with softer styling
+
+3. The repeated line below the pills is gone
+
+4. Users can tell pills are interactive without changing the overall card layout
+
+5. Calendar pills still render, but with lighter visual intensity
+
+## Then return to the original broader work
+Once this UI cleanup is in place, the next pass should return to:
+- richer context quality
+- stronger reasoning quality when LLM succeeds
+- resilient deterministic fallback quality
+- multi-practice logic in Today’s 3 Performance Priorities
