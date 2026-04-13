@@ -3,11 +3,12 @@
  * Variant A only: interpretation chips with tap-to-flip number reveal.
  * 
  * Signal Pill Contract (from PERFORMANCE_READINESS_BRIEF_LOGIC.md §7):
- *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind → 6.Pattern
+ *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind (unified)
  *   Every pill has: front (analysis) + back (evidence)
  *   All states render (green/amber/red) — not only threshold-breakers
- *   Mind pill is clarity×confidence matrix, NOT outcome-led
- *   Pattern pills surface when upstream enrichment fields qualify
+ *   Mind pill synthesizes Stage 1 (checkInOutcome) + Stage 2 (clarity×confidence)
+ *   Patterns are inlined on relevant pills — no separate pattern chip
+ *   No icon on pills — hint text is sufficient affordance
  */
 
 import { useState, useEffect } from 'react';
@@ -17,7 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, RotateCw } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ─── TYPES ───
@@ -166,6 +167,13 @@ function buildSignalChips(
   const wearableDataSource = outerBrief?.wearableDataSource ?? null;
   const isAppleHealth = wearableDataSource === 'apple-healthkit';
   const wearableDays = outerBrief?.wearableDaysConnected ?? 0;
+
+  // Debug: log wearable data availability
+  console.log('[buildSignalChips] wearable debug:', {
+    tier, hasWearable: outerBrief?.hasWearable, wearableDataSource,
+    hrvValue: outerBrief?.hrvValue, sleepDuration: outerBrief?.sleepDuration,
+    rhrValue: outerBrief?.rhrValue, sleepScore: outerBrief?.sleepScore,
+  });
 
   if (!hasCheckIn) {
     const promptChips: SignalChip[] = [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
@@ -480,6 +488,13 @@ function buildSignalChips(
       mindQualifier = ` · above your usual ${todayName}`;
     }
 
+    // If score trajectory exists but no wearable pills consumed it, attach to Mind
+    const hasWearablePills = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
+    if (!hasWearablePills && !wearablePatternUsed && scoreTrajectory) {
+      frontLabel += scoreTrajectory === 'declining' ? ' · score declining' : scoreTrajectory === 'improving' ? ' · score trending up' : '';
+      wearablePatternUsed = true;
+    }
+
     // Back label: evidence
     const backParts: string[] = [];
     if (outcomeLabel) backParts.push(`Sharpness: ${outcomeLabel.toLowerCase()}`);
@@ -531,9 +546,6 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
           transition: 'transform 0.4s ease-in-out',
         }}
       >
-        {hasBack && !onNavigate && (
-          <RotateCw className="w-2.5 h-2.5 opacity-40 shrink-0" />
-        )}
         <span className="whitespace-nowrap">
           {flipped && chip.backLabel ? chip.backLabel : chip.label}
           {!flipped && chip.qualifier && (
