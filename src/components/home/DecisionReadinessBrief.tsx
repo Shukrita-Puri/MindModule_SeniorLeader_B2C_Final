@@ -487,6 +487,13 @@ function buildSignalChips(
       mindQualifier = ` · above your usual ${todayName}`;
     }
 
+    // If score trajectory exists but no wearable pills consumed it, attach to Mind
+    const hasWearablePills = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
+    if (!hasWearablePills && !wearablePatternUsed && scoreTrajectory) {
+      frontLabel += scoreTrajectory === 'declining' ? ' · score declining' : scoreTrajectory === 'improving' ? ' · score trending up' : '';
+      wearablePatternUsed = true;
+    }
+
     // Back label: evidence
     const backParts: string[] = [];
     if (outcomeLabel) backParts.push(`Sharpness: ${outcomeLabel.toLowerCase()}`);
