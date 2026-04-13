@@ -1958,7 +1958,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source')
+        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -2348,7 +2348,10 @@ serve(async (req) => {
     }
 
     // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
-    const hasWearable = !!wearableContext;
+    const hasWearableConnection = !!wearableContext;
+    const hasWearableData = hasWearableConnection && (hrvValue != null || sleepDuration != null || sleepScoreVal != null || rhrValue != null);
+    // Legacy field: gate on actual data to prevent contradictory Lean On vs Pills
+    const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
     
     // Wearable days connected count
@@ -3757,6 +3760,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
       hasWearable,
       wearableDaysConnected,
+      wearableStatus: {
+        isConnected: hasWearableConnection,
+        hasTodayData: hasWearableData,
+        hasRecentData: wearableDaysConnected > 0,
+        metricsAvailable: {
+          hrv: hrvValue != null,
+          sleep: sleepDuration != null || sleepScoreVal != null,
+          rhr: rhrValue != null,
+        },
+        sourceRowDate: wearableContext?.sourceRowDate ?? null,
+        dataSource: wearableDataSource,
+      },
+      remainingMeetings: calendarResult.remainingMeetings ?? 0,
       hrvDeviation,
       sleepDeviation,
       rhrDeviation,
