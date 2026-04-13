@@ -484,20 +484,15 @@ function buildSignalChips(
       frontLabel += ` · ${ordinal} day low clarity`;
     }
 
-    // Inline pattern: DOW comparison
+    // Inline pattern: DOW comparison — shown as grey qualifier, not in front label
     let mindQualifier = '';
     if (typicalDOW != null && score != null && score < typicalDOW - 10) {
-      mindQualifier = ` · below your usual ${todayName}`;
+      mindQualifier = `below ${todayName} levels`;
     } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
-      mindQualifier = ` · above your usual ${todayName}`;
+      mindQualifier = `above ${todayName} levels`;
     }
 
-    // If score trajectory exists but no wearable pills consumed it, attach to Mind
-    const hasWearablePills = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
-    if (!hasWearablePills && !wearablePatternUsed && scoreTrajectory) {
-      frontLabel += scoreTrajectory === 'declining' ? ' · score declining' : scoreTrajectory === 'improving' ? ' · score trending up' : '';
-      wearablePatternUsed = true;
-    }
+    // Score trajectory is NOT shown on mind pill — only DOW pattern matters here
 
     // Back label: evidence
     const backParts: string[] = [];
@@ -780,9 +775,9 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.leanOn);
         return (
           <div className="flex items-start gap-2 mt-3">
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-              Lean on
-            </span>
+             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", leanOnPillStyle)}>
+               Lean on
+             </span>
             <div className="flex-1 min-w-0">
               {pairs ? (
                 <div className="space-y-0.5">
@@ -814,9 +809,9 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.watchFor);
         return (
           <div className="flex items-start gap-2 mt-2">
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
-              Watch for
-            </span>
+             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", watchForPillStyle)}>
+               Watch for
+             </span>
             <div className="flex-1 min-w-0">
               {pairs ? (
                 <div className="space-y-0.5">
