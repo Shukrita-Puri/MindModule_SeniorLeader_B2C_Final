@@ -530,8 +530,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   }
 
   const allPractices = horizonModules.map(m => m.practice);
-  const allComplete = horizonModules.every(m => completedPracticeIds.includes(m.practice.contentId));
-  const completedCount = horizonModules.filter(m => completedPracticeIds.includes(m.practice.contentId)).length;
+  const allPractices = horizonModules.flatMap(m => m.practices || [m.practice]);
+  const allComplete = allPractices.every(p => completedPracticeIds.includes(p.contentId));
+  const completedCount = allPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
 
   return (
     <div className="space-y-4 pt-2">
