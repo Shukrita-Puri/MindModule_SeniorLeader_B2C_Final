@@ -221,48 +221,59 @@ function buildSignalChips(
   const rhrBaseline = outerBrief?.rhrBaseline;
 
   // ────────────────────────────────────────
-  // §7.1  HRV PILL — always shows when data exists
+  // §7.1  HEART PILL — merged HRV + RHR
+  // Front: analysis word from worst-of state
+  // Back: combined raw metrics with baselines
   // ────────────────────────────────────────
   const hrvVal = outerBrief?.hrvValue as number | null;
   const hrvDev = outerBrief?.hrvDeviation as number | null;
+  const rhrVal = outerBrief?.rhrValue as number | null;
+  const rhrDev = outerBrief?.rhrDeviation as number | null;
 
-  if (hrvVal != null) {
-    let frontLabel: string;
-    let color: SignalChip['color'];
-    let qualifier = tierSuffix;
-
-    if (tier === 'full' && hrvDev != null) {
-      if (hrvDev < -15) {
-        frontLabel = 'HRV below baseline';
-        color = 'red';
-        qualifier = getLongQualifier(true) || tierSuffix;
-      } else if (hrvDev < -5) {
-        frontLabel = 'HRV dipped';
-        color = 'amber';
-      } else if (hrvDev > 15) {
-        frontLabel = 'HRV strong';
-        color = 'green';
-        qualifier = getLongQualifier(false, true) || tierSuffix;
-      } else if (hrvDev > 5) {
-        frontLabel = 'HRV above baseline';
-        color = 'green';
+  if (hrvVal != null || rhrVal != null) {
+    // Derive individual tiers
+    type HTier = 'red' | 'amber' | 'green';
+    let hrvTier: HTier = 'green';
+    if (hrvVal != null) {
+      if (hrvDev != null) {
+        if (hrvDev < -15) hrvTier = 'red';
+        else if (hrvDev < -5) hrvTier = 'amber';
       } else {
-        frontLabel = 'HRV at baseline';
-        color = 'green';
+        if (hrvVal < 20) hrvTier = 'red';
+        else if (hrvVal < 40) hrvTier = 'amber';
       }
-    } else if ((tier === 'partial' || tier === 'absolute') && hrvDev != null) {
-      if (hrvDev < -15) { frontLabel = 'HRV below baseline'; color = 'red'; }
-      else if (hrvDev < -5) { frontLabel = 'HRV dipped'; color = 'amber'; }
-      else if (hrvDev > 5) { frontLabel = 'HRV above baseline'; color = 'green'; }
-      else { frontLabel = 'HRV at baseline'; color = 'green'; }
-    } else {
-      if (hrvVal < 20) { frontLabel = 'HRV low'; color = 'red'; }
-      else if (hrvVal < 40) { frontLabel = 'HRV moderate'; color = 'amber'; }
-      else if (hrvVal > 70) { frontLabel = 'HRV strong'; color = 'green'; }
-      else { frontLabel = 'HRV normal'; color = 'green'; }
+    }
+    let rhrTier: HTier = 'green';
+    if (rhrVal != null) {
+      if (rhrDev != null) {
+        if (rhrDev > 20) rhrTier = 'red';
+        else if (rhrDev > 10) rhrTier = 'amber';
+      } else {
+        if (rhrVal > 90) rhrTier = 'red';
+        else if (rhrVal > 80) rhrTier = 'amber';
+      }
     }
 
-    // Inline wearable pattern on HRV (highest priority wearable pill)
+    // Worst-of determines front label
+    const worstTier: HTier = hrvTier === 'red' || rhrTier === 'red' ? 'red'
+      : hrvTier === 'amber' || rhrTier === 'amber' ? 'amber' : 'green';
+
+    let frontLabel: string;
+    if (worstTier === 'red' && rhrTier === 'red') {
+      frontLabel = 'Heart elevated';
+    } else if (worstTier === 'red') {
+      frontLabel = 'Heart strained';
+    } else if (worstTier === 'amber' && hrvDev != null && hrvDev < -5) {
+      frontLabel = 'Heart dipped';
+    } else if (worstTier === 'amber') {
+      frontLabel = 'Heart elevated';
+    } else if (wearableTrend === 'improving') {
+      frontLabel = 'Heart recovering';
+    } else {
+      frontLabel = 'Heart steady';
+    }
+
+    // Inline wearable pattern
     if (wearableTrend === 'declining' && !wearablePatternUsed) {
       frontLabel += ' · trend declining';
       wearablePatternUsed = true;
@@ -274,20 +285,31 @@ function buildSignalChips(
       wearablePatternUsed = true;
     }
 
-    // Back label: evidence
-    let backLabel: string;
-    if (hrvDev != null && hrvBaseline) {
-      backLabel = `${hrvVal}ms · ${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
-    } else {
-      backLabel = `${hrvVal}ms`;
-      if (tier === 'absolute' || tier === 'partial') backLabel += ' · baseline building';
+    const qualifier = tierSuffix;
+    const color: SignalChip['color'] = worstTier;
+
+    // Back label: combined raw metrics
+    const parts: string[] = [];
+    if (hrvVal != null) {
+      let hrvPart = `HRV ${hrvVal}ms`;
+      if (hrvDev != null && hrvBaseline) hrvPart += ` · ${devSign(hrvDev)} vs ${hrvBaseline}ms`;
+      parts.push(hrvPart);
+    }
+    if (rhrVal != null) {
+      let rhrPart = `RHR ${rhrVal}bpm`;
+      if (rhrDev != null && rhrBaseline) rhrPart += ` · ${devSign(rhrDev)} vs ${rhrBaseline}bpm`;
+      parts.push(rhrPart);
+    }
+    let backLabel = parts.join(' · ');
+    if ((tier === 'absolute' || tier === 'partial') && !hrvBaseline && !rhrBaseline) {
+      backLabel += ' · baseline building';
     }
 
-    chips.push({ id: 'hrv', label: frontLabel, backLabel, color, qualifier });
+    chips.push({ id: 'heart', label: frontLabel, backLabel, color, qualifier });
   }
 
   // ────────────────────────────────────────
-  // §7.1  SLEEP PILL — always shows when data exists
+  // §7.1  SLEEP PILL — analysis-only front, raw on back
   // ────────────────────────────────────────
   const sleepDur = outerBrief?.sleepDuration as number | null;
   const sleepScore = outerBrief?.sleepScore as number | null;
@@ -299,35 +321,37 @@ function buildSignalChips(
     const qualifier = tierSuffix;
 
     if (sleepDur != null && sleepDur < 360) {
-      frontLabel = `Short sleep · ${fmtSleepDur(sleepDur)}`;
+      frontLabel = 'Short sleep';
+      color = 'red';
+    } else if (sleepScore != null && sleepScore < 60) {
+      frontLabel = 'Poor sleep';
       color = 'red';
     } else if (sleepDev != null) {
       if (sleepDev < -15) {
-        frontLabel = sleepDur != null ? `Sleep below baseline · ${fmtSleepDur(sleepDur)}` : 'Sleep below baseline';
+        frontLabel = 'Sleep below baseline';
         color = 'red';
       } else if (sleepDev < -5) {
-        frontLabel = sleepDur != null ? `Sleep slightly short · ${fmtSleepDur(sleepDur)}` : 'Sleep slightly short';
+        frontLabel = 'Sleep slightly short';
         color = 'amber';
       } else if (sleepDev > 10) {
-        frontLabel = sleepDur != null ? `Solid sleep · ${fmtSleepDur(sleepDur)}` : 'Solid sleep';
+        frontLabel = 'Solid sleep';
         color = 'green';
       } else {
-        frontLabel = sleepDur != null ? `Sleep at baseline · ${fmtSleepDur(sleepDur)}` : 'Sleep at baseline';
+        frontLabel = 'Well-rested body';
         color = 'green';
       }
     } else if (sleepScore != null) {
-      if (sleepScore < 60) { frontLabel = `Poor sleep · ${sleepScore}`; color = 'red'; }
-      else if (sleepScore < 70) { frontLabel = `Fair sleep · ${sleepScore}`; color = 'amber'; }
-      else { frontLabel = `Solid sleep · ${sleepScore}`; color = 'green'; }
+      if (sleepScore < 70) { frontLabel = 'Fair sleep'; color = 'amber'; }
+      else { frontLabel = 'Solid sleep'; color = 'green'; }
     } else if (sleepDur != null) {
-      if (sleepDur < 420) { frontLabel = `Light sleep · ${fmtSleepDur(sleepDur)}`; color = 'amber'; }
-      else { frontLabel = `Sleep · ${fmtSleepDur(sleepDur)}`; color = 'green'; }
+      if (sleepDur < 420) { frontLabel = 'Sleep slightly short'; color = 'amber'; }
+      else { frontLabel = 'Well-rested body'; color = 'green'; }
     } else {
       frontLabel = 'Sleep data';
       color = 'neutral';
     }
 
-    // Inline wearable/score pattern on sleep if HRV didn't use it
+    // Inline wearable/score pattern on sleep if heart didn't use it
     if (scoreTrajectory === 'declining' && !wearablePatternUsed) {
       frontLabel += ' · score declining';
       wearablePatternUsed = true;
@@ -336,67 +360,24 @@ function buildSignalChips(
       wearablePatternUsed = true;
     }
 
-    // Back label
-    let backLabel = '';
+    // Back label: raw metrics
+    const backParts: string[] = [];
+    if (sleepScore != null) backParts.push(`Sleep score ${sleepScore}`);
     if (sleepDur != null) {
-      backLabel = fmtSleepDur(sleepDur);
+      let durPart = fmtSleepDur(sleepDur);
       if (sleepDev != null && sleepBaseline) {
-        backLabel += ` · ${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
+        durPart += ` · ${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
       }
-    } else if (sleepScore != null) {
-      backLabel = `Score: ${sleepScore}`;
-      if (sleepDev != null && sleepBaseline) {
-        backLabel += ` · ${devSign(sleepDev)} vs ${sleepBaseline} baseline`;
-      }
+      backParts.push(durPart);
     }
 
-    chips.push({ id: 'sleep', label: frontLabel, backLabel: backLabel || undefined, color, qualifier });
-  }
-
-  // ────────────────────────────────────────
-  // §7.1  RHR / HEART PILL — always shows when data exists
-  // ────────────────────────────────────────
-  const rhrVal = outerBrief?.rhrValue as number | null;
-  const rhrDev = outerBrief?.rhrDeviation as number | null;
-
-  if (rhrVal != null) {
-    let frontLabel: string;
-    let color: SignalChip['color'];
-    const qualifier = tierSuffix;
-
-    if (rhrDev != null) {
-      if (rhrDev > 20) { frontLabel = 'RHR elevated'; color = 'red'; }
-      else if (rhrDev > 10) { frontLabel = 'RHR above baseline'; color = 'amber'; }
-      else if (rhrDev < -10) { frontLabel = 'RHR low · recovered'; color = 'green'; }
-      else { frontLabel = 'RHR at baseline'; color = 'green'; }
-    } else {
-      if (rhrVal > 90) { frontLabel = 'RHR high'; color = 'red'; }
-      else if (rhrVal > 80) { frontLabel = 'RHR elevated'; color = 'amber'; }
-      else { frontLabel = 'RHR normal'; color = 'green'; }
-    }
-
-    // Inline remaining wearable pattern on RHR if not used yet
-    if (wearableTrend === 'declining' && !wearablePatternUsed) {
-      frontLabel += ' · trend declining';
-      wearablePatternUsed = true;
-    }
-
-    let backLabel: string;
-    if (rhrDev != null && rhrBaseline) {
-      backLabel = `${rhrVal}bpm · ${devSign(rhrDev)} vs ${rhrBaseline}bpm baseline`;
-    } else {
-      backLabel = `${rhrVal}bpm`;
-      if (tier === 'absolute' || tier === 'partial') backLabel += ' · baseline building';
-    }
-
-    chips.push({ id: 'rhr', label: frontLabel, backLabel, color, qualifier });
+    chips.push({ id: 'sleep', label: frontLabel, backLabel: backParts.join(' · ') || undefined, color, qualifier });
   }
 
   // ── Wearable prompt / syncing fallback ──
   if (tier === 'none') {
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
-  } else if (chips.filter(c => ['hrv', 'sleep', 'rhr'].includes(c.id)).length === 0) {
-    // Wearable connected but no individual metric chips rendered — syncing state
+  } else if (chips.filter(c => ['heart', 'sleep'].includes(c.id)).length === 0) {
     chips.push({ id: 'wearable-syncing', label: 'Wearable syncing', color: 'neutral', qualifier: 'Data will appear shortly' });
   }
 
