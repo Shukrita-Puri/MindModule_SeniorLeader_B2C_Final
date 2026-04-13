@@ -279,7 +279,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       // Store plan for stability
       if (user || DEV_MODE) {
         const allModules = planResponse.horizonModules?.length
-          ? planResponse.horizonModules.map(m => m.practice.contentId)
+          ? planResponse.horizonModules.flatMap(m => (m.practices || [m.practice]).map(p => p.contentId))
           : planResponse.timeOfDayPlan.modules.map(m => m.contentId);
 
         const existingRitual = await getTodayRitual(currentPeriod);
