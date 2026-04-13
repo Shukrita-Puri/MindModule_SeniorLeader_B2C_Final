@@ -66,6 +66,7 @@ interface WearableContext {
   poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
+  sourceRowDate: string | null; // summary_date of the row used
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
@@ -1998,6 +1999,7 @@ serve(async (req) => {
           poorSleep,
           rhrElevated,
           dataSource: source,
+          sourceRowDate: wearableRow.summary_date ?? null,
         };
       }
     } catch (err) {
