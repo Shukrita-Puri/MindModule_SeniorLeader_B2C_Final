@@ -3735,13 +3735,36 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'evening-recovery-override': 'evening-recovery-override',
     };
 
+    // Helper: force any fallback string into "signal · Source" format (max 3 words for signal)
+    const formatFallbackSignal = (text: string, source: string): string => {
+      // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
+      const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      // Truncate to max 3 words
+      const signal = cleaned.split(/\s+/).slice(0, 3).join(' ');
+      // Map source key to human label
+      const sourceLabels: Record<string, string> = {
+        'archetype-tier': 'Archetype',
+        'tier-fallback': 'Readiness',
+        'coach-insights-recent': 'Coach',
+        'coach-insights-grace': 'Coach',
+        'coach-partial-strength': 'Coach',
+        'coach-partial-growth': 'Coach',
+        'cc-modifier': 'Check-in',
+        'cc-modifier-with-context': 'Check-in',
+        'sunday-evening-override': 'System',
+        'evening-recovery-override': 'System',
+        'wearable-recovery-override': 'Wearable',
+      };
+      return `${signal} · ${sourceLabels[source] || 'System'}`;
+    };
+
     // Format LLM leanOn/watchFor into string pairs for client
     const formattedLeanOn = llmLeanOn
       ? llmLeanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
-      : leanOnResult.leanOn;
+      : formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedWatchFor = llmWatchFor
       ? llmWatchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
-      : leanOnResult.watchFor;
+      : formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
 
     const result: OuterReadinessResult & Record<string, unknown> = {
       phrase: llmPhrase || finalPhrase,

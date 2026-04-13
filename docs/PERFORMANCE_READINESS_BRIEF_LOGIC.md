@@ -14,7 +14,7 @@
 - **Mind pill prefix**: All Mind Sharpness labels prefixed with "Mind" (e.g., "Mind steady", "Mind focused") for disambiguation
 - **Meeting count fix**: Pills now use `remainingMeetings` (shows "X meetings ahead" or "X meetings done") instead of total daily count
 - **Pill vocabulary**: `Overwhelmed` → `Depleted` (C-suite appropriate); no raw numbers on front of any pill
-- **Deterministic fallback signals**: Trimmed to 1-3 word derived labels (not truncations of verbose sentences); source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
+- **Deterministic fallback signals**: All fallback leanOn/watchFor forced into `signal · Source` format via `formatFallbackSignal()` helper — strips parenthetical sources, truncates signal to max 3 words, maps source key to human label (Archetype, Readiness, Coach, Check-in, System, Wearable). Source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
 - **Watch For prose guard**: Client-side guard truncates lines >40 chars without `·` separator to first 3 words + `· System`
 - **Bold rendering**: `<strong>` HTML tags only (no markdown asterisks)
 - **LLM retries**: Reduced from 4 (10s/8s/6s/5s) → 2 (10s/6s); worst-case ~24s instead of ~38s
