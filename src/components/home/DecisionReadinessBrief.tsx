@@ -552,7 +552,6 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
       {!flipped && chip.qualifier && (
         <p className="text-[9px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
       )}
-      </button>
     </div>
   );
 }
