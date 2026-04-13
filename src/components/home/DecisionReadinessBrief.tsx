@@ -127,6 +127,13 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
         signal: line.substring(0, sepIdx).trim(),
         source: line.substring(sepIdx + 3).trim(),
       });
+    } else if (line.length > 40) {
+      // Prose guard: truncate long lines without separator to first 3 words
+      const words = line.trim().split(/\s+/).slice(0, 3).join(' ');
+      pairs.push({ signal: words, source: 'System' });
+    } else if (line.trim()) {
+      // Short line without separator — use as-is
+      pairs.push({ signal: line.trim(), source: 'System' });
     }
   }
   return pairs.length > 0 ? pairs : null;
