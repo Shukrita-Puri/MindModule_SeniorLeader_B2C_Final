@@ -47,6 +47,8 @@ interface HorizonModule {
   typeLabel: string;
   whyLine: string;
   practice: PlanModule;
+  practices?: PlanModule[];
+  sequenceReasoning?: string;
   isJit: boolean;
   jitEventTitle: string | null;
   jitMinutesUntil: number | null;
