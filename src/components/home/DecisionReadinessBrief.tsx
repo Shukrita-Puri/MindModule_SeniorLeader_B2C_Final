@@ -83,8 +83,12 @@ const calendarLoadPillStyle = (load: string) => {
   }
 };
 
-// Event pill style — taupe
-const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe))] to-[hsl(var(--taupe-highlight))] text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] border-0';
+// Event pill style — light taupe gradient
+const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe)/.15)] to-[hsl(var(--taupe)/.08)] text-foreground/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[hsl(var(--taupe)/.20)]';
+
+// Lean on / Watch for pill styles — light taupe gradient (same family as event pill)
+const leanOnPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe)/.15)] to-[hsl(var(--taupe)/.08)] text-foreground/70 border border-[hsl(var(--taupe)/.20)]';
+const watchForPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe)/.15)] to-[hsl(var(--taupe)/.08)] text-foreground/70 border border-[hsl(var(--taupe)/.20)]';
 
 // Map leanOnSource keys to human-readable source labels
 const getSourceLabel = (source: string | undefined): string => {
@@ -480,20 +484,15 @@ function buildSignalChips(
       frontLabel += ` · ${ordinal} day low clarity`;
     }
 
-    // Inline pattern: DOW comparison
+    // Inline pattern: DOW comparison — shown as grey qualifier, not in front label
     let mindQualifier = '';
     if (typicalDOW != null && score != null && score < typicalDOW - 10) {
-      mindQualifier = ` · below your usual ${todayName}`;
+      mindQualifier = `below ${todayName} levels`;
     } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
-      mindQualifier = ` · above your usual ${todayName}`;
+      mindQualifier = `above ${todayName} levels`;
     }
 
-    // If score trajectory exists but no wearable pills consumed it, attach to Mind
-    const hasWearablePills = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
-    if (!hasWearablePills && !wearablePatternUsed && scoreTrajectory) {
-      frontLabel += scoreTrajectory === 'declining' ? ' · score declining' : scoreTrajectory === 'improving' ? ' · score trending up' : '';
-      wearablePatternUsed = true;
-    }
+    // Score trajectory is NOT shown on mind pill — only DOW pattern matters here
 
     // Back label: evidence
     const backParts: string[] = [];
@@ -548,11 +547,11 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
       >
         <span className="whitespace-nowrap">
           {flipped && chip.backLabel ? chip.backLabel : chip.label}
-          {!flipped && chip.qualifier && (
-            <span className="opacity-70">{chip.qualifier}</span>
-          )}
         </span>
       </button>
+      {!flipped && chip.qualifier && (
+        <p className="text-[9px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
+      )}
     </div>
   );
 }
@@ -776,9 +775,9 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.leanOn);
         return (
           <div className="flex items-start gap-2 mt-3">
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-              Lean on
-            </span>
+             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", leanOnPillStyle)}>
+               Lean on
+             </span>
             <div className="flex-1 min-w-0">
               {pairs ? (
                 <div className="space-y-0.5">
@@ -810,9 +809,9 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.watchFor);
         return (
           <div className="flex items-start gap-2 mt-2">
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
-              Watch for
-            </span>
+             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", watchForPillStyle)}>
+               Watch for
+             </span>
             <div className="flex-1 min-w-0">
               {pairs ? (
                 <div className="space-y-0.5">
