@@ -337,7 +337,23 @@ function buildSignalChips(
         chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, null), color: 'amber', qualifier: tierSuffix });
       }
     }
-  } else {
+  }
+
+  // ── Wearable "steady state" chip: show when connected but no deviation chip generated ──
+  if (tier !== 'none') {
+    const hasWearableChip = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
+    if (!hasWearableChip) {
+      if (tier === 'absolute') {
+        chips.push({ id: 'wearable-steady', label: 'System online', color: 'neutral', qualifier: ' · establishing baseline' });
+      } else if (tier === 'partial') {
+        chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green', qualifier: ' · early reading' });
+      } else {
+        chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green' });
+      }
+    }
+  }
+
+  if (tier === 'none') {
     // none: prompt chip
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
   }
