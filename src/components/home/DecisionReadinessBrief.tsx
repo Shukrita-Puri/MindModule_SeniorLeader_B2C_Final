@@ -3,11 +3,13 @@
  * Variant A only: interpretation chips with tap-to-flip number reveal.
  * 
  * Signal Pill Contract (from PERFORMANCE_READINESS_BRIEF_LOGIC.md §7):
- *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind (unified)
+ *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind Sharpness → 6.Clarity & Confidence
  *   Every pill has: front (analysis) + back (evidence)
  *   All states render (green/amber/red) — not only threshold-breakers
- *   Mind pill synthesizes Stage 1 (checkInOutcome) + Stage 2 (clarity×confidence)
+ *   Mind Sharpness pill: Stage 1 outcome (Focused/Steady/Scattered/Drained/Depleted)
+ *   Clarity & Confidence pill: Stage 2 C×C matrix (analysis front, raw scores back)
  *   Patterns are inlined on relevant pills — no separate pattern chip
+ *   No raw numbers on front of any pill — front is always analysis
  *   No icon on pills — hint text is sufficient affordance
  */
 
