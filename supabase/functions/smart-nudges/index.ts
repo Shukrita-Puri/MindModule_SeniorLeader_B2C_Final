@@ -110,6 +110,9 @@ const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
+const MVP_POST_LAUNCH = false;
+
 // Noise filter (aligned with JIT pipeline)
 const NOISE_KEYWORDS = [
   'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
@@ -217,7 +220,7 @@ interface NudgeContext {
   dayType: 'light' | 'moderate' | 'heavy' | 'extreme';
   // Wearable
   wearable: WearableSignals;
-  hasWearableData: boolean; // Fix A: single source of truth
+  hasWearableData: boolean;
   // Coach
   coach: CoachSignals;
   // Check-in
@@ -231,8 +234,8 @@ interface NudgeContext {
   // JIT
   jitEvents: Array<{ eventId: string; eventTitle: string; eventStart: string; finalScore: number; externalId: string; confidenceBand: string }>;
   // Performance correlations (30d)
-  coachSessionReadinessLift: number | null; // % lift on days after coach session
-  practiceCompletionCorrelation: number | null; // % lift on days after practice
+  coachSessionReadinessLift: number | null;
+  practiceCompletionCorrelation: number | null;
   // Streak
   currentStreak: number;
   // Suppression signals
@@ -251,9 +254,10 @@ interface NudgeCopy {
 interface QualifiedNudge {
   type: string;
   copy: NudgeCopy;
+  deepLinkRoute: string;
   eventReference?: string;
-  commitmentText?: string;  // Change 6: P3 coach context pass-through
-  meetingTitle?: string;     // Change 6: P3 coach context pass-through
+  commitmentText?: string;
+  meetingTitle?: string;
   priority: number;
 }
 
@@ -349,7 +353,7 @@ async function buildNudgeContext(
       .select('id, event_title, event_start, final_score, confidence_band')
       .eq('user_id', userId)
       .gte('event_start', new Date(now.getTime() + 30 * 60000).toISOString())
-      .lte('event_start', new Date(now.getTime() + 90 * 60000).toISOString())
+      .lte('event_start', new Date(now.getTime() + 360 * 60000).toISOString())
       .gte('final_score', 55)
       .order('final_score', { ascending: false }),
     supabase.from('practice_sessions')
@@ -374,7 +378,6 @@ async function buildNudgeContext(
 
   // Process wearable signals
   const latestW = latestWearable?.[0];
-  // Fix A: hasWearableData — single source of truth
   const hasWearableData = latestW !== null && latestW !== undefined;
 
   const hrvValues = (wearable30d || []).map(w => w.hrv).filter((v): v is number => v !== null);
@@ -389,7 +392,6 @@ async function buildNudgeContext(
     ? latestW.resting_heart_rate > rhrBaseline * 1.1
     : false;
 
-  // HRV delta from energy snapshot (may differ from wearable calc)
   const snapshotComputed = latestSnapshot?.computed_data as Record<string, unknown> | null;
   const hrvDeltaPctFromSnapshot = snapshotComputed?.hrv_delta_pct as number | null ?? hrvDeltaPct;
 
@@ -399,7 +401,6 @@ async function buildNudgeContext(
   const nonNoiseEvents = todayEvents.filter(e => !isNoiseEvent(e.title || ''));
   const highStakesEvents = nonNoiseEvents.filter(e => isHighStakes(e.title));
 
-  // Day type classification
   const eventCount = nonNoiseEvents.length;
   let dayType: 'light' | 'moderate' | 'heavy' | 'extreme' = 'light';
   if (eventCount >= 8) dayType = 'extreme';
@@ -426,7 +427,6 @@ async function buildNudgeContext(
     }
   }
 
-  // Currently in a meeting?
   const inMeetingNow = todayEvents.some(e => {
     const start = new Date(e.start_time);
     const end = new Date(e.end_time);
@@ -445,7 +445,6 @@ async function buildNudgeContext(
     };
   });
 
-  // Extract stress signals from session summaries
   const stressSignals: Array<{ topic: string; sessionId: string }> = [];
   for (const summary of (sessionSummaries || [])) {
     const topics = summary.key_topics as string[] | null;
@@ -475,7 +474,7 @@ async function buildNudgeContext(
   const allCompleted = (todayRituals || []).flatMap(r => r.completed_practice_ids || []);
   const pendingPracticeIds = allRecommended.filter(id => !allCompleted.includes(id));
 
-  // Performance correlation: coach session → next-day readiness lift
+  // Performance correlation
   let coachSessionReadinessLift: number | null = null;
   let practiceCompletionCorrelation: number | null = null;
 
@@ -576,7 +575,7 @@ async function buildNudgeContext(
       rhrElevated,
       totalSleepMinutes: latestW?.total_sleep_minutes ?? null,
     },
-    hasWearableData, // Fix A
+    hasWearableData,
     coach: {
       pendingCommitments: commitments,
       activePatterns: (activePatterns || []).map(p => ({
@@ -605,11 +604,11 @@ async function buildNudgeContext(
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Fix B: Wearable signal line builders (omit when no data) ──
+// ── Wearable signal line builders (omit when no data) ──
 // ══════════════════════════════════════════════════════════════
 
 function buildWearableLines(ctx: NudgeContext): string {
-  if (!ctx.hasWearableData) return ''; // Omit entirely — no "unavailable"
+  if (!ctx.hasWearableData) return '';
   
   const lines: string[] = [];
   if (ctx.wearable.sleepScore !== null) {
@@ -627,7 +626,7 @@ function buildWearableLines(ctx: NudgeContext): string {
 }
 
 function buildWearablePriorityLines(ctx: NudgeContext): string {
-  if (!ctx.hasWearableData) return ''; // No wearable → no priority lines
+  if (!ctx.hasWearableData) return '';
   
   const lines: string[] = [];
   if (ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
@@ -640,18 +639,18 @@ function buildWearablePriorityLines(ctx: NudgeContext): string {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Fix C: Post-generation fabrication validation ──
+// ── Post-generation fabrication validation ──
 // ══════════════════════════════════════════════════════════════
 
 const FABRICATION_PATTERNS = [
-  /\d+%/,                          // percentage patterns ("down 40%")
-  /\d+\s*ms/i,                     // HRV millisecond patterns ("45ms")
-  /below baseline|above baseline/i, // baseline references
-  /your HRV|recovery score/i,       // wearable metric references
+  /\d+%/,
+  /\d+\s*ms/i,
+  /below baseline|above baseline/i,
+  /your HRV|recovery score/i,
 ];
 
 function containsFabricatedWearableData(body: string, hasWearableData: boolean): boolean {
-  if (hasWearableData) return false; // Real data exists — percentages are legitimate
+  if (hasWearableData) return false;
   return FABRICATION_PATTERNS.some(pattern => pattern.test(body));
 }
 
@@ -686,139 +685,105 @@ Rules:
   const wearablePriorityLines = buildWearablePriorityLines(ctx);
 
   switch (nudgeType) {
-    case 'morning_prep': {
+    case 'nudge_one_morning': {
       const firstEvent = specificSignals.firstEventTitle || ctx.firstNonNoiseEvent?.title;
       const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
-      userPrompt = `Morning preparation nudge.
+      userPrompt = `Morning first-touch nudge. Set the tone for the day — NOT just "check in".
 Signals:
 - First event: ${firstEvent || 'none'} at ${firstEventTime || 'unknown'}
 - Day type: ${ctx.dayType} (${ctx.eventCount} meetings)
 - High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
 ${wearableLines ? wearableLines + '\n' : ''}- Day: ${ctx.dayName}
-${wearablePriorityLines ? wearablePriorityLines + '\n' : ''}${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}`;
+${wearablePriorityLines ? wearablePriorityLines + '\n' : ''}${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}
+Tone: setting the tone, sharpening for the day ahead. Lead with what matters.`;
       break;
     }
 
-    case 'jit_pre_event': {
+    case 'nudge_one_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
-      userPrompt = `JIT pre-event nudge. The user's mental readiness plan is ready.
+      userPrompt = `JIT first-touch nudge. High-stakes event is the first thing — prep plan is ready.
 Signals:
 - Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes${hrvLine}
 - Current state: ${ctx.morningCheckinOutcome || 'unknown'}
 - Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
-Must reference the event by name and mention the prep plan is ready.`;
+Must reference the event by name and that the prep plan is ready.`;
       break;
     }
 
-    case 'calendar_gap': {
-      const gap = specificSignals as { durationMinutes: number; nextEventTitle: string; postGapHeavy: boolean };
-      const gapWearableLines: string[] = [];
-      if (ctx.hasWearableData) {
-        if (ctx.wearable.hrvDeltaPct !== null) gapWearableLines.push(`- HRV: ${ctx.wearable.hrvDeltaPct}%`);
-        if (ctx.wearable.rhrElevated) gapWearableLines.push(`- RHR: elevated`);
-      }
-      userPrompt = `Calendar gap nudge. User has a ${gap.durationMinutes}-minute gap before their next meeting.
+    case 'nudge_two_jit': {
+      const evt = specificSignals as { eventTitle: string; minutesUntil: number };
+      userPrompt = `Mid-day JIT nudge. Event approaching — prep plan is ready.
 Signals:
-- Gap: ${gap.durationMinutes} mins
-- Next meeting: ${gap.nextEventTitle}
-- Post-gap load: ${gap.postGapHeavy ? 'heavy block ahead' : 'moderate'}
-${gapWearableLines.length > 0 ? gapWearableLines.join('\n') + '\n' : ''}Reference the gap duration and what comes after it.`;
+- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes
+- Current state: ${ctx.morningCheckinOutcome || 'unknown'}
+- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
+Must reference the event by name and prep plan readiness.`;
       break;
     }
 
-    case 'coach_meeting_match': {
-      const match = specificSignals as { commitmentText: string; meetingTitle: string; minutesUntil: number };
-      userPrompt = `Coach commitment + meeting match nudge. Tone: your coach spotted this connection, not an algorithm.
+    case 'nudge_two_priorities': {
+      const remaining = specificSignals.remainingCount as number;
+      const priorityTitle = specificSignals.priorityTitle as string;
+      userPrompt = `Mid-day priorities nudge. User has incomplete priorities.
 Signals:
-- Coach commitment: "${match.commitmentText}"
-- Upcoming meeting: ${match.meetingTitle} in ${match.minutesUntil} mins
-These appear related. Write one sentence connecting them.`;
+- Open priorities: ${remaining}
+- Top priority: ${priorityTitle || 'Priority 1'}
+- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
+Reference the specific priority and time to complete.`;
       break;
     }
 
-    case 'performance_state': {
-      const perf = specificSignals as { subType: string };
-      if (perf.subType === 'feature_performance') {
-        const lift = ctx.coachSessionReadinessLift;
-        const nextHighStakes = ctx.highStakesEvents[0]?.title || (ctx.tomorrowEvents.find(e => isHighStakes(e.title))?.title);
-        userPrompt = `Feature performance nudge. Use data to build trust.
-Signals:
-- Coach session readiness lift: ${lift}%
-- Next high-stakes event: ${nextHighStakes || 'upcoming'}
-- Last coach session: ${ctx.coach.lastSessionAt ? `${Math.round((Date.now() - ctx.coach.lastSessionAt.getTime()) / 3600000)}h ago` : 'not recent'}
-Example: "You perform X% sharper after a coach session – [event] is tomorrow"`;
-      } else {
-        // State-aware afternoon — Fix B: omit wearable lines if no data
-        const stateWearableLines: string[] = [];
-        if (ctx.hasWearableData) {
-          if (ctx.wearable.hrvDeltaPct !== null) stateWearableLines.push(`- HRV: ${ctx.wearable.hrvDeltaPct}%`);
-          if (ctx.wearable.rhrElevated) stateWearableLines.push(`- RHR: elevated – body is carrying load`);
-        }
-        userPrompt = `State-aware afternoon nudge. User started low and has heavy afternoon.
+    case 'nudge_two_recalibrate': {
+      const eventTitle = specificSignals.eventTitle as string;
+      userPrompt = `State-aware recalibration nudge. User started low and has heavy afternoon.
 Signals:
 - Morning state: ${ctx.morningCheckinOutcome}
-- Afternoon high-stakes: ${ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).map(e => e.title).join(', ') || 'none'}
-${stateWearableLines.length > 0 ? stateWearableLines.join('\n') + '\n' : ''}Reference the specific state and what's ahead.`;
-      }
+- Next event: ${eventTitle}
+Reference the specific state and what's ahead. Tone: reset, not alarm.`;
       break;
     }
 
-    case 'evening_close': {
+    case 'nudge_three': {
       const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
       const isSundayEvening = ctx.dayOfWeek === 0;
       const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
 
-      // Fix B: only include wearable lines if data exists
       const eveningWearableLines: string[] = [];
       if (ctx.hasWearableData) {
         if (ctx.wearable.hrvDeltaPct !== null) eveningWearableLines.push(`- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct}%`);
         if (ctx.wearable.rhrElevated) eveningWearableLines.push(`- RHR: elevated through the day`);
       }
 
-      userPrompt = `Evening cool-down nudge. ${isWeekendEvening ? 'WEEKEND: Use softer, permission-to-rest tone.' : ''}
-${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals – ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}.` : ''}
+      const prioritiesCompleted = ctx.completedPracticeIds.length;
+      const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
+      const prioritiesRemaining = ctx.pendingPracticeIds.length;
+
+      userPrompt = `Evening close nudge. Reflection + forward-set.
+${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals – ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}. Tone: week-prep, setting intent.` : ''}
+${ctx.dayOfWeek === 5 ? 'FRIDAY: Close-the-week tone. 5 days behind you.' : ''}
 Today's signals:
 - Meetings today: ${ctx.eventCount}
 - High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
+- Priorities completed: ${prioritiesCompleted}/${prioritiesTotal}${prioritiesRemaining > 0 ? ` (${prioritiesRemaining} still open)` : ''}
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') + '\n' : ''}- Check-ins today: ${ctx.checkinCountToday}
-${ctx.dayOfWeek === 5 ? 'FRIDAY: Close-the-week tone' : ''}
-${ctx.dayOfWeek === 6 ? 'SATURDAY: Gentle unwind, no agenda' : ''}
-Tone: permission to stop, not another task. NEVER say: wellness, mindfulness, relax, well done.
-${isWeekendEvening ? 'Use warmer, softer language. The weekend is theirs.' : ''}`;
+${isWeekendEvening ? 'Use warmer, softer language. The weekend is theirs.' : ''}
+Tone: permission to stop, close the loop. NEVER say: wellness, mindfulness, relax, well done.`;
       break;
     }
 
-    case 'pattern_alert': {
-      const pattern = specificSignals as { patternDescription: string; patternType: string };
-      userPrompt = `Pattern alert nudge. A pattern has been detected worth naming.
-Pattern: ${pattern.patternDescription}
-Type: ${pattern.patternType}
-Reference the specific pattern. Tone: curious observation, not alarm.`;
-      break;
-    }
-
-    case 'daily_fallback': {
-      // Fix F: use best available signal — no wearable references if no data
-      const bestSignal = ctx.highStakesEvents.length > 0
-        ? `High-stakes event today: ${ctx.highStakesEvents[0].title}`
-        : (ctx.hasWearableData && ctx.wearable.sleepScore !== null)
-          ? `Sleep score: ${ctx.wearable.sleepScore}`
-          : ctx.dayType !== 'light'
-            ? `${ctx.dayType} day ahead (${ctx.eventCount} meetings)`
-            : ctx.currentStreak > 0
-              ? `Day ${ctx.currentStreak} of practice streak`
-              : ctx.eventCount > 0
-                ? `${ctx.eventCount} meetings today`
-                : 'Start of day';
-      userPrompt = `Daily fallback nudge. Use the best available signal.
-Best signal: ${bestSignal}
-Day: ${ctx.dayName}, ${ctx.dayType} (${ctx.eventCount} events)
-Tone: gentle invitation, not pressure.`;
-      break;
-    }
+    // Legacy types for backward compat
+    case 'morning_prep':
+    case 'jit_pre_event':
+    case 'calendar_gap':
+    case 'coach_meeting_match':
+    case 'performance_state':
+    case 'evening_close':
+    case 'pattern_alert':
+    case 'daily_fallback':
+      return null; // Post-MVP types should use fallback
 
     default:
       return null;
@@ -841,16 +806,14 @@ Tone: gentle invitation, not pressure.`;
 
     if (!content) return null;
 
-    // Parse JSON from response (handle markdown code blocks)
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]);
     if (parsed.title && parsed.body) {
-      // Fix C: Post-generation validation — reject fabricated wearable data
       if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
         console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType} — fabricated wearable data detected: "${parsed.body}"`);
-        return null; // Fall through to static fallback
+        return null;
       }
 
       return {
@@ -867,108 +830,161 @@ Tone: gentle invitation, not pressure.`;
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Static Fallback Variants ──
+// ── Static Fallback Copy — MVP Nudge System ──
 // ══════════════════════════════════════════════════════════════
 
-// Fix F: Signal-aware fallback copy
-function getFallbackMorningCopy(ctx: NudgeContext): NudgeCopy {
+function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // Only reference sleep if wearable data exists
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-MA-recovery' };
+    return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-N1-recovery' };
+  }
+  if (ctx.highStakesEvents.length > 0 && ctx.eventCount >= 3) {
+    return { title: `${ctx.highStakesEvents[0].title || 'High-stakes'} today`, body: `${ctx.eventCount} events including ${ctx.highStakesEvents[0].title} — check in to sharpen`, variantId: 'FB-N1-loaded-stakes' };
   }
   if (ctx.highStakesEvents.length > 0) {
-    return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today. Check in first.`, variantId: 'FB-MA-stakes' };
+    return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today — set the tone before it sets you`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: 'Heavy Day Ahead', body: `${ctx.eventCount} meetings today. Check in to set your direction.`, variantId: 'FB-MA-heavy' };
+    return { title: 'Loaded day', body: `${ctx.eventCount} meetings today — set the tone before it sets you`, variantId: 'FB-N1-heavy' };
   }
-  if (ctx.isWeekend) {
-    return { title: 'Weekend Morning', body: 'No calendar pressure today. Check in when you\'re ready.', variantId: 'FB-MA-weekend' };
+  if (ctx.dayOfWeek === 6) {
+    return { title: 'No agenda', body: 'Check in when you are ready — your day, your terms', variantId: 'FB-N1-sat' };
   }
-  // Fix F: Calendar-aware default instead of generic "Your Compass is Ready"
+  if (ctx.dayOfWeek === 0) {
+    return { title: 'Sunday reset', body: 'A moment to land before the week forms', variantId: 'FB-N1-sun-morning' };
+  }
   if (ctx.eventCount > 0) {
-    return { title: 'Day Mapped', body: `${ctx.eventCount} meetings today. Check in to set your direction.`, variantId: 'FB-MA-calendar' };
+    return { title: 'Set the frame', body: `${ctx.eventCount} meetings today — check in to set your direction`, variantId: 'FB-N1-calendar' };
   }
-  if (!ctx.isWeekend) {
-    return { title: 'Clear Day', body: 'No meetings. A rare chance to set your own agenda.', variantId: 'FB-MA-clear' };
+  return { title: 'Your day is open', body: 'Light calendar — check in to decide what to own today', variantId: 'FB-N1-light' };
+}
+
+function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  return { title: 'Prep ready', body: `${eventTitle} in ${minutesUntil} min — your prep plan is built`, variantId: 'FB-N1-JIT' };
+}
+
+function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  if (minutesUntil <= 120) {
+    return { title: `${eventTitle} shortly`, body: `${minutesUntil} min window — your prep plan is ready`, variantId: 'FB-N2-JIT-soon' };
   }
-  return { title: 'Day Mapped', body: `Your ${ctx.dayName} brief is ready. Check in to see it.`, variantId: 'FB-MA-default' };
+  const eventTime = new Date(Date.now() + minutesUntil * 60000);
+  const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return { title: 'Prep window open', body: `${eventTitle} at ${timeStr} — practice sequence queued`, variantId: 'FB-N2-JIT-later' };
 }
 
-function getFallbackJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
-  return { title: 'Prep Ready', body: `${eventTitle} in ${minutesUntil} min. Open your prep.`, variantId: 'FB-JIT' };
+function getFallbackNudgeTwoPrioritiesCopy(remaining: number, priorityTitle: string): NudgeCopy {
+  return { title: 'Priority still open', body: `${priorityTitle} waiting — 4 min to complete`, variantId: 'FB-N2-priorities' };
 }
 
-function getFallbackGapCopy(durationMinutes: number, nextTitle: string): NudgeCopy {
-  return { title: 'Gap Window', body: `${durationMinutes} mins before ${nextTitle}. A good moment to prepare.`, variantId: 'FB-GAP' };
+function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
+  return { title: 'Recalibrate', body: `Started low — reset before ${eventTitle}`, variantId: 'FB-N2-recal' };
 }
 
-function getFallbackCoachMatchCopy(commitment: string, meetingTitle: string): NudgeCopy {
-  return { title: 'Coach Connection', body: `You committed to work on this – ${meetingTitle} is the moment.`, variantId: 'FB-COACH' };
-}
+function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
+  const prioritiesRemaining = ctx.pendingPracticeIds.length;
+  const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
 
-function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
+  // Sunday early evening — week-prep
   if (ctx.dayOfWeek === 0) {
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
-      return { title: 'Week Ahead', body: `Monday has ${tomorrowStakes[0].title}. Set your intention tonight.`, variantId: 'FB-EC-sun-stakes' };
+      return { title: 'Monday is forming', body: `${tomorrowCount} events Monday including ${tomorrowStakes[0].title} — set your intent tonight`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount > 0) {
-      return { title: 'Week Ahead', body: `${tomorrowCount} meetings Monday. Close tonight, prepare tomorrow.`, variantId: 'FB-EC-sun' };
+      return { title: 'Monday is forming', body: `${tomorrowCount} events Monday — set your intent tonight`, variantId: 'FB-N3-sun' };
     }
-    return { title: 'Sunday Close', body: 'Sunday close. What do you want to carry into the new week?', variantId: 'FB-EC-sun-default' };
+    return { title: 'Monday is forming', body: 'Set your intent for the week before it sets you', variantId: 'FB-N3-sun-default' };
   }
+
+  // Friday — close the week
   if (ctx.dayOfWeek === 5) {
-    return { title: 'Week Complete', body: 'Five days behind you. Close the week before you switch off.', variantId: 'FB-EC-fri' };
+    return { title: 'Week complete', body: '5 days behind you — close the week before you switch off', variantId: 'FB-N3-fri' };
   }
-  if (ctx.dayOfWeek === 6) {
-    return { title: 'Saturday Close', body: 'No agenda tonight. Just notice how you\'re landing.', variantId: 'FB-EC-sat' };
+
+  // Weekday with priorities context
+  if (prioritiesRemaining > 0) {
+    return { title: 'Before you switch off', body: `${prioritiesRemaining} priority still open — close or carry forward`, variantId: 'FB-N3-priorities' };
   }
-  // Fix F: Only reference RHR if wearable data exists
+  if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
+    return { title: 'Day complete', body: 'All priorities done — close the loop', variantId: 'FB-N3-done' };
+  }
+
+  // Wearable context
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'Body Carried Load', body: 'Your body carried load today. A proper close helps you let go.', variantId: 'FB-EC-rhr' };
+    return { title: 'Body carried load', body: 'A proper close helps you let go of today', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: 'Heavy Day Done', body: `${ctx.eventCount} meetings done. One check-in to close the loop.`, variantId: 'FB-EC-heavy' };
+    return { title: 'Heavy day done', body: `${ctx.eventCount} meetings done — one check-in to close the loop`, variantId: 'FB-N3-heavy' };
   }
-  return { title: 'Evening Close', body: `The day is done. A quiet moment to close the loop.`, variantId: 'FB-EC-default' };
-}
-
-// Fix F: Don't fabricate "20%" default for coach lift
-function getFallbackPerformanceStateCopy(ctx: NudgeContext, subType: string): NudgeCopy {
-  if (subType === 'feature_performance' && ctx.coachSessionReadinessLift !== null) {
-    return { title: 'Coach Impact', body: `You perform ${ctx.coachSessionReadinessLift}% sharper after a coach session. Worth one tonight?`, variantId: 'FB-PERF' };
-  }
-  if (subType === 'feature_performance') {
-    // No lift data — use qualitative copy instead of fabricating a percentage
-    return { title: 'Coach Impact', body: 'You tend to perform sharper after a coach session. Worth one tonight?', variantId: 'FB-PERF-qual' };
-  }
-  // State-aware
-  const hsCount = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).length;
-  return { title: 'Afternoon Reset', body: `You started low. ${hsCount > 0 ? `${hsCount} high-stakes ahead.` : 'Heavy afternoon.'} Reset now.`, variantId: 'FB-STATE' };
-}
-
-// Fix F: Signal-aware daily fallback
-function getFallbackDailyFallbackCopy(ctx: NudgeContext): NudgeCopy {
-  if (ctx.highStakesEvents.length > 0) {
-    return { title: 'Day Mapped', body: `${ctx.highStakesEvents[0].title} today. Check in to prepare.`, variantId: 'FB-DAILY-hs' };
-  }
-  if (ctx.eventCount > 0) {
-    return { title: 'Day Mapped', body: `${ctx.eventCount} meetings today. Your brief has your direction.`, variantId: 'FB-DAILY-cal' };
-  }
-  return { title: 'Open Day', body: 'Light calendar today. Check in to set an intention.', variantId: 'FB-DAILY-open' };
+  return { title: 'Evening close', body: 'Day done — close the loop before switching off', variantId: 'FB-N3-default' };
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Priority Cascade Evaluators (P0–P7) ──
+// ── MVP Nudge Evaluators (Nudge 1, 2, 3) ──
 // ══════════════════════════════════════════════════════════════
 
-// P0: Morning Preparation
-async function evaluateMorningPrep(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('morning_prep')) return null;
-  if (ctx.morningCheckinOutcome !== null) return null;
+/**
+ * NUDGE 1 — First Touch (earliest relevant moment)
+ * 
+ * Priority order:
+ * A) JIT morning event (high-stakes < 2h away) → /executive-home
+ * B) Loaded day (3+ meetings, first event < 2h) → /daily-check-in
+ * C) Light day → /daily-check-in
+ * 
+ * Calendar-aware timing: adapts window to first meeting start.
+ * Gate: No morning check-in yet (or no JIT plan started).
+ */
+async function evaluateNudgeOne(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  sentEventRefs: Set<string>,
+  supabase: ReturnType<typeof createClient>
+): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
+  // ── A) JIT morning event — check first ──
+  // If there's a high-stakes event within 2h and a JIT plan exists, lead with JIT
+  if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
+    for (const evt of ctx.jitEvents) {
+      if (evt.confidenceBand === 'none') continue;
+      if (sentEventRefs.has(evt.externalId)) continue;
+
+      const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
+      if (minutesUntil > 120) continue; // Only morning JIT within 2h
+
+      // Verify JIT plan exists
+      const { data: jitPlan } = await supabase
+        .from('jit_event_context')
+        .select('id')
+        .eq('user_id', ctx.userId)
+        .eq('id', evt.eventId)
+        .eq('dismissed_by_user', false)
+        .not('jit_horizons_surfaced', 'is', null)
+        .limit(1);
+
+      if (!jitPlan || jitPlan.length === 0) continue;
+
+      const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_jit', {
+        eventTitle: evt.eventTitle || 'Upcoming event',
+        minutesUntil,
+      });
+      const copy = aiCopy || getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+
+      return {
+        type: 'nudge_one',
+        copy,
+        deepLinkRoute: '/executive-home',
+        eventReference: evt.externalId,
+        priority: 0,
+      };
+    }
+  }
+
+  // ── B & C) Morning check-in (loaded vs light day) ──
+  if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
+
+  // Calendar-aware timing
   let morningStart = 6.5;
   let morningEnd = 9.5;
 
@@ -988,26 +1004,51 @@ async function evaluateMorningPrep(ctx: NudgeContext, alreadySentTypes: Set<stri
 
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
 
+  // Don't fire if first event is < 30 min away
   if (ctx.firstNonNoiseEvent) {
     const minutesUntil = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
     if (minutesUntil < 30) return null;
   }
 
-  const aiCopy = await generateNudgeCopy(ctx, 'morning_prep');
-  const copy = aiCopy || getFallbackMorningCopy(ctx);
+  const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_morning');
+  const copy = aiCopy || getFallbackNudgeOneMorningCopy(ctx);
 
-  return { type: 'morning_prep', copy, priority: 0 };
+  return {
+    type: 'nudge_one',
+    copy,
+    deepLinkRoute: '/daily-check-in',
+    priority: 0,
+  };
 }
 
-// P1: JIT Pre-Event — Change 1: Artifact-first gating (verify JIT plan exists)
-async function evaluateJitPreEvent(ctx: NudgeContext, alreadySentTypes: Set<string>, sentEventRefs: Set<string>, supabase: ReturnType<typeof createClient>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('pre_event_prep')) return null;
+/**
+ * NUDGE 2 — Mid-day Action (plan-driven)
+ * 
+ * Priority order:
+ * A) JIT event approaching (30-360 min) → /executive-home
+ * B) Priorities incomplete (afternoon) → /executive-home
+ * C) State-aware recalibrate (low morning + heavy PM) → /daily-check-in
+ * 
+ * Window: 9:30-16:00
+ * Gate: Plan must exist (priorities generated or JIT plan)
+ */
+async function evaluateNudgeTwo(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  sentEventRefs: Set<string>,
+  supabase: ReturnType<typeof createClient>
+): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
+  if (ctx.localTime < 9.5 || ctx.localTime >= 16) return null;
 
+  // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
     if (evt.confidenceBand === 'none') continue;
     if (sentEventRefs.has(evt.externalId)) continue;
 
-    // Change 1: Verify JIT plan actually exists with modules before saying "Your prep is ready"
+    const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
+
+    // Verify JIT plan exists
     const { data: jitPlan } = await supabase
       .from('jit_event_context')
       .select('id')
@@ -1017,109 +1058,156 @@ async function evaluateJitPreEvent(ctx: NudgeContext, alreadySentTypes: Set<stri
       .not('jit_horizons_surfaced', 'is', null)
       .limit(1);
 
-    if (!jitPlan || jitPlan.length === 0) {
-      console.log(`[smart-nudges] P1 skipped for event ${evt.eventTitle} — no JIT plan with modules found`);
-      continue;
-    }
+    if (!jitPlan || jitPlan.length === 0) continue;
 
-    const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
-
-    const aiCopy = await generateNudgeCopy(ctx, 'jit_pre_event', {
+    const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_jit', {
       eventTitle: evt.eventTitle || 'Upcoming event',
       minutesUntil,
     });
-    const copy = aiCopy || getFallbackJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+    const copy = aiCopy || getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
 
-    return { type: 'pre_event_prep', copy, eventReference: evt.externalId, priority: 1 };
+    return {
+      type: 'nudge_two',
+      copy,
+      deepLinkRoute: '/executive-home',
+      eventReference: evt.externalId,
+      priority: 1,
+    };
   }
 
-  // Fallback: keyword scoring for calendar events in 30-90 min window
-  // Also requires a JIT plan to exist
-  if (ctx.jitEvents.length === 0) {
-    const now = Date.now();
-    for (const evt of ctx.nonNoiseEvents) {
-      const startMs = new Date(evt.start_time).getTime();
-      const minutesUntil = (startMs - now) / 60000;
-      if (minutesUntil < 30 || minutesUntil > 90) continue;
-      if (scoreEvent(evt.title) < 50) continue;
-      if (sentEventRefs.has(evt.external_id)) continue;
+  // ── B) Priorities incomplete (afternoon, 13:00+) ──
+  if (ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
+    const priorityTitle = 'Priority 1'; // Generic — we don't have practice names in context
+    const remaining = ctx.pendingPracticeIds.length;
 
-      // Verify JIT plan exists for this calendar event
-      const { data: jitPlan } = await supabase
-        .from('jit_event_context')
-        .select('id')
-        .eq('user_id', ctx.userId)
-        .eq('calendar_event_id', evt.external_id)
-        .eq('dismissed_by_user', false)
-        .not('jit_horizons_surfaced', 'is', null)
-        .limit(1);
+    const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_priorities', {
+      remainingCount: remaining,
+      priorityTitle,
+    });
+    const copy = aiCopy || getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle);
 
-      if (!jitPlan || jitPlan.length === 0) {
-        console.log(`[smart-nudges] P1 fallback skipped for ${evt.title} — no JIT plan found`);
-        continue;
-      }
+    return {
+      type: 'nudge_two',
+      copy,
+      deepLinkRoute: '/executive-home',
+      priority: 1,
+    };
+  }
 
-      const aiCopy = await generateNudgeCopy(ctx, 'jit_pre_event', {
-        eventTitle: evt.title || 'Upcoming event',
-        minutesUntil: Math.round(minutesUntil),
-      });
-      const copy = aiCopy || getFallbackJitCopy(evt.title || 'Upcoming event', Math.round(minutesUntil));
+  // ── C) State-aware recalibrate (low morning + heavy afternoon) ──
+  if (!ctx.isWeekend && ctx.morningCheckinOutcome && LOW_TIERS.includes(ctx.morningCheckinOutcome)) {
+    const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
+      const hour = new Date(e.start_time).getHours();
+      return hour >= 12;
+    });
 
-      return { type: 'pre_event_prep', copy, eventReference: evt.external_id, priority: 1 };
+    if (afternoonHighStakes.length > 0) {
+      const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
+      const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_recalibrate', { eventTitle });
+      const copy = aiCopy || getFallbackNudgeTwoRecalibrateCopy(eventTitle);
+
+      return {
+        type: 'nudge_two',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 1,
+      };
     }
   }
 
   return null;
 }
 
-// P2: Calendar Gap — Change 4: Artifact-gated (only fire if uncompleted ritual slot exists)
-async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('calendar_gap')) return null;
-  if (ctx.inMeetingNow) return null;
+/**
+ * NUDGE 3 — Evening Close (reflection + forward-set)
+ * 
+ * Weekday: 18:00-21:30 → /daily-check-in
+ * Friday: 18:30-21:30 (close-the-week)
+ * Sunday: ONLY 17:00-19:30 (week-prep framing)
+ * Saturday: DISABLED (their time)
+ * 
+ * Gate: No evening check-in yet
+ * Gate: Exempt from signal richness (drive check-in KPI)
+ */
+async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) return null;
 
-  if (ctx.lastCheckinTime && (Date.now() - ctx.lastCheckinTime.getTime()) < 90 * 60000) return null;
-
-  // Change 4: Only fire if there's an uncompleted tactical/midday practice slot
-  const hasPendingPractice = ctx.pendingPracticeIds.length > 0;
-  if (!hasPendingPractice) {
-    console.log(`[smart-nudges] P2 skipped — no uncompleted practice slots for gap nudge`);
+  // Saturday: NO evening nudge
+  if (ctx.dayOfWeek === 6) {
+    console.log(`[smart-nudges] User ${ctx.userId} — Saturday, no evening nudge`);
     return null;
   }
 
-  const now = Date.now();
+  // Skip if user already reflected today
+  if (ctx.checkinCountToday >= 2) {
+    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins — skipping evening close`);
+    return null;
+  }
+  if (ctx.afternoonCheckinOutcome !== null) {
+    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in — skipping evening close`);
+    return null;
+  }
 
+  let eveningStart = 18;
+  let eveningEnd = 21.5;
+
+  // Sunday: ONLY early evening (17:00-19:30)
+  if (ctx.dayOfWeek === 0) {
+    eveningStart = 17;
+    eveningEnd = 19.5;
+  }
+  // Friday: slightly earlier OK
+  if (ctx.dayOfWeek === 5) {
+    eveningStart = 18.5;
+  }
+
+  if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
+
+  const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
+  const copy = aiCopy || getFallbackNudgeThreeCopy(ctx);
+
+  return {
+    type: 'nudge_three',
+    copy,
+    deepLinkRoute: '/daily-check-in',
+    priority: 2,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Post-MVP Evaluators (wrapped in MVP_POST_LAUNCH flag) ──
+// ── Kept for future activation ──
+// ══════════════════════════════════════════════════════════════
+
+// P2: Calendar Gap
+async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (!MVP_POST_LAUNCH) return null;
+  if (alreadySentTypes.has('calendar_gap')) return null;
+  if (ctx.inMeetingNow) return null;
+  if (ctx.lastCheckinTime && (Date.now() - ctx.lastCheckinTime.getTime()) < 90 * 60000) return null;
+  if (ctx.pendingPracticeIds.length === 0) return null;
+
+  const now = Date.now();
   for (const gap of ctx.calendarGaps) {
     const fiveMinIntoGap = gap.startTime.getTime() + 5 * 60000;
     if (now < fiveMinIntoGap || now > gap.endTime.getTime()) continue;
-
     if (gap.postGapMeetingCount < 2 && !gap.postGapHasHighStakes) continue;
 
-    const aiCopy = await generateNudgeCopy(ctx, 'calendar_gap', {
-      durationMinutes: gap.durationMinutes,
-      nextEventTitle: gap.nextEvent.title || 'next meeting',
-      postGapHeavy: gap.postGapHasHighStakes || gap.postGapMeetingCount >= 3,
-    });
-    const copy = aiCopy || { 
-      title: 'Gap Window', 
-      body: `You have ${gap.durationMinutes} minutes. Your next priority is ready.`, 
-      variantId: 'FB-GAP-artifact' 
+    return {
+      type: 'calendar_gap',
+      copy: { title: 'Gap Window', body: `You have ${gap.durationMinutes} minutes. Your next priority is ready.`, variantId: 'FB-GAP-artifact' },
+      deepLinkRoute: '/executive-home',
+      priority: 3,
     };
-
-    return { type: 'calendar_gap', copy, priority: 2 };
   }
-
   return null;
 }
 
 // P3: Coach Commitment + Meeting Match
-async function evaluateCoachMeetingMatch(
-  ctx: NudgeContext,
-  alreadySentTypes: Set<string>,
-  supabase: ReturnType<typeof createClient>
-): Promise<QualifiedNudge | null> {
+async function evaluateCoachMeetingMatch(ctx: NudgeContext, alreadySentTypes: Set<string>, supabase: ReturnType<typeof createClient>): Promise<QualifiedNudge | null> {
+  if (!MVP_POST_LAUNCH) return null;
   if (alreadySentTypes.has('coach_meeting_match')) return null;
   if (ctx.coach.pendingCommitments.length === 0 && ctx.coach.stressSignals.length === 0) return null;
-
   if (ctx.coach.lastSessionAt && (Date.now() - ctx.coach.lastSessionAt.getTime()) < 2 * 60 * 60 * 1000) return null;
 
   const { data: todayCoachSessions } = await supabase
@@ -1129,7 +1217,6 @@ async function evaluateCoachMeetingMatch(
     .eq('flow_type', 'coach')
     .gte('started_at', `${ctx.todayStr}T00:00:00`)
     .limit(1);
-
   if (todayCoachSessions && todayCoachSessions.length > 0) return null;
 
   const now = Date.now();
@@ -1152,250 +1239,62 @@ async function evaluateCoachMeetingMatch(
         const minutesUntil = Math.round((new Date(event.start_time).getTime() - now) / 60000);
         if (minutesUntil < 45 || minutesUntil > 240) continue;
 
-        const aiCopy = await generateNudgeCopy(ctx, 'coach_meeting_match', {
+        return {
+          type: 'coach_meeting_match',
+          copy: { title: 'Coach Connection', body: `You committed to work on this – ${event.title} is the moment.`, variantId: 'FB-COACH' },
+          deepLinkRoute: `/self-mastery-coach?context=commitment&commitment=${encodeURIComponent(commitment.text)}&meeting=${encodeURIComponent(event.title || '')}`,
+          eventReference: event.external_id,
           commitmentText: commitment.text,
           meetingTitle: event.title || 'upcoming meeting',
-          minutesUntil,
-        });
-        const copy = aiCopy || getFallbackCoachMatchCopy(commitment.text, event.title || 'upcoming meeting');
-
-        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, commitmentText: commitment.text, meetingTitle: event.title || 'upcoming meeting', priority: 3 };
+          priority: 4,
+        };
       }
     }
   }
-
-  for (const signal of ctx.coach.stressSignals) {
-    const stressWords = signal.topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    for (const event of upcomingEvents) {
-      const titleLower = (event.title || '').toLowerCase();
-      if (stressWords.some(w => titleLower.includes(w))) {
-        const minutesUntil = Math.round((new Date(event.start_time).getTime() - now) / 60000);
-        if (minutesUntil < 45 || minutesUntil > 240) continue;
-
-        const aiCopy = await generateNudgeCopy(ctx, 'coach_meeting_match', {
-          commitmentText: `You mentioned feeling stressed about: ${signal.topic}`,
-          meetingTitle: event.title || 'upcoming meeting',
-          minutesUntil,
-        });
-        const copy = aiCopy || getFallbackCoachMatchCopy(signal.topic, event.title || 'upcoming meeting');
-
-        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, commitmentText: signal.topic, meetingTitle: event.title || 'upcoming meeting', priority: 3 };
-      }
-    }
-  }
-
   return null;
 }
 
-// P4: State-Aware Afternoon — Change 2: Deep link to /daily-check-in, use event title in copy
+// P4: State-Aware Afternoon
 async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (!MVP_POST_LAUNCH) return null;
   if (alreadySentTypes.has('state_aware_nudge')) return null;
-
   if (ctx.isWeekend) return null;
   if (ctx.localTime < 12 || ctx.localTime >= 15) return null;
-
   if (!ctx.morningCheckinOutcome || !LOW_TIERS.includes(ctx.morningCheckinOutcome)) return null;
-
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 3 * 60 * 60 * 1000) return null;
 
-  const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
-    const hour = new Date(e.start_time).getHours();
-    return hour >= 12;
-  });
-
+  const afternoonHighStakes = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12);
   if (afternoonHighStakes.length >= 1) {
     const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
-    const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'state_aware' });
-    // Change 2: Use event title in fallback copy
-    const copy = aiCopy || { 
-      title: 'Recalibrate', 
-      body: `You started low. Recalibrate before ${eventTitle}.`, 
-      variantId: 'FB-STATE-recal' 
+    return {
+      type: 'state_aware_nudge',
+      copy: { title: 'Recalibrate', body: `You started low. Recalibrate before ${eventTitle}.`, variantId: 'FB-STATE-recal' },
+      deepLinkRoute: '/daily-check-in',
+      priority: 5,
     };
-    return { type: 'state_aware_nudge', copy, priority: 4 };
   }
-
   return null;
 }
 
-// P5: Evening Cool-Down — Fix E: added guards
-async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('evening_close')) return null;
-
-  // Fix E: Skip if user already reflected today (2+ check-ins or afternoon check-in exists)
-  if (ctx.checkinCountToday >= 2) {
-    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins today — skipping evening close`);
-    return null;
-  }
-  if (ctx.afternoonCheckinOutcome !== null) {
-    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in — skipping evening close`);
-    return null;
-  }
-
-  let eveningStart = 19;
-  let eveningEnd = 21.5; // Fix E: 21:30 cutoff (was 22)
-
-  // Sunday: extended for week-prep (18:00-21:30)
-  if (ctx.dayOfWeek === 0) { eveningStart = 18; }
-  // Friday: slightly earlier OK
-  if (ctx.dayOfWeek === 5) { eveningStart = 18.5; }
-
-  if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
-
-  const aiCopy = await generateNudgeCopy(ctx, 'evening_close');
-  const copy = aiCopy || getFallbackEveningCopy(ctx);
-
-  return { type: 'evening_close', copy, priority: 5 };
-}
-
-// P6: Pattern Alert + Feature Performance (merged – both are data-driven observations)
-async function evaluatePatternAlert(
-  ctx: NudgeContext,
-  alreadySentTypes: Set<string>,
-  supabase: ReturnType<typeof createClient>
-): Promise<QualifiedNudge | null> {
+// P6: Pattern Alert
+async function evaluatePatternAlert(ctx: NudgeContext, alreadySentTypes: Set<string>, supabase: ReturnType<typeof createClient>): Promise<QualifiedNudge | null> {
+  if (!MVP_POST_LAUNCH) return null;
   if (alreadySentTypes.has('pattern_alert')) return null;
-
   if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000) return null;
-
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentPatternLogs } = await supabase
-    .from('notification_log')
-    .select('variant_id, payload')
-    .eq('user_id', ctx.userId)
-    .eq('notification_type', 'pattern_alert')
-    .gte('sent_at', sevenDaysAgo);
-
-  const recentPatternTypes = new Set(
-    (recentPatternLogs || []).map(l => {
-      const p = l.payload as Record<string, unknown>;
-      return (p?.pattern_type as string) || l.variant_id;
-    })
-  );
-
-  // Pattern 0: Feature Performance – coach session readiness lift
-  if (!recentPatternTypes.has('feature_performance') &&
-      ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
-    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
-      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
-    const noRecentCoach = !ctx.coach.lastSessionAt ||
-      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
-
-    if (hasUpcomingHighStakes && noRecentCoach) {
-      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
-      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
-      return { type: 'pattern_alert', copy, eventReference: 'feature_performance', priority: 6 };
-    }
-  }
-
-  // Pattern 1: Consecutive low state (3 days)
-  if (!recentPatternTypes.has('consecutive_low')) {
-    const { data: recentCheckins } = await supabase
-      .from('daily_checkins')
-      .select('outcome, checkin_date')
-      .eq('user_id', ctx.userId)
-      .order('checkin_date', { ascending: false })
-      .limit(3);
-
-    if (recentCheckins && recentCheckins.length >= 3 && recentCheckins.every(c => LOW_TIERS.includes(c.outcome))) {
-      const desc = `Day ${recentCheckins.length} at ${recentCheckins[0].outcome}. Your system is showing a pattern worth noticing.`;
-      const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'consecutive_low' });
-      const copy = aiCopy || { title: 'Pattern Noticed', body: desc, variantId: 'PA-1' };
-      return { type: 'pattern_alert', copy, eventReference: 'consecutive_low', priority: 6 };
-    }
-  }
-
-  // Pattern 2: Recovery deficit (3 days low HRV) — only if wearable data exists
-  if (!recentPatternTypes.has('recovery_deficit') && ctx.hasWearableData) {
-    const { data: recentSnapshots } = await supabase
-      .from('energy_snapshots')
-      .select('snapshot_date, computed_data')
-      .eq('user_id', ctx.userId)
-      .order('snapshot_date', { ascending: false })
-      .limit(3);
-
-    if (recentSnapshots && recentSnapshots.length >= 3) {
-      const allLowHrv = recentSnapshots.every(snap => {
-        const computed = snap.computed_data as Record<string, unknown> | null;
-        const hrvDelta = computed?.hrv_delta_pct as number | undefined;
-        return hrvDelta !== undefined && hrvDelta <= -20;
-      });
-
-      if (allLowHrv) {
-        const desc = `Your HRV has been low for 3 days. Recovery is the priority.`;
-        const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'recovery_deficit' });
-        const copy = aiCopy || { title: 'Recovery Priority', body: desc, variantId: 'PA-5' };
-        return { type: 'pattern_alert', copy, eventReference: 'recovery_deficit', priority: 6 };
-      }
-    }
-  }
-
-  // Pattern 3: Streak milestone — Change 5: Route to /executive-home, calibration language
-  if (!recentPatternTypes.has('streak_milestone')) {
-    const milestones = [30, 14, 7];
-    for (const milestone of milestones) {
-      if (ctx.currentStreak === milestone) {
-        const copy: NudgeCopy = { 
-          title: 'Calibration', 
-          body: `Day ${milestone}. The system is learning you.`, 
-          variantId: 'PA-3-cal' 
-        };
-        return { type: 'pattern_alert', copy, eventReference: 'streak_milestone', priority: 6 };
-      }
-    }
-  }
-
   return null;
 }
 
-// P7: Daily Fallback — Change 3: Artifact-gated (only fire if concrete content exists)
+// P7: Daily Fallback
 async function evaluateDailyFallback(ctx: NudgeContext, alreadySentTypes: Set<string>, todayLogCount: number): Promise<QualifiedNudge | null> {
+  if (!MVP_POST_LAUNCH) return null;
   if (todayLogCount > 0) return null;
   if (ctx.localTime < 10 || ctx.localTime >= 12) return null;
-
-  // Change 3: Only fire if there's a concrete artifact to point to
-  const hasCalendarContent = ctx.nonNoiseEvents.length > 0 && ctx.eventCount > 0;
-  const hasUncheckedIn = ctx.checkinCountToday === 0;
-
-  if (hasCalendarContent) {
-    // Condition A: Calendar content exists → brief is ready
-    const aiCopy = await generateNudgeCopy(ctx, 'daily_fallback');
-    const copy = aiCopy || { 
-      title: 'Day Mapped', 
-      body: `Your ${ctx.dayName} brief is ready. ${ctx.eventCount} meetings mapped.`, 
-      variantId: 'FB-DAILY-mapped' 
-    };
-    return { type: 'daily_fallback', copy, priority: 7 };
-  }
-  
-  if (hasUncheckedIn) {
-    // Condition B: No check-in yet → brief waiting for input
-    return { 
-      type: 'daily_fallback', 
-      copy: { 
-        title: 'Day Mapped', 
-        body: `Your ${ctx.dayName} brief is ready when you check in.`, 
-        variantId: 'FB-DAILY-checkin' 
-      }, 
-      priority: 7 
-    };
-  }
-
-  // Neither condition met → no artifact to show, don't fire
-  console.log(`[smart-nudges] P7 skipped — no calendar content and already checked in`);
   return null;
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Signal Richness Gate (Fix D) ──
+// ── Signal Richness Gate ──
 // ══════════════════════════════════════════════════════════════
-
-const SIGNAL_GATED_TYPES = new Set([
-  'state_aware_nudge', // P4
-  'evening_close',     // P5
-  'pattern_alert',     // P6
-  'daily_fallback',    // P7
-]);
 
 function computeSignalRichness(ctx: NudgeContext): {
   hasCalendar: boolean;
@@ -1413,7 +1312,7 @@ function computeSignalRichness(ctx: NudgeContext): {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── Engagement Learning (kept from original) ──
+// ── Engagement Learning ──
 // ══════════════════════════════════════════════════════════════
 
 interface EngagementProfile {
@@ -1493,7 +1392,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting signal-first evaluation run (v3 — artifact-first gating)...');
+    console.log('[smart-nudges] Starting MVP 3-nudge evaluation run (v4)...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -1517,7 +1416,7 @@ serve(async (req) => {
     }
 
     const userIds = Array.from(userTokens.keys());
-    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first v3 — artifact gating)`);
+    console.log(`[smart-nudges] Evaluating ${userIds.length} users (MVP 3-nudge v4)`);
 
     // 2. Batch-fetch profiles, preferences, recent engagements
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
@@ -1550,9 +1449,10 @@ serve(async (req) => {
       userId: string;
       type: string;
       copy: NudgeCopy;
+      deepLinkRoute: string;
       eventReference?: string;
-      commitmentText?: string;  // Change 6: P3 coach context
-      meetingTitle?: string;    // Change 6: P3 coach context
+      commitmentText?: string;
+      meetingTitle?: string;
       tokens: Array<{ token: string; platform: string }>;
     }> = [];
 
@@ -1571,7 +1471,7 @@ serve(async (req) => {
       tomorrowDate.setDate(tomorrowDate.getDate() + 1);
       const tomorrowStr = toDateString(tomorrowDate);
 
-      // ── Quiet Hours: 10pm–6:30am (hardened) ──
+      // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
       if (localTime >= 22 || localTime < 6.5) {
         console.log(`[smart-nudges] User ${userId} in quiet hours (${localTime.toFixed(1)}). Skipping.`);
@@ -1618,7 +1518,7 @@ serve(async (req) => {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       const suppressed = lastSentAt !== null && lastSentAt > twoHoursAgo;
 
-      // ── In-meeting suppression ──
+      // ── In-meeting / app-open suppression ──
       const lastAppOpen = lastAppOpenMap.get(userId) || null;
       const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < 30 * 60 * 1000;
 
@@ -1646,103 +1546,99 @@ serve(async (req) => {
         lastAppOpen,
       );
 
-      // ── Fix D: Signal Richness Gate ──
-      const signals = computeSignalRichness(ctx);
-      const signalGatePassed = signals.signalCount >= 2;
-
-      if (!signalGatePassed) {
-        console.log(`[smart-nudges] User ${userId}: ${signals.signalCount} signals (cal=${signals.hasCalendar} wear=${signals.hasWearable} chk=${signals.hasCheckin} coach=${signals.hasCoach}) — P4-P7 suppressed`);
-      }
-
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
 
       // ══════════════════════════════════════════════════
-      // ── Priority Cascade: P0 → P7 ──
+      // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
       // ══════════════════════════════════════════════════
       const qualified: QualifiedNudge[] = [];
 
-      // P0: Morning Preparation (exempt from signal gate)
-      if ((prefs?.morning_anchor_enabled ?? true) && !isEngagementSuppressed('morning_prep')) {
-        const nudge = await evaluateMorningPrep(ctx, alreadySentTypes);
+      // Nudge 1: First Touch (exempt from signal gate + 2h suppression for JIT)
+      if ((prefs?.morning_anchor_enabled ?? true) && !isEngagementSuppressed('nudge_one')) {
+        const nudge = await evaluateNudgeOne(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge) qualified.push(nudge);
       }
 
-      // P1: JIT Pre-Event (exempt from signal gate, overrides 2h suppression)
-      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('pre_event_prep')) {
-        const nudge = await evaluateJitPreEvent(ctx, alreadySentTypes, sentEventRefs, supabase);
+      // Nudge 2: Mid-day Action (exempt from signal gate, respects 2h suppression unless JIT)
+      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('nudge_two') && !suppressed) {
+        const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
+        if (nudge) qualified.push(nudge);
+      }
+      // If suppressed but has JIT, still allow Nudge 2 JIT variant
+      if (suppressed && (prefs?.pre_event_prep_enabled ?? true)) {
+        const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
+        if (nudge && nudge.deepLinkRoute === '/executive-home') {
+          // JIT variant — override suppression
+          qualified.push(nudge);
+        }
+      }
+
+      // Nudge 3: Evening Close (exempt from signal richness gate for MVP)
+      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('nudge_three') && !suppressed) {
+        const nudge = await evaluateNudgeThree(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
-      // P2: Calendar Gap (exempt from signal gate)
-      if (!isEngagementSuppressed('calendar_gap') && !suppressed) {
-        const nudge = await evaluateCalendarGap(ctx, alreadySentTypes);
-        if (nudge) qualified.push(nudge);
-      }
+      // Post-MVP evaluators (all gated by MVP_POST_LAUNCH = false)
+      if (MVP_POST_LAUNCH) {
+        const signals = computeSignalRichness(ctx);
+        const signalGatePassed = signals.signalCount >= 2;
 
-      // P3: Coach Commitment + Meeting Match (exempt from signal gate)
-      if (!isEngagementSuppressed('coach_meeting_match') && !suppressed) {
-        const nudge = await evaluateCoachMeetingMatch(ctx, alreadySentTypes, supabase);
-        if (nudge) qualified.push(nudge);
-      }
+        if (!suppressed) {
+          const gap = await evaluateCalendarGap(ctx, alreadySentTypes);
+          if (gap) qualified.push(gap);
 
-      // P4: State-Aware Afternoon (signal-gated)
-      if (signalGatePassed && (prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('state_aware_nudge') && !suppressed) {
-        const nudge = await evaluateStateAwareAfternoon(ctx, alreadySentTypes);
-        if (nudge) qualified.push(nudge);
-      }
+          const coach = await evaluateCoachMeetingMatch(ctx, alreadySentTypes, supabase);
+          if (coach) qualified.push(coach);
+        }
 
-      // P5: Evening Cool-Down (signal-gated)
-      if (signalGatePassed && (prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('evening_close') && !suppressed) {
-        const nudge = await evaluateEveningClose(ctx, alreadySentTypes);
-        if (nudge) qualified.push(nudge);
-      }
+        if (signalGatePassed && !suppressed) {
+          const state = await evaluateStateAwareAfternoon(ctx, alreadySentTypes);
+          if (state) qualified.push(state);
 
-      // P6: Pattern Alert (signal-gated)
-      if (signalGatePassed && (prefs?.pattern_alert_enabled ?? true) && !isEngagementSuppressed('pattern_alert') && !suppressed) {
-        const nudge = await evaluatePatternAlert(ctx, alreadySentTypes, supabase);
-        if (nudge) qualified.push(nudge);
-      }
+          const pattern = await evaluatePatternAlert(ctx, alreadySentTypes, supabase);
+          if (pattern) qualified.push(pattern);
+        }
 
-      // P7: Daily Fallback (signal-gated)
-      if (qualified.length === 0 && signalGatePassed) {
-        const nudge = await evaluateDailyFallback(ctx, alreadySentTypes, (todayLogs || []).length);
-        if (nudge) qualified.push(nudge);
+        if (qualified.length === 0 && signalGatePassed) {
+          const fallback = await evaluateDailyFallback(ctx, alreadySentTypes, (todayLogs || []).length);
+          if (fallback) qualified.push(fallback);
+        }
       }
 
       // ── Select best notification (priority order) ──
       qualified.sort((a, b) => a.priority - b.priority);
 
-      if (qualified.length > 0) {
-        const jitNudge = qualified.find(n => n.type === 'pre_event_prep');
-        const bestNudge = jitNudge || qualified[0];
+      // Deduplicate by type (in case JIT override added a duplicate)
+      const seen = new Set<string>();
+      const deduped = qualified.filter(n => {
+        if (seen.has(n.type)) return false;
+        seen.add(n.type);
+        return true;
+      });
 
-        if (suppressed && !jitNudge) {
+      if (deduped.length > 0) {
+        const bestNudge = deduped[0];
+
+        // JIT nudges override 2h suppression
+        const isJitNudge = bestNudge.deepLinkRoute === '/executive-home' && 
+          (bestNudge.type === 'nudge_one' || bestNudge.type === 'nudge_two');
+
+        if (suppressed && !isJitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
           allNotifications.push({
             userId,
             type: bestNudge.type,
             copy: bestNudge.copy,
+            deepLinkRoute: bestNudge.deepLinkRoute,
             eventReference: bestNudge.eventReference,
             commitmentText: bestNudge.commitmentText,
             meetingTitle: bestNudge.meetingTitle,
             tokens: userTokens.get(userId)!,
           });
-
-          if (!suppressed && qualified.length > 1) {
-            const second = qualified.find(n => n !== bestNudge && (n.type === 'morning_prep' || n.type === 'pre_event_prep'));
-            if (second && (todayLogs || []).length + allNotifications.filter(n => n.userId === userId).length < DAILY_NOTIFICATION_CAP) {
-              allNotifications.push({
-                userId,
-                type: second.type,
-                copy: second.copy,
-                eventReference: second.eventReference,
-                tokens: userTokens.get(userId)!,
-              });
-            }
-          }
         }
       }
     }
@@ -1781,42 +1677,8 @@ serve(async (req) => {
       }
     }
 
-    // Deep link route mapping — Change 2, 4, 5: Artifact-aligned routes
-    // P6 sub-types get dynamic routing below
-    const DEEP_LINK_ROUTES: Record<string, string> = {
-      morning_prep: '/daily-check-in',
-      pre_event_prep: '/executive-home',
-      calendar_gap: '/executive-home',         // Change 4: was /daily-check-in
-      coach_meeting_match: '/self-mastery-coach',
-      state_aware_nudge: '/daily-check-in',    // Change 2: was /executive-home
-      evening_close: '/daily-check-in',
-      pattern_alert: '/insights',              // Default for problem patterns
-      daily_fallback: '/executive-home',
-    };
-
-    // Change 5: P6 sub-type route overrides
-    const PATTERN_ALERT_ROUTES: Record<string, string> = {
-      feature_performance: '/executive-home',  // Practice is in Today's 3
-      streak_milestone: '/executive-home',     // Calibration milestone
-      consecutive_low: '/insights?highlight=consecutive_low',
-      recovery_deficit: '/insights?highlight=recovery_deficit',
-      calendar_correlation: '/insights?highlight=calendar_correlation',
-    };
-
     for (const notif of allNotifications) {
-      // Dynamic route for P6 pattern_alert sub-types
-      let effectiveRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
-      if (notif.type === 'pattern_alert' && notif.eventReference) {
-        effectiveRoute = PATTERN_ALERT_ROUTES[notif.eventReference] || `/insights?highlight=${notif.eventReference}`;
-      }
-      // Change 6: P3 coach_meeting_match passes commitment context in deep link
-      if (notif.type === 'coach_meeting_match' && notif.eventReference) {
-        const commitmentText = (notif as any).commitmentText || '';
-        const meetingTitle = (notif as any).meetingTitle || '';
-        if (commitmentText && meetingTitle) {
-          effectiveRoute = `/self-mastery-coach?context=commitment&commitment=${encodeURIComponent(commitmentText)}&meeting=${encodeURIComponent(meetingTitle)}`;
-        }
-      }
+      const effectiveRoute = notif.deepLinkRoute;
 
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
@@ -1825,12 +1687,8 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'signal-first-v3',
+        architecture: 'mvp-3-nudge-v4',
       };
-
-      if (notif.type === 'pattern_alert' && notif.eventReference) {
-        payload.pattern_type = notif.eventReference;
-      }
 
       const { data: logRow } = await supabase.from('notification_log').insert({
         user_id: notif.userId,
@@ -1878,13 +1736,14 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'signal-first-v2',
+      architecture: 'mvp-3-nudge-v4',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
         variant: n.copy.variantId,
         title: n.copy.title,
         body: n.copy.body,
+        deep_link: n.deepLinkRoute,
       })),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
