@@ -1,72 +1,38 @@
 
 
+# Fix: Performance Readiness Brief — LLM Block Runtime Crash
 
-# Upgrade Performance Readiness Brief LLM to v4 Spec
+## Root Cause
 
-## Summary
+Two cascading `ReferenceError`s are breaking the entire LLM synthesis pipeline, causing phrase, body, lean on, watch for, and all enrichment fields to fail.
 
-The current `compute-outer-readiness` edge function uses a simplified LLM prompt that produces generic phrase/body output and relies on deterministic fallback tables for Lean On / Watch For. The v4 spec requires the LLM to generate **all four fields** (phrase, body, leanOn[], watchFor[]) as a "Chief of Staff for the Mind" — pattern-linked, user-specific, with strict anti-pattern validation.
+**Error 1 — Temporal Dead Zone**: `const isEvening = hour >= 17;` at line 3241 redeclares a variable already declared at line 1942 (`const isEvening = hour >= 18 || lateEvening`). Both are `const` in the same function scope. JavaScript hoists the later declaration, putting `isEvening` in a "temporal dead zone." When line 3057 uses `isEvening` before line 3241, it throws:
+```
+ReferenceError: Cannot access 'isEvening' before initialization
+```
 
-## What Changes
+**Error 2 — Cascading crash**: Error 1 kills the entire LLM block (lines ~2990-3555). `llmLeanOn` and `llmWatchFor` (declared at line 3429) never come into existence. When line 3580 references `llmLeanOn`, it throws:
+```
+ReferenceError: llmLeanOn is not defined
+```
 
-**Scope: Only Phase, Body, Lean On, Watch For copy.** No signal pill changes. No other UI changes to the card.
+**Visible symptoms**: The card falls back to template phrase ("Sustain the pace.") with no body copy, no lean on, no watch for. Wearable/clarity/confidence data IS being returned correctly (those are computed before the LLM block), so the chips should render if the data exists — but the user's screenshot shows "Connect wearable for full intelligence" which means either the wearable data isn't reaching the client OR there's a separate data flow issue.
 
-### 1. Rewrite LLM System Prompt (edge function)
+## Fix (2 changes in 1 file)
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts`
+### File: `supabase/functions/compute-outer-readiness/index.ts`
 
-Replace the current ~35-line system prompt (lines 3164-3198) with the full v4 spec:
+**Change 1**: Rename `const isEvening` at line 3241 to `const isEveningForPrompt` (or simply remove it and reuse the existing `isEvening` from line 1942). Then update its 2 references at lines 3280 and wherever else it's used in the prompt assembly section.
 
-- **Persona**: "Chief of Staff for the Mind" — not generic COS, not wellness coach. Every output must be about attention, interpretation, decision behavior (not workload management).
-- **6-Step Silent Reasoning Protocol**: Body system → Compound signals → Layer felt state → Calendar demand → Pattern/history → One thing.
-- **Output contract**: JSON with `phrase`, `bodyText`, `leanOn[]`, `watchFor[]` — where leanOn/watchFor are arrays of `{signal, source}` objects.
-- **Hard constraints**: Wellness blacklist, score tier blacklist, readiness blacklist, no phrase in body, body max 20 words, bold action via `<strong>`, null discipline, wearable hierarchy.
-- **Day-type overrides**: Sunday evening (forward into Monday), Monday morning (week-entry), Friday/pre-rest evening (closure), weekend daytime (agency, not performance), public vs personal holiday, post-high-stakes afternoon, consecutive low days (3+).
-- **Signal synthesis patterns**: Clarity-Confidence Split, MASKED_HIGH, Compounded Deficit, Historical Event Correlation, Supply-Demand Gap, Sunday Anxiety, Recovery Underway, Consecutive High-Stakes, Coach Signal Active.
-- **Cold start (Day 1-7)**: Archetype + goals always sufficient. Never generic. Never reference missing data.
-- **Fallback**: If LLM fails, use archetype lean-on + onboarding goal. If archetype null, return null JSON. Generic output is worse than silence.
-- **Temperature**: 0 (deterministic).
+**Change 2**: Move the `llmLeanOn`, `llmWatchFor`, and `llmFallbackReason` declarations (line 3429) OUTSIDE the inner try block — to just before the LLM synthesis try/catch (around line 2988) — so they are always in scope for the response assembly at line 3580. Initialize them as `null`.
 
-### Status: IMPLEMENTED ✅
+### Verification
 
----
+After deployment, confirm the edge function logs no longer show `isEvening` or `llmLeanOn` errors, and the response includes LLM-generated phrase, body, leanOn, and watchFor fields.
 
-# Fix Today's 3 Performance Priorities — Context Chain, Deduplication, Time Bugs, and Multi-Practice Sequences
+## What Does NOT Change
+- Signal chip logic (wearable, clarity, confidence pills) — these are client-side and unaffected
+- Calendar pills — client-side rendering, unaffected
+- No UI changes
+- No migration or schema changes
 
-## Summary
-
-Upgraded the Priorities card to inherit the Brief's intelligence, fix time hallucinations, JIT dedup, and support multi-practice sequences per slot.
-
-## What Changed
-
-### Edge Function: `supabase/functions/generate-mastery-plan/index.ts`
-
-1. **`buildWhyLine()` → `buildSlotContext()`**: Replaced 22-parameter flat function with structured `SlotContextInput` object producing `SlotContext { situation, whyLine }`. Uses "Because X → we do A → so that Y" causal logic with signal priority cascade (HRV correlation → divergence → coach → pattern → calendar → archetype → fallback).
-
-2. **Time-of-day fix**: All copy derives from `timeOfDay` parameter via `getTimeAnchor()`. Never hardcodes "this morning".
-
-3. **JIT dedup guard**: Slot 2's JIT checks now include `&& !slot1IsJit` to prevent same event in both slots.
-
-4. **Multi-practice per slot**: `HorizonModule` extended with `practices: any[]` (1-3) and `sequenceReasoning?: string`. Slot 1 gets regulate+align when depleted, all JIT modules when JIT. Slots 2-3 get 1-2 practices from remaining pool.
-
-5. **Brief relay signals**: `outerReadinessCache` (phrase, body, leanOn, watchFor) passed into `buildHorizonModules()` and available to `buildSlotContext()`.
-
-6. **`buildSequenceReasoning()`**: New function that generates causal chain reasoning when multiple practice types are sequenced.
-
-### Frontend: `src/components/home/TodayThreePriorities.tsx`
-
-1. **Multi-practice horizontal scroll**: When a slot has 2-3 practices, renders them in a horizontal scrollable container at 80% width with snap-to-start.
-
-2. **Sequence reasoning**: Displayed above practice cards in expanded view (non-italic, medium weight).
-
-3. **Per-practice reasoning**: Each card in multi-practice shows its individual reasoning text.
-
-4. **Step indicators**: "Step 1 of 2" labels on multi-practice cards.
-
-5. **Slot completion**: Number circle turns green only when ALL practices in slot completed. Collapsed view shows "(X of Y)" count.
-
-6. **Start button**: Navigates to first uncompleted practice. Shows "Continue (1/2)" when partially complete.
-
-7. **Practice queue**: `allPractices` flattened from all `practices[]` arrays for queue and completion tracking.
-
-## Status: IMPLEMENTED ✅
