@@ -47,6 +47,8 @@ interface HorizonModule {
   typeLabel: string;
   whyLine: string;
   practice: PlanModule;
+  practices?: PlanModule[];
+  sequenceReasoning?: string;
   isJit: boolean;
   jitEventTitle: string | null;
   jitMinutesUntil: number | null;
@@ -123,9 +125,11 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
     if (newlyDone.length > 0 && prev.length > 0) {
       const modules = plan?.horizonModules || [];
-      const found = modules.find(m => newlyDone.includes(m.practice.contentId));
-      const allDone = modules.every(m => completedPracticeIds.includes(m.practice.contentId));
-      if (found) triggerCelebration(found.practice.title, allDone);
+      const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
+      const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
+      const allIds = allPracticesList.map(p => p.contentId);
+      const allDone = allIds.every(id => completedPracticeIds.includes(id));
+      if (found) triggerCelebration(found.title, allDone);
     }
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration]);
@@ -193,7 +197,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
             } else {
               setPlan(parsed);
               const allCompleted = todayRitual?.completed_practice_ids || [];
-              const horizonIds = (parsed.horizonModules || []).map(m => m.practice.contentId);
+              const horizonIds = (parsed.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
               return;
@@ -275,7 +279,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       // Store plan for stability
       if (user || DEV_MODE) {
         const allModules = planResponse.horizonModules?.length
-          ? planResponse.horizonModules.map(m => m.practice.contentId)
+          ? planResponse.horizonModules.flatMap(m => (m.practices || [m.practice]).map(p => p.contentId))
           : planResponse.timeOfDayPlan.modules.map(m => m.contentId);
 
         const existingRitual = await getTodayRitual(currentPeriod);
@@ -318,7 +322,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (!effectiveUserId || !plan) return;
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
-    const horizonIds = (plan.horizonModules || []).map(m => m.practice.contentId);
+    const horizonIds = (plan.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
     if (!ritual) {
       setCompletedPracticeIds([]);
       return;
@@ -420,7 +424,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (!plan?.horizonModules) return;
     const modules = plan.horizonModules;
     for (let i = 0; i < modules.length; i++) {
-      if (!completedPracticeIds.includes(modules[i].practice.contentId)) {
+      const slotPractices = modules[i].practices || [modules[i].practice];
+      const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
+      if (!slotComplete) {
         setExpandedSlot(i);
         return;
       }
@@ -523,9 +529,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     );
   }
 
-  const allPractices = horizonModules.map(m => m.practice);
-  const allComplete = horizonModules.every(m => completedPracticeIds.includes(m.practice.contentId));
-  const completedCount = horizonModules.filter(m => completedPracticeIds.includes(m.practice.contentId)).length;
+  const allPractices = horizonModules.flatMap(m => m.practices || [m.practice]);
+  const allComplete = allPractices.every(p => completedPracticeIds.includes(p.contentId));
+  const completedCount = allPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
 
   return (
     <div className="space-y-4 pt-2">
@@ -558,10 +564,12 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       {/* 3 Slots */}
       <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
         {horizonModules.map((hm, index) => {
-          const isCompleted = completedPracticeIds.includes(hm.practice.contentId);
+          const slotPractices = hm.practices || [hm.practice];
+          const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
+          const slotCompletedCount = slotPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
           const isExpanded = expandedSlot === index;
-          const isCoach = hm.practice.isCoachCard;
-          const module = hm.practice;
+          const hasMultiple = slotPractices.length > 1;
+          const module = hm.practice; // primary practice for collapsed view
 
           return (
             <div key={`${module.contentId}-${index}`} className="space-y-0">
@@ -574,15 +582,15 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                 <div
                   className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all",
-                    isCompleted
+                    slotCompleted
                       ? "bg-green-600 text-white"
                       : isExpanded
                         ? "bg-saffron text-white"
                         : "bg-muted/40 text-muted-foreground",
-                    hm.showPulse && !isCompleted && "animate-pulse"
+                    hm.showPulse && !slotCompleted && "animate-pulse"
                   )}
                 >
-                  {isCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
+                  {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
                 {/* Time label + practice name */}
@@ -594,7 +602,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                     )}>
                       {hm.timeLabel}
                     </span>
-                    {hm.showPriorityPill && !isCompleted && (
+                    {hm.showPriorityPill && !slotCompleted && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
                         Priority event
                       </span>
@@ -604,11 +612,16 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                     <div>
                       <p className={cn(
                         "text-[13px] font-body truncate",
-                        isCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
+                        slotCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
                       )}>
                         {module.title}
+                        {hasMultiple && !slotCompleted && (
+                          <span className="text-muted-foreground/40 text-[11px] ml-1">
+                            ({slotCompletedCount} of {slotPractices.length})
+                          </span>
+                        )}
                       </p>
-                      {hm.whyLine && !isCompleted && (
+                      {hm.whyLine && !slotCompleted && (
                         <p className="text-[11px] italic text-muted-foreground/50 font-body truncate">
                           {hm.whyLine}
                         </p>
@@ -618,10 +631,10 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                 </div>
 
                 {/* Expand/collapse arrow or dismiss */}
-                {!isCompleted && !isExpanded && (
+                {!slotCompleted && !isExpanded && (
                   <ChevronRight size={14} className="text-muted-foreground/40 flex-shrink-0" />
                 )}
-                {hm.isJit && !isCompleted && isExpanded && (
+                {hm.isJit && !slotCompleted && isExpanded && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleJitDismiss(index, hm); }}
                     className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
@@ -633,7 +646,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
               </button>
 
               {/* Expanded content */}
-              {isExpanded && !isCompleted && (
+              {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
                   {/* Type label */}
                   <span className={cn(
@@ -643,62 +656,99 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                     {hm.typeLabel}
                   </span>
 
+                  {/* Sequence reasoning (if multi-practice) */}
+                  {hm.sequenceReasoning && hasMultiple && (
+                    <p className="text-[11px] text-foreground/70 font-body font-medium leading-relaxed">
+                      {hm.sequenceReasoning}
+                    </p>
+                  )}
+
                   {/* Why line */}
                   <p className="text-[11px] italic text-muted-foreground font-body leading-relaxed">
                     {hm.whyLine}
                   </p>
 
-                  {/* Practice card */}
-                  <div
-                    onClick={() => navigateToPractice(module, allPractices)}
-                    className={cn(
-                      "relative flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
-                      "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
-                      "bg-white/15 backdrop-blur-md border border-white/40",
-                      "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
-                      hm.showNavyBorder && "border-l-2 border-l-foreground"
-                    )}
-                  >
-                    {/* Thumbnail */}
-                    {isCoach ? (
-                      <div className="w-28 h-full flex-shrink-0 relative overflow-hidden">
-                        <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
-                          <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <img
-                        src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
-                        alt={module.title}
-                        className="w-28 h-full object-cover flex-shrink-0"
-                      />
-                    )}
+                  {/* Practice cards — horizontal scroll when multiple */}
+                  <div className={cn(
+                    hasMultiple ? "flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory" : ""
+                  )}>
+                    {slotPractices.map((practice, pIdx) => {
+                      const isPracticeCompleted = completedPracticeIds.includes(practice.contentId);
+                      const isCoach = practice.isCoachCard;
 
-                    {/* Content */}
-                    <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
-                      <div className="flex items-start gap-1">
-                        <h4 className="text-[14px] font-medium line-clamp-2 leading-snug font-body flex-1 text-foreground">
-                          {module.title}
-                        </h4>
-                        {!isCoach && isFavorite(module.contentId) && (
-                          <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                      <span className="text-xs text-muted-foreground font-body mt-1">
-                        {module.duration} min
-                      </span>
-                    </div>
+                      return (
+                        <div
+                          key={practice.contentId}
+                          onClick={() => !isPracticeCompleted && navigateToPractice(practice, allPractices)}
+                          className={cn(
+                            "relative flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300 snap-start",
+                            "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+                            "bg-white/15 backdrop-blur-md border border-white/40",
+                            "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
+                            hm.showNavyBorder && pIdx === 0 && "border-l-2 border-l-foreground",
+                            isPracticeCompleted && "opacity-50",
+                            hasMultiple ? "w-[80%] flex-shrink-0" : "w-full"
+                          )}
+                        >
+                          {/* Thumbnail */}
+                          {isCoach ? (
+                            <div className="w-28 h-full flex-shrink-0 relative overflow-hidden">
+                              <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                                <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <img
+                              src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
+                              alt={practice.title}
+                              className="w-28 h-full object-cover flex-shrink-0"
+                            />
+                          )}
+
+                          {/* Content */}
+                          <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
+                            {/* Step indicator for multi-practice */}
+                            {hasMultiple && (
+                              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-body mb-0.5">
+                                Step {pIdx + 1} of {slotPractices.length}
+                              </span>
+                            )}
+                            <div className="flex items-start gap-1">
+                              <h4 className="text-[14px] font-medium line-clamp-2 leading-snug font-body flex-1 text-foreground">
+                                {practice.title}
+                              </h4>
+                              {isPracticeCompleted && <Check size={14} className="text-green-600 flex-shrink-0 mt-0.5 stroke-[3]" />}
+                              {!isCoach && !isPracticeCompleted && isFavorite(practice.contentId) && (
+                                <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground font-body mt-1">
+                              {practice.duration} min
+                            </span>
+                            {/* Per-practice reasoning */}
+                            {practice.reasoning && hasMultiple && (
+                              <p className="text-[10px] text-muted-foreground/60 font-body mt-1 line-clamp-2 leading-snug">
+                                {practice.reasoning}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Start button */}
+                  {/* Start button — navigates to first uncompleted practice */}
                   <Button
-                    onClick={() => navigateToPractice(module, allPractices)}
+                    onClick={() => {
+                      const nextPractice = slotPractices.find(p => !completedPracticeIds.includes(p.contentId)) || slotPractices[0];
+                      navigateToPractice(nextPractice, allPractices);
+                    }}
                     className="w-full h-11 text-[14px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
                   >
-                    Start
+                    {hasMultiple && slotCompletedCount > 0 ? `Continue (${slotCompletedCount}/${slotPractices.length})` : 'Start'}
                   </Button>
                 </div>
               )}

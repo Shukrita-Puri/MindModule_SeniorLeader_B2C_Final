@@ -2496,7 +2496,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
 
   const horizonModules = buildHorizonModules(
     todModules, preEventPlan, topEvent, req, shared, hrvCorrelations,
-    timeOfDay, todCoachCard, enrichedContent, pendingCommitments
+    timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache
   );
 
   return {
@@ -2660,7 +2660,9 @@ interface HorizonModule {
   timeLabel: string;
   typeLabel: string;
   whyLine: string;
-  practice: any; // PlanModule
+  practice: any; // PlanModule — backward compat (= practices[0])
+  practices: any[]; // 1-3 practices per slot
+  sequenceReasoning?: string; // Why these practices together in this order
   isJit: boolean;
   jitEventTitle: string | null;
   jitMinutesUntil: number | null;
@@ -2681,113 +2683,181 @@ function determineAllocationPattern(
   return '1immediate-1tactical-1strategic';
 }
 
-function buildWhyLine(
-  horizon: 'immediate' | 'tactical' | 'strategic',
-  isJit: boolean,
-  eventTitle: string | null,
-  jitMinutesUntil: number | null,
-  tier: string,
-  divergenceMode: string | null,
-  checkInOutcome: string | null,
-  hrvEventCorrelation: { eventType: string; avgHrvDelta: number; occurrences: number } | null,
-  patternInsight: { count: number; state: string } | null,
-  frictionTrend: string | null,
-  scoreTrend: string | null,
-  pendingCommitment: string | null,
-  coachGrowthArea: string | null,
-  practicePriorityTag: string | null,
-  archetypeWatchFor: string | null,
-  checkInCountTotal: number = 0,
-  wearableDaysConnected: number = 0,
-  calendarLoad: string | null = null,
-  meetingCount: number = 0,
-  clarityLevel: number | null = null,
-  confidenceLevel: number | null = null,
-  timeOfDay: string | null = null,
-  dayOfWeek: string | null = null
-): string {
-  const hasWeekData = checkInCountTotal >= 3;
-  const hasWearablePattern = wearableDaysConnected >= 7;
-  const hasCalendar = meetingCount > 0;
+// ==================== SLOT CONTEXT (replaces buildWhyLine) ====================
 
-  // IMMEDIATE
-  if (horizon === 'immediate') {
-    if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 30) {
-      return `${eventTitle} is almost here — prepare now.`;
+interface SlotContext {
+  situation: string;
+  whyLine: string;
+  sequenceLogic?: string;
+}
+
+interface SlotContextInput {
+  horizon: 'immediate' | 'tactical' | 'strategic';
+  isJit: boolean;
+  eventTitle: string | null;
+  jitMinutesUntil: number | null;
+  tier: string;
+  divergenceMode: string | null;
+  checkInOutcome: string | null;
+  hrvEventCorrelation: { eventType: string; avgHrvDelta: number; occurrences: number } | null;
+  patternInsight: { count: number; state: string } | null;
+  frictionTrend: string | null;
+  scoreTrend: string | null;
+  pendingCommitment: string | null;
+  coachGrowthArea: string | null;
+  practicePriorityTag: string | null;
+  archetypeWatchFor: string | null;
+  checkInCountTotal: number;
+  wearableDaysConnected: number;
+  calendarLoad: string | null;
+  meetingCount: number;
+  clarityLevel: number | null;
+  confidenceLevel: number | null;
+  timeOfDay: string | null;
+  dayOfWeek: string | null;
+  // Brief relay signals
+  briefPhrase?: string | null;
+  briefBody?: string | null;
+  briefLeanOn?: string | null;
+  briefWatchFor?: string | null;
+  // Multi-practice sequence info
+  practiceTypes?: string[];
+}
+
+function getTimeAnchor(timeOfDay: string | null): string {
+  if (timeOfDay === 'morning') return 'before the day starts';
+  if (timeOfDay === 'afternoon') return 'before the afternoon compounds';
+  return 'before you close the day';
+}
+
+function buildSlotContext(ctx: SlotContextInput): SlotContext {
+  const hasWeekData = ctx.checkInCountTotal >= 3;
+  const hasWearablePattern = ctx.wearableDaysConnected >= 7;
+  const hasCalendar = ctx.meetingCount > 0;
+  const timeAnchor = getTimeAnchor(ctx.timeOfDay);
+
+  // ─── IMMEDIATE ───
+  if (ctx.horizon === 'immediate') {
+    if (ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 30) {
+      return { situation: `${ctx.eventTitle} is imminent`, whyLine: `${ctx.eventTitle} is almost here — prepare now.` };
     }
-    if (isJit && jitMinutesUntil !== null && jitMinutesUntil < 120) {
-      return `${eventTitle} in ${Math.round(jitMinutesUntil)} mins — go in prepared.`;
-    }
-    if (divergenceMode === 'MASKED_HIGH') {
-      return 'Your body is carrying load you haven\'t felt yet — address it now.';
-    }
-    if (tier === 'depleted') {
-      if (hasCalendar && meetingCount > 0) {
-        return `${meetingCount} meeting${meetingCount > 1 ? 's' : ''} ahead and reserves low — regulate before you start.`;
+    if (ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 120) {
+      // HRV correlation for JIT event
+      if (hasWearablePattern && ctx.hrvEventCorrelation && Math.abs(ctx.hrvEventCorrelation.avgHrvDelta) > 10) {
+        const pct = Math.abs(Math.round(ctx.hrvEventCorrelation.avgHrvDelta));
+        return {
+          situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
+          whyLine: `Your HRV drops avg ${pct}% before ${ctx.hrvEventCorrelation.eventType} — ground your nervous system before that pattern takes over.`
+        };
       }
-      return 'Reserves low — regulate before the day demands more.';
+      if (ctx.coachGrowthArea) {
+        return {
+          situation: `Coach insight + upcoming ${ctx.eventTitle}`,
+          whyLine: `Your coach flagged ${ctx.coachGrowthArea} — address your state before ${ctx.eventTitle} so that pattern doesn't drive your thinking.`
+        };
+      }
+      return { situation: `${ctx.eventTitle} approaching`, whyLine: `${ctx.eventTitle} in ${Math.round(ctx.jitMinutesUntil)} mins — go in prepared.` };
     }
-    if (tier === 'managing' && hasCalendar && meetingCount > 3) {
-      return 'Heavy day ahead — settle your state before it starts.';
+    if (ctx.divergenceMode === 'MASKED_HIGH') {
+      if (hasCalendar) {
+        return {
+          situation: 'Body under unregistered load',
+          whyLine: `Your body is carrying load you haven't registered — ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} will compound it unless you settle now.`
+        };
+      }
+      return { situation: 'Body under unregistered load', whyLine: `Your body is carrying load you haven't registered — settle your system ${timeAnchor}.` };
     }
-    if (checkInOutcome && clarityLevel !== null && clarityLevel <= 2) {
-      return 'Clarity low this morning — this addresses that before it compounds.';
+    if (ctx.tier === 'depleted') {
+      if (ctx.coachGrowthArea) {
+        return { situation: 'Depleted + coach growth area', whyLine: `Your coach flagged ${ctx.coachGrowthArea} — address your state first so that pattern doesn't drive your thinking.` };
+      }
+      if (hasCalendar && ctx.meetingCount > 0) {
+        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} ahead — regulate ${timeAnchor}.` };
+      }
+      return { situation: 'Low reserves', whyLine: `Reserves low — regulate ${timeAnchor}.` };
     }
-    if (checkInOutcome && confidenceLevel !== null && confidenceLevel <= 2) {
-      return 'Low confidence today — ground yourself before your first commitment.';
+    if (ctx.tier === 'managing' && hasCalendar && ctx.meetingCount > 3) {
+      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead — settle your state ${timeAnchor}.` };
     }
-    if (hasWeekData && patternInsight && patternInsight.count >= 3) {
-      return `${patternInsight.count}${patternInsight.count === 3 ? 'rd' : 'th'} ${patternInsight.state} day — start by addressing the state.`;
+    if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
+      return {
+        situation: `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
+        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running — this interrupts the pattern before it becomes your baseline.`
+      };
     }
-    if (timeOfDay === 'morning') return 'Start with your state — everything follows from this.';
-    if (timeOfDay === 'afternoon') return 'Mid-day reset — your second half starts here.';
-    return 'Regulate now — the rest of the day is still ahead.';
+    if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel <= 2) {
+      return { situation: 'Clarity deficit', whyLine: `Clarity low — address it ${timeAnchor} so it doesn't compound.` };
+    }
+    if (ctx.checkInOutcome && ctx.confidenceLevel !== null && ctx.confidenceLevel <= 2) {
+      return { situation: 'Confidence deficit', whyLine: `Low confidence — ground yourself before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment.` };
+    }
+    if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state — everything follows from this.' };
+    if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset — your second half starts here.' };
+    return { situation: 'Evening regulation', whyLine: 'Regulate now — settle before you close the day.' };
   }
 
-  // TACTICAL
-  if (horizon === 'tactical') {
-    if (isJit && hasWearablePattern && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
-      const direction = hrvEventCorrelation.avgHrvDelta > 0 ? 'elevates' : 'drops';
-      return `Your HRV typically ${direction} before ${hrvEventCorrelation.eventType} — this addresses that pattern.`;
+  // ─── TACTICAL ───
+  if (ctx.horizon === 'tactical') {
+    if (ctx.isJit && hasWearablePattern && ctx.hrvEventCorrelation && Math.abs(ctx.hrvEventCorrelation.avgHrvDelta) > 10) {
+      const direction = ctx.hrvEventCorrelation.avgHrvDelta > 0 ? 'elevates' : 'drops';
+      return {
+        situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
+        whyLine: `Your HRV typically ${direction} before ${ctx.hrvEventCorrelation.eventType} — this sequence grounds your state then sharpens your focus for it.`
+      };
     }
-    if (isJit && hasWeekData && patternInsight && patternInsight.count >= 3) {
-      return `${eventTitle} approaching — you've been ${patternInsight.state} ${patternInsight.count} days running.`;
+    if (ctx.pendingCommitment) {
+      return {
+        situation: 'Coach commitment active',
+        whyLine: `Your coach commitment: '${ctx.pendingCommitment}' — this practice directly addresses it while your calendar allows.`
+      };
     }
-    if (isJit) {
-      return `${eventTitle} is ahead — this prepares your state for it.`;
+    if (ctx.isJit && hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
+      return {
+        situation: `Pattern + upcoming event`,
+        whyLine: `${ctx.eventTitle} approaching — you've been ${ctx.patternInsight.state} ${ctx.patternInsight.count} days running.`
+      };
     }
-    if (hasWearablePattern && hrvEventCorrelation && Math.abs(hrvEventCorrelation.avgHrvDelta) > 10) {
-      return 'Your data shows a pattern on days like this — this addresses it.';
+    if (ctx.isJit) {
+      return { situation: `${ctx.eventTitle} ahead`, whyLine: `${ctx.eventTitle} is ahead — this prepares your state for it.` };
     }
-    if (hasWeekData && patternInsight && patternInsight.count >= 3) {
-      return `${patternInsight.count} ${patternInsight.state} days in a row — this addresses the pattern.`;
+    if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
+      return {
+        situation: `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
+        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running — this interrupts the pattern before it becomes your baseline.`
+      };
     }
-    if (hasWeekData && frictionTrend === 'declining') {
-      return 'Focus has been declining this week — this interrupts it.';
+    if (hasWeekData && ctx.frictionTrend === 'declining') {
+      return { situation: 'Focus declining', whyLine: 'Focus has been declining this week — this interrupts it.' };
     }
-    if (hasWeekData && scoreTrend === 'declining') {
-      return 'Your state has been trending down — this is the reset point.';
+    if (hasWeekData && ctx.scoreTrend === 'declining') {
+      return { situation: 'State trending down', whyLine: 'Your state has been trending down — this is the reset point.' };
     }
-    if (hasCalendar && meetingCount >= 4) {
-      return `${meetingCount} meetings today — this keeps you sharp through them.`;
+    if (hasCalendar && ctx.meetingCount >= 4) {
+      return { situation: 'Heavy calendar', whyLine: `${ctx.meetingCount} meetings today — this keeps you sharp through them.` };
     }
-    if (checkInOutcome && clarityLevel !== null && clarityLevel >= 4) {
-      return 'Clarity strong today — this maintains it through the afternoon.';
+    if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel >= 4) {
+      return { situation: 'Clarity strong', whyLine: `Clarity strong — this maintains it through the ${ctx.timeOfDay === 'morning' ? 'afternoon' : 'rest of the day'}.` };
     }
-    if (dayOfWeek === 'Monday') return 'Monday demands more — this builds the week\'s foundation.';
-    if (dayOfWeek === 'Friday') return 'End of week — this sustains your quality through the close.';
-    return 'For your state and demands today.';
+    if (ctx.dayOfWeek === 'Monday') return { situation: 'Week entry', whyLine: "Monday demands more — this builds the week's foundation." };
+    if (ctx.dayOfWeek === 'Friday') return { situation: 'Week close', whyLine: 'End of week — this sustains your quality through the close.' };
+    return { situation: 'State maintenance', whyLine: 'For your state and demands today.' };
   }
 
-  // STRATEGIC
-  if (horizon === 'strategic') {
-    if (pendingCommitment) {
-      return 'You committed to working on this — this is that practice.';
+  // ─── STRATEGIC ───
+  if (ctx.horizon === 'strategic') {
+    if (ctx.pendingCommitment) {
+      return {
+        situation: 'Coach commitment',
+        whyLine: `You committed to '${ctx.pendingCommitment}' — your calendar has space to build that capacity now.`
+      };
     }
-    if (coachGrowthArea) {
-      return `Connected to what you're building: ${coachGrowthArea}.`;
+    if (ctx.coachGrowthArea) {
+      return {
+        situation: 'Coach growth area',
+        whyLine: `Your coach identified ${ctx.coachGrowthArea} — this builds it while your system isn't under strain.`
+      };
     }
-    if (practicePriorityTag) {
+    if (ctx.practicePriorityTag) {
       const tagLabels: Record<string, string> = {
         regulation_composure: 'composure under pressure',
         regulation_early: 'early regulation',
@@ -2796,21 +2866,45 @@ function buildWhyLine(
         focus_clarity: 'focus and clarity',
         mindset_reframe: 'mindset reframing',
       };
-      return `Matched to your ${tagLabels[practicePriorityTag] || 'development'} focus.`;
+      return {
+        situation: 'Development focus',
+        whyLine: `Aligned to your ${tagLabels[ctx.practicePriorityTag] || 'development'} focus — building the foundation for long-term change.`
+      };
     }
-    if (archetypeWatchFor) {
-      return `Your pattern — ${archetypeWatchFor}. This addresses it.`;
+    if (ctx.archetypeWatchFor) {
+      return {
+        situation: 'Archetype pattern',
+        whyLine: `Your pattern: ${ctx.archetypeWatchFor}. Today has space to address it deliberately.`
+      };
     }
-    if (timeOfDay === 'evening' && (tier === 'strong' || tier === 'peak')) {
-      return 'Strong day — close it with intention.';
+    if (ctx.timeOfDay === 'evening' && (ctx.tier === 'strong' || ctx.tier === 'peak')) {
+      return { situation: 'Strong day close', whyLine: "Strong day — close with intention before tomorrow's demands arrive." };
     }
-    if (timeOfDay === 'evening' && tier === 'depleted') {
-      return 'Depleted day — restore before tomorrow.';
+    if (ctx.timeOfDay === 'evening' && ctx.tier === 'depleted') {
+      return { situation: 'Depleted day close', whyLine: 'Depleted day — restore before tomorrow inherits what today carried.' };
     }
-    return 'For who you\'re building toward — not just today.';
+    return { situation: 'Development', whyLine: 'For your development — when your system has capacity.' };
   }
 
-  return 'Based on your state today.';
+  return { situation: 'Current state', whyLine: 'Based on your state today.' };
+}
+
+function buildSequenceReasoning(practiceTypes: string[], ctx: SlotContextInput): string | undefined {
+  if (practiceTypes.length <= 1) return undefined;
+  const typeLabels: Record<string, string> = {
+    regulate: 'settle your nervous system',
+    align: 'shift how you hold the pressure',
+    prepare: 'sharpen your focus for what\'s ahead',
+    integrate: 'anchor the learning',
+  };
+  const steps = practiceTypes.map(t => typeLabels[t] || t);
+  if (steps.length === 2) {
+    return `${steps[0].charAt(0).toUpperCase() + steps[0].slice(1)} first, then ${steps[1]} — so you arrive composed.`;
+  }
+  if (steps.length === 3) {
+    return `${steps[0].charAt(0).toUpperCase() + steps[0].slice(1)}, then ${steps[1]}, then ${steps[2]}.`;
+  }
+  return undefined;
 }
 
 function buildHorizonModules(
@@ -2823,7 +2917,8 @@ function buildHorizonModules(
   timeOfDay: string,
   todCoachCard: any,
   enrichedContent: any[],
-  pendingCommitments: any[]
+  pendingCommitments: any[],
+  outerReadinessCache?: any
 ): HorizonModule[] {
   const hasJitEvent = !!preEventPlan;
   const jitMinutesUntil = preEventPlan?.minutesUntil ?? null;
@@ -2833,24 +2928,40 @@ function buildHorizonModules(
     req.innerReadinessTier, req.calendarLoad, hasJitEvent, jitMinutesUntil
   );
 
-  // Derive signals for whyLine
+  // Derive signals for context
   const frictionTrend = shared.innerReadinessPattern.trend === 'declining' ? 'declining' : null;
   const scoreTrend = shared.innerReadinessPattern.trend === 'declining' ? 'declining' : null;
   const pendingCommitment = pendingCommitments.length > 0 ? pendingCommitments[0].commitment_text : null;
   const coachGrowthArea = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content || null;
   const archetypeWatchFor = ARCHETYPE_WATCH_FOR[req.archetype] || null;
 
-  // Data sufficiency counts for honest why lines
   const checkInCountTotal = shared.innerReadinessPattern.values?.length || 0;
-  const wearableDaysConnected = req.wearableContext?.hasData ? 7 : 0; // conservative: treat as 7 only if has data today
+  const wearableDaysConnected = req.wearableContext?.hasData ? 7 : 0;
   const meetingCount = req.calendarEvents?.length || 0;
   const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const dayOfWeekName = dayNames2[new Date().getDay()];
 
-  // Build common extra args for all buildWhyLine calls
-  const whyLineExtras = [checkInCountTotal, wearableDaysConnected, req.calendarLoad, meetingCount, req.clarityLevel, req.confidenceLevel, timeOfDay, dayOfWeekName] as const;
+  // Brief relay signals
+  const briefPhrase = outerReadinessCache?.phrase || req.outerReadinessPhrase || null;
+  const briefBody = outerReadinessCache?.context || req.outerReadinessContext || null;
+  const briefLeanOn = outerReadinessCache?.leanOn || req.outerReadinessLeanOn || null;
+  const briefWatchFor = outerReadinessCache?.watchFor || req.outerReadinessWatchFor || null;
 
-  // Divergence mode detection: wearable shows strain but check-in doesn't
+  // Common context input builder
+  const makeCtxInput = (horizon: 'immediate' | 'tactical' | 'strategic', isJit: boolean, practiceTypes?: string[]): SlotContextInput => ({
+    horizon, isJit, eventTitle: jitEventTitle, jitMinutesUntil,
+    tier: req.innerReadinessTier, divergenceMode, checkInOutcome: req.checkInOutcome,
+    hrvEventCorrelation, patternInsight: req.patternInsight || null,
+    frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea,
+    practicePriorityTag: req.practicePriorityTag || null, archetypeWatchFor,
+    checkInCountTotal, wearableDaysConnected, calendarLoad: req.calendarLoad,
+    meetingCount, clarityLevel: req.clarityLevel, confidenceLevel: req.confidenceLevel,
+    timeOfDay, dayOfWeek: dayOfWeekName,
+    briefPhrase, briefBody, briefLeanOn, briefWatchFor,
+    practiceTypes,
+  });
+
+  // Divergence mode detection
   let divergenceMode: string | null = null;
   if (req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null) {
     if (req.wearableContext.hrvDeviation < -15 && req.innerReadinessTier !== 'depleted') {
@@ -2868,42 +2979,63 @@ function buildHorizonModules(
     }
   }
 
-  // Get first event for time label context
   const firstEventTitle = req.calendarEvents?.[0]?.title?.split(' ').slice(0, 4).join(' ') || null;
   const timeOfDayLabel = timeOfDay === 'morning' ? 'This morning' : timeOfDay === 'afternoon' ? 'Right now' : 'This evening';
+  const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
+  const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
 
   const modules: HorizonModule[] = [];
 
   // ─── SLOT 1 (Immediate) ───
-  let slot1Practice: any = null;
+  let slot1Practices: any[] = [];
   let slot1IsJit = false;
   let slot1TimeLabel = '';
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
-    // JIT takes slot 1
-    slot1Practice = preEventPlan.modules?.[0] || todModules[0];
+    // JIT takes slot 1 — include all pre-event modules (up to 3)
+    const jitModules = preEventPlan.modules || [];
+    slot1Practices = jitModules.slice(0, 3);
+    if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
     slot1TimeLabel = jitMinutesUntil < 30
       ? `${jitEventTitle} · now`
       : `${jitEventTitle} · in ${Math.round(jitMinutesUntil)} mins`;
   } else if (req.innerReadinessTier === 'depleted') {
-    // Depleted: first regulate module (never a coach card for REGULATE)
-    slot1Practice = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
+    const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
+    slot1Practices = regMod ? [regMod] : [];
+    // Add a second practice (align) if available for depleted state
+    if (regMod) {
+      const alignMod = todModules.find((m: any) => m.contentId !== regMod.contentId && m.type === 'align' && !m.isCoachCard);
+      if (alignMod) slot1Practices.push(alignMod);
+    }
     slot1TimeLabel = 'Before you start';
   } else {
-    slot1Practice = todModules[0];
+    slot1Practices = todModules[0] ? [todModules[0]] : [];
+    // Add second practice if non-JIT and available
+    if (todModules[1] && todModules[1].contentId !== todModules[0]?.contentId) {
+      const nextMod = todModules[1];
+      // Only add if different type for sequence variety
+      if (nextMod.type !== todModules[0]?.type) {
+        slot1Practices.push(nextMod);
+      }
+    }
     slot1TimeLabel = firstEventTitle ? `Before ${firstEventTitle}` : timeOfDayLabel;
   }
 
-  if (slot1Practice) {
-    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
-    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+  if (slot1Practices.length > 0) {
+    const primaryPractice = slot1Practices[0];
+    const practiceTypes = slot1Practices.map((p: any) => p.type);
+    const ctxInput = makeCtxInput('immediate', slot1IsJit, practiceTypes);
+    const slotCtx = buildSlotContext(ctxInput);
+    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
       horizon: 'immediate',
       timeLabel: slot1TimeLabel,
-      typeLabel: `${labels[slot1Practice.type] || 'REGULATE'} · ${protocols[slot1Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('immediate', slot1IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
-      practice: slot1Practice,
+      typeLabel: `${labels[primaryPractice.type] || 'REGULATE'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
+      whyLine: slotCtx.whyLine,
+      practice: primaryPractice,
+      practices: slot1Practices,
+      sequenceReasoning: seqReasoning,
       isJit: slot1IsJit,
       jitEventTitle: slot1IsJit ? jitEventTitle : null,
       jitMinutesUntil: slot1IsJit ? jitMinutesUntil : null,
@@ -2913,40 +3045,51 @@ function buildHorizonModules(
     });
   }
 
-  // ─── SLOT 2 (Tactical) ───
-  let slot2Practice: any = null;
+  // ─── SLOT 2 (Tactical) ─── with JIT dedup guard
+  let slot2Practices: any[] = [];
   let slot2IsJit = false;
   let slot2TimeLabel = '';
   let slot2NavyBorder = false;
 
-  if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
-    // JIT takes slot 2 with navy border
-    slot2Practice = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+  // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
+  if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
+    const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+    slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
     const hrs = Math.round(jitMinutesUntil / 60);
     slot2TimeLabel = `${jitEventTitle} · in ${hrs} hr${hrs > 1 ? 's' : ''}`;
-  } else if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil > 360) {
-    // JIT early awareness in slot 2
-    slot2Practice = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+  } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
+    const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
+    slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2TimeLabel = `${jitEventTitle} · today`;
   } else {
-    // Second ToD module
-    const slot1Id = slot1Practice?.contentId;
-    slot2Practice = todModules.find((m: any) => m.contentId !== slot1Id) || todModules[1] || todModules[0];
+    // Second ToD module(s), skipping slot1 IDs
+    const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
+    const remaining = todModules.filter((m: any) => !slot1Ids.has(m.contentId));
+    slot2Practices = remaining.length > 0 ? [remaining[0]] : (todModules[1] ? [todModules[1]] : (todModules[0] ? [todModules[0]] : []));
+    // Add second practice for tactical depth
+    if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
+      slot2Practices.push(remaining[1]);
+    }
     slot2TimeLabel = timeOfDay === 'morning' ? 'Midday reset' : timeOfDay === 'afternoon' ? 'Later today' : 'Before bed';
   }
 
-  if (slot2Practice) {
-    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
-    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+  if (slot2Practices.length > 0) {
+    const primaryPractice = slot2Practices[0];
+    const practiceTypes = slot2Practices.map((p: any) => p.type);
+    const ctxInput = makeCtxInput('tactical', slot2IsJit, practiceTypes);
+    const slotCtx = buildSlotContext(ctxInput);
+    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
       horizon: 'tactical',
       timeLabel: slot2TimeLabel,
-      typeLabel: `${labels[slot2Practice.type] || 'ALIGN'} · ${protocols[slot2Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine('tactical', slot2IsJit, jitEventTitle, jitMinutesUntil, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
-      practice: slot2Practice,
+      typeLabel: `${labels[primaryPractice.type] || 'ALIGN'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
+      whyLine: slotCtx.whyLine,
+      practice: primaryPractice,
+      practices: slot2Practices,
+      sequenceReasoning: seqReasoning,
       isJit: slot2IsJit,
       jitEventTitle: slot2IsJit ? jitEventTitle : null,
       jitMinutesUntil: slot2IsJit ? jitMinutesUntil : null,
@@ -2957,38 +3100,44 @@ function buildHorizonModules(
   }
 
   // ─── SLOT 3 (Strategic or second Immediate) ───
-  let slot3Practice: any = null;
+  let slot3Practices: any[] = [];
   let slot3Horizon: 'immediate' | 'tactical' | 'strategic' = 'strategic';
   let slot3TimeLabel = '';
 
-  const usedIds = new Set([slot1Practice?.contentId, slot2Practice?.contentId].filter(Boolean));
+  const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
   if (pattern === '2immediate-1tactical') {
-    // Third ToD module as immediate
-    slot3Practice = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
     slot3TimeLabel = 'Later today';
   } else {
-    // Strategic content: pendingCommitment > coachGrowthArea > archetype > coach card > fallback
-    // Try to find a practice aligned to strategic content
     const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
-    if (strategicModule) {
-      slot3Practice = strategicModule;
-    } else {
-      slot3Practice = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    const fallbackModule = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
+    const primaryMod = strategicModule || fallbackModule;
+    slot3Practices = primaryMod ? [primaryMod] : [];
+    // Add second strategic practice if available
+    if (primaryMod) {
+      const secondMod = todModules.find((m: any) => !usedIds.has(m.contentId) && m.contentId !== primaryMod.contentId);
+      if (secondMod) slot3Practices.push(secondMod);
     }
     slot3TimeLabel = timeOfDay === 'morning' ? 'This evening' : timeOfDay === 'afternoon' ? 'When you have space' : 'For your development';
   }
 
-  if (slot3Practice) {
-    const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
-    const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
+  if (slot3Practices.length > 0) {
+    const primaryPractice = slot3Practices[0];
+    const practiceTypes = slot3Practices.map((p: any) => p.type);
+    const ctxInput = makeCtxInput(slot3Horizon, false, practiceTypes);
+    const slotCtx = buildSlotContext(ctxInput);
+    const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
       horizon: slot3Horizon,
       timeLabel: slot3TimeLabel,
-      typeLabel: `${labels[slot3Practice.type] || 'INTEGRATE'} · ${protocols[slot3Practice.type] || 'Protocol'}`,
-      whyLine: buildWhyLine(slot3Horizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor, ...whyLineExtras),
-      practice: slot3Practice,
+      typeLabel: `${labels[primaryPractice.type] || 'INTEGRATE'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
+      whyLine: slotCtx.whyLine,
+      practice: primaryPractice,
+      practices: slot3Practices,
+      sequenceReasoning: seqReasoning,
       isJit: false,
       jitEventTitle: null,
       jitMinutesUntil: null,
@@ -2998,21 +3147,30 @@ function buildHorizonModules(
     });
   }
 
-  // Deduplicate: ensure no two slots share the same contentId
+  // Deduplicate: ensure no two slots share the same primary contentId
   const seenContentIds = new Set<string>();
   const deduped: HorizonModule[] = [];
   for (const m of modules) {
     if (!seenContentIds.has(m.practice.contentId)) {
+      // Also deduplicate within practices array
+      const uniquePractices: any[] = [];
+      const practiceIds = new Set<string>();
+      for (const p of m.practices) {
+        if (!seenContentIds.has(p.contentId) && !practiceIds.has(p.contentId)) {
+          practiceIds.add(p.contentId);
+          uniquePractices.push(p);
+        }
+      }
+      m.practices = uniquePractices.length > 0 ? uniquePractices : [m.practice];
       seenContentIds.add(m.practice.contentId);
+      for (const p of m.practices) seenContentIds.add(p.contentId);
       deduped.push(m);
     }
   }
 
-  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool using metadata tags
+  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool
   if (deduped.length < 3 && enrichedContent.length > 0) {
     const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
-
-    // Determine state signals for scoring
     const hasBodyUnderLoad = req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null && req.wearableContext.hrvDeviation < -15;
     const hasMaskedHigh = divergenceMode === 'MASKED_HIGH';
     const clarityLow = req.clarityLevel <= 2;
@@ -3021,25 +3179,21 @@ function buildHorizonModules(
     const isNewUser = (shared.innerReadinessPattern.values?.length || 0) < 7;
     const isHeavyDay = req.calendarLoad === 'high' || req.calendarLoad === 'extreme';
 
-    // Determine which horizon we need to fill
     const filledHorizons = deduped.map(m => m.horizon);
     const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] = [];
     if (!filledHorizons.includes('immediate')) needsHorizons.push('immediate');
     if (!filledHorizons.includes('tactical')) needsHorizons.push('tactical');
     if (!filledHorizons.includes('strategic')) needsHorizons.push('strategic');
-    // Fill remaining slots with whatever is needed
     while (needsHorizons.length < (3 - deduped.length)) needsHorizons.push('tactical');
 
     for (const targetHorizon of needsHorizons) {
       if (deduped.length >= 3) break;
 
-      // Filter by horizon tag
       let pool = remaining.filter((c: any) => {
         const hTags: string[] = c.horizonTags || [];
         return hTags.includes(targetHorizon);
       });
 
-      // Foundational filter for new users: at least 2 of 3 slots should be foundational
       const foundationalCount = deduped.filter(m => {
         const meta = enrichedContent.find((ec: any) => ec.id === m.practice.contentId);
         return meta?.isFoundational === true;
@@ -3049,20 +3203,17 @@ function buildHorizonModules(
         if (foundPool.length > 0) pool = foundPool;
       }
 
-      // Duration band filter on heavy days: slots 1 & 2 only micro/short
       const slotIndex = deduped.length;
       if (isHeavyDay && slotIndex < 2) {
         pool = pool.filter((c: any) => c.durationBand === 'micro' || c.durationBand === 'short');
       }
 
-      // If no horizon-matched content, fall back to any remaining
       if (pool.length === 0) {
         pool = remaining.filter((c: any) => !seenContentIds.has(c.id));
       }
 
       if (pool.length === 0) break;
 
-      // Score with state signal boosts
       const scored = pool.map((c: any) => {
         let score = 0;
         const ssTags: string[] = c.stateSignalTags || [];
@@ -3072,7 +3223,7 @@ function buildHorizonModules(
         if (confidenceLow && ssTags.includes('signal-confidence-low')) score += 15;
         if (poorSleep && ssTags.includes('signal-poor-sleep')) score += 10;
         if (req.favorites.includes(c.id)) score += 30;
-        if (!isNewUser && c.isFoundational) score -= 5; // Slightly deprioritize foundational for experienced users
+        if (!isNewUser && c.isFoundational) score -= 5;
         return { content: c, score };
       });
       scored.sort((a: any, b: any) => b.score - a.score);
@@ -3081,28 +3232,30 @@ function buildHorizonModules(
       if (!selected) break;
 
       seenContentIds.add(selected.id);
-      const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
-      const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
       const contentType = selected.content_type || 'micro-practice';
       const moduleType = contentType === 'soundbath' ? 'regulate' : contentType === 'guided-practice' ? 'regulate' : 'align';
+      const ctxInput = makeCtxInput(targetHorizon, false);
+      const slotCtx = buildSlotContext(ctxInput);
+      const fillerPractice = {
+        type: moduleType,
+        contentId: selected.id,
+        title: selected.title,
+        contentType: selected.content_type,
+        duration: selected.duration || 3,
+        focus: moduleType === 'regulate' ? 'composure' : 'clarity',
+        intensity: 'gentle',
+        isFavorite: req.favorites.includes(selected.id),
+        isCoachCard: false,
+        reasoning: slotCtx.whyLine,
+        thumbnailUrl: selected.thumbnail_url,
+      };
       deduped.push({
         horizon: targetHorizon,
         timeLabel: targetHorizon === 'immediate' ? 'Right now' : targetHorizon === 'tactical' ? 'Later today' : 'When ready',
         typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
-        whyLine: buildWhyLine(targetHorizon, false, null, null, req.innerReadinessTier, divergenceMode, req.checkInOutcome, hrvEventCorrelation, req.patternInsight || null, frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea, req.practicePriorityTag || null, archetypeWatchFor),
-        practice: {
-          type: moduleType,
-          contentId: selected.id,
-          title: selected.title,
-          contentType: selected.content_type,
-          duration: selected.duration || 3,
-          focus: moduleType === 'regulate' ? 'composure' : 'clarity',
-          intensity: 'gentle',
-          isFavorite: req.favorites.includes(selected.id),
-          isCoachCard: false,
-          reasoning: 'Based on your state and patterns today.',
-          thumbnailUrl: selected.thumbnail_url,
-        },
+        whyLine: slotCtx.whyLine,
+        practice: fillerPractice,
+        practices: [fillerPractice],
         isJit: false,
         jitEventTitle: null,
         jitMinutesUntil: null,
