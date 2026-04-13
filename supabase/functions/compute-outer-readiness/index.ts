@@ -871,6 +871,9 @@ function buildMorningTheme(
   return { phrase: defaultPhrase || "Start with presence.", context: morningDefault, driver: 'morning' };
 }
 
+    // Defensive: ensure LLM variables are always defined
+    if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
+    if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
 
 function getTheme(
   tier: EnergyTier,
