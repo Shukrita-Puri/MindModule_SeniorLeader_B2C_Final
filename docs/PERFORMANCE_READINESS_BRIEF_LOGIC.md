@@ -4,6 +4,17 @@
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 
+### v4 Changes Summary (2026-04-13)
+
+- **Wearable extraction**: `||` → `??` for all wearable fields (prevents `0` coercion to `null`)
+- **Wearable syncing chip**: When `hasWearable=true` but all metrics null, renders neutral "Wearable syncing" chip (not a state assertion)
+- **Mind pill split**: Unified mind pill replaced by two pills: **Mind Sharpness** (Stage 1 outcome) + **Clarity & Confidence** (Stage 2 C×C matrix)
+- **Pill vocabulary**: `Overwhelmed` → `Depleted` (C-suite appropriate); no raw numbers on front of any pill
+- **Deterministic fallback signals**: Trimmed to 1-3 word derived labels (not truncations of verbose sentences); source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
+- **Bold rendering**: `<strong>` HTML tags only (no markdown asterisks)
+- **LLM retries**: Reduced from 4 (10s/8s/6s/5s) → 2 (10s/6s); worst-case ~24s instead of ~38s
+- **Few-shot examples**: Replaced with v5 corrected "Chief of Staff for the Mind" calibration set
+
 ---
 
 ## Table of Contents
