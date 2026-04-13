@@ -2982,6 +2982,9 @@ serve(async (req) => {
       }
 
       // ── Build & call LLM ──
+      let llmLeanOn: Array<{signal: string; source: string}> | null = null;
+      let llmWatchFor: Array<{signal: string; source: string}> | null = null;
+      let llmFallbackReason: string | null = null;
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
         if (ANTHROPIC_API_KEY) {
