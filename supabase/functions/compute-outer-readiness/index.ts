@@ -2462,6 +2462,23 @@ serve(async (req) => {
       }
     } catch (e) { console.error('[compute-outer-readiness] consec confidence error:', e); }
 
+    // Consecutive low clarity days
+    let consecutiveLowClarity = 0;
+    try {
+      const { data: recentClarity } = await db
+        .from('daily_checkins')
+        .select('clarity_level')
+        .eq('user_id', userId)
+        .order('checkin_date', { ascending: false })
+        .limit(10);
+      if (recentClarity) {
+        for (const c of recentClarity) {
+          if ((c as any).clarity_level != null && (c as any).clarity_level <= 2) consecutiveLowClarity++;
+          else break;
+        }
+      }
+    } catch (e) { console.error('[compute-outer-readiness] consec clarity error:', e); }
+
     // Next high-stakes event within 90 mins
     let nextHighStakesEvent: { title: string; minutesUntil: number } | null = null;
     try {
@@ -3574,7 +3591,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const fbMeetings = calendarResult?.meetingCount ?? 0;
             const fbHasWearable = hasWearable;
             const fbHrvDev = hrvDeviation;
-            const fbConsecutive = consecutivePattern;
+            // Compute consecutive low days inline (recentCheckIns is in scope)
+            let fbConsecutiveLowDays = 0;
+            let fbConsecutiveTier = innerReadinessTier;
+            for (const c of recentCheckIns) {
+              if ((c as any).energy_balance != null && (c as any).energy_balance < 50) fbConsecutiveLowDays++;
+              else break;
+            }
             const fbHighStakes = todayHighStakes?.length ?? 0;
             const fbOutcome = checkInOutcome;
 
@@ -3584,8 +3607,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const bodyState = wearableStrained ? 'body strained' : 'body steady';
 
             // Phrase selection based on signal combinations
-            if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
-              llmPhrase = `Break the pattern — ${fbConsecutive.count} ${fbConsecutive.state} days running.`;
+            if (fbConsecutiveLowDays >= 3 && (fbConsecutiveTier === 'depleted' || fbConsecutiveTier === 'managing')) {
+              llmPhrase = `Break the pattern — ${fbConsecutiveLowDays} ${fbConsecutiveTier} days running.`;
             } else if (fbCalLoad === 'high' && (fbTier === 'depleted' || fbTier === 'managing')) {
               llmPhrase = 'Protect your energy — heavy calendar ahead.';
             } else if (fbHighStakes > 0 && wearableStrained) {
@@ -3754,6 +3777,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       nextHighStakesEvent,
       checkInCountTotal,
       consecutiveLowConfidence,
+      consecutiveLowClarity,
       coachStrength,
       clarityLevel: clarityLevel,
       confidenceLevel: confidenceLevel,
