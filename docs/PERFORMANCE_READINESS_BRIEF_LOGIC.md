@@ -393,6 +393,21 @@ If LLM fails or times out, the system uses deterministic template-based `phrase`
 
 ## 7. Signal Pill Logic & Calculations
 
+### 7.0 Signal Pill Priority (Canonical Contract)
+
+Signal pills render in this fixed priority order. All states (green/amber/red) render — not only threshold-breakers.
+
+```text
+1. Calendar pills (separate component, always first)
+2. HRV pill
+3. Sleep pill
+4. RHR / Heart pill
+5. Mind pill (clarity × confidence matrix)
+6. Pattern pill (at most 1)
+```
+
+Cap: maximum 6 signal chips visible (calendar is rendered separately above).
+
 ### 7.1 Chip Generation (`buildSignalChips()`)
 
 Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using data returned by `compute-outer-readiness`.
@@ -404,14 +419,41 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 
 These appear independently: check-in prompt when no check-in, wearable prompt when `hasWearable === false`, calendar prompt when `calendarState === 'not_connected'`.
 
-**Signal Chips (data present)**:
+**Signal Chips (data present) — always render when data exists, even at baseline**:
 
-| Chip | Condition | Front Label | Back Label | Color |
-|------|-----------|-------------|------------|-------|
-| **HRV** | `hrvDeviation != null` | "HRV [above/below] baseline" or "HRV at baseline" | `{value}ms · {deviation}%` | RED: deviation < -15% or (absolute, < 20ms); AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **Sleep** | `sleepDeviation != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Solid sleep" | `{score} · {deviation}%` or `{hours}h {mins}m` | RED: < 360min (hard floor) or deviation < -15%; AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **RHR** | `rhrDeviation != null` | "RHR above baseline" / "RHR elevated" / "RHR at baseline" | `{value}bpm · {deviation}%` | RED: deviation > +20%; AMBER: +10% to +20%; GREEN: ≤ +10% |
-| **Mind** | `hasCheckIn` | "Clarity sharp" / "Clarity moderate" / "Clarity low" (+ confidence variant) | `C:{clarity}/5 · Co:{confidence}/5` | Based on clarity×confidence matrix |
+| Chip ID | Condition | Front Label (Analysis) | Back Label (Evidence) | Color |
+|---------|-----------|------------------------|----------------------|-------|
+| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED: deviation < -15% or (absolute, < 20ms); AMBER: -5% to -15%; GREEN: ≥ -5% |
+| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" | `{duration} · {deviation}% vs {baseline} baseline` | RED: < 360min (hard floor) or deviation < -15%; AMBER: -5% to -15%; GREEN: ≥ -5% |
+| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED: deviation > +20%; AMBER: +10% to +20%; GREEN: ≤ +10% |
+| **mind** | `clarityLevel OR confidenceLevel != null` | Clarity × Confidence matrix (see §7.1a) | `C:{clarity}/5 · Co:{confidence}/5` | Based on matrix |
+| **pattern** | Qualifying enrichment field exists | e.g. "3rd low-confidence day" / "Score trending down" / "Below your usual Monday" | Contextual evidence string | amber/green |
+
+**§7.1a Mind Pill — Clarity × Confidence Matrix**:
+
+| Clarity | Confidence | Front Label | Color |
+|---------|------------|-------------|-------|
+| ≥ 4 | ≥ 4 | "Clarity sharp · high confidence" | green |
+| ≥ 4 | ≤ 2 | "Clarity sharp · low confidence" | amber |
+| ≤ 2 | ≥ 4 | "Low clarity · high confidence" | amber |
+| ≤ 2 | ≤ 2 | "Low clarity · low confidence" | red |
+| ≥ 4 | mid | "Clarity sharp" | green |
+| mid | ≥ 4 | "High confidence" | green |
+| ≤ 2 | mid | "Clarity low" | amber |
+| mid | ≤ 2 | "Confidence low" | amber |
+| mid | mid | "Mind moderate" | green |
+
+**§7.1b Pattern Pill — Priority Cascade** (first match wins, max 1):
+
+| Priority | Condition | Front Label | Back Label |
+|----------|-----------|-------------|------------|
+| 1 | `consecutiveLowConfidence >= 3` | "Nth low-confidence day" | "Confidence ≤2 for N consecutive days" |
+| 2 | `scoreTrajectory7d === 'declining'` | "Score trending down" | "7-day trend declining · today {score}/100" |
+| 3 | `scoreTrajectory7d === 'improving'` | "Score trending up" | "7-day trend improving" |
+| 4 | `score < typicalDOWScore - 10` | "Below your usual {day}" | "Today {score} vs typical {day} {typical}" |
+| 5 | `score > typicalDOWScore + 10` | "Above your usual {day}" | "Today {score} vs typical {day} {typical}" |
+| 6 | `wearableTrend7d === 'declining'` | "Wearable trend declining" | "7-day HRV trend is declining" |
+| 7 | `hrvEventCorrelation` exists | "HRV pattern detected" | The correlation string |
 
 ### 7.2 Calibration-Aware Qualifiers
 
@@ -435,6 +477,9 @@ These appear independently: check-in prompt when no check-in, wearable prompt wh
 - **Prompt chips** (`no-checkin`, `wearable-prompt`, `calendar-prompt`): Click triggers navigation (not flip)
 - **Signal chips**: Tap toggles front (interpretation) ↔ back (raw metric) with 3D CSS flip animation
 - Flip auto-resets after 4 seconds
+- Flippable chips show a subtle rotate icon (RotateCw) as affordance
+- A helper line "Tap a pill to see the number behind it" appears when flippable chips are present
+- **No duplicate summary line** — the old `buildInnerSummary()` output is removed; pills are the sole signal representation
 
 ---
 

@@ -52,6 +52,8 @@ export interface OuterReadinessData {
   clarityLevel?: number | null;
   confidenceLevel?: number | null;
   // Enrichment fields
+  consecutiveLowClarity?: number;
+  typicalDOWOutcome?: string | null;
   yesterdayScore?: number | null;
   scoreTrend?: string | null;
   hasBackToBack?: boolean;
