@@ -584,7 +584,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
           {urgentLabel}
         </span>
         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
-          {loadLabel} day · {meetingCount} meetings
+          {loadLabel} day · {meetingLabel}
         </span>
       </div>
     );
