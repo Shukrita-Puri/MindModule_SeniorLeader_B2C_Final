@@ -227,13 +227,13 @@ function buildSignalChips(
     const hrvVal = outerBrief?.hrvValue;
     if (hrvDev != null) {
       if (hrvDev < -15) {
-        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: getQualifier(true) });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV low · ${hrvVal}ms` : 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: getQualifier(true) });
       } else if (hrvDev >= -15 && hrvDev < -8) {
-        chips.push({ id: 'hrv', label: 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber' });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV dipped · ${hrvVal}ms` : 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber' });
       } else if (hrvDev > 15) {
-        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: getQualifier(false, true) });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV strong · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: getQualifier(false, true) });
       } else if (hrvDev > 8) {
-        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green' });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV up · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green' });
       }
     }
 
@@ -242,12 +242,14 @@ function buildSignalChips(
     const sleepDur = outerBrief?.sleepDuration;
     const sleepScore = outerBrief?.sleepScore;
     if (sleepDur != null && sleepDur < 360) {
-      chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red' });
+      const hrs = Math.floor(sleepDur / 60);
+      const mins = sleepDur % 60;
+      chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red' });
     } else if (sleepDev != null) {
       if (sleepDev < -15) {
-        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: ' · below your avg' });
+        chips.push({ id: 'sleep', label: sleepDur != null ? `Poor sleep · ${Math.floor(sleepDur / 60)}h` : 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: ' · below your avg' });
       } else if (sleepDev > 10) {
-        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: ' · above your avg' });
+        chips.push({ id: 'sleep', label: sleepDur != null ? `Well rested · ${Math.floor(sleepDur / 60)}h` : 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: ' · above your avg' });
       }
     }
 
@@ -256,9 +258,9 @@ function buildSignalChips(
     const rhrVal = outerBrief?.rhrValue;
     if (rhrDev != null) {
       if (rhrDev > 20) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red' });
+        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR high · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red' });
       } else if (rhrDev > 10) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber' });
+        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR up · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber' });
       }
       // <= 10%: omit (including negative — low RHR is good)
     }
@@ -268,11 +270,11 @@ function buildSignalChips(
     const hrvVal = outerBrief?.hrvValue;
     if (hrvDev != null) {
       if (hrvDev < -15) {
-        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV low · ${hrvVal}ms` : 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: tierSuffix });
       } else if (hrvDev >= -15 && hrvDev < -8) {
-        chips.push({ id: 'hrv', label: 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV dipped · ${hrvVal}ms` : 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber', qualifier: tierSuffix });
       } else if (hrvDev > 8) {
-        chips.push({ id: 'hrv', label: 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV up · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: tierSuffix });
       }
     }
 
@@ -280,12 +282,14 @@ function buildSignalChips(
     const sleepDur = outerBrief?.sleepDuration;
     const sleepScore = outerBrief?.sleepScore;
     if (sleepDur != null && sleepDur < 360) {
-      chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
+      const hrs = Math.floor(sleepDur / 60);
+      const mins = sleepDur % 60;
+      chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
     } else if (sleepDev != null) {
       if (sleepDev < -15) {
-        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: sleepDur != null ? `Poor sleep · ${Math.floor(sleepDur / 60)}h` : 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
       } else if (sleepDev > 10) {
-        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: sleepDur != null ? `Well rested · ${Math.floor(sleepDur / 60)}h` : 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: tierSuffix });
       }
     }
 
@@ -293,9 +297,9 @@ function buildSignalChips(
     const rhrVal = outerBrief?.rhrValue;
     if (rhrDev != null) {
       if (rhrDev > 20) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR high · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red', qualifier: tierSuffix });
       } else if (rhrDev > 10) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber', qualifier: tierSuffix });
+        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR up · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber', qualifier: tierSuffix });
       }
     }
   } else if (tier === 'absolute') {
@@ -307,34 +311,36 @@ function buildSignalChips(
 
     if (hrvVal != null) {
       if (hrvVal < 20) {
-        chips.push({ id: 'hrv', label: 'Body under significant load', backLabel: hrvBackLabel(hrvVal, null), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: `HRV low · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'red', qualifier: tierSuffix });
       } else if (hrvVal < 40) {
-        chips.push({ id: 'hrv', label: 'Body under load', backLabel: hrvBackLabel(hrvVal, null), color: 'amber', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: `HRV · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'amber', qualifier: tierSuffix });
       } else if (hrvVal > 70) {
-        chips.push({ id: 'hrv', label: 'Body well recovered', backLabel: hrvBackLabel(hrvVal, null), color: 'green', qualifier: tierSuffix });
+        chips.push({ id: 'hrv', label: `HRV strong · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'green', qualifier: tierSuffix });
       }
     }
 
     // Sleep: prefer score if available, else duration
     if (sleepScore != null) {
       if (sleepScore < 60) {
-        chips.push({ id: 'sleep', label: 'Poor sleep', backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: `Poor sleep · ${sleepScore}`, backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'red', qualifier: tierSuffix });
       } else if (sleepScore > 75) {
-        chips.push({ id: 'sleep', label: 'Well rested', backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'green', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: `Well rested · ${sleepScore}`, backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'green', qualifier: tierSuffix });
       }
     } else if (sleepDur != null) {
+      const hrs = Math.floor(sleepDur / 60);
+      const mins = sleepDur % 60;
       if (sleepDur < 360) {
-        chips.push({ id: 'sleep', label: 'Short sleep', backLabel: sleepBackLabel(sleepDur, null, null), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, null, null), color: 'red', qualifier: tierSuffix });
       } else if (sleepDur < 420) {
-        chips.push({ id: 'sleep', label: 'Light sleep', backLabel: sleepBackLabel(sleepDur, null, null), color: 'amber', qualifier: tierSuffix });
+        chips.push({ id: 'sleep', label: `Light sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, null, null), color: 'amber', qualifier: tierSuffix });
       }
     }
 
     if (rhrVal != null) {
       if (rhrVal > 90) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, null), color: 'red', qualifier: tierSuffix });
+        chips.push({ id: 'rhr', label: `RHR high · ${rhrVal}bpm`, backLabel: rhrBackLabel(rhrVal, null), color: 'red', qualifier: tierSuffix });
       } else if (rhrVal > 80) {
-        chips.push({ id: 'rhr', label: 'HR elevated', backLabel: rhrBackLabel(rhrVal, null), color: 'amber', qualifier: tierSuffix });
+        chips.push({ id: 'rhr', label: `RHR up · ${rhrVal}bpm`, backLabel: rhrBackLabel(rhrVal, null), color: 'amber', qualifier: tierSuffix });
       }
     }
   }
@@ -345,15 +351,24 @@ function buildSignalChips(
     if (!hasWearableChip) {
       // Build a backLabel from available raw metrics so the pill is flippable
       const steadyMetrics: string[] = [];
-      if (outerBrief?.hrvValue != null) steadyMetrics.push(`HRV: ${outerBrief.hrvValue}ms`);
+      const hrvVal = outerBrief?.hrvValue;
+      const hrvDev = outerBrief?.hrvDeviation;
+      if (hrvVal != null) {
+        steadyMetrics.push(hrvDev != null && hrvBaseline ? `HRV: ${hrvVal}ms (${hrvDev >= 0 ? '+' : ''}${hrvDev}% vs ${hrvBaseline}ms)` : `HRV: ${hrvVal}ms`);
+      }
       if (outerBrief?.sleepDuration != null) {
         const hrs = Math.floor(outerBrief.sleepDuration / 60);
         const mins = outerBrief.sleepDuration % 60;
-        steadyMetrics.push(`Sleep: ${mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`}`);
+        const durStr = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+        const sDev = outerBrief?.sleepDeviation;
+        steadyMetrics.push(sDev != null && sleepBaseline ? `Sleep: ${durStr} (${sDev >= 0 ? '+' : ''}${sDev}%)` : `Sleep: ${durStr}`);
       } else if (outerBrief?.sleepScore != null) {
         steadyMetrics.push(`Sleep: ${outerBrief.sleepScore}`);
       }
-      if (outerBrief?.rhrValue != null) steadyMetrics.push(`RHR: ${outerBrief.rhrValue}bpm`);
+      if (outerBrief?.rhrValue != null) {
+        const rDev = outerBrief?.rhrDeviation;
+        steadyMetrics.push(rDev != null && rhrBaseline ? `RHR: ${outerBrief.rhrValue}bpm (${rDev >= 0 ? '+' : ''}${rDev}%)` : `RHR: ${outerBrief.rhrValue}bpm`);
+      }
       const steadyBack = steadyMetrics.length > 0 ? steadyMetrics.join(' · ') : undefined;
 
       if (tier === 'absolute') {
@@ -371,7 +386,7 @@ function buildSignalChips(
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
   }
 
-  // ── Felt state chips ──
+  // ── Felt state chips (Mental Sharpness) ──
   const outcome = energyState?.checkInOutcome;
   if (outcome === 'focused') {
     const coachMatch = outerBrief?.coachStrength?.toLowerCase()?.includes('focus');
@@ -381,8 +396,10 @@ function buildSignalChips(
       color: 'green',
       qualifier: coachMatch ? ' · your strength' : '',
     });
+  } else if (outcome === 'steady') {
+    chips.push({ id: 'felt', label: 'Mind steady', color: 'green' });
   } else if (outcome === 'scattered') {
-    chips.push({ id: 'felt', label: 'Mind scattered', color: 'red' });
+    chips.push({ id: 'felt', label: 'Mind scattered', color: 'amber' });
   } else if (outcome === 'drained' || outcome === 'overwhelmed') {
     chips.push({ id: 'felt', label: 'Mind depleted', color: 'red' });
   }
@@ -391,8 +408,15 @@ function buildSignalChips(
   const clarity = outerBrief?.clarityLevel;
   const confidence = outerBrief?.confidenceLevel;
   if (clarity != null) {
-    if (clarity >= 4) chips.push({ id: 'clarity', label: 'Clarity strong', backLabel: `Clarity ${clarity}/5`, color: 'green' });
-    else if (clarity <= 2) chips.push({ id: 'clarity', label: 'Clarity low', backLabel: `Clarity ${clarity}/5`, color: 'red' });
+    if (clarity >= 4) {
+      chips.push({ id: 'clarity', label: 'Clarity strong', backLabel: `Clarity ${clarity}/5`, color: 'green' });
+    } else if (clarity <= 2) {
+      // Check for consecutive low clarity days (use check-in patterns)
+      const consecClarity = outerBrief?.consecutiveLowConfidence != null ? 0 : 0; // TODO: needs server-side tracking
+      // For now use the general consecutive pattern from energyState
+      const consecDepleted = outerBrief?.consecutiveLowConfidence ?? 0;
+      chips.push({ id: 'clarity', label: 'Clarity low', backLabel: `Clarity ${clarity}/5`, color: 'red' });
+    }
   }
   if (confidence != null) {
     if (confidence >= 4) chips.push({ id: 'confidence', label: 'High confidence', backLabel: `Confidence ${confidence}/5`, color: 'green' });
@@ -403,7 +427,7 @@ function buildSignalChips(
     }
   }
 
-  return chips.slice(0, 5);
+  return chips.slice(0, 6);
 }
 
 // ─── INNER SUMMARY LINE ───
