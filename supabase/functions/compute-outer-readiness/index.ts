@@ -2492,6 +2492,9 @@ serve(async (req) => {
     // ═══ LLM SYNTHESIS ═══
     let llmPhrase: string | null = null;
     let llmBodyText: string | null = null;
+    let llmLeanOn: Array<{signal: string; source: string}> | null = null;
+    let llmWatchFor: Array<{signal: string; source: string}> | null = null;
+    let llmFallbackReason: string | null = null;
     const dataCompleteness = checkInCountTotal === 0 ? 'day1' : checkInCountTotal <= 6 ? 'early' : checkInCountTotal <= 30 ? 'developing' : 'established';
 
     // ── Additional enrichment data for the upgraded LLM prompt ──
@@ -2982,9 +2985,7 @@ serve(async (req) => {
       }
 
       // ── Build & call LLM ──
-      let llmLeanOn: Array<{signal: string; source: string}> | null = null;
-      let llmWatchFor: Array<{signal: string; source: string}> | null = null;
-      let llmFallbackReason: string | null = null;
+      // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
         if (ANTHROPIC_API_KEY) {
@@ -3553,11 +3554,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               }
             }
           }
-        }
+    }
+
       } catch (llmErr) {
         console.error('[compute-outer-readiness] LLM synthesis error:', llmErr);
       }
     }
+
+    // Defensive: ensure LLM variables are always defined
+    if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
+    if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
 
     console.log(`[compute-outer-readiness] DRB phrase source: ${llmPhrase ? 'llm' : 'template'}`);
     console.log(`[compute-outer-readiness] DRB body source: ${llmBodyText ? 'llm' : 'template'}`);
