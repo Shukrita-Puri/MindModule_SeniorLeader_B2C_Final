@@ -197,7 +197,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
             } else {
               setPlan(parsed);
               const allCompleted = todayRitual?.completed_practice_ids || [];
-              const horizonIds = (parsed.horizonModules || []).map(m => m.practice.contentId);
+              const horizonIds = (parsed.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
               return;
