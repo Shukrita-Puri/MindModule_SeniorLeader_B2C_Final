@@ -6,6 +6,8 @@ import { Star, Check } from "lucide-react";
 interface PlanFeedbackModalProps {
   planType: "tod" | "jit";
   energyTier?: string;
+  priorityNumber?: number;
+  priorityLabel?: string;
   onSubmit: (rating: number, feedback?: string) => void;
   onSkip: () => void;
 }
@@ -13,6 +15,8 @@ interface PlanFeedbackModalProps {
 const PlanFeedbackModal = ({
   planType,
   energyTier,
+  priorityNumber,
+  priorityLabel,
   onSubmit,
   onSkip,
 }: PlanFeedbackModalProps) => {
@@ -27,8 +31,9 @@ const PlanFeedbackModal = ({
     ? "How are you feeling now? Any shifts you noticed?"
     : "How ready do you feel for what's ahead?";
 
-  const title =
-    planType === "jit" ? "Pre-Event Preparation Complete" : "Plan Complete";
+  const title = priorityLabel
+    ? `${priorityLabel} Complete`
+    : planType === "jit" ? "Pre-Event Preparation Complete" : "Plan Complete";
 
   const handleSubmit = () => {
     if (rating) {

@@ -22,6 +22,8 @@ import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
+import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
+import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -98,7 +100,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [fetchFailed, setFetchFailed] = useState(false);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
+  const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
   const prevCompletedIdsRef = useRef<string[]>([]);
+  const completedSlotsRef = useRef<Set<number>>(new Set());
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
 
@@ -119,7 +123,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     });
   }, []);
 
-  // ── Detect newly completed ──
+  // ── Detect newly completed + per-priority feedback ──
   useEffect(() => {
     const prev = prevCompletedIdsRef.current;
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
@@ -130,6 +134,17 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       const allIds = allPracticesList.map(p => p.contentId);
       const allDone = allIds.every(id => completedPracticeIds.includes(id));
       if (found) triggerCelebration(found.title, allDone);
+
+      // Check if a new priority slot just completed
+      modules.forEach((hm, idx) => {
+        if (completedSlotsRef.current.has(idx)) return;
+        const sp = hm.practices || [hm.practice];
+        const slotNowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
+        if (slotNowComplete) {
+          completedSlotsRef.current.add(idx);
+          setFeedbackSlot({ index: idx, horizon: hm.horizon });
+        }
+      });
     }
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration]);
@@ -531,7 +546,10 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
   const allPractices = horizonModules.flatMap(m => m.practices || [m.practice]);
   const allComplete = allPractices.every(p => completedPracticeIds.includes(p.contentId));
-  const completedCount = allPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
+  const completedPriorityCount = horizonModules.filter(hm => {
+    const sp = hm.practices || [hm.practice];
+    return sp.every(p => completedPracticeIds.includes(p.contentId));
+  }).length;
 
   return (
     <div className="space-y-4 pt-2">
@@ -548,10 +566,10 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xs font-medium font-body whitespace-nowrap",
-              allComplete ? "text-saffron" : completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
+              allComplete ? "text-saffron" : completedPriorityCount > 0 ? "text-saffron/80" : "text-muted-foreground"
             )}>
-              {completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
-              {completedCount} of {horizonModules.length}
+              {completedPriorityCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
+              {completedPriorityCount} of {horizonModules.length}
             </span>
             <MetricInfoModal
               title="Today's 3 Performance Priorities"
@@ -728,8 +746,8 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                             <span className="text-xs text-muted-foreground font-body mt-1">
                               {practice.duration} min
                             </span>
-                            {/* Per-practice reasoning */}
-                            {practice.reasoning && hasMultiple && (
+            {/* Per-practice reasoning */}
+                            {practice.reasoning && (
                               <p className="text-[10px] text-muted-foreground/60 font-body mt-1 line-clamp-2 leading-snug">
                                 {practice.reasoning}
                               </p>
@@ -756,6 +774,21 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
           );
         })}
       </div>
+    </div>
+
+      {/* Per-priority feedback modal */}
+      {feedbackSlot && (
+        <PlanFeedbackModal
+          planType="tod"
+          priorityNumber={feedbackSlot.index + 1}
+          priorityLabel={`Priority ${feedbackSlot.index + 1}`}
+          onSubmit={(rating, feedback) => {
+            submitPlanFeedback('tod', rating, feedback);
+            setFeedbackSlot(null);
+          }}
+          onSkip={() => setFeedbackSlot(null)}
+        />
+      )}
     </div>
   );
 };
