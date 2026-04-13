@@ -3556,14 +3556,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }
     }
 
-    // Defensive: ensure LLM variables are always defined
-    if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
-    if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
-
       } catch (llmErr) {
         console.error('[compute-outer-readiness] LLM synthesis error:', llmErr);
       }
     }
+
+    // Defensive: ensure LLM variables are always defined
+    if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
+    if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
 
     console.log(`[compute-outer-readiness] DRB phrase source: ${llmPhrase ? 'llm' : 'template'}`);
     console.log(`[compute-outer-readiness] DRB body source: ${llmBodyText ? 'llm' : 'template'}`);
