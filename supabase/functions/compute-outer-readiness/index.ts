@@ -3654,20 +3654,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
             }
 
-            // Lean on: full archetype text + signal-based items
+            // Lean on: 1-3 word derived labels, source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
             if (!llmLeanOn) {
               llmLeanOn = [];
-              if (leanOnResult.leanOn) {
-                llmLeanOn.push({ signal: leanOnResult.leanOn, source: 'Archetype' });
-              }
               if (wearableSteady) {
-                llmLeanOn.push({ signal: 'Body steady — your system supports this', source: 'Wearable' });
+                llmLeanOn.push({ signal: 'Physiological credit', source: 'Wearable' });
+              }
+              if (leanOnResult.leanOn) {
+                // Truncate archetype lean-on to first 3 words
+                const words = leanOnResult.leanOn.split(' ').slice(0, 3).join(' ');
+                llmLeanOn.push({ signal: words, source: 'Archetype' });
               }
               if (fbCalLoad === 'low' && fbMeetings <= 2) {
-                llmLeanOn.push({ signal: 'Calendar space — use it deliberately', source: 'Calendar' });
+                llmLeanOn.push({ signal: 'Calendar headroom', source: 'Calendar' });
               }
               if (fbConsecutive && fbConsecutive.count >= 2 && (fbConsecutive.state === 'strong' || fbConsecutive.state === 'peak')) {
-                llmLeanOn.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} streak`, source: 'Pattern' });
+                llmLeanOn.push({ signal: `${fbConsecutive.count}-day streak`, source: 'Pattern' });
               }
               if (serverPracticePriorityTag) {
                 const goalShort: Record<string, string> = {
@@ -3677,28 +3679,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 };
                 llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
               }
-              if (llmLeanOn.length === 0) {
-                llmLeanOn.push({ signal: 'Your self-awareness — checking in is the edge', source: 'System' });
-              }
             }
 
-            // Watch for: full archetype text + signal-based items
+            // Watch for: 1-3 word derived labels
             if (!llmWatchFor) {
               llmWatchFor = [];
-              if (leanOnResult.watchFor) {
-                llmWatchFor.push({ signal: leanOnResult.watchFor, source: 'Archetype' });
-              }
               if (wearableStrained) {
-                llmWatchFor.push({ signal: 'Body strain — protect your recovery windows', source: 'Wearable' });
+                llmWatchFor.push({ signal: 'Compounding cost', source: 'Wearable' });
+              }
+              if (leanOnResult.watchFor) {
+                const words = leanOnResult.watchFor.split(' ').slice(0, 3).join(' ');
+                llmWatchFor.push({ signal: words, source: 'Archetype' });
               }
               if (fbCalLoad === 'high') {
-                llmWatchFor.push({ signal: `Heavy calendar (${fbMeetings} meetings) — watch for decision fatigue`, source: 'Calendar' });
+                llmWatchFor.push({ signal: 'Decision fatigue', source: 'Calendar' });
               }
               if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
-                llmWatchFor.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} pattern — needs intervention`, source: 'Pattern' });
+                llmWatchFor.push({ signal: `${fbConsecutive.count}-day pattern`, source: 'Pattern' });
               }
               if (llmWatchFor.length === 0) {
-                llmWatchFor.push({ signal: 'Autopilot mode — stay intentional', source: 'System' });
+                llmWatchFor.push({ signal: 'Autopilot risk', source: 'System' });
               }
             }
           }
