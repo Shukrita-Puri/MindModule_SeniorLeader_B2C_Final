@@ -774,7 +774,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
           );
         })}
       </div>
-    </div>
 
       {/* Per-priority feedback modal */}
       {feedbackSlot && (
