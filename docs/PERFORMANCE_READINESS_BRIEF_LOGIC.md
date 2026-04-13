@@ -1,6 +1,6 @@
 # Performance Readiness Brief – Complete Technical Documentation
 
-> **Last updated**: 2026-04-09
+> **Last updated**: 2026-04-13
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 
