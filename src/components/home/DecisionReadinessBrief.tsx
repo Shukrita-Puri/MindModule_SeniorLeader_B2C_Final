@@ -91,6 +91,8 @@ const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe))] to-[hsl(var(--
 const getSourceLabel = (source: string | undefined): string => {
   if (!source) return '';
   switch (source) {
+    case 'llm-v4':
+      return ''; // LLM v4 embeds sources inline — no top-level label
     case 'coach-insights-recent':
     case 'coach-insights-grace':
       return 'From coach conversations';
@@ -110,6 +112,27 @@ const getSourceLabel = (source: string | undefined): string => {
       return '';
   }
 };
+
+// Parse signal · source pair format from LLM v4
+interface SignalSourcePair {
+  signal: string;
+  source: string;
+}
+
+function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
+  const lines = text.split('\n').filter(l => l.trim());
+  const pairs: SignalSourcePair[] = [];
+  for (const line of lines) {
+    const sepIdx = line.lastIndexOf(' · ');
+    if (sepIdx > 0) {
+      pairs.push({
+        signal: line.substring(0, sepIdx).trim(),
+        source: line.substring(sepIdx + 3).trim(),
+      });
+    }
+  }
+  return pairs.length > 0 ? pairs : null;
+}
 
 // ─── WEARABLE TIER ───
 type WearableTier = 'none' | 'absolute' | 'partial' | 'full';
@@ -521,9 +544,11 @@ const PerformanceReadinessBrief = () => {
     ? null
     : "Check in to activate your personalised intelligence — takes two minutes.");
 
-  // Parse body for bold (**text**)
+  // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
-    const parts = text.split(/\*\*(.*?)\*\*/g);
+    // First convert <strong>...</strong> to **...** for uniform handling
+    const normalized = text.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+    const parts = normalized.split(/\*\*(.*?)\*\*/g);
     return parts.map((part, i) =>
       i % 2 === 1 ? <strong key={i} className="font-semibold">{part}</strong> : part
     );
@@ -629,42 +654,72 @@ const PerformanceReadinessBrief = () => {
       </span>
 
       {/* 11. LEAN ON */}
-      {outerBrief?.leanOn && (
-        <div className="flex items-start gap-2 mt-3">
-          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-            Lean on
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-              {outerBrief.leanOn}
-            </p>
-            {leanOnSource && (
-              <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                {leanOnSource}
-              </p>
-            )}
+      {outerBrief?.leanOn && (() => {
+        const pairs = parseSignalSourcePairs(outerBrief.leanOn);
+        return (
+          <div className="flex items-start gap-2 mt-3">
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              Lean on
+            </span>
+            <div className="flex-1 min-w-0">
+              {pairs ? (
+                <div className="space-y-0.5">
+                  {pairs.map((pair, idx) => (
+                    <p key={idx} className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                      {pair.signal} <span className="text-muted-foreground/50">· {pair.source}</span>
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                    {outerBrief.leanOn}
+                  </p>
+                  {leanOnSource && (
+                    <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
+                      {leanOnSource}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 12. WATCH FOR */}
-      {outerBrief?.watchFor && (
-        <div className="flex items-start gap-2 mt-2">
-          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            Watch for
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-              {outerBrief.watchFor}
-            </p>
-            {watchForSource && (
-              <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                {watchForSource}
-              </p>
-            )}
+      {outerBrief?.watchFor && (() => {
+        const pairs = parseSignalSourcePairs(outerBrief.watchFor);
+        return (
+          <div className="flex items-start gap-2 mt-2">
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
+              Watch for
+            </span>
+            <div className="flex-1 min-w-0">
+              {pairs ? (
+                <div className="space-y-0.5">
+                  {pairs.map((pair, idx) => (
+                    <p key={idx} className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                      {pair.signal} <span className="text-muted-foreground/50">· {pair.source}</span>
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                    {outerBrief.watchFor}
+                  </p>
+                  {watchForSource && (
+                    <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
+                      {watchForSource}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 13. DATA SOURCE NOTE */}
       <p className="mt-4 text-[9px] text-muted-foreground/35 font-body">
