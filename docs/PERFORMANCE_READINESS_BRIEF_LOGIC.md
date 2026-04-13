@@ -412,15 +412,14 @@ Patterns are inlined as qualifiers on the relevant pill — there is NO separate
 
 ```text
 1. Calendar pills (separate component, always first)
-2. HRV pill (with inline wearable pattern if applicable)
-3. Sleep pill (with inline score trajectory if applicable)
-4. RHR / Heart pill (with inline wearable trend if applicable)
-5. Wearable syncing pill (when hasWearable=true but no HRV/Sleep/RHR data yet)
-6. Mind Sharpness pill — Stage 1 check-in outcome only
-7. Clarity & Confidence pill — Stage 2 C×C matrix (with inline patterns)
+2. Heart pill — merged HRV + RHR (with inline wearable pattern if applicable)
+3. Sleep pill — analysis-only front (with inline score trajectory if applicable)
+4. Wearable syncing pill (when hasWearable=true but no Heart/Sleep data yet)
+5. Mind Sharpness pill — Stage 1 check-in outcome only
+6. Clarity & Confidence pill — Stage 2 C×C matrix (with inline patterns)
 ```
 
-Cap: maximum 6 signal chips visible (calendar is rendered separately above).
+Cap: maximum 5 signal chips visible (calendar is rendered separately above).
 
 ### 7.1 Chip Generation (`buildSignalChips()`)
 
@@ -436,50 +435,34 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 
 | Chip ID | Condition | Front Label (Analysis) | Back Label (Evidence) | Color |
 |---------|-----------|------------------------|----------------------|-------|
-| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" + inline pattern qualifier | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED/AMBER/GREEN by deviation |
-| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" + inline score trajectory | `{duration} · {deviation}% vs {baseline} baseline` | RED/AMBER/GREEN by deviation |
-| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED/AMBER/GREEN by deviation |
+| **heart** | `hrvValue != null OR rhrValue != null` | "Heart steady" / "Heart elevated" / "Heart strained" / "Heart dipped" / "Heart recovering" + inline pattern | `HRV {v}ms · {dev}% vs {base}ms · RHR {v}bpm · {dev}% vs {base}bpm` | Worst-of HRV/RHR tier |
+| **sleep** | `sleepDuration != null OR sleepScore != null` | "Well-rested body" / "Solid sleep" / "Sleep slightly short" / "Short sleep" / "Sleep below baseline" / "Poor sleep" / "Fair sleep" | `Sleep score {s} · {duration} · {dev}% vs {baseline} baseline` | RED/AMBER/GREEN by deviation |
 | **mind-sharpness** | `outcome != null` | Focused / Steady / Scattered / Drained / Depleted / Energised / Calm | `Check-in: {outcome}` | Outcome tier |
 | **clarity-confidence** | `clarityLevel OR confidenceLevel != null` | "High clarity" / "Sharp confidence" / "Low clarity" / "Clear but cautious" / "Moderate mind" + inline patterns | `Clarity {x}/5 · Confidence {y}/5` | C×C tier |
 
-**§7.1a Pill Label Vocabulary**
+**§7.1a Heart Pill Label Vocabulary**
 
-| Outcome | Front Label | Tier |
-|---------|-------------|------|
-| focused | Focused | green |
-| steady | Steady | green |
-| energised | Energised | green |
-| calm | Calm | green |
-| scattered | Scattered | amber |
-| anxious | Anxious | amber |
-| frustrated | Frustrated | amber |
-| drained | Drained | red |
-| overwhelmed | **Depleted** (not "Overwhelmed" — C-suite appropriate) | red |
+| HRV Tier | RHR Tier | Front Label | Color |
+|----------|----------|-------------|-------|
+| green | green | Heart steady | green |
+| any | red | Heart elevated | red |
+| red | green | Heart strained | red |
+| amber | green | Heart dipped | amber |
+| green (improving) | green | Heart recovering | green |
 
-**§7.1b Clarity & Confidence Front Label Matrix**:
+**§7.1b Sleep Pill Label Vocabulary**
 
-| Clarity | Confidence | Front Label | Color |
-|---------|------------|-------------|-------|
-| ≥ 4 | ≥ 4 | "High clarity · sharp confidence" | green |
-| ≥ 4 | ≤ 2 | "Clear but cautious" | amber |
-| ≤ 2 | ≥ 4 | "Confident but foggy" | amber |
-| ≤ 2 | ≤ 2 | "Low clarity · low confidence" | red |
-| ≥ 4 | mid | "High clarity" | green |
-| mid | ≥ 4 | "Sharp confidence" | green |
-| ≤ 2 | mid | "Low clarity" | amber |
-| mid | ≤ 2 | "Low confidence" | amber |
-| mid | mid | "Moderate mind" | green |
+| Condition | Front Label | Color |
+|-----------|-------------|-------|
+| duration < 6h | Short sleep | red |
+| score < 60 | Poor sleep | red |
+| deviation < -15% | Sleep below baseline | red |
+| deviation -5% to -15% | Sleep slightly short | amber |
+| score 60-70 (no deviation) | Fair sleep | amber |
+| deviation > +10% | Solid sleep | green |
+| at baseline | Well-rested body | green |
 
-**§7.1c Inline Pattern Qualifiers** (on Clarity & Confidence pill):
-
-| Pattern | Qualifier Example |
-|---------|-------------------|
-| `consecutiveLowConfidence >= 3` | `3rd day low confidence` |
-| `consecutiveLowClarity >= 3` | `3rd day low clarity` |
-| `score < typicalDOWScore - 10` | `below Monday levels` |
-| `score > typicalDOWScore + 10` | `above Monday levels` |
-
-Wearable patterns (trend declining/improving, HRV correlation) remain on HRV/Sleep/RHR pills.
+**§7.1c Mind Sharpness Pill Label Vocabulary**
 
 ### 7.2 Calibration-Aware Qualifiers
 
