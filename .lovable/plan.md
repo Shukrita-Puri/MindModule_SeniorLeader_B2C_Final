@@ -1,5 +1,6 @@
 
 
+
 # Upgrade Performance Readiness Brief LLM to v4 Spec
 
 ## Summary
@@ -26,95 +27,46 @@ Replace the current ~35-line system prompt (lines 3164-3198) with the full v4 sp
 - **Fallback**: If LLM fails, use archetype lean-on + onboarding goal. If archetype null, return null JSON. Generic output is worse than silence.
 - **Temperature**: 0 (deterministic).
 
-### 2. Restructure User Prompt Assembly
+### Status: IMPLEMENTED ✅
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 3200-3260)
+---
 
-Replace the current flat signal list with the v4 structured data sections:
+# Fix Today's 3 Performance Priorities — Context Chain, Deduplication, Time Bugs, and Multi-Practice Sequences
 
-- `=== TIME ===` — slot, day, weekend/holiday flags, hours remaining
-- `=== READINESS ===` — score, tier (reasoning only), yesterday score, trend, felt state, clarity, confidence, consecutive low days
-- `=== WEARABLE ===` (conditional) — HRV/RHR/sleep with absolute values + baselines + deviations, divergence mode, 7d trend, confidence level
-- `=== CALENDAR TODAY ===` (conditional) — C-suite classified load, high-stakes titles, back-to-back, next events
-- `=== TOMORROW ===` (evening/Friday/Sunday only)
-- `=== WEEK AHEAD ===` (Sunday evening only)
-- `=== PATTERNS ===` (conditional on check-in count thresholds: 3/7/30)
-- `=== ONBOARDING ===` (always when available) — goals, archetype, traits, commitments
+## Summary
 
-All enrichment data already fetched (lines 2497-2978) will be wired into these sections. The triangulation block stays but gets integrated into the structured format.
+Upgraded the Priorities card to inherit the Brief's intelligence, fix time hallucinations, JIT dedup, and support multi-practice sequences per slot.
 
-### 3. Expand LLM Output Contract
+## What Changed
 
-**Current**: `{"phrase": "...", "bodyText": "..."}`  
-**New**: 
-```json
-{
-  "phrase": "3-6 word directive or null",
-  "bodyText": "One sentence. <strong>Bold action</strong>. Or null.",
-  "leanOn": [{"signal": "1-3 words", "source": "Check-in|Wearable|Calendar|Coach|Archetype|Patterns|Goals"}],
-  "watchFor": [{"signal": "1-3 words", "source": "Check-in|Wearable|Calendar|Coach|Archetype|Patterns|Goals"}]
-}
-```
+### Edge Function: `supabase/functions/generate-mastery-plan/index.ts`
 
-Update the JSON parsing logic (lines 3288-3305) to extract `leanOn[]` and `watchFor[]` from the LLM response.
+1. **`buildWhyLine()` → `buildSlotContext()`**: Replaced 22-parameter flat function with structured `SlotContextInput` object producing `SlotContext { situation, whyLine }`. Uses "Because X → we do A → so that Y" causal logic with signal priority cascade (HRV correlation → divergence → coach → pattern → calendar → archetype → fallback).
 
-### 4. Update Response Object
+2. **Time-of-day fix**: All copy derives from `timeOfDay` parameter via `getTimeAnchor()`. Never hardcodes "this morning".
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 3356-3416)
+3. **JIT dedup guard**: Slot 2's JIT checks now include `&& !slot1IsJit` to prevent same event in both slots.
 
-When LLM returns valid leanOn/watchFor arrays, use those instead of the deterministic `getLeanOnWatchFor()` output. The deterministic cascade remains as **fallback only** — invoked when LLM returns null or fails validation.
+4. **Multi-practice per slot**: `HorizonModule` extended with `practices: any[]` (1-3) and `sequenceReasoning?: string`. Slot 1 gets regulate+align when depleted, all JIT modules when JIT. Slots 2-3 get 1-2 practices from remaining pool.
 
-Format the LLM leanOn/watchFor arrays into the string format the client expects:
-- `leanOn`: Items joined as "Signal · Source\nSignal · Source"
-- `watchFor`: Same format
+5. **Brief relay signals**: `outerReadinessCache` (phrase, body, leanOn, watchFor) passed into `buildHorizonModules()` and available to `buildSlotContext()`.
 
-### 5. Add Post-Generation Validation
+6. **`buildSequenceReasoning()`**: New function that generates causal chain reasoning when multiple practice types are sequenced.
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts`
+### Frontend: `src/components/home/TodayThreePriorities.tsx`
 
-After parsing LLM output, run v4 validation rules before accepting:
+1. **Multi-practice horizontal scroll**: When a slot has 2-3 practices, renders them in a horizontal scrollable container at 80% width with snap-to-start.
 
-- **Phrase rejection**: Contains blacklisted word, names day >2 away, matches known fallback template, could apply to any user
-- **Body rejection**: Contains score tier, >20 words, restates phrase, contains literal asterisks
-- **LeanOn/WatchFor rejection**: Any item >4 words, no source, is a sentence, duplicates a signal pill label
+2. **Sequence reasoning**: Displayed above practice cards in expanded view (non-italic, medium weight).
 
-On rejection: retry once (temperature 0). If second attempt fails: null that field and fall back to deterministic.
+3. **Per-practice reasoning**: Each card in multi-practice shows its individual reasoning text.
 
-### 6. Update Client Rendering for LLM Lean On / Watch For
+4. **Step indicators**: "Step 1 of 2" labels on multi-practice cards.
 
-**File:** `src/components/home/DecisionReadinessBrief.tsx` (lines 632-666)
+5. **Slot completion**: Number circle turns green only when ALL practices in slot completed. Collapsed view shows "(X of Y)" count.
 
-Update the Lean On and Watch For sections to:
-- Parse the new format (signal · source pairs)
-- Render each pair on its own line with the source as attribution
-- Support `<strong>` HTML tags in body copy (already partially done — enhance to also handle `<strong>` tags, not just `**`)
-- Keep existing pill badges ("Lean on" / "Watch for") unchanged
+6. **Start button**: Navigates to first uncompleted practice. Shows "Continue (1/2)" when partially complete.
 
-### 7. Update Fallback Logic
+7. **Practice queue**: `allPractices` flattened from all `practices[]` arrays for queue and completion tracking.
 
-**File:** `supabase/functions/compute-outer-readiness/index.ts`
-
-Replace the current template-based fallback (lines 3330-3332) with v4 fallback:
-- Phrase: archetype lean-on trait + time-of-day slot
-- Body: onboarding goal relevant to current day type
-- LeanOn: archetype lean-on (Archetype) + onboarding goal (Goals)  
-- WatchFor: archetype watch-for (Archetype)
-- If archetype also null: return null JSON entirely
-
-### 8. Include v4 Examples as Few-Shot
-
-Add a compact few-shot block (3-4 examples from the corrected v5 examples provided) into the system prompt to calibrate the model's register and specificity level. Examples selected to cover: pattern-linked phrase, MASKED_HIGH, cold start, and consecutive low days.
-
-## Files Modified
-
-1. `supabase/functions/compute-outer-readiness/index.ts` — System prompt, user prompt assembly, output parsing, validation, fallback, response formatting
-2. `src/components/home/DecisionReadinessBrief.tsx` — Lean On / Watch For rendering to support structured signal · source pairs and `<strong>` HTML tags
-
-## What Does NOT Change
-
-- Signal pills (colors, gradients, dots removal — all preserved)
-- Score row, calendar pills, raw numbers panel
-- Any other UI outside Lean On / Watch For rendering
-- The deterministic `getLeanOnWatchFor()` cascade (kept as fallback)
-- All enrichment data queries (already comprehensive)
-
+## Status: IMPLEMENTED ✅
