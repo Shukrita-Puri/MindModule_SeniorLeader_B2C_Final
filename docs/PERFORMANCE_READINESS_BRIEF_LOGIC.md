@@ -396,14 +396,15 @@ If LLM fails or times out, the system uses deterministic template-based `phrase`
 ### 7.0 Signal Pill Priority (Canonical Contract)
 
 Signal pills render in this fixed priority order. All states (green/amber/red) render — not only threshold-breakers.
+Patterns are inlined as qualifiers on the relevant pill — there is NO separate pattern pill.
 
 ```text
 1. Calendar pills (separate component, always first)
-2. HRV pill
-3. Sleep pill
-4. RHR / Heart pill
-5. Mind pill (clarity × confidence matrix)
-6. Pattern pill (at most 1)
+2. HRV pill (with inline wearable pattern if applicable)
+3. Sleep pill (with inline score trajectory if applicable)
+4. RHR / Heart pill (with inline wearable trend if applicable)
+5. Mind pill — unified from Stage 1 (checkInOutcome) + Stage 2 (clarity × confidence)
+   (with inline consecutive-low-day, DOW comparison, or score trajectory patterns)
 ```
 
 Cap: maximum 6 signal chips visible (calendar is rendered separately above).
@@ -423,13 +424,31 @@ These appear independently: check-in prompt when no check-in, wearable prompt wh
 
 | Chip ID | Condition | Front Label (Analysis) | Back Label (Evidence) | Color |
 |---------|-----------|------------------------|----------------------|-------|
-| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED: deviation < -15% or (absolute, < 20ms); AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" | `{duration} · {deviation}% vs {baseline} baseline` | RED: < 360min (hard floor) or deviation < -15%; AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED: deviation > +20%; AMBER: +10% to +20%; GREEN: ≤ +10% |
-| **mind** | `clarityLevel OR confidenceLevel != null` | Clarity × Confidence matrix (see §7.1a) | `C:{clarity}/5 · Co:{confidence}/5` | Based on matrix |
-| **pattern** | Qualifying enrichment field exists | e.g. "3rd low-confidence day" / "Score trending down" / "Below your usual Monday" | Contextual evidence string | amber/green |
+| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" + inline pattern qualifier | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED: deviation < -15% or (absolute, < 20ms); AMBER: -5% to -15%; GREEN: ≥ -5% |
+| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" + inline score trajectory | `{duration} · {deviation}% vs {baseline} baseline` | RED: < 360min (hard floor) or deviation < -15%; AMBER: -5% to -15%; GREEN: ≥ -5% |
+| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" + inline wearable trend | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED: deviation > +20%; AMBER: +10% to +20%; GREEN: ≤ +10% |
+| **mind** | `outcome OR clarityLevel OR confidenceLevel != null` | Unified: Stage 1 outcome + Stage 2 C×C (see §7.1a) + inline low-day/DOW/score patterns | `Sharpness: {outcome} · C:{clarity}/5 · Co:{confidence}/5` | Worst-of outcome tier and C×C tier |
 
-**§7.1a Mind Pill — Clarity × Confidence Matrix**:
+**§7.1a Unified Mind Pill — Stage 1 (Outcome) + Stage 2 (Clarity × Confidence)**:
+
+The Mind pill synthesizes both check-in stages into one label. Stage 1 provides the sharpness outcome (focused, steady, scattered, drained, overwhelmed). Stage 2 provides the clarity × confidence matrix.
+
+**Front label examples** (Stage 1 · Stage 2):
+- `Focused · sharp clarity` (outcome=focused, clarity≥4, confidence≥4)
+- `Scattered · low clarity` (outcome=scattered, clarity≤2)
+- `Steady · moderate mind` (outcome=steady, clarity=3, confidence=3)
+- `Drained · low confidence` (outcome=drained, confidence≤2)
+- `Overwhelmed · clarity low` (outcome=overwhelmed, clarity≤2)
+- Falls back to C×C-only label if no outcome available (see matrix below)
+
+**Back label**: `Sharpness: {outcome} · C:{x}/5 · Co:{y}/5`
+
+**Color logic** (worst-of outcome tier and C×C tier):
+- outcome in [overwhelmed, drained] OR (clarity≤2 AND confidence≤2) → **red**
+- outcome=scattered OR clarity≤2 OR confidence≤2 → **amber**
+- outcome in [focused, steady] AND clarity≥3 AND confidence≥3 → **green**
+
+**C×C-only fallback matrix** (when no outcome available):
 
 | Clarity | Confidence | Front Label | Color |
 |---------|------------|-------------|-------|
@@ -443,17 +462,23 @@ These appear independently: check-in prompt when no check-in, wearable prompt wh
 | mid | ≤ 2 | "Confidence low" | amber |
 | mid | mid | "Mind moderate" | green |
 
-**§7.1b Pattern Pill — Priority Cascade** (first match wins, max 1):
+**§7.1b Inline Pattern Qualifiers** (appended to relevant pill, no separate pattern chip):
 
-| Priority | Condition | Front Label | Back Label |
-|----------|-----------|-------------|------------|
-| 1 | `consecutiveLowConfidence >= 3` | "Nth low-confidence day" | "Confidence ≤2 for N consecutive days" |
-| 2 | `scoreTrajectory7d === 'declining'` | "Score trending down" | "7-day trend declining · today {score}/100" |
-| 3 | `scoreTrajectory7d === 'improving'` | "Score trending up" | "7-day trend improving" |
-| 4 | `score < typicalDOWScore - 10` | "Below your usual {day}" | "Today {score} vs typical {day} {typical}" |
-| 5 | `score > typicalDOWScore + 10` | "Above your usual {day}" | "Today {score} vs typical {day} {typical}" |
-| 6 | `wearableTrend7d === 'declining'` | "Wearable trend declining" | "7-day HRV trend is declining" |
-| 7 | `hrvEventCorrelation` exists | "HRV pattern detected" | The correlation string |
+Patterns are attached as `· qualifier` text on the most relevant signal pill:
+
+| Pattern | Target Pill | Qualifier Example |
+|---------|-------------|-------------------|
+| `wearableTrend7d === 'declining'` | HRV (first priority) | `· trend declining` |
+| `wearableTrend7d === 'improving'` | HRV (first priority) | `· trend improving` |
+| `hrvEventCorrelation` exists | HRV | `· pattern detected` |
+| `scoreTrajectory7d === 'declining'` | Sleep (or Mind if no wearable pills) | `· score declining` |
+| `scoreTrajectory7d === 'improving'` | Sleep (or Mind if no wearable pills) | `· score trending up` |
+| `consecutiveLowConfidence >= 3` | Mind | `· 3rd day` |
+| `consecutiveLowClarity >= 3` | Mind | `· 3rd day low clarity` |
+| `score < typicalDOWScore - 10` | Mind (qualifier) | `· below your usual Monday` |
+| `score > typicalDOWScore + 10` | Mind (qualifier) | `· above your usual Monday` |
+
+Each pattern is used at most once. Wearable patterns prefer HRV → Sleep → RHR. Score trajectory prefers Sleep → Mind.
 
 ### 7.2 Calibration-Aware Qualifiers
 
@@ -477,9 +502,9 @@ These appear independently: check-in prompt when no check-in, wearable prompt wh
 - **Prompt chips** (`no-checkin`, `wearable-prompt`, `calendar-prompt`): Click triggers navigation (not flip)
 - **Signal chips**: Tap toggles front (interpretation) ↔ back (raw metric) with 3D CSS flip animation
 - Flip auto-resets after 4 seconds
-- Flippable chips show a subtle rotate icon (RotateCw) as affordance
+- **No icon** on pills — the hint text below is sufficient affordance
 - A helper line "Tap a pill to see the number behind it" appears when flippable chips are present
-- **No duplicate summary line** — the old `buildInnerSummary()` output is removed; pills are the sole signal representation
+- **No duplicate summary line** — pills are the sole signal representation
 
 ---
 
