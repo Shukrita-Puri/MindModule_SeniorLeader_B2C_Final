@@ -424,7 +424,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (!plan?.horizonModules) return;
     const modules = plan.horizonModules;
     for (let i = 0; i < modules.length; i++) {
-      if (!completedPracticeIds.includes(modules[i].practice.contentId)) {
+      const slotPractices = modules[i].practices || [modules[i].practice];
+      const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
+      if (!slotComplete) {
         setExpandedSlot(i);
         return;
       }
