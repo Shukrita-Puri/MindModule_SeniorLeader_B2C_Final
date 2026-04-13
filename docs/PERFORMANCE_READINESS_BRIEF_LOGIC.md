@@ -763,3 +763,5 @@ All columns referenced exist and are correctly named.
 | Divergence mode | ✅ Working | MASKED_HIGH / RECOVERY_UNDERWAY |
 | hrElevated (peak HR proxy) | ✅ Fixed | Derived from HRV deviation >25% below baseline |
 | Wearable recovery trigger | ✅ Enabled | Sustained HRV deficit (≥3 days <-20%) triggers recovery override |
+| `consecutiveLowClarity` | ✅ Working | Computed server-side from last 10 check-ins, returned to client |
+| `consecutivePattern` fallback crash | ✅ Fixed | Replaced undefined var with inline `recentCheckIns` loop in fallback path |
