@@ -1,38 +1,57 @@
 
 
-# Fix: Performance Readiness Brief — LLM Block Runtime Crash
+# Fix: `llmLeanOn` / `llmWatchFor` Still Scoped Inside Conditional Block
 
 ## Root Cause
 
-Two cascading `ReferenceError`s are breaking the entire LLM synthesis pipeline, causing phrase, body, lean on, watch for, and all enrichment fields to fail.
+The previous fix moved these declarations to line 2985-2987, but that's still **inside** the `if (dataCompleteness !== 'day1') {` block (lines 2529-3560). References at lines 3580-3584 and 3602-3603 are **outside** that block (4-space indent). So the variables are out of scope and throw `ReferenceError`, which crashes the entire function — killing phrase, body, lean on, watch for, and causing the 500 that prevents ALL data (including wearable/calendar/clarity pills) from reaching the client.
 
-**Error 1 — Temporal Dead Zone**: `const isEvening = hour >= 17;` at line 3241 redeclares a variable already declared at line 1942 (`const isEvening = hour >= 18 || lateEvening`). Both are `const` in the same function scope. JavaScript hoists the later declaration, putting `isEvening` in a "temporal dead zone." When line 3057 uses `isEvening` before line 3241, it throws:
+**Why pills disappear**: The 500 error means the edge function returns no JSON at all. The client receives an error, so `outerReadinessData` is null, and the entire card falls back to minimal display with no chips, no lean on, no watch for.
+
+## Fix (1 file, 1 change)
+
+### `supabase/functions/compute-outer-readiness/index.ts`
+
+Move the 3 declarations from line 2985-2987 up to line 2495 (right after `llmBodyText`), keeping them at 4-space indent alongside `llmPhrase` and `llmBodyText`:
+
+```typescript
+// Line ~2493-2495 (existing)
+let llmPhrase: string | null = null;
+let llmBodyText: string | null = null;
+// ADD these 3 here:
+let llmLeanOn: Array<{signal: string; source: string}> | null = null;
+let llmWatchFor: Array<{signal: string; source: string}> | null = null;
+let llmFallbackReason: string | null = null;
 ```
-ReferenceError: Cannot access 'isEvening' before initialization
+
+Then delete the duplicate declarations at lines 2985-2987.
+
+### Resilience guard
+
+After this fix, add a defensive check at line 3562 (just before the references):
+
+```typescript
+// Ensure LLM variables are always defined (defensive)
+if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
+if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
 ```
 
-**Error 2 — Cascading crash**: Error 1 kills the entire LLM block (lines ~2990-3555). `llmLeanOn` and `llmWatchFor` (declared at line 3429) never come into existence. When line 3580 references `llmLeanOn`, it throws:
-```
-ReferenceError: llmLeanOn is not defined
-```
+This prevents future scope bugs from crashing the response assembly.
 
-**Visible symptoms**: The card falls back to template phrase ("Sustain the pace.") with no body copy, no lean on, no watch for. Wearable/clarity/confidence data IS being returned correctly (those are computed before the LLM block), so the chips should render if the data exists — but the user's screenshot shows "Connect wearable for full intelligence" which means either the wearable data isn't reaching the client OR there's a separate data flow issue.
+### Redeploy
 
-## Fix (2 changes in 1 file)
+Deploy `compute-outer-readiness` and verify via curl that the function returns 200 with populated `leanOn`, `watchFor`, `bodyText`, and all wearable/calendar enrichment fields.
 
-### File: `supabase/functions/compute-outer-readiness/index.ts`
-
-**Change 1**: Rename `const isEvening` at line 3241 to `const isEveningForPrompt` (or simply remove it and reuse the existing `isEvening` from line 1942). Then update its 2 references at lines 3280 and wherever else it's used in the prompt assembly section.
-
-**Change 2**: Move the `llmLeanOn`, `llmWatchFor`, and `llmFallbackReason` declarations (line 3429) OUTSIDE the inner try block — to just before the LLM synthesis try/catch (around line 2988) — so they are always in scope for the response assembly at line 3580. Initialize them as `null`.
-
-### Verification
-
-After deployment, confirm the edge function logs no longer show `isEvening` or `llmLeanOn` errors, and the response includes LLM-generated phrase, body, leanOn, and watchFor fields.
+## What This Fixes
+- **500 error** → function returns 200 with full data
+- **Wearable pills** → data was always computed correctly, just never reached the client due to the crash
+- **Calendar pills** → same — data exists but response was killed
+- **Clarity/confidence pills** → same
+- **Lean on / Watch for** → LLM output now reaches the response assembly
+- **Body copy** → was already in outer scope, but the 500 killed it
 
 ## What Does NOT Change
-- Signal chip logic (wearable, clarity, confidence pills) — these are client-side and unaffected
-- Calendar pills — client-side rendering, unaffected
 - No UI changes
-- No migration or schema changes
+- No schema changes
+- Signal pill logic, chip rendering, score row — all untouched
 
