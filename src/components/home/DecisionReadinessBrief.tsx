@@ -152,8 +152,9 @@ function devSign(d: number): string {
 
 // ─── DOC-ALIGNED CHIP BUILDER ───
 // Follows §7 of PERFORMANCE_READINESS_BRIEF_LOGIC.md
-// Priority: HRV → Sleep → RHR → Mind → Pattern
+// Priority: HRV → Sleep → RHR → Mind (unified) → inline patterns on each
 // Every metric renders at all states (green/amber/red), not only when thresholds crossed
+// Patterns are appended as qualifiers on the relevant pill — no separate pattern chip
 function buildSignalChips(
   outerBrief: any,
   energyState: any,
@@ -173,6 +174,20 @@ function buildSignalChips(
     }
     return promptChips;
   }
+
+  // ── Pattern data (used inline) ──
+  const wearableTrend = outerBrief?.wearableTrend7d as string | null;
+  const hrvCorrelation = outerBrief?.hrvEventCorrelation as string | null;
+  const scoreTrajectory = outerBrief?.scoreTrajectory7d as string | null;
+  const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
+  const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
+  const typicalDOW = outerBrief?.typicalDOWScore as number | null;
+  const score = energyState?.overallBalance ?? null;
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayName = dayNames[new Date().getDay()];
+
+  // Track which pattern has been used so we don't double up
+  let wearablePatternUsed = false;
 
   // ── Qualifier helpers ──
   const tierSuffix = tier === 'absolute' ? ' · establishing baseline' : tier === 'partial' ? ' · early reading' : '';
@@ -203,7 +218,6 @@ function buildSignalChips(
     let qualifier = tierSuffix;
 
     if (tier === 'full' && hrvDev != null) {
-      // Deviation-based
       if (hrvDev < -15) {
         frontLabel = 'HRV below baseline';
         color = 'red';
@@ -228,11 +242,22 @@ function buildSignalChips(
       else if (hrvDev > 5) { frontLabel = 'HRV above baseline'; color = 'green'; }
       else { frontLabel = 'HRV at baseline'; color = 'green'; }
     } else {
-      // Absolute thresholds (no deviation)
       if (hrvVal < 20) { frontLabel = 'HRV low'; color = 'red'; }
       else if (hrvVal < 40) { frontLabel = 'HRV moderate'; color = 'amber'; }
       else if (hrvVal > 70) { frontLabel = 'HRV strong'; color = 'green'; }
       else { frontLabel = 'HRV normal'; color = 'green'; }
+    }
+
+    // Inline wearable pattern on HRV (highest priority wearable pill)
+    if (wearableTrend === 'declining' && !wearablePatternUsed) {
+      frontLabel += ' · trend declining';
+      wearablePatternUsed = true;
+    } else if (wearableTrend === 'improving' && !wearablePatternUsed) {
+      frontLabel += ' · trend improving';
+      wearablePatternUsed = true;
+    } else if (hrvCorrelation && !wearablePatternUsed) {
+      frontLabel += ' · pattern detected';
+      wearablePatternUsed = true;
     }
 
     // Back label: evidence
@@ -259,7 +284,6 @@ function buildSignalChips(
     let color: SignalChip['color'];
     const qualifier = tierSuffix;
 
-    // Hard floor: <360 min is always red
     if (sleepDur != null && sleepDur < 360) {
       frontLabel = `Short sleep · ${fmtSleepDur(sleepDur)}`;
       color = 'red';
@@ -282,12 +306,20 @@ function buildSignalChips(
       else if (sleepScore < 70) { frontLabel = `Fair sleep · ${sleepScore}`; color = 'amber'; }
       else { frontLabel = `Solid sleep · ${sleepScore}`; color = 'green'; }
     } else if (sleepDur != null) {
-      // No deviation yet
       if (sleepDur < 420) { frontLabel = `Light sleep · ${fmtSleepDur(sleepDur)}`; color = 'amber'; }
       else { frontLabel = `Sleep · ${fmtSleepDur(sleepDur)}`; color = 'green'; }
     } else {
       frontLabel = 'Sleep data';
       color = 'neutral';
+    }
+
+    // Inline wearable/score pattern on sleep if HRV didn't use it
+    if (scoreTrajectory === 'declining' && !wearablePatternUsed) {
+      frontLabel += ' · score declining';
+      wearablePatternUsed = true;
+    } else if (scoreTrajectory === 'improving' && !wearablePatternUsed) {
+      frontLabel += ' · score improving';
+      wearablePatternUsed = true;
     }
 
     // Back label
@@ -324,10 +356,15 @@ function buildSignalChips(
       else if (rhrDev < -10) { frontLabel = 'RHR low · recovered'; color = 'green'; }
       else { frontLabel = 'RHR at baseline'; color = 'green'; }
     } else {
-      // Absolute
       if (rhrVal > 90) { frontLabel = 'RHR high'; color = 'red'; }
       else if (rhrVal > 80) { frontLabel = 'RHR elevated'; color = 'amber'; }
       else { frontLabel = 'RHR normal'; color = 'green'; }
+    }
+
+    // Inline remaining wearable pattern on RHR if not used yet
+    if (wearableTrend === 'declining' && !wearablePatternUsed) {
+      frontLabel += ' · trend declining';
+      wearablePatternUsed = true;
     }
 
     let backLabel: string;
@@ -347,119 +384,110 @@ function buildSignalChips(
   }
 
   // ────────────────────────────────────────
-  // §7.1  MIND PILL — clarity × confidence matrix (NOT outcome-led)
+  // §7.1  UNIFIED MIND PILL — Stage 1 (outcome) + Stage 2 (clarity × confidence)
+  // Synthesizes check-in sharpness + clarity/confidence into one pill
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
+  const outcome = energyState?.checkInOutcome as string | null;
 
-  if (clarity != null && confidence != null) {
+  // Outcome tier mapping
+  const outcomeTier = (o: string | null): 'red' | 'amber' | 'green' | null => {
+    if (!o) return null;
+    if (['overwhelmed', 'drained'].includes(o)) return 'red';
+    if (['scattered', 'anxious', 'frustrated'].includes(o)) return 'amber';
+    if (['focused', 'steady', 'energised', 'calm'].includes(o)) return 'green';
+    return 'amber'; // fallback for unknown outcomes
+  };
+
+  // C×C tier mapping
+  const ccTier = (c: number | null, co: number | null): 'red' | 'amber' | 'green' | null => {
+    if (c == null && co == null) return null;
+    if ((c != null && c <= 2) && (co != null && co <= 2)) return 'red';
+    if ((c != null && c <= 2) || (co != null && co <= 2)) return 'amber';
+    if ((c != null && c >= 4) && (co != null && co >= 4)) return 'green';
+    return 'green';
+  };
+
+  // Worst-of color
+  const worstOf = (a: 'red' | 'amber' | 'green' | null, b: 'red' | 'amber' | 'green' | null): SignalChip['color'] => {
+    const order = { red: 0, amber: 1, green: 2 };
+    if (a == null && b == null) return 'green';
+    if (a == null) return b!;
+    if (b == null) return a;
+    return order[a] <= order[b] ? a : b;
+  };
+
+  const oTier = outcomeTier(outcome);
+  const cTier = ccTier(clarity, confidence);
+
+  if (outcome || clarity != null || confidence != null) {
     let frontLabel: string;
-    let color: SignalChip['color'];
-    const backLabel = `C:${clarity}/5 · Co:${confidence}/5`;
+    const color = worstOf(oTier, cTier);
 
-    if (clarity >= 4 && confidence >= 4) {
-      frontLabel = 'Clarity sharp · high confidence';
-      color = 'green';
-    } else if (clarity >= 4 && confidence <= 2) {
-      frontLabel = 'Clarity sharp · low confidence';
-      color = 'amber';
-    } else if (clarity <= 2 && confidence >= 4) {
-      frontLabel = 'Low clarity · high confidence';
-      color = 'amber';
-    } else if (clarity <= 2 && confidence <= 2) {
-      frontLabel = 'Low clarity · low confidence';
-      color = 'red';
-    } else if (clarity >= 4) {
-      frontLabel = 'Clarity sharp';
-      color = 'green';
-    } else if (confidence >= 4) {
-      frontLabel = 'High confidence';
-      color = 'green';
-    } else if (clarity <= 2) {
-      frontLabel = 'Clarity low';
-      color = 'amber';
-    } else if (confidence <= 2) {
-      frontLabel = 'Confidence low';
-      color = 'amber';
+    // Synthesize front label from both stages
+    const outcomeLabel = outcome ? outcome.charAt(0).toUpperCase() + outcome.slice(1) : null;
+
+    if (outcomeLabel && clarity != null && confidence != null) {
+      // Full synthesis: Stage 1 + Stage 2
+      const ccDesc = clarity >= 4 && confidence >= 4 ? 'sharp clarity'
+        : clarity >= 4 ? 'sharp clarity · low confidence'
+        : clarity <= 2 && confidence <= 2 ? 'low clarity · low confidence'
+        : clarity <= 2 ? 'low clarity'
+        : confidence <= 2 ? 'low confidence'
+        : confidence >= 4 ? 'high confidence'
+        : 'moderate mind';
+      frontLabel = `${outcomeLabel} · ${ccDesc}`;
+    } else if (outcomeLabel && clarity != null) {
+      const cDesc = clarity >= 4 ? 'sharp clarity' : clarity <= 2 ? 'low clarity' : 'moderate clarity';
+      frontLabel = `${outcomeLabel} · ${cDesc}`;
+    } else if (outcomeLabel && confidence != null) {
+      const coDesc = confidence >= 4 ? 'high confidence' : confidence <= 2 ? 'low confidence' : 'moderate confidence';
+      frontLabel = `${outcomeLabel} · ${coDesc}`;
+    } else if (outcomeLabel) {
+      frontLabel = `Mind ${outcomeLabel.toLowerCase()}`;
+    } else if (clarity != null && confidence != null) {
+      // No outcome, just C×C
+      if (clarity >= 4 && confidence >= 4) frontLabel = 'Clarity sharp · high confidence';
+      else if (clarity <= 2 && confidence <= 2) frontLabel = 'Low clarity · low confidence';
+      else if (clarity >= 4) frontLabel = 'Clarity sharp';
+      else if (clarity <= 2) frontLabel = 'Clarity low';
+      else if (confidence >= 4) frontLabel = 'High confidence';
+      else if (confidence <= 2) frontLabel = 'Confidence low';
+      else frontLabel = 'Mind moderate';
+    } else if (clarity != null) {
+      frontLabel = clarity >= 4 ? 'Clarity sharp' : clarity <= 2 ? 'Clarity low' : 'Clarity moderate';
+    } else if (confidence != null) {
+      frontLabel = confidence >= 4 ? 'High confidence' : confidence <= 2 ? 'Confidence low' : 'Confidence moderate';
     } else {
-      frontLabel = 'Mind moderate';
-      color = 'green';
+      frontLabel = 'Mind assessed';
     }
 
-    chips.push({ id: 'mind', label: frontLabel, backLabel, color });
-  } else if (clarity != null) {
-    // Only clarity
-    const color: SignalChip['color'] = clarity >= 4 ? 'green' : clarity <= 2 ? 'amber' : 'green';
-    const label = clarity >= 4 ? 'Clarity sharp' : clarity <= 2 ? 'Clarity low' : 'Clarity moderate';
-    chips.push({ id: 'mind', label, backLabel: `C:${clarity}/5`, color });
-  } else if (confidence != null) {
-    const color: SignalChip['color'] = confidence >= 4 ? 'green' : confidence <= 2 ? 'amber' : 'green';
-    const label = confidence >= 4 ? 'High confidence' : confidence <= 2 ? 'Confidence low' : 'Confidence moderate';
-    chips.push({ id: 'mind', label, backLabel: `Co:${confidence}/5`, color });
-  }
+    // Inline pattern: consecutive low days
+    if (consecLowConf >= 3) {
+      const ordinal = consecLowConf === 3 ? '3rd' : `${consecLowConf}th`;
+      frontLabel += ` · ${ordinal} day`;
+    } else if (consecLowClarity >= 3) {
+      const ordinal = consecLowClarity === 3 ? '3rd' : `${consecLowClarity}th`;
+      frontLabel += ` · ${ordinal} day low clarity`;
+    }
 
-  // ────────────────────────────────────────
-  // §7  PATTERN PILLS — render from upstream enrichment fields
-  // ────────────────────────────────────────
-  const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
-  const scoreTrajectory = outerBrief?.scoreTrajectory7d as string | null;
-  const typicalDOW = outerBrief?.typicalDOWScore as number | null;
-  const wearableTrend = outerBrief?.wearableTrend7d as string | null;
-  const hrvCorrelation = outerBrief?.hrvEventCorrelation as string | null;
-  const score = energyState?.overallBalance ?? null;
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const todayName = dayNames[new Date().getDay()];
+    // Inline pattern: DOW comparison
+    let mindQualifier = '';
+    if (typicalDOW != null && score != null && score < typicalDOW - 10) {
+      mindQualifier = ` · below your usual ${todayName}`;
+    } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
+      mindQualifier = ` · above your usual ${todayName}`;
+    }
 
-  // Only show the most relevant pattern (1 max)
-  if (consecLowConf >= 3) {
-    chips.push({
-      id: 'pattern',
-      label: `${consecLowConf}${consecLowConf === 3 ? 'rd' : 'th'} low-confidence day`,
-      backLabel: `Confidence ≤2 for ${consecLowConf} consecutive days`,
-      color: 'amber',
-    });
-  } else if (scoreTrajectory === 'declining' && score != null) {
-    chips.push({
-      id: 'pattern',
-      label: 'Score trending down',
-      backLabel: `7-day trend declining · today ${score}/100`,
-      color: 'amber',
-    });
-  } else if (scoreTrajectory === 'improving') {
-    chips.push({
-      id: 'pattern',
-      label: 'Score trending up',
-      backLabel: `7-day trend improving`,
-      color: 'green',
-    });
-  } else if (typicalDOW != null && score != null && score < typicalDOW - 10) {
-    chips.push({
-      id: 'pattern',
-      label: `Below your usual ${todayName}`,
-      backLabel: `Today ${score} vs typical ${todayName} ${typicalDOW}`,
-      color: 'amber',
-    });
-  } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
-    chips.push({
-      id: 'pattern',
-      label: `Above your usual ${todayName}`,
-      backLabel: `Today ${score} vs typical ${todayName} ${typicalDOW}`,
-      color: 'green',
-    });
-  } else if (wearableTrend === 'declining') {
-    chips.push({
-      id: 'pattern',
-      label: 'Wearable trend declining',
-      backLabel: '7-day HRV trend is declining',
-      color: 'amber',
-    });
-  } else if (hrvCorrelation) {
-    chips.push({
-      id: 'pattern',
-      label: 'HRV pattern detected',
-      backLabel: hrvCorrelation,
-      color: 'amber',
-    });
+    // Back label: evidence
+    const backParts: string[] = [];
+    if (outcomeLabel) backParts.push(`Sharpness: ${outcomeLabel.toLowerCase()}`);
+    if (clarity != null) backParts.push(`C:${clarity}/5`);
+    if (confidence != null) backParts.push(`Co:${confidence}/5`);
+    const backLabel = backParts.join(' · ');
+
+    chips.push({ id: 'mind', label: frontLabel, backLabel: backLabel || undefined, color, qualifier: mindQualifier || undefined });
   }
 
   // Cap at 6 visible chips (Calendar is separate, so this only caps signal chips)
