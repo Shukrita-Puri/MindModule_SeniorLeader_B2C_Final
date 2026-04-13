@@ -1,16 +1,23 @@
 /**
  * PerformanceReadinessBrief – unified card replacing TodayStateCard + StrategicIntentionCard
  * Variant A only: interpretation chips with tap-to-flip number reveal.
+ * 
+ * Signal Pill Contract (from PERFORMANCE_READINESS_BRIEF_LOGIC.md §7):
+ *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind → 6.Pattern
+ *   Every pill has: front (analysis) + back (evidence)
+ *   All states render (green/amber/red) — not only threshold-breakers
+ *   Mind pill is clarity×confidence matrix, NOT outcome-led
+ *   Pattern pills surface when upstream enrichment fields qualify
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCw } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ─── TYPES ───
@@ -57,15 +64,6 @@ const getDateLabel = (): string => {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 };
 
-const chipDotColor = (color: SignalChip['color']) => {
-  switch (color) {
-    case 'red': return 'bg-white';
-    case 'amber': return 'bg-white/90';
-    case 'green': return 'bg-white';
-    default: return 'bg-white/70';
-  }
-};
-
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
     case 'red': return 'bg-gradient-to-r from-red-200 to-red-100 text-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.10)] border-0';
@@ -91,25 +89,18 @@ const eventPillStyle = 'bg-gradient-to-r from-[hsl(var(--taupe))] to-[hsl(var(--
 const getSourceLabel = (source: string | undefined): string => {
   if (!source) return '';
   switch (source) {
-    case 'llm-v4':
-      return ''; // LLM v4 embeds sources inline — no top-level label
+    case 'llm-v4': return '';
     case 'coach-insights-recent':
-    case 'coach-insights-grace':
-      return 'From coach conversations';
+    case 'coach-insights-grace': return 'From coach conversations';
     case 'cc-modifier':
-    case 'cc-modifier-with-context':
-      return 'From your check-in today';
+    case 'cc-modifier-with-context': return 'From your check-in today';
     case 'coach-partial-strength':
-    case 'coach-partial-growth':
-      return 'Coach + archetype';
-    case 'archetype-tier':
-      return 'From your archetype';
+    case 'coach-partial-growth': return 'Coach + archetype';
+    case 'archetype-tier': return 'From your archetype';
     case 'tier-fallback':
     case 'sunday-evening-override':
-    case 'evening-recovery-override':
-      return 'From readiness score';
-    default:
-      return '';
+    case 'evening-recovery-override': return 'From readiness score';
+    default: return '';
   }
 };
 
@@ -148,7 +139,21 @@ function getWearableTier(outerBrief: any): WearableTier {
   return 'none';
 }
 
-// ─── CHIP BUILDER (deterministic, no LLM) ───
+// ─── FORMAT HELPERS ───
+function fmtSleepDur(mins: number): string {
+  const hrs = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${hrs}h ${m}m` : `${hrs}h`;
+}
+
+function devSign(d: number): string {
+  return d >= 0 ? `+${d}%` : `${d}%`;
+}
+
+// ─── DOC-ALIGNED CHIP BUILDER ───
+// Follows §7 of PERFORMANCE_READINESS_BRIEF_LOGIC.md
+// Priority: HRV → Sleep → RHR → Mind → Pattern
+// Every metric renders at all states (green/amber/red), not only when thresholds crossed
 function buildSignalChips(
   outerBrief: any,
   energyState: any,
@@ -169,295 +174,309 @@ function buildSignalChips(
     return promptChips;
   }
 
-  // Longitudinal qualifier – suppressed for Apple Health < 14 days
-  const getQualifier = (isWorst10?: boolean, isBest7d?: boolean): string => {
+  // ── Qualifier helpers ──
+  const tierSuffix = tier === 'absolute' ? ' · establishing baseline' : tier === 'partial' ? ' · early reading' : '';
+
+  const getLongQualifier = (isWorst10?: boolean, isBest7d?: boolean): string => {
     if (tier !== 'full') return '';
-    if (isAppleHealth && wearableDays < 14) return ''; // Apple Health HRV inconsistency
+    if (isAppleHealth && wearableDays < 14) return '';
     if (checkInCountTotal < 7) return '';
-    if (isWorst10) {
-      if (checkInCountTotal >= 15) return ' · unusual for you';
-      return ' · unusual this week';
-    }
+    if (isWorst10) return checkInCountTotal >= 15 ? ' · unusual for you' : ' · unusual this week';
     if (isBest7d) return ' · best this week';
     return '';
   };
 
-  // Tier qualifier suffix
-  const tierSuffix = tier === 'absolute' ? ' · establishing baseline' : tier === 'partial' ? ' · early reading' : '';
-
-  // Helper for back labels with baseline context
+  // ── Baselines ──
   const hrvBaseline = outerBrief?.hrvBaseline;
   const sleepBaseline = outerBrief?.sleepBaseline;
   const rhrBaseline = outerBrief?.rhrBaseline;
 
-  const hrvBackLabel = (val: number | null, dev: number | null): string => {
-    if (val == null) return '';
-    if (tier === 'full' && hrvBaseline) return `HRV: ${val}ms (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${hrvBaseline}ms avg)`;
-    return `HRV: ${val}ms (baseline not yet established)`;
-  };
+  // ────────────────────────────────────────
+  // §7.1  HRV PILL — always shows when data exists
+  // ────────────────────────────────────────
+  const hrvVal = outerBrief?.hrvValue as number | null;
+  const hrvDev = outerBrief?.hrvDeviation as number | null;
 
-  const sleepBackLabel = (dur: number | null, dev: number | null, score: number | null): string => {
-    if (dur != null) {
-      const hrs = Math.floor(dur / 60);
-      const mins = dur % 60;
-      const durStr = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-      if (tier === 'full' && sleepBaseline) {
-        const avgHrs = Math.floor(sleepBaseline / 60);
-        return `Sleep: ${durStr} (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${avgHrs}h avg)`;
-      }
-      return `Sleep: ${durStr}`;
-    }
-    if (score != null) {
-      if (tier === 'full' && sleepBaseline) return `Sleep score: ${score} (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${sleepBaseline} avg)`;
-      return `Sleep score: ${score}`;
-    }
-    return '';
-  };
+  if (hrvVal != null) {
+    let frontLabel: string;
+    let color: SignalChip['color'];
+    let qualifier = tierSuffix;
 
-  const rhrBackLabel = (val: number | null, dev: number | null): string => {
-    if (val == null) return '';
-    if (tier === 'full' && rhrBaseline) return `RHR: ${val}bpm (${dev != null && dev >= 0 ? '+' : ''}${dev}% vs your ${rhrBaseline}bpm avg)`;
-    return `RHR: ${val}bpm (baseline not yet established)`;
-  };
-
-  // ── Wearable chips by tier ──
-  if (tier === 'full') {
-    // Full deviation-based logic
-    const hrvDev = outerBrief?.hrvDeviation;
-    const hrvVal = outerBrief?.hrvValue;
-    if (hrvDev != null) {
+    if (tier === 'full' && hrvDev != null) {
+      // Deviation-based
       if (hrvDev < -15) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV low · ${hrvVal}ms` : 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: getQualifier(true) });
-      } else if (hrvDev >= -15 && hrvDev < -8) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV dipped · ${hrvVal}ms` : 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber' });
+        frontLabel = 'HRV below baseline';
+        color = 'red';
+        qualifier = getLongQualifier(true) || tierSuffix;
+      } else if (hrvDev < -5) {
+        frontLabel = 'HRV dipped';
+        color = 'amber';
       } else if (hrvDev > 15) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV strong · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: getQualifier(false, true) });
-      } else if (hrvDev > 8) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV up · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green' });
-      }
-    }
-
-    // Sleep
-    const sleepDev = outerBrief?.sleepDeviation;
-    const sleepDur = outerBrief?.sleepDuration;
-    const sleepScore = outerBrief?.sleepScore;
-    if (sleepDur != null && sleepDur < 360) {
-      const hrs = Math.floor(sleepDur / 60);
-      const mins = sleepDur % 60;
-      chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red' });
-    } else if (sleepDev != null) {
-      if (sleepDev < -15) {
-        chips.push({ id: 'sleep', label: sleepDur != null ? `Poor sleep · ${Math.floor(sleepDur / 60)}h` : 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: ' · below your avg' });
-      } else if (sleepDev > 10) {
-        chips.push({ id: 'sleep', label: sleepDur != null ? `Well rested · ${Math.floor(sleepDur / 60)}h` : 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: ' · above your avg' });
-      }
-    }
-
-    // RHR (deviation-based)
-    const rhrDev = outerBrief?.rhrDeviation;
-    const rhrVal = outerBrief?.rhrValue;
-    if (rhrDev != null) {
-      if (rhrDev > 20) {
-        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR high · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red' });
-      } else if (rhrDev > 10) {
-        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR up · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber' });
-      }
-      // <= 10%: omit (including negative — low RHR is good)
-    }
-  } else if (tier === 'partial') {
-    // Partial: use available deviation with "early reading" suffix, no personal qualifiers
-    const hrvDev = outerBrief?.hrvDeviation;
-    const hrvVal = outerBrief?.hrvValue;
-    if (hrvDev != null) {
-      if (hrvDev < -15) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV low · ${hrvVal}ms` : 'Body under load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'red', qualifier: tierSuffix });
-      } else if (hrvDev >= -15 && hrvDev < -8) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV dipped · ${hrvVal}ms` : 'Body under mild load', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'amber', qualifier: tierSuffix });
-      } else if (hrvDev > 8) {
-        chips.push({ id: 'hrv', label: hrvVal != null ? `HRV up · ${hrvVal}ms` : 'Body recovered', backLabel: hrvBackLabel(hrvVal, hrvDev), color: 'green', qualifier: tierSuffix });
-      }
-    }
-
-    const sleepDev = outerBrief?.sleepDeviation;
-    const sleepDur = outerBrief?.sleepDuration;
-    const sleepScore = outerBrief?.sleepScore;
-    if (sleepDur != null && sleepDur < 360) {
-      const hrs = Math.floor(sleepDur / 60);
-      const mins = sleepDur % 60;
-      chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
-    } else if (sleepDev != null) {
-      if (sleepDev < -15) {
-        chips.push({ id: 'sleep', label: sleepDur != null ? `Poor sleep · ${Math.floor(sleepDur / 60)}h` : 'Poor sleep', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'red', qualifier: tierSuffix });
-      } else if (sleepDev > 10) {
-        chips.push({ id: 'sleep', label: sleepDur != null ? `Well rested · ${Math.floor(sleepDur / 60)}h` : 'Well rested', backLabel: sleepBackLabel(sleepDur, sleepDev, sleepScore), color: 'green', qualifier: tierSuffix });
-      }
-    }
-
-    const rhrDev = outerBrief?.rhrDeviation;
-    const rhrVal = outerBrief?.rhrValue;
-    if (rhrDev != null) {
-      if (rhrDev > 20) {
-        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR high · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'red', qualifier: tierSuffix });
-      } else if (rhrDev > 10) {
-        chips.push({ id: 'rhr', label: rhrVal != null ? `RHR up · ${rhrVal}bpm` : 'HR elevated', backLabel: rhrBackLabel(rhrVal, rhrDev), color: 'amber', qualifier: tierSuffix });
-      }
-    }
-  } else if (tier === 'absolute') {
-    // Absolute thresholds for day 1-2, no history
-    const hrvVal = outerBrief?.hrvValue;
-    const sleepDur = outerBrief?.sleepDuration;
-    const sleepScore = outerBrief?.sleepScore;
-    const rhrVal = outerBrief?.rhrValue;
-
-    if (hrvVal != null) {
-      if (hrvVal < 20) {
-        chips.push({ id: 'hrv', label: `HRV low · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'red', qualifier: tierSuffix });
-      } else if (hrvVal < 40) {
-        chips.push({ id: 'hrv', label: `HRV · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'amber', qualifier: tierSuffix });
-      } else if (hrvVal > 70) {
-        chips.push({ id: 'hrv', label: `HRV strong · ${hrvVal}ms`, backLabel: hrvBackLabel(hrvVal, null), color: 'green', qualifier: tierSuffix });
-      }
-    }
-
-    // Sleep: prefer score if available, else duration
-    if (sleepScore != null) {
-      if (sleepScore < 60) {
-        chips.push({ id: 'sleep', label: `Poor sleep · ${sleepScore}`, backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'red', qualifier: tierSuffix });
-      } else if (sleepScore > 75) {
-        chips.push({ id: 'sleep', label: `Well rested · ${sleepScore}`, backLabel: sleepBackLabel(sleepDur, null, sleepScore), color: 'green', qualifier: tierSuffix });
-      }
-    } else if (sleepDur != null) {
-      const hrs = Math.floor(sleepDur / 60);
-      const mins = sleepDur % 60;
-      if (sleepDur < 360) {
-        chips.push({ id: 'sleep', label: `Short sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, null, null), color: 'red', qualifier: tierSuffix });
-      } else if (sleepDur < 420) {
-        chips.push({ id: 'sleep', label: `Light sleep · ${hrs}h${mins > 0 ? ` ${mins}m` : ''}`, backLabel: sleepBackLabel(sleepDur, null, null), color: 'amber', qualifier: tierSuffix });
-      }
-    }
-
-    if (rhrVal != null) {
-      if (rhrVal > 90) {
-        chips.push({ id: 'rhr', label: `RHR high · ${rhrVal}bpm`, backLabel: rhrBackLabel(rhrVal, null), color: 'red', qualifier: tierSuffix });
-      } else if (rhrVal > 80) {
-        chips.push({ id: 'rhr', label: `RHR up · ${rhrVal}bpm`, backLabel: rhrBackLabel(rhrVal, null), color: 'amber', qualifier: tierSuffix });
-      }
-    }
-  }
-
-  // ── Wearable "steady state" chip: show when connected but no deviation chip generated ──
-  if (tier !== 'none') {
-    const hasWearableChip = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
-    if (!hasWearableChip) {
-      // Build a backLabel from available raw metrics so the pill is flippable
-      const steadyMetrics: string[] = [];
-      const hrvVal = outerBrief?.hrvValue;
-      const hrvDev = outerBrief?.hrvDeviation;
-      if (hrvVal != null) {
-        steadyMetrics.push(hrvDev != null && hrvBaseline ? `HRV: ${hrvVal}ms (${hrvDev >= 0 ? '+' : ''}${hrvDev}% vs ${hrvBaseline}ms)` : `HRV: ${hrvVal}ms`);
-      }
-      if (outerBrief?.sleepDuration != null) {
-        const hrs = Math.floor(outerBrief.sleepDuration / 60);
-        const mins = outerBrief.sleepDuration % 60;
-        const durStr = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-        const sDev = outerBrief?.sleepDeviation;
-        steadyMetrics.push(sDev != null && sleepBaseline ? `Sleep: ${durStr} (${sDev >= 0 ? '+' : ''}${sDev}%)` : `Sleep: ${durStr}`);
-      } else if (outerBrief?.sleepScore != null) {
-        steadyMetrics.push(`Sleep: ${outerBrief.sleepScore}`);
-      }
-      if (outerBrief?.rhrValue != null) {
-        const rDev = outerBrief?.rhrDeviation;
-        steadyMetrics.push(rDev != null && rhrBaseline ? `RHR: ${outerBrief.rhrValue}bpm (${rDev >= 0 ? '+' : ''}${rDev}%)` : `RHR: ${outerBrief.rhrValue}bpm`);
-      }
-      const steadyBack = steadyMetrics.length > 0 ? steadyMetrics.join(' · ') : undefined;
-
-      if (tier === 'absolute') {
-        chips.push({ id: 'wearable-steady', label: 'System online', backLabel: steadyBack, color: 'neutral', qualifier: ' · establishing baseline' });
-      } else if (tier === 'partial') {
-        chips.push({ id: 'wearable-steady', label: 'Body steady', backLabel: steadyBack, color: 'green', qualifier: ' · early reading' });
+        frontLabel = 'HRV strong';
+        color = 'green';
+        qualifier = getLongQualifier(false, true) || tierSuffix;
+      } else if (hrvDev > 5) {
+        frontLabel = 'HRV above baseline';
+        color = 'green';
       } else {
-        chips.push({ id: 'wearable-steady', label: 'Body steady', backLabel: steadyBack, color: 'green' });
+        frontLabel = 'HRV at baseline';
+        color = 'green';
       }
+    } else if ((tier === 'partial' || tier === 'absolute') && hrvDev != null) {
+      if (hrvDev < -15) { frontLabel = 'HRV below baseline'; color = 'red'; }
+      else if (hrvDev < -5) { frontLabel = 'HRV dipped'; color = 'amber'; }
+      else if (hrvDev > 5) { frontLabel = 'HRV above baseline'; color = 'green'; }
+      else { frontLabel = 'HRV at baseline'; color = 'green'; }
+    } else {
+      // Absolute thresholds (no deviation)
+      if (hrvVal < 20) { frontLabel = 'HRV low'; color = 'red'; }
+      else if (hrvVal < 40) { frontLabel = 'HRV moderate'; color = 'amber'; }
+      else if (hrvVal > 70) { frontLabel = 'HRV strong'; color = 'green'; }
+      else { frontLabel = 'HRV normal'; color = 'green'; }
     }
+
+    // Back label: evidence
+    let backLabel: string;
+    if (hrvDev != null && hrvBaseline) {
+      backLabel = `${hrvVal}ms · ${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
+    } else {
+      backLabel = `${hrvVal}ms`;
+      if (tier === 'absolute' || tier === 'partial') backLabel += ' · baseline building';
+    }
+
+    chips.push({ id: 'hrv', label: frontLabel, backLabel, color, qualifier });
   }
 
+  // ────────────────────────────────────────
+  // §7.1  SLEEP PILL — always shows when data exists
+  // ────────────────────────────────────────
+  const sleepDur = outerBrief?.sleepDuration as number | null;
+  const sleepScore = outerBrief?.sleepScore as number | null;
+  const sleepDev = outerBrief?.sleepDeviation as number | null;
+
+  if (sleepDur != null || sleepScore != null) {
+    let frontLabel: string;
+    let color: SignalChip['color'];
+    const qualifier = tierSuffix;
+
+    // Hard floor: <360 min is always red
+    if (sleepDur != null && sleepDur < 360) {
+      frontLabel = `Short sleep · ${fmtSleepDur(sleepDur)}`;
+      color = 'red';
+    } else if (sleepDev != null) {
+      if (sleepDev < -15) {
+        frontLabel = sleepDur != null ? `Sleep below baseline · ${fmtSleepDur(sleepDur)}` : 'Sleep below baseline';
+        color = 'red';
+      } else if (sleepDev < -5) {
+        frontLabel = sleepDur != null ? `Sleep slightly short · ${fmtSleepDur(sleepDur)}` : 'Sleep slightly short';
+        color = 'amber';
+      } else if (sleepDev > 10) {
+        frontLabel = sleepDur != null ? `Solid sleep · ${fmtSleepDur(sleepDur)}` : 'Solid sleep';
+        color = 'green';
+      } else {
+        frontLabel = sleepDur != null ? `Sleep at baseline · ${fmtSleepDur(sleepDur)}` : 'Sleep at baseline';
+        color = 'green';
+      }
+    } else if (sleepScore != null) {
+      if (sleepScore < 60) { frontLabel = `Poor sleep · ${sleepScore}`; color = 'red'; }
+      else if (sleepScore < 70) { frontLabel = `Fair sleep · ${sleepScore}`; color = 'amber'; }
+      else { frontLabel = `Solid sleep · ${sleepScore}`; color = 'green'; }
+    } else if (sleepDur != null) {
+      // No deviation yet
+      if (sleepDur < 420) { frontLabel = `Light sleep · ${fmtSleepDur(sleepDur)}`; color = 'amber'; }
+      else { frontLabel = `Sleep · ${fmtSleepDur(sleepDur)}`; color = 'green'; }
+    } else {
+      frontLabel = 'Sleep data';
+      color = 'neutral';
+    }
+
+    // Back label
+    let backLabel = '';
+    if (sleepDur != null) {
+      backLabel = fmtSleepDur(sleepDur);
+      if (sleepDev != null && sleepBaseline) {
+        backLabel += ` · ${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
+      }
+    } else if (sleepScore != null) {
+      backLabel = `Score: ${sleepScore}`;
+      if (sleepDev != null && sleepBaseline) {
+        backLabel += ` · ${devSign(sleepDev)} vs ${sleepBaseline} baseline`;
+      }
+    }
+
+    chips.push({ id: 'sleep', label: frontLabel, backLabel: backLabel || undefined, color, qualifier });
+  }
+
+  // ────────────────────────────────────────
+  // §7.1  RHR / HEART PILL — always shows when data exists
+  // ────────────────────────────────────────
+  const rhrVal = outerBrief?.rhrValue as number | null;
+  const rhrDev = outerBrief?.rhrDeviation as number | null;
+
+  if (rhrVal != null) {
+    let frontLabel: string;
+    let color: SignalChip['color'];
+    const qualifier = tierSuffix;
+
+    if (rhrDev != null) {
+      if (rhrDev > 20) { frontLabel = 'RHR elevated'; color = 'red'; }
+      else if (rhrDev > 10) { frontLabel = 'RHR above baseline'; color = 'amber'; }
+      else if (rhrDev < -10) { frontLabel = 'RHR low · recovered'; color = 'green'; }
+      else { frontLabel = 'RHR at baseline'; color = 'green'; }
+    } else {
+      // Absolute
+      if (rhrVal > 90) { frontLabel = 'RHR high'; color = 'red'; }
+      else if (rhrVal > 80) { frontLabel = 'RHR elevated'; color = 'amber'; }
+      else { frontLabel = 'RHR normal'; color = 'green'; }
+    }
+
+    let backLabel: string;
+    if (rhrDev != null && rhrBaseline) {
+      backLabel = `${rhrVal}bpm · ${devSign(rhrDev)} vs ${rhrBaseline}bpm baseline`;
+    } else {
+      backLabel = `${rhrVal}bpm`;
+      if (tier === 'absolute' || tier === 'partial') backLabel += ' · baseline building';
+    }
+
+    chips.push({ id: 'rhr', label: frontLabel, backLabel, color, qualifier });
+  }
+
+  // ── Wearable prompt if no wearable at all ──
   if (tier === 'none') {
-    // none: prompt chip
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
   }
 
-  // ── Felt state chips (Mental Sharpness) ──
-  const outcome = energyState?.checkInOutcome;
-  if (outcome === 'focused') {
-    const coachMatch = outerBrief?.coachStrength?.toLowerCase()?.includes('focus');
-    chips.push({
-      id: 'felt',
-      label: 'Mind sharp',
-      color: 'green',
-      qualifier: coachMatch ? ' · your strength' : '',
-    });
-  } else if (outcome === 'steady') {
-    chips.push({ id: 'felt', label: 'Mind steady', color: 'green' });
-  } else if (outcome === 'scattered') {
-    chips.push({ id: 'felt', label: 'Mind scattered', color: 'amber' });
-  } else if (outcome === 'drained' || outcome === 'overwhelmed') {
-    chips.push({ id: 'felt', label: 'Mind depleted', color: 'red' });
-  }
+  // ────────────────────────────────────────
+  // §7.1  MIND PILL — clarity × confidence matrix (NOT outcome-led)
+  // ────────────────────────────────────────
+  const clarity = outerBrief?.clarityLevel as number | null;
+  const confidence = outerBrief?.confidenceLevel as number | null;
 
-  // ── C×C chips ──
-  const clarity = outerBrief?.clarityLevel;
-  const confidence = outerBrief?.confidenceLevel;
-  if (clarity != null) {
-    if (clarity >= 4) {
-      chips.push({ id: 'clarity', label: 'Clarity strong', backLabel: `Clarity ${clarity}/5`, color: 'green' });
+  if (clarity != null && confidence != null) {
+    let frontLabel: string;
+    let color: SignalChip['color'];
+    const backLabel = `C:${clarity}/5 · Co:${confidence}/5`;
+
+    if (clarity >= 4 && confidence >= 4) {
+      frontLabel = 'Clarity sharp · high confidence';
+      color = 'green';
+    } else if (clarity >= 4 && confidence <= 2) {
+      frontLabel = 'Clarity sharp · low confidence';
+      color = 'amber';
+    } else if (clarity <= 2 && confidence >= 4) {
+      frontLabel = 'Low clarity · high confidence';
+      color = 'amber';
+    } else if (clarity <= 2 && confidence <= 2) {
+      frontLabel = 'Low clarity · low confidence';
+      color = 'red';
+    } else if (clarity >= 4) {
+      frontLabel = 'Clarity sharp';
+      color = 'green';
+    } else if (confidence >= 4) {
+      frontLabel = 'High confidence';
+      color = 'green';
     } else if (clarity <= 2) {
-      // Check for consecutive low clarity days (use check-in patterns)
-      const consecClarity = outerBrief?.consecutiveLowConfidence != null ? 0 : 0; // TODO: needs server-side tracking
-      // For now use the general consecutive pattern from energyState
-      const consecDepleted = outerBrief?.consecutiveLowConfidence ?? 0;
-      chips.push({ id: 'clarity', label: 'Clarity low', backLabel: `Clarity ${clarity}/5`, color: 'red' });
+      frontLabel = 'Clarity low';
+      color = 'amber';
+    } else if (confidence <= 2) {
+      frontLabel = 'Confidence low';
+      color = 'amber';
+    } else {
+      frontLabel = 'Mind moderate';
+      color = 'green';
     }
-  }
-  if (confidence != null) {
-    if (confidence >= 4) chips.push({ id: 'confidence', label: 'High confidence', backLabel: `Confidence ${confidence}/5`, color: 'green' });
-    else if (confidence <= 2) {
-      const consec = outerBrief?.consecutiveLowConfidence ?? 0;
-      const qual = consec >= 3 ? ` · ${consec}th day` : '';
-      chips.push({ id: 'confidence', label: 'Confidence low', backLabel: `Confidence ${confidence}/5`, color: 'amber', qualifier: qual });
-    }
+
+    chips.push({ id: 'mind', label: frontLabel, backLabel, color });
+  } else if (clarity != null) {
+    // Only clarity
+    const color: SignalChip['color'] = clarity >= 4 ? 'green' : clarity <= 2 ? 'amber' : 'green';
+    const label = clarity >= 4 ? 'Clarity sharp' : clarity <= 2 ? 'Clarity low' : 'Clarity moderate';
+    chips.push({ id: 'mind', label, backLabel: `C:${clarity}/5`, color });
+  } else if (confidence != null) {
+    const color: SignalChip['color'] = confidence >= 4 ? 'green' : confidence <= 2 ? 'amber' : 'green';
+    const label = confidence >= 4 ? 'High confidence' : confidence <= 2 ? 'Confidence low' : 'Confidence moderate';
+    chips.push({ id: 'mind', label, backLabel: `Co:${confidence}/5`, color });
   }
 
+  // ────────────────────────────────────────
+  // §7  PATTERN PILLS — render from upstream enrichment fields
+  // ────────────────────────────────────────
+  const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
+  const scoreTrajectory = outerBrief?.scoreTrajectory7d as string | null;
+  const typicalDOW = outerBrief?.typicalDOWScore as number | null;
+  const wearableTrend = outerBrief?.wearableTrend7d as string | null;
+  const hrvCorrelation = outerBrief?.hrvEventCorrelation as string | null;
+  const score = energyState?.overallBalance ?? null;
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayName = dayNames[new Date().getDay()];
+
+  // Only show the most relevant pattern (1 max)
+  if (consecLowConf >= 3) {
+    chips.push({
+      id: 'pattern',
+      label: `${consecLowConf}${consecLowConf === 3 ? 'rd' : 'th'} low-confidence day`,
+      backLabel: `Confidence ≤2 for ${consecLowConf} consecutive days`,
+      color: 'amber',
+    });
+  } else if (scoreTrajectory === 'declining' && score != null) {
+    chips.push({
+      id: 'pattern',
+      label: 'Score trending down',
+      backLabel: `7-day trend declining · today ${score}/100`,
+      color: 'amber',
+    });
+  } else if (scoreTrajectory === 'improving') {
+    chips.push({
+      id: 'pattern',
+      label: 'Score trending up',
+      backLabel: `7-day trend improving`,
+      color: 'green',
+    });
+  } else if (typicalDOW != null && score != null && score < typicalDOW - 10) {
+    chips.push({
+      id: 'pattern',
+      label: `Below your usual ${todayName}`,
+      backLabel: `Today ${score} vs typical ${todayName} ${typicalDOW}`,
+      color: 'amber',
+    });
+  } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
+    chips.push({
+      id: 'pattern',
+      label: `Above your usual ${todayName}`,
+      backLabel: `Today ${score} vs typical ${todayName} ${typicalDOW}`,
+      color: 'green',
+    });
+  } else if (wearableTrend === 'declining') {
+    chips.push({
+      id: 'pattern',
+      label: 'Wearable trend declining',
+      backLabel: '7-day HRV trend is declining',
+      color: 'amber',
+    });
+  } else if (hrvCorrelation) {
+    chips.push({
+      id: 'pattern',
+      label: 'HRV pattern detected',
+      backLabel: hrvCorrelation,
+      color: 'amber',
+    });
+  }
+
+  // Cap at 6 visible chips (Calendar is separate, so this only caps signal chips)
   return chips.slice(0, 6);
 }
 
-// ─── INNER SUMMARY LINE ───
-function buildInnerSummary(chips: SignalChip[]): string | null {
-  if (chips.length === 0 || chips[0].id === 'no-checkin') return null;
-
-  const worstChip = [...chips].sort((a, b) => {
-    const rank = { red: 0, amber: 1, neutral: 2, green: 3 };
-    return rank[a.color] - rank[b.color];
-  })[0];
-
-  const bestChip = [...chips].sort((a, b) => {
-    const rank = { green: 0, neutral: 1, amber: 2, red: 3 };
-    return rank[a.color] - rank[b.color];
-  })[0];
-
-  const cxcChip = chips.find(c => c.id === 'clarity' || c.id === 'confidence');
-
-  const parts: string[] = [];
-  if (worstChip) parts.push(worstChip.label);
-  if (bestChip && bestChip.id !== worstChip?.id) parts.push(bestChip.label);
-  if (cxcChip && cxcChip.id !== worstChip?.id && cxcChip.id !== bestChip?.id) parts.push(cxcChip.label);
-
-  return parts.slice(0, 3).join(' · ') || null;
-}
-
-// ─── FLIPPABLE CHIP COMPONENT ───
+// ─── FLIPPABLE CHIP COMPONENT (with 3D flip + 4s auto-reset) ───
 function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const hasBack = !!chip.backLabel;
+
+  // Auto-reset after 4 seconds (§7.4)
+  useEffect(() => {
+    if (!flipped) return;
+    const timer = setTimeout(() => setFlipped(false), 4000);
+    return () => clearTimeout(timer);
+  }, [flipped]);
 
   const handleClick = () => {
     if (onNavigate) {
@@ -468,23 +487,33 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   };
 
   return (
-    <button
-      onClick={handleClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-300",
-        chipBgColor(chip.color),
-        (hasBack || onNavigate) && "cursor-pointer active:scale-95",
-        !hasBack && !onNavigate && "cursor-default"
-      )}
-    >
-      
-      <span className="whitespace-nowrap">
-        {flipped && chip.backLabel ? chip.backLabel : chip.label}
-        {!flipped && chip.qualifier && (
-          <span className="opacity-70">{chip.qualifier}</span>
+    <div className="perspective-[400px]" style={{ perspective: '400px' }}>
+      <button
+        onClick={handleClick}
+        className={cn(
+          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-500",
+          chipBgColor(chip.color),
+          (hasBack || onNavigate) && "cursor-pointer active:scale-95",
+          !hasBack && !onNavigate && "cursor-default",
+          flipped && "animate-[chip-flip_0.5s_ease-in-out]",
         )}
-      </span>
-    </button>
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateX(360deg)' : 'rotateX(0deg)',
+          transition: 'transform 0.4s ease-in-out',
+        }}
+      >
+        {hasBack && !onNavigate && (
+          <RotateCw className="w-2.5 h-2.5 opacity-40 shrink-0" />
+        )}
+        <span className="whitespace-nowrap">
+          {flipped && chip.backLabel ? chip.backLabel : chip.label}
+          {!flipped && chip.qualifier && (
+            <span className="opacity-70">{chip.qualifier}</span>
+          )}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -540,7 +569,6 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
   // Show next remaining high-stakes event with formatted time
   if (remainingHS.length > 0 && nextHS?.title) {
-    // nextHS has minutesUntil — use it for time label
     const formatEventTime = (minsUntil: number) => {
       if (minsUntil < 30) return 'now';
       if (minsUntil < 90) return `in ${minsUntil} mins`;
@@ -556,7 +584,6 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       </span>
     );
   } else if (remainingHS.length > 0) {
-    // Fallback: no nextHS timing data, just show "ahead"
     pills.push(
       <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
         {remainingHS[0]} · ahead
@@ -589,7 +616,6 @@ const PerformanceReadinessBrief = () => {
 
   // Build chips
   const chips = buildSignalChips(outerBrief, energyState, checkInCountTotal);
-  const innerSummary = buildInnerSummary(chips);
 
   // Phrase & body
   const phrase = outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in.");
@@ -599,7 +625,6 @@ const PerformanceReadinessBrief = () => {
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
-    // First convert <strong>...</strong> to **...** for uniform handling
     const normalized = text.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
     const parts = normalized.split(/\*\*(.*?)\*\*/g);
     return parts.map((part, i) =>
