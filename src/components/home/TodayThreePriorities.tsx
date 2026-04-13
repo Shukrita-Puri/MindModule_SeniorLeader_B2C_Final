@@ -125,9 +125,11 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
     if (newlyDone.length > 0 && prev.length > 0) {
       const modules = plan?.horizonModules || [];
-      const found = modules.find(m => newlyDone.includes(m.practice.contentId));
-      const allDone = modules.every(m => completedPracticeIds.includes(m.practice.contentId));
-      if (found) triggerCelebration(found.practice.title, allDone);
+      const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
+      const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
+      const allIds = allPracticesList.map(p => p.contentId);
+      const allDone = allIds.every(id => completedPracticeIds.includes(id));
+      if (found) triggerCelebration(found.title, allDone);
     }
     prevCompletedIdsRef.current = completedPracticeIds;
   }, [completedPracticeIds, plan, triggerCelebration]);
