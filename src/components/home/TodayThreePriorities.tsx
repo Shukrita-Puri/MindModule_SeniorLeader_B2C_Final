@@ -322,7 +322,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (!effectiveUserId || !plan) return;
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
-    const horizonIds = (plan.horizonModules || []).map(m => m.practice.contentId);
+    const horizonIds = (plan.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
     if (!ritual) {
       setCompletedPracticeIds([]);
       return;
