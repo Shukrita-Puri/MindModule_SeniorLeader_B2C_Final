@@ -529,7 +529,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     );
   }
 
-  const allPractices = horizonModules.map(m => m.practice);
   const allPractices = horizonModules.flatMap(m => m.practices || [m.practice]);
   const allComplete = allPractices.every(p => completedPracticeIds.includes(p.contentId));
   const completedCount = allPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
