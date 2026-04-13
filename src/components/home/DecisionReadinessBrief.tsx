@@ -3,11 +3,13 @@
  * Variant A only: interpretation chips with tap-to-flip number reveal.
  * 
  * Signal Pill Contract (from PERFORMANCE_READINESS_BRIEF_LOGIC.md §7):
- *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind (unified)
+ *   Priority: 1.Calendar → 2.HRV → 3.Sleep → 4.RHR → 5.Mind Sharpness → 6.Clarity & Confidence
  *   Every pill has: front (analysis) + back (evidence)
  *   All states render (green/amber/red) — not only threshold-breakers
- *   Mind pill synthesizes Stage 1 (checkInOutcome) + Stage 2 (clarity×confidence)
+ *   Mind Sharpness pill: Stage 1 outcome (Focused/Steady/Scattered/Drained/Depleted)
+ *   Clarity & Confidence pill: Stage 2 C×C matrix (analysis front, raw scores back)
  *   Patterns are inlined on relevant pills — no separate pattern chip
+ *   No raw numbers on front of any pill — front is always analysis
  *   No icon on pills — hint text is sufficient affordance
  */
 
@@ -390,14 +392,18 @@ function buildSignalChips(
     chips.push({ id: 'rhr', label: frontLabel, backLabel, color, qualifier });
   }
 
-  // ── Wearable prompt if no wearable at all ──
+  // ── Wearable prompt / syncing fallback ──
   if (tier === 'none') {
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
+  } else if (chips.filter(c => ['hrv', 'sleep', 'rhr'].includes(c.id)).length === 0) {
+    // Wearable connected but no individual metric chips rendered — syncing state
+    chips.push({ id: 'wearable-syncing', label: 'Wearable syncing', color: 'neutral', qualifier: 'Data will appear shortly' });
   }
 
   // ────────────────────────────────────────
-  // §7.1  UNIFIED MIND PILL — Stage 1 (outcome) + Stage 2 (clarity × confidence)
-  // Synthesizes check-in sharpness + clarity/confidence into one pill
+  // §7.1  MIND SHARPNESS PILL — Stage 1 (check-in outcome only)
+  // Front: Focused / Steady / Scattered / Drained / Depleted
+  // Back: Check-in: {outcome}
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
@@ -409,10 +415,40 @@ function buildSignalChips(
     if (['overwhelmed', 'drained'].includes(o)) return 'red';
     if (['scattered', 'anxious', 'frustrated'].includes(o)) return 'amber';
     if (['focused', 'steady', 'energised', 'calm'].includes(o)) return 'green';
-    return 'amber'; // fallback for unknown outcomes
+    return 'amber';
   };
 
-  // C×C tier mapping
+  // Map outcome to C-suite appropriate front label
+  const outcomeToLabel = (o: string): string => {
+    switch (o) {
+      case 'focused': return 'Focused';
+      case 'steady': return 'Steady';
+      case 'scattered': return 'Scattered';
+      case 'drained': return 'Drained';
+      case 'overwhelmed': return 'Depleted';
+      case 'energised': return 'Energised';
+      case 'calm': return 'Calm';
+      case 'anxious': return 'Anxious';
+      case 'frustrated': return 'Frustrated';
+      default: return o.charAt(0).toUpperCase() + o.slice(1);
+    }
+  };
+
+  if (outcome) {
+    const oColor = outcomeTier(outcome) ?? 'green';
+    chips.push({
+      id: 'mind-sharpness',
+      label: outcomeToLabel(outcome),
+      backLabel: `Check-in: ${outcome}`,
+      color: oColor,
+    });
+  }
+
+  // ────────────────────────────────────────
+  // §7.1  CLARITY & CONFIDENCE PILL — Stage 2 (C×C matrix)
+  // Front: analysis words (High clarity, Sharp confidence, etc.)
+  // Back: Clarity {x}/5 · Confidence {y}/5
+  // ────────────────────────────────────────
   const ccTier = (c: number | null, co: number | null): 'red' | 'amber' | 'green' | null => {
     if (c == null && co == null) return null;
     if ((c != null && c <= 2) && (co != null && co <= 2)) return 'red';
@@ -421,87 +457,51 @@ function buildSignalChips(
     return 'green';
   };
 
-  // Worst-of color
-  const worstOf = (a: 'red' | 'amber' | 'green' | null, b: 'red' | 'amber' | 'green' | null): SignalChip['color'] => {
-    const order = { red: 0, amber: 1, green: 2 };
-    if (a == null && b == null) return 'green';
-    if (a == null) return b!;
-    if (b == null) return a;
-    return order[a] <= order[b] ? a : b;
-  };
+  if (clarity != null || confidence != null) {
+    let ccFrontLabel: string;
 
-  const oTier = outcomeTier(outcome);
-  const cTier = ccTier(clarity, confidence);
-
-  if (outcome || clarity != null || confidence != null) {
-    let frontLabel: string;
-    const color = worstOf(oTier, cTier);
-
-    // Synthesize front label from both stages
-    const outcomeLabel = outcome ? outcome.charAt(0).toUpperCase() + outcome.slice(1) : null;
-
-    if (outcomeLabel && clarity != null && confidence != null) {
-      // Full synthesis: Stage 1 + Stage 2
-      const ccDesc = clarity >= 4 && confidence >= 4 ? 'sharp clarity'
-        : clarity >= 4 ? 'sharp clarity · low confidence'
-        : clarity <= 2 && confidence <= 2 ? 'low clarity · low confidence'
-        : clarity <= 2 ? 'low clarity'
-        : confidence <= 2 ? 'low confidence'
-        : confidence >= 4 ? 'high confidence'
-        : 'moderate mind';
-      frontLabel = `${outcomeLabel} · ${ccDesc}`;
-    } else if (outcomeLabel && clarity != null) {
-      const cDesc = clarity >= 4 ? 'sharp clarity' : clarity <= 2 ? 'low clarity' : 'moderate clarity';
-      frontLabel = `${outcomeLabel} · ${cDesc}`;
-    } else if (outcomeLabel && confidence != null) {
-      const coDesc = confidence >= 4 ? 'high confidence' : confidence <= 2 ? 'low confidence' : 'moderate confidence';
-      frontLabel = `${outcomeLabel} · ${coDesc}`;
-    } else if (outcomeLabel) {
-      frontLabel = `Mind ${outcomeLabel.toLowerCase()}`;
-    } else if (clarity != null && confidence != null) {
-      // No outcome, just C×C
-      if (clarity >= 4 && confidence >= 4) frontLabel = 'Clarity sharp · high confidence';
-      else if (clarity <= 2 && confidence <= 2) frontLabel = 'Low clarity · low confidence';
-      else if (clarity >= 4) frontLabel = 'Clarity sharp';
-      else if (clarity <= 2) frontLabel = 'Clarity low';
-      else if (confidence >= 4) frontLabel = 'High confidence';
-      else if (confidence <= 2) frontLabel = 'Confidence low';
-      else frontLabel = 'Mind moderate';
+    if (clarity != null && confidence != null) {
+      if (clarity >= 4 && confidence >= 4) ccFrontLabel = 'High clarity · sharp confidence';
+      else if (clarity >= 4 && confidence <= 2) ccFrontLabel = 'Clear but cautious';
+      else if (clarity <= 2 && confidence >= 4) ccFrontLabel = 'Confident but foggy';
+      else if (clarity <= 2 && confidence <= 2) ccFrontLabel = 'Low clarity · low confidence';
+      else if (clarity >= 4) ccFrontLabel = 'High clarity';
+      else if (clarity <= 2) ccFrontLabel = 'Low clarity';
+      else if (confidence >= 4) ccFrontLabel = 'Sharp confidence';
+      else if (confidence <= 2) ccFrontLabel = 'Low confidence';
+      else ccFrontLabel = 'Moderate mind';
     } else if (clarity != null) {
-      frontLabel = clarity >= 4 ? 'Clarity sharp' : clarity <= 2 ? 'Clarity low' : 'Clarity moderate';
-    } else if (confidence != null) {
-      frontLabel = confidence >= 4 ? 'High confidence' : confidence <= 2 ? 'Confidence low' : 'Confidence moderate';
+      ccFrontLabel = clarity >= 4 ? 'High clarity' : clarity <= 2 ? 'Low clarity' : 'Moderate clarity';
     } else {
-      frontLabel = 'Mind assessed';
+      ccFrontLabel = confidence! >= 4 ? 'Sharp confidence' : confidence! <= 2 ? 'Low confidence' : 'Moderate confidence';
     }
 
     // Inline pattern: consecutive low days
+    let ccQualifier = '';
     if (consecLowConf >= 3) {
       const ordinal = consecLowConf === 3 ? '3rd' : `${consecLowConf}th`;
-      frontLabel += ` · ${ordinal} day`;
+      ccQualifier = `${ordinal} day low confidence`;
     } else if (consecLowClarity >= 3) {
       const ordinal = consecLowClarity === 3 ? '3rd' : `${consecLowClarity}th`;
-      frontLabel += ` · ${ordinal} day low clarity`;
-    }
-
-    // Inline pattern: DOW comparison — shown as grey qualifier, not in front label
-    let mindQualifier = '';
-    if (typicalDOW != null && score != null && score < typicalDOW - 10) {
-      mindQualifier = `below ${todayName} levels`;
+      ccQualifier = `${ordinal} day low clarity`;
+    } else if (typicalDOW != null && score != null && score < typicalDOW - 10) {
+      ccQualifier = `below ${todayName} levels`;
     } else if (typicalDOW != null && score != null && score > typicalDOW + 10) {
-      mindQualifier = `above ${todayName} levels`;
+      ccQualifier = `above ${todayName} levels`;
     }
 
-    // Score trajectory is NOT shown on mind pill — only DOW pattern matters here
-
-    // Back label: evidence
+    const ccColor = ccTier(clarity, confidence) ?? 'green';
     const backParts: string[] = [];
-    if (outcomeLabel) backParts.push(`Sharpness: ${outcomeLabel.toLowerCase()}`);
-    if (clarity != null) backParts.push(`C:${clarity}/5`);
-    if (confidence != null) backParts.push(`Co:${confidence}/5`);
-    const backLabel = backParts.join(' · ');
+    if (clarity != null) backParts.push(`Clarity ${clarity}/5`);
+    if (confidence != null) backParts.push(`Confidence ${confidence}/5`);
 
-    chips.push({ id: 'mind', label: frontLabel, backLabel: backLabel || undefined, color, qualifier: mindQualifier || undefined });
+    chips.push({
+      id: 'clarity-confidence',
+      label: ccFrontLabel,
+      backLabel: backParts.join(' · '),
+      color: ccColor,
+      qualifier: ccQualifier || undefined,
+    });
   }
 
   // Cap at 6 visible chips (Calendar is separate, so this only caps signal chips)

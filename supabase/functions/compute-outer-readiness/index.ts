@@ -1965,11 +1965,11 @@ serve(async (req) => {
         .maybeSingle();
 
       if (wearableRow) {
-        const rhr = wearableRow.resting_heart_rate || null;
-        const hrv = wearableRow.hrv || null;
-        const sleepScore = wearableRow.sleep_score || null;
-        const rawSleepDuration = wearableRow.total_sleep_minutes || null;
-        const source = wearableRow.source || null;
+        const rhr = wearableRow.resting_heart_rate ?? null;
+        const hrv = wearableRow.hrv ?? null;
+        const sleepScore = wearableRow.sleep_score ?? null;
+        const rawSleepDuration = wearableRow.total_sleep_minutes ?? null;
+        const source = wearableRow.source ?? null;
         wearableDataSource = source;
 
         // Apple Health correction: reported duration includes "in bed" time
@@ -3448,8 +3448,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── Call LLM with retry ──
 
-          const retryTimeouts = [10000, 8000, 6000, 5000];
-          for (let attempt = 1; attempt <= 4; attempt++) {
+          const retryTimeouts = [10000, 6000];
+          for (let attempt = 1; attempt <= 2; attempt++) {
             const timeoutMs = retryTimeouts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -3484,7 +3484,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   if (!validation.valid) {
                     console.warn(`[compute-outer-readiness] [LLM] v4 validation failed: ${validation.reason}`);
                     llmFallbackReason = `validation_${validation.reason}`;
-                    if (attempt < 4) {
+                   if (attempt < 2) {
                       console.log(`[compute-outer-readiness] [LLM] Retrying after validation failure (attempt ${attempt})...`);
                       await new Promise(r => setTimeout(r, 800));
                       continue;
@@ -3510,7 +3510,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 llmFallbackReason = 'llm_returned_null';
               }
 
-              if (attempt < 4 && !llmPhrase) {
+              if (attempt < 2 && !llmPhrase) {
                 console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} failed, retrying...`);
                 await new Promise(r => setTimeout(r, 800));
                 continue;
@@ -3521,7 +3521,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
               console.error(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
-              if (attempt < 4) {
+              if (attempt < 2) {
                 console.log(`[compute-outer-readiness] [LLM] Retrying after failure (attempt ${attempt})...`);
                 await new Promise(r => setTimeout(r, 800));
                 continue;
@@ -3532,7 +3532,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── Lovable AI fallback (if Claude failed after 4 attempts) ──
           if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] Claude failed after 4 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
+            console.log(`[compute-outer-readiness] [LLM] Claude failed after 2 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
             try {
               const lovableController = new AbortController();
               const lovableTimeout = setTimeout(() => lovableController.abort(), 8000);
@@ -3654,20 +3654,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
             }
 
-            // Lean on: full archetype text + signal-based items
+            // Lean on: 1-3 word derived labels, source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
             if (!llmLeanOn) {
               llmLeanOn = [];
-              if (leanOnResult.leanOn) {
-                llmLeanOn.push({ signal: leanOnResult.leanOn, source: 'Archetype' });
-              }
               if (wearableSteady) {
-                llmLeanOn.push({ signal: 'Body steady — your system supports this', source: 'Wearable' });
+                llmLeanOn.push({ signal: 'Physiological credit', source: 'Wearable' });
+              }
+              if (leanOnResult.leanOn) {
+                // Truncate archetype lean-on to first 3 words
+                const words = leanOnResult.leanOn.split(' ').slice(0, 3).join(' ');
+                llmLeanOn.push({ signal: words, source: 'Archetype' });
               }
               if (fbCalLoad === 'low' && fbMeetings <= 2) {
-                llmLeanOn.push({ signal: 'Calendar space — use it deliberately', source: 'Calendar' });
+                llmLeanOn.push({ signal: 'Calendar headroom', source: 'Calendar' });
               }
               if (fbConsecutive && fbConsecutive.count >= 2 && (fbConsecutive.state === 'strong' || fbConsecutive.state === 'peak')) {
-                llmLeanOn.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} streak`, source: 'Pattern' });
+                llmLeanOn.push({ signal: `${fbConsecutive.count}-day streak`, source: 'Pattern' });
               }
               if (serverPracticePriorityTag) {
                 const goalShort: Record<string, string> = {
@@ -3677,28 +3679,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 };
                 llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
               }
-              if (llmLeanOn.length === 0) {
-                llmLeanOn.push({ signal: 'Your self-awareness — checking in is the edge', source: 'System' });
-              }
             }
 
-            // Watch for: full archetype text + signal-based items
+            // Watch for: 1-3 word derived labels
             if (!llmWatchFor) {
               llmWatchFor = [];
-              if (leanOnResult.watchFor) {
-                llmWatchFor.push({ signal: leanOnResult.watchFor, source: 'Archetype' });
-              }
               if (wearableStrained) {
-                llmWatchFor.push({ signal: 'Body strain — protect your recovery windows', source: 'Wearable' });
+                llmWatchFor.push({ signal: 'Compounding cost', source: 'Wearable' });
+              }
+              if (leanOnResult.watchFor) {
+                const words = leanOnResult.watchFor.split(' ').slice(0, 3).join(' ');
+                llmWatchFor.push({ signal: words, source: 'Archetype' });
               }
               if (fbCalLoad === 'high') {
-                llmWatchFor.push({ signal: `Heavy calendar (${fbMeetings} meetings) — watch for decision fatigue`, source: 'Calendar' });
+                llmWatchFor.push({ signal: 'Decision fatigue', source: 'Calendar' });
               }
               if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
-                llmWatchFor.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} pattern — needs intervention`, source: 'Pattern' });
+                llmWatchFor.push({ signal: `${fbConsecutive.count}-day pattern`, source: 'Pattern' });
               }
               if (llmWatchFor.length === 0) {
-                llmWatchFor.push({ signal: 'Autopilot mode — stay intentional', source: 'System' });
+                llmWatchFor.push({ signal: 'Autopilot risk', source: 'System' });
               }
             }
           }

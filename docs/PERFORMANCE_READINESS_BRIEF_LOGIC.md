@@ -4,6 +4,17 @@
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 
+### v4 Changes Summary (2026-04-13)
+
+- **Wearable extraction**: `||` → `??` for all wearable fields (prevents `0` coercion to `null`)
+- **Wearable syncing chip**: When `hasWearable=true` but all metrics null, renders neutral "Wearable syncing" chip (not a state assertion)
+- **Mind pill split**: Unified mind pill replaced by two pills: **Mind Sharpness** (Stage 1 outcome) + **Clarity & Confidence** (Stage 2 C×C matrix)
+- **Pill vocabulary**: `Overwhelmed` → `Depleted` (C-suite appropriate); no raw numbers on front of any pill
+- **Deterministic fallback signals**: Trimmed to 1-3 word derived labels (not truncations of verbose sentences); source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
+- **Bold rendering**: `<strong>` HTML tags only (no markdown asterisks)
+- **LLM retries**: Reduced from 4 (10s/8s/6s/5s) → 2 (10s/6s); worst-case ~24s instead of ~38s
+- **Few-shot examples**: Replaced with v5 corrected "Chief of Staff for the Mind" calibration set
+
 ---
 
 ## Table of Contents
@@ -397,14 +408,16 @@ If LLM fails or times out, the system uses deterministic template-based `phrase`
 
 Signal pills render in this fixed priority order. All states (green/amber/red) render — not only threshold-breakers.
 Patterns are inlined as qualifiers on the relevant pill — there is NO separate pattern pill.
+**No raw numbers on front of any pill** — front is always analysis; back reveals evidence.
 
 ```text
 1. Calendar pills (separate component, always first)
 2. HRV pill (with inline wearable pattern if applicable)
 3. Sleep pill (with inline score trajectory if applicable)
 4. RHR / Heart pill (with inline wearable trend if applicable)
-5. Mind pill — unified from Stage 1 (checkInOutcome) + Stage 2 (clarity × confidence)
-   (with inline consecutive-low-day, DOW comparison, or score trajectory patterns)
+5. Wearable syncing pill (when hasWearable=true but no HRV/Sleep/RHR data yet)
+6. Mind Sharpness pill — Stage 1 check-in outcome only
+7. Clarity & Confidence pill — Stage 2 C×C matrix (with inline patterns)
 ```
 
 Cap: maximum 6 signal chips visible (calendar is rendered separately above).
@@ -416,69 +429,57 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 **Prompt Chips (missing data)**:
 - `{ id: 'no-checkin', label: 'Check in to unlock your state' }` → Clickable → `/daily-check-in`
 - `{ id: 'wearable-prompt', label: 'Connect wearable' }` → Clickable → `/connected-data`
+- `{ id: 'wearable-syncing', label: 'Wearable syncing' }` → Neutral, shown when wearable connected but no metrics yet
 - `{ id: 'calendar-prompt', label: 'Connect calendar' }` → Clickable → `/connected-data`
-
-These appear independently: check-in prompt when no check-in, wearable prompt when `hasWearable === false`, calendar prompt when `calendarState === 'not_connected'`.
 
 **Signal Chips (data present) — always render when data exists, even at baseline**:
 
 | Chip ID | Condition | Front Label (Analysis) | Back Label (Evidence) | Color |
 |---------|-----------|------------------------|----------------------|-------|
-| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" + inline pattern qualifier | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED: deviation < -15% or (absolute, < 20ms); AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" + inline score trajectory | `{duration} · {deviation}% vs {baseline} baseline` | RED: < 360min (hard floor) or deviation < -15%; AMBER: -5% to -15%; GREEN: ≥ -5% |
-| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" + inline wearable trend | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED: deviation > +20%; AMBER: +10% to +20%; GREEN: ≤ +10% |
-| **mind** | `outcome OR clarityLevel OR confidenceLevel != null` | Unified: Stage 1 outcome + Stage 2 C×C (see §7.1a) + inline low-day/DOW/score patterns | `Sharpness: {outcome} · C:{clarity}/5 · Co:{confidence}/5` | Worst-of outcome tier and C×C tier |
+| **hrv** | `hrvValue != null` | "HRV below baseline" / "HRV dipped" / "HRV at baseline" / "HRV above baseline" / "HRV strong" + inline pattern qualifier | `{value}ms · {deviation}% vs {baseline}ms baseline` | RED/AMBER/GREEN by deviation |
+| **sleep** | `sleepDuration != null OR sleepScore != null` | "Short sleep" / "Sleep below baseline" / "Sleep at baseline" / "Solid sleep" + inline score trajectory | `{duration} · {deviation}% vs {baseline} baseline` | RED/AMBER/GREEN by deviation |
+| **rhr** | `rhrValue != null` | "RHR elevated" / "RHR above baseline" / "RHR at baseline" / "RHR low · recovered" | `{value}bpm · {deviation}% vs {baseline}bpm baseline` | RED/AMBER/GREEN by deviation |
+| **mind-sharpness** | `outcome != null` | Focused / Steady / Scattered / Drained / Depleted / Energised / Calm | `Check-in: {outcome}` | Outcome tier |
+| **clarity-confidence** | `clarityLevel OR confidenceLevel != null` | "High clarity" / "Sharp confidence" / "Low clarity" / "Clear but cautious" / "Moderate mind" + inline patterns | `Clarity {x}/5 · Confidence {y}/5` | C×C tier |
 
-**§7.1a Unified Mind Pill — Stage 1 (Outcome) + Stage 2 (Clarity × Confidence)**:
+**§7.1a Pill Label Vocabulary**
 
-The Mind pill synthesizes both check-in stages into one label. Stage 1 provides the sharpness outcome (focused, steady, scattered, drained, overwhelmed). Stage 2 provides the clarity × confidence matrix.
+| Outcome | Front Label | Tier |
+|---------|-------------|------|
+| focused | Focused | green |
+| steady | Steady | green |
+| energised | Energised | green |
+| calm | Calm | green |
+| scattered | Scattered | amber |
+| anxious | Anxious | amber |
+| frustrated | Frustrated | amber |
+| drained | Drained | red |
+| overwhelmed | **Depleted** (not "Overwhelmed" — C-suite appropriate) | red |
 
-**Front label examples** (Stage 1 · Stage 2):
-- `Focused · sharp clarity` (outcome=focused, clarity≥4, confidence≥4)
-- `Scattered · low clarity` (outcome=scattered, clarity≤2)
-- `Steady · moderate mind` (outcome=steady, clarity=3, confidence=3)
-- `Drained · low confidence` (outcome=drained, confidence≤2)
-- `Overwhelmed · clarity low` (outcome=overwhelmed, clarity≤2)
-- Falls back to C×C-only label if no outcome available (see matrix below)
-
-**Back label**: `Sharpness: {outcome} · C:{x}/5 · Co:{y}/5`
-
-**Color logic** (worst-of outcome tier and C×C tier):
-- outcome in [overwhelmed, drained] OR (clarity≤2 AND confidence≤2) → **red**
-- outcome=scattered OR clarity≤2 OR confidence≤2 → **amber**
-- outcome in [focused, steady] AND clarity≥3 AND confidence≥3 → **green**
-
-**C×C-only fallback matrix** (when no outcome available):
+**§7.1b Clarity & Confidence Front Label Matrix**:
 
 | Clarity | Confidence | Front Label | Color |
 |---------|------------|-------------|-------|
-| ≥ 4 | ≥ 4 | "Clarity sharp · high confidence" | green |
-| ≥ 4 | ≤ 2 | "Clarity sharp · low confidence" | amber |
-| ≤ 2 | ≥ 4 | "Low clarity · high confidence" | amber |
+| ≥ 4 | ≥ 4 | "High clarity · sharp confidence" | green |
+| ≥ 4 | ≤ 2 | "Clear but cautious" | amber |
+| ≤ 2 | ≥ 4 | "Confident but foggy" | amber |
 | ≤ 2 | ≤ 2 | "Low clarity · low confidence" | red |
-| ≥ 4 | mid | "Clarity sharp" | green |
-| mid | ≥ 4 | "High confidence" | green |
-| ≤ 2 | mid | "Clarity low" | amber |
-| mid | ≤ 2 | "Confidence low" | amber |
-| mid | mid | "Mind moderate" | green |
+| ≥ 4 | mid | "High clarity" | green |
+| mid | ≥ 4 | "Sharp confidence" | green |
+| ≤ 2 | mid | "Low clarity" | amber |
+| mid | ≤ 2 | "Low confidence" | amber |
+| mid | mid | "Moderate mind" | green |
 
-**§7.1b Inline Pattern Qualifiers** (appended to relevant pill, no separate pattern chip):
+**§7.1c Inline Pattern Qualifiers** (on Clarity & Confidence pill):
 
-Patterns are attached as `· qualifier` text on the most relevant signal pill:
+| Pattern | Qualifier Example |
+|---------|-------------------|
+| `consecutiveLowConfidence >= 3` | `3rd day low confidence` |
+| `consecutiveLowClarity >= 3` | `3rd day low clarity` |
+| `score < typicalDOWScore - 10` | `below Monday levels` |
+| `score > typicalDOWScore + 10` | `above Monday levels` |
 
-| Pattern | Target Pill | Qualifier Example |
-|---------|-------------|-------------------|
-| `wearableTrend7d === 'declining'` | HRV (first priority) | `· trend declining` |
-| `wearableTrend7d === 'improving'` | HRV (first priority) | `· trend improving` |
-| `hrvEventCorrelation` exists | HRV | `· pattern detected` |
-| `scoreTrajectory7d === 'declining'` | Sleep (or Mind if no wearable pills) | `· score declining` |
-| `scoreTrajectory7d === 'improving'` | Sleep (or Mind if no wearable pills) | `· score trending up` |
-| `consecutiveLowConfidence >= 3` | Mind | `· 3rd day` |
-| `consecutiveLowClarity >= 3` | Mind | `· 3rd day low clarity` |
-| `score < typicalDOWScore - 10` | Mind (qualifier) | `· below your usual Monday` |
-| `score > typicalDOWScore + 10` | Mind (qualifier) | `· above your usual Monday` |
-
-Each pattern is used at most once. Wearable patterns prefer HRV → Sleep → RHR. Score trajectory prefers Sleep → Mind.
+Wearable patterns (trend declining/improving, HRV correlation) remain on HRV/Sleep/RHR pills.
 
 ### 7.2 Calibration-Aware Qualifiers
 
@@ -505,6 +506,21 @@ Each pattern is used at most once. Wearable patterns prefer HRV → Sleep → RH
 - **No icon** on pills — the hint text below is sufficient affordance
 - A helper line "Tap a pill to see the number behind it" appears when flippable chips are present
 - **No duplicate summary line** — pills are the sole signal representation
+
+### 7.5 Wearable Data Contract
+
+- All wearable field extraction uses `??` (nullish coalescing), not `||`
+- `0` values are valid data, not coerced to null
+- When `hasWearable=true` but all metrics null: render "Wearable syncing" neutral chip
+- When `hasWearable=false`: render "Connect wearable" prompt chip
+
+### 7.6 Deterministic Fallback Signal Brevity
+
+All deterministic fallback Lean On / Watch For signals use 1-3 word derived labels:
+- Source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
+- Archetype traits truncated to first 3 words
+- Labels must not duplicate signal pill content
+- `<strong>` HTML tags for bold (no markdown asterisks)
 
 ---
 
