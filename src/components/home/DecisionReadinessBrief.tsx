@@ -374,11 +374,16 @@ function buildSignalChips(
     chips.push({ id: 'sleep', label: frontLabel, backLabel: backParts.join(' · ') || undefined, color, qualifier });
   }
 
-  // ── Wearable prompt / syncing fallback ──
-  if (tier === 'none') {
+  // ── Wearable prompt / syncing fallback — unified via wearableStatus ──
+  const ws = outerBrief?.wearableStatus;
+  if (!ws?.isConnected) {
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
-  } else if (chips.filter(c => ['heart', 'sleep'].includes(c.id)).length === 0) {
-    chips.push({ id: 'wearable-syncing', label: 'Wearable syncing', color: 'neutral', qualifier: 'Data will appear shortly' });
+  } else if (ws?.hasTodayData) {
+    // Heart + Sleep pills already rendered above — no fallback needed
+  } else if (ws?.hasRecentData) {
+    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
+  } else {
+    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
   }
 
   // ────────────────────────────────────────
@@ -402,16 +407,16 @@ function buildSignalChips(
   // Map outcome to C-suite appropriate front label
   const outcomeToLabel = (o: string): string => {
     switch (o) {
-      case 'focused': return 'Focused';
-      case 'steady': return 'Steady';
-      case 'scattered': return 'Scattered';
-      case 'drained': return 'Drained';
-      case 'overwhelmed': return 'Depleted';
-      case 'energised': return 'Energised';
-      case 'calm': return 'Calm';
-      case 'anxious': return 'Anxious';
-      case 'frustrated': return 'Frustrated';
-      default: return o.charAt(0).toUpperCase() + o.slice(1);
+      case 'focused': return 'Mind focused';
+      case 'steady': return 'Mind steady';
+      case 'scattered': return 'Mind scattered';
+      case 'drained': return 'Mind drained';
+      case 'overwhelmed': return 'Mind depleted';
+      case 'energised': return 'Mind energised';
+      case 'calm': return 'Mind calm';
+      case 'anxious': return 'Mind anxious';
+      case 'frustrated': return 'Mind frustrated';
+      default: return 'Mind ' + o;
     }
   };
 
