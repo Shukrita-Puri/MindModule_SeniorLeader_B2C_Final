@@ -3160,104 +3160,223 @@ serve(async (req) => {
             : isMondayMorning ? 'Week is being set right now. Frame as intentional and forward.'
             : null;
 
-          // ── System Prompt (short, focused) ──
-          const systemPrompt = `You are a performance intelligence system briefing a C-suite leader.
-Voice: trusted chief of staff. Precise. Never generic. Never fluffy.
+          // ── System Prompt (v4 — Chief of Staff for the Mind) ──
+          const systemPrompt = `You are a performance intelligence system for a C-suite leader. Your role is a trusted chief of staff who has watched this person's physiological data, calendar, coaching notes, and behavioural patterns over time. You do not summarise. You do not list facts. You synthesise. Your job: find what the signals mean together and translate that into precise direction. Register: direct. Specific. Data-earned. Never wellness. Never generic. Never prose.
 
-Produce two things:
-1. PHRASE: 3-6 words. Crisp directive earned by their data.
-2. BODY: One sentence, max 15 words. **Bold** the key action.
+REASONING PROTOCOL (silent — not in output):
+STEP 1 — READ THE BODY SYSTEM (wearable-first): What does HRV say? RHR? Sleep? Do they tell one story or diverge? Which signal is most anomalous for this person? Is body under load not yet registered (MASKED_HIGH)? Is body recovering faster than felt (RECOVERY_UNDERWAY)?
+STEP 2 — COMPOUND THE SIGNALS: HR elevated + poor sleep = compounded deficit. Sleep above baseline + HRV low = body loaded but resourced. HRV low: chronic (7d declining) or acute (single-day)? Never treat wearable signals as independent. They are one system.
+STEP 3 — LAYER THE FELT STATE: Does check-in confirm or contradict wearable? MASKED_HIGH: wearable worse than felt → do NOT validate felt state. Lead wearable. RECOVERY_UNDERWAY: wearable better than felt → acknowledge the gap. Clarity high + Confidence low → clear-minded but self-doubting. Direct into the tension.
+STEP 4 — READ THE CALENDAR DEMAND: What does today/tomorrow require? Does demand match physiological supply? Supply-demand gap → name it. High-stakes event + HRV history → use the correlation.
+STEP 5 — FIND THE PATTERN OR HISTORY: Has this combination occurred before? Is today consistent with typical DOW? Coach insight relevant to this exact state? Pending commitment relevant now?
+STEP 6 — IDENTIFY THE ONE THING: Given all above: what is the single most useful direction for this person, now? That is the phrase. That is the body. If you cannot identify something specific: return null. Do not fabricate.
 
-Core rule: if triangulation data is provided, the body MUST connect at least two time horizons — what is true now AND what pattern or goal this connects to. This is what makes the brief feel like it knows the leader.
+OUTPUT RULES:
+• Wearable-first — wearable signals anchor the analysis. Check-in substantiates or qualifies.
+• Compounded — signals read as a system. Sleep + HRV + RHR + calendar = one story, not four data points.
+• Specific to this person — if the brief could apply to any leader, it is wrong.
+• Scannable in under 10 seconds.
+• Forward-looking — oriented toward what is coming, not what passed.
 
-Rules (no exceptions):
-- Reference at least one specific signal provided
-- No wellness words ever: relax, mindful, breathe, calm, wellness, self-care, journey, practice, routine, nourish, recharge
-- No affirmations, no softening, no encouragement
-- C-suite register only: direct, precise, data-referenced
-- Wearable data > felt state when they diverge
-- Never say "readiness"
-- Never repeat the phrase in the body
-- JIT event within 90 mins: orient entirely around it
-- If calendar load is 'none': do not reference meetings or scheduling
-- If signals are insufficient for specificity: output null
+HARD CONSTRAINTS — NO EXCEPTIONS:
+WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
+SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong, or any tier label in phrase or body.
+READINESS BLACKLIST: Never use the word 'readiness' in any output field.
+DAY NAMING: Only name a future day if ≤ 2 days away. Otherwise: 'this week' / 'mid-week' / 'later this week'.
+JIT OVERRIDE: High-stakes event < 30 mins: orient entirely around it. 30–90 mins: preparation angle. >90 mins: context only.
+NO PHRASE IN BODY: Body never restates or paraphrases the phrase.
+NO CALENDAR WITHOUT CONNECTION: Calendar = none: never reference meetings, load, or scheduling.
+BOLD ACTION: Use HTML <strong> tags for the bold action in body — NOT markdown asterisks. Never output literal asterisks.
+NULL DISCIPLINE: NULL field: ignore it, never reference it, never fabricate. If no specific output is possible: return null for that field.
+WEARABLE HIERARCHY: Wearable > felt state when they diverge. Never validate positive felt state when wearable signals physiological load.
+NO SIGNAL PILL REPETITION: Lean on / Watch for items must not repeat raw signal pill labels. Derive a quality or insight, not the signal name.
 
-WEEKEND AND HOLIDAY DAYTIME RULE:
-When Is weekend = yes OR Is public holiday = yes OR Is personal holiday = yes:
-This is a rest day. The leader is not in performance mode.
-Do NOT write performance-heavy directives.
-Do NOT reference meetings, calendar density, or strategic priorities.
-Frame as: Recovery as a performance investment. Restoration without guilt.
-The weekend is part of the performance cycle, not a gap in it.
-Tone: spacious, not urgent. Directive: toward rest, not output.
-Correct examples: "Rest is the work today.", "Use the space deliberately.", "Restore at full capacity.", "Today belongs to you."
-WRONG on weekends (never use): "Sustain focus.", "Avoid conviction rigidity.", "Leverage your state.", "Counter the delaying action."
-If depleted on weekend: "Low reserves — the most important thing today is genuine recovery."
-If strong on weekend: "Strong reserves — invest this in restoration, not additional output."
+DAY-TYPE OVERRIDES (when matched, override default structure entirely):
+SUNDAY EVENING (dayOfWeek=0, hour>=17): Frame forward into Monday. Anchor Monday's specific shape. One thing to carry in, one to leave behind. If physiology loaded + Monday heavy: directive phrase. If Monday light: spacious phrase. NEVER: 'Reflect on your week' / 'Rest before' / 'Prepare for tomorrow'.
+MONDAY MORNING: Week-setting entry. Reference Monday's load and first high-stakes event. If physiological signals poor: name supply-demand gap directly.
+FRIDAY / PRE-REST-DAY EVENING: Closure and release. Not planning. If high-stakes visible next week: 'Don't fully unplug — [event] needs mental space.' No upcoming pressure: 'Disconnect fully.'
+WEEKEND DAYTIME: No calendar framing. No work preparation. Anchor on physiological state and what the leader can choose. Wearable strong: agency phrase. Wearable poor: direct acknowledgement without wellness language. NEVER: 'Sustain focus' / 'Leverage your state' / performance-heavy directives.
+PUBLIC HOLIDAY: Collective pause. Full release. PERSONAL HOLIDAY: Individual choice. Reference their decision.
+POST-HIGH-STAKES AFTERNOON: If HRV historically drops for this event type: acknowledge cost of performance. Do not push for next peak.
+CONSECUTIVE LOW DAYS (3+): Systemic signal, not situational. Name it. If coach pattern available: surface it.
 
-Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
+SIGNAL SYNTHESIS PATTERNS:
+A — Clarity-Confidence Split: Clarity 4-5/5 + Confidence 1-2/5. Clear-minded but self-doubting. Use clarity before confidence catches up.
+B — MASKED_HIGH: Felt positive + HRV below baseline + RHR elevated. Body under load not yet registered. Name the gap with specific numbers. Never validate felt state.
+C — Compounded Deficit: HR elevated + sleep below baseline + HRV below baseline. All three loaded. Name supply-demand gap with strategic instruction.
+D — Historical Event Correlation: High-stakes event + HRV correlation data (≥3 occurrences, >10% deviation). Name the historical pattern.
+E — Supply-Demand Gap: Tomorrow load HIGH + today's signals below baseline. Strategic preparation. What to protect tonight.
+F — Sunday Anxiety: Sunday evening + Confidence low + HRV low + Monday high-stakes. Acknowledge and redirect. Never: 'You're ready for Monday' if signals say otherwise.
+G — Recovery Underway: RECOVERY_UNDERWAY + felt state lower than wearable. 'Your body is ahead of where you feel.' Agency without overclaiming.
+H — Consecutive High-Stakes Days: Multi-day pressure run. Name cumulative toll. Manage transitions.
+I — Coach Signal Active: Recent coach session + pending commitment or growth area. Surface as connection to today's state.
 
-          // ── User Prompt (dynamically assembled, zero NULLs) ──
-          let userPrompt = `${safeTier} · ${innerReadinessScore}/100 · ${timeOfDayStr} · ${dayName}`;
+COLD START (Day 1-7):
+Day 1: Use archetype + onboarding goals + wearable/calendar if available. Phrase orients around leader's stated goal. Not generic.
+Day 2-6: Reference trajectory explicitly. Use direction, not just today's point.
+Day 7: Reference full first week pattern.
+RULES: Never generic. Never reference missing data. Archetype + goals always sufficient.
 
-          if (contextFrame) {
-            userPrompt += `\n\nContext: ${contextFrame}`;
+FEW-SHOT EXAMPLES (calibration):
+
+EXAMPLE 1 — Sunday Evening · Pre-Board Pattern · Anxiety Present:
+Input context: Sunday evening, confidence low, HRV below baseline, Monday has board meeting
+{"phrase":"This is your pre-board drop.","body":"Your HRV has fallen before every board session — <strong>stabilise your mental state tonight</strong> before that pattern deepens into tomorrow.","leanOn":[{"signal":"Mental sharpness","source":"Check-in"},{"signal":"Pattern awareness","source":"Wearable"}],"watchFor":[{"signal":"Pre-board spiral","source":"Patterns"},{"signal":"Confidence suppression","source":"Check-in"}]}
+
+EXAMPLE 2 — Afternoon · MASKED_HIGH:
+Input context: Afternoon, felt state positive, HRV below baseline, RHR elevated
+{"phrase":"Don't rework what's already clear.","body":"You typically overwork delivery when your body is under load — <strong>enter the all-hands without re-editing</strong> what your thinking has already solved.","leanOn":[{"signal":"Clear thinking","source":"Check-in"},{"signal":"Prepared material","source":"Calendar"}],"watchFor":[{"signal":"Delivery overwork","source":"Coach"},{"signal":"Hidden load effect","source":"Wearable"}]}
+
+EXAMPLE 3 — Day 4 Low · Coach Pattern Active:
+Input context: Morning, 4 consecutive low days, coach pattern about adding more when depleted
+{"phrase":"This is when you add too much.","body":"On consecutive low days you take on more, not less — <strong>remove one demand today</strong> to stop reinforcing that pattern.","leanOn":[{"signal":"Coach directive","source":"Coach"},{"signal":"Pattern visibility","source":"Patterns"}],"watchFor":[{"signal":"Commitment stacking","source":"Coach"},{"signal":"System overload","source":"Wearable"}]}
+
+EXAMPLE 4 — Morning · QBR Day (No Wearable):
+Input context: Morning, QBR today, no wearable, archetype = Strategic Operator
+{"phrase":"You'll drop into detail again.","body":"In reviews like this you tend to over-engage operationally — <strong>hold your attention at the strategic layer</strong> instead of moving into execution.","leanOn":[{"signal":"Structured thinking","source":"Coach"},{"signal":"Focused state","source":"Check-in"}],"watchFor":[{"signal":"Detail immersion","source":"Coach"},{"signal":"Delegation avoidance","source":"Patterns"}]}
+
+Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
+
+          // ── User Prompt (v4 structured data sections) ──
+          const isEvening = hour >= 17;
+
+          let userPrompt = `=== TIME ===\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
+
+          // === READINESS ===
+          userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
+          if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
+          userPrompt += `\nFelt state: ${checkInOutcome ?? 'null'} · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
+          userPrompt += `\nConsecutive low days: ${consecutiveLowDays}`;
+          if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
+
+          // === WEARABLE ===
+          if (hasWearable) {
+            userPrompt += `\n\n=== WEARABLE ===`;
+            if (hrvValue != null) userPrompt += `\nHRV: ${hrvValue}ms · Baseline: ${hrvBaseline ?? 'null'}ms · Deviation: ${hrvDeviation != null ? (hrvDeviation >= 0 ? '+' : '') + hrvDeviation : 'null'}% · Unusual: ${hrvUnusual ? 'yes' : 'no'}`;
+            if (sleepDuration != null) {
+              const sleepHrs = (sleepDuration / 60).toFixed(1);
+              const sleepBaseHrs = sleepBaseline ? (sleepBaseline / 60).toFixed(1) : 'null';
+              userPrompt += `\nSleep: ${sleepHrs}hrs · Baseline: ${sleepBaseHrs}hrs · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}% · Below 6hr floor: ${sleepHardFloor ? 'yes' : 'no'}`;
+            } else if (sleepScoreVal != null) {
+              userPrompt += `\nSleep score: ${sleepScoreVal} · Baseline: ${sleepBaseline ?? 'null'} · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}%`;
+            }
+            if (rhrValue != null) userPrompt += `\nRHR: ${rhrValue}bpm · Baseline: ${rhrBaseline ?? 'null'}bpm · Deviation: ${rhrDeviation != null ? (rhrDeviation >= 0 ? '+' : '') + rhrDeviation : 'null'}%`;
+            userPrompt += `\nDivergence: ${divergenceMode ?? 'null'}`;
+            if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
+            userPrompt += `\nWearable confidence: ${wearableConfidence ?? 'null'}`;
           }
 
+          // === CALENDAR TODAY ===
+          if (calendarLoad) {
+            userPrompt += `\n\n=== CALENDAR TODAY ===`;
+            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}${todayHighStakes.length > 0 ? ' · Titles: ' + todayHighStakes.join(', ') : ''}`;
+            userPrompt += `\nTotal meetings: ${calendarResult.meetingCount ?? 0}`;
+            if (hasBackToBack) userPrompt += `\nBack-to-back: yes · Longest block: ${longestBackToBackHrs}hrs`;
+            if (nextEventAny) userPrompt += `\nNext event: ${nextEventAny.title} in ${nextEventAny.minutesUntil}mins`;
+            if (nextHighStakesEvent) userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil}mins`;
+          }
+
+          // === TOMORROW === (evenings, Friday, Sunday)
+          if ((isEvening || isFridayEvening || isSundayEvening2) && tomorrowLoad) {
+            const dayNames3 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
+            userPrompt += `\n\n=== TOMORROW ===`;
+            userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
+            if (tomorrowHighStakesTitles.length > 0) userPrompt += `\nHigh-stakes count: ${tomorrowHighStakesTitles.length} · Titles: ${tomorrowHighStakesTitles.join(', ')}`;
+            if (tomorrowFirstEventTime) userPrompt += `\nFirst event: ${tomorrowFirstEventTime}`;
+            if (tomorrowVsTodayLoad) userPrompt += `\nTomorrow vs today: ${tomorrowVsTodayLoad}`;
+          }
+
+          // === WEEK AHEAD === (Sunday evening only)
+          if (isSundayEvening2 && weekAheadShape) {
+            const wa = weekAheadShape as any;
+            userPrompt += `\n\n=== WEEK AHEAD ===`;
+            userPrompt += `\nMonday: load ${wa.mondayLoad ?? 'null'} · High-stakes: ${wa.mondayHasHighStakes ? 'yes' : 'no'}`;
+            if (wa.mondayFirstEvent) userPrompt += `\nMonday first event: ${wa.mondayFirstEvent.title} · ${wa.mondayFirstEvent.time}`;
+            userPrompt += `\nHeaviest day: ${wa.heaviestDay ?? 'null'}`;
+            if (wa.firstHighStakesDay) userPrompt += `\nFirst high-stakes: ${wa.firstHighStakesDay}`;
+            userPrompt += `\nTotal high-stakes next week: ${wa.totalHighStakesNextWeek ?? 0}`;
+            if (wa.lightDaysNextWeek?.length > 0) userPrompt += ` · Light days: ${wa.lightDaysNextWeek.join(', ')}`;
+          }
+
+          // === PATTERNS === (conditional on check-in count)
+          if (checkInCountTotal >= 3) {
+            userPrompt += `\n\n=== PATTERNS ===`;
+            if (avgScore7d != null) userPrompt += `\n7d avg score: ${avgScore7d} · Trajectory: ${scoreTrajectory7d ?? 'stable'}`;
+            if (dominantOutcome7d) userPrompt += `\nDominant state this week: ${dominantOutcome7d}`;
+            if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
+            if (practiceCompletionRate > 0) userPrompt += `\nPractice completion: ${practiceCompletionRate}%`;
+            if (daysSinceCoachSession != null) userPrompt += `\nDays since last coach: ${daysSinceCoachSession}`;
+            if (coachSessionImpactDelta != null) userPrompt += ` · Coach impact delta: ${coachSessionImpactDelta > 0 ? '+' : ''}${coachSessionImpactDelta} pts`;
+
+            if (checkInCountTotal >= 7) {
+              if (typicalDOWOutcome) userPrompt += `\nTypical ${dayName} outcome: ${typicalDOWOutcome}${typicalDOWScore != null ? ' · Score: ' + typicalDOWScore : ''}`;
+              if (frictionTrend) userPrompt += `\nFriction trend (30d): ${frictionTrend}`;
+              if (hrvEventCorrelation) userPrompt += `\nHRV correlation: ${hrvEventCorrelation}`;
+              if (mostEffectivePractice) userPrompt += `\nMost effective practice: ${mostEffectivePractice}`;
+            }
+
+            if (checkInCountTotal >= 30) {
+              if (serverArchetype) userPrompt += `\nArchetype: ${serverArchetype}`;
+              if (leanOnResult.leanOn) userPrompt += ` · Lean-on: ${leanOnResult.leanOn}`;
+              if (leanOnResult.watchFor) userPrompt += ` · Watch-for: ${leanOnResult.watchFor}`;
+              if (coachStrength) userPrompt += `\nCoach strength: ${coachStrength}`;
+              if (coachGrowth) userPrompt += `\nCoach growth area: ${coachGrowth}`;
+              if (pendingCommitment) userPrompt += `\nPending coach commitment: ${pendingCommitment}`;
+              if (recentPattern) userPrompt += `\nRecent coach pattern: ${recentPattern}`;
+            }
+          }
+
+          // === ONBOARDING === (always when available)
+          {
+            const onboardingParts: string[] = [];
+            if (serverPracticePriorityTag) {
+              const goalLabels: Record<string, string> = {
+                regulation_composure: 'Composure under pressure',
+                regulation_early: 'Early signal detection',
+                recovery_resilience: 'Recovery and resilience',
+                energy_endurance: 'Energy endurance',
+                focus_clarity: 'Focus and clarity',
+                mindset_reframe: 'Mindset reframing',
+              };
+              onboardingParts.push(`Goals: ${goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag}`);
+            }
+            if (serverArchetype) {
+              let archLine = `Archetype: ${serverArchetype}`;
+              if (leanOnResult.leanOn) archLine += ` · Lean-on: ${leanOnResult.leanOn}`;
+              if (leanOnResult.watchFor) archLine += ` · Watch-for: ${leanOnResult.watchFor}`;
+              onboardingParts.push(archLine);
+            }
+            if (serverComponentScores) {
+              const cs = serverComponentScores as any;
+              const dims = [
+                { name: 'Recalibration', score: cs.energyRegulation || 0 },
+                { name: 'Clarity', score: cs.focusRecovery || 0 },
+                { name: 'Renewal', score: cs.energyRenewal || 0 },
+              ].sort((a, b) => b.score - a.score);
+              onboardingParts.push(`Strength: ${dims[0].name} · Development area: ${dims[dims.length - 1].name}`);
+            }
+            if (onboardingParts.length > 0) {
+              userPrompt += `\n\n=== ONBOARDING ===\n${onboardingParts.join('\n')}`;
+            }
+          }
+
+          // === TRIAGE SIGNALS === (top 5 for emphasis)
           if (selectedSignals.length > 0) {
-            userPrompt += `\n\nKey signals for today:\n${selectedSignals.join('\n')}`;
+            userPrompt += `\n\n=== KEY SIGNALS ===\n${selectedSignals.join('\n')}`;
           }
 
+          // === TRIANGULATION ===
           if (crossHorizonConnection) {
-            userPrompt += `\n\nTriangulation:`;
-            if (immediateSignal) userPrompt += `\n  Now: ${immediateSignal}`;
-            if (tacticalSignal) userPrompt += `\n  Pattern: ${tacticalSignal}`;
-            if (strategicSignal) userPrompt += `\n  Development: ${strategicSignal}`;
-            userPrompt += `\n  Connection: ${crossHorizonConnection} — ${connectionFraming}`;
-            userPrompt += `\n  Lead with: ${dominantHorizon}`;
+            userPrompt += `\n\n=== TRIANGULATION ===`;
+            if (immediateSignal) userPrompt += `\nNow: ${immediateSignal}`;
+            if (tacticalSignal) userPrompt += `\nPattern: ${tacticalSignal}`;
+            if (strategicSignal) userPrompt += `\nDevelopment: ${strategicSignal}`;
+            userPrompt += `\nConnection: ${crossHorizonConnection} — ${connectionFraming}`;
+            userPrompt += `\nLead with: ${dominantHorizon}`;
           }
 
-          if (coachStrength) {
-            userPrompt += `\n\nTheir strength (from coach): ${coachStrength}`;
-          }
-
-          if (serverArchetype) {
-            userPrompt += `\n\nArchetype: ${serverArchetype}`;
-            if (leanOnResult.leanOn) userPrompt += ` — lean on ${leanOnResult.leanOn}`;
-            if (leanOnResult.watchFor) userPrompt += `, watch for ${leanOnResult.watchFor}`;
-          }
-
-          // Component scores (onboarding baseline) — explicit strengths/development area
-          if (serverComponentScores) {
-            const cs = serverComponentScores as any;
-            const dims = [
-              { name: 'Recalibration', score: cs.energyRegulation || 0 },
-              { name: 'Clarity', score: cs.focusRecovery || 0 },
-              { name: 'Renewal', score: cs.energyRenewal || 0 },
-            ].sort((a, b) => b.score - a.score);
-            userPrompt += `\n\nBaseline dimensions: ${dims.map(d => `${d.name} ${Math.round(d.score)}`).join(', ')}`;
-            userPrompt += ` — strength: ${dims[0].name}, development area: ${dims[dims.length - 1].name}`;
-          }
-
-          // Goal focus from onboarding
-          if (serverPracticePriorityTag) {
-            const goalLabels: Record<string, string> = {
-              regulation_composure: 'Composure under pressure',
-              regulation_early: 'Early signal detection',
-              recovery_resilience: 'Recovery and resilience',
-              energy_endurance: 'Energy endurance',
-              focus_clarity: 'Focus and clarity',
-              mindset_reframe: 'Mindset reframing',
-            };
-            const goalLabel = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
-            userPrompt += `\n\nGoal focus: ${goalLabel}`;
-          }
-
-          // ── Inject weekend/holiday flag into user prompt ──
-          if (isWeekend) userPrompt += `\n\nIs weekend = yes`;
-          if (isPublicHoliday) userPrompt += `\nIs public holiday = yes`;
-          // isPersonalHoliday detection not yet implemented — skip for now
-
+          console.log('[compute-outer-readiness] [LLM] User prompt length:', userPrompt.length);
           console.log('[compute-outer-readiness] [LLM] Signals:', JSON.stringify({
             checkInOutcome, clarityLevel, confidenceLevel,
             calendarLoad, meetingCount: calendarResult.meetingCount,
@@ -3265,8 +3384,52 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             hasWearable, wearableDaysConnected,
           }));
 
+          // ── v4 Post-Generation Validation ──
+          const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
+          const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b/i;
+          const READINESS_WORD = /\breadiness\b/i;
+
+          function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
+            // Phrase validation
+            if (phraseText) {
+              if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
+              if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
+              if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
+            }
+            // Body validation
+            if (bodyTextStr) {
+              if (TIER_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_tier_word' };
+              if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
+              const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
+              if (wordCount > 25) return { valid: false, reason: 'body_too_long' };
+              if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+              if (phraseText && bodyTextStr.toLowerCase().includes(phraseText.toLowerCase())) return { valid: false, reason: 'body_restates_phrase' };
+            }
+            // LeanOn/WatchFor validation
+            const validateItems = (items: any[], label: string) => {
+              if (!Array.isArray(items)) return { valid: false, reason: `${label}_not_array` };
+              for (const item of items) {
+                if (!item.signal || !item.source) return { valid: false, reason: `${label}_missing_field` };
+                if (item.signal.split(/\s+/).length > 4) return { valid: false, reason: `${label}_too_long` };
+              }
+              return null;
+            };
+            if (parsed.leanOn) {
+              const r = validateItems(parsed.leanOn, 'leanOn');
+              if (r) return r;
+            }
+            if (parsed.watchFor) {
+              const r = validateItems(parsed.watchFor, 'watchFor');
+              if (r) return r;
+            }
+            return { valid: true, reason: '' };
+          }
+
           // ── Call LLM with retry ──
+          let llmLeanOn: Array<{signal: string; source: string}> | null = null;
+          let llmWatchFor: Array<{signal: string; source: string}> | null = null;
           let llmFallbackReason: string | null = null;
+
           for (let attempt = 1; attempt <= 2; attempt++) {
             const timeoutMs = attempt === 1 ? 10000 : 8000;
             const controller = new AbortController();
@@ -3278,7 +3441,7 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
                 system: systemPrompt,
                 messages: [{ role: 'user', content: userPrompt }],
                 model: CLAUDE_MODELS.SONNET,
-                max_tokens: 1024,
+                max_tokens: 380,
                 signal: controller.signal,
               });
               clearTimeout(timeout);
@@ -3292,10 +3455,33 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
                     jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
                   }
                   const parsed = JSON.parse(jsonStr);
-                  if (parsed.phrase && parsed.phrase !== 'null') llmPhrase = parsed.phrase;
-                  if (parsed.bodyText && parsed.bodyText !== 'null') llmBodyText = parsed.bodyText;
+
+                  // Extract all four fields
+                  const pPhrase = (parsed.phrase && parsed.phrase !== 'null') ? parsed.phrase : null;
+                  const pBody = (parsed.body && parsed.body !== 'null') ? parsed.body : (parsed.bodyText && parsed.bodyText !== 'null') ? parsed.bodyText : null;
+                  const pLeanOn = Array.isArray(parsed.leanOn) ? parsed.leanOn : null;
+                  const pWatchFor = Array.isArray(parsed.watchFor) ? parsed.watchFor : null;
+
+                  // v4 validation
+                  const validation = validateV4Output(parsed, pPhrase, pBody);
+                  if (!validation.valid) {
+                    console.warn(`[compute-outer-readiness] [LLM] v4 validation failed: ${validation.reason}`);
+                    llmFallbackReason = `validation_${validation.reason}`;
+                    if (attempt === 1) {
+                      console.log('[compute-outer-readiness] [LLM] Retrying after validation failure...');
+                      await new Promise(r => setTimeout(r, 1000));
+                      continue;
+                    }
+                    break;
+                  }
+
+                  if (pPhrase) llmPhrase = pPhrase;
+                  if (pBody) llmBodyText = pBody;
+                  if (pLeanOn && pLeanOn.length > 0) llmLeanOn = pLeanOn;
+                  if (pWatchFor && pWatchFor.length > 0) llmWatchFor = pWatchFor;
+
                   if (llmPhrase) {
-                    console.log(`[compute-outer-readiness] [LLM] Using LLM phrase: "${llmPhrase}"`);
+                    console.log(`[compute-outer-readiness] [LLM] v4 output accepted: phrase="${llmPhrase}", leanOn=${llmLeanOn?.length ?? 0}, watchFor=${llmWatchFor?.length ?? 0}`);
                     break;
                   }
                   llmFallbackReason = 'llm_returned_null';
@@ -3327,8 +3513,45 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
             break;
           }
 
+          // ── v4 Fallback: archetype + goals (never generic) ──
           if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] Falling back to template. Reason: ${llmFallbackReason || 'unknown'}`);
+            console.log(`[compute-outer-readiness] [LLM] v4 fallback. Reason: ${llmFallbackReason || 'unknown'}`);
+            if (serverArchetype && leanOnResult.leanOn) {
+              // Phrase: archetype lean-on + time slot
+              llmPhrase = `Lead with ${leanOnResult.leanOn.toLowerCase()}.`;
+              // Body: onboarding goal
+              if (serverPracticePriorityTag) {
+                const goalLabels: Record<string, string> = {
+                  regulation_composure: 'composure under pressure',
+                  regulation_early: 'early signal detection',
+                  recovery_resilience: 'recovery and resilience',
+                  energy_endurance: 'energy endurance',
+                  focus_clarity: 'focus and clarity',
+                  mindset_reframe: 'mindset reframing',
+                };
+                const goal = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
+                llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
+              }
+              // LeanOn/WatchFor from archetype
+              if (!llmLeanOn) {
+                llmLeanOn = [
+                  { signal: leanOnResult.leanOn.split(' ').slice(0, 3).join(' '), source: 'Archetype' },
+                ];
+                if (serverPracticePriorityTag) {
+                  const goalShort: Record<string, string> = {
+                    regulation_composure: 'Composure goal', regulation_early: 'Signal awareness',
+                    recovery_resilience: 'Resilience goal', energy_endurance: 'Endurance goal',
+                    focus_clarity: 'Clarity goal', mindset_reframe: 'Reframing goal',
+                  };
+                  llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
+                }
+              }
+              if (!llmWatchFor && leanOnResult.watchFor) {
+                llmWatchFor = [
+                  { signal: leanOnResult.watchFor.split(' ').slice(0, 3).join(' '), source: 'Archetype' },
+                ];
+              }
+            }
           }
         }
       } catch (llmErr) {
@@ -3353,11 +3576,19 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
       'evening-recovery-override': 'evening-recovery-override',
     };
 
+    // Format LLM leanOn/watchFor into string pairs for client
+    const formattedLeanOn = llmLeanOn
+      ? llmLeanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
+      : leanOnResult.leanOn;
+    const formattedWatchFor = llmWatchFor
+      ? llmWatchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
+      : leanOnResult.watchFor;
+
     const result: OuterReadinessResult & Record<string, unknown> = {
       phrase: llmPhrase || finalPhrase,
       context: finalContext,
-      leanOn: leanOnResult.leanOn,
-      watchFor: leanOnResult.watchFor,
+      leanOn: formattedLeanOn,
+      watchFor: formattedWatchFor,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
@@ -3368,8 +3599,8 @@ Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}`;
       compassAlreadyUsed,
       // DecisionReadinessBrief fields
       bodyText: llmBodyText || null,
-      leanOnSource: leanOnResult.source,
-      watchForSource: leanOnResult.source,
+      leanOnSource: llmLeanOn ? 'llm-v4' : leanOnResult.source,
+      watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
       hasWearable,
       wearableDaysConnected,
       hrvDeviation,
