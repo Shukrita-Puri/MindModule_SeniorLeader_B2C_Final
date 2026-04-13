@@ -1965,11 +1965,11 @@ serve(async (req) => {
         .maybeSingle();
 
       if (wearableRow) {
-        const rhr = wearableRow.resting_heart_rate || null;
-        const hrv = wearableRow.hrv || null;
-        const sleepScore = wearableRow.sleep_score || null;
-        const rawSleepDuration = wearableRow.total_sleep_minutes || null;
-        const source = wearableRow.source || null;
+        const rhr = wearableRow.resting_heart_rate ?? null;
+        const hrv = wearableRow.hrv ?? null;
+        const sleepScore = wearableRow.sleep_score ?? null;
+        const rawSleepDuration = wearableRow.total_sleep_minutes ?? null;
+        const source = wearableRow.source ?? null;
         wearableDataSource = source;
 
         // Apple Health correction: reported duration includes "in bed" time
@@ -3448,8 +3448,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── Call LLM with retry ──
 
-          const retryTimeouts = [10000, 8000, 6000, 5000];
-          for (let attempt = 1; attempt <= 4; attempt++) {
+          const retryTimeouts = [10000, 6000];
+          for (let attempt = 1; attempt <= 2; attempt++) {
             const timeoutMs = retryTimeouts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -3484,7 +3484,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   if (!validation.valid) {
                     console.warn(`[compute-outer-readiness] [LLM] v4 validation failed: ${validation.reason}`);
                     llmFallbackReason = `validation_${validation.reason}`;
-                    if (attempt < 4) {
+                   if (attempt < 2) {
                       console.log(`[compute-outer-readiness] [LLM] Retrying after validation failure (attempt ${attempt})...`);
                       await new Promise(r => setTimeout(r, 800));
                       continue;
@@ -3510,7 +3510,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 llmFallbackReason = 'llm_returned_null';
               }
 
-              if (attempt < 4 && !llmPhrase) {
+              if (attempt < 2 && !llmPhrase) {
                 console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} failed, retrying...`);
                 await new Promise(r => setTimeout(r, 800));
                 continue;
@@ -3521,7 +3521,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
               console.error(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
-              if (attempt < 4) {
+              if (attempt < 2) {
                 console.log(`[compute-outer-readiness] [LLM] Retrying after failure (attempt ${attempt})...`);
                 await new Promise(r => setTimeout(r, 800));
                 continue;
@@ -3532,7 +3532,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── Lovable AI fallback (if Claude failed after 4 attempts) ──
           if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] Claude failed after 4 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
+            console.log(`[compute-outer-readiness] [LLM] Claude failed after 2 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
             try {
               const lovableController = new AbortController();
               const lovableTimeout = setTimeout(() => lovableController.abort(), 8000);
