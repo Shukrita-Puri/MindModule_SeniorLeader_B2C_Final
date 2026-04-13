@@ -66,6 +66,7 @@ interface WearableContext {
   poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
+  sourceRowDate: string | null; // summary_date of the row used
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
@@ -1958,7 +1959,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source')
+        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1998,6 +1999,7 @@ serve(async (req) => {
           poorSleep,
           rhrElevated,
           dataSource: source,
+          sourceRowDate: wearableRow.summary_date ?? null,
         };
       }
     } catch (err) {
@@ -2348,7 +2350,10 @@ serve(async (req) => {
     }
 
     // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
-    const hasWearable = !!wearableContext;
+    const hasWearableConnection = !!wearableContext;
+    const hasWearableData = hasWearableConnection && (hrvValue != null || sleepDuration != null || sleepScoreVal != null || rhrValue != null);
+    // Legacy field: gate on actual data to prevent contradictory Lean On vs Pills
+    const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
     
     // Wearable days connected count
@@ -3757,6 +3762,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
       hasWearable,
       wearableDaysConnected,
+      wearableStatus: {
+        isConnected: hasWearableConnection,
+        hasTodayData: hasWearableData,
+        hasRecentData: wearableDaysConnected > 0,
+        metricsAvailable: {
+          hrv: hrvValue != null,
+          sleep: sleepDuration != null || sleepScoreVal != null,
+          rhr: rhrValue != null,
+        },
+        sourceRowDate: wearableContext?.sourceRowDate ?? null,
+        dataSource: wearableDataSource,
+      },
+      remainingMeetings: calendarResult.remainingMeetings ?? 0,
       hrvDeviation,
       sleepDeviation,
       rhrDeviation,

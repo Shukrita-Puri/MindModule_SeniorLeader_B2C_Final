@@ -27,6 +27,15 @@ export interface OuterReadinessData {
   leanOnSource?: string;
   watchForSource?: string;
   hasWearable?: boolean;
+  wearableStatus?: {
+    isConnected: boolean;
+    hasTodayData: boolean;
+    hasRecentData: boolean;
+    metricsAvailable: { hrv: boolean; sleep: boolean; rhr: boolean };
+    sourceRowDate: string | null;
+    dataSource: string | null;
+  };
+  remainingMeetings?: number;
   wearableDaysConnected?: number;
   hrvDeviation?: number | null;
   sleepDeviation?: number | null;

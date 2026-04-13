@@ -7,10 +7,15 @@
 ### v4 Changes Summary (2026-04-13)
 
 - **Wearable extraction**: `||` → `??` for all wearable fields (prevents `0` coercion to `null`)
-- **Wearable syncing chip**: When `hasWearable=true` but all metrics null, renders neutral "Wearable syncing" chip (not a state assertion)
+- **Unified wearable contract**: New `wearableStatus` object in response unifies wearable state for pills and insights (fixes split-logic bug where Lean On showed "Physiological credit" while pills showed "Wearable syncing")
+- **Wearable syncing chip**: Replaced with 3-state logic: `hasTodayData` → normal pills; `hasRecentData` → "Based on recent data"; else → "Waiting for wearable data"
+- **Lean On gating**: "Physiological credit" only shown when actual metric data exists (`hasTodayData`), not just wearable connection
 - **Mind pill split**: Unified mind pill replaced by two pills: **Mind Sharpness** (Stage 1 outcome) + **Clarity & Confidence** (Stage 2 C×C matrix)
+- **Mind pill prefix**: All Mind Sharpness labels prefixed with "Mind" (e.g., "Mind steady", "Mind focused") for disambiguation
+- **Meeting count fix**: Pills now use `remainingMeetings` (shows "X meetings ahead" or "X meetings done") instead of total daily count
 - **Pill vocabulary**: `Overwhelmed` → `Depleted` (C-suite appropriate); no raw numbers on front of any pill
 - **Deterministic fallback signals**: Trimmed to 1-3 word derived labels (not truncations of verbose sentences); source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
+- **Watch For prose guard**: Client-side guard truncates lines >40 chars without `·` separator to first 3 words + `· System`
 - **Bold rendering**: `<strong>` HTML tags only (no markdown asterisks)
 - **LLM retries**: Reduced from 4 (10s/8s/6s/5s) → 2 (10s/6s); worst-case ~24s instead of ~38s
 - **Few-shot examples**: Replaced with v5 corrected "Chief of Staff for the Mind" calibration set
@@ -437,7 +442,7 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 |---------|-----------|------------------------|----------------------|-------|
 | **heart** | `hrvValue != null OR rhrValue != null` | "Heart steady" / "Heart elevated" / "Heart strained" / "Heart dipped" / "Heart recovering" + inline pattern | `HRV {v}ms · {dev}% vs {base}ms · RHR {v}bpm · {dev}% vs {base}bpm` | Worst-of HRV/RHR tier |
 | **sleep** | `sleepDuration != null OR sleepScore != null` | "Well-rested body" / "Solid sleep" / "Sleep slightly short" / "Short sleep" / "Sleep below baseline" / "Poor sleep" / "Fair sleep" | `Sleep score {s} · {duration} · {dev}% vs {baseline} baseline` | RED/AMBER/GREEN by deviation |
-| **mind-sharpness** | `outcome != null` | Focused / Steady / Scattered / Drained / Depleted / Energised / Calm | `Check-in: {outcome}` | Outcome tier |
+| **mind-sharpness** | `outcome != null` | Mind focused / Mind steady / Mind scattered / Mind drained / Mind depleted / Mind energised / Mind calm | `Check-in: {outcome}` | Outcome tier |
 | **clarity-confidence** | `clarityLevel OR confidenceLevel != null` | "High clarity" / "Sharp confidence" / "Low clarity" / "Clear but cautious" / "Moderate mind" + inline patterns | `Clarity {x}/5 · Confidence {y}/5` | C×C tier |
 
 **§7.1a Heart Pill Label Vocabulary**
@@ -476,7 +481,8 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 
 | State | Display |
 |-------|---------|
-| `active` + events | `{meetingCount} meetings` + high-stakes event titles |
+| `active` + remaining > 0 | `{loadLabel} day · {remainingMeetings} meetings ahead` + high-stakes event titles |
+| `active` + remaining = 0, total > 0 | `{loadLabel} day · {meetingCount} meetings done` |
 | `active` + no events | "Clear calendar" |
 | `connected_no_events` | "No events today" |
 | `not_connected` | "Connect calendar" (clickable → `/connected-data`) |
@@ -490,12 +496,23 @@ Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using dat
 - A helper line "Tap a pill to see the number behind it" appears when flippable chips are present
 - **No duplicate summary line** — pills are the sole signal representation
 
-### 7.5 Wearable Data Contract
+### 7.5 Wearable Data Contract (Unified)
 
 - All wearable field extraction uses `??` (nullish coalescing), not `||`
 - `0` values are valid data, not coerced to null
-- When `hasWearable=true` but all metrics null: render "Wearable syncing" neutral chip
-- When `hasWearable=false`: render "Connect wearable" prompt chip
+- **Unified `wearableStatus` object** in response payload:
+  - `isConnected`: wearable row exists (regardless of metrics)
+  - `hasTodayData`: at least one metric (HRV, sleep, RHR) is non-null
+  - `hasRecentData`: `wearableDaysConnected > 0` (any row in 30-day window)
+  - `metricsAvailable`: per-metric boolean (`{ hrv, sleep, rhr }`)
+  - `sourceRowDate`: `summary_date` of the wearable row used
+- **Rendering logic** (client):
+  - `!isConnected` → "Connect wearable" prompt chip
+  - `hasTodayData` → Heart + Sleep pills render normally (no fallback)
+  - `!hasTodayData && hasRecentData` → "Based on recent data" neutral chip with last sync date
+  - `isConnected && !hasRecentData` → "Waiting for wearable data" neutral chip
+- **Lean On gating**: "Physiological credit" only surfaces when `hasTodayData=true`
+- `hasWearable` legacy field now equals `hasTodayData` (not just `isConnected`)
 
 ### 7.6 Deterministic Fallback Signal Brevity
 

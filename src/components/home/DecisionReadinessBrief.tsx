@@ -127,6 +127,13 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
         signal: line.substring(0, sepIdx).trim(),
         source: line.substring(sepIdx + 3).trim(),
       });
+    } else if (line.length > 40) {
+      // Prose guard: truncate long lines without separator to first 3 words
+      const words = line.trim().split(/\s+/).slice(0, 3).join(' ');
+      pairs.push({ signal: words, source: 'System' });
+    } else if (line.trim()) {
+      // Short line without separator — use as-is
+      pairs.push({ signal: line.trim(), source: 'System' });
     }
   }
   return pairs.length > 0 ? pairs : null;
@@ -374,11 +381,16 @@ function buildSignalChips(
     chips.push({ id: 'sleep', label: frontLabel, backLabel: backParts.join(' · ') || undefined, color, qualifier });
   }
 
-  // ── Wearable prompt / syncing fallback ──
-  if (tier === 'none') {
+  // ── Wearable prompt / syncing fallback — unified via wearableStatus ──
+  const ws = outerBrief?.wearableStatus;
+  if (!ws?.isConnected) {
     chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
-  } else if (chips.filter(c => ['heart', 'sleep'].includes(c.id)).length === 0) {
-    chips.push({ id: 'wearable-syncing', label: 'Wearable syncing', color: 'neutral', qualifier: 'Data will appear shortly' });
+  } else if (ws?.hasTodayData) {
+    // Heart + Sleep pills already rendered above — no fallback needed
+  } else if (ws?.hasRecentData) {
+    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
+  } else {
+    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
   }
 
   // ────────────────────────────────────────
@@ -402,16 +414,16 @@ function buildSignalChips(
   // Map outcome to C-suite appropriate front label
   const outcomeToLabel = (o: string): string => {
     switch (o) {
-      case 'focused': return 'Focused';
-      case 'steady': return 'Steady';
-      case 'scattered': return 'Scattered';
-      case 'drained': return 'Drained';
-      case 'overwhelmed': return 'Depleted';
-      case 'energised': return 'Energised';
-      case 'calm': return 'Calm';
-      case 'anxious': return 'Anxious';
-      case 'frustrated': return 'Frustrated';
-      default: return o.charAt(0).toUpperCase() + o.slice(1);
+      case 'focused': return 'Mind focused';
+      case 'steady': return 'Mind steady';
+      case 'scattered': return 'Mind scattered';
+      case 'drained': return 'Mind drained';
+      case 'overwhelmed': return 'Mind depleted';
+      case 'energised': return 'Mind energised';
+      case 'calm': return 'Mind calm';
+      case 'anxious': return 'Mind anxious';
+      case 'frustrated': return 'Mind frustrated';
+      default: return 'Mind ' + o;
     }
   };
 
@@ -546,6 +558,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const calLoad = outerBrief?.calendarLoad ?? 'low';
   const loadLabel = calLoad === 'high' ? 'Heavy' : calLoad === 'medium' ? 'Moderate' : 'Light';
   const meetingCount = outerBrief?.meetingCount ?? 0;
+  const remainingMeetings = outerBrief?.remainingMeetings ?? meetingCount;
+  const meetingLabel = remainingMeetings > 0
+    ? `${remainingMeetings} meeting${remainingMeetings !== 1 ? 's' : ''} ahead`
+    : meetingCount > 0
+      ? `${meetingCount} meeting${meetingCount !== 1 ? 's' : ''} done`
+      : '0 meetings';
 
   if (!hasCalendar && calendarState === 'not_connected') {
     return (
@@ -573,7 +591,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
           {urgentLabel}
         </span>
         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
-          {loadLabel} day · {meetingCount} meetings
+          {loadLabel} day · {meetingLabel}
         </span>
       </div>
     );
@@ -583,7 +601,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const pills: JSX.Element[] = [];
   pills.push(
     <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
-      {loadLabel} day · {meetingCount} meetings
+      {loadLabel} day · {meetingLabel}
     </span>
   );
 
