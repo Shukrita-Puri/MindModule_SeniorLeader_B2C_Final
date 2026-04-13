@@ -1,72 +1,121 @@
 
 
-# Synthesized Mind Pill + Inline Patterns on Signal Pills
+# Fix Wearable Pills, Split Mind Pill, Trim Lean On/Watch For, Upgrade LLM v4, Reduce Latency
 
-## Summary
-
-Two focused changes to `src/components/home/DecisionReadinessBrief.tsx`:
-
-1. **Unified Mind pill** — Combine Stage 1 (mental sharpness outcome) with Stage 2 (clarity × confidence) into one synthesized pill
-2. **Inline patterns on existing pills** — Move pattern context onto the relevant signal pill instead of rendering a separate pattern chip
+## 5 Changes Across 3 Files
 
 ---
 
-## Change 1: Unified Mind Pill
+### Fix 1 — Wearable pills not showing (`||` → `??` + syncing fallback)
 
-Currently the Mind pill only uses clarity × confidence. The check-in outcome (overwhelmed/drained/scattered/focused/steady) from Stage 1 is ignored.
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 1968-1971)
 
-**New logic**: One pill that synthesizes both stages.
+**Root cause:** `wearableRow.resting_heart_rate || null` coerces `0` to `null`. The wearable data exists (visible in lean-on text) but individual metrics may be `0` during sync gaps.
 
-- **Front label** examples:
-  - `Focused · sharp clarity` (outcome=focused, clarity≥4, confidence≥4)
-  - `Scattered · low clarity` (outcome=scattered, clarity≤2)
-  - `Steady · moderate mind` (outcome=steady, clarity=3, confidence=3)
-  - `Drained · low confidence` (outcome=drained, confidence≤2)
-  - `Overwhelmed · clarity low` (outcome=overwhelmed, clarity≤2)
-  - Falls back to current C×C-only label if no outcome available
+**Changes:**
+- Line 1968: `wearableRow.resting_heart_rate || null` → `wearableRow.resting_heart_rate ?? null`
+- Line 1969: `wearableRow.hrv || null` → `wearableRow.hrv ?? null`
+- Line 1970: `wearableRow.sleep_score || null` → `wearableRow.sleep_score ?? null`
+- Line 1971: `wearableRow.total_sleep_minutes || null` → `wearableRow.total_sleep_minutes ?? null`
+- Line 1972: `wearableRow.source || null` → `wearableRow.source ?? null`
 
-- **Back label**: `Sharpness: {outcome} · C:{x}/5 · Co:{y}/5`
+**File:** `src/components/home/DecisionReadinessBrief.tsx` (lines 393-396)
 
-- **Color logic**: Worst-of outcome tier and C×C tier:
-  - outcome in [overwhelmed, drained] OR (clarity≤2 AND confidence≤2) → red
-  - outcome=scattered OR clarity≤2 OR confidence≤2 → amber
-  - outcome in [focused, steady] AND clarity≥3 AND confidence≥3 → green
-
-This creates one pill that represents the full check-in picture.
-
-## Change 2: Inline Patterns on Existing Pills
-
-Instead of a separate `pattern` chip, attach pattern context as a qualifier on the relevant signal pill.
-
-**Examples**:
-- HRV pill: `HRV below baseline · 3rd day` (when HRV has been low for consecutive days)
-- Sleep pill: `Solid sleep · 7-day streak` (when sleep trend is consistently good)
-- Mind pill: `Scattered · low clarity · 3rd day` (when `consecutiveLowConfidence ≥ 3`)
-- RHR pill: `RHR elevated · trend declining` (when `wearableTrend7d === 'declining'`)
-
-**Mapping**:
-- `consecutiveLowConfidence ≥ 3` → appended to Mind pill qualifier
-- `scoreTrajectory7d` (declining/improving) → appended to whichever wearable pill is most relevant (HRV if exists, else sleep, else RHR)
-- `typicalDOWScore` divergence → appended to Mind pill qualifier (since it's a score-level pattern)
-- `wearableTrend7d` → appended to HRV pill qualifier
-- `hrvEventCorrelation` → appended to HRV pill qualifier
-
-The separate `pattern` chip section (lines 401-463) will be removed. Pattern data will be injected as qualifiers during the HRV/Sleep/RHR/Mind pill construction.
-
-**No separate pattern pill is rendered.**
+**Change:** When `hasWearable` is true but no HRV/Sleep/RHR chips were generated (all metrics null), render a neutral "Wearable syncing" chip instead of nothing or a state assertion. Move the "Connect wearable" prompt to also fire when `tier !== 'none'` but zero wearable chips exist.
 
 ---
 
-## Files to update
+### Fix 2 — Split Mind pill into two pills (no raw numbers on front)
 
-### `src/components/home/DecisionReadinessBrief.tsx`
-- Refactor Mind pill section (lines 350-399) to include `energyState.checkInOutcome`
-- Move pattern logic (lines 401-463) into each pill's qualifier during construction
-- Remove the standalone pattern pill block
-- Pass `checkInOutcome` into the chip builder (already available via `energyState`)
+**File:** `src/components/home/DecisionReadinessBrief.tsx` (lines 398-505)
 
-### No other files change
-- No backend changes
-- No schema changes
-- No doc changes needed for this iteration
+Replace unified mind pill with two separate pills:
+
+**Mind Sharpness pill** (Stage 1 outcome):
+- Front: `Focused` / `Steady` / `Scattered` / `Drained` / `Depleted` (not "Overwhelmed" — per user feedback, too clinical for C-suite)
+- Back: `Check-in: {outcome}`
+- Color: outcome tier (green/amber/red)
+- Only renders when `outcome` exists
+
+**Clarity & Confidence pill** (Stage 2 matrix):
+- Front: analysis words only — `High clarity` / `Sharp confidence` / `Low clarity` / `Low confidence` / `Clear but cautious` (for clarity high + confidence low split)
+- Back: `Clarity {x}/5 · Confidence {y}/5`
+- Color: C×C tier
+- Pattern qualifiers (consecutive low days, DOW deviation) attach here as grey qualifier text
+- Only renders when clarity or confidence exists
+
+---
+
+### Fix 3 — Trim deterministic fallback Lean On / Watch For to 1-3 words
+
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 3657-3703)
+
+Current verbose signals → trimmed derived labels:
+- `"Body steady — your system supports this"` → `"System steady"` ← but per spec rule, this duplicates pill. Change to `"Physiological credit"` (a derived implication)
+- `"Calendar space — use it deliberately"` → `"Calendar headroom"`
+- `"Heavy calendar (X meetings) — watch for decision fatigue"` → `"Decision fatigue"`
+- `"Body strain — protect your recovery windows"` → `"Compounding cost"` (derived, not repeating pill)
+- `"Autopilot mode — stay intentional"` → `"Autopilot risk"`
+- `"X-day depleted/managing pattern — needs intervention"` → `"{X}-day pattern"`
+- `"Your self-awareness — checking in is the edge"` → remove entirely (not signal-based)
+- Archetype lean-on/watch-for: truncate to first 3 words of trait
+
+Also rewrite the deterministic fallback **phrases** and **body** per v4 Section 12:
+- Use archetype lean-on trait + time slot for phrase (not prose sentences)
+- Use onboarding goal for body (not signal listing)
+- If archetype null: return null for phrase/body (empty card > generic card)
+
+Source priority for deterministic fallback: Wearable → Coach → Check-in → Calendar → Archetype → Goals (immediate → tactical → strategic).
+
+---
+
+### Fix 4 — Swap few-shot examples with v5 corrected set
+
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 3241-3258)
+
+Replace current 4 examples with 4 from the v5 corrected set, selected for maximum signal diversity:
+
+1. **EX 01** — Sunday Evening + HRV board pattern + MASKED_HIGH + Sunday Anxiety (Pattern D + F)
+2. **EX 03** — Afternoon + MASKED_HIGH + Clarity-Confidence Split + Coach insight (Pattern A + B)
+3. **EX 07** — Day 1 Cold Start (no wearable, no calendar, archetype + goals only)
+4. **EX 09** — Day 4 consecutive low + coach commitment active (Pattern I + consecutive)
+
+All examples use `<strong>` HTML tags (not markdown asterisks). All lean-on/watch-for items are 1-3 word derived labels, not pill repetitions.
+
+---
+
+### Fix 5 — LLM latency reduction
+
+**File:** `supabase/functions/compute-outer-readiness/index.ts` (lines 3451-3453)
+
+- Reduce retries from 4 → 2: `[10000, 6000]` (validation retry shares same timeout budget, not additive)
+- Change `for` loop: `attempt <= 2` instead of `attempt <= 4`
+- Lovable AI fallback timeout stays at 8s (already reasonable)
+- Worst case: 10s + 6s + 8s = 24s (was ~38s)
+
+---
+
+### Fix 6 — Docs update
+
+**File:** `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`
+
+Update all affected sections (not just §7):
+- §6.3: Wearable data contract — `??` not `||`, connected-but-no-data renders "Wearable syncing"
+- §7: Signal pills — split Mind into Mind Sharpness + Clarity & Confidence; pill vocabulary table (Focused/Steady/Scattered/Drained/Depleted); no raw numbers on front
+- §10/§12: Deterministic fallback — 1-3 word signals, archetype-first, null over generic
+- §2.3: Bold — `<strong>` not `**`
+- Add v4 changes summary block at top
+
+---
+
+## Implementation Order
+
+1. Fix `||` → `??` in edge function + add "Wearable syncing" fallback chip
+2. Split Mind pill into two in client
+3. Trim deterministic fallback signals to 1-3 derived words + rewrite fallback phrase/body per Section 12
+4. Swap few-shot examples with v5 corrected set
+5. Reduce LLM retries from 4 → 2
+6. Update docs
+7. Deploy edge function
+8. Verify end-to-end
 
