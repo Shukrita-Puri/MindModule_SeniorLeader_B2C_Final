@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, RotateCw } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ─── TYPES ───
@@ -166,6 +166,13 @@ function buildSignalChips(
   const wearableDataSource = outerBrief?.wearableDataSource ?? null;
   const isAppleHealth = wearableDataSource === 'apple-healthkit';
   const wearableDays = outerBrief?.wearableDaysConnected ?? 0;
+
+  // Debug: log wearable data availability
+  console.log('[buildSignalChips] wearable debug:', {
+    tier, hasWearable: outerBrief?.hasWearable, wearableDataSource,
+    hrvValue: outerBrief?.hrvValue, sleepDuration: outerBrief?.sleepDuration,
+    rhrValue: outerBrief?.rhrValue, sleepScore: outerBrief?.sleepScore,
+  });
 
   if (!hasCheckIn) {
     const promptChips: SignalChip[] = [{ id: 'no-checkin', label: 'Check in to unlock your state', color: 'neutral' }];
@@ -531,9 +538,6 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
           transition: 'transform 0.4s ease-in-out',
         }}
       >
-        {hasBack && !onNavigate && (
-          <RotateCw className="w-2.5 h-2.5 opacity-40 shrink-0" />
-        )}
         <span className="whitespace-nowrap">
           {flipped && chip.backLabel ? chip.backLabel : chip.label}
           {!flipped && chip.qualifier && (
