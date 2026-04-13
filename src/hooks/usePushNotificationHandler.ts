@@ -10,11 +10,16 @@ import { useNotificationEngagement } from '@/hooks/useNotificationEngagement';
  * Fallback uses check-in status to decide between check-in and home.
  */
 const ACTION_ROUTES: Record<string, string> = {
+  // MVP 3-nudge types
+  nudge_one: '/daily-check-in',           // Default; JIT variant uses deep_link_route from payload
+  nudge_two: '/executive-home',           // Default; recalibrate variant uses deep_link_route
+  nudge_three: '/daily-check-in',         // Evening close
+  // Legacy types (backward compat)
   morning_prep: '/daily-check-in',
   pre_event_prep: '/executive-home',
-  calendar_gap: '/executive-home',          // Artifact-first: priorities visible
+  calendar_gap: '/executive-home',
   coach_meeting_match: '/self-mastery-coach',
-  state_aware_nudge: '/daily-check-in',     // Recalibrate via check-in
+  state_aware_nudge: '/daily-check-in',
   evening_close: '/daily-check-in',
   pattern_alert: '/insights',
   daily_fallback: '/executive-home',
