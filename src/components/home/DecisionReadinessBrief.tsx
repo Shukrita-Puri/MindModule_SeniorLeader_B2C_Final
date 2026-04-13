@@ -551,6 +551,12 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const calLoad = outerBrief?.calendarLoad ?? 'low';
   const loadLabel = calLoad === 'high' ? 'Heavy' : calLoad === 'medium' ? 'Moderate' : 'Light';
   const meetingCount = outerBrief?.meetingCount ?? 0;
+  const remainingMeetings = outerBrief?.remainingMeetings ?? meetingCount;
+  const meetingLabel = remainingMeetings > 0
+    ? `${remainingMeetings} meeting${remainingMeetings !== 1 ? 's' : ''} ahead`
+    : meetingCount > 0
+      ? `${meetingCount} meeting${meetingCount !== 1 ? 's' : ''} done`
+      : '0 meetings';
 
   if (!hasCalendar && calendarState === 'not_connected') {
     return (
@@ -588,7 +594,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const pills: JSX.Element[] = [];
   pills.push(
     <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
-      {loadLabel} day · {meetingCount} meetings
+      {loadLabel} day · {meetingLabel}
     </span>
   );
 
