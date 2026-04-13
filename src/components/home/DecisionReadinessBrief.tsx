@@ -68,19 +68,19 @@ const chipDotColor = (color: SignalChip['color']) => {
 
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
-    case 'red': return 'bg-gradient-to-r from-red-500 to-red-400 text-white shadow-[0_2px_8px_rgba(239,68,68,0.25)] border-0';
-    case 'amber': return 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-[0_2px_8px_rgba(245,158,11,0.25)] border-0';
-    case 'green': return 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)] border-0';
-    default: return 'bg-muted/50 border-border/30';
+    case 'red': return 'bg-gradient-to-r from-red-200 to-red-100 text-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.10)] border-0';
+    case 'amber': return 'bg-gradient-to-r from-amber-200 to-amber-100 text-amber-700 shadow-[0_2px_8px_rgba(245,158,11,0.10)] border-0';
+    case 'green': return 'bg-gradient-to-r from-emerald-200 to-emerald-100 text-emerald-700 shadow-[0_2px_8px_rgba(16,185,129,0.10)] border-0';
+    default: return 'bg-muted/40 text-muted-foreground/70 border-border/20';
   }
 };
 
 // Calendar load pill color based on load level
 const calendarLoadPillStyle = (load: string) => {
   switch (load) {
-    case 'high': return 'bg-gradient-to-r from-red-500 to-red-400 text-white shadow-[0_2px_8px_rgba(239,68,68,0.2)] border-0';
-    case 'medium': return 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-[0_2px_8px_rgba(245,158,11,0.2)] border-0';
-    default: return 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.2)] border-0';
+    case 'high': return 'bg-gradient-to-r from-red-200 to-red-100 text-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.08)] border-0';
+    case 'medium': return 'bg-gradient-to-r from-amber-200 to-amber-100 text-amber-700 shadow-[0_2px_8px_rgba(245,158,11,0.08)] border-0';
+    default: return 'bg-gradient-to-r from-emerald-200 to-emerald-100 text-emerald-700 shadow-[0_2px_8px_rgba(16,185,129,0.08)] border-0';
   }
 };
 
@@ -343,12 +343,25 @@ function buildSignalChips(
   if (tier !== 'none') {
     const hasWearableChip = chips.some(c => ['hrv', 'sleep', 'rhr'].includes(c.id));
     if (!hasWearableChip) {
+      // Build a backLabel from available raw metrics so the pill is flippable
+      const steadyMetrics: string[] = [];
+      if (outerBrief?.hrvValue != null) steadyMetrics.push(`HRV: ${outerBrief.hrvValue}ms`);
+      if (outerBrief?.sleepDuration != null) {
+        const hrs = Math.floor(outerBrief.sleepDuration / 60);
+        const mins = outerBrief.sleepDuration % 60;
+        steadyMetrics.push(`Sleep: ${mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`}`);
+      } else if (outerBrief?.sleepScore != null) {
+        steadyMetrics.push(`Sleep: ${outerBrief.sleepScore}`);
+      }
+      if (outerBrief?.rhrValue != null) steadyMetrics.push(`RHR: ${outerBrief.rhrValue}bpm`);
+      const steadyBack = steadyMetrics.length > 0 ? steadyMetrics.join(' · ') : undefined;
+
       if (tier === 'absolute') {
-        chips.push({ id: 'wearable-steady', label: 'System online', color: 'neutral', qualifier: ' · establishing baseline' });
+        chips.push({ id: 'wearable-steady', label: 'System online', backLabel: steadyBack, color: 'neutral', qualifier: ' · establishing baseline' });
       } else if (tier === 'partial') {
-        chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green', qualifier: ' · early reading' });
+        chips.push({ id: 'wearable-steady', label: 'Body steady', backLabel: steadyBack, color: 'green', qualifier: ' · early reading' });
       } else {
-        chips.push({ id: 'wearable-steady', label: 'Body steady', color: 'green' });
+        chips.push({ id: 'wearable-steady', label: 'Body steady', backLabel: steadyBack, color: 'green' });
       }
     }
   }
@@ -653,10 +666,10 @@ const PerformanceReadinessBrief = () => {
           })}
         </div>
 
-        {/* 8. INNER SUMMARY */}
-        {innerSummary && (
-          <p className="mt-2 text-[11px] text-muted-foreground/60 font-body font-medium">
-            {innerSummary}
+        {/* 8. FLIP AFFORDANCE HINT */}
+        {chips.some(c => !!c.backLabel) && (
+          <p className="mt-1.5 text-[9px] text-muted-foreground/40 font-body italic">
+            Tap a pill to see the number behind it
           </p>
         )}
       </div>
