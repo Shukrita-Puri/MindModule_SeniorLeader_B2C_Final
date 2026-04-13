@@ -333,3 +333,51 @@ export async function streamClaudeAsOpenAI(params: CallClaudeParams): Promise<Re
     },
   });
 }
+
+/**
+ * Call Lovable AI Gateway (OpenAI-compatible).
+ * Fallback provider when Anthropic is unavailable.
+ * Uses google/gemini-2.5-flash by default.
+ */
+export async function callLovableAIText(params: {
+  system?: string;
+  messages: Array<{ role: string; content: string }>;
+  model?: string;
+  max_tokens?: number;
+  temperature?: number;
+  signal?: AbortSignal;
+}): Promise<string> {
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!apiKey) throw new Error('LOVABLE_API_KEY not configured');
+
+  const allMessages: Array<{ role: string; content: string }> = [];
+  if (params.system) allMessages.push({ role: 'system', content: params.system });
+  for (const m of params.messages) allMessages.push({ role: m.role, content: m.content });
+
+  const fetchOptions: RequestInit = {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: params.model || 'google/gemini-2.5-flash',
+      messages: allMessages,
+      max_tokens: params.max_tokens || 1024,
+      temperature: params.temperature,
+    }),
+  };
+
+  if (params.signal) fetchOptions.signal = params.signal;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[lovable-ai] HTTP ${response.status}:`, errorText);
+    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
