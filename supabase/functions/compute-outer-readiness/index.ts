@@ -3431,8 +3431,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── Call LLM with retry ──
 
-          for (let attempt = 1; attempt <= 2; attempt++) {
-            const timeoutMs = attempt === 1 ? 10000 : 8000;
+          const retryTimeouts = [10000, 8000, 6000, 5000];
+          for (let attempt = 1; attempt <= 4; attempt++) {
+            const timeoutMs = retryTimeouts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
             const startMs = Date.now();
@@ -3447,7 +3448,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               });
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
-              console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} completed in ${durationMs}ms`);
+              console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} completed in ${durationMs}ms`);
 
               if (content) {
                 try {
@@ -3457,20 +3458,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }
                   const parsed = JSON.parse(jsonStr);
 
-                  // Extract all four fields
                   const pPhrase = (parsed.phrase && parsed.phrase !== 'null') ? parsed.phrase : null;
                   const pBody = (parsed.body && parsed.body !== 'null') ? parsed.body : (parsed.bodyText && parsed.bodyText !== 'null') ? parsed.bodyText : null;
                   const pLeanOn = Array.isArray(parsed.leanOn) ? parsed.leanOn : null;
                   const pWatchFor = Array.isArray(parsed.watchFor) ? parsed.watchFor : null;
 
-                  // v4 validation
                   const validation = validateV4Output(parsed, pPhrase, pBody);
                   if (!validation.valid) {
                     console.warn(`[compute-outer-readiness] [LLM] v4 validation failed: ${validation.reason}`);
                     llmFallbackReason = `validation_${validation.reason}`;
-                    if (attempt === 1) {
-                      console.log('[compute-outer-readiness] [LLM] Retrying after validation failure...');
-                      await new Promise(r => setTimeout(r, 1000));
+                    if (attempt < 4) {
+                      console.log(`[compute-outer-readiness] [LLM] Retrying after validation failure (attempt ${attempt})...`);
+                      await new Promise(r => setTimeout(r, 800));
                       continue;
                     }
                     break;
@@ -3494,9 +3493,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 llmFallbackReason = 'llm_returned_null';
               }
 
-              if (attempt === 1 && !llmPhrase) {
-                console.log('[compute-outer-readiness] [LLM] Attempt 1 failed, retrying...');
-                await new Promise(r => setTimeout(r, 1000));
+              if (attempt < 4 && !llmPhrase) {
+                console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} failed, retrying...`);
+                await new Promise(r => setTimeout(r, 800));
                 continue;
               }
             } catch (err: any) {
@@ -3504,53 +3503,179 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
-              console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
-              if (attempt === 1) {
-                console.log('[compute-outer-readiness] [LLM] Retrying after failure...');
-                await new Promise(r => setTimeout(r, 1000));
+              console.error(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
+              if (attempt < 4) {
+                console.log(`[compute-outer-readiness] [LLM] Retrying after failure (attempt ${attempt})...`);
+                await new Promise(r => setTimeout(r, 800));
                 continue;
               }
             }
             break;
           }
 
-          // ── v4 Fallback: archetype + goals (never generic) ──
+          // ── Lovable AI fallback (if Claude failed after 4 attempts) ──
           if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] v4 fallback. Reason: ${llmFallbackReason || 'unknown'}`);
-            if (serverArchetype && leanOnResult.leanOn) {
-              // Phrase: archetype lean-on + time slot
-              llmPhrase = `Lead with ${leanOnResult.leanOn.toLowerCase()}.`;
-              // Body: onboarding goal
-              if (serverPracticePriorityTag) {
-                const goalLabels: Record<string, string> = {
-                  regulation_composure: 'composure under pressure',
-                  regulation_early: 'early signal detection',
-                  recovery_resilience: 'recovery and resilience',
-                  energy_endurance: 'energy endurance',
-                  focus_clarity: 'focus and clarity',
-                  mindset_reframe: 'mindset reframing',
-                };
-                const goal = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
-                llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
-              }
-              // LeanOn/WatchFor from archetype
-              if (!llmLeanOn) {
-                llmLeanOn = [
-                  { signal: leanOnResult.leanOn.split(' ').slice(0, 3).join(' '), source: 'Archetype' },
-                ];
-                if (serverPracticePriorityTag) {
-                  const goalShort: Record<string, string> = {
-                    regulation_composure: 'Composure goal', regulation_early: 'Signal awareness',
-                    recovery_resilience: 'Resilience goal', energy_endurance: 'Endurance goal',
-                    focus_clarity: 'Clarity goal', mindset_reframe: 'Reframing goal',
-                  };
-                  llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
+            console.log(`[compute-outer-readiness] [LLM] Claude failed after 4 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
+            try {
+              const lovableController = new AbortController();
+              const lovableTimeout = setTimeout(() => lovableController.abort(), 8000);
+              const lovableContent = await callLovableAIText({
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }],
+                max_tokens: 380,
+                signal: lovableController.signal,
+              });
+              clearTimeout(lovableTimeout);
+              console.log('[compute-outer-readiness] [LLM] Lovable AI responded');
+
+              if (lovableContent) {
+                try {
+                  let jsonStr = lovableContent.trim();
+                  if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                  }
+                  const parsed = JSON.parse(jsonStr);
+
+                  const pPhrase = (parsed.phrase && parsed.phrase !== 'null') ? parsed.phrase : null;
+                  const pBody = (parsed.body && parsed.body !== 'null') ? parsed.body : (parsed.bodyText && parsed.bodyText !== 'null') ? parsed.bodyText : null;
+                  const pLeanOn = Array.isArray(parsed.leanOn) ? parsed.leanOn : null;
+                  const pWatchFor = Array.isArray(parsed.watchFor) ? parsed.watchFor : null;
+
+                  const validation = validateV4Output(parsed, pPhrase, pBody);
+                  if (validation.valid && pPhrase) {
+                    llmPhrase = pPhrase;
+                    if (pBody) llmBodyText = pBody;
+                    if (pLeanOn && pLeanOn.length > 0) llmLeanOn = pLeanOn;
+                    if (pWatchFor && pWatchFor.length > 0) llmWatchFor = pWatchFor;
+                    llmFallbackReason = null;
+                    console.log(`[compute-outer-readiness] [LLM] Lovable AI output accepted: phrase="${llmPhrase}"`);
+                  } else {
+                    console.warn(`[compute-outer-readiness] [LLM] Lovable AI validation failed: ${validation.reason}`);
+                    llmFallbackReason = 'lovable_ai_validation_failed';
+                  }
+                } catch (parseErr) {
+                  console.error('[compute-outer-readiness] [LLM] Lovable AI parse error:', parseErr);
+                  llmFallbackReason = 'lovable_ai_parse_failed';
                 }
               }
-              if (!llmWatchFor && leanOnResult.watchFor) {
-                llmWatchFor = [
-                  { signal: leanOnResult.watchFor.split(' ').slice(0, 3).join(' '), source: 'Archetype' },
-                ];
+            } catch (lovableErr: any) {
+              console.error('[compute-outer-readiness] [LLM] Lovable AI fallback failed:', lovableErr?.message || lovableErr);
+              llmFallbackReason = 'lovable_ai_failed';
+            }
+          }
+
+          // ── Signal-aware deterministic fallback (last resort) ──
+          if (!llmPhrase) {
+            console.log(`[compute-outer-readiness] [LLM] All LLM providers failed. Building signal-aware fallback. Reason: ${llmFallbackReason || 'unknown'}`);
+
+            // Build phrase from live signals
+            const fbTier = innerReadinessTier;
+            const fbCalLoad = calendarLoad;
+            const fbMeetings = calendarResult?.meetingCount ?? 0;
+            const fbHasWearable = hasWearable;
+            const fbHrvDev = hrvDeviation;
+            const fbConsecutive = consecutivePattern;
+            const fbHighStakes = todayHighStakes?.length ?? 0;
+            const fbOutcome = checkInOutcome;
+
+            // Determine wearable state descriptor
+            const wearableStrained = fbHrvDev != null && fbHrvDev < -8;
+            const wearableSteady = fbHasWearable && !wearableStrained;
+            const bodyState = wearableStrained ? 'body strained' : 'body steady';
+
+            // Phrase selection based on signal combinations
+            if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
+              llmPhrase = `Break the pattern — ${fbConsecutive.count} ${fbConsecutive.state} days running.`;
+            } else if (fbCalLoad === 'high' && (fbTier === 'depleted' || fbTier === 'managing')) {
+              llmPhrase = 'Protect your energy — heavy calendar ahead.';
+            } else if (fbHighStakes > 0 && wearableStrained) {
+              llmPhrase = 'Steady your system — high-stakes ahead.';
+            } else if ((fbTier === 'strong' || fbTier === 'peak') && fbCalLoad === 'low') {
+              llmPhrase = 'Sustain the advantage — light calendar to build on.';
+            } else if ((fbTier === 'strong' || fbTier === 'peak') && fbCalLoad === 'high') {
+              llmPhrase = 'Channel your energy — busy day, strong start.';
+            } else if (serverArchetype && leanOnResult.leanOn) {
+              llmPhrase = `Lead with ${leanOnResult.leanOn.toLowerCase()}.`;
+            } else {
+              llmPhrase = 'Anchor in what matters most today.';
+            }
+
+            // Body copy from live signals
+            const bodyParts: string[] = [];
+            if (fbMeetings > 0) {
+              bodyParts.push(`<strong>${fbMeetings} meeting${fbMeetings > 1 ? 's' : ''}</strong> on your calendar today`);
+            }
+            if (fbHasWearable) {
+              bodyParts.push(`your ${bodyState}`);
+            }
+            if (fbOutcome) {
+              const outcomeLabels: Record<string, string> = {
+                focused: 'sharp and focused', scattered: 'scattered', drained: 'running low',
+                energized: 'energized', calm: 'calm and centred', overwhelmed: 'under pressure',
+              };
+              const outcomeLabel = outcomeLabels[fbOutcome] || fbOutcome;
+              bodyParts.push(`you're feeling ${outcomeLabel}`);
+            }
+
+            if (bodyParts.length > 0) {
+              llmBodyText = bodyParts.length === 1
+                ? `${bodyParts[0].charAt(0).toUpperCase() + bodyParts[0].slice(1)} — <strong>use that signal to guide your decisions</strong>.`
+                : `${bodyParts.slice(0, -1).join(', ')} and ${bodyParts[bodyParts.length - 1]} — <strong>use these signals to guide your decisions</strong>.`;
+            } else if (serverPracticePriorityTag) {
+              const goalLabels: Record<string, string> = {
+                regulation_composure: 'composure under pressure', regulation_early: 'early signal detection',
+                recovery_resilience: 'recovery and resilience', energy_endurance: 'energy endurance',
+                focus_clarity: 'focus and clarity', mindset_reframe: 'mindset reframing',
+              };
+              const goal = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
+              llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
+            }
+
+            // Lean on: full archetype text + signal-based items
+            if (!llmLeanOn) {
+              llmLeanOn = [];
+              if (leanOnResult.leanOn) {
+                llmLeanOn.push({ signal: leanOnResult.leanOn, source: 'Archetype' });
+              }
+              if (wearableSteady) {
+                llmLeanOn.push({ signal: 'Body steady — your system supports this', source: 'Wearable' });
+              }
+              if (fbCalLoad === 'low' && fbMeetings <= 2) {
+                llmLeanOn.push({ signal: 'Calendar space — use it deliberately', source: 'Calendar' });
+              }
+              if (fbConsecutive && fbConsecutive.count >= 2 && (fbConsecutive.state === 'strong' || fbConsecutive.state === 'peak')) {
+                llmLeanOn.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} streak`, source: 'Pattern' });
+              }
+              if (serverPracticePriorityTag) {
+                const goalShort: Record<string, string> = {
+                  regulation_composure: 'Composure goal', regulation_early: 'Signal awareness',
+                  recovery_resilience: 'Resilience goal', energy_endurance: 'Endurance goal',
+                  focus_clarity: 'Clarity goal', mindset_reframe: 'Reframing goal',
+                };
+                llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
+              }
+              if (llmLeanOn.length === 0) {
+                llmLeanOn.push({ signal: 'Your self-awareness — checking in is the edge', source: 'System' });
+              }
+            }
+
+            // Watch for: full archetype text + signal-based items
+            if (!llmWatchFor) {
+              llmWatchFor = [];
+              if (leanOnResult.watchFor) {
+                llmWatchFor.push({ signal: leanOnResult.watchFor, source: 'Archetype' });
+              }
+              if (wearableStrained) {
+                llmWatchFor.push({ signal: 'Body strain — protect your recovery windows', source: 'Wearable' });
+              }
+              if (fbCalLoad === 'high') {
+                llmWatchFor.push({ signal: `Heavy calendar (${fbMeetings} meetings) — watch for decision fatigue`, source: 'Calendar' });
+              }
+              if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
+                llmWatchFor.push({ signal: `${fbConsecutive.count}-day ${fbConsecutive.state} pattern — needs intervention`, source: 'Pattern' });
+              }
+              if (llmWatchFor.length === 0) {
+                llmWatchFor.push({ signal: 'Autopilot mode — stay intentional', source: 'System' });
               }
             }
           }
