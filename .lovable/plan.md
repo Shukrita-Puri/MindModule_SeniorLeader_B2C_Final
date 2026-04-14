@@ -1,70 +1,62 @@
 
 
-# Fix Today's 3 Performance Priorities — 4 Issues
+# Plan: Relax Validation + Enhance Logging + Compress Prompt + Increase Timeout
 
-## Issue 1: Show reasoning for all priorities (not just multi-practice)
+**Single file**: `supabase/functions/compute-outer-readiness/index.ts`
 
-**File:** `src/components/home/TodayThreePriorities.tsx`
+---
 
-Line 732 gates `practice.reasoning` behind `hasMultiple`. For single-practice slots (Priority 2, Priority 3), the reasoning text is hidden. Also the `sequenceReasoning` (line 660) and `whyLine` (line 667) only show in expanded state — these are fine, but the per-practice `reasoning` line inside the card should show for single-practice slots too.
+## Change 1: Relax Validation (lines 3433–3466)
 
-**Fix:** Remove the `hasMultiple` condition from line 732. Change to `{practice.reasoning && (`.
+- **Line 3444**: Change `wordCount > 25` → `wordCount > 40`
+- **Line 3455**: Change `signal.split(/\s+/).length > 3` → `signal.split(/\s+/).length > 5`
+- **Line 3446**: Remove the `body_restates_phrase` check entirely
+- **Keep all blacklist checks** (wellness, tier, readiness) unchanged
 
-## Issue 2: Fix time-of-day awareness in context statements
+## Change 2: Enhance LLM Fallback Logging (lines 3494–3552)
 
-**File:** `supabase/functions/generate-mastery-plan/index.ts`
+Add detailed context to every failure path:
 
-Line 2839: `'Clarity strong — this maintains it through the ${ctx.timeOfDay === 'morning' ? 'afternoon' : 'rest of the day'}'`
+- **Before the LLM call** (after line 3420): Log `systemPrompt.length` and `userPrompt.length` for input size correlation
+- **On timeout** (line 3545–3546): Log the `timeoutMs` threshold and model name
+- **On parse failure** (line 3534): Log `content.length` and `content.substring(0, 200)` 
+- **On validation rejection** (line 3524–3525): Log the specific failing value (e.g. word count, matched blacklist word)
+- **On success** (line 3531): Also log `durationMs` for tail-latency monitoring
+- **Final fallback** (line 3551): Include model name used
 
-At midnight (evening period), this produces "rest of the day" which is nonsensical. Fix to use proper time-aware phrasing:
-- morning → "afternoon"
-- afternoon → "evening"
-- evening → "tomorrow"
+## Change 3: Compress System Prompt (~22% reduction)
 
-Also audit lines 2792, 2794-2796, and 2870+ for similar issues.
+The system prompt (lines 3205–3279) is ~9,200 characters. Compress without losing quality:
 
-## Issue 3: Priority-level feedback after each priority completion
+- **Few-shot examples**: Cut from 4 → 2 (keep #1 Sunday Pre-Board and #3 Consecutive Low + Coach — highest-value synthesis patterns). Remove examples 2 and 4.
+- **Day-type overrides** (lines 3236–3242): Compress 7 blocks into compact single-line format
+- **Signal synthesis patterns A–I** (lines 3244–3253): Compress to `LABEL: condition → directive` single-line format, keep all 9
+- **Cold start** (lines 3255–3259): Compress to 2 lines
+- **Preserve fully**: 6-step reasoning protocol, all hard constraints/blacklists, output format, wearable hierarchy, JIT override, null discipline
 
-**File:** `src/components/home/TodayThreePriorities.tsx`
+Estimated reduction: ~2,000 chars → ~7,200 final. Reduces time-to-first-token.
 
-Currently feedback is triggered only at the whole-plan level from `ExecutiveHome.tsx` via `consumePlanFeedbackFlag`. Need to:
+## Change 4: Increase Timeout 3.5s → 6s
 
-1. Add state for `feedbackSlot` (which priority just completed) in `TodayThreePriorities`
-2. In the completion detection effect (line 123), detect when a full slot is newly completed (all practices in that slot done)
-3. Show `PlanFeedbackModal` inline with priority-specific title (e.g., "Priority 1 Complete")
-4. Submit feedback with slot context (horizon type, priority number)
-5. Props on `PlanFeedbackModal` updated to accept optional `priorityLabel` and `priorityNumber`
+- **Line 3495**: Change `retryTimeouts = [3500]` → `retryTimeouts = [6000]`
+- Per the doc spec (section 6.5), the intended timeout is 6 seconds — current 3.5s is below spec and the confirmed root cause of 100% fallback rate
 
-## Issue 4: Counter should count completed priorities, not individual practices
+## Change 5: Deterministic formatFallbackSignal — match relaxed limits
 
-**File:** `src/components/home/TodayThreePriorities.tsx`
+- **Line 3581**: Change `.slice(0, 3)` → `.slice(0, 5)` to match the relaxed 5-word signal limit for consistency
 
-Line 534: `completedCount = allPractices.filter(...)` counts individual practices.
-Line 554: `{completedCount} of {horizonModules.length}` — displays against total priorities (3).
+## What is NOT changing
 
-**Fix:** Change `completedCount` to count the number of slots where ALL practices are complete:
-```typescript
-const completedPriorityCount = horizonModules.filter(hm => {
-  const slotPractices = hm.practices || [hm.practice];
-  return slotPractices.every(p => completedPracticeIds.includes(p.contentId));
-}).length;
-```
+- No multi-model strategy (no Gemini)
+- No frontend changes
+- No changes to deterministic fallback logic or atomic brief contract
+- No changes to user prompt assembly
+- All blacklist checks preserved
 
-Use `completedPriorityCount` in the display instead of `completedCount`.
+## Expected Outcome
 
-## Files Changed
-
-| File | Changes |
-|------|---------|
-| `src/components/home/TodayThreePriorities.tsx` | Remove `hasMultiple` gate on reasoning; fix counter to count priorities; add per-priority feedback modal |
-| `src/components/home/PlanFeedbackModal.tsx` | Add optional `priorityLabel`/`priorityNumber` props for per-priority context |
-| `supabase/functions/generate-mastery-plan/index.ts` | Fix time-of-day phrasing in tactical/strategic whyLine builders |
-
-## Implementation Order
-
-1. Fix reasoning display (remove `hasMultiple` gate)
-2. Fix counter to count completed priorities
-3. Fix time-of-day phrasing in edge function
-4. Add per-priority feedback modal trigger
-5. Deploy edge function + test end-to-end
+- Prompt compression + 6s timeout → LLM calls can realistically complete
+- Relaxed validation accepts valid-but-slightly-long outputs
+- Enhanced logs show exact failure reason, input sizes, and duration on every attempt
+- Successful call durations logged to detect tail-clipping at 5.8–6.0s
 
