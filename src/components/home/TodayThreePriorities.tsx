@@ -101,7 +101,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
-  const prevCompletedIdsRef = useRef<string[]>([]);
+  const prevCompletedIdsRef = useRef<string[] | null>(null);
   const completedSlotsRef = useRef<Set<number>>(new Set());
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
