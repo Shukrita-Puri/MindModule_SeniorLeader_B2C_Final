@@ -3850,6 +3850,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       weekAheadShape,
       hrvEventCorrelation,
       mostEffectivePractice,
+      // Echo inner readiness so client doesn't need a separate computeEnergyState call
+      innerReadinessScore,
+      innerReadinessTier: safeTier,
+      checkInOutcome: checkInOutcome || null,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
