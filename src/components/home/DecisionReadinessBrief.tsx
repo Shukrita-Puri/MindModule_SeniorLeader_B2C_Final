@@ -200,7 +200,7 @@ function buildSignalChips(
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
   const typicalDOW = outerBrief?.typicalDOWScore as number | null;
-  const score = energyState?.overallBalance ?? null;
+  const score = outerBrief?.innerReadinessScore ?? null;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayName = dayNames[new Date().getDay()];
 
@@ -397,7 +397,7 @@ function buildSignalChips(
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
-  const outcome = energyState?.checkInOutcome as string | null;
+  const outcome = checkInOutcome;
 
   // Outcome tier mapping
   const outcomeTier = (o: string | null): 'red' | 'amber' | 'green' | null => {
@@ -644,7 +644,7 @@ const PerformanceReadinessBrief = () => {
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
-  const chips = buildSignalChips(outerBrief, energyState, checkInCountTotal);
+  const chips = buildSignalChips(outerBrief, checkInCountTotal);
 
   // Phrase & body
   const phrase = outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in.");
