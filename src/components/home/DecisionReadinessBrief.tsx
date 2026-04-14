@@ -140,8 +140,9 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
 type WearableTier = 'none' | 'absolute' | 'partial' | 'full';
 
 function getWearableTier(outerBrief: any): WearableTier {
-  const hasWearable = outerBrief?.hasWearable ?? false;
-  if (!hasWearable) return 'none';
+  // Use wearableStatus as the canonical source (not legacy hasWearable)
+  const ws = outerBrief?.wearableStatus;
+  if (!ws?.isConnected || (!ws?.hasTodayData && !ws?.hasRecentData)) return 'none';
   const days = outerBrief?.wearableDaysConnected ?? 0;
   const hasHistorical = outerBrief?.hasHistoricalData ?? false;
   if (days >= 7 || hasHistorical) return 'full';
