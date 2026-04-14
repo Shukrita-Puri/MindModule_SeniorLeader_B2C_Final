@@ -6,12 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Normalize a .p8 private key from env storage into clean base64 DER.
+ */
+function normalizeP8Key(raw: string): string {
+  let key = raw
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/[\s\r\n]+/g, '');
+  if (key.length === 0) throw new Error('[APNs] APNS_P8_KEY is empty after stripping PEM headers');
+  if (!/^[A-Za-z0-9+/=]+$/.test(key)) {
+    throw new Error(`[APNs] APNS_P8_KEY contains invalid base64 chars (length=${key.length})`);
+  }
+  return key;
+}
+
 /** Create ES256 JWT for APNs token-based auth */
 async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
-  const cleanKey = p8Key
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
+  const cleanKey = normalizeP8Key(p8Key);
+  console.log(`[APNs] Key normalized: length=${cleanKey.length} chars`);
   const keyData = Uint8Array.from(atob(cleanKey), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey(
     "pkcs8",

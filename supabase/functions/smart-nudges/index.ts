@@ -5,13 +5,34 @@ import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 // ── APNs Helper Functions ──
 
 /**
+ * Normalize a .p8 private key from env storage into clean base64 DER.
+ * Handles: raw PEM, literal \\n escapes, extra whitespace.
+ */
+function normalizeP8Key(raw: string): string {
+  let key = raw
+    .replace(/\\n/g, '\n')           // literal \n → real newline
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/[\s\r\n]+/g, '');      // strip all whitespace
+
+  if (key.length === 0) {
+    throw new Error('[APNs] APNS_P8_KEY is empty after stripping PEM headers');
+  }
+
+  // Validate base64 charset before atob
+  if (!/^[A-Za-z0-9+/=]+$/.test(key)) {
+    throw new Error(`[APNs] APNS_P8_KEY contains invalid base64 chars (length=${key.length}, first_bad=${key.match(/[^A-Za-z0-9+/=]/)?.[0] ?? '?'})`);
+  }
+
+  return key;
+}
+
+/**
  * Create a JWT for APNs authentication using ES256 (ECDSA P-256 + SHA-256).
  */
 async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
-  const pemBody = p8Key
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
+  const pemBody = normalizeP8Key(p8Key);
+  console.log(`[APNs] Key normalized: length=${pemBody.length} chars`);
   const keyData = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
 
   const cryptoKey = await crypto.subtle.importKey(
