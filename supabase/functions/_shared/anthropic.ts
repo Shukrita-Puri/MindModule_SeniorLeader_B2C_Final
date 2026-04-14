@@ -345,6 +345,7 @@ export async function callLovableAIText(params: {
   model?: string;
   max_tokens?: number;
   temperature?: number;
+  response_format?: { type: string };
   signal?: AbortSignal;
 }): Promise<string> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -354,18 +355,21 @@ export async function callLovableAIText(params: {
   if (params.system) allMessages.push({ role: 'system', content: params.system });
   for (const m of params.messages) allMessages.push({ role: m.role, content: m.content });
 
+  const body: Record<string, unknown> = {
+    model: params.model || 'google/gemini-2.5-flash',
+    messages: allMessages,
+    max_tokens: params.max_tokens || 1024,
+    temperature: params.temperature,
+  };
+  if (params.response_format) body.response_format = params.response_format;
+
   const fetchOptions: RequestInit = {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: params.model || 'google/gemini-2.5-flash',
-      messages: allMessages,
-      max_tokens: params.max_tokens || 1024,
-      temperature: params.temperature,
-    }),
+    body: JSON.stringify(body),
   };
 
   if (params.signal) fetchOptions.signal = params.signal;
