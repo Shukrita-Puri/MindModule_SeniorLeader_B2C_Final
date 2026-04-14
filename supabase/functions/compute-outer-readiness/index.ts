@@ -3446,7 +3446,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Specificity guard: body must contain at least one data reference (number, percentage, time, or event-like proper noun)
             const hasDataRef = /\d/.test(strippedBody) || // any number (HRV, %, hours, bpm, score, meeting count)
               (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
-              /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive)\b/i.test(strippedBody); // data vocabulary
+              /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure)\b/i.test(strippedBody); // data vocabulary
             if (!hasDataRef) return { valid: false, reason: 'body_no_data_reference' };
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
             // LeanOn/WatchFor validation
