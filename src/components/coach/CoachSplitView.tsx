@@ -214,12 +214,6 @@ const CoachSplitView = ({
 
   const hasMessages = messages.length > 0;
 
-  // Derive orb state from conversation context
-  const orbState: 'idle' | 'listening' | 'thinking' | 'responding' = 
-    isLoading && messages[messages.length - 1]?.role === 'user' ? 'thinking' :
-    isLoading ? 'responding' :
-    inputValue.trim().length > 0 ? 'listening' :
-    'idle';
 
   const inputBarProps = {
     inputError,
