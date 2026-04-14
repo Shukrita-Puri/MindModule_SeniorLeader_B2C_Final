@@ -3462,7 +3462,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 const signal = item.signal.trim();
                 const source = item.source.trim();
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
-                if (signal.split(/\s+/).length > 5) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
+                if (signal.split(/\s+/).length > 7) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 40) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal) || READINESS_WORD.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
