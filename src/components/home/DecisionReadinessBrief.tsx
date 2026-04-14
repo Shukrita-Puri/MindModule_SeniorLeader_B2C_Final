@@ -181,7 +181,7 @@ function buildSignalChips(
 
   // Debug: log wearable data availability
   console.log('[buildSignalChips] wearable debug:', {
-    tier, hasWearable: outerBrief?.hasWearable, wearableDataSource,
+    tier, wearableStatus: outerBrief?.wearableStatus, wearableDataSource,
     hrvValue: outerBrief?.hrvValue, sleepDuration: outerBrief?.sleepDuration,
     rhrValue: outerBrief?.rhrValue, sleepScore: outerBrief?.sleepScore,
   });
