@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
-import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3419,7 +3419,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
-            if (TIER_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_tier_word' };
+            // TIER_BLACKLIST intentionally NOT applied to body — words like "high", "low", "strong" are natural in context
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
             const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
             if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
@@ -3471,25 +3471,41 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             };
           };
 
-          // ── Single fast LLM attempt, then deterministic fallback ──
-          const retryTimeouts = [6000];
-          for (let attempt = 1; attempt <= retryTimeouts.length; attempt++) {
-            const timeoutMs = retryTimeouts[attempt - 1];
+          // ── Two-tier LLM strategy: fast Gemini first, Claude backup ──
+          const llmAttempts: Array<{ model: string; timeoutMs: number; useGateway: boolean }> = [
+            { model: 'google/gemini-2.5-flash', timeoutMs: 4000, useGateway: true },
+            { model: CLAUDE_MODELS.SONNET, timeoutMs: 6000, useGateway: false },
+          ];
+
+          for (let attempt = 1; attempt <= llmAttempts.length; attempt++) {
+            const { model, timeoutMs, useGateway } = llmAttempts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
             const startMs = Date.now();
 
             try {
-              const content = await callClaudeText({
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userPrompt }],
-                model: CLAUDE_MODELS.SONNET,
-                max_tokens: 380,
-                signal: controller.signal,
-              });
+              let content: string;
+              if (useGateway) {
+                content = await callLovableAIText({
+                  system: systemPrompt,
+                  messages: [{ role: 'user', content: userPrompt }],
+                  model,
+                  max_tokens: 380,
+                  response_format: { type: 'json_object' },
+                  signal: controller.signal,
+                });
+              } else {
+                content = await callClaudeText({
+                  system: systemPrompt,
+                  messages: [{ role: 'user', content: userPrompt }],
+                  model,
+                  max_tokens: 380,
+                  signal: controller.signal,
+                });
+              }
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
-              console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} completed in ${durationMs}ms`);
+              console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} (${model}) completed in ${durationMs}ms`);
 
               if (content) {
                 try {
@@ -3501,34 +3517,36 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
                   const normalized = normalizeLlmBrief(parsed);
                   if (!normalized.brief) {
-                    llmFallbackReason = normalized.reason;
-                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${llmFallbackReason} | model=${CLAUDE_MODELS.SONNET} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | bodyWords=${parsed?.body?.replace(/<[^>]+>/g, '').split(/\\s+/).length ?? '?'}`);
-                    break;
+                    llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | bodyWords=${parsed?.body?.replace(/<[^>]+>/g, '').split(/\\s+/).length ?? '?'}`);
+                    continue; // Try next model
                   }
 
                   llmBrief = normalized.brief;
                   llmFallbackReason = null;
-                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} accepted in ${durationMs}ms | model=${CLAUDE_MODELS.SONNET} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
+                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} ACCEPTED in ${durationMs}ms | model=${model} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   break;
                 } catch (parseErr) {
-                  llmFallbackReason = 'llm_parse_failed';
-                  console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${CLAUDE_MODELS.SONNET} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
+                  llmFallbackReason = `attempt${attempt}_parse_failed`;
+                  console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${model} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
+                  continue; // Try next model
                 }
               } else {
-                llmFallbackReason = 'llm_returned_null';
+                llmFallbackReason = `attempt${attempt}_returned_null`;
+                continue;
               }
 
             } catch (err: any) {
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
-              llmFallbackReason = isAbort ? `llm_timeout_${timeoutMs}ms` : 'llm_error';
-              console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${CLAUDE_MODELS.SONNET} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
+              llmFallbackReason = isAbort ? `attempt${attempt}_timeout_${timeoutMs}ms` : `attempt${attempt}_error`;
+              console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${model} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
+              continue; // Try next model
             }
-            break;
           }
           if (!llmBrief) {
-            console.log(`[compute-outer-readiness] [LLM] FALLBACK to deterministic | reason=${llmFallbackReason || 'unknown'} | model=${CLAUDE_MODELS.SONNET} | promptChars=${sysPromptLen + userPromptLen}`);
+            console.log(`[compute-outer-readiness] [LLM] FALLBACK to deterministic | reason=${llmFallbackReason || 'unknown'} | models_tried=${llmAttempts.map(a => a.model).join(',')} | promptChars=${sysPromptLen + userPromptLen}`);
           }
     }
 
