@@ -326,9 +326,9 @@ const SelfMasteryCoach = () => {
       ];
     }
     return [
-      "I'm feeling overwhelmed with my workload",
-      "How can I be more present in meetings?",
-      "I'm struggling with a difficult conversation"
+      "There's a conversation I've been avoiding",
+      "I'm second-guessing a decision I've made",
+      "Something is off and I can't name it yet"
     ];
   };
 
@@ -579,7 +579,7 @@ const SelfMasteryCoach = () => {
               ? `Let's walk through ${practiceTitle} together.`
               : flowType 
                 ? getContextualGreeting(flowType, locationState?.eventTitle)
-                : "I'm your mind performance coach. Share what's on your mind, and let's sharpen your edge together."
+                : "What's on your mind?"
           }
           promptSuggestions={getFlowPrompts(flowType, locationState?.eventTitle)}
           onPromptClick={sendMessage}
