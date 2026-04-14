@@ -631,22 +631,16 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [rawExpanded, setRawExpanded] = useState(false);
 
-  const { data: energyState } = useQuery({
-    queryKey: ['energy-state', user?.id],
-    queryFn: async () => computeEnergyState(user?.id),
-    enabled: !!user?.id,
-    staleTime: 60000,
-  });
-
+  // Single canonical payload — no separate computeEnergyState call
   const { data: outerBrief } = useOuterReadiness();
 
-  const score = energyState?.overallBalance ?? null;
-  const tier = energyState?.energyTier ?? 'default';
-  const hasCheckIn = !!energyState?.checkInOutcome;
+  // Inner readiness values echoed from the backend
+  const score = outerBrief?.innerReadinessScore ?? null;
+  const tier = outerBrief?.innerReadinessTier ?? 'default';
+  const hasCheckIn = !!outerBrief?.checkInOutcome;
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
