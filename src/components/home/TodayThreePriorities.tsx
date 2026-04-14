@@ -101,9 +101,26 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
+  // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger
+  const todayKey = new Date().toISOString().split('T')[0];
+  const celebratedStorageKey = `celebrated-ids-${todayKey}`;
+  const feedbackSlotsStorageKey = `feedback-slots-${todayKey}`;
+
+  const loadPersistedSet = (key: string): Set<string> => {
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  };
+  const persistSet = (key: string, s: Set<string>) => {
+    sessionStorage.setItem(key, JSON.stringify([...s]));
+  };
+
   const prevCompletedIdsRef = useRef<string[] | null>(null);
-  const completedSlotsRef = useRef<Set<number>>(new Set());
-  const celebratedIdsRef = useRef<Set<string>>(new Set());
+  const completedSlotsRef = useRef<Set<number>>(new Set(
+    [...loadPersistedSet(feedbackSlotsStorageKey)].map(Number).filter(n => !isNaN(n))
+  ));
+  const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
 
