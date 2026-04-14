@@ -3272,7 +3272,7 @@ EXAMPLE 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead:
 {"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV -22% from baseline","source":"Wearable"},{"signal":"Board prep 11am","source":"Calendar"}],"watchFor":[{"signal":"Pushing through depleted","source":"Patterns"},{"signal":"Afternoon collapse","source":"Wearable"}]}
 
 EXAMPLE 5 — Divergent Check-in · High-Stakes Ahead:
-{"phrase":"You rated yourself strong. Your body disagrees.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"HRV -18% vs baseline","source":"Wearable"},{"signal":"Confidence 5/5","source":"Check-in"}],"watchFor":[{"signal":"Masked fatigue","source":"Wearable"},{"signal":"Over-committing midday","source":"Calendar"}]}
+{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"HRV -18% vs baseline","source":"Wearable"},{"signal":"Confidence 5/5","source":"Check-in"}],"watchFor":[{"signal":"Masked fatigue","source":"Wearable"},{"signal":"Over-committing midday","source":"Calendar"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
@@ -3426,7 +3426,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── v4 Post-Generation Validation ──
           const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
-          const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b/i;
+          // Allow compound words like "high-stakes", "high-pressure", "low-energy" — only reject standalone tier words
+          const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b(?![-‑])/i;
           const READINESS_WORD = /\breadiness\b/i;
 
           function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
@@ -3435,12 +3436,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
             if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
+            // Generic motivational phrase guard — reject fortune-cookie phrases with no user-specific anchor
+            const GENERIC_PHRASE = /\b(awareness|prevents?|regrets?|future|potential|inner|strength|power|courage|deserve|believe|transform|unlock|embrace|overcome|thrive)\b/i;
+            if (GENERIC_PHRASE.test(phraseText) && !/\d/.test(phraseText) && !todayHighStakes.some((e: string) => phraseText!.toLowerCase().includes(e.trim().toLowerCase().slice(0, 10)))) {
+              return { valid: false, reason: 'phrase_generic_motivational' };
+            }
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
             // TIER_BLACKLIST intentionally NOT applied to body — words like "high", "low", "strong" are natural in context
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
-            const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
+            const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
+            const wordCount = strippedBody.split(/\s+/).length;
             if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
+            // Specificity guard: body must contain at least one data reference (number, percentage, time, or event-like proper noun)
+            const hasDataRef = /\d/.test(strippedBody) || // any number (HRV, %, hours, bpm, score, meeting count)
+              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
+              /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure)\b/i.test(strippedBody); // data vocabulary
+            if (!hasDataRef) return { valid: false, reason: 'body_no_data_reference' };
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
