@@ -3768,8 +3768,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       ? llmWatchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
       : formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
 
+    // Coherent response: if LLM produced phrase+body, use both; otherwise use both fallbacks.
+    // Never mix LLM phrase with fallback body or vice versa.
+    const useLLM = !!llmPhrase;
+    const responsePhrase = useLLM ? llmPhrase! : finalPhrase;
+    // bodyText is always populated: LLM body when LLM succeeded, otherwise deterministic context
+    const responseBody = useLLM && llmBodyText ? llmBodyText : finalContext;
+
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: llmPhrase || finalPhrase,
+      phrase: responsePhrase,
       context: finalContext,
       leanOn: formattedLeanOn,
       watchFor: formattedWatchFor,
@@ -3781,8 +3788,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateStatement,
       stateAlreadyUsed,
       compassAlreadyUsed,
-      // DecisionReadinessBrief fields
-      bodyText: llmBodyText || null,
+      // DecisionReadinessBrief fields — coherent source
+      bodyText: responseBody,
+      briefSource: useLLM ? 'llm' : 'deterministic',
       leanOnSource: llmLeanOn ? 'llm-v4' : leanOnResult.source,
       watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
       hasWearable,
