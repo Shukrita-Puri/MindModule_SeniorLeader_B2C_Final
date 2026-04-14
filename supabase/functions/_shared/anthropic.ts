@@ -11,7 +11,7 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
   SONNET: 'claude-sonnet-4-20250514',
-  HAIKU: 'claude-haiku-3-5-20241022',
+  HAIKU: 'claude-3-5-haiku-latest',
 } as const;
 
 interface ClaudeMessage {

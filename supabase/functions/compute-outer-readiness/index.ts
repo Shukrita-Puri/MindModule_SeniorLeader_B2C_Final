@@ -3503,7 +3503,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const content = await callClaudeText({
                 system: systemPrompt,
                 messages: [{ role: 'user', content: userPrompt }],
-                model: CLAUDE_MODELS.HAIKU,
+                model: CLAUDE_MODELS.SONNET,
                 max_tokens: 380,
                 signal: controller.signal,
               });
