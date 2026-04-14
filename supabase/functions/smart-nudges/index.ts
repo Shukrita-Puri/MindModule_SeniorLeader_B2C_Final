@@ -748,13 +748,11 @@ Must reference the event by name and prep plan readiness.`;
 
     case 'nudge_two_priorities': {
       const remaining = specificSignals.remainingCount as number;
-      const priorityTitle = specificSignals.priorityTitle as string;
-      userPrompt = `Mid-day priorities nudge. User has incomplete priorities.
+      userPrompt = `Mid-day nudge. User has practices remaining on their daily plan.
 Signals:
-- Open priorities: ${remaining}
-- Top priority: ${priorityTitle || 'Priority 1'}
+- Practices remaining: ${remaining}
 - Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
-Reference the specific priority and time to complete.`;
+Use warm, inviting language. Say "practices" not "priorities". Never use internal terms like "Priority 1". Tone: encouraging, gentle, like a coach checking in.`;
       break;
     }
 
@@ -895,8 +893,8 @@ function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): N
   return { title: 'Prep window open', body: `${eventTitle} at ${timeStr} — practice sequence queued`, variantId: 'FB-N2-JIT-later' };
 }
 
-function getFallbackNudgeTwoPrioritiesCopy(remaining: number, priorityTitle: string): NudgeCopy {
-  return { title: 'Priority still open', body: `${priorityTitle} waiting — 4 min to complete`, variantId: 'FB-N2-priorities' };
+function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
+  return { title: 'Your plan is waiting', body: `${remaining} practice${remaining > 1 ? 's' : ''} left — pick up where you left off`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
@@ -927,7 +925,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
 
   // Weekday with priorities context
   if (prioritiesRemaining > 0) {
-    return { title: 'Before you switch off', body: `${prioritiesRemaining} priority still open — close or carry forward`, variantId: 'FB-N3-priorities' };
+    return { title: 'Before you switch off', body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still on your plan — finish or let go`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
     return { title: 'Day complete', body: 'All priorities done — close the loop', variantId: 'FB-N3-done' };
