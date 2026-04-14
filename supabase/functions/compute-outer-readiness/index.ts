@@ -3445,7 +3445,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
             // Specificity guard: body must contain at least one data reference (number, percentage, time, or event-like proper noun)
             const hasDataRef = /\d/.test(strippedBody) || // any number (HRV, %, hours, bpm, score, meeting count)
-              (todayHighStakesFiltered.length > 0 && todayHighStakesFiltered.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
+              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
               /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive)\b/i.test(strippedBody); // data vocabulary
             if (!hasDataRef) return { valid: false, reason: 'body_no_data_reference' };
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
