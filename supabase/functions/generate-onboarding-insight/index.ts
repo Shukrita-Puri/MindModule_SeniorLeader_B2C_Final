@@ -188,7 +188,7 @@ Results:
 
 Write 2-3 sentences that name this leader's specific pattern – what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
-    const models = ['claude-sonnet-4-20250514', 'claude-haiku-3-5-20241022', 'openai/gpt-5-nano'];
+    const models = ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'openai/gpt-5-nano'];
     let response: Response | null = null;
 
     for (const model of models) {

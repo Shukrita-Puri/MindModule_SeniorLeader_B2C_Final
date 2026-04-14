@@ -104,7 +104,7 @@ Return ONLY a JSON object:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-3-5-20241022',
+        model: 'claude-3-5-haiku-20241022',
         system: 'You are a precise state prediction system. Return only valid JSON.',
           messages: [
           { role: 'user', content: prompt }
