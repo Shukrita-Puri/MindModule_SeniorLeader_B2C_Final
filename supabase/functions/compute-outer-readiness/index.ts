@@ -3272,7 +3272,7 @@ EXAMPLE 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead:
 {"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV -22% from baseline","source":"Wearable"},{"signal":"Board prep 11am","source":"Calendar"}],"watchFor":[{"signal":"Pushing through depleted","source":"Patterns"},{"signal":"Afternoon collapse","source":"Wearable"}]}
 
 EXAMPLE 5 — Divergent Check-in · High-Stakes Ahead:
-{"phrase":"You rated yourself strong. Your body disagrees.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"HRV -18% vs baseline","source":"Wearable"},{"signal":"Confidence 5/5","source":"Check-in"}],"watchFor":[{"signal":"Masked fatigue","source":"Wearable"},{"signal":"Over-committing midday","source":"Calendar"}]}
+{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"HRV -18% vs baseline","source":"Wearable"},{"signal":"Confidence 5/5","source":"Check-in"}],"watchFor":[{"signal":"Masked fatigue","source":"Wearable"},{"signal":"Over-committing midday","source":"Calendar"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
