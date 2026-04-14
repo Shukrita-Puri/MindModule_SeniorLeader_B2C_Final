@@ -168,11 +168,11 @@ function devSign(d: number): string {
 // Patterns are appended as qualifiers on the relevant pill — no separate pattern chip
 function buildSignalChips(
   outerBrief: any,
-  energyState: any,
   checkInCountTotal: number,
 ): SignalChip[] {
   const chips: SignalChip[] = [];
-  const hasCheckIn = !!energyState?.checkInOutcome;
+  const checkInOutcome = outerBrief?.checkInOutcome as string | null;
+  const hasCheckIn = !!checkInOutcome;
   const tier = getWearableTier(outerBrief);
   const wearableDataSource = outerBrief?.wearableDataSource ?? null;
   const isAppleHealth = wearableDataSource === 'apple-healthkit';
