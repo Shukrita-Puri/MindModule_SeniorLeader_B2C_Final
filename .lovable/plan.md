@@ -1,104 +1,120 @@
 
 
-# Plan: Sharpen System Prompt — Data-Grounded Chief of Staff Tone
+# Plan: Rewrite Coach Layer 1 — Former Operator Persona
 
-**Single file**: `supabase/functions/compute-outer-readiness/index.ts` — lines 3205-3258 (system prompt block only)
+**Single file**: `supabase/functions/self-mastery-coach/index.ts` — lines 15–1644 (BASE_SYSTEM_PROMPT only)
 
 ---
 
-## Core Principle
+## What This Does
 
-The Chief of Staff **names specific data** (HRV number, calendar event, coach pattern, goal) to **sharpen direction**. Not clinical language, not generic prose — earned directness with data references that make the action clearer. Body copy stays crisp (≤2 sentences) while citing what was observed.
+Replaces the current identity shell (Six Coaching Roles, "mirror/witness/guide" labels, Inner Mastery Framework table, Performance Psychology 8-domain list) with the user's new persona: **a former CEO and senior operator who coaches the interior dimension of high-stakes leadership**. The product name stays "Mind Performance Coach". All operational mechanics (Layers 2–7) remain untouched.
 
-## Changes
+---
 
-### A. Rewrite Role Definition (line 3205)
+## What Gets CUT from Layer 1
 
-Replace "You are a performance intelligence system..." with:
+| Current Section | Lines | Reason |
+|---|---|---|
+| "Six Coaching Roles" (Role 1–6 named list, priority table, how they work together) | 36–463 | Absorbed into new identity, tone, and examples |
+| "What it IS / IS NOT" lists | 447–463 | Replaced by ROLE BOUNDARIES |
+| Inner Mastery Framework labelled table | 487–517 | R/C/N logic stays in Layers 2–3, table removed from Layer 1 |
+| Three Levels of Intervention section | 479–484 | Absorbed into STATE → STORY → STRATEGY |
+| Performance Psychology 8-domain list | 837–959 | Coach operates from these implicitly — doesn't need to name them |
+| "Your Six Roles in Conversation" recap | 1324–1357 | Redundant with new persona voice |
+| "Example Exchanges — Six Roles in Action" | 1499–1534 | Replaced by new scenario examples |
+| "Final Principles" sparring partner framing | 1628–1641 | Replaced by new tone section |
 
-> You are the Chief of Staff for a senior leader's mind. You've watched their HRV, sleep, calendar, coaching patterns, and goals — you know their rhythms. You speak the way a trusted advisor speaks behind closed doors: earned directness grounded in what you've actually observed. Name the number, the event, or the pattern — but only to sharpen the direction you're giving. Never generic prose. Never clinical system language. Never wellness. Every sentence earns its place by connecting a specific signal to what the leader should do about it.
+## What Gets KEPT (unchanged)
 
-### B. Refine Reasoning Protocol Labels (lines 3208-3213)
+| Section | Lines | Status |
+|---|---|---|
+| Reset Studio Integration (protocol IDs, rules, limits) | 520–600 | Keep exactly |
+| Wisdom & Framework Library | 603–636 | Keep exactly |
+| Portable Questions | 639–650 | Keep exactly |
+| Scenario-Specific Question Tools (R1–N4) | 653–834 | Keep exactly |
+| Lean On / Watch For insights | 1083–1123 | Keep exactly |
+| State-Aware Coaching Modes table | 1126–1138 | Keep exactly |
+| Emotional Tracking | 1141–1181 | Keep exactly |
+| Venting vs Processing | 1184–1213 | Keep exactly |
+| HRV Integration | 1216–1269 | Keep exactly |
+| Conversation Style (tone, cadence, question rules) | 1272–1314 | Keep exactly |
+| Tiny Wins Integration | 1370–1387 | Keep exactly |
+| Safety Guardrails & Boundaries | 1399–1471 | Keep exactly |
+| Response Format & Markers | 1474–1497 | Keep exactly |
+| Session Closure / Exit Protocol | 1537–1544 | Keep exactly |
+| Crisis Boundary | 1548–1554 | Keep exactly |
+| Cultural & Power Sensitivity | 1558–1563 | Keep exactly |
+| Somatic Language Calibration | 1566–1571 | Keep exactly |
+| Power of Short Response | 1575–1581 | Keep exactly |
+| Narrating Growth | 1585–1596 | Keep exactly |
+| Re-engagement After Absence | 1599–1606 | Keep exactly |
+| Anti-Patterns Register | 1609–1624 | Keep (update "sparring partner" to "coach" in line 1630) |
+| All flow-specific prompts (PREPARE, INDEPENDENT, INTEGRATE, GUIDED_REFLECTION) | 1650–1779 | Keep exactly (Layers 2+) |
+| Pattern-area conditional prompts | 1785+ | Keep exactly (Layers 2+) |
 
-Keep all 6 steps, shift labels:
-- STEP 1 → "BODY READ": "What is the body showing — cite the number"
-- STEP 3 → "THE GAP": "Where they think they are vs where the data says they are"
-- STEP 4 → "WHAT'S BEING ASKED": "What the day actually requires — name the event or load"
-- STEP 6 → "THE DIRECTION": "The single most useful thing to say — grounded in a specific signal"
+## What Gets ADDED (new Layer 1 content)
 
-### C. Sharpen Output Rules (lines 3216-3219)
+The following sections replace lines 15–517 and 837–959 and 1324–1357 and 1499–1534 and 1628–1641:
 
-Replace with:
-> • Name a specific number, event, pattern, or goal to anchor every brief — no brief without a data reference.
-> • Wearable-first. Check-in qualifies or contradicts.
-> • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
-> • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
-> • Scannable in 10 seconds. Forward-looking.
+### 1. IDENTITY (replaces current identity block)
+The user's exact text: "You are a former CEO and senior operator, now a performance coach..." through "This is not wellness. This is performance."
 
-### D. Add Tone Guardrail (after line 3227, within HARD CONSTRAINTS)
+### 2. ROLE BOUNDARIES — WHAT YOU ARE NOT (replaces IS/IS NOT lists)
+The user's exact text defining four boundaries: not the Chief of Staff, not the Recalibration tool, not the Analyst, not a rehearsal/roleplay tool, not a therapist.
 
-> TONE: No system/clinical language ('pre-board drop', 'compounded deficit', 'signal triage'). Speak as a person who knows the leader: 'Your HRV dropped 18% overnight', 'You've got [Event] in 3 hours and your body hasn't caught up', 'Last time you stacked 4 meetings on a day like this, you lost the afternoon.'
+### 3. THE VAULT
+New section about confidentiality. "This may be the one conversation they can have that is not going anywhere." First-session surfacing rule.
 
-### E. Refine Leader Mindset Context (lines 3229-3236)
+### 4. WHAT YOU WORK ON
+The user's exact taxonomy: hard conversations, board dynamics, relationships under strain, decision paralysis, self-doubt, identity under pressure, running on empty.
 
-Replace HOLIDAY line with:
+### 5. TONE AND VOICE
+The user's exact tone rules: peer who has been in the room, no coaching jargon, no affirmations, 2–4 sentences, one question max, warmth through precision. Specific challenge/pattern/depletion examples.
 
-> HOLIDAY: Public or personal — they chose to check in. Honour that. Some leaders still take urgent calls or carry commitments on holidays; if calendar shows events, acknowledge the reality and orient around what matters most today. No guilt, no work framing — but don't pretend the day is empty if it isn't.
+### 6. STATE → STORY → STRATEGY (retained, using user's version)
+Same principle, user's tighter wording.
 
-Other mindset lines stay as-is (Sunday, Heavy, Light, Post-high-stakes, Consecutive Low already good).
+### 7. CONTEXT AWARENESS — HOW YOU USE WHAT YOU KNOW (replaces current capabilities intro)
+User's exact text on using state, calendar, patterns, commitments, profile, plan context. Key rule: "You do not narrate the data back. You use it to ask a sharper question."
 
-### F. Refine Signal Synthesis Patterns (lines 3240, 3245)
+### 8. FIRST SESSION
+User's exact rules: no onboarding, open with something that shows you've read the room. State/calendar/neither options. The Vault introduction.
 
-- Pattern B (MASKED_HIGH): "Name the gap with the actual numbers — 'HRV down 22% but you rated yourself strong' — then direct." (keeps "name gap with numbers")
-- Pattern G (RECOVERY_UNDERWAY): "Body is ahead — name the metric showing it, give them agency without overclaiming."
+### 9. PRESENTING PROBLEM TAXONOMY
+User's 13-item mapping from presenting sentence to where the work actually lives (e.g., "I have a conversation I have been avoiding" → Reactive Pattern).
 
-### G. Rewrite Few-Shot Examples (lines 3251-3257)
+### 10. REGULATION PRACTICES
+User's exact rules: one per session, at open if not present or at close as anchor. Protocol markers follow existing rules.
 
-Replace both existing examples with 5 scenario-diverse examples:
+### 11. EXAMPLE EXCHANGES (replaces old "Six Roles in Action")
+User's 5 examples: directed by homepage (board), independent visit (avoidance pattern), identity pressure (first C-suite), relationship strain (co-founder), ambitious senior leader.
 
-**Example 1 — Day 1 · No Wearable · Onboarding Only**:
-```json
-{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Composure goal","source":"Onboarding"},{"signal":"Pattern recognition","source":"Archetype"}],"watchFor":[{"signal":"Over-analysis early","source":"Patterns"},{"signal":"Skipping check-in","source":"Onboarding"}]}
-```
+### 12. WHAT YOU DO NOT DO (replaces old anti-patterns)
+User's crisp list: no summarising at length, no strategic/operational advice, no data reports, no multi-question exchanges, no praising awareness, no explaining methodology, no over-warmth, no scripting/rehearsal.
 
-**Example 2 — Sunday Evening · Heavy Week · High-Stakes Monday**:
-```json
-{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"HRV pre-board pattern","source":"Wearable"},{"signal":"Sharpness 4/5","source":"Check-in"}],"watchFor":[{"signal":"Over-preparing tonight","source":"Patterns"},{"signal":"Confidence dip tomorrow","source":"Check-in"}]}
-```
+### 13. Updated FINAL PRINCIPLES
+Remove "sparring partner" framing. Keep core principles but align with new persona voice.
 
-**Example 3 — Pre-Holiday · High-Stakes Calendar Event**:
-```json
-{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Sleep 5.2hrs vs 7hr baseline","source":"Wearable"},{"signal":"Partner review today","source":"Calendar"}],"watchFor":[{"signal":"Carrying work into holiday","source":"Patterns"},{"signal":"Decision quality after 3pm","source":"Wearable"}]}
-```
+---
 
-**Example 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead**:
-```json
-{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV -22% from baseline","source":"Wearable"},{"signal":"Board prep 11am","source":"Calendar"}],"watchFor":[{"signal":"Pushing through depleted","source":"Patterns"},{"signal":"Afternoon collapse","source":"Wearable"}]}
-```
+## What stays unchanged (Layers 2–7)
 
-**Example 5 — Divergent Check-in · High-Stakes Ahead**:
-```json
-{"phrase":"You rated yourself strong. Your body disagrees.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"HRV -18% vs baseline","source":"Wearable"},{"signal":"Confidence 5/5","source":"Check-in"}],"watchFor":[{"signal":"Masked fatigue","source":"Wearable"},{"signal":"Over-committing midday","source":"Calendar"}]}
-```
-
-## What stays unchanged
-
-- All blacklists (wellness, tier, readiness)
-- All validation logic (40-word body, 5-word signals)
-- Two-tier LLM strategy (Gemini/Claude)
-- User prompt assembly (all data sections)
-- Deterministic fallback logic
-- TIER_BLACKLIST behavior (body exempt, phrase enforced)
-- Frontend rendering
-- Atomic brief contract
-- COLD START section (already good)
-- Signal synthesis patterns A, C, D, E, F, H, I (unchanged)
+- All flow-specific prompts (PREPARE, INDEPENDENT, INTEGRATE, GUIDED_REFLECTION)
+- All pattern-area conditional prompts (Recalibration, Clarity, Renewal)
+- All server context building logic
+- All dynamic prompt builder functions
+- All tiny win extraction logic
+- HTTP handler and streaming logic
+- Client-side components (CoachConversationCard, CoachSplitView, SelfMasteryCoach page)
 
 ## Expected Outcome
 
-- Every brief cites a specific number, event, or pattern — no generic prose
-- Tone: "Your HRV dropped 14% overnight" not "This is your pre-board drop"
-- Body copy ≤2 sentences, each grounding in user-specific data
-- 5 few-shot examples cover: Day 1, Sunday heavy week, pre-holiday high-stakes, low wearable + high-stakes, divergent check-in + high-stakes
-- Holiday context handles real commitments, not just "honour choice"
+- Coach identity shifts from "context-intelligent coaching system" to "former CEO who coaches the interior dimension of leadership"
+- Six named roles dissolved into natural persona behavior
+- Performance Psychology domains operate implicitly (removed from prompt text, reducing token load)
+- Inner Mastery Framework table removed from Layer 1 (R/C/N logic stays in Layers 2–3)
+- Presenting Problem Taxonomy gives the LLM a precise mapping from surface statements to real work
+- The Vault establishes confidentiality frame on first session
+- All operational mechanics (protocols, wisdom, questions, HRV, safety) preserved exactly
 
