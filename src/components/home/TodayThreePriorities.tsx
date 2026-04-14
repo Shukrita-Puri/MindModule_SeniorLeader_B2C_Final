@@ -127,7 +127,10 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Celebration ──
   const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean, practiceId?: string) => {
     if (practiceId && celebratedIdsRef.current.has(practiceId)) return;
-    if (practiceId) celebratedIdsRef.current.add(practiceId);
+    if (practiceId) {
+      celebratedIdsRef.current.add(practiceId);
+      persistSet(celebratedStorageKey, celebratedIdsRef.current);
+    }
     if (isAllComplete) {
       confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 }, colors: ['#D4AF37', '#F5D76E', '#FFD700', '#FFA500', '#E6C200'] });
       setTimeout(() => {
