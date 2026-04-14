@@ -580,14 +580,14 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
   if (!hasCalendar || meetingCount === 0) return null;
 
-  // High-stakes within 90 mins — urgent orange pill
+  // High-stakes within 90 mins — taupe pill (consistent with event pill system)
   if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
     const urgentLabel = nextHS.minutesUntil < 30
       ? `${nextHS.title} · now`
       : `${nextHS.title} · in ${nextHS.minutesUntil} mins`;
     return (
       <div className="flex flex-wrap gap-2 mt-2">
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-[hsl(var(--saffron))]/10 text-[hsl(var(--saffron))] border border-[hsl(var(--saffron))]/20 font-medium">
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body font-medium italic", eventPillStyle)}>
           {urgentLabel}
         </span>
         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
