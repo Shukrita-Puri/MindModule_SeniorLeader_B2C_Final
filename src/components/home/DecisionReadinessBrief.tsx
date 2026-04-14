@@ -661,10 +661,11 @@ const PerformanceReadinessBrief = () => {
     );
   };
 
-  // Data sources
+  // Data sources — use wearableStatus as canonical wearable signal (not legacy hasWearable)
+  const ws = outerBrief?.wearableStatus;
   const dataSources: string[] = ['Check-in'];
   if (outerBrief?.hasCalendar || outerBrief?.calendarState === 'active') dataSources.push('calendar');
-  if (outerBrief?.hasWearable) dataSources.push('wearable');
+  if (ws?.isConnected && (ws?.hasTodayData || ws?.hasRecentData)) dataSources.push('wearable');
   dataSources.push('coach');
 
   // Source label for lean on / watch for
