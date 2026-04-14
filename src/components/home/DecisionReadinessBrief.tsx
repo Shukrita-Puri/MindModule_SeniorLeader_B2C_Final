@@ -378,18 +378,6 @@ function buildSignalChips(
     chips.push({ id: 'sleep', label: frontLabel, backLabel: backParts.join(' · ') || undefined, color, qualifier });
   }
 
-  // ── Wearable prompt / syncing fallback — unified via wearableStatus ──
-  const ws = outerBrief?.wearableStatus;
-  if (!ws?.isConnected) {
-    chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
-  } else if (ws?.hasTodayData) {
-    // Heart + Sleep pills already rendered above — no fallback needed
-  } else if (ws?.hasRecentData) {
-    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
-  } else {
-    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
-  }
-
   // ────────────────────────────────────────
   // §7.1  MIND SHARPNESS PILL — Stage 1 (check-in outcome only)
   // Front: Focused / Steady / Scattered / Drained / Depleted
@@ -494,7 +482,19 @@ function buildSignalChips(
     });
   }
 
-  // Cap at 6 visible chips (Calendar is separate, so this only caps signal chips)
+  // ── Wearable fallback chips AFTER signal pills to preserve Mind/CC visibility ──
+  const ws = outerBrief?.wearableStatus;
+  if (!ws?.isConnected) {
+    chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
+  } else if (ws?.hasTodayData) {
+    // Heart + Sleep pills already rendered above — no fallback needed
+  } else if (ws?.hasRecentData) {
+    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
+  } else {
+    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
+  }
+
+  // Cap at 6 visible chips — signal pills (Heart, Sleep, Mind, CC) have priority over fallback
   return chips.slice(0, 6);
 }
 
