@@ -646,9 +646,9 @@ const PerformanceReadinessBrief = () => {
   // Build chips
   const chips = buildSignalChips(outerBrief, checkInCountTotal);
 
-  // Phrase & body
+  // Phrase & body — both come from the same source (LLM or deterministic, never mixed)
   const phrase = outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in.");
-  const bodyText = outerBrief?.bodyText || outerBrief?.context || (hasCheckIn
+  const bodyText = outerBrief?.bodyText || (hasCheckIn
     ? null
     : "Check in to activate your personalised intelligence — takes two minutes.");
 
