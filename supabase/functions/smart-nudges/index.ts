@@ -6,24 +6,26 @@ import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 /**
  * Normalize a .p8 private key from env storage into clean base64 DER.
- * Handles: raw PEM, literal \\n escapes, extra whitespace.
+ * Handles: raw PEM, literal \\n escapes, URL-safe base64, extra whitespace.
  */
 function normalizeP8Key(raw: string): string {
   let key = raw
-    .replace(/\\n/g, '\n')           // literal \n → real newline
+    .replace(/\\n/g, '\n')
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/[\s\r\n]+/g, '');      // strip all whitespace
+    .replace(/[\s\r\n]+/g, '')
+    .replace(/-/g, '+').replace(/_/g, '/');  // URL-safe → standard base64
 
-  if (key.length === 0) {
-    throw new Error('[APNs] APNS_P8_KEY is empty after stripping PEM headers');
-  }
+  // Add padding if needed
+  const pad = key.length % 4;
+  if (pad === 2) key += '==';
+  else if (pad === 3) key += '=';
 
-  // Validate base64 charset before atob
+  if (key.length === 0) throw new Error('[APNs] APNS_P8_KEY empty after normalization');
   if (!/^[A-Za-z0-9+/=]+$/.test(key)) {
-    throw new Error(`[APNs] APNS_P8_KEY contains invalid base64 chars (length=${key.length}, first_bad=${key.match(/[^A-Za-z0-9+/=]/)?.[0] ?? '?'})`);
+    const bad = key.match(/[^A-Za-z0-9+/=]/);
+    throw new Error(`[APNs] APNS_P8_KEY has invalid char at pos ${bad?.index}: charCode=${bad?.[0]?.charCodeAt(0)}, len=${key.length}`);
   }
-
   return key;
 }
 
@@ -32,7 +34,7 @@ function normalizeP8Key(raw: string): string {
  */
 async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
   const pemBody = normalizeP8Key(p8Key);
-  console.log(`[APNs] Key normalized: length=${pemBody.length} chars`);
+  console.log(`[APNs] Key normalized OK: ${pemBody.length} base64 chars`);
   const keyData = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
 
   const cryptoKey = await crypto.subtle.importKey(
