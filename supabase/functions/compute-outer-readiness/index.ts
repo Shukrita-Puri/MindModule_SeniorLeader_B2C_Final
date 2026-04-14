@@ -3462,7 +3462,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 const signal = item.signal.trim();
                 const source = item.source.trim();
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
-                if (signal.split(/\s+/).length > 5) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
+                if (signal.split(/\s+/).length > 7) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 40) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal) || READINESS_WORD.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
@@ -3548,7 +3548,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   const normalized = normalizeLlmBrief(parsed);
                   if (!normalized.brief) {
                     llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
-                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | bodyWords=${parsed?.body?.replace(/<[^>]+>/g, '').split(/\\s+/).length ?? '?'}`);
+                    const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
+                    const _lo = parsed?.leanOn?.[0]?.signal ?? '(none)';
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | body="${_bp}" | signal0="${_lo}"`);
                     continue; // Try next model
                   }
 
