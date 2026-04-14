@@ -3417,7 +3417,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\nLead with: ${dominantHorizon}`;
           }
 
-          console.log('[compute-outer-readiness] [LLM] User prompt length:', userPrompt.length);
+          const sysPromptLen = systemPrompt.length;
+          const userPromptLen = userPrompt.length;
+          console.log(`[compute-outer-readiness] [LLM] Prompt sizes: system=${sysPromptLen} user=${userPromptLen} total=${sysPromptLen + userPromptLen} chars`);
           console.log('[compute-outer-readiness] [LLM] Signals:', JSON.stringify({
             checkInOutcome, clarityLevel, confidenceLevel,
             calendarLoad, meetingCount: calendarResult.meetingCount,
