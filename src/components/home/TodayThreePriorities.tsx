@@ -126,8 +126,22 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Detect newly completed + per-priority feedback ──
   useEffect(() => {
     const prev = prevCompletedIdsRef.current;
+    // First time: seed refs with initial state, don't trigger feedback
+    if (prev === null) {
+      prevCompletedIdsRef.current = completedPracticeIds;
+      // Pre-populate completedSlotsRef for already-done slots
+      const modules = plan?.horizonModules || [];
+      modules.forEach((hm, idx) => {
+        const sp = hm.practices || [hm.practice];
+        if (sp.every(p => completedPracticeIds.includes(p.contentId))) {
+          completedSlotsRef.current.add(idx);
+        }
+      });
+      return;
+    }
+
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
-    if (newlyDone.length > 0 && prev.length > 0) {
+    if (newlyDone.length > 0) {
       const modules = plan?.horizonModules || [];
       const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
       const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
