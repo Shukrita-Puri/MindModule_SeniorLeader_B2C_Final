@@ -162,6 +162,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
         }
       });
       completedPracticeIds.forEach(id => celebratedIdsRef.current.add(id));
+      // Persist the seeded state
+      persistSet(celebratedStorageKey, celebratedIdsRef.current);
+      persistSet(feedbackSlotsStorageKey, new Set([...completedSlotsRef.current].map(String)));
       return;
     }
 
@@ -181,6 +184,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
         const slotNowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
         if (slotNowComplete) {
           completedSlotsRef.current.add(idx);
+          persistSet(feedbackSlotsStorageKey, new Set([...completedSlotsRef.current].map(String)));
           setFeedbackSlot({ index: idx, horizon: hm.horizon });
         }
       });
