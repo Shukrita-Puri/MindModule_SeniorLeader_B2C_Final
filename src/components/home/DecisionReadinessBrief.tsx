@@ -845,7 +845,7 @@ const PerformanceReadinessBrief = () => {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
             <div className="space-y-1 text-[10px] font-body text-muted-foreground/60">
-              {outerBrief?.hasWearable && (
+              {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData) && (
                 <>
                   {outerBrief?.hrvValue != null && (
                     <div>HRV: {outerBrief.hrvValue}ms {outerBrief?.hrvBaseline ? `(${outerBrief?.hrvDeviation != null ? `${outerBrief.hrvDeviation > 0 ? '+' : ''}${outerBrief.hrvDeviation}%` : 'n/a'} vs your ${outerBrief.hrvBaseline}ms avg)` : '(baseline not yet established)'}</div>
