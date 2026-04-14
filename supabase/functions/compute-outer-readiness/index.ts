@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
-import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,6 +68,14 @@ interface WearableContext {
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
   sourceRowDate: string | null; // summary_date of the row used
 }
+
+type BriefSignalItem = { signal: string; source: string };
+type LlmBriefPackage = {
+  phrase: string;
+  bodyText: string;
+  leanOn: BriefSignalItem[];
+  watchFor: BriefSignalItem[];
+};
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
   const now = new Date();
@@ -1930,6 +1938,7 @@ serve(async (req) => {
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
+    const userLocalDate = userTime.toISOString().split('T')[0];
     const hour = userTime.getHours();
     const dayOfWeek = userTime.getDay();
 
@@ -2358,6 +2367,13 @@ serve(async (req) => {
 
     const hasWearableConnection = !!wearableContext;
     const hasWearableData = hasWearableConnection && (hrvValue != null || sleepDuration != null || sleepScoreVal != null || rhrValue != null);
+    const sourceRowDate = wearableContext?.sourceRowDate ?? null;
+    const wearableSourceAgeDays = sourceRowDate
+      ? Math.max(0, Math.floor((new Date(`${userLocalDate}T00:00:00Z`).getTime() - new Date(`${sourceRowDate}T00:00:00Z`).getTime()) / 86400000))
+      : null;
+    const hasTodayWearableData = hasWearableData && wearableSourceAgeDays === 0;
+    const hasRecentWearableData = hasWearableData && wearableSourceAgeDays === 1;
+    const hasStaleWearableData = hasWearableData && wearableSourceAgeDays !== null && wearableSourceAgeDays > 1;
     // Canonical flag: true only when actual metric data exists
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
@@ -2514,10 +2530,7 @@ serve(async (req) => {
     } catch (e) { console.error('[compute-outer-readiness] next HS event error:', e); }
 
     // ═══ LLM SYNTHESIS ═══
-    let llmPhrase: string | null = null;
-    let llmBodyText: string | null = null;
-    let llmLeanOn: Array<{signal: string; source: string}> | null = null;
-    let llmWatchFor: Array<{signal: string; source: string}> | null = null;
+    let llmBrief: LlmBriefPackage | null = null;
     let llmFallbackReason: string | null = null;
     const dataCompleteness = checkInCountTotal === 0 ? 'day1' : checkInCountTotal <= 6 ? 'early' : checkInCountTotal <= 30 ? 'developing' : 'established';
 
@@ -3419,44 +3432,68 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
             // Phrase validation
-            if (phraseText) {
-              if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
-              if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
-              if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
-            }
+            if (!phraseText) return { valid: false, reason: 'phrase_missing' };
+            if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
+            if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
+            if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
             // Body validation
-            if (bodyTextStr) {
-              if (TIER_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_tier_word' };
-              if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
-              const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
-              if (wordCount > 25) return { valid: false, reason: 'body_too_long' };
-              if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
-              if (phraseText && bodyTextStr.toLowerCase().includes(phraseText.toLowerCase())) return { valid: false, reason: 'body_restates_phrase' };
-            }
+            if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
+            if (TIER_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_tier_word' };
+            if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
+            const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
+            if (wordCount > 25) return { valid: false, reason: 'body_too_long' };
+            if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+            if (phraseText && bodyTextStr.toLowerCase().includes(phraseText.toLowerCase())) return { valid: false, reason: 'body_restates_phrase' };
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
-              if (!Array.isArray(items)) return { valid: false, reason: `${label}_not_array` };
+              if (!Array.isArray(items) || items.length === 0) return { valid: false, reason: `${label}_missing_or_empty` };
               for (const item of items) {
-                if (!item.signal || !item.source) return { valid: false, reason: `${label}_missing_field` };
-                if (item.signal.split(/\s+/).length > 4) return { valid: false, reason: `${label}_too_long` };
+                if (typeof item?.signal !== 'string' || typeof item?.source !== 'string') return { valid: false, reason: `${label}_missing_field` };
+                const signal = item.signal.trim();
+                const source = item.source.trim();
+                if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
+                if (signal.split(/\s+/).length > 3) return { valid: false, reason: `${label}_too_long` };
+                if (signal.length > 40) return { valid: false, reason: `${label}_too_wide` };
+                if (WELLNESS_BLACKLIST.test(signal) || READINESS_WORD.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
               return null;
             };
-            if (parsed.leanOn) {
-              const r = validateItems(parsed.leanOn, 'leanOn');
-              if (r) return r;
-            }
-            if (parsed.watchFor) {
-              const r = validateItems(parsed.watchFor, 'watchFor');
-              if (r) return r;
-            }
+            const leanOnResult = validateItems(parsed.leanOn, 'leanOn');
+            if (leanOnResult) return leanOnResult;
+            const watchForResult = validateItems(parsed.watchFor, 'watchFor');
+            if (watchForResult) return watchForResult;
             return { valid: true, reason: '' };
           }
 
-          // ── Call LLM with retry ──
+          const normalizeLlmBrief = (parsed: any): { brief: LlmBriefPackage | null; reason: string } => {
+            const phrase = typeof parsed?.phrase === 'string' && parsed.phrase !== 'null' ? parsed.phrase.trim() : null;
+            const bodyText = typeof parsed?.body === 'string' && parsed.body !== 'null'
+              ? parsed.body.trim()
+              : typeof parsed?.bodyText === 'string' && parsed.bodyText !== 'null'
+                ? parsed.bodyText.trim()
+                : null;
+            const leanOn = Array.isArray(parsed?.leanOn) ? parsed.leanOn : null;
+            const watchFor = Array.isArray(parsed?.watchFor) ? parsed.watchFor : null;
 
-          const retryTimeouts = [10000, 6000];
-          for (let attempt = 1; attempt <= 2; attempt++) {
+            const validation = validateV4Output({ ...parsed, leanOn, watchFor }, phrase, bodyText);
+            if (!validation.valid) {
+              return { brief: null, reason: `validation_${validation.reason}` };
+            }
+
+            return {
+              brief: {
+                phrase: phrase!,
+                bodyText: bodyText!,
+                leanOn: leanOn!.map((item: BriefSignalItem) => ({ signal: item.signal.trim(), source: item.source.trim() })),
+                watchFor: watchFor!.map((item: BriefSignalItem) => ({ signal: item.signal.trim(), source: item.source.trim() })),
+              },
+              reason: '',
+            };
+          };
+
+          // ── Single fast LLM attempt, then deterministic fallback ──
+          const retryTimeouts = [3500];
+          for (let attempt = 1; attempt <= retryTimeouts.length; attempt++) {
             const timeoutMs = retryTimeouts[attempt - 1];
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -3466,7 +3503,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const content = await callClaudeText({
                 system: systemPrompt,
                 messages: [{ role: 'user', content: userPrompt }],
-                model: CLAUDE_MODELS.SONNET,
+                model: CLAUDE_MODELS.HAIKU,
                 max_tokens: 380,
                 signal: controller.signal,
               });
@@ -3482,33 +3519,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }
                   const parsed = JSON.parse(jsonStr);
 
-                  const pPhrase = (parsed.phrase && parsed.phrase !== 'null') ? parsed.phrase : null;
-                  const pBody = (parsed.body && parsed.body !== 'null') ? parsed.body : (parsed.bodyText && parsed.bodyText !== 'null') ? parsed.bodyText : null;
-                  const pLeanOn = Array.isArray(parsed.leanOn) ? parsed.leanOn : null;
-                  const pWatchFor = Array.isArray(parsed.watchFor) ? parsed.watchFor : null;
-
-                  const validation = validateV4Output(parsed, pPhrase, pBody);
-                  if (!validation.valid) {
-                    console.warn(`[compute-outer-readiness] [LLM] v4 validation failed: ${validation.reason}`);
-                    llmFallbackReason = `validation_${validation.reason}`;
-                   if (attempt < 2) {
-                      console.log(`[compute-outer-readiness] [LLM] Retrying after validation failure (attempt ${attempt})...`);
-                      await new Promise(r => setTimeout(r, 800));
-                      continue;
-                    }
+                  const normalized = normalizeLlmBrief(parsed);
+                  if (!normalized.brief) {
+                    llmFallbackReason = normalized.reason;
+                    console.warn(`[compute-outer-readiness] [LLM] rejected brief: ${llmFallbackReason}`);
                     break;
                   }
 
-                  if (pPhrase) llmPhrase = pPhrase;
-                  if (pBody) llmBodyText = pBody;
-                  if (pLeanOn && pLeanOn.length > 0) llmLeanOn = pLeanOn;
-                  if (pWatchFor && pWatchFor.length > 0) llmWatchFor = pWatchFor;
-
-                  if (llmPhrase) {
-                    console.log(`[compute-outer-readiness] [LLM] v4 output accepted: phrase="${llmPhrase}", leanOn=${llmLeanOn?.length ?? 0}, watchFor=${llmWatchFor?.length ?? 0}`);
-                    break;
-                  }
-                  llmFallbackReason = 'llm_returned_null';
+                  llmBrief = normalized.brief;
+                  llmFallbackReason = null;
+                  console.log(`[compute-outer-readiness] [LLM] accepted atomic brief: phrase="${llmBrief.phrase}", leanOn=${llmBrief.leanOn.length}, watchFor=${llmBrief.watchFor.length}`);
+                  break;
                 } catch (parseErr) {
                   console.error('[compute-outer-readiness] [LLM] JSON parse error:', parseErr, 'Raw:', content);
                   llmFallbackReason = 'llm_parse_failed';
@@ -3517,197 +3538,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 llmFallbackReason = 'llm_returned_null';
               }
 
-              if (attempt < 2 && !llmPhrase) {
-                console.log(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} failed, retrying...`);
-                await new Promise(r => setTimeout(r, 800));
-                continue;
-              }
             } catch (err: any) {
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
               llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
               console.error(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
-              if (attempt < 2) {
-                console.log(`[compute-outer-readiness] [LLM] Retrying after failure (attempt ${attempt})...`);
-                await new Promise(r => setTimeout(r, 800));
-                continue;
-              }
             }
             break;
           }
-
-          // ── Lovable AI fallback (if Claude failed after 4 attempts) ──
-          if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] Claude failed after 2 attempts (reason: ${llmFallbackReason}), trying Lovable AI...`);
-            try {
-              const lovableController = new AbortController();
-              const lovableTimeout = setTimeout(() => lovableController.abort(), 8000);
-              const lovableContent = await callLovableAIText({
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userPrompt }],
-                max_tokens: 380,
-                signal: lovableController.signal,
-              });
-              clearTimeout(lovableTimeout);
-              console.log('[compute-outer-readiness] [LLM] Lovable AI responded');
-
-              if (lovableContent) {
-                try {
-                  let jsonStr = lovableContent.trim();
-                  if (jsonStr.startsWith('```')) {
-                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-                  }
-                  const parsed = JSON.parse(jsonStr);
-
-                  const pPhrase = (parsed.phrase && parsed.phrase !== 'null') ? parsed.phrase : null;
-                  const pBody = (parsed.body && parsed.body !== 'null') ? parsed.body : (parsed.bodyText && parsed.bodyText !== 'null') ? parsed.bodyText : null;
-                  const pLeanOn = Array.isArray(parsed.leanOn) ? parsed.leanOn : null;
-                  const pWatchFor = Array.isArray(parsed.watchFor) ? parsed.watchFor : null;
-
-                  const validation = validateV4Output(parsed, pPhrase, pBody);
-                  if (validation.valid && pPhrase) {
-                    llmPhrase = pPhrase;
-                    if (pBody) llmBodyText = pBody;
-                    if (pLeanOn && pLeanOn.length > 0) llmLeanOn = pLeanOn;
-                    if (pWatchFor && pWatchFor.length > 0) llmWatchFor = pWatchFor;
-                    llmFallbackReason = null;
-                    console.log(`[compute-outer-readiness] [LLM] Lovable AI output accepted: phrase="${llmPhrase}"`);
-                  } else {
-                    console.warn(`[compute-outer-readiness] [LLM] Lovable AI validation failed: ${validation.reason}`);
-                    llmFallbackReason = 'lovable_ai_validation_failed';
-                  }
-                } catch (parseErr) {
-                  console.error('[compute-outer-readiness] [LLM] Lovable AI parse error:', parseErr);
-                  llmFallbackReason = 'lovable_ai_parse_failed';
-                }
-              }
-            } catch (lovableErr: any) {
-              console.error('[compute-outer-readiness] [LLM] Lovable AI fallback failed:', lovableErr?.message || lovableErr);
-              llmFallbackReason = 'lovable_ai_failed';
-            }
-          }
-
-          // ── Signal-aware deterministic fallback (last resort) ──
-          if (!llmPhrase) {
-            console.log(`[compute-outer-readiness] [LLM] All LLM providers failed. Building signal-aware fallback. Reason: ${llmFallbackReason || 'unknown'}`);
-
-            // Build phrase from live signals
-            const fbTier = innerReadinessTier;
-            const fbCalLoad = calendarLoad;
-            const fbMeetings = calendarResult?.meetingCount ?? 0;
-            const fbHasWearable = hasWearable;
-            const fbHrvDev = hrvDeviation;
-            // Compute consecutive low days inline (recentCheckIns is in scope)
-            let fbConsecutiveLowDays = 0;
-            let fbConsecutiveTier = innerReadinessTier;
-            for (const c of recentCheckIns) {
-              if ((c as any).energy_balance != null && (c as any).energy_balance < 50) fbConsecutiveLowDays++;
-              else break;
-            }
-            const fbHighStakes = todayHighStakes?.length ?? 0;
-            const fbOutcome = checkInOutcome;
-
-            // Determine wearable state descriptor
-            const wearableStrained = fbHrvDev != null && fbHrvDev < -8;
-            const wearableSteady = fbHasWearable && !wearableStrained;
-            const bodyState = wearableStrained ? 'body strained' : 'body steady';
-
-            // Phrase selection based on signal combinations
-            if (fbConsecutiveLowDays >= 3 && (fbConsecutiveTier === 'depleted' || fbConsecutiveTier === 'managing')) {
-              llmPhrase = `Break the pattern — ${fbConsecutiveLowDays} ${fbConsecutiveTier} days running.`;
-            } else if (fbCalLoad === 'high' && (fbTier === 'depleted' || fbTier === 'managing')) {
-              llmPhrase = 'Protect your energy — heavy calendar ahead.';
-            } else if (fbHighStakes > 0 && wearableStrained) {
-              llmPhrase = 'Steady your system — high-stakes ahead.';
-            } else if ((fbTier === 'strong' || fbTier === 'peak') && fbCalLoad === 'low') {
-              llmPhrase = 'Sustain the advantage — light calendar to build on.';
-            } else if ((fbTier === 'strong' || fbTier === 'peak') && fbCalLoad === 'high') {
-              llmPhrase = 'Channel your energy — busy day, strong start.';
-            } else if (serverArchetype && leanOnResult.leanOn) {
-              llmPhrase = `Lead with ${leanOnResult.leanOn.toLowerCase()}.`;
-            } else {
-              llmPhrase = 'Anchor in what matters most today.';
-            }
-
-            // Body copy from live signals
-            const bodyParts: string[] = [];
-            if (fbMeetings > 0) {
-              bodyParts.push(`<strong>${fbMeetings} meeting${fbMeetings > 1 ? 's' : ''}</strong> on your calendar today`);
-            }
-            if (fbHasWearable) {
-              bodyParts.push(`your ${bodyState}`);
-            }
-            if (fbOutcome) {
-              const outcomeLabels: Record<string, string> = {
-                focused: 'sharp and focused', scattered: 'scattered', drained: 'running low',
-                energized: 'energized', calm: 'calm and centred', overwhelmed: 'under pressure',
-              };
-              const outcomeLabel = outcomeLabels[fbOutcome] || fbOutcome;
-              bodyParts.push(`you're feeling ${outcomeLabel}`);
-            }
-
-            if (bodyParts.length > 0) {
-              llmBodyText = bodyParts.length === 1
-                ? `${bodyParts[0].charAt(0).toUpperCase() + bodyParts[0].slice(1)} — <strong>use that signal to guide your decisions</strong>.`
-                : `${bodyParts.slice(0, -1).join(', ')} and ${bodyParts[bodyParts.length - 1]} — <strong>use these signals to guide your decisions</strong>.`;
-            } else if (serverPracticePriorityTag) {
-              const goalLabels: Record<string, string> = {
-                regulation_composure: 'composure under pressure', regulation_early: 'early signal detection',
-                recovery_resilience: 'recovery and resilience', energy_endurance: 'energy endurance',
-                focus_clarity: 'focus and clarity', mindset_reframe: 'mindset reframing',
-              };
-              const goal = goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag;
-              llmBodyText = `Your stated priority is ${goal} — <strong>anchor today's decisions there</strong>.`;
-            }
-
-            // Lean on: 1-3 word derived labels, source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
-            if (!llmLeanOn) {
-              llmLeanOn = [];
-              if (wearableSteady) {
-                llmLeanOn.push({ signal: 'Physiological credit', source: 'Wearable' });
-              }
-              if (leanOnResult.leanOn) {
-                // Truncate archetype lean-on to first 3 words
-                const words = leanOnResult.leanOn.split(' ').slice(0, 3).join(' ');
-                llmLeanOn.push({ signal: words, source: 'Archetype' });
-              }
-              if (fbCalLoad === 'low' && fbMeetings <= 2) {
-                llmLeanOn.push({ signal: 'Calendar headroom', source: 'Calendar' });
-              }
-              if (fbConsecutive && fbConsecutive.count >= 2 && (fbConsecutive.state === 'strong' || fbConsecutive.state === 'peak')) {
-                llmLeanOn.push({ signal: `${fbConsecutive.count}-day streak`, source: 'Pattern' });
-              }
-              if (serverPracticePriorityTag) {
-                const goalShort: Record<string, string> = {
-                  regulation_composure: 'Composure goal', regulation_early: 'Signal awareness',
-                  recovery_resilience: 'Resilience goal', energy_endurance: 'Endurance goal',
-                  focus_clarity: 'Clarity goal', mindset_reframe: 'Reframing goal',
-                };
-                llmLeanOn.push({ signal: goalShort[serverPracticePriorityTag] || 'Stated goal', source: 'Goals' });
-              }
-            }
-
-            // Watch for: 1-3 word derived labels
-            if (!llmWatchFor) {
-              llmWatchFor = [];
-              if (wearableStrained) {
-                llmWatchFor.push({ signal: 'Compounding cost', source: 'Wearable' });
-              }
-              if (leanOnResult.watchFor) {
-                const words = leanOnResult.watchFor.split(' ').slice(0, 3).join(' ');
-                llmWatchFor.push({ signal: words, source: 'Archetype' });
-              }
-              if (fbCalLoad === 'high') {
-                llmWatchFor.push({ signal: 'Decision fatigue', source: 'Calendar' });
-              }
-              if (fbConsecutive && fbConsecutive.count >= 3 && (fbConsecutive.state === 'depleted' || fbConsecutive.state === 'managing')) {
-                llmWatchFor.push({ signal: `${fbConsecutive.count}-day pattern`, source: 'Pattern' });
-              }
-              if (llmWatchFor.length === 0) {
-                llmWatchFor.push({ signal: 'Autopilot risk', source: 'System' });
-              }
-            }
+          if (!llmBrief) {
+            console.log(`[compute-outer-readiness] [LLM] Falling back to deterministic brief. Reason: ${llmFallbackReason || 'unknown'}`);
           }
     }
 
@@ -3716,12 +3557,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       }
     }
 
-    // Defensive: ensure LLM variables are always defined
-    if (typeof llmLeanOn === 'undefined') llmLeanOn = null;
-    if (typeof llmWatchFor === 'undefined') llmWatchFor = null;
-
-    console.log(`[compute-outer-readiness] DRB phrase source: ${llmPhrase ? 'llm' : 'template'}`);
-    console.log(`[compute-outer-readiness] DRB body source: ${llmBodyText ? 'llm' : 'template'}`);
+    console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'deterministic'}`);
 
     // Map leanOn source to human-readable label
     const sourceMap: Record<string, string> = {
@@ -3760,24 +3596,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       return `${signal} · ${sourceLabels[source] || 'System'}`;
     };
 
-    // Format LLM leanOn/watchFor into string pairs for client
-    const formattedLeanOn = llmLeanOn
-      ? llmLeanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
-      : formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
-    const formattedWatchFor = llmWatchFor
-      ? llmWatchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
-      : formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
-
-    // Coherent response: if LLM produced phrase+body, use both; otherwise use both fallbacks.
-    // Never mix LLM phrase with fallback body or vice versa.
-    const useLLM = !!llmPhrase;
-    const responsePhrase = useLLM ? llmPhrase! : finalPhrase;
-    // bodyText is always populated: LLM body when LLM succeeded, otherwise deterministic context
-    const responseBody = useLLM && llmBodyText ? llmBodyText : finalContext;
+    const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
+    const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
+    const briefSource = llmBrief ? 'llm' : 'deterministic';
+    const responsePhrase = llmBrief?.phrase ?? finalPhrase;
+    const responseBody = llmBrief?.bodyText ?? finalContext;
+    const formattedLeanOn = llmBrief
+      ? llmBrief.leanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
+      : formattedDeterministicLeanOn;
+    const formattedWatchFor = llmBrief
+      ? llmBrief.watchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
+      : formattedDeterministicWatchFor;
 
     const result: OuterReadinessResult & Record<string, unknown> = {
       phrase: responsePhrase,
-      context: finalContext,
+      context: responseBody,
       leanOn: formattedLeanOn,
       watchFor: formattedWatchFor,
       driver: theme.driver,
@@ -3790,21 +3623,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       compassAlreadyUsed,
       // DecisionReadinessBrief fields — coherent source
       bodyText: responseBody,
-      briefSource: useLLM ? 'llm' : 'deterministic',
-      leanOnSource: llmLeanOn ? 'llm-v4' : leanOnResult.source,
-      watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
+      briefSource,
+      leanOnSource: llmBrief ? 'llm-v4' : leanOnResult.source,
+      watchForSource: llmBrief ? 'llm-v4' : leanOnResult.source,
       hasWearable,
       wearableDaysConnected,
       wearableStatus: {
         isConnected: hasWearableConnection,
-        hasTodayData: hasWearableData,
-        hasRecentData: wearableDaysConnected > 0,
+        hasTodayData: hasTodayWearableData,
+        hasRecentData: hasRecentWearableData,
+        isStale: hasStaleWearableData,
+        sourceAgeDays: wearableSourceAgeDays,
         metricsAvailable: {
           hrv: hrvValue != null,
           sleep: sleepDuration != null || sleepScoreVal != null,
           rhr: rhrValue != null,
         },
-        sourceRowDate: wearableContext?.sourceRowDate ?? null,
+        sourceRowDate,
         dataSource: wearableDataSource,
       },
       remainingMeetings: calendarResult.remainingMeetings ?? 0,
@@ -3857,13 +3692,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
-      phrase: finalPhrase,
+      phrase: responsePhrase,
+      briefSource,
+      llmFallbackReason,
       driver: theme.driver,
       source: leanOnResult.source,
       coachInsightAge: leanOnResult.coachInsightAge,
       dataSources,
       calendarState: calendarResult.state,
       todayHighStakes,
+      wearableStatus: {
+        hasTodayData: hasTodayWearableData,
+        hasRecentData: hasRecentWearableData,
+        isStale: hasStaleWearableData,
+        sourceRowDate,
+        sourceAgeDays: wearableSourceAgeDays,
+      },
     }));
 
     return new Response(JSON.stringify(result), {
