@@ -101,7 +101,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
-  const prevCompletedIdsRef = useRef<string[]>([]);
+  const prevCompletedIdsRef = useRef<string[] | null>(null);
   const completedSlotsRef = useRef<Set<number>>(new Set());
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
@@ -126,8 +126,22 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Detect newly completed + per-priority feedback ──
   useEffect(() => {
     const prev = prevCompletedIdsRef.current;
+    // First time: seed refs with initial state, don't trigger feedback
+    if (prev === null) {
+      prevCompletedIdsRef.current = completedPracticeIds;
+      // Pre-populate completedSlotsRef for already-done slots
+      const modules = plan?.horizonModules || [];
+      modules.forEach((hm, idx) => {
+        const sp = hm.practices || [hm.practice];
+        if (sp.every(p => completedPracticeIds.includes(p.contentId))) {
+          completedSlotsRef.current.add(idx);
+        }
+      });
+      return;
+    }
+
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
-    if (newlyDone.length > 0 && prev.length > 0) {
+    if (newlyDone.length > 0) {
       const modules = plan?.horizonModules || [];
       const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
       const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
@@ -601,7 +615,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                   className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all",
                     slotCompleted
-                      ? "bg-green-600 text-white"
+                      ? "bg-taupe text-white"
                       : isExpanded
                         ? "bg-saffron text-white"
                         : "bg-muted/40 text-muted-foreground",
@@ -704,7 +718,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                             "bg-white/15 backdrop-blur-md border border-white/40",
                             "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                             hm.showNavyBorder && pIdx === 0 && "border-l-2 border-l-foreground",
-                            isPracticeCompleted && "opacity-50",
+                            isPracticeCompleted && "opacity-40 sepia-[0.3] saturate-50",
                             hasMultiple ? "w-[80%] flex-shrink-0" : "w-full"
                           )}
                         >
@@ -738,7 +752,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                               <h4 className="text-[14px] font-medium line-clamp-2 leading-snug font-body flex-1 text-foreground">
                                 {practice.title}
                               </h4>
-                              {isPracticeCompleted && <Check size={14} className="text-green-600 flex-shrink-0 mt-0.5 stroke-[3]" />}
+                              {isPracticeCompleted && <Check size={14} className="text-taupe flex-shrink-0 mt-0.5 stroke-[3]" />}
                               {!isCoach && !isPracticeCompleted && isFavorite(practice.contentId) && (
                                 <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                               )}
