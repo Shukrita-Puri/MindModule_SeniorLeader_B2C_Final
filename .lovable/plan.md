@@ -1,51 +1,34 @@
 
 
-# Plan: Coach Page Visual, Copy & Mobile Layout Fixes
+# Fix: Per-Priority Feedback & Celebration Firing Repeatedly
 
-**Files**: `src/components/coach/CoachSplitView.tsx`, `src/pages/SelfMasteryCoach.tsx`
+## Root Cause
 
----
+The detection effect (lines 126–164) has a race condition:
 
-## Three Changes
+1. On mount, `completedPracticeIds = []` and `plan = null`. The effect seeds `prevCompletedIdsRef` to `[]` but `completedSlotsRef` stays empty (no plan modules to check).
+2. When plan loads, `checkCompletion()` sets `completedPracticeIds` to already-completed IDs. The effect sees `prev = []` and treats all existing completions as "new" — firing celebration confetti and feedback modal for slots that were already done.
+3. Every 60 seconds and on every visibility change, `checkCompletion()` re-sets `completedPracticeIds` with a new array reference. Even if content is identical, the effect re-runs and can re-trigger if the ref comparison isn't stable.
 
-### A. Replace Black Orb with Lady Visual (CoachSplitView.tsx)
+## Fix (single file: `src/components/home/TodayThreePriorities.tsx`)
 
-**Empty state** (lines 248–253): Replace the `<CoachOrb size="lg">` with the same `coach-visual-calm.jpeg` image used on homepage coach cards. Render as a circular avatar (~120px) with subtle border styling consistent with the design system.
+### 1. Defer detection until plan is loaded
+Change the seeding logic: instead of seeding on `prev === null`, seed on `prev === null && plan !== null`. If plan is null, return early without seeding — this prevents the empty `[]` baseline from being set before we know what's already done.
 
-**Chat avatar** (lines 37–40): Replace `CoachAvatar` from `CoachOrb` to a small circular image using `coach-visual-calm.jpeg` (~32px round).
+### 2. Deduplicate with a "celebrated" ref
+Add a `celebratedIdsRef = useRef<Set<string>>(new Set())` that tracks which practice IDs have already triggered a celebration. Before calling `triggerCelebration`, check the ID isn't already in this set. Add it after celebrating.
 
-Import `coachVisual` from `@/assets/shared/coach-visual-calm.jpeg` at top of file. Remove the `CoachOrb` import entirely.
+### 3. Deduplicate feedback slot triggers
+The existing `completedSlotsRef` should prevent re-triggers, but because it's not seeded properly on first load (plan is null at seed time), already-completed slots get missed. The fix in step 1 resolves this — when we first seed with a loaded plan, we pre-populate `completedSlotsRef` with all already-done slots, so they never trigger feedback.
 
-### B. Update Title & Subtitle Copy (CoachSplitView.tsx + SelfMasteryCoach.tsx)
+### 4. Stable array comparison in checkCompletion
+Before calling `setCompletedPracticeIds(active)`, compare against current state. Only set if the array contents actually changed (join and compare). This prevents unnecessary effect re-runs from polling.
 
-**Title** (line 249): Keep "Mind Performance Coach" — confirmed still relevant per the new persona.
+## Changes Summary
 
-**Subtitle** (lines 259–264): Replace the current two paragraphs with copy aligned to the new "former operator" persona:
-- "I'll challenge your thinking, surface what's holding you back..." → **"The one conversation that helps you understand what's in the way — before the moment that matters."** (single line, from the user's functional description)
+- **Lines 126–164**: Rewrite the seed guard to require `plan !== null` before seeding
+- **Lines 110–124**: Add `celebratedIdsRef` guard around `triggerCelebration` call  
+- **Lines 349–368**: Add stable-comparison guard in `checkCompletion` before `setCompletedPracticeIds`
 
-**Default greeting** (SelfMasteryCoach.tsx line 582): Replace "I'm your mind performance coach. Share what's on your mind..." → **"What's on your mind?"** (matches the persona's "get in fast, no preamble" tone)
-
-**Default subtitle** (SelfMasteryCoach.tsx line 282): "Your personal executive coach" → keep or simplify — no change needed since it's internal.
-
-**Default prompts** (lines 328–332): Update to match the interior-leadership domain:
-- "I'm feeling overwhelmed with my workload" → **"There's a conversation I've been avoiding"**
-- "How can I be more present in meetings?" → **"I'm second-guessing a decision I've made"**
-- "I'm struggling with a difficult conversation" → **"Something is off and I can't name it yet"**
-
-### C. Mobile Layout — Input + Disclaimer in First Fold (CoachSplitView.tsx)
-
-In the empty state (lines 242–272), reduce vertical spacing so the input bar and disclaimer are visible without scrolling on mobile:
-
-- Reduce `space-y-4` → `space-y-3` on the centered content area
-- Reduce padding above the coach visual area
-- The `CoachOrb` (200px) being replaced by a ~100–120px circular image already recovers ~80px
-- Ensure the disclaimer text (line 323–325) appears in the empty state too, below the InputBar
-
----
-
-## What stays unchanged
-- `CoachOrb.tsx` file (kept for potential future use)
-- All conversation mechanics, flow types, streaming logic
-- Homepage coach card visuals (already using the lady image)
-- All Layer 1–7 prompt logic in the edge function
+No other files affected. No database changes.
 
