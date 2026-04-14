@@ -3548,7 +3548,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   const normalized = normalizeLlmBrief(parsed);
                   if (!normalized.brief) {
                     llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
-                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | bodyWords=${parsed?.body?.replace(/<[^>]+>/g, '').split(/\\s+/).length ?? '?'}`);
+                    const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
+                    const _lo = parsed?.leanOn?.[0]?.signal ?? '(none)';
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${normalized.reason} | model=${model} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | body="${_bp}" | signal0="${_lo}"`);
                     continue; // Try next model
                   }
 
