@@ -3426,7 +3426,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // ── v4 Post-Generation Validation ──
           const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
-          const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b/i;
+          // Allow compound words like "high-stakes", "high-pressure", "low-energy" — only reject standalone tier words
+          const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b(?![-‑])/i;
           const READINESS_WORD = /\breadiness\b/i;
 
           function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
