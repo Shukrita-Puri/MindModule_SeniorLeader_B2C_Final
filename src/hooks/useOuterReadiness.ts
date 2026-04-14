@@ -80,6 +80,11 @@ export interface OuterReadinessData {
   weekAheadShape?: Record<string, unknown> | null;
   hrvEventCorrelation?: string | null;
   mostEffectivePractice?: string | null;
+  // Inner readiness echoed from server — canonical source for the card
+  innerReadinessScore?: number | null;
+  innerReadinessTier?: string | null;
+  checkInOutcome?: string | null;
+  briefSource?: 'llm' | 'deterministic';
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {

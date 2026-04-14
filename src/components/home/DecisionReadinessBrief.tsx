@@ -15,9 +15,6 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useQuery } from '@tanstack/react-query';
-import { computeEnergyState } from '@/utils/energyStateEngine';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -171,11 +168,11 @@ function devSign(d: number): string {
 // Patterns are appended as qualifiers on the relevant pill — no separate pattern chip
 function buildSignalChips(
   outerBrief: any,
-  energyState: any,
   checkInCountTotal: number,
 ): SignalChip[] {
   const chips: SignalChip[] = [];
-  const hasCheckIn = !!energyState?.checkInOutcome;
+  const checkInOutcome = outerBrief?.checkInOutcome as string | null;
+  const hasCheckIn = !!checkInOutcome;
   const tier = getWearableTier(outerBrief);
   const wearableDataSource = outerBrief?.wearableDataSource ?? null;
   const isAppleHealth = wearableDataSource === 'apple-healthkit';
@@ -203,7 +200,7 @@ function buildSignalChips(
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
   const typicalDOW = outerBrief?.typicalDOWScore as number | null;
-  const score = energyState?.overallBalance ?? null;
+  const score = outerBrief?.innerReadinessScore ?? null;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayName = dayNames[new Date().getDay()];
 
@@ -381,18 +378,6 @@ function buildSignalChips(
     chips.push({ id: 'sleep', label: frontLabel, backLabel: backParts.join(' · ') || undefined, color, qualifier });
   }
 
-  // ── Wearable prompt / syncing fallback — unified via wearableStatus ──
-  const ws = outerBrief?.wearableStatus;
-  if (!ws?.isConnected) {
-    chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
-  } else if (ws?.hasTodayData) {
-    // Heart + Sleep pills already rendered above — no fallback needed
-  } else if (ws?.hasRecentData) {
-    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
-  } else {
-    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
-  }
-
   // ────────────────────────────────────────
   // §7.1  MIND SHARPNESS PILL — Stage 1 (check-in outcome only)
   // Front: Focused / Steady / Scattered / Drained / Depleted
@@ -400,7 +385,7 @@ function buildSignalChips(
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
-  const outcome = energyState?.checkInOutcome as string | null;
+  const outcome = checkInOutcome;
 
   // Outcome tier mapping
   const outcomeTier = (o: string | null): 'red' | 'amber' | 'green' | null => {
@@ -497,7 +482,19 @@ function buildSignalChips(
     });
   }
 
-  // Cap at 6 visible chips (Calendar is separate, so this only caps signal chips)
+  // ── Wearable fallback chips AFTER signal pills to preserve Mind/CC visibility ──
+  const ws = outerBrief?.wearableStatus;
+  if (!ws?.isConnected) {
+    chips.push({ id: 'wearable-prompt', label: 'Connect wearable for full intelligence', color: 'neutral' });
+  } else if (ws?.hasTodayData) {
+    // Heart + Sleep pills already rendered above — no fallback needed
+  } else if (ws?.hasRecentData) {
+    chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
+  } else {
+    chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
+  }
+
+  // Cap at 6 visible chips — signal pills (Heart, Sleep, Mind, CC) have priority over fallback
   return chips.slice(0, 6);
 }
 
@@ -634,30 +631,24 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [rawExpanded, setRawExpanded] = useState(false);
 
-  const { data: energyState } = useQuery({
-    queryKey: ['energy-state', user?.id],
-    queryFn: async () => computeEnergyState(user?.id),
-    enabled: !!user?.id,
-    staleTime: 60000,
-  });
-
+  // Single canonical payload — no separate computeEnergyState call
   const { data: outerBrief } = useOuterReadiness();
 
-  const score = energyState?.overallBalance ?? null;
-  const tier = energyState?.energyTier ?? 'default';
-  const hasCheckIn = !!energyState?.checkInOutcome;
+  // Inner readiness values echoed from the backend
+  const score = outerBrief?.innerReadinessScore ?? null;
+  const tier = outerBrief?.innerReadinessTier ?? 'default';
+  const hasCheckIn = !!outerBrief?.checkInOutcome;
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
-  const chips = buildSignalChips(outerBrief, energyState, checkInCountTotal);
+  const chips = buildSignalChips(outerBrief, checkInCountTotal);
 
-  // Phrase & body
+  // Phrase & body — both come from the same source (LLM or deterministic, never mixed)
   const phrase = outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in.");
-  const bodyText = outerBrief?.bodyText || outerBrief?.context || (hasCheckIn
+  const bodyText = outerBrief?.bodyText || (hasCheckIn
     ? null
     : "Check in to activate your personalised intelligence — takes two minutes.");
 
@@ -670,10 +661,11 @@ const PerformanceReadinessBrief = () => {
     );
   };
 
-  // Data sources
+  // Data sources — use wearableStatus as canonical wearable signal (not legacy hasWearable)
+  const ws = outerBrief?.wearableStatus;
   const dataSources: string[] = ['Check-in'];
   if (outerBrief?.hasCalendar || outerBrief?.calendarState === 'active') dataSources.push('calendar');
-  if (outerBrief?.hasWearable) dataSources.push('wearable');
+  if (ws?.isConnected && (ws?.hasTodayData || ws?.hasRecentData)) dataSources.push('wearable');
   dataSources.push('coach');
 
   // Source label for lean on / watch for
@@ -853,7 +845,7 @@ const PerformanceReadinessBrief = () => {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
             <div className="space-y-1 text-[10px] font-body text-muted-foreground/60">
-              {outerBrief?.hasWearable && (
+              {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData) && (
                 <>
                   {outerBrief?.hrvValue != null && (
                     <div>HRV: {outerBrief.hrvValue}ms {outerBrief?.hrvBaseline ? `(${outerBrief?.hrvDeviation != null ? `${outerBrief.hrvDeviation > 0 ? '+' : ''}${outerBrief.hrvDeviation}%` : 'n/a'} vs your ${outerBrief.hrvBaseline}ms avg)` : '(baseline not yet established)'}</div>

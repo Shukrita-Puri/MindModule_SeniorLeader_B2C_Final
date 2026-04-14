@@ -2349,10 +2349,16 @@ serve(async (req) => {
       console.error('[compute-outer-readiness] Theme persistence error:', e);
     }
 
-    // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
+    // ═══ Compute additional data for DecisionReadinessBrief ═══
+    // IMPORTANT: Declare metric values FIRST so hasWearableData can reference them
+    let hrvValue: number | null = wearableContext?.hrv ?? null;
+    let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
+    let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
+    let rhrValue: number | null = wearableContext?.rhr ?? null;
+
     const hasWearableConnection = !!wearableContext;
     const hasWearableData = hasWearableConnection && (hrvValue != null || sleepDuration != null || sleepScoreVal != null || rhrValue != null);
-    // Legacy field: gate on actual data to prevent contradictory Lean On vs Pills
+    // Canonical flag: true only when actual metric data exists
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
     
@@ -2372,10 +2378,6 @@ serve(async (req) => {
     let hrvDeviation: number | null = null;
     let sleepDeviation: number | null = null;
     let rhrDeviation: number | null = null;
-    let hrvValue: number | null = wearableContext?.hrv ?? null;
-    let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
-    let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
-    let rhrValue: number | null = wearableContext?.rhr ?? null;
     let hrvBaseline: number | null = null;
     let sleepBaseline: number | null = null;
     let rhrBaseline: number | null = null;
@@ -3766,8 +3768,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       ? llmWatchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
       : formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
 
+    // Coherent response: if LLM produced phrase+body, use both; otherwise use both fallbacks.
+    // Never mix LLM phrase with fallback body or vice versa.
+    const useLLM = !!llmPhrase;
+    const responsePhrase = useLLM ? llmPhrase! : finalPhrase;
+    // bodyText is always populated: LLM body when LLM succeeded, otherwise deterministic context
+    const responseBody = useLLM && llmBodyText ? llmBodyText : finalContext;
+
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: llmPhrase || finalPhrase,
+      phrase: responsePhrase,
       context: finalContext,
       leanOn: formattedLeanOn,
       watchFor: formattedWatchFor,
@@ -3779,8 +3788,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateStatement,
       stateAlreadyUsed,
       compassAlreadyUsed,
-      // DecisionReadinessBrief fields
-      bodyText: llmBodyText || null,
+      // DecisionReadinessBrief fields — coherent source
+      bodyText: responseBody,
+      briefSource: useLLM ? 'llm' : 'deterministic',
       leanOnSource: llmLeanOn ? 'llm-v4' : leanOnResult.source,
       watchForSource: llmWatchFor ? 'llm-v4' : leanOnResult.source,
       hasWearable,
@@ -3840,6 +3850,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       weekAheadShape,
       hrvEventCorrelation,
       mostEffectivePractice,
+      // Echo inner readiness so client doesn't need a separate computeEnergyState call
+      innerReadinessScore,
+      innerReadinessTier: safeTier,
+      checkInOutcome: checkInOutcome || null,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
