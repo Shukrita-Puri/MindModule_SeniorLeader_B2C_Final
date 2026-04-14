@@ -3436,6 +3436,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
             if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
+            // Generic motivational phrase guard — reject fortune-cookie phrases with no user-specific anchor
+            const GENERIC_PHRASE = /\b(awareness|prevents?|regrets?|future|potential|inner|strength|power|courage|deserve|believe|transform|unlock|embrace|overcome|thrive)\b/i;
+            if (GENERIC_PHRASE.test(phraseText) && !/\d/.test(phraseText) && !todayHighStakes.some((e: string) => phraseText!.toLowerCase().includes(e.trim().toLowerCase().slice(0, 10)))) {
+              return { valid: false, reason: 'phrase_generic_motivational' };
+            }
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
             // TIER_BLACKLIST intentionally NOT applied to body — words like "high", "low", "strong" are natural in context
