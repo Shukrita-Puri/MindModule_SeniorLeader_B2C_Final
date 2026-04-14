@@ -2349,10 +2349,16 @@ serve(async (req) => {
       console.error('[compute-outer-readiness] Theme persistence error:', e);
     }
 
-    // ═══ NEW: Compute additional data for DecisionReadinessBrief ═══
+    // ═══ Compute additional data for DecisionReadinessBrief ═══
+    // IMPORTANT: Declare metric values FIRST so hasWearableData can reference them
+    let hrvValue: number | null = wearableContext?.hrv ?? null;
+    let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
+    let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
+    let rhrValue: number | null = wearableContext?.rhr ?? null;
+
     const hasWearableConnection = !!wearableContext;
     const hasWearableData = hasWearableConnection && (hrvValue != null || sleepDuration != null || sleepScoreVal != null || rhrValue != null);
-    // Legacy field: gate on actual data to prevent contradictory Lean On vs Pills
+    // Canonical flag: true only when actual metric data exists
     const hasWearable = hasWearableData;
     const hasCal = calendarLoad !== null && calendarPressure !== null;
     
@@ -2372,10 +2378,6 @@ serve(async (req) => {
     let hrvDeviation: number | null = null;
     let sleepDeviation: number | null = null;
     let rhrDeviation: number | null = null;
-    let hrvValue: number | null = wearableContext?.hrv ?? null;
-    let sleepScoreVal: number | null = wearableContext?.sleepScore ?? null;
-    let sleepDuration: number | null = wearableContext?.sleepDuration ?? null;
-    let rhrValue: number | null = wearableContext?.rhr ?? null;
     let hrvBaseline: number | null = null;
     let sleepBaseline: number | null = null;
     let rhrBaseline: number | null = null;
