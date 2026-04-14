@@ -6,12 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Normalize a .p8 private key from env storage into clean base64 DER.
+ */
+function normalizeP8Key(raw: string): string {
+  let key = raw
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/[\s\r\n]+/g, '')
+    .replace(/-/g, '+').replace(/_/g, '/');
+  const pad = key.length % 4;
+  if (pad === 2) key += '==';
+  else if (pad === 3) key += '=';
+  if (key.length === 0) throw new Error('[APNs] APNS_P8_KEY empty after normalization');
+  if (!/^[A-Za-z0-9+/=]+$/.test(key)) {
+    throw new Error(`[APNs] APNS_P8_KEY has invalid base64 chars (len=${key.length})`);
+  }
+  return key;
+}
+
 /** Create ES256 JWT for APNs token-based auth */
 async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
-  const cleanKey = p8Key
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
+  const cleanKey = normalizeP8Key(p8Key);
+  console.log(`[APNs] Key normalized OK: ${cleanKey.length} base64 chars`);
   const keyData = Uint8Array.from(atob(cleanKey), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey(
     "pkcs8",
