@@ -191,7 +191,8 @@ Deno.test("Depleted + no calendar + late evening → recovery theme", async () =
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Let the day close.");
-  assertEquals(result.leanOn, "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.");
+  // leanOn is now formatted as "signal · Source" (truncated to 5 words)
+  assertEquals(result.leanOn, "Your awareness that your system · System");
 });
 
 Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
@@ -210,8 +211,8 @@ Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // After 9 PM, archetype and C+C are suppressed – evening tier insights take over
-  assertEquals(result.leanOn, "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.");
-  assertEquals(result.watchFor, "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.");
+  assertEquals(result.leanOn, "Your discipline to protect recovery · System");
+  assertEquals(result.watchFor, "Mistaking late-night activation for productive · System");
 });
 
 // ==================== SUNDAY EVENING TESTS ====================
@@ -232,7 +233,7 @@ Deno.test("Managing + Sunday evening → Sunday-specific theme and lean-on", asy
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Close into the week.");
-  assertEquals(result.leanOn, "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.");
+  assertEquals(result.leanOn, "Your capacity to close the · System");
 });
 
 // ==================== LEAN ON / WATCH FOR CASCADE TESTS (daytime) ====================
@@ -252,8 +253,8 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // Falls to tier fallback since server can't find archetype in profiles
-  assertEquals(result.leanOn, "Based on your current readiness state: Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.");
-  assertEquals(result.watchFor, "Based on your current readiness state: Committing to demands that require more than your current state can sustain.");
+  assertEquals(result.leanOn, "Your state awareness · Readiness");
+  assertEquals(result.watchFor, "Overcommitting beyond current capacity · Readiness");
 });
 
 Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
@@ -270,7 +271,7 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Based on your check-in today: Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.");
+  assertEquals(result.leanOn, "Your self-honesty · Check-in");
 });
 
 Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
@@ -287,7 +288,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Based on your current readiness state: Your above-baseline readiness. A real asset that is worth protecting through the day.");
+  assertEquals(result.leanOn, "Your above-baseline readiness · Readiness");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
