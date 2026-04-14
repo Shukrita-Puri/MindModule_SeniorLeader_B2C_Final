@@ -491,6 +491,8 @@ function buildSignalChips(
     // Heart + Sleep pills already rendered above — no fallback needed
   } else if (ws?.hasRecentData) {
     chips.push({ id: 'wearable-recent', label: 'Based on recent data', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
+  } else if (ws?.isStale) {
+    chips.push({ id: 'wearable-stale', label: 'Update wearable', color: 'neutral', qualifier: ws.sourceRowDate ? `Last sync: ${ws.sourceRowDate}` : undefined });
   } else {
     chips.push({ id: 'wearable-syncing', label: 'Waiting for wearable data', color: 'neutral' });
   }
@@ -666,7 +668,7 @@ const PerformanceReadinessBrief = () => {
   const ws = outerBrief?.wearableStatus;
   const dataSources: string[] = ['Check-in'];
   if (outerBrief?.hasCalendar || outerBrief?.calendarState === 'active') dataSources.push('calendar');
-  if (ws?.isConnected && (ws?.hasTodayData || ws?.hasRecentData)) dataSources.push('wearable');
+  if (ws?.isConnected && (ws?.hasTodayData || ws?.hasRecentData || ws?.isStale)) dataSources.push('wearable');
   dataSources.push('coach');
 
   // Source label for lean on / watch for
@@ -733,6 +735,7 @@ const PerformanceReadinessBrief = () => {
             const navMap: Record<string, string> = {
               'no-checkin': '/daily-check-in',
               'wearable-prompt': '/connected-data',
+              'wearable-stale': '/connected-data',
               'calendar-prompt': '/connected-data',
             };
             const navTarget = navMap[chip.id];
@@ -846,7 +849,7 @@ const PerformanceReadinessBrief = () => {
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
             <div className="space-y-1 text-[10px] font-body text-muted-foreground/60">
-              {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData) && (
+              {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData || outerBrief?.wearableStatus?.isStale) && (
                 <>
                   {outerBrief?.hrvValue != null && (
                     <div>HRV: {outerBrief.hrvValue}ms {outerBrief?.hrvBaseline ? `(${outerBrief?.hrvDeviation != null ? `${outerBrief.hrvDeviation > 0 ? '+' : ''}${outerBrief.hrvDeviation}%` : 'n/a'} vs your ${outerBrief.hrvBaseline}ms avg)` : '(baseline not yet established)'}</div>

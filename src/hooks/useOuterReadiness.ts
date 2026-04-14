@@ -31,6 +31,8 @@ export interface OuterReadinessData {
     isConnected: boolean;
     hasTodayData: boolean;
     hasRecentData: boolean;
+    isStale?: boolean;
+    sourceAgeDays?: number | null;
     metricsAvailable: { hrv: boolean; sleep: boolean; rhr: boolean };
     sourceRowDate: string | null;
     dataSource: string | null;
