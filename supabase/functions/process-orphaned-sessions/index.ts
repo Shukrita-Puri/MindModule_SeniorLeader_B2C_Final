@@ -211,7 +211,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'claude-3-5-haiku-20241022',
+                model: 'claude-3-5-haiku-latest',
                 system: `You are given ONLY user messages from a coaching conversation. Every message is something the user said – no coach responses are included.
 
 Extract genuine tiny wins – actions they took, achievements, growth moments, or things they are proud of.

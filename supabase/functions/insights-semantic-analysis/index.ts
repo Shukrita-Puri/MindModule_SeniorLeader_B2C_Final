@@ -213,7 +213,7 @@ serve(async (req) => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  model: 'claude-3-5-haiku-20241022',
+                  model: 'claude-3-5-haiku-latest',
                   messages: [{
                     role: 'user',
                     content: `Analyze these coaching conversation excerpts and:
@@ -440,7 +440,7 @@ ${allContent.slice(0, 3000)}`
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'claude-3-5-haiku-20241022',
+                model: 'claude-3-5-haiku-latest',
                 messages: [{
                   role: 'user',
                   content: `These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days: ${top5}. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language.`
@@ -539,7 +539,7 @@ async function getNodeSummary(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
+            model: 'claude-3-5-haiku-latest',
             messages: [{
               role: 'user',
               content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data – not generic. Name the pattern, its context, and what it signals. No soft language.

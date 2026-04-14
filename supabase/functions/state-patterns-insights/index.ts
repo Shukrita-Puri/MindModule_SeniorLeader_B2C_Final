@@ -471,7 +471,7 @@ Deno.serve(async (req) => {
           'anthropic-version': '2023-06-01', "Content-Type": "application/json" },
           signal: abortController.signal,
           body: JSON.stringify({
-            model: "claude-3-5-haiku-20241022",
+            model: "claude-3-5-haiku-latest",
             system: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work – regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice – just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
           messages: [
               {

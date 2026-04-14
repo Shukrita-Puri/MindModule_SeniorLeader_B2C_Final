@@ -341,7 +341,7 @@ Return ONLY the JSON object.`
                     'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
-                    model: 'claude-3-5-haiku-20241022',
+                    model: 'claude-3-5-haiku-latest',
                     messages: [{
                       role: 'user',
                       content: `Generate a 15-word max coaching message connecting this commitment to an upcoming event. Voice: direct, C-suite executive coach, no fluff.
