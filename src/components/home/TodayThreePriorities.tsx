@@ -113,12 +113,12 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     } catch { return new Set(); }
   };
   const persistSet = (key: string, s: Set<string>) => {
-    sessionStorage.setItem(key, JSON.stringify([...s]));
+    sessionStorage.setItem(key, JSON.stringify(Array.from(s)));
   };
 
   const prevCompletedIdsRef = useRef<string[] | null>(null);
   const completedSlotsRef = useRef<Set<number>>(new Set(
-    [...loadPersistedSet(feedbackSlotsStorageKey)].map(Number).filter(n => !isNaN(n))
+    Array.from(loadPersistedSet(feedbackSlotsStorageKey)).map(Number).filter(n => !isNaN(n))
   ));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const autoRetryDoneRef = useRef(false);
