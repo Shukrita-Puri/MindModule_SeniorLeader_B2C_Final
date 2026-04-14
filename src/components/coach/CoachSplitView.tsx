@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { ArrowUp, Loader2, Mic } from 'lucide-react';
-import CoachOrb from '@/components/coach/CoachOrb';
+import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -35,8 +35,8 @@ interface CoachSplitViewProps {
 }
 
 /** Small circular coach avatar used in message bubbles */
-const CoachAvatar = ({ size = 'sm', state = 'idle' }: { size?: 'sm' | 'md'; state?: 'idle' | 'listening' | 'thinking' | 'responding' }) => (
-  <CoachOrb size={size} state={state} />
+const CoachAvatar = () => (
+  <img src={coachVisual} alt="Coach" className="w-8 h-8 rounded-full object-cover border border-border/40 shrink-0" />
 );
 
 /** Render parsed coach message content (text + protocol/wisdom cards) */
@@ -214,12 +214,6 @@ const CoachSplitView = ({
 
   const hasMessages = messages.length > 0;
 
-  // Derive orb state from conversation context
-  const orbState: 'idle' | 'listening' | 'thinking' | 'responding' = 
-    isLoading && messages[messages.length - 1]?.role === 'user' ? 'thinking' :
-    isLoading ? 'responding' :
-    inputValue.trim().length > 0 ? 'listening' :
-    'idle';
 
   const inputBarProps = {
     inputError,
@@ -244,29 +238,33 @@ const CoachSplitView = ({
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
           {/* Centered coach visual + copy */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-4">
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-3">
             <h1 className="text-[20px] md:text-3xl font-headline text-foreground tracking-tight">
               Mind Performance Coach
             </h1>
 
-            {/* Dynamic 3D coach orb */}
-            <CoachOrb size="lg" state="idle" />
+            {/* Coach visual */}
+            <img
+              src={coachVisual}
+              alt="Mind Performance Coach"
+              className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-full object-cover border-2 border-border/20 shadow-lg"
+            />
 
-            <div className="space-y-3 max-w-sm">
+            <div className="space-y-2 max-w-sm">
               <h2 className="text-xl md:text-2xl font-headline text-foreground/90">
                 Hello, {firstName}.
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                I'll challenge your thinking, surface what's holding you back, and hold you to what you said matters.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                So you think clearly and lead with certainty.
+                The one conversation that helps you understand what's in the way — before the moment that matters.
               </p>
             </div>
           </div>
 
           {/* Input bar */}
           <InputBar glass={false} {...inputBarProps} />
+          <p className="text-[10px] text-muted-foreground/50 text-center pb-2 px-4">
+            AI-powered coaching assistant. Responses are generated and may not always be accurate. Not a substitute for professional advice.
+          </p>
         </div>
       </div>
     );
@@ -295,7 +293,7 @@ const CoachSplitView = ({
           // Coach message
           return (
             <div key={message.id} className="flex items-start gap-2.5">
-              <CoachAvatar size="sm" state={orbState} />
+              <CoachAvatar />
               <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white border border-stone-200">
                 <CoachMessageContent content={message.content} variant="default" />
               </div>
@@ -306,7 +304,7 @@ const CoachSplitView = ({
         {/* Typing indicator */}
         {isLoading && messages[messages.length - 1]?.role === 'user' && (
           <div className="flex items-start gap-2.5">
-            <CoachAvatar size="sm" state={orbState} />
+            <CoachAvatar />
             <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-stone-200 flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
               <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
