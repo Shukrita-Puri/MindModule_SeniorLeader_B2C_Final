@@ -3441,9 +3441,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (TIER_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_tier_word' };
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
             const wordCount = bodyTextStr.replace(/<[^>]+>/g, '').split(/\s+/).length;
-            if (wordCount > 25) return { valid: false, reason: 'body_too_long' };
+            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
-            if (phraseText && bodyTextStr.toLowerCase().includes(phraseText.toLowerCase())) return { valid: false, reason: 'body_restates_phrase' };
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
               if (!Array.isArray(items) || items.length === 0) return { valid: false, reason: `${label}_missing_or_empty` };
@@ -3452,7 +3451,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 const signal = item.signal.trim();
                 const source = item.source.trim();
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
-                if (signal.split(/\s+/).length > 3) return { valid: false, reason: `${label}_too_long` };
+                if (signal.split(/\s+/).length > 5) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 40) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal) || READINESS_WORD.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
@@ -3492,7 +3491,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           };
 
           // ── Single fast LLM attempt, then deterministic fallback ──
-          const retryTimeouts = [3500];
+          const retryTimeouts = [6000];
           for (let attempt = 1; attempt <= retryTimeouts.length; attempt++) {
             const timeoutMs = retryTimeouts[attempt - 1];
             const controller = new AbortController();
@@ -3522,17 +3521,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   const normalized = normalizeLlmBrief(parsed);
                   if (!normalized.brief) {
                     llmFallbackReason = normalized.reason;
-                    console.warn(`[compute-outer-readiness] [LLM] rejected brief: ${llmFallbackReason}`);
+                    console.warn(`[compute-outer-readiness] [LLM] Attempt ${attempt} rejected: ${llmFallbackReason} | model=${CLAUDE_MODELS.SONNET} | duration=${durationMs}ms | phrase="${parsed?.phrase}" | bodyWords=${parsed?.body?.replace(/<[^>]+>/g, '').split(/\\s+/).length ?? '?'}`);
                     break;
                   }
 
                   llmBrief = normalized.brief;
                   llmFallbackReason = null;
-                  console.log(`[compute-outer-readiness] [LLM] accepted atomic brief: phrase="${llmBrief.phrase}", leanOn=${llmBrief.leanOn.length}, watchFor=${llmBrief.watchFor.length}`);
+                  console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} accepted in ${durationMs}ms | model=${CLAUDE_MODELS.SONNET} | phrase="${llmBrief.phrase}" | leanOn=${llmBrief.leanOn.length} watchFor=${llmBrief.watchFor.length} | promptChars=${sysPromptLen + userPromptLen}`);
                   break;
                 } catch (parseErr) {
-                  console.error('[compute-outer-readiness] [LLM] JSON parse error:', parseErr, 'Raw:', content);
                   llmFallbackReason = 'llm_parse_failed';
+                  console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} parse failed | model=${CLAUDE_MODELS.SONNET} | duration=${durationMs}ms | rawLen=${content.length} | first200=${JSON.stringify(content.substring(0, 200))}`);
                 }
               } else {
                 llmFallbackReason = 'llm_returned_null';
@@ -3542,13 +3541,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               clearTimeout(timeout);
               const durationMs = Date.now() - startMs;
               const isAbort = err instanceof DOMException && err.name === 'AbortError';
-              llmFallbackReason = isAbort ? 'llm_timeout' : 'llm_error';
-              console.error(`[compute-outer-readiness] [LLM] Claude attempt ${attempt} ${isAbort ? 'timed out' : 'error'} after ${durationMs}ms:`, isAbort ? '' : err);
+              llmFallbackReason = isAbort ? `llm_timeout_${timeoutMs}ms` : 'llm_error';
+              console.error(`[compute-outer-readiness] [LLM] Attempt ${attempt} ${isAbort ? 'TIMEOUT' : 'ERROR'} | model=${CLAUDE_MODELS.SONNET} | timeout=${timeoutMs}ms | elapsed=${durationMs}ms | promptChars=${sysPromptLen + userPromptLen}`, isAbort ? '' : err);
             }
             break;
           }
           if (!llmBrief) {
-            console.log(`[compute-outer-readiness] [LLM] Falling back to deterministic brief. Reason: ${llmFallbackReason || 'unknown'}`);
+            console.log(`[compute-outer-readiness] [LLM] FALLBACK to deterministic | reason=${llmFallbackReason || 'unknown'} | model=${CLAUDE_MODELS.SONNET} | promptChars=${sysPromptLen + userPromptLen}`);
           }
     }
 
@@ -3578,7 +3577,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
       const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
       // Truncate to max 3 words
-      const signal = cleaned.split(/\s+/).slice(0, 3).join(' ');
+      const signal = cleaned.split(/\s+/).slice(0, 5).join(' ');
       // Map source key to human label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'Archetype',
