@@ -103,11 +103,14 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
   const prevCompletedIdsRef = useRef<string[] | null>(null);
   const completedSlotsRef = useRef<Set<number>>(new Set());
+  const celebratedIdsRef = useRef<Set<string>>(new Set());
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
 
   // ── Celebration ──
-  const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean) => {
+  const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean, practiceId?: string) => {
+    if (practiceId && celebratedIdsRef.current.has(practiceId)) return;
+    if (practiceId) celebratedIdsRef.current.add(practiceId);
     if (isAllComplete) {
       confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 }, colors: ['#D4AF37', '#F5D76E', '#FFD700', '#FFA500', '#E6C200'] });
       setTimeout(() => {
@@ -126,17 +129,19 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Detect newly completed + per-priority feedback ──
   useEffect(() => {
     const prev = prevCompletedIdsRef.current;
-    // First time: seed refs with initial state, don't trigger feedback
+    // Don't seed until plan is loaded — avoids treating existing completions as "new"
     if (prev === null) {
+      if (!plan) return;
       prevCompletedIdsRef.current = completedPracticeIds;
-      // Pre-populate completedSlotsRef for already-done slots
-      const modules = plan?.horizonModules || [];
+      // Pre-populate completedSlotsRef & celebratedIdsRef for already-done slots
+      const modules = plan.horizonModules || [];
       modules.forEach((hm, idx) => {
         const sp = hm.practices || [hm.practice];
         if (sp.every(p => completedPracticeIds.includes(p.contentId))) {
           completedSlotsRef.current.add(idx);
         }
       });
+      completedPracticeIds.forEach(id => celebratedIdsRef.current.add(id));
       return;
     }
 
@@ -147,7 +152,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
       const allIds = allPracticesList.map(p => p.contentId);
       const allDone = allIds.every(id => completedPracticeIds.includes(id));
-      if (found) triggerCelebration(found.title, allDone);
+      if (found) triggerCelebration(found.title, allDone, found.contentId);
 
       // Check if a new priority slot just completed
       modules.forEach((hm, idx) => {
@@ -358,7 +363,12 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     }
     const allCompleted = ritual.completed_practice_ids || [];
     const active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
-    setCompletedPracticeIds(active);
+    // Only update state if content actually changed — prevents spurious effect re-runs
+    setCompletedPracticeIds(prev => {
+      const prevKey = [...prev].sort().join(',');
+      const nextKey = [...active].sort().join(',');
+      return prevKey === nextKey ? prev : active;
+    });
 
     if (active.length >= horizonIds.length && active.length > 0) {
       if (ritual.completion_status !== 'full') {
