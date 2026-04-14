@@ -101,16 +101,36 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
+  // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger
+  const todayKey = new Date().toISOString().split('T')[0];
+  const celebratedStorageKey = `celebrated-ids-${todayKey}`;
+  const feedbackSlotsStorageKey = `feedback-slots-${todayKey}`;
+
+  const loadPersistedSet = (key: string): Set<string> => {
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  };
+  const persistSet = (key: string, s: Set<string>) => {
+    sessionStorage.setItem(key, JSON.stringify(Array.from(s)));
+  };
+
   const prevCompletedIdsRef = useRef<string[] | null>(null);
-  const completedSlotsRef = useRef<Set<number>>(new Set());
-  const celebratedIdsRef = useRef<Set<string>>(new Set());
+  const completedSlotsRef = useRef<Set<number>>(new Set(
+    Array.from(loadPersistedSet(feedbackSlotsStorageKey)).map(Number).filter(n => !isNaN(n))
+  ));
+  const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
 
   // ── Celebration ──
   const triggerCelebration = useCallback((practiceName: string, isAllComplete: boolean, practiceId?: string) => {
     if (practiceId && celebratedIdsRef.current.has(practiceId)) return;
-    if (practiceId) celebratedIdsRef.current.add(practiceId);
+    if (practiceId) {
+      celebratedIdsRef.current.add(practiceId);
+      persistSet(celebratedStorageKey, celebratedIdsRef.current);
+    }
     if (isAllComplete) {
       confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 }, colors: ['#D4AF37', '#F5D76E', '#FFD700', '#FFA500', '#E6C200'] });
       setTimeout(() => {
@@ -142,6 +162,9 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
         }
       });
       completedPracticeIds.forEach(id => celebratedIdsRef.current.add(id));
+      // Persist the seeded state
+      persistSet(celebratedStorageKey, celebratedIdsRef.current);
+      persistSet(feedbackSlotsStorageKey, new Set(Array.from(completedSlotsRef.current).map(String)));
       return;
     }
 
@@ -161,6 +184,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
         const slotNowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
         if (slotNowComplete) {
           completedSlotsRef.current.add(idx);
+          persistSet(feedbackSlotsStorageKey, new Set(Array.from(completedSlotsRef.current).map(String)));
           setFeedbackSlot({ index: idx, horizon: hm.horizon });
         }
       });
