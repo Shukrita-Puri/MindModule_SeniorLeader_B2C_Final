@@ -549,6 +549,43 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   );
 }
 
+// ─── FLIPPABLE LEAN ON / WATCH FOR PILL (front = analysis, back = source) ───
+function FlippableLeanOnPill({ signal, source, variant }: { signal: string; source: string; variant: 'lean' | 'watch' }) {
+  const [flipped, setFlipped] = useState(false);
+
+  // Auto-reset after 4s
+  useEffect(() => {
+    if (!flipped) return;
+    const timer = setTimeout(() => setFlipped(false), 4000);
+    return () => clearTimeout(timer);
+  }, [flipped]);
+
+  const pillStyle = variant === 'lean'
+    ? 'bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)]'
+    : 'bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)]';
+
+  return (
+    <div className="perspective-[400px]" style={{ perspective: '400px' }}>
+      <button
+        onClick={() => setFlipped(!flipped)}
+        className={cn(
+          "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-500 cursor-pointer active:scale-95",
+          pillStyle,
+        )}
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateX(360deg)' : 'rotateX(0deg)',
+          transition: 'transform 0.4s ease-in-out',
+        }}
+      >
+        <span className="whitespace-nowrap">
+          {flipped ? source : signal}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 // ─── CALENDAR PILLS ───
 function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
