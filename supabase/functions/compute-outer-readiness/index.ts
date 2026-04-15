@@ -3383,8 +3383,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'coach-partial-growth': 'coach-partial-growth',
       'archetype-tier': 'archetype-tier',
       'tier-fallback': 'tier-fallback',
-      'sunday-evening-override': 'sunday-evening-override',
-      'evening-recovery-override': 'evening-recovery-override',
+      'dow-pattern': 'dow-pattern',
+      'hrv-correlation': 'hrv-correlation',
+      'score-trajectory': 'score-trajectory',
     };
 
     // Helper: format deterministic fallback into "SIGNAL · SOURCE" format (Chief of Staff Memory)
