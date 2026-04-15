@@ -8,7 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import FloatingNavigation from '@/components/navigation/FloatingNavigation';
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import LeftSidebar from "@/components/navigation/LeftSidebar";
+import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 // WeeklyRitualStreak removed – lives on homepage via InsightProgressCard
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
@@ -814,21 +816,23 @@ const Insights = () => {
   const winsProgressMessage = getWinsProgressMessage();
 
   return (
-    <div className="min-h-screen bg-background pt-16 pb-[100px]">
-      {/* Header with Navigation */}
-      <div className="relative">
-        <FloatingNavigation />
+    <SidebarProvider defaultOpen={false}>
+      <div className="h-screen flex w-full bg-background overflow-hidden">
+        <LeftSidebar />
+        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
+          <div className="pt-[env(safe-area-inset-top,0px)]">
+            <header className="flex items-center px-3 md:px-4 py-3">
+              <SidebarDiscoveryPulse />
+            </header>
 
-        {/* Hero Banner */}
-        <div className="px-4 pt-4 pb-2 text-center">
-          <h1 className="text-[26px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
-            Performance Intelligence
-          </h1>
-          <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
-            What is consistently true about how you lead, perform, and recover – drawn from everything the app knows about you.
-          </p>
-        </div>
-      </div>
+            <div className="px-4 md:px-6 pb-2 max-w-lg mx-auto">
+              <h1 className="text-[22px] sm:text-2xl font-headline text-foreground tracking-tight">
+                Learn
+              </h1>
+              <p className="text-[13px] text-muted-foreground/70 mt-1 font-body">
+                What's consistently true about how you lead, perform, and recover
+              </p>
+            </div>
 
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
@@ -1051,8 +1055,11 @@ const Insights = () => {
             </LuxuryInsightCard>
           </div>
         </div>
+        </div>
+          </div>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
