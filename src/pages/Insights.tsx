@@ -822,10 +822,10 @@ const Insights = () => {
         {/* Hero Banner */}
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-            <h1 className="text-[28px] sm:text-4xl font-headline font-semibold mb-2 text-foreground tracking-tight">
+            <h1 className="text-[24px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
               Performance Intelligence
             </h1>
-            <p className="text-[13px] text-muted-foreground max-w-3xl mx-auto leading-relaxed context-clamp">
+            <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
               What is consistently true about how you lead, perform, and recover – drawn from everything the app knows about you.
             </p>
           </div>

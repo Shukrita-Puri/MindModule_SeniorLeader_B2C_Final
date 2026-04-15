@@ -549,6 +549,43 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   );
 }
 
+// ─── FLIPPABLE LEAN ON / WATCH FOR PILL (front = analysis, back = source) ───
+function FlippableLeanOnPill({ signal, source, variant }: { signal: string; source: string; variant: 'lean' | 'watch' }) {
+  const [flipped, setFlipped] = useState(false);
+
+  // Auto-reset after 4s
+  useEffect(() => {
+    if (!flipped) return;
+    const timer = setTimeout(() => setFlipped(false), 4000);
+    return () => clearTimeout(timer);
+  }, [flipped]);
+
+  const pillStyle = variant === 'lean'
+    ? 'bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)]'
+    : 'bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)]';
+
+  return (
+    <div className="perspective-[400px]" style={{ perspective: '400px' }}>
+      <button
+        onClick={() => setFlipped(!flipped)}
+        className={cn(
+          "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-500 cursor-pointer active:scale-95",
+          pillStyle,
+        )}
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateX(360deg)' : 'rotateX(0deg)',
+          transition: 'transform 0.4s ease-in-out',
+        }}
+      >
+        <span className="whitespace-nowrap">
+          {flipped ? source : signal}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 // ─── CALENDAR PILLS ───
 function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
@@ -773,26 +810,21 @@ const PerformanceReadinessBrief = () => {
              <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", leanOnPillStyle)}>
                Lean on
              </span>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
               {pairs ? (
-                <div className="space-y-0.5">
-                  {pairs.map((pair, idx) => (
-                    <p key={idx} className="text-[10px] text-foreground/80 font-body leading-relaxed">
-                      {pair.signal} <span className="text-muted-foreground/50">· {pair.source}</span>
-                    </p>
-                  ))}
-                </div>
+                pairs.map((pair, idx) => (
+                  <FlippableLeanOnPill
+                    key={`lean-${idx}`}
+                    signal={pair.signal}
+                    source={pair.source}
+                    variant="lean"
+                  />
+                ))
               ) : (
-                <>
-                  <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-                    {outerBrief.leanOn}
-                  </p>
-                  {leanOnSource && (
-                    <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                      {leanOnSource}
-                    </p>
-                  )}
-                </>
+                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                  {outerBrief.leanOn}
+                  {leanOnSource && <span className="text-muted-foreground/55 ml-1">· {leanOnSource}</span>}
+                </span>
               )}
             </div>
           </div>
@@ -807,26 +839,21 @@ const PerformanceReadinessBrief = () => {
              <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", watchForPillStyle)}>
                Watch for
              </span>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
               {pairs ? (
-                <div className="space-y-0.5">
-                  {pairs.map((pair, idx) => (
-                    <p key={idx} className="text-[10px] text-foreground/80 font-body leading-relaxed">
-                      {pair.signal} <span className="text-muted-foreground/50">· {pair.source}</span>
-                    </p>
-                  ))}
-                </div>
+                pairs.map((pair, idx) => (
+                  <FlippableLeanOnPill
+                    key={`watch-${idx}`}
+                    signal={pair.signal}
+                    source={pair.source}
+                    variant="watch"
+                  />
+                ))
               ) : (
-                <>
-                  <p className="text-[10px] text-foreground/80 font-body leading-relaxed">
-                    {outerBrief.watchFor}
-                  </p>
-                  {watchForSource && (
-                    <p className="text-[9px] text-muted-foreground/55 font-body mt-0.5">
-                      {watchForSource}
-                    </p>
-                  )}
-                </>
+                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                  {outerBrief.watchFor}
+                  {watchForSource && <span className="text-muted-foreground/55 ml-1">· {watchForSource}</span>}
+                </span>
               )}
             </div>
           </div>
