@@ -95,15 +95,16 @@ const getSourceLabel = (source: string | undefined): string => {
   switch (source) {
     case 'llm-v4': return '';
     case 'coach-insights-recent':
-    case 'coach-insights-grace': return 'From coach conversations';
+    case 'coach-insights-grace': return 'From coach';
     case 'cc-modifier':
-    case 'cc-modifier-with-context': return 'From your check-in today';
+    case 'cc-modifier-with-context': return 'From check-in';
     case 'coach-partial-strength':
     case 'coach-partial-growth': return 'Coach + archetype';
-    case 'archetype-tier': return 'From your archetype';
-    case 'tier-fallback':
-    case 'sunday-evening-override':
-    case 'evening-recovery-override': return 'From readiness score';
+    case 'archetype-tier': return 'From archetype';
+    case 'tier-fallback': return 'From readiness';
+    case 'dow-pattern': return 'From pattern';
+    case 'hrv-correlation': return 'From data';
+    case 'score-trajectory': return 'From pattern';
     default: return '';
   }
 };
