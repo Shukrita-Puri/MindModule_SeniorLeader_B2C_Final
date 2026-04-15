@@ -2252,15 +2252,7 @@ serve(async (req) => {
       }
     } catch (e) { console.error('[compute-outer-readiness] baseline deviation error:', e); }
 
-    // Check-in count total
-    let checkInCountTotal = 0;
-    try {
-      const { count } = await db
-        .from('daily_checkins')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      checkInCountTotal = count ?? 0;
-    } catch (e) { console.error('[compute-outer-readiness] checkin count error:', e); }
+    // checkInCountTotal already queried above (before getLeanOnWatchFor)
 
     // Consecutive low confidence days
     let consecutiveLowConfidence = 0;
