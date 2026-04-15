@@ -2331,9 +2331,8 @@ serve(async (req) => {
     let daysSinceCoachSession: number | null = null;
     let coachSessionImpactDelta: number | null = null;
     let avgScore7d: number | null = null;
-    let scoreTrajectory7d: string | null = null;
+    // scoreTrajectory7d, typicalDOWOutcome already declared above (before getLeanOnWatchFor)
     let wearableTrend7d: string | null = null;
-    let typicalDOWOutcome: string | null = null;
     let typicalDOWScore: number | null = null;
     let frictionTrend: string | null = null;
     let dominantOutcome7d: string | null = null;
@@ -2347,7 +2346,7 @@ serve(async (req) => {
     let tomorrowVsTodayLoad: string | null = null;
     let tomorrowHighStakesTitles: string[] = [];
     let weekAheadShape: Record<string, unknown> | null = null;
-    let hrvEventCorrelation: string | null = null;
+    // hrvEventCorrelation already declared above (before getLeanOnWatchFor)
     let mostEffectivePractice: string | null = null;
     let stateShiftToday = false;
     let stateShiftDirection: string | null = null;
