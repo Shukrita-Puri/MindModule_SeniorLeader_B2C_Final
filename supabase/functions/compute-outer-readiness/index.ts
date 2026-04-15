@@ -1265,15 +1265,8 @@ function getEveningInsights(
   const hasHighStakesTomorrow = tomorrowHighStakes && tomorrowHighStakes.length > 0;
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
 
-  // Build wearable-aware leanOn suffix – crisp, no numbers
-  const bodyLeanOnSuffix = bodyStressed
-    ? ' Your body carried today\'s load – the cool-down tonight is physical, not just mental.'
-    : '';
 
-  // Build tomorrow-aware watchFor suffix – crisp, no event names
-  const tomorrowWatchSuffix = hasHighStakesTomorrow
-    ? ' Pushing into preparation tonight when what you actually need is restoration. You\'ll arrive sharper rested than over-rehearsed.'
-    : '';
+
 
   // Build signal·source lines
   const bodySignal = bodyStressed ? '\nBody stress elevated · Wearable' : '';
