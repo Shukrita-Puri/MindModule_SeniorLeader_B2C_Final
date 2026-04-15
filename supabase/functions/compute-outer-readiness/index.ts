@@ -3217,7 +3217,7 @@ OUTPUT RULES:
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
 SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong, or any tier label.
-READINESS BLACKLIST: Never use 'readiness' in output.
+READINESS BLACKLIST: Never use 'readiness' in phrase or body text. In leanOn/watchFor signals, 'Performance Readiness' IS allowed as an analytical label.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
 NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate. Wearable > felt state on divergence. Signal pills: derive insight, don't repeat label.
@@ -3462,7 +3462,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
-                if (WELLNESS_BLACKLIST.test(signal) || READINESS_WORD.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
+                // Allow "readiness" in signals (e.g. "Performance Readiness +18% vs yesterday") — only block wellness words
+                if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
               return null;
             };
