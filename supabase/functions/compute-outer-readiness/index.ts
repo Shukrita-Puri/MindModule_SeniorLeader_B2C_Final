@@ -1931,6 +1931,21 @@ serve(async (req) => {
       wearableRecovery = await checkWearableRecoveryTrigger(userId, db as any);
     }
 
+    // ═══ Forward-declare enrichment variables needed by getLeanOnWatchFor ═══
+    // These are populated later in the enrichment block; defaults ensure safe access here.
+    let checkInCountTotal = 0;
+    try {
+      const { count } = await db
+        .from('daily_checkins')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      checkInCountTotal = count ?? 0;
+    } catch (e) { console.error('[compute-outer-readiness] checkin count error:', e); }
+
+    let typicalDOWOutcome: string | null = null;
+    let hrvEventCorrelation: string | null = null;
+    let scoreTrajectory7d: string | null = null;
+
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
@@ -2237,15 +2252,7 @@ serve(async (req) => {
       }
     } catch (e) { console.error('[compute-outer-readiness] baseline deviation error:', e); }
 
-    // Check-in count total
-    let checkInCountTotal = 0;
-    try {
-      const { count } = await db
-        .from('daily_checkins')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      checkInCountTotal = count ?? 0;
-    } catch (e) { console.error('[compute-outer-readiness] checkin count error:', e); }
+    // checkInCountTotal already queried above (before getLeanOnWatchFor)
 
     // Consecutive low confidence days
     let consecutiveLowConfidence = 0;
@@ -2324,9 +2331,8 @@ serve(async (req) => {
     let daysSinceCoachSession: number | null = null;
     let coachSessionImpactDelta: number | null = null;
     let avgScore7d: number | null = null;
-    let scoreTrajectory7d: string | null = null;
+    // scoreTrajectory7d, typicalDOWOutcome already declared above (before getLeanOnWatchFor)
     let wearableTrend7d: string | null = null;
-    let typicalDOWOutcome: string | null = null;
     let typicalDOWScore: number | null = null;
     let frictionTrend: string | null = null;
     let dominantOutcome7d: string | null = null;
@@ -2340,7 +2346,7 @@ serve(async (req) => {
     let tomorrowVsTodayLoad: string | null = null;
     let tomorrowHighStakesTitles: string[] = [];
     let weekAheadShape: Record<string, unknown> | null = null;
-    let hrvEventCorrelation: string | null = null;
+    // hrvEventCorrelation already declared above (before getLeanOnWatchFor)
     let mostEffectivePractice: string | null = null;
     let stateShiftToday = false;
     let stateShiftDirection: string | null = null;
@@ -2800,7 +2806,9 @@ serve(async (req) => {
         console.error('[compute-outer-readiness] Enrichment queries error:', enrichErr);
       }
 
+
       // ── Build & call LLM ──
+
       // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
