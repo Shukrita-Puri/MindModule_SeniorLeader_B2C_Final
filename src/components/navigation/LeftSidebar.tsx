@@ -5,7 +5,9 @@ import {
   Smiley, 
   TrendUp,
   BookmarkSimple,
-  Clock
+  Clock,
+  FileText,
+  ListChecks
 } from '@phosphor-icons/react';
 import {
   Sidebar,
@@ -28,22 +30,34 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Performance Readiness Assessment',
+    title: 'Assessment',
     icon: Smiley,
     path: '/daily-check-in',
     description: 'Track your state',
   },
   {
-    title: 'Reset Studio',
-    icon: Compass,
-    path: '/recalibrate',
-    description: 'Energy practices',
+    title: 'Brief',
+    icon: FileText,
+    path: '/executive-home',
+    description: 'Performance readiness',
   },
   {
-    title: 'Performance Intelligence',
+    title: 'Plan',
+    icon: ListChecks,
+    path: '/plan',
+    description: "Today's priorities",
+  },
+  {
+    title: 'Learn',
     icon: TrendUp,
     path: '/insights',
     description: 'Trends & patterns',
+  },
+  {
+    title: 'Reset',
+    icon: Compass,
+    path: '/recalibrate',
+    description: 'Energy practices',
   },
 ];
 
