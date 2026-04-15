@@ -1,13 +1,20 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileText, ListChecks, TrendingUp } from 'lucide-react';
-import { Compass } from '@phosphor-icons/react';
+import { FileText, ListChecks, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Compass, type Icon } from '@phosphor-icons/react';
 
-const TABS = [
+interface Tab {
+  icon: LucideIcon | Icon;
+  label: string;
+  path: string;
+  phosphor?: boolean;
+}
+
+const TABS: Tab[] = [
   { icon: FileText, label: 'Brief', path: '/executive-home' },
   { icon: ListChecks, label: 'Plan', path: '/plan' },
   { icon: TrendingUp, label: 'Learn', path: '/insights' },
   { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
-] as const;
+];
 
 const FloatingPillNav = () => {
   const navigate = useNavigate();
