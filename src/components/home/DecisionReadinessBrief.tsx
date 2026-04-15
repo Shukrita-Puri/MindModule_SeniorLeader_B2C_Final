@@ -786,7 +786,7 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.leanOn);
         return (
           <div className="flex items-start gap-2 mt-3">
-             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", leanOnPillStyle)}>
+             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
                Lean on
              </span>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
@@ -799,9 +799,9 @@ const PerformanceReadinessBrief = () => {
                   />
                 ))
               ) : (
-                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
                   {outerBrief.leanOn}
-                  {leanOnSource && <span className="text-muted-foreground/55 ml-1">· {leanOnSource}</span>}
+                  {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {leanOnSource}</span>}
                 </span>
               )}
             </div>
@@ -814,7 +814,7 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.watchFor);
         return (
           <div className="flex items-start gap-2 mt-2">
-             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", watchForPillStyle)}>
+             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
                Watch for
              </span>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
@@ -827,9 +827,9 @@ const PerformanceReadinessBrief = () => {
                   />
                 ))
               ) : (
-                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
                   {outerBrief.watchFor}
-                  {watchForSource && <span className="text-muted-foreground/55 ml-1">· {watchForSource}</span>}
+                  {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {watchForSource}</span>}
                 </span>
               )}
             </div>
