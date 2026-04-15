@@ -1,61 +1,38 @@
 
 
-# Navigation Restructuring: Feature-as-Destination Bottom Nav
+# Side Panel Recent Activity: 3 Changes
 
-## What Changes
+## 1. Remove Coach Sessions
+Delete the entire coach sessions fetch block from `useRecentActivity.ts` and remove coach-related icon/navigation from `RecentActivity.tsx`.
 
-The current 3-tab bottom nav (`Today | Reset | Insights`) becomes a 4-tab nav reflecting the product journey:
+## 2. Rename Check-in → Assessment with Clarity & Confidence
+**Title format**: `Assessment: Focused, High Clarity, Low Confidence`
 
-```text
-Current:   Today  |  Reset  |  Insights
-New:       Brief  |  Plan   |  Learn   |  Reset
-```
+**Edge function change required**: The `GET_RECENT_CHECKINS` action in `supabase/functions/daily-checkins/index.ts` currently only selects `id, checkin_date, outcome, energy_balance`. We need to add `clarity_level, confidence_level` to the select so the client can build the full title.
 
-**Mapping:**
-- **Brief** → `/executive-home` (Performance Readiness Brief — already rendered there)
-- **Plan** → `/executive-home/plan` (Today's 3 Performance Priorities — extracted to its own route)
-- **Learn** → `/insights` (renamed from "Insights")
-- **Reset** → `/recalibrate` (Reset Studio, unchanged)
+**Client formatting logic** in `useRecentActivity.ts`:
+- Capitalise outcome
+- If clarity_level exists: append `, ${clarity >= 4 ? 'High' : clarity <= 2 ? 'Low' : 'Moderate'} Clarity`
+- Same pattern for confidence_level
+- Example: `Assessment: Focused, High Clarity, Low Confidence`
 
-**Coach hidden:** FloatingCoachButton removed from Layout render. CoachAccessButton in ExecutiveHome header already has `className="hidden"`. Coach route stays intact — no deletion.
+## 3. Add Brief Views (Brief: {Phrase})
+**Track brief views**: In `ExecutiveHome.tsx`, when the brief phrase is available, call `trackEngagement` with `event_type: 'brief_view'` and store the phrase in `metadata.phrase`. Uses a `useEffect` that fires once per phrase load (deduplicated by a ref).
 
-**Sidebar:** Remove "Mind Performance Coach" from the LeftSidebar features array.
+**Fetch in Recent Activity**: Add a new fetch in `useRecentActivity.ts` using the existing `user-events` EF with `GET_ENGAGEMENTS` action (last 30 days), filter client-side for `event_type === 'brief_view'`, and display as `Brief: {metadata.phrase}` (truncated). Icon: `FileText` from lucide.
 
 ## Files Changed
 
-### 1. `src/components/navigation/FloatingPillNav.tsx`
-- Change TABS to 4 items: Brief, Plan, Learn, Reset
-- Icons: `FileText` (Brief), `ListChecks` (Plan), `TrendingUp` (Learn), `Sparkles` (Reset)
-- Paths: `/executive-home`, `/plan`, `/insights`, `/recalibrate`
-- Reduce `minWidth` from 248 to 300 and `min-w` per button from 72px to 64px to fit 4 tabs
+| File | Change |
+|------|--------|
+| `supabase/functions/daily-checkins/index.ts` | Add `clarity_level, confidence_level` to GET_RECENT_CHECKINS select |
+| `src/hooks/useRecentActivity.ts` | Remove coach block, rename checkin→assessment with clarity/confidence labels, add brief fetch |
+| `src/components/navigation/RecentActivity.tsx` | Update types, icons, navigation handlers |
+| `src/pages/ExecutiveHome.tsx` | Track brief view with phrase metadata |
+| `src/utils/engagementTracking.ts` | Add `trackBriefView(phrase)` helper |
 
-### 2. `src/App.tsx`
-- Add new route `/plan` pointing to a new `PlanPage` component (wraps `TodayThreePriorities` + `DailyRitual` fallback in the same protected/guarded shell)
-- Remove `FloatingCoachButton` from Layout render (line 129) — keep the import for future use
-- Remove `/coach` from `COACH_VISIBLE_ROUTES` (empty the array or remove the coach visibility logic)
-- Add `/plan` to `PILL_NAV_VISIBLE_ROUTES`
-
-### 3. `src/pages/PlanPage.tsx` (new file)
-- Simple page wrapper that renders `TodayThreePriorities` with the same hero/header pattern as ExecutiveHome but lighter (just a title + the priorities component)
-- Includes `FloatingNavigation` back button to `/executive-home`
-
-### 4. `src/pages/ExecutiveHome.tsx`
-- Remove `TodayThreePriorities` and `DailyRitual` from the render — Brief page now only shows the Performance Readiness Brief + CheckInBanner
-- Keep all imports, hooks, and data fetching intact (no logic changes)
-
-### 5. `src/components/navigation/LeftSidebar.tsx`
-- Remove the "Mind Performance Coach" entry from the `features` array (lines 43-48)
-
-### 6. No changes to:
-- Edge functions, LLM prompts, scoring logic, database, RLS policies
-- DecisionReadinessBrief component
-- TodayThreePriorities component (just moved to new page)
-- Coach page/component (preserved, just hidden from nav)
-- Any calculation or data flow
-
-## Safety Notes
-- Coach route `/coach` remains fully functional — only the floating button and sidebar link are hidden
-- All existing deep links continue to work
-- No database migrations required
-- No edge function redeployment needed
+## No Changes To
+- LLM prompts, scoring logic, RLS policies, database schema
+- Coach route/page (preserved, just hidden from nav already)
+- Bottom nav, any other page component
 
