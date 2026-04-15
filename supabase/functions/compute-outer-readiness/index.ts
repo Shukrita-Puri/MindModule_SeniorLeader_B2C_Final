@@ -3212,6 +3212,7 @@ OUTPUT RULES:
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
 • Scannable in 10 seconds. Forward-looking.
+• leanOn/watchFor signals MUST be analytical phrases (5-10 words), not raw numbers. NEVER "Score 71 vs 42" or "Clarity 4/5". Instead: "Performance Readiness up 69% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Each signal must make sense without seeing the signal pills above it.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
@@ -3254,22 +3255,22 @@ COLD START (Day 1-7): Day 1 use archetype+goals+available data. Day 2-6 referenc
 
 FEW-SHOT EXAMPLES:
 EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only:
-{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Composure under pressure","source":"Onboarding Goal"},{"signal":"Pattern recognition instinct","source":"Archetype"}],"watchFor":[{"signal":"Over-analysis early on","source":"Behavioural Pattern"},{"signal":"Skipping tomorrow's check-in","source":"Onboarding"}]}
+{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Composure under pressure as primary goal","source":"Onboarding Goal"},{"signal":"Pattern recognition instinct","source":"Archetype"}],"watchFor":[{"signal":"Over-analysis in early days","source":"Behavioural Pattern"},{"signal":"Skipping tomorrow's check-in","source":"Onboarding"}]}
 
 EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday:
-{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"HRV pre-board pattern detected","source":"Wearable"},{"signal":"Mental sharpness 4/5 today","source":"Check-in"}],"watchFor":[{"signal":"Over-preparing tonight","source":"Behavioural Pattern"},{"signal":"Confidence dip after poor sleep","source":"Check-in History"}]}
+{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"HRV trending down 14% overnight","source":"Wearable"},{"signal":"Mental sharpness holding strong today","source":"Check-in"}],"watchFor":[{"signal":"Over-preparing tonight erodes tomorrow","source":"Behavioural Pattern"},{"signal":"Confidence tends to dip after poor sleep","source":"Check-in History"}]}
 
 EXAMPLE 3 — Pre-Holiday · High-Stakes Calendar Event:
-{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Sleep 5.2hrs vs 7hr baseline","source":"Wearable"},{"signal":"Partner review closing today","source":"Calendar"}],"watchFor":[{"signal":"Carrying work into holiday","source":"Behavioural Pattern"},{"signal":"Decision quality drops after 3pm","source":"Wearable History"}]}
+{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Sleep 5.2hrs vs 7hr baseline","source":"Wearable"},{"signal":"Partner review closing today","source":"Calendar"}],"watchFor":[{"signal":"Carrying work energy into holiday","source":"Behavioural Pattern"},{"signal":"Decision quality drops after 3pm on low sleep","source":"Wearable History"}]}
 
 EXAMPLE 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead:
-{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV -22% from baseline","source":"Wearable"},{"signal":"Board prep at 11am today","source":"Calendar"}],"watchFor":[{"signal":"Pushing through on depleted","source":"Behavioural Pattern"},{"signal":"Afternoon collapse likely","source":"Wearable History"}]}
+{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV down 22% from your baseline","source":"Wearable"},{"signal":"Board prep anchoring your morning","source":"Calendar"}],"watchFor":[{"signal":"Pushing through on depleted reserves","source":"Behavioural Pattern"},{"signal":"Afternoon collapse likely on these numbers","source":"Wearable History"}]}
 
 EXAMPLE 5 — Score Trend · Coach Insight Active:
-{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"Performance Readiness +18% vs yesterday","source":"Readiness Score"},{"signal":"Mental Toughness surfacing","source":"Coach & Archetype"}],"watchFor":[{"signal":"Wilful Endurance pattern","source":"Archetype"},{"signal":"Over-committing midday","source":"Calendar"}]}
+{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"Performance Readiness +18% vs yesterday","source":"Readiness Score"},{"signal":"Mental Toughness surfacing in sessions","source":"Coach & Archetype"}],"watchFor":[{"signal":"Wilful Endurance pattern active","source":"Archetype"},{"signal":"Over-committing in midday window","source":"Calendar"}]}
 
 EXAMPLE 6 — Readiness Change · No Wearable:
-{"phrase":"Something shifted since yesterday.","body":"Score jumped from 42 to 71 — <strong>your system is telling you it's ready</strong>. Direct that into the two decisions that matter most today.","leanOn":[{"signal":"Readiness +69% vs yesterday","source":"Readiness Score"},{"signal":"Composure under pressure","source":"Onboarding Goal"}],"watchFor":[{"signal":"Spreading energy too wide","source":"Behavioural Pattern"},{"signal":"Ignoring body signals","source":"Self-awareness"}]}
+{"phrase":"Something shifted since yesterday.","body":"Score jumped from 42 to 71 — <strong>your system is telling you it's ready</strong>. Direct that into the two decisions that matter most today.","leanOn":[{"signal":"Performance Readiness up 69% vs yesterday","source":"Readiness Score"},{"signal":"Composure under pressure as primary goal","source":"Onboarding Goal"}],"watchFor":[{"signal":"Spreading energy too wide on strong days","source":"Behavioural Pattern"},{"signal":"Ignoring body signals when feeling sharp","source":"Self-awareness"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
@@ -3604,8 +3605,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const formatFallbackSignal = (text: string, source: string): string => {
       // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
       const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Keep up to 7 words for richer signal text
-      const signal = cleaned.split(/\s+/).slice(0, 7).join(' ');
+      // Keep up to 10 words for richer analytical signal text
+      const signal = cleaned.split(/\s+/).slice(0, 10).join(' ');
       // Map source key to human-readable label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'Archetype',

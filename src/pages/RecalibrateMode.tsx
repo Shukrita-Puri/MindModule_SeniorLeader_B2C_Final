@@ -99,7 +99,7 @@ const RecalibrateMode = () => {
 
       {/* Hero Banner — compact */}
       <div className="px-4 pt-4 pb-2 text-center">
-        <h1 className="text-[24px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
+        <h1 className="text-[26px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
           Reset Studio
         </h1>
         <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
