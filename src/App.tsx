@@ -19,6 +19,7 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
 const ExecutiveHome = lazy(() => import("./pages/ExecutiveHome"));
+const PlanPage = lazy(() => import("./pages/PlanPage"));
 const NudgeSettings = lazy(() => import("./pages/NudgeSettings"));
 const NudgeSimulator = lazy(() => import("./pages/NudgeSimulator"));
 const RecalibrateMode = lazy(() => import("./pages/RecalibrateMode"));
