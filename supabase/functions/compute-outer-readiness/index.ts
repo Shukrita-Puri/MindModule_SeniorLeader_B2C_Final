@@ -1931,15 +1931,7 @@ serve(async (req) => {
       wearableRecovery = await checkWearableRecoveryTrigger(userId, db as any);
     }
 
-    const leanOnResult = getLeanOnWatchFor(
-      safeTier, serverArchetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
-      typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
-    );
-
-    const coachUsed = leanOnResult.source.startsWith('coach');
-    const wearableUsed = !!wearableContext;
-    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
+    // getLeanOnWatchFor() moved after enrichment data is populated (see below line ~2801)
 
     // ═══ STATE STATEMENT BUILDER (calendar-aware, co-located) ═══
     // Build the State card's physiological statement here since we have all signals
