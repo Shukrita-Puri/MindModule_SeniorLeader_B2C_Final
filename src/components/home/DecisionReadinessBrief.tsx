@@ -122,9 +122,9 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
     if (sepIdx > 0) {
       let signal = line.substring(0, sepIdx).trim();
       const source = line.substring(sepIdx + 3).trim();
-      // Enforce max 10 words on signal — truncate prose from LLM
+      // Enforce max 5 words on signal — 2-4 word Chief of Staff signals + buffer
       const words = signal.split(/\s+/);
-      if (words.length > 10) signal = words.slice(0, 10).join(' ');
+      if (words.length > 5) signal = words.slice(0, 5).join(' ');
       pairs.push({ signal, source });
     } else if (line.length > 40) {
       // Prose guard: truncate long lines without separator
@@ -550,12 +550,16 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   );
 }
 
-// ─── LEAN ON / WATCH FOR — plain text: "signal · Source" ───
+// ─── LEAN ON / WATCH FOR — plain text: "signal · SOURCE" (uppercase source) ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
     <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
       {signal}
-      {source && <span className="text-muted-foreground/45 ml-1">· {source}</span>}
+      {source && (
+        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">
+          · {source}
+        </span>
+      )}
     </span>
   );
 }

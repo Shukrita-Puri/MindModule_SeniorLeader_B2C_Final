@@ -1250,139 +1250,15 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
 
 // ==================== LEAN ON / WATCH FOR ====================
 
-// Calendar-aware evening Lean On / Watch For generator
-// RELEVANCE RULE: Don't list event names. Acknowledge the day's weight and frame recovery.
-function getEveningInsights(
-  tier: EnergyTier,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  tomorrowLoad?: CalendarLevel | null,
-  tomorrowPressure?: CalendarLevel | null,
-  tomorrowHighStakes?: string[],
-  wearable?: WearableContext | null,
-): { leanOn: string; watchFor: string } {
-  const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
-  const hasHighStakesTomorrow = tomorrowHighStakes && tomorrowHighStakes.length > 0;
-  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+// ==================== LEAN ON / WATCH FOR — "CHIEF OF STAFF MEMORY" ====================
+// These fields represent long-term memory: patterns, archetype traits, coach insights.
+// FIREWALL: NEVER reference today's calendar, today's readiness score, today's wearable,
+// or today's felt state. Those belong in phrase/body/pills.
 
-
-
-
-  // Build signal·source lines
-  const bodySignal = bodyStressed ? '\nBody stress elevated · Wearable' : '';
-  const tomorrowSignal = hasHighStakesTomorrow ? '\nHigh-stakes tomorrow · Calendar' : '';
-
-  if (tier === 'depleted') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Heavy day completed · Calendar\nPermission to stop · Self-awareness'
-        : 'System gave its max today · Readiness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Replaying demands vs releasing · Pattern\nReview can wait until morning · Recovery'
-        : 'Replaying vs releasing · Pattern') + tomorrowSignal,
-    };
-  }
-  if (tier === 'managing') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Carried a demanding day · Calendar\nCapacity to close cleanly · Self-awareness'
-        : 'Day is done, system knows it · Readiness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Unfinished threads into recovery · Pattern\nHeavy day needs clean close · Recovery'
-        : 'Carrying mental threads into rest · Pattern') + tomorrowSignal,
-    };
-  }
-  if (tier === 'strong') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Strong output after full day · Readiness\nDeliberate transition needed · Recovery'
-        : 'Can shift to recovery mode · Self-awareness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Problem-solving past usefulness · Pattern\nRest > residual thinking · Recovery'
-        : 'Problem-solving past the point · Pattern') + tomorrowSignal,
-    };
-  }
-  // peak
-  return {
-    leanOn: (hadHeavyDay
-      ? 'Peak sustained through demands · Readiness\nProtect recovery deliberately · Recovery'
-      : 'System still activated · Readiness\nHigh output needs high rest · Recovery') + bodySignal,
-    watchFor: (hadHeavyDay
-      ? 'Late activation ≠ productive energy · Pattern\nWind-down critical after output · Recovery'
-      : 'Late activation ≠ productive energy · Pattern') + tomorrowSignal,
-  };
-}
-
-// Calendar-aware Sunday evening Lean On / Watch For generator
-// RELEVANCE RULE: No event name listing. Acknowledge weekend and frame Monday recovery.
-function getSundayEveningInsights(
-  tier: EnergyTier,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  mondayLoad: CalendarLevel | null,
-  mondayPressure: CalendarLevel | null,
-  mondayHighStakes?: string[],
-  wearable?: WearableContext | null,
-): { leanOn: string; watchFor: string } {
-  const heavyMonday = mondayLoad === 'high' || mondayPressure === 'high';
-  const moderateMonday = mondayLoad === 'medium' || mondayPressure === 'medium';
-  const hasMonStakes = mondayHighStakes && mondayHighStakes.length > 0;
-  const monEvent = hasMonStakes ? mondayHighStakes[0] : null;
-  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
-
-
-
-  const bodySignal = bodyStressed ? '\nBody signalling strain · Wearable' : '';
-  const stakeSignal = monEvent ? `\n'${monEvent}' Monday · Calendar` : '';
-
-  if (tier === 'depleted') {
-    return {
-      leanOn: (heavyMonday
-        ? `Depleted before heavy Monday · Readiness${stakeSignal}\nWhat you protect tonight = Monday · Recovery`
-        : 'Week starts depleted · Readiness\nTonight\'s rest = Monday decision · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Pushing through on empty · Pattern\nDeficit compounds every decision · Risk'
-        : 'Pushing through Sunday evening · Pattern\nDeficit carries into week · Risk',
-    };
-  }
-  if (tier === 'managing') {
-    return {
-      leanOn: (heavyMonday
-        ? `Capacity to close weekend cleanly · Self-awareness${stakeSignal}\nHow you enter > what you plan · Recovery`
-        : 'Can close weekend deliberately · Self-awareness\nSet intentional Monday anchor · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Pre-loading Monday stress tonight · Pattern\nProtect state > rehearse calendar · Recovery'
-        : moderateMonday
-        ? 'Drifting into Monday unanchored · Pattern\nModerate week needs deliberate open · Recovery'
-        : 'Drifting into Monday unanchored · Pattern',
-    };
-  }
-  if (tier === 'strong') {
-    return {
-      leanOn: (heavyMonday
-        ? `Above-baseline before heavy Monday · Readiness${stakeSignal}\nProtecting state = highest leverage · Recovery`
-        : 'Genuine strength on Sunday evening · Readiness\nAdvantage if protected · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Spending state on Monday prep · Pattern\nArrive rested > over-prepared · Recovery'
-        : 'Spending advantage before week starts · Pattern',
-    };
-  }
-  // peak
-  return {
-    leanOn: (heavyMonday
-      ? `Full readiness before heavy Monday · Readiness${stakeSignal}\nOnly priority: protect via rest · Recovery`
-      : 'Peak on Sunday evening — rare · Readiness\nProtect deliberately · Recovery') + bodySignal,
-    watchFor: heavyMonday
-      ? 'Peak ≠ license to work tonight · Pattern\nHighest leverage = rest · Recovery'
-      : 'Peak ≠ license to work tonight · Pattern',
-  };
-}
-
-// Clarity × Confidence modifier – now time-aware for evening retrospective framing
+// Clarity × Confidence modifier — time-independent, 2-4 word signals only
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
-  timeOfDay?: 'morning' | 'afternoon' | 'evening',
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1390,65 +1266,17 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
-  const isEvening = timeOfDay === 'evening';
 
-  // Pattern 1: Both low
-  if (clarityLow && confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your self-honesty", watchFor: "Forcing resolution tonight" }
-      : { leanOn: "Your self-honesty", watchFor: "Premature commitments" };
-  }
+  if (clarityLow && confidenceLow) return { leanOn: "Self-Honesty", watchFor: "Premature Commitments" };
+  if (clarityHigh && confidenceHigh) return { leanOn: "Full Alignment", watchFor: "Rigidity from Conviction" };
+  if (clarityHigh && confidenceLow) return { leanOn: "Clear Direction", watchFor: "Delaying Action" };
+  if (clarityLow && confidenceHigh) return { leanOn: "Execution Confidence", watchFor: "Moving Without Direction" };
+  if (clarityLow) return { leanOn: "Self-Discernment", watchFor: "Acting Without Anchor" };
+  if (confidenceLow) return { leanOn: "Self-Awareness", watchFor: "Projected Confidence" };
+  if (clarityHigh) return { leanOn: "Clear Direction", watchFor: "Crowding Perspectives" };
+  if (confidenceHigh) return { leanOn: "Conviction Strength", watchFor: "Closing Off Inputs" };
 
-  // Pattern 2: Both high
-  if (clarityHigh && confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your alignment", watchFor: "Over-optimising what worked" }
-      : { leanOn: "Your alignment", watchFor: "Rigidity from conviction" };
-  }
-
-  // Pattern 3: High clarity + low confidence
-  if (clarityHigh && confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your clarity", watchFor: "Replaying doubt" }
-      : { leanOn: "Your clarity", watchFor: "Delaying action" };
-  }
-
-  // Pattern 4: Low clarity + high confidence
-  if (clarityLow && confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your confidence", watchFor: "Forcing clarity tonight" }
-      : { leanOn: "Your confidence", watchFor: "Moving without direction" };
-  }
-
-  // Pattern 5: Low clarity only
-  if (clarityLow) {
-    return isEvening
-      ? { leanOn: "Your discernment", watchFor: "Grinding open questions" }
-      : { leanOn: "Your discernment", watchFor: "Acting without anchor" };
-  }
-
-  // Pattern 6: Low confidence only
-  if (confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your self-awareness", watchFor: "Reviewing through doubt" }
-      : { leanOn: "Your self-awareness", watchFor: "Projected confidence" };
-  }
-
-  // Pattern 7: High clarity only
-  if (clarityHigh) {
-    return isEvening
-      ? { leanOn: "Your direction", watchFor: "Replaying what held" }
-      : { leanOn: "Your direction", watchFor: "Crowding out perspectives" };
-  }
-
-  // Pattern 8: High confidence only
-  if (confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your conviction", watchFor: "Running past the close" }
-      : { leanOn: "Your conviction", watchFor: "Closing off inputs" };
-  }
-
-  // Mid-range on both – no modifier, fall through to archetype/tier
+  // Mid-range on both – no modifier
   return null;
 }
 
