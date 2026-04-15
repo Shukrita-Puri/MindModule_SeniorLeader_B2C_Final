@@ -46,10 +46,19 @@ const FloatingPillNav = () => {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <tab.icon
-                size={19}
-                className="text-white"
-              />
+              {/* Icon */}
+              {tab.phosphor ? (
+                <tab.icon
+                  size={19}
+                  weight="duotone"
+                  className="text-white"
+                />
+              ) : (
+                <tab.icon
+                  size={19}
+                  className="text-white"
+                />
+              )}
               <span
                 className={`font-body text-[9px] tracking-[0.01em] text-white ${
                   isActive ? 'opacity-100' : 'opacity-70'
