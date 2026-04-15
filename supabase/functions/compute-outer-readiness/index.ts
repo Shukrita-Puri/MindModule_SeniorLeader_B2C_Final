@@ -1250,139 +1250,15 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
 
 // ==================== LEAN ON / WATCH FOR ====================
 
-// Calendar-aware evening Lean On / Watch For generator
-// RELEVANCE RULE: Don't list event names. Acknowledge the day's weight and frame recovery.
-function getEveningInsights(
-  tier: EnergyTier,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  tomorrowLoad?: CalendarLevel | null,
-  tomorrowPressure?: CalendarLevel | null,
-  tomorrowHighStakes?: string[],
-  wearable?: WearableContext | null,
-): { leanOn: string; watchFor: string } {
-  const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
-  const hasHighStakesTomorrow = tomorrowHighStakes && tomorrowHighStakes.length > 0;
-  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+// ==================== LEAN ON / WATCH FOR — "CHIEF OF STAFF MEMORY" ====================
+// These fields represent long-term memory: patterns, archetype traits, coach insights.
+// FIREWALL: NEVER reference today's calendar, today's readiness score, today's wearable,
+// or today's felt state. Those belong in phrase/body/pills.
 
-
-
-
-  // Build signal·source lines
-  const bodySignal = bodyStressed ? '\nBody stress elevated · Wearable' : '';
-  const tomorrowSignal = hasHighStakesTomorrow ? '\nHigh-stakes tomorrow · Calendar' : '';
-
-  if (tier === 'depleted') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Heavy day completed · Calendar\nPermission to stop · Self-awareness'
-        : 'System gave its max today · Readiness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Replaying demands vs releasing · Pattern\nReview can wait until morning · Recovery'
-        : 'Replaying vs releasing · Pattern') + tomorrowSignal,
-    };
-  }
-  if (tier === 'managing') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Carried a demanding day · Calendar\nCapacity to close cleanly · Self-awareness'
-        : 'Day is done, system knows it · Readiness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Unfinished threads into recovery · Pattern\nHeavy day needs clean close · Recovery'
-        : 'Carrying mental threads into rest · Pattern') + tomorrowSignal,
-    };
-  }
-  if (tier === 'strong') {
-    return {
-      leanOn: (hadHeavyDay
-        ? 'Strong output after full day · Readiness\nDeliberate transition needed · Recovery'
-        : 'Can shift to recovery mode · Self-awareness') + bodySignal,
-      watchFor: (hadHeavyDay
-        ? 'Problem-solving past usefulness · Pattern\nRest > residual thinking · Recovery'
-        : 'Problem-solving past the point · Pattern') + tomorrowSignal,
-    };
-  }
-  // peak
-  return {
-    leanOn: (hadHeavyDay
-      ? 'Peak sustained through demands · Readiness\nProtect recovery deliberately · Recovery'
-      : 'System still activated · Readiness\nHigh output needs high rest · Recovery') + bodySignal,
-    watchFor: (hadHeavyDay
-      ? 'Late activation ≠ productive energy · Pattern\nWind-down critical after output · Recovery'
-      : 'Late activation ≠ productive energy · Pattern') + tomorrowSignal,
-  };
-}
-
-// Calendar-aware Sunday evening Lean On / Watch For generator
-// RELEVANCE RULE: No event name listing. Acknowledge weekend and frame Monday recovery.
-function getSundayEveningInsights(
-  tier: EnergyTier,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  mondayLoad: CalendarLevel | null,
-  mondayPressure: CalendarLevel | null,
-  mondayHighStakes?: string[],
-  wearable?: WearableContext | null,
-): { leanOn: string; watchFor: string } {
-  const heavyMonday = mondayLoad === 'high' || mondayPressure === 'high';
-  const moderateMonday = mondayLoad === 'medium' || mondayPressure === 'medium';
-  const hasMonStakes = mondayHighStakes && mondayHighStakes.length > 0;
-  const monEvent = hasMonStakes ? mondayHighStakes[0] : null;
-  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
-
-
-
-  const bodySignal = bodyStressed ? '\nBody signalling strain · Wearable' : '';
-  const stakeSignal = monEvent ? `\n'${monEvent}' Monday · Calendar` : '';
-
-  if (tier === 'depleted') {
-    return {
-      leanOn: (heavyMonday
-        ? `Depleted before heavy Monday · Readiness${stakeSignal}\nWhat you protect tonight = Monday · Recovery`
-        : 'Week starts depleted · Readiness\nTonight\'s rest = Monday decision · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Pushing through on empty · Pattern\nDeficit compounds every decision · Risk'
-        : 'Pushing through Sunday evening · Pattern\nDeficit carries into week · Risk',
-    };
-  }
-  if (tier === 'managing') {
-    return {
-      leanOn: (heavyMonday
-        ? `Capacity to close weekend cleanly · Self-awareness${stakeSignal}\nHow you enter > what you plan · Recovery`
-        : 'Can close weekend deliberately · Self-awareness\nSet intentional Monday anchor · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Pre-loading Monday stress tonight · Pattern\nProtect state > rehearse calendar · Recovery'
-        : moderateMonday
-        ? 'Drifting into Monday unanchored · Pattern\nModerate week needs deliberate open · Recovery'
-        : 'Drifting into Monday unanchored · Pattern',
-    };
-  }
-  if (tier === 'strong') {
-    return {
-      leanOn: (heavyMonday
-        ? `Above-baseline before heavy Monday · Readiness${stakeSignal}\nProtecting state = highest leverage · Recovery`
-        : 'Genuine strength on Sunday evening · Readiness\nAdvantage if protected · Recovery') + bodySignal,
-      watchFor: heavyMonday
-        ? 'Spending state on Monday prep · Pattern\nArrive rested > over-prepared · Recovery'
-        : 'Spending advantage before week starts · Pattern',
-    };
-  }
-  // peak
-  return {
-    leanOn: (heavyMonday
-      ? `Full readiness before heavy Monday · Readiness${stakeSignal}\nOnly priority: protect via rest · Recovery`
-      : 'Peak on Sunday evening — rare · Readiness\nProtect deliberately · Recovery') + bodySignal,
-    watchFor: heavyMonday
-      ? 'Peak ≠ license to work tonight · Pattern\nHighest leverage = rest · Recovery'
-      : 'Peak ≠ license to work tonight · Pattern',
-  };
-}
-
-// Clarity × Confidence modifier – now time-aware for evening retrospective framing
+// Clarity × Confidence modifier — time-independent, 2-4 word signals only
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
-  timeOfDay?: 'morning' | 'afternoon' | 'evening',
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1390,133 +1266,85 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
-  const isEvening = timeOfDay === 'evening';
 
-  // Pattern 1: Both low
-  if (clarityLow && confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your self-honesty", watchFor: "Forcing resolution tonight" }
-      : { leanOn: "Your self-honesty", watchFor: "Premature commitments" };
-  }
+  if (clarityLow && confidenceLow) return { leanOn: "Self-Honesty", watchFor: "Premature Commitments" };
+  if (clarityHigh && confidenceHigh) return { leanOn: "Full Alignment", watchFor: "Rigidity from Conviction" };
+  if (clarityHigh && confidenceLow) return { leanOn: "Clear Direction", watchFor: "Delaying Action" };
+  if (clarityLow && confidenceHigh) return { leanOn: "Execution Confidence", watchFor: "Moving Without Direction" };
+  if (clarityLow) return { leanOn: "Self-Discernment", watchFor: "Acting Without Anchor" };
+  if (confidenceLow) return { leanOn: "Self-Awareness", watchFor: "Projected Confidence" };
+  if (clarityHigh) return { leanOn: "Clear Direction", watchFor: "Crowding Perspectives" };
+  if (confidenceHigh) return { leanOn: "Conviction Strength", watchFor: "Closing Off Inputs" };
 
-  // Pattern 2: Both high
-  if (clarityHigh && confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your alignment", watchFor: "Over-optimising what worked" }
-      : { leanOn: "Your alignment", watchFor: "Rigidity from conviction" };
-  }
-
-  // Pattern 3: High clarity + low confidence
-  if (clarityHigh && confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your clarity", watchFor: "Replaying doubt" }
-      : { leanOn: "Your clarity", watchFor: "Delaying action" };
-  }
-
-  // Pattern 4: Low clarity + high confidence
-  if (clarityLow && confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your confidence", watchFor: "Forcing clarity tonight" }
-      : { leanOn: "Your confidence", watchFor: "Moving without direction" };
-  }
-
-  // Pattern 5: Low clarity only
-  if (clarityLow) {
-    return isEvening
-      ? { leanOn: "Your discernment", watchFor: "Grinding open questions" }
-      : { leanOn: "Your discernment", watchFor: "Acting without anchor" };
-  }
-
-  // Pattern 6: Low confidence only
-  if (confidenceLow) {
-    return isEvening
-      ? { leanOn: "Your self-awareness", watchFor: "Reviewing through doubt" }
-      : { leanOn: "Your self-awareness", watchFor: "Projected confidence" };
-  }
-
-  // Pattern 7: High clarity only
-  if (clarityHigh) {
-    return isEvening
-      ? { leanOn: "Your direction", watchFor: "Replaying what held" }
-      : { leanOn: "Your direction", watchFor: "Crowding out perspectives" };
-  }
-
-  // Pattern 8: High confidence only
-  if (confidenceHigh) {
-    return isEvening
-      ? { leanOn: "Your conviction", watchFor: "Running past the close" }
-      : { leanOn: "Your conviction", watchFor: "Closing off inputs" };
-  }
-
-  // Mid-range on both – no modifier, fall through to archetype/tier
+  // Mid-range on both – no modifier
   return null;
 }
 
 // Priority 3: Archetype × Tier matrix
 const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watchFor: string }>> = {
   'grounded-leader': {
-    depleted: { leanOn: "Your stillness instinct", watchFor: "Absorbing others' energy" },
-    managing: { leanOn: "Your rootedness", watchFor: "Quiet drain from steadying others" },
-    strong: { leanOn: "Your natural stability", watchFor: "Maintenance mode" },
-    peak: { leanOn: "Your grounded precision", watchFor: "Tunnel focus" },
+    depleted: { leanOn: "Stillness Instinct", watchFor: "Absorbing Others' Load" },
+    managing: { leanOn: "Grounded Stability", watchFor: "Quiet Drain Pattern" },
+    strong:   { leanOn: "Natural Authority", watchFor: "Maintenance Mode Trap" },
+    peak:     { leanOn: "Grounded Precision", watchFor: "Tunnel Focus Risk" },
   },
   'resilient-performer': {
-    depleted: { leanOn: "Your recovery wisdom", watchFor: "Performing resilience" },
-    managing: { leanOn: "Your baseline reliability", watchFor: "Settling for operational" },
-    strong: { leanOn: "Your performance window", watchFor: "Burning it early" },
-    peak: { leanOn: "Your competitive edge", watchFor: "Spending the peak too fast" },
+    depleted: { leanOn: "Recovery Intelligence", watchFor: "Performing Resilience" },
+    managing: { leanOn: "Baseline Resilience", watchFor: "Settling Operational" },
+    strong:   { leanOn: "Performance Window", watchFor: "Burning Early" },
+    peak:     { leanOn: "Competitive Edge", watchFor: "Peak Spent Fast" },
   },
   'clear-thinker': {
-    depleted: { leanOn: "Your economy of thought", watchFor: "Over-processing" },
-    managing: { leanOn: "Your analytical clarity", watchFor: "Over-investing cognitively" },
-    strong: { leanOn: "Your sharpest insights", watchFor: "Analysis past the insight" },
-    peak: { leanOn: "Your analytical precision", watchFor: "Complexity for its own sake" },
+    depleted: { leanOn: "Economy of Thought", watchFor: "Over-Processing" },
+    managing: { leanOn: "Analytical Clarity", watchFor: "Cognitive Over-Investment" },
+    strong:   { leanOn: "Sharpest Insights", watchFor: "Analysis Past Insight" },
+    peak:     { leanOn: "Analytical Precision", watchFor: "Complexity Addiction" },
   },
   'intensity-driver': {
-    depleted: { leanOn: "Your rest-as-fuel wisdom", watchFor: "Forcing intensity on empty" },
-    managing: { leanOn: "Your directed drive", watchFor: "Impatience with your pace" },
-    strong: { leanOn: "Your sustainable intensity", watchFor: "Outpacing the day" },
-    peak: { leanOn: "Your full-force capability", watchFor: "Opening at full intensity" },
+    depleted: { leanOn: "Rest-as-Fuel Wisdom", watchFor: "Forcing Empty Intensity" },
+    managing: { leanOn: "Directed Drive", watchFor: "Pace Impatience" },
+    strong:   { leanOn: "Sustainable Intensity", watchFor: "Outpacing the Day" },
+    peak:     { leanOn: "Full-Force Capability", watchFor: "Opening Full Intensity" },
   },
   'adaptive-navigator': {
-    depleted: { leanOn: "Your situational awareness", watchFor: "Adapting to others' demands" },
-    managing: { leanOn: "Your flexibility", watchFor: "Staying adaptive vs. holding firm" },
-    strong: { leanOn: "Your strategic read", watchFor: "Over-navigating" },
-    peak: { leanOn: "Your strategic agility", watchFor: "Complexity over decisiveness" },
+    depleted: { leanOn: "Situational Awareness", watchFor: "Adapting to Demands" },
+    managing: { leanOn: "Strategic Flexibility", watchFor: "Adaptive vs Firm" },
+    strong:   { leanOn: "Strategic Read", watchFor: "Over-Navigating" },
+    peak:     { leanOn: "Strategic Agility", watchFor: "Complexity Over Decision" },
   },
   // Legacy ID fallbacks
   'natural-regulator': {
-    depleted: { leanOn: "Your stillness instinct", watchFor: "Absorbing others' energy" },
-    managing: { leanOn: "Your rootedness", watchFor: "Quiet drain from steadying others" },
-    strong: { leanOn: "Your natural stability", watchFor: "Maintenance mode" },
-    peak: { leanOn: "Your grounded precision", watchFor: "Tunnel focus" },
+    depleted: { leanOn: "Stillness Instinct", watchFor: "Absorbing Others' Load" },
+    managing: { leanOn: "Grounded Stability", watchFor: "Quiet Drain Pattern" },
+    strong:   { leanOn: "Natural Authority", watchFor: "Maintenance Mode Trap" },
+    peak:     { leanOn: "Grounded Precision", watchFor: "Tunnel Focus Risk" },
   },
   'high-octane-performer': {
-    depleted: { leanOn: "Your recovery wisdom", watchFor: "Performing resilience" },
-    managing: { leanOn: "Your baseline reliability", watchFor: "Settling for operational" },
-    strong: { leanOn: "Your performance window", watchFor: "Burning it early" },
-    peak: { leanOn: "Your competitive edge", watchFor: "Spending the peak too fast" },
+    depleted: { leanOn: "Recovery Intelligence", watchFor: "Performing Resilience" },
+    managing: { leanOn: "Baseline Resilience", watchFor: "Settling Operational" },
+    strong:   { leanOn: "Performance Window", watchFor: "Burning Early" },
+    peak:     { leanOn: "Competitive Edge", watchFor: "Peak Spent Fast" },
   },
   'strategic-pauser': {
-    depleted: { leanOn: "Your economy of thought", watchFor: "Over-processing" },
-    managing: { leanOn: "Your analytical clarity", watchFor: "Over-investing cognitively" },
-    strong: { leanOn: "Your sharpest insights", watchFor: "Analysis past the insight" },
-    peak: { leanOn: "Your analytical precision", watchFor: "Complexity for its own sake" },
+    depleted: { leanOn: "Economy of Thought", watchFor: "Over-Processing" },
+    managing: { leanOn: "Analytical Clarity", watchFor: "Cognitive Over-Investment" },
+    strong:   { leanOn: "Sharpest Insights", watchFor: "Analysis Past Insight" },
+    peak:     { leanOn: "Analytical Precision", watchFor: "Complexity Addiction" },
   },
   'awareness-builder': {
-    depleted: { leanOn: "Your rest-as-fuel wisdom", watchFor: "Forcing intensity on empty" },
-    managing: { leanOn: "Your directed drive", watchFor: "Impatience with your pace" },
-    strong: { leanOn: "Your sustainable intensity", watchFor: "Outpacing the day" },
-    peak: { leanOn: "Your full-force capability", watchFor: "Opening at full intensity" },
+    depleted: { leanOn: "Rest-as-Fuel Wisdom", watchFor: "Forcing Empty Intensity" },
+    managing: { leanOn: "Directed Drive", watchFor: "Pace Impatience" },
+    strong:   { leanOn: "Sustainable Intensity", watchFor: "Outpacing the Day" },
+    peak:     { leanOn: "Full-Force Capability", watchFor: "Opening Full Intensity" },
   },
 };
 
-// Priority 5: Hardcoded tier fallbacks
+// Tier fallbacks — 2-4 word analytical signals
 const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: { leanOn: "Your state awareness", watchFor: "Over-committing" },
-  managing: { leanOn: "Your operational steadiness", watchFor: "Over-extending" },
-  strong: { leanOn: "Your above-baseline readiness", watchFor: "Diffusing capacity" },
-  peak: { leanOn: "Your full readiness", watchFor: "Spending the peak unchecked" },
+  depleted: { leanOn: "State Awareness", watchFor: "Over-Committing" },
+  managing: { leanOn: "Operational Steadiness", watchFor: "Over-Extending" },
+  strong:   { leanOn: "Above-Baseline Capacity", watchFor: "Diffusing Capacity" },
+  peak:     { leanOn: "Full Capacity", watchFor: "Peak Spent Unchecked" },
 };
 
 // ==================== COACH INSIGHT AGE TIERS ====================
@@ -1606,17 +1434,15 @@ async function checkWearableRecoveryTrigger(
   }
 }
 
-// ==================== LEAN ON / WATCH FOR – PRIORITY CASCADE ====================
-// Data source priority for LeanOn/WatchFor:
-// 1. Coach conversations (strength/growth insights) – PERSONAL
-// 2. Archetype (onboarding-derived behavioral profile) – PERSONAL
-// 3. [Future] LinkedIn profile analysis – PERSONAL
-// 4. [Future] LLM conversation data (Claude/ChatGPT patterns) – PERSONAL
-// 5. Calendar + Wearable context – SITUATIONAL (layered as suffix, never standalone)
-// 6. Tier fallback – GENERIC
+// ==================== LEAN ON / WATCH FOR – "CHIEF OF STAFF MEMORY" ====================
+// FIREWALL: These fields represent long-term patterns about the PERSON.
+// NEVER reference: today's calendar, today's readiness score, today's wearable, today's felt state.
+// Those belong in phrase/body/pills. If no pattern data exists, use Archetype as fallback.
 //
-// Rule: Personal sources always lead. Situational context enriches but never replaces.
-// Suffixes must be crisp – no event titles, no metric numbers.
+// Tenure-Gated Ladder:
+//   Day 1 (checkInCountTotal === 0): Archetype × Tier only
+//   Days 2–6 (checkInCountTotal 1–6): Coach > C×C > Archetype
+//   Day 7+ (checkInCountTotal ≥ 7): Coach > DOW Pattern > HRV Correlation > Score Trajectory > C×C > Archetype > Tier
 
 interface LeanOnWatchForResult {
   leanOn: string;
@@ -1624,79 +1450,10 @@ interface LeanOnWatchForResult {
   source: string;
   coachInsightAge?: number;
   coachInsightLabel?: string;
-  recoveryDayTriggered?: boolean;
 }
 
-// Build context enrichment suffix for leanOn – crisp, no event titles, no HR numbers.
-// Subtly reinforces the personal insight with situational acknowledgment.
-// Now aware of remaining events for evening.
-function buildDaytimeLeanOnSuffix(
-  todayHighStakes: string[] | undefined,
-  wearable: WearableContext | null | undefined,
-  timeOfDay: 'morning' | 'afternoon' | 'evening',
-  remainingEvents?: number,
-): string {
-  const hasStakes = todayHighStakes && todayHighStakes.length > 0;
-  const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.poorSleep || wearable.rhrElevated);
-  const denseDay = hasStakes || bodyStrained;
-
-  if (!denseDay) return '';
-
-  if (timeOfDay === 'morning') {
-    if (bodyStrained && hasStakes) return ' A demanding day ahead is meeting that instinct – and your body is carrying strain into it.';
-    if (bodyStrained) return ' Your body is carrying strain into today. That awareness is itself an advantage.';
-    if (hasStakes) return ' Your readiness for today\'s demands is genuine.';
-  }
-
-  if (timeOfDay === 'afternoon') {
-    if (bodyStrained) return ' The morning tested that capacity – the afternoon will too.';
-    if (hasStakes) return ' The afternoon\'s demands are meeting that instinct.';
-  }
-
-  if (timeOfDay === 'evening') {
-    const remaining = remainingEvents ?? 0;
-    if (remaining > 0) {
-      if (bodyStrained) return ' The day isn\'t done – that instinct still serves you, and your body is signalling to pace what\'s left.';
-      return ' The day isn\'t done – that instinct still serves you.';
-    }
-    if (bodyStrained) return ' Today tested that capacity. Your body is signalling the day is done.';
-    return ' Today tested that capacity. The day is done.';
-  }
-
-  return '';
-}
-
-// Build context enrichment suffix for watchFor – crisp, no event titles, no HR numbers.
-// Now aware of remaining events for evening.
-function buildDaytimeWatchForSuffix(
-  todayHighStakes: string[] | undefined,
-  wearable: WearableContext | null | undefined,
-  timeOfDay: 'morning' | 'afternoon' | 'evening',
-  remainingEvents?: number,
-): string {
-  const hasStakes = todayHighStakes && todayHighStakes.length > 0;
-  const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.rhrElevated);
-
-  if (timeOfDay === 'morning') {
-    if (bodyStrained && hasStakes) return ' Spending your advantage before the day\'s biggest moments.';
-    if (wearable?.poorSleep) return ' Opening at full intensity when your recovery was incomplete.';
-    if (bodyStrained) return ' Pushing through when your body is already signalling strain.';
-  }
-
-  if (timeOfDay === 'afternoon') {
-    if (bodyStrained) return ' Pushing through when your body is already signalling the cost.';
-  }
-
-  if (timeOfDay === 'evening') {
-    const remaining = remainingEvents ?? 0;
-    if (remaining > 0 && bodyStrained) return ' Pushing through the remaining meetings when your body is already signalling the cost.';
-    if (remaining > 0) return ' Mentally closing the day when demands still remain. Stay present for what\'s left.';
-    if (bodyStrained) return ' Replaying the day\'s demands instead of releasing them. Your body is signalling the need to stop.';
-    if (hasStakes) return ' Replaying the day\'s demands instead of releasing them.';
-  }
-
-  return '';
-}
+// Day name helper
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function getLeanOnWatchFor(
   tier: EnergyTier,
@@ -1706,24 +1463,15 @@ function getLeanOnWatchFor(
   coachStrength: string | null,
   coachGrowth: string | null,
   coachInsightCreatedAt: string | null,
-  hour: number,
+  checkInCountTotal: number,
+  // Day 7+ pattern data
+  typicalDOWOutcome: string | null,
+  hrvEventCorrelation: string | null,
+  scoreTrajectory7d: string | null,
   dayOfWeek: number,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  tomorrowLoad: CalendarLevel | null,
-  tomorrowPressure: CalendarLevel | null,
-  tomorrowHighStakes: string[],
-  wearableContext: WearableContext | null,
-  wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
-  todayHighStakes?: string[],
-  eventCount?: number,
-  remainingEvents?: number,
 ): LeanOnWatchForResult {
-  const lateEvening = isLateEvening(hour);
-  const dayCtx = getDayContext(dayOfWeek);
-  const timeOfDay = getTimeOfDay(hour);
 
-  // Compute coach insight age + tier
+  // ── Coach insight age + tier ──
   let coachDaysOld = 0;
   let coachTier: CoachInsightTier = 'archived';
   const hasCoachBoth = !!(coachStrength && coachGrowth);
@@ -1733,92 +1481,131 @@ function getLeanOnWatchFor(
     coachTier = getCoachInsightTier(coachDaysOld);
   }
 
-  // Determine if there's context worth enriching (now includes evening)
-  const hasContextEnrichment = (
-    (todayHighStakes && todayHighStakes.length > 0) ||
-    (wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated || wearableContext.poorSleep || wearableContext.rhrElevated))
-  );
+  const dayName = DAY_NAMES[dayOfWeek] || 'Today';
 
-  // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
-  if (ENABLE_WEARABLE_RECOVERY_TRIGGER && wearableRecovery?.triggered) {
-    return {
-      leanOn: "Your awareness that your system needs restoration, not activation. What you protect today prevents what you'll regret tomorrow.",
-      watchFor: "Trying to 'push through' when your physiology is already in deficit. Ignoring this signal compounds the cost.",
-      source: 'wearable-recovery-override',
-      recoveryDayTriggered: true,
-    };
+  // ═══════════════════════════════════════
+  // DAY 1: Archetype × Tier ONLY
+  // ═══════════════════════════════════════
+  if (checkInCountTotal === 0) {
+    if (archetype && archetypeMatrix[archetype]?.[tier]) {
+      const base = archetypeMatrix[archetype][tier];
+      return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
+    }
+    const base = tierFallbacks[tier];
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
   }
 
-  // ── P0a: Sunday evening (after 9pm on Sunday) – ALWAYS wins ──
-  if (lateEvening && dayCtx === 'sunday') {
-    return { ...getSundayEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'sunday-evening-override' };
-  }
-
-  // ── P0b: Late evening weekdays/Saturday (after 9pm) – recovery ALWAYS takes priority ──
-  if (lateEvening) {
-    return { ...getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'evening-recovery-override' };
-  }
-
-  // ── P1a: Coach insights ≤3 days (recent) ──
-  if (hasCoachBoth && coachTier === 'recent') {
-    return {
-      leanOn: `${coachStrength!} (coach)`,
-      watchFor: `${coachGrowth!} (coach)`,
-      source: 'coach-insights-recent',
-      coachInsightAge: coachDaysOld,
-    };
-  }
-
-  // ── P1b: Coach insights 4-7 days (grace) – use if no C×C contradiction ──
-  if (hasCoachBoth && coachTier === 'grace') {
-    const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
-    if (!hasContradiction) {
+  // ═══════════════════════════════════════
+  // DAYS 2–6: Coach > C×C > Archetype
+  // ═══════════════════════════════════════
+  if (checkInCountTotal < 7) {
+    // P1: Coach insights (recent or grace)
+    if (hasCoachBoth && (coachTier === 'recent' || coachTier === 'grace')) {
       return {
-        leanOn: `${coachStrength!} (coach, ${coachDaysOld}d ago)`,
-        watchFor: `${coachGrowth!} (coach, ${coachDaysOld}d ago)`,
-        source: 'coach-insights-grace',
+        leanOn: coachStrength!,
+        watchFor: coachGrowth!,
+        source: coachTier === 'recent' ? 'coach-insights-recent' : 'coach-insights-grace',
         coachInsightAge: coachDaysOld,
-        coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
+      };
+    }
+
+    // P2: C×C modifier
+    const ccMod = getCCModifier(clarity, confidence);
+    if (ccMod) {
+      return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
+    }
+
+    // P3: Archetype × Tier fallback
+    if (archetype && archetypeMatrix[archetype]?.[tier]) {
+      const base = archetypeMatrix[archetype][tier];
+      return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
+    }
+    const base = tierFallbacks[tier];
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
+  }
+
+  // ═══════════════════════════════════════
+  // DAY 7+: Full pattern cascade
+  // ═══════════════════════════════════════
+
+  // P1: Coach insights (recent or grace, non-contradicting)
+  if (hasCoachBoth && (coachTier === 'recent' || coachTier === 'grace')) {
+    if (coachTier === 'recent' || !detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence)) {
+      return {
+        leanOn: coachStrength!,
+        watchFor: coachGrowth!,
+        source: coachTier === 'recent' ? 'coach-insights-recent' : 'coach-insights-grace',
+        coachInsightAge: coachDaysOld,
+        coachInsightLabel: coachTier === 'grace' ? `From your last session (${coachDaysOld} days ago)` : undefined,
       };
     }
   }
 
-  // ── P2: C×C independent signal modifier ──
-  const ccMod = getCCModifier(clarity, confidence, timeOfDay);
-  if (ccMod) {
-    if (hasCoachBoth && coachTier === 'contextual') {
+  // P2: DOW Pattern — if typical DOW outcome exists and diverges from current tier
+  if (typicalDOWOutcome) {
+    const tierOutcomeMap: Record<EnergyTier, string[]> = {
+      depleted: ['overwhelmed', 'drained'],
+      managing: ['scattered', 'steady'],
+      strong: ['focused', 'steady'],
+      peak: ['focused'],
+    };
+    const expectedOutcomes = tierOutcomeMap[tier] || [];
+    if (!expectedOutcomes.includes(typicalDOWOutcome)) {
+      // Divergence from typical DOW — surface as pattern
+      const typicalLabel = typicalDOWOutcome.charAt(0).toUpperCase() + typicalDOWOutcome.slice(1);
       return {
-        leanOn: `${ccMod.leanOn} (check-in)`,
-        watchFor: `${ccMod.watchFor} (check-in)`,
-        source: 'cc-modifier-with-context',
-        coachInsightAge: coachDaysOld,
-        coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
+        leanOn: `Strong ${dayName} Pattern`,
+        watchFor: `${dayName} ${typicalLabel} Trend`,
+        source: 'dow-pattern',
       };
     }
-    return { leanOn: `${ccMod.leanOn} (check-in)`, watchFor: `${ccMod.watchFor} (check-in)`, source: 'cc-modifier' };
   }
 
-  // ── Partial coach: mix with other priorities (any non-archived tier) ──
+  // P3: HRV Event Correlation
+  if (hrvEventCorrelation) {
+    // hrvEventCorrelation is a string like "Board meetings correlate with -15% HRV"
+    const shortCorrelation = hrvEventCorrelation.split(/\s+/).slice(0, 4).join(' ');
+    return {
+      leanOn: "Body Pattern Awareness",
+      watchFor: shortCorrelation,
+      source: 'hrv-correlation',
+    };
+  }
+
+  // P4: Score Trajectory — 7-day declining
+  if (scoreTrajectory7d === 'declining') {
+    return {
+      leanOn: "Trajectory Awareness",
+      watchFor: "Declining Week Trajectory",
+      source: 'score-trajectory',
+    };
+  }
+
+  // P5: Partial coach — mix with archetype
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
-    return { leanOn: `${coachStrength} (coach)`, watchFor: `${watchFor} (${watchSource})`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+    return { leanOn: coachStrength, watchFor, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
-    return { leanOn: `${leanOn} (${leanSource})`, watchFor: `${coachGrowth} (coach)`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
+    return { leanOn, watchFor: coachGrowth, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
-  // ── P4: Archetype × Tier ──
+  // P6: C×C modifier
+  const ccMod = getCCModifier(clarity, confidence);
+  if (ccMod) {
+    return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
+  }
+
+  // P7: Archetype × Tier
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     const base = archetypeMatrix[archetype][tier];
-    return { leanOn: `${base.leanOn} (archetype)`, watchFor: `${base.watchFor} (archetype)`, source: 'archetype-tier' };
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
   }
 
-  // ── P5: Tier fallback ──
+  // P8: Tier fallback
   const base = tierFallbacks[tier];
-  return { leanOn: `${base.leanOn} (readiness)`, watchFor: `${base.watchFor} (readiness)`, source: 'tier-fallback' };
+  return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
@@ -2146,10 +1933,8 @@ serve(async (req) => {
 
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
-      calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
-      tomorrowHighStakes, wearableContext, wearableRecovery,
-      todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents
+      coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
+      typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
@@ -3212,12 +2997,12 @@ OUTPUT RULES:
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
 • Scannable in 10 seconds. Forward-looking.
-• leanOn/watchFor signals MUST be 5-8 word analytical phrases. NEVER full sentences. NEVER "Score 71 vs 42" or "Clarity 4/5". Good: "Performance Readiness +18% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Bad: "Your awareness that your system needs restoration, not activation" (too long, too prose). Each signal is a headline, not a sentence.
+• leanOn and watchFor are your LONG-TERM MEMORY of this leader — patterns observed over weeks, NOT today's data. NEVER reference in leanOn/watchFor: today's calendar, today's readiness score, today's wearable metrics, today's felt state. Those belong in phrase/body/pills. ALLOWED SOURCES ONLY: Coach-identified patterns, Archetype traits, DOW trends, HRV correlations, score trajectories, behavioural streaks. FORMAT: Each item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE must be one of: ARCHETYPE, COACH, PATTERN, DATA, CHECK-IN. SIGNAL must be an analytical insight label, not a data point or sentence. If no pattern/archetype data exists, return empty arrays for leanOn/watchFor.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
 SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong, or any tier label.
-READINESS BLACKLIST: Never use 'readiness' in phrase or body text. In leanOn/watchFor signals, 'Performance Readiness' IS allowed as an analytical label.
+READINESS BLACKLIST: Never use 'readiness' in phrase or body text.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
 NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate. Wearable > felt state on divergence. Signal pills: derive insight, don't repeat label.
@@ -3253,24 +3038,24 @@ I: Coach Signal Active → connect to today's state.
 
 COLD START (Day 1-7): Day 1 use archetype+goals+available data. Day 2-6 reference trajectory. Day 7 reference week pattern. Never generic, never reference missing data.
 
-FEW-SHOT EXAMPLES:
+FEW-SHOT EXAMPLES (note: leanOn/watchFor use 2-4 word signals with uppercase single-word sources — NEVER calendar/wearable/score sources):
 EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only:
-{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Composure under pressure as primary goal","source":"Onboarding Goal"},{"signal":"Pattern recognition instinct","source":"Archetype"}],"watchFor":[{"signal":"Over-analysis in early days","source":"Behavioural Pattern"},{"signal":"Skipping tomorrow's check-in","source":"Onboarding"}]}
+{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
 
 EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday:
-{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"HRV trending down 14% overnight","source":"Wearable"},{"signal":"Mental sharpness holding strong today","source":"Check-in"}],"watchFor":[{"signal":"Over-preparing tonight erodes tomorrow","source":"Behavioural Pattern"},{"signal":"Confidence tends to dip after poor sleep","source":"Check-in History"}]}
+{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"Sunday Composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-Preparing Tonight","source":"PATTERN"}]}
 
 EXAMPLE 3 — Pre-Holiday · High-Stakes Calendar Event:
-{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Sleep 5.2hrs vs 7hr baseline","source":"Wearable"},{"signal":"Partner review closing today","source":"Calendar"}],"watchFor":[{"signal":"Carrying work energy into holiday","source":"Behavioural Pattern"},{"signal":"Decision quality drops after 3pm on low sleep","source":"Wearable History"}]}
+{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Directed Drive","source":"ARCHETYPE"}],"watchFor":[{"signal":"Carrying Work Energy","source":"PATTERN"}]}
 
 EXAMPLE 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead:
-{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"HRV down 22% from your baseline","source":"Wearable"},{"signal":"Board prep anchoring your morning","source":"Calendar"}],"watchFor":[{"signal":"Pushing through on depleted reserves","source":"Behavioural Pattern"},{"signal":"Afternoon collapse likely on these numbers","source":"Wearable History"}]}
+{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Forcing Empty Intensity","source":"ARCHETYPE"}]}
 
 EXAMPLE 5 — Score Trend · Coach Insight Active:
-{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"Performance Readiness +18% vs yesterday","source":"Readiness Score"},{"signal":"Mental Toughness surfacing in sessions","source":"Coach & Archetype"}],"watchFor":[{"signal":"Wilful Endurance pattern active","source":"Archetype"},{"signal":"Over-committing in midday window","source":"Calendar"}]}
+{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"Mental Toughness","source":"COACH"}],"watchFor":[{"signal":"Wilful Endurance","source":"ARCHETYPE"}]}
 
 EXAMPLE 6 — Readiness Change · No Wearable:
-{"phrase":"Something shifted since yesterday.","body":"Score jumped from 42 to 71 — <strong>your system is telling you it's ready</strong>. Direct that into the two decisions that matter most today.","leanOn":[{"signal":"Performance Readiness up 69% vs yesterday","source":"Readiness Score"},{"signal":"Composure under pressure as primary goal","source":"Onboarding Goal"}],"watchFor":[{"signal":"Spreading energy too wide on strong days","source":"Behavioural Pattern"},{"signal":"Ignoring body signals when feeling sharp","source":"Self-awareness"}]}
+{"phrase":"Something shifted since yesterday.","body":"Score jumped from 42 to 71 — <strong>your system is telling you it's ready</strong>. Direct that into the two decisions that matter most today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading Energy Wide","source":"PATTERN"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
@@ -3598,31 +3383,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'coach-partial-growth': 'coach-partial-growth',
       'archetype-tier': 'archetype-tier',
       'tier-fallback': 'tier-fallback',
-      'sunday-evening-override': 'sunday-evening-override',
-      'evening-recovery-override': 'evening-recovery-override',
+      'dow-pattern': 'dow-pattern',
+      'hrv-correlation': 'hrv-correlation',
+      'score-trajectory': 'score-trajectory',
     };
 
-    // Helper: format deterministic fallback into richer "signal · Source" format
+    // Helper: format deterministic fallback into "SIGNAL · SOURCE" format (Chief of Staff Memory)
     const formatFallbackSignal = (text: string, source: string): string => {
-      // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
-      const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Keep up to 8 words for crisp analytical signal text
-      const signal = cleaned.split(/\s+/).slice(0, 8).join(' ');
-      // Map source key to human-readable label
+      // Strip existing parenthetical source if present
+      let cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      // Strip "Your " prefix
+      cleaned = cleaned.replace(/^Your\s+/i, '');
+      // Cap at 4 words for crisp signal
+      const signal = cleaned.split(/\s+/).slice(0, 4).join(' ');
+      // Map source key to uppercase single-word label
       const sourceLabels: Record<string, string> = {
-        'archetype-tier': 'Archetype',
-        'tier-fallback': 'Readiness Score',
-        'coach-insights-recent': 'Coach Conversations',
-        'coach-insights-grace': 'Coach Conversations',
-        'coach-partial-strength': 'Coach & Archetype',
-        'coach-partial-growth': 'Coach & Archetype',
-        'cc-modifier': 'Check-in',
-        'cc-modifier-with-context': 'Check-in & Coach',
-        'sunday-evening-override': 'Recovery',
-        'evening-recovery-override': 'Recovery',
-        'wearable-recovery-override': 'Wearable',
+        'archetype-tier': 'ARCHETYPE',
+        'tier-fallback': 'READINESS',
+        'coach-insights-recent': 'COACH',
+        'coach-insights-grace': 'COACH',
+        'coach-partial-strength': 'COACH',
+        'coach-partial-growth': 'COACH',
+        'cc-modifier': 'CHECK-IN',
+        'cc-modifier-with-context': 'CHECK-IN',
+        'dow-pattern': 'PATTERN',
+        'hrv-correlation': 'DATA',
+        'score-trajectory': 'PATTERN',
       };
-      return `${signal} · ${sourceLabels[source] || 'System'}`;
+      return `${signal} · ${sourceLabels[source] || 'SYSTEM'}`;
     };
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
@@ -3630,10 +3418,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const briefSource = llmBrief ? 'llm' : 'deterministic';
     const responsePhrase = llmBrief?.phrase ?? finalPhrase;
     const responseBody = llmBrief?.bodyText ?? finalContext;
-    // Truncate LLM signals to max 8 words server-side as safety net
+    // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
-      return w.length > 8 ? w.slice(0, 8).join(' ') : s;
+      return w.length > 4 ? w.slice(0, 4).join(' ') : s;
     };
     const formattedLeanOn = llmBrief
       ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')

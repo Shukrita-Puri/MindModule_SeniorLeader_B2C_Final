@@ -95,15 +95,16 @@ const getSourceLabel = (source: string | undefined): string => {
   switch (source) {
     case 'llm-v4': return '';
     case 'coach-insights-recent':
-    case 'coach-insights-grace': return 'From coach conversations';
+    case 'coach-insights-grace': return 'From coach';
     case 'cc-modifier':
-    case 'cc-modifier-with-context': return 'From your check-in today';
+    case 'cc-modifier-with-context': return 'From check-in';
     case 'coach-partial-strength':
     case 'coach-partial-growth': return 'Coach + archetype';
-    case 'archetype-tier': return 'From your archetype';
-    case 'tier-fallback':
-    case 'sunday-evening-override':
-    case 'evening-recovery-override': return 'From readiness score';
+    case 'archetype-tier': return 'From archetype';
+    case 'tier-fallback': return 'From readiness';
+    case 'dow-pattern': return 'From pattern';
+    case 'hrv-correlation': return 'From data';
+    case 'score-trajectory': return 'From pattern';
     default: return '';
   }
 };
@@ -122,9 +123,9 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
     if (sepIdx > 0) {
       let signal = line.substring(0, sepIdx).trim();
       const source = line.substring(sepIdx + 3).trim();
-      // Enforce max 10 words on signal — truncate prose from LLM
+      // Enforce max 5 words on signal — 2-4 word Chief of Staff signals + buffer
       const words = signal.split(/\s+/);
-      if (words.length > 10) signal = words.slice(0, 10).join(' ');
+      if (words.length > 5) signal = words.slice(0, 5).join(' ');
       pairs.push({ signal, source });
     } else if (line.length > 40) {
       // Prose guard: truncate long lines without separator
@@ -550,12 +551,16 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   );
 }
 
-// ─── LEAN ON / WATCH FOR — plain text: "signal · Source" ───
+// ─── LEAN ON / WATCH FOR — plain text: "signal · SOURCE" (uppercase source) ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
     <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
       {signal}
-      {source && <span className="text-muted-foreground/45 ml-1">· {source}</span>}
+      {source && (
+        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">
+          · {source}
+        </span>
+      )}
     </span>
   );
 }
@@ -781,7 +786,7 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.leanOn);
         return (
           <div className="flex items-start gap-2 mt-3">
-             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", leanOnPillStyle)}>
+             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
                Lean on
              </span>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
@@ -794,9 +799,9 @@ const PerformanceReadinessBrief = () => {
                   />
                 ))
               ) : (
-                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
                   {outerBrief.leanOn}
-                  {leanOnSource && <span className="text-muted-foreground/55 ml-1">· {leanOnSource}</span>}
+                  {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {leanOnSource}</span>}
                 </span>
               )}
             </div>
@@ -809,7 +814,7 @@ const PerformanceReadinessBrief = () => {
         const pairs = parseSignalSourcePairs(outerBrief.watchFor);
         return (
           <div className="flex items-start gap-2 mt-2">
-             <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium", watchForPillStyle)}>
+             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
                Watch for
              </span>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
@@ -822,9 +827,9 @@ const PerformanceReadinessBrief = () => {
                   />
                 ))
               ) : (
-                <span className="text-[10px] text-foreground/80 font-body leading-relaxed">
+                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
                   {outerBrief.watchFor}
-                  {watchForSource && <span className="text-muted-foreground/55 ml-1">· {watchForSource}</span>}
+                  {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {watchForSource}</span>}
                 </span>
               )}
             </div>
