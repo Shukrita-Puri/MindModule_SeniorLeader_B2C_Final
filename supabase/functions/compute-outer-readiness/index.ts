@@ -1933,10 +1933,8 @@ serve(async (req) => {
 
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
-      calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
-      tomorrowHighStakes, wearableContext, wearableRecovery,
-      todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents
+      coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
+      typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
