@@ -1,12 +1,20 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileText, ListChecks, TrendingUp, Sparkles } from 'lucide-react';
+import { FileText, ListChecks, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Compass, type Icon } from '@phosphor-icons/react';
 
-const TABS = [
+interface Tab {
+  icon: LucideIcon | Icon;
+  label: string;
+  path: string;
+  phosphor?: boolean;
+}
+
+const TABS: Tab[] = [
   { icon: FileText, label: 'Brief', path: '/executive-home' },
   { icon: ListChecks, label: 'Plan', path: '/plan' },
   { icon: TrendingUp, label: 'Learn', path: '/insights' },
-  { icon: Sparkles, label: 'Reset', path: '/recalibrate' },
-] as const;
+  { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
+];
 
 const FloatingPillNav = () => {
   const navigate = useNavigate();
@@ -45,10 +53,19 @@ const FloatingPillNav = () => {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <tab.icon
-                size={19}
-                className="text-white"
-              />
+              {/* Icon */}
+              {tab.phosphor ? (
+                <tab.icon
+                  size={19}
+                  weight="duotone"
+                  className="text-white"
+                />
+              ) : (
+                <tab.icon
+                  size={19}
+                  className="text-white"
+                />
+              )}
               <span
                 className={`font-body text-[9px] tracking-[0.01em] text-white ${
                   isActive ? 'opacity-100' : 'opacity-70'
