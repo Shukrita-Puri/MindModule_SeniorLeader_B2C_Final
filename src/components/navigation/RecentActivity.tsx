@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Compass, CalendarCheck } from 'lucide-react';
+import { Compass, CalendarCheck, FileText } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 interface Activity {
   id: string;
-  type: 'coach' | 'recalibrate' | 'checkin';
+  type: 'assessment' | 'recalibrate' | 'brief';
   title: string;
   date: Date;
   sessionId?: string;
@@ -27,11 +27,10 @@ const RecentActivity = () => {
   const formatDateLabel = (date: Date): string => {
     if (isToday(date)) return 'Today';
     if (isYesterday(date)) return 'Yesterday';
-    if (isThisWeek(date)) return format(date, 'EEEE'); // Day name
+    if (isThisWeek(date)) return format(date, 'EEEE');
     return format(date, 'MMM d');
   };
 
-  // Group activities by date (ChatGPT-style)
   const groupedActivities = useMemo<ActivityGroup[]>(() => {
     if (!activities || activities.length === 0) return [];
     
@@ -52,19 +51,17 @@ const RecentActivity = () => {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'coach':
-        return MessageCircle;
+      case 'assessment':
+        return CalendarCheck;
       case 'recalibrate':
         return Compass;
-      case 'checkin':
-        return CalendarCheck;
+      case 'brief':
+        return FileText;
       default:
-        return MessageCircle;
+        return CalendarCheck;
     }
   };
 
-  // Show content on mobile (sheet is always full width when open)
-  // Only hide on desktop when collapsed
   if (isCollapsed && !isMobile) {
     return null;
   }
@@ -93,30 +90,22 @@ const RecentActivity = () => {
     <SidebarMenu>
       {groupedActivities.map((group) => (
         <div key={group.label}>
-          {/* Date group header */}
           <p className="text-[10px] text-muted-foreground/60 px-2 py-1.5 uppercase tracking-wide font-medium">
             {group.label}
           </p>
           
-          {/* Activities in this group */}
           {group.items.map((activity) => {
             const Icon = getIcon(activity.type);
             return (
               <SidebarMenuItem key={activity.id}>
                 <SidebarMenuButton
                   onClick={() => {
-                    if (activity.type === 'coach' && activity.sessionId) {
-                      // Pass session ID to restore conversation
-                      navigate('/coach', { 
-                        state: { 
-                          resumeSession: true, 
-                          previousSessionId: activity.sessionId 
-                        } 
-                      });
+                    if (activity.type === 'assessment') {
+                      navigate('/daily-check-in');
                     } else if (activity.type === 'recalibrate') {
                       navigate('/recalibrate');
-                    } else if (activity.type === 'checkin') {
-                      navigate('/daily-check-in');
+                    } else if (activity.type === 'brief') {
+                      navigate('/executive-home');
                     }
                   }}
                   className="h-auto py-1.5"

@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
@@ -170,6 +171,16 @@ const ExecutiveHome = () => {
   
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
+
+  // Track brief view once per phrase
+  const trackedPhraseRef = useRef<string | null>(null);
+  useEffect(() => {
+    const phrase = outerBrief?.phrase;
+    if (phrase && phrase !== trackedPhraseRef.current) {
+      trackedPhraseRef.current = phrase;
+      trackBriefView(phrase);
+    }
+  }, [outerBrief?.phrase]);
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];

@@ -44,6 +44,25 @@ export async function trackEngagement(type: Engagement['type'], timestamp?: stri
   }
 }
 
+export async function trackBriefView(phrase: string): Promise<void> {
+  try {
+    const accessToken = await getAuthToken();
+    if (!accessToken) return;
+
+    await supabase.functions.invoke('user-events', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'TRACK_ENGAGEMENT',
+        eventType: 'brief_view',
+        timestamp: new Date().toISOString(),
+        metadata: { phrase }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to track brief view:', error);
+  }
+}
+
 export async function getEngagementsByHour(): Promise<HourBucket[]> {
   try {
     const accessToken = await getAuthToken();

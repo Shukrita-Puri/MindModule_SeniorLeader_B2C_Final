@@ -6,7 +6,7 @@ import { getAuthToken } from '@/services/authTokenService';
 
 interface Activity {
   id: string;
-  type: 'coach' | 'recalibrate' | 'checkin';
+  type: 'assessment' | 'recalibrate' | 'brief';
   title: string;
   date: Date;
   sessionId?: string;
@@ -17,6 +17,22 @@ const getAccessTokenOrAnon = async () => {
     return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   }
   return await getAuthToken();
+};
+
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+
+const clarityLabel = (level: number | null | undefined): string | null => {
+  if (level == null) return null;
+  if (level >= 4) return 'High Clarity';
+  if (level <= 2) return 'Low Clarity';
+  return 'Moderate Clarity';
+};
+
+const confidenceLabel = (level: number | null | undefined): string | null => {
+  if (level == null) return null;
+  if (level >= 4) return 'High Confidence';
+  if (level <= 2) return 'Low Confidence';
+  return 'Moderate Confidence';
 };
 
 export const useRecentActivity = () => {
@@ -31,28 +47,7 @@ export const useRecentActivity = () => {
       const accessToken = await getAccessTokenOrAnon();
       if (!accessToken) return [];
 
-      // Fetch coach sessions via EF (works for both auth + dev)
-      try {
-        const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: { action: 'LIST_COACH_SESSIONS', limit: 5 },
-        });
-        if (!error && data?.success && data.sessions) {
-          data.sessions.forEach((session: any) => {
-            allActivities.push({
-              id: session.id,
-              type: 'coach',
-              title: session.title?.length >= 50 ? `${session.title}...` : (session.title || 'Coach Conversation'),
-              date: new Date(session.started_at || Date.now()),
-              sessionId: session.id,
-            });
-          });
-        }
-      } catch (err) {
-        console.error('[useRecentActivity] Failed to fetch coach sessions:', err);
-      }
-
-      // Fetch recent check-ins via EF (bypasses RLS mismatch)
+      // Fetch recent assessments (formerly check-ins)
       try {
         const { data, error } = await supabase.functions.invoke('daily-checkins', {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -60,19 +55,25 @@ export const useRecentActivity = () => {
         });
         if (!error && data?.data) {
           data.data.forEach((checkin: any) => {
+            const parts = [capitalize(checkin.outcome || 'Completed')];
+            const cl = clarityLabel(checkin.clarity_level);
+            if (cl) parts.push(cl);
+            const co = confidenceLabel(checkin.confidence_level);
+            if (co) parts.push(co);
+
             allActivities.push({
               id: checkin.id,
-              type: 'checkin',
-              title: `Check-in: ${checkin.outcome || 'Completed'}`,
+              type: 'assessment',
+              title: `Assessment: ${parts.join(', ')}`,
               date: new Date(checkin.checkin_date),
             });
           });
         }
       } catch (err) {
-        console.error('[useRecentActivity] Failed to fetch check-ins:', err);
+        console.error('[useRecentActivity] Failed to fetch assessments:', err);
       }
 
-      // Fetch recent sanctuary events via EF (bypasses RLS mismatch)
+      // Fetch recent sanctuary/reset events
       try {
         const { data, error } = await supabase.functions.invoke('user-events', {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -83,13 +84,35 @@ export const useRecentActivity = () => {
             allActivities.push({
               id: event.id,
               type: 'recalibrate',
-              title: `${event.category}: ${event.content_type}`,
+              title: `Reset: ${event.content_type || event.category}`,
               date: new Date(event.timestamp),
             });
           });
         }
       } catch (err) {
         console.error('[useRecentActivity] Failed to fetch sanctuary events:', err);
+      }
+
+      // Fetch recent brief views
+      try {
+        const { data, error } = await supabase.functions.invoke('user-events', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { action: 'GET_ENGAGEMENTS', days: 30 },
+        });
+        if (!error && data?.success && data.data) {
+          const briefEvents = data.data.filter((e: any) => e.event_type === 'brief_view');
+          briefEvents.slice(0, 5).forEach((event: any) => {
+            const phrase = event.metadata?.phrase || 'Viewed';
+            allActivities.push({
+              id: event.id,
+              type: 'brief',
+              title: `Brief: ${phrase.length > 40 ? phrase.slice(0, 40) + '…' : phrase}`,
+              date: new Date(event.timestamp),
+            });
+          });
+        }
+      } catch (err) {
+        console.error('[useRecentActivity] Failed to fetch brief views:', err);
       }
 
       // Sort all activities by date and return top 10
