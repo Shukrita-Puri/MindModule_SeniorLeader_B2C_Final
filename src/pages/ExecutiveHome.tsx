@@ -161,16 +161,6 @@ const ExecutiveHome = () => {
     }
   }, []);
 
-  // Track brief view once per phrase
-  const trackedPhraseRef = useRef<string | null>(null);
-  useEffect(() => {
-    const phrase = outerBrief?.phrase;
-    if (phrase && phrase !== trackedPhraseRef.current) {
-      trackedPhraseRef.current = phrase;
-      trackBriefView(phrase);
-    }
-  }, [outerBrief?.phrase]);
-
   // Fetch energy state for hero visual
   const { data: energyState } = useQuery({
     queryKey: ['energy-state', user?.id],
@@ -181,6 +171,16 @@ const ExecutiveHome = () => {
   
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
+
+  // Track brief view once per phrase
+  const trackedPhraseRef = useRef<string | null>(null);
+  useEffect(() => {
+    const phrase = outerBrief?.phrase;
+    if (phrase && phrase !== trackedPhraseRef.current) {
+      trackedPhraseRef.current = phrase;
+      trackBriefView(phrase);
+    }
+  }, [outerBrief?.phrase]);
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
