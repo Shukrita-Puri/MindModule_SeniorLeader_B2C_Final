@@ -1,7 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import appLogo from '@/assets/app-logo-5.png';
 import { 
-  ChatCircle, 
   Compass, 
   Smiley, 
   TrendUp,
@@ -39,12 +38,6 @@ const features = [
     icon: Compass,
     path: '/recalibrate',
     description: 'Energy practices',
-  },
-  {
-    title: 'Mind Performance Coach',
-    icon: ChatCircle,
-    path: '/coach',
-    description: 'AI-powered coaching',
   },
   {
     title: 'Performance Intelligence',
