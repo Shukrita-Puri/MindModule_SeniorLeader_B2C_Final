@@ -319,20 +319,6 @@ const ExecutiveHome = () => {
               </section>
             </div>
 
-            {/* ACTION — Today's 3 Performance Priorities */}
-            <div data-tour="daily-plan">
-              <div className="animate-in fade-in duration-500">
-                <TodayThreePriorities
-                  onEmpty={() => setPrioritiesEmpty(true)}
-                  onLoaded={() => setPrioritiesEmpty(false)}
-                />
-              </div>
-              {prioritiesEmpty && (
-                <div className="animate-in fade-in duration-500">
-                  <DailyRitual />
-                </div>
-              )}
-            </div>
 
             <div className="mt-8">
               <PrivacyFooter />
