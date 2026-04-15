@@ -120,16 +120,17 @@ function parseSignalSourcePairs(text: string): SignalSourcePair[] | null {
   for (const line of lines) {
     const sepIdx = line.lastIndexOf(' · ');
     if (sepIdx > 0) {
-      pairs.push({
-        signal: line.substring(0, sepIdx).trim(),
-        source: line.substring(sepIdx + 3).trim(),
-      });
+      let signal = line.substring(0, sepIdx).trim();
+      const source = line.substring(sepIdx + 3).trim();
+      // Enforce max 10 words on signal — truncate prose from LLM
+      const words = signal.split(/\s+/);
+      if (words.length > 10) signal = words.slice(0, 10).join(' ');
+      pairs.push({ signal, source });
     } else if (line.length > 40) {
-      // Prose guard: truncate long lines without separator to first 3 words
-      const words = line.trim().split(/\s+/).slice(0, 3).join(' ');
+      // Prose guard: truncate long lines without separator
+      const words = line.trim().split(/\s+/).slice(0, 8).join(' ');
       pairs.push({ signal: words, source: 'System' });
     } else if (line.trim()) {
-      // Short line without separator — use as-is
       pairs.push({ signal: line.trim(), source: 'System' });
     }
   }
@@ -552,9 +553,9 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
 // ─── STATIC LEAN ON / WATCH FOR PILL (signal text + inline · Source in grey) ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)]">
-      <span>{signal}</span>
-      {source && <span className="text-muted-foreground/50 ml-1">· {source}</span>}
+    <span className="inline-flex items-baseline flex-wrap px-2.5 py-1 rounded-lg text-[10px] font-body bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)] max-w-full">
+      <span className="leading-snug">{signal}</span>
+      {source && <span className="text-muted-foreground/50 ml-1 whitespace-nowrap">· {source}</span>}
     </span>
   );
 }
