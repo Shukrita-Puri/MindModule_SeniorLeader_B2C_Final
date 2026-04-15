@@ -3600,24 +3600,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'evening-recovery-override': 'evening-recovery-override',
     };
 
-    // Helper: force any fallback string into "signal · Source" format (max 3 words for signal)
+    // Helper: format deterministic fallback into richer "signal · Source" format
     const formatFallbackSignal = (text: string, source: string): string => {
       // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
       const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Truncate to max 3 words
-      const signal = cleaned.split(/\s+/).slice(0, 5).join(' ');
-      // Map source key to human label
+      // Keep up to 7 words for richer signal text
+      const signal = cleaned.split(/\s+/).slice(0, 7).join(' ');
+      // Map source key to human-readable label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'Archetype',
-        'tier-fallback': 'Readiness',
-        'coach-insights-recent': 'Coach',
-        'coach-insights-grace': 'Coach',
-        'coach-partial-strength': 'Coach',
-        'coach-partial-growth': 'Coach',
+        'tier-fallback': 'Readiness Score',
+        'coach-insights-recent': 'Coach Conversations',
+        'coach-insights-grace': 'Coach Conversations',
+        'coach-partial-strength': 'Coach & Archetype',
+        'coach-partial-growth': 'Coach & Archetype',
         'cc-modifier': 'Check-in',
-        'cc-modifier-with-context': 'Check-in',
-        'sunday-evening-override': 'System',
-        'evening-recovery-override': 'System',
+        'cc-modifier-with-context': 'Check-in & Coach',
+        'sunday-evening-override': 'Recovery',
+        'evening-recovery-override': 'Recovery',
         'wearable-recovery-override': 'Wearable',
       };
       return `${signal} · ${sourceLabels[source] || 'System'}`;
