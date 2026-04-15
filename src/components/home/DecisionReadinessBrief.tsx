@@ -781,58 +781,62 @@ const PerformanceReadinessBrief = () => {
         How to show up
       </span>
 
-      {/* 11. LEAN ON */}
+      {/* 11. LEAN ON — plain text, no pill */}
       {outerBrief?.leanOn && (() => {
         const pairs = parseSignalSourcePairs(outerBrief.leanOn);
         return (
-          <div className="flex items-start gap-2 mt-3">
-             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
-               Lean on
-             </span>
-            <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+          <div className="flex items-baseline gap-2 mt-3">
+            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
+              Lean on
+            </span>
+            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
               {pairs ? (
                 pairs.map((pair, idx) => (
-                  <LeanOnPill
-                    key={`lean-${idx}`}
-                    signal={pair.signal}
-                    source={pair.source}
-                  />
+                  <span key={`lean-${idx}`}>
+                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                    {pair.signal}
+                    {pair.source && (
+                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
+                    )}
+                  </span>
                 ))
               ) : (
-                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
+                <>
                   {outerBrief.leanOn}
                   {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {leanOnSource}</span>}
-                </span>
+                </>
               )}
-            </div>
+            </span>
           </div>
         );
       })()}
 
-      {/* 12. WATCH FOR */}
+      {/* 12. WATCH FOR — plain text, no pill */}
       {outerBrief?.watchFor && (() => {
         const pairs = parseSignalSourcePairs(outerBrief.watchFor);
         return (
-          <div className="flex items-start gap-2 mt-2">
-             <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider pt-0.5">
-               Watch for
-             </span>
-            <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
+              Watch for
+            </span>
+            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
               {pairs ? (
                 pairs.map((pair, idx) => (
-                  <LeanOnPill
-                    key={`watch-${idx}`}
-                    signal={pair.signal}
-                    source={pair.source}
-                  />
+                  <span key={`watch-${idx}`}>
+                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                    {pair.signal}
+                    {pair.source && (
+                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
+                    )}
+                  </span>
                 ))
               ) : (
-                <span className="text-[11px] text-foreground/80 font-body leading-relaxed">
+                <>
                   {outerBrief.watchFor}
                   {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {watchForSource}</span>}
-                </span>
+                </>
               )}
-            </div>
+            </span>
           </div>
         );
       })()}
