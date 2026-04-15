@@ -3387,27 +3387,29 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       'evening-recovery-override': 'evening-recovery-override',
     };
 
-    // Helper: format deterministic fallback into richer "signal · Source" format
+    // Helper: format deterministic fallback into "SIGNAL · SOURCE" format (Chief of Staff Memory)
     const formatFallbackSignal = (text: string, source: string): string => {
-      // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
-      const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Keep up to 8 words for crisp analytical signal text
-      const signal = cleaned.split(/\s+/).slice(0, 8).join(' ');
-      // Map source key to human-readable label
+      // Strip existing parenthetical source if present
+      let cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      // Strip "Your " prefix
+      cleaned = cleaned.replace(/^Your\s+/i, '');
+      // Cap at 4 words for crisp signal
+      const signal = cleaned.split(/\s+/).slice(0, 4).join(' ');
+      // Map source key to uppercase single-word label
       const sourceLabels: Record<string, string> = {
-        'archetype-tier': 'Archetype',
-        'tier-fallback': 'Readiness Score',
-        'coach-insights-recent': 'Coach Conversations',
-        'coach-insights-grace': 'Coach Conversations',
-        'coach-partial-strength': 'Coach & Archetype',
-        'coach-partial-growth': 'Coach & Archetype',
-        'cc-modifier': 'Check-in',
-        'cc-modifier-with-context': 'Check-in & Coach',
-        'sunday-evening-override': 'Recovery',
-        'evening-recovery-override': 'Recovery',
-        'wearable-recovery-override': 'Wearable',
+        'archetype-tier': 'ARCHETYPE',
+        'tier-fallback': 'READINESS',
+        'coach-insights-recent': 'COACH',
+        'coach-insights-grace': 'COACH',
+        'coach-partial-strength': 'COACH',
+        'coach-partial-growth': 'COACH',
+        'cc-modifier': 'CHECK-IN',
+        'cc-modifier-with-context': 'CHECK-IN',
+        'dow-pattern': 'PATTERN',
+        'hrv-correlation': 'DATA',
+        'score-trajectory': 'PATTERN',
       };
-      return `${signal} · ${sourceLabels[source] || 'System'}`;
+      return `${signal} · ${sourceLabels[source] || 'SYSTEM'}`;
     };
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
@@ -3415,10 +3417,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const briefSource = llmBrief ? 'llm' : 'deterministic';
     const responsePhrase = llmBrief?.phrase ?? finalPhrase;
     const responseBody = llmBrief?.bodyText ?? finalContext;
-    // Truncate LLM signals to max 8 words server-side as safety net
+    // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
-      return w.length > 8 ? w.slice(0, 8).join(' ') : s;
+      return w.length > 4 ? w.slice(0, 4).join(' ') : s;
     };
     const formattedLeanOn = llmBrief
       ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
