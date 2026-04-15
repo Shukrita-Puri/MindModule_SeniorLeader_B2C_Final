@@ -2997,12 +2997,12 @@ OUTPUT RULES:
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
 • Scannable in 10 seconds. Forward-looking.
-• leanOn/watchFor signals MUST be 5-8 word analytical phrases. NEVER full sentences. NEVER "Score 71 vs 42" or "Clarity 4/5". Good: "Performance Readiness +18% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Bad: "Your awareness that your system needs restoration, not activation" (too long, too prose). Each signal is a headline, not a sentence.
+• leanOn and watchFor are your LONG-TERM MEMORY of this leader — patterns observed over weeks, NOT today's data. NEVER reference in leanOn/watchFor: today's calendar, today's readiness score, today's wearable metrics, today's felt state. Those belong in phrase/body/pills. ALLOWED SOURCES ONLY: Coach-identified patterns, Archetype traits, DOW trends, HRV correlations, score trajectories, behavioural streaks. FORMAT: Each item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE must be one of: ARCHETYPE, COACH, PATTERN, DATA, CHECK-IN. SIGNAL must be an analytical insight label, not a data point or sentence. If no pattern/archetype data exists, return empty arrays for leanOn/watchFor.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
 SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong, or any tier label.
-READINESS BLACKLIST: Never use 'readiness' in phrase or body text. In leanOn/watchFor signals, 'Performance Readiness' IS allowed as an analytical label.
+READINESS BLACKLIST: Never use 'readiness' in phrase or body text.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
 NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate. Wearable > felt state on divergence. Signal pills: derive insight, don't repeat label.
