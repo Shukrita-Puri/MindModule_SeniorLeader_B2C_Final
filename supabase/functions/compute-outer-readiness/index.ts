@@ -3629,11 +3629,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const briefSource = llmBrief ? 'llm' : 'deterministic';
     const responsePhrase = llmBrief?.phrase ?? finalPhrase;
     const responseBody = llmBrief?.bodyText ?? finalContext;
+    // Truncate LLM signals to max 8 words server-side as safety net
+    const truncSignal = (s: string) => {
+      const w = s.split(/\s+/);
+      return w.length > 8 ? w.slice(0, 8).join(' ') : s;
+    };
     const formattedLeanOn = llmBrief
-      ? llmBrief.leanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
+      ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
       : formattedDeterministicLeanOn;
     const formattedWatchFor = llmBrief
-      ? llmBrief.watchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
+      ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
       : formattedDeterministicWatchFor;
 
     const result: OuterReadinessResult & Record<string, unknown> = {
