@@ -104,8 +104,8 @@ const RecalibrateMode = () => {
               <SidebarDiscoveryPulse />
             </header>
 
-            <div className="px-4 md:px-6 pb-2 max-w-lg mx-auto">
-              <h1 className="text-[22px] sm:text-2xl font-headline text-foreground tracking-tight">
+            <div className="px-3 md:px-4 pb-2 text-center">
+              <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
                 Reset Studio
               </h1>
               <p className="text-[13px] text-muted-foreground/70 mt-1 font-body">
