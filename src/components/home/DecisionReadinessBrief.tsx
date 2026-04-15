@@ -550,12 +550,12 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
   );
 }
 
-// ─── STATIC LEAN ON / WATCH FOR PILL (signal text + inline · Source in grey) ───
+// ─── LEAN ON / WATCH FOR — plain text: "signal · Source" ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
-    <span className="inline-flex items-baseline flex-wrap px-2.5 py-1 rounded-lg text-[10px] font-body bg-gradient-to-r from-[hsl(var(--taupe)/.12)] to-[hsl(var(--taupe)/.06)] text-foreground/80 border border-[hsl(var(--taupe)/.18)] max-w-full">
-      <span className="leading-snug">{signal}</span>
-      {source && <span className="text-muted-foreground/50 ml-1 whitespace-nowrap">· {source}</span>}
+    <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
+      {signal}
+      {source && <span className="text-muted-foreground/45 ml-1">· {source}</span>}
     </span>
   );
 }
