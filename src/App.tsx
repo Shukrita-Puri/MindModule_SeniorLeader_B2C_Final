@@ -73,6 +73,10 @@ const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    // Also reset any overflow-scrolled containers (e.g. SidebarInset on iOS native)
+    document.querySelectorAll('[data-scroll-container], [data-sidebar-inset]').forEach((el) => {
+      el.scrollTop = 0;
+    });
   }, [pathname]);
   return null;
 };

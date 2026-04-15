@@ -301,26 +301,28 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[112px]">
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
       <FloatingNavigation showCoachButton={false} />
 
-      {/* Already checked in banner */}
+      {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
       {alreadyCheckedIn && (
-        <div className="mx-4 mt-2 p-3 rounded-xl bg-muted border border-border text-center space-y-2">
-          <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => setAlreadyCheckedIn(false)}
-              className="text-sm font-medium text-primary underline"
-            >
-              Update anyway
-            </button>
-            <button
-              onClick={() => navigate('/executive-home')}
-              className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
-            >
-              Go to Home
-            </button>
+        <div className="fixed top-0 left-0 right-0 z-[210] px-4 pt-[calc(env(safe-area-inset-top,0px)+56px)] pb-2 bg-gradient-to-b from-background via-background to-background/0">
+          <div className="p-3 rounded-xl bg-muted border border-border text-center space-y-2 max-w-lg mx-auto">
+            <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setAlreadyCheckedIn(false)}
+                className="text-sm font-medium text-primary underline"
+              >
+                Update anyway
+              </button>
+              <button
+                onClick={() => navigate('/executive-home')}
+                className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
+              >
+                Go to Home
+              </button>
+            </div>
           </div>
         </div>
       )}
