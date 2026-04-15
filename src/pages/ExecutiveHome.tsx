@@ -300,10 +300,10 @@ const ExecutiveHome = () => {
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
-            <h1 className="text-[32px] sm:text-4xl md:text-5xl font-headline font-bold text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+            <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
-              <p className="text-[15px] text-white/80 mt-2 font-body drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
+              <p className="text-[15px] text-muted-foreground/70 mt-2 font-body">
                 {getSubheadline()}
               </p>
             </div>
