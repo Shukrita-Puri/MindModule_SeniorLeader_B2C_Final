@@ -1931,7 +1931,30 @@ serve(async (req) => {
       wearableRecovery = await checkWearableRecoveryTrigger(userId, db as any);
     }
 
-    // getLeanOnWatchFor() moved after enrichment data is populated (see below line ~2801)
+    // ═══ Forward-declare enrichment variables needed by getLeanOnWatchFor ═══
+    // These are populated later in the enrichment block; defaults ensure safe access here.
+    let checkInCountTotal = 0;
+    try {
+      const { count } = await db
+        .from('daily_checkins')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      checkInCountTotal = count ?? 0;
+    } catch (e) { console.error('[compute-outer-readiness] checkin count error:', e); }
+
+    let typicalDOWOutcome: string | null = null;
+    let hrvEventCorrelation: string | null = null;
+    let scoreTrajectory7d: string | null = null;
+
+    const leanOnResult = getLeanOnWatchFor(
+      safeTier, serverArchetype, clarityLevel, confidenceLevel,
+      coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
+      typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
+    );
+
+    const coachUsed = leanOnResult.source.startsWith('coach');
+    const wearableUsed = !!wearableContext;
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
 
     // ═══ STATE STATEMENT BUILDER (calendar-aware, co-located) ═══
     // Build the State card's physiological statement here since we have all signals
