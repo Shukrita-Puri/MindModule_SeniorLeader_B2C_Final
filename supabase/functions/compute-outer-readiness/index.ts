@@ -1330,13 +1330,7 @@ function getSundayEveningInsights(
   const monEvent = hasMonStakes ? mondayHighStakes[0] : null;
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
 
-  // Wearable suffix for Sunday leanOn – crisp
-  const bodySuffix = bodyStressed
-    ? ' Your body is also signalling strain from this weekend. Tonight\'s recovery is physical too.'
-    : '';
 
-  // High-stakes Monday event reference (kept for Sunday as forward-look is primary)
-  const stakeRef = monEvent ? ` You have '${monEvent}' on Monday.` : '';
 
   const bodySignal = bodyStressed ? '\nBody signalling strain · Wearable' : '';
   const stakeSignal = monEvent ? `\n'${monEvent}' Monday · Calendar` : '';
