@@ -3605,8 +3605,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const formatFallbackSignal = (text: string, source: string): string => {
       // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
       const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Keep up to 10 words for richer analytical signal text
-      const signal = cleaned.split(/\s+/).slice(0, 10).join(' ');
+      // Keep up to 8 words for crisp analytical signal text
+      const signal = cleaned.split(/\s+/).slice(0, 8).join(' ');
       // Map source key to human-readable label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'Archetype',
