@@ -1434,17 +1434,15 @@ async function checkWearableRecoveryTrigger(
   }
 }
 
-// ==================== LEAN ON / WATCH FOR – PRIORITY CASCADE ====================
-// Data source priority for LeanOn/WatchFor:
-// 1. Coach conversations (strength/growth insights) – PERSONAL
-// 2. Archetype (onboarding-derived behavioral profile) – PERSONAL
-// 3. [Future] LinkedIn profile analysis – PERSONAL
-// 4. [Future] LLM conversation data (Claude/ChatGPT patterns) – PERSONAL
-// 5. Calendar + Wearable context – SITUATIONAL (layered as suffix, never standalone)
-// 6. Tier fallback – GENERIC
+// ==================== LEAN ON / WATCH FOR – "CHIEF OF STAFF MEMORY" ====================
+// FIREWALL: These fields represent long-term patterns about the PERSON.
+// NEVER reference: today's calendar, today's readiness score, today's wearable, today's felt state.
+// Those belong in phrase/body/pills. If no pattern data exists, use Archetype as fallback.
 //
-// Rule: Personal sources always lead. Situational context enriches but never replaces.
-// Suffixes must be crisp – no event titles, no metric numbers.
+// Tenure-Gated Ladder:
+//   Day 1 (checkInCountTotal === 0): Archetype × Tier only
+//   Days 2–6 (checkInCountTotal 1–6): Coach > C×C > Archetype
+//   Day 7+ (checkInCountTotal ≥ 7): Coach > DOW Pattern > HRV Correlation > Score Trajectory > C×C > Archetype > Tier
 
 interface LeanOnWatchForResult {
   leanOn: string;
@@ -1452,79 +1450,10 @@ interface LeanOnWatchForResult {
   source: string;
   coachInsightAge?: number;
   coachInsightLabel?: string;
-  recoveryDayTriggered?: boolean;
 }
 
-// Build context enrichment suffix for leanOn – crisp, no event titles, no HR numbers.
-// Subtly reinforces the personal insight with situational acknowledgment.
-// Now aware of remaining events for evening.
-function buildDaytimeLeanOnSuffix(
-  todayHighStakes: string[] | undefined,
-  wearable: WearableContext | null | undefined,
-  timeOfDay: 'morning' | 'afternoon' | 'evening',
-  remainingEvents?: number,
-): string {
-  const hasStakes = todayHighStakes && todayHighStakes.length > 0;
-  const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.poorSleep || wearable.rhrElevated);
-  const denseDay = hasStakes || bodyStrained;
-
-  if (!denseDay) return '';
-
-  if (timeOfDay === 'morning') {
-    if (bodyStrained && hasStakes) return ' A demanding day ahead is meeting that instinct – and your body is carrying strain into it.';
-    if (bodyStrained) return ' Your body is carrying strain into today. That awareness is itself an advantage.';
-    if (hasStakes) return ' Your readiness for today\'s demands is genuine.';
-  }
-
-  if (timeOfDay === 'afternoon') {
-    if (bodyStrained) return ' The morning tested that capacity – the afternoon will too.';
-    if (hasStakes) return ' The afternoon\'s demands are meeting that instinct.';
-  }
-
-  if (timeOfDay === 'evening') {
-    const remaining = remainingEvents ?? 0;
-    if (remaining > 0) {
-      if (bodyStrained) return ' The day isn\'t done – that instinct still serves you, and your body is signalling to pace what\'s left.';
-      return ' The day isn\'t done – that instinct still serves you.';
-    }
-    if (bodyStrained) return ' Today tested that capacity. Your body is signalling the day is done.';
-    return ' Today tested that capacity. The day is done.';
-  }
-
-  return '';
-}
-
-// Build context enrichment suffix for watchFor – crisp, no event titles, no HR numbers.
-// Now aware of remaining events for evening.
-function buildDaytimeWatchForSuffix(
-  todayHighStakes: string[] | undefined,
-  wearable: WearableContext | null | undefined,
-  timeOfDay: 'morning' | 'afternoon' | 'evening',
-  remainingEvents?: number,
-): string {
-  const hasStakes = todayHighStakes && todayHighStakes.length > 0;
-  const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.rhrElevated);
-
-  if (timeOfDay === 'morning') {
-    if (bodyStrained && hasStakes) return ' Spending your advantage before the day\'s biggest moments.';
-    if (wearable?.poorSleep) return ' Opening at full intensity when your recovery was incomplete.';
-    if (bodyStrained) return ' Pushing through when your body is already signalling strain.';
-  }
-
-  if (timeOfDay === 'afternoon') {
-    if (bodyStrained) return ' Pushing through when your body is already signalling the cost.';
-  }
-
-  if (timeOfDay === 'evening') {
-    const remaining = remainingEvents ?? 0;
-    if (remaining > 0 && bodyStrained) return ' Pushing through the remaining meetings when your body is already signalling the cost.';
-    if (remaining > 0) return ' Mentally closing the day when demands still remain. Stay present for what\'s left.';
-    if (bodyStrained) return ' Replaying the day\'s demands instead of releasing them. Your body is signalling the need to stop.';
-    if (hasStakes) return ' Replaying the day\'s demands instead of releasing them.';
-  }
-
-  return '';
-}
+// Day name helper
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function getLeanOnWatchFor(
   tier: EnergyTier,
@@ -1534,24 +1463,15 @@ function getLeanOnWatchFor(
   coachStrength: string | null,
   coachGrowth: string | null,
   coachInsightCreatedAt: string | null,
-  hour: number,
+  checkInCountTotal: number,
+  // Day 7+ pattern data
+  typicalDOWOutcome: string | null,
+  hrvEventCorrelation: string | null,
+  scoreTrajectory7d: string | null,
   dayOfWeek: number,
-  calendarLoad: CalendarLevel | null,
-  calendarPressure: CalendarLevel | null,
-  tomorrowLoad: CalendarLevel | null,
-  tomorrowPressure: CalendarLevel | null,
-  tomorrowHighStakes: string[],
-  wearableContext: WearableContext | null,
-  wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
-  todayHighStakes?: string[],
-  eventCount?: number,
-  remainingEvents?: number,
 ): LeanOnWatchForResult {
-  const lateEvening = isLateEvening(hour);
-  const dayCtx = getDayContext(dayOfWeek);
-  const timeOfDay = getTimeOfDay(hour);
 
-  // Compute coach insight age + tier
+  // ── Coach insight age + tier ──
   let coachDaysOld = 0;
   let coachTier: CoachInsightTier = 'archived';
   const hasCoachBoth = !!(coachStrength && coachGrowth);
@@ -1561,92 +1481,131 @@ function getLeanOnWatchFor(
     coachTier = getCoachInsightTier(coachDaysOld);
   }
 
-  // Determine if there's context worth enriching (now includes evening)
-  const hasContextEnrichment = (
-    (todayHighStakes && todayHighStakes.length > 0) ||
-    (wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated || wearableContext.poorSleep || wearableContext.rhrElevated))
-  );
+  const dayName = DAY_NAMES[dayOfWeek] || 'Today';
 
-  // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
-  if (ENABLE_WEARABLE_RECOVERY_TRIGGER && wearableRecovery?.triggered) {
-    return {
-      leanOn: "Your awareness that your system needs restoration, not activation. What you protect today prevents what you'll regret tomorrow.",
-      watchFor: "Trying to 'push through' when your physiology is already in deficit. Ignoring this signal compounds the cost.",
-      source: 'wearable-recovery-override',
-      recoveryDayTriggered: true,
-    };
+  // ═══════════════════════════════════════
+  // DAY 1: Archetype × Tier ONLY
+  // ═══════════════════════════════════════
+  if (checkInCountTotal === 0) {
+    if (archetype && archetypeMatrix[archetype]?.[tier]) {
+      const base = archetypeMatrix[archetype][tier];
+      return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
+    }
+    const base = tierFallbacks[tier];
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
   }
 
-  // ── P0a: Sunday evening (after 9pm on Sunday) – ALWAYS wins ──
-  if (lateEvening && dayCtx === 'sunday') {
-    return { ...getSundayEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'sunday-evening-override' };
-  }
-
-  // ── P0b: Late evening weekdays/Saturday (after 9pm) – recovery ALWAYS takes priority ──
-  if (lateEvening) {
-    return { ...getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'evening-recovery-override' };
-  }
-
-  // ── P1a: Coach insights ≤3 days (recent) ──
-  if (hasCoachBoth && coachTier === 'recent') {
-    return {
-      leanOn: `${coachStrength!} (coach)`,
-      watchFor: `${coachGrowth!} (coach)`,
-      source: 'coach-insights-recent',
-      coachInsightAge: coachDaysOld,
-    };
-  }
-
-  // ── P1b: Coach insights 4-7 days (grace) – use if no C×C contradiction ──
-  if (hasCoachBoth && coachTier === 'grace') {
-    const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
-    if (!hasContradiction) {
+  // ═══════════════════════════════════════
+  // DAYS 2–6: Coach > C×C > Archetype
+  // ═══════════════════════════════════════
+  if (checkInCountTotal < 7) {
+    // P1: Coach insights (recent or grace)
+    if (hasCoachBoth && (coachTier === 'recent' || coachTier === 'grace')) {
       return {
-        leanOn: `${coachStrength!} (coach, ${coachDaysOld}d ago)`,
-        watchFor: `${coachGrowth!} (coach, ${coachDaysOld}d ago)`,
-        source: 'coach-insights-grace',
+        leanOn: coachStrength!,
+        watchFor: coachGrowth!,
+        source: coachTier === 'recent' ? 'coach-insights-recent' : 'coach-insights-grace',
         coachInsightAge: coachDaysOld,
-        coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
+      };
+    }
+
+    // P2: C×C modifier
+    const ccMod = getCCModifier(clarity, confidence);
+    if (ccMod) {
+      return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
+    }
+
+    // P3: Archetype × Tier fallback
+    if (archetype && archetypeMatrix[archetype]?.[tier]) {
+      const base = archetypeMatrix[archetype][tier];
+      return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
+    }
+    const base = tierFallbacks[tier];
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
+  }
+
+  // ═══════════════════════════════════════
+  // DAY 7+: Full pattern cascade
+  // ═══════════════════════════════════════
+
+  // P1: Coach insights (recent or grace, non-contradicting)
+  if (hasCoachBoth && (coachTier === 'recent' || coachTier === 'grace')) {
+    if (coachTier === 'recent' || !detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence)) {
+      return {
+        leanOn: coachStrength!,
+        watchFor: coachGrowth!,
+        source: coachTier === 'recent' ? 'coach-insights-recent' : 'coach-insights-grace',
+        coachInsightAge: coachDaysOld,
+        coachInsightLabel: coachTier === 'grace' ? `From your last session (${coachDaysOld} days ago)` : undefined,
       };
     }
   }
 
-  // ── P2: C×C independent signal modifier ──
-  const ccMod = getCCModifier(clarity, confidence, timeOfDay);
-  if (ccMod) {
-    if (hasCoachBoth && coachTier === 'contextual') {
+  // P2: DOW Pattern — if typical DOW outcome exists and diverges from current tier
+  if (typicalDOWOutcome) {
+    const tierOutcomeMap: Record<EnergyTier, string[]> = {
+      depleted: ['overwhelmed', 'drained'],
+      managing: ['scattered', 'steady'],
+      strong: ['focused', 'steady'],
+      peak: ['focused'],
+    };
+    const expectedOutcomes = tierOutcomeMap[tier] || [];
+    if (!expectedOutcomes.includes(typicalDOWOutcome)) {
+      // Divergence from typical DOW — surface as pattern
+      const typicalLabel = typicalDOWOutcome.charAt(0).toUpperCase() + typicalDOWOutcome.slice(1);
       return {
-        leanOn: `${ccMod.leanOn} (check-in)`,
-        watchFor: `${ccMod.watchFor} (check-in)`,
-        source: 'cc-modifier-with-context',
-        coachInsightAge: coachDaysOld,
-        coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
+        leanOn: `Strong ${dayName} Pattern`,
+        watchFor: `${dayName} ${typicalLabel} Trend`,
+        source: 'dow-pattern',
       };
     }
-    return { leanOn: `${ccMod.leanOn} (check-in)`, watchFor: `${ccMod.watchFor} (check-in)`, source: 'cc-modifier' };
   }
 
-  // ── Partial coach: mix with other priorities (any non-archived tier) ──
+  // P3: HRV Event Correlation
+  if (hrvEventCorrelation) {
+    // hrvEventCorrelation is a string like "Board meetings correlate with -15% HRV"
+    const shortCorrelation = hrvEventCorrelation.split(/\s+/).slice(0, 4).join(' ');
+    return {
+      leanOn: "Body Pattern Awareness",
+      watchFor: shortCorrelation,
+      source: 'hrv-correlation',
+    };
+  }
+
+  // P4: Score Trajectory — 7-day declining
+  if (scoreTrajectory7d === 'declining') {
+    return {
+      leanOn: "Trajectory Awareness",
+      watchFor: "Declining Week Trajectory",
+      source: 'score-trajectory',
+    };
+  }
+
+  // P5: Partial coach — mix with archetype
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
-    return { leanOn: `${coachStrength} (coach)`, watchFor: `${watchFor} (${watchSource})`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+    return { leanOn: coachStrength, watchFor, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'archetype' : 'readiness';
-    return { leanOn: `${leanOn} (${leanSource})`, watchFor: `${coachGrowth} (coach)`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
+    return { leanOn, watchFor: coachGrowth, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
-  // ── P4: Archetype × Tier ──
+  // P6: C×C modifier
+  const ccMod = getCCModifier(clarity, confidence);
+  if (ccMod) {
+    return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
+  }
+
+  // P7: Archetype × Tier
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     const base = archetypeMatrix[archetype][tier];
-    return { leanOn: `${base.leanOn} (archetype)`, watchFor: `${base.watchFor} (archetype)`, source: 'archetype-tier' };
+    return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'archetype-tier' };
   }
 
-  // ── P5: Tier fallback ──
+  // P8: Tier fallback
   const base = tierFallbacks[tier];
-  return { leanOn: `${base.leanOn} (readiness)`, watchFor: `${base.watchFor} (readiness)`, source: 'tier-fallback' };
+  return { leanOn: base.leanOn, watchFor: base.watchFor, source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
