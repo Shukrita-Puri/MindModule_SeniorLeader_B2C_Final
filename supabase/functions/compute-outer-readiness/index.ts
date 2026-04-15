@@ -2792,7 +2792,17 @@ serve(async (req) => {
         console.error('[compute-outer-readiness] Enrichment queries error:', enrichErr);
       }
 
-      // ── Build & call LLM ──
+    // ═══ LEAN ON / WATCH FOR (moved here — after enrichment data is populated) ═══
+    const leanOnResult = getLeanOnWatchFor(
+      safeTier, serverArchetype, clarityLevel, confidenceLevel,
+      coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
+      typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
+    );
+
+    const coachUsed = leanOnResult.source.startsWith('coach');
+    const wearableUsed = !!wearableContext;
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
+
       // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
