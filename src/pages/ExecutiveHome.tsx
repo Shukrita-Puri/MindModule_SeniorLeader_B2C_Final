@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
