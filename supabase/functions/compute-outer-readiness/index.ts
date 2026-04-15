@@ -3212,7 +3212,7 @@ OUTPUT RULES:
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
 • Scannable in 10 seconds. Forward-looking.
-• leanOn/watchFor signals MUST be analytical phrases (5-10 words), not raw numbers. NEVER "Score 71 vs 42" or "Clarity 4/5". Instead: "Performance Readiness up 69% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Each signal must make sense without seeing the signal pills above it.
+• leanOn/watchFor signals MUST be 5-8 word analytical phrases. NEVER full sentences. NEVER "Score 71 vs 42" or "Clarity 4/5". Good: "Performance Readiness +18% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Bad: "Your awareness that your system needs restoration, not activation" (too long, too prose). Each signal is a headline, not a sentence.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
