@@ -3212,7 +3212,7 @@ OUTPUT RULES:
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
 • Scannable in 10 seconds. Forward-looking.
-• leanOn/watchFor signals MUST be analytical phrases (5-10 words), not raw numbers. NEVER "Score 71 vs 42" or "Clarity 4/5". Instead: "Performance Readiness up 69% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Each signal must make sense without seeing the signal pills above it.
+• leanOn/watchFor signals MUST be 5-8 word analytical phrases. NEVER full sentences. NEVER "Score 71 vs 42" or "Clarity 4/5". Good: "Performance Readiness +18% vs yesterday", "Mental Toughness surfacing in sessions", "Wilful Endurance pattern active". Bad: "Your awareness that your system needs restoration, not activation" (too long, too prose). Each signal is a headline, not a sentence.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
@@ -3605,8 +3605,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const formatFallbackSignal = (text: string, source: string): string => {
       // Strip existing parenthetical source if present e.g. "Your stillness instinct (archetype)"
       const cleaned = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // Keep up to 10 words for richer analytical signal text
-      const signal = cleaned.split(/\s+/).slice(0, 10).join(' ');
+      // Keep up to 8 words for crisp analytical signal text
+      const signal = cleaned.split(/\s+/).slice(0, 8).join(' ');
       // Map source key to human-readable label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'Archetype',
@@ -3629,11 +3629,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const briefSource = llmBrief ? 'llm' : 'deterministic';
     const responsePhrase = llmBrief?.phrase ?? finalPhrase;
     const responseBody = llmBrief?.bodyText ?? finalContext;
+    // Truncate LLM signals to max 8 words server-side as safety net
+    const truncSignal = (s: string) => {
+      const w = s.split(/\s+/);
+      return w.length > 8 ? w.slice(0, 8).join(' ') : s;
+    };
     const formattedLeanOn = llmBrief
-      ? llmBrief.leanOn.map(item => `${item.signal} · ${item.source}`).join('\n')
+      ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
       : formattedDeterministicLeanOn;
     const formattedWatchFor = llmBrief
-      ? llmBrief.watchFor.map(item => `${item.signal} · ${item.source}`).join('\n')
+      ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
       : formattedDeterministicWatchFor;
 
     const result: OuterReadinessResult & Record<string, unknown> = {
