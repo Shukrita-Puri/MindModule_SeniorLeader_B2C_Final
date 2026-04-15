@@ -237,15 +237,18 @@ const CoachSplitView = ({
         <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-          {/* Centered coach visual + copy */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-3">
-            <h1 className="text-[24px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
+          {/* Top-anchored title — matches Reset Studio & Performance Intelligence */}
+          <div className="px-4 pt-4 pb-2 text-center">
+            <h1 className="text-[26px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
               Mind Performance Coach
             </h1>
             <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
               The one conversation that helps you understand what's in the way — before the moment that matters.
             </p>
+          </div>
 
+          {/* Centered coach visual + greeting */}
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-3">
             {/* Coach visual */}
             <img
               src={coachVisual}
