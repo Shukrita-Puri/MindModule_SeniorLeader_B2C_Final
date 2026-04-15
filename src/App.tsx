@@ -163,6 +163,10 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><SelfMasteryCoach /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
+        path: "plan",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+      },
+      {
         path: "insights",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
