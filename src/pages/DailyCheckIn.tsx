@@ -377,13 +377,12 @@ const DailyCheckIn = () => {
       <div className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2.5 bg-gradient-to-t from-background via-background to-background/0"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
-        <div className="max-w-lg mx-auto w-full">
-          <div className="w-[84%] mx-auto">
+        <div className="max-w-lg mx-auto">
           <button
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
             className={`
-              w-full h-12 rounded-xl font-body text-[15px] font-medium tracking-wide
+              w-[84%] mx-auto block h-12 rounded-xl font-body text-[15px] font-medium tracking-wide
               transition-all duration-200
               ${selectedOutcome
                 ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
