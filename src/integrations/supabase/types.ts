@@ -1187,6 +1187,7 @@ export type Database = {
           data_sources: Json | null
           energy_balance: number | null
           id: string
+          mental_sharpness_score: number | null
           outcome: string
           skipped: boolean | null
           state_tags: string[] | null
@@ -1202,6 +1203,7 @@ export type Database = {
           data_sources?: Json | null
           energy_balance?: number | null
           id?: string
+          mental_sharpness_score?: number | null
           outcome: string
           skipped?: boolean | null
           state_tags?: string[] | null
@@ -1217,6 +1219,7 @@ export type Database = {
           data_sources?: Json | null
           energy_balance?: number | null
           id?: string
+          mental_sharpness_score?: number | null
           outcome?: string
           skipped?: boolean | null
           state_tags?: string[] | null

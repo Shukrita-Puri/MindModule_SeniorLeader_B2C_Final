@@ -70,26 +70,31 @@ interface PerformanceRhythmCardProps {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 
-const stateColors: Record<string, { gradient: string; glow: string }> = {
-  focused: {
-    gradient: 'from-green-800 to-yellow-500',
-    glow: 'rgba(22, 101, 52, 0.4)',
-  },
-  steady: {
-    gradient: 'from-amber-700 to-yellow-200',
-    glow: 'rgba(180, 83, 9, 0.4)',
-  },
-  scattered: {
-    gradient: 'from-teal-700 to-emerald-300',
-    glow: 'rgba(15, 118, 110, 0.4)',
+const stateColors: Record<string, { gradient: string; glow: string; label: string }> = {
+  overwhelmed: {
+    gradient: 'from-red-700 to-rose-500',
+    glow: 'rgba(190, 18, 60, 0.4)',
+    label: 'Overloaded',
   },
   drained: {
-    gradient: 'from-slate-700 to-gray-400',
-    glow: 'rgba(51, 65, 85, 0.4)',
+    gradient: 'from-amber-600 to-orange-400',
+    glow: 'rgba(217, 119, 6, 0.4)',
+    label: 'Depleted',
   },
-  overwhelmed: {
-    gradient: 'from-red-800 to-amber-600',
-    glow: 'rgba(153, 27, 27, 0.4)',
+  scattered: {
+    gradient: 'from-slate-500 to-zinc-400',
+    glow: 'rgba(100, 116, 139, 0.4)',
+    label: 'Scattered',
+  },
+  steady: {
+    gradient: 'from-teal-600 to-cyan-400',
+    glow: 'rgba(13, 148, 136, 0.4)',
+    label: 'Steady',
+  },
+  focused: {
+    gradient: 'from-emerald-700 to-green-400',
+    glow: 'rgba(4, 120, 87, 0.4)',
+    label: 'Focused',
   },
 };
 
@@ -1012,7 +1017,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     {Object.entries(stateColors).map(([state, style]) => (
                       <div key={state} className="flex items-center gap-1.5">
                         <div className={cn('w-2.5 h-2.5 rounded-full shadow-sm bg-gradient-to-br', style.gradient)} />
-                        <span className="capitalize">{state}</span>
+                        <span>{style.label}</span>
                       </div>
                     ))}
                   </div>

@@ -27,6 +27,7 @@ interface RequestBody {
   checkinDate?: string;
   clarity?: number;
   confidence?: number;
+  mentalSharpness?: number;
   energyBalance?: number;
   timeWindow?: 'morning' | 'afternoon' | 'evening';
   usedFor?: string;
@@ -263,7 +264,7 @@ serve(async (req) => {
       }
 
       case 'UPDATE_CLARITY_CONFIDENCE': {
-        const { checkinDate, clarity, confidence, timeWindow } = body;
+        const { checkinDate, clarity, confidence, mentalSharpness, timeWindow } = body;
 
         if (!checkinDate || clarity == null || confidence == null) {
           return new Response(JSON.stringify({ error: 'Missing checkinDate, clarity, or confidence' }), {
@@ -272,9 +273,17 @@ serve(async (req) => {
           });
         }
 
+        const updatePayload: Record<string, unknown> = {
+          clarity_level: clarity,
+          confidence_level: confidence,
+        };
+        if (mentalSharpness != null) {
+          updatePayload.mental_sharpness_score = mentalSharpness;
+        }
+
         let query = supabase
           .from('daily_checkins')
-          .update({ clarity_level: clarity, confidence_level: confidence })
+          .update(updatePayload)
           .eq('user_id', userId)
           .eq('checkin_date', checkinDate);
 
