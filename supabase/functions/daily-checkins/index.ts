@@ -278,7 +278,8 @@ serve(async (req) => {
           confidence_level: confidence,
         };
         if (mentalSharpness != null) {
-          updatePayload.mental_sharpness_score = mentalSharpness;
+          updatePayload.mental_sharpness_level = mentalSharpness;
+          console.log('[daily-checkins] Persisting mental_sharpness_level:', mentalSharpness);
         }
 
         let query = supabase
