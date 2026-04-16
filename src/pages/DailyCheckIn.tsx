@@ -314,47 +314,25 @@ const DailyCheckIn = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-      <div className="min-h-screen flex flex-col bg-background pt-20 pb-[200px]">
+      <div className="min-h-screen flex flex-col bg-background pt-24 pb-[248px]">
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
-
-      {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
-      {alreadyCheckedIn && (
-        <div className="fixed top-0 left-0 right-0 z-[210] px-4 pt-[calc(env(safe-area-inset-top,0px)+56px)] pb-2 bg-gradient-to-b from-background via-background to-background/0">
-          <div className="p-3 rounded-xl bg-muted border border-border text-center space-y-2 max-w-lg mx-auto">
-            <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setAlreadyCheckedIn(false)}
-                className="text-sm font-medium text-primary underline"
-              >
-                Update anyway
-              </button>
-              <button
-                onClick={() => navigate('/executive-home')}
-                className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
-              >
-                Go to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+...
       {/* Hero Banner – compact for single-fold */}
-      <div className="relative h-auto py-6 mt-2 overflow-hidden">
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
-          <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
+      <div className="relative h-auto py-7 mt-2 mb-3 overflow-hidden">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+          <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight leading-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Energy State</p>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body leading-none">Mental Energy State</p>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
+        <p className="text-sm text-muted-foreground font-body mb-5 tracking-wide text-center leading-none">
           Select your current state
         </p>
 
@@ -367,12 +345,12 @@ const DailyCheckIn = () => {
               <TouchOptimized
                 key={outcome.value}
                 onTap={() => setSelectedOutcome(outcome.value)}
-                className="w-[88%] mx-auto"
+                className="w-[86%] mx-auto"
               >
                 <div
                   className={`
                     w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
-                    flex items-center gap-4 px-5 py-4
+                    flex items-center gap-4 px-5 py-3.5
                     border backdrop-blur-sm cursor-pointer
                     transition-all duration-200
                     ${isSelected
