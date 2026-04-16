@@ -73,7 +73,7 @@ const RecalibrateMode = () => {
                   <h3 className="text-sm font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground leading-snug font-body mt-0.5 line-clamp-2">
+                  <p className="text-xs text-muted-foreground leading-snug font-body mt-0.5 line-clamp-2">
                     {tool.description}
                   </p>
                 </div>

@@ -90,7 +90,7 @@ export function EnergyRhythmCurve() {
                 </div>
               ) : !hasEnoughData ? (
                 <div className="text-center py-8 space-y-4">
-                  <p className="text-[13px] text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Complete 7 sessions to see your energy curve
                   </p>
                   <div className="max-w-md mx-auto">
@@ -202,7 +202,7 @@ export function EnergyRhythmCurve() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <p className="text-[13px] font-medium text-foreground">
+                              <p className="text-sm font-medium text-foreground">
                                 {formatHour(window.startHour)}-{formatHour(window.endHour)}
                               </p>
                               <span className="text-xs text-muted-foreground">
