@@ -109,7 +109,7 @@ const CheckInDetail = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[108px]">
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[200px]">
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
@@ -124,7 +124,7 @@ const CheckInDetail = () => {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 pb-24">
-        <div className="w-full max-w-md animate-fade-in">
+        <div className="w-full max-w-lg animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
             bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
@@ -134,7 +134,7 @@ const CheckInDetail = () => {
             {/* Mental Sharpness Slider (Renewal) */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Mental Sharpness</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Sharpness</span>
                 <span className="text-[15px] font-medium text-primary font-body">{sharpnessLabels[mentalSharpness - 1]}</span>
               </div>
               <Slider
@@ -155,7 +155,7 @@ const CheckInDetail = () => {
             {/* Mental Clarity Slider (Resolve) */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Mental Clarity</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Clarity</span>
                 <span className="text-[15px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
               </div>
               <Slider
@@ -199,9 +199,9 @@ const CheckInDetail = () => {
 
       {/* Sticky bottom CTA */}
       <div className="fixed left-0 right-0 z-[220] px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
       >
-        <div className="max-w-md mx-auto">
+        <div className="max-w-lg mx-auto">
           <button
             onClick={handleSave}
             disabled={saving || !allThreeTouched}

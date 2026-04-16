@@ -72,28 +72,28 @@ const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 
 const stateColors: Record<string, { gradient: string; glow: string; label: string }> = {
   overwhelmed: {
-    gradient: 'from-red-700 to-rose-500',
-    glow: 'rgba(190, 18, 60, 0.4)',
+    gradient: 'from-red-900 to-red-700',
+    glow: 'rgba(127, 29, 29, 0.35)',
     label: 'Overloaded',
   },
   drained: {
-    gradient: 'from-amber-600 to-orange-400',
-    glow: 'rgba(217, 119, 6, 0.4)',
-    label: 'Depleted',
+    gradient: 'from-amber-800 to-amber-600',
+    glow: 'rgba(146, 64, 14, 0.35)',
+    label: 'Drained',
   },
   scattered: {
-    gradient: 'from-slate-500 to-zinc-400',
-    glow: 'rgba(100, 116, 139, 0.4)',
+    gradient: 'from-slate-700 to-slate-500',
+    glow: 'rgba(51, 65, 85, 0.35)',
     label: 'Scattered',
   },
   steady: {
-    gradient: 'from-teal-600 to-cyan-400',
-    glow: 'rgba(13, 148, 136, 0.4)',
+    gradient: 'from-teal-800 to-teal-600',
+    glow: 'rgba(17, 94, 89, 0.35)',
     label: 'Steady',
   },
   focused: {
-    gradient: 'from-emerald-700 to-green-400',
-    glow: 'rgba(4, 120, 87, 0.4)',
+    gradient: 'from-emerald-800 to-emerald-600',
+    glow: 'rgba(6, 95, 70, 0.35)',
     label: 'Focused',
   },
 };
