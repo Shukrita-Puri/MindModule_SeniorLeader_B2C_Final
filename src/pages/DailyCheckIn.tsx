@@ -8,7 +8,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
-import FloatingNavigation from "@/components/navigation/FloatingNavigation";
+import GlobalHeader from "@/components/GlobalHeader";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
@@ -36,35 +36,30 @@ const outcomes = [
     value: "overwhelmed" as Outcome,
     icon: Waves,
     title: "Overwhelmed / Stressed",
-    subtitle: "Too much, too fast",
     gradient: "from-red-800/90 to-amber-600/90",
   },
   {
     value: "drained" as Outcome,
     icon: Zap,
     title: "Low Energy / Drained",
-    subtitle: "Running on empty",
     gradient: "from-slate-700/90 to-gray-400/90",
   },
   {
     value: "scattered" as Outcome,
     icon: Wind,
     title: "Scattered / Unfocused",
-    subtitle: "Mind in motion",
-    gradient: "from-teal-700/90 to-emerald-300/90",
+    gradient: "from-purple-800/90 to-indigo-400/90",
   },
   {
     value: "steady" as Outcome,
     icon: Target,
     title: "Okay / Steady",
-    subtitle: "Grounded. Present.",
     gradient: "from-amber-700/90 to-yellow-200/90",
   },
   {
     value: "focused" as Outcome,
     icon: Sparkles,
     title: "Focused / Energised",
-    subtitle: "Sharp and ready",
     gradient: "from-green-800/90 to-yellow-500/90",
   },
 ];
@@ -302,7 +297,7 @@ const DailyCheckIn = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
-      <FloatingNavigation showCoachButton={false} />
+      <GlobalHeader />
 
       {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
       {alreadyCheckedIn && (
@@ -372,9 +367,6 @@ const DailyCheckIn = () => {
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-sm text-white/80 font-body leading-tight">
-                      {outcome.subtitle}
-                    </p>
                   </div>
                 </div>
               </TouchOptimized>
