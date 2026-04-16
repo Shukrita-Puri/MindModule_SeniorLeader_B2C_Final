@@ -51,7 +51,7 @@ const outcomes = [
     value: "scattered" as Outcome,
     icon: Wind,
     title: "Scattered / Unfocused",
-    gradient: "from-stone-600/90 to-zinc-400/90",
+    gradient: "from-amber-900/90 to-orange-400/90",
   },
   {
     value: "steady" as Outcome,
