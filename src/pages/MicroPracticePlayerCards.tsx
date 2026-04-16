@@ -2199,7 +2199,7 @@ const MicroPracticePlayerCards = () => {
                         <h1 className="text-2xl md:text-3xl font-serif leading-tight text-white">
                           {card.title}
                         </h1>
-                        <p className="text-[13px] md:text-sm text-white/60">
+                        <p className="text-sm md:text-sm text-white/60">
                           {card.subtitle}
                         </p>
                       </div>

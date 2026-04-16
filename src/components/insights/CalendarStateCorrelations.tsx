@@ -238,7 +238,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
               <span className="text-sm font-semibold text-foreground">
                 {Math.round(correlation.confidence * 100)}%
               </span>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 ({correlation.occurrences}×)
               </p>
             </div>
@@ -260,7 +260,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
       )}
 
       {/* Data source note */}
-      <p className="text-[10px] text-muted-foreground/60 text-center">
+      <p className="text-xs text-muted-foreground/60 text-center">
         Based on last 30 days of check-ins and calendar events
       </p>
     </div>

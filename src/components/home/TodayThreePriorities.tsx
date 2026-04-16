@@ -663,13 +663,13 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={cn(
-                      "text-[11px] font-body",
+                      "text-xs font-body",
                       hm.isJit ? "text-saffron font-medium" : "text-muted-foreground/60"
                     )}>
                       {hm.timeLabel}
                     </span>
                     {hm.showPriorityPill && !slotCompleted && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
                         Priority event
                       </span>
                     )}
@@ -677,18 +677,18 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                   {!isExpanded && (
                     <div>
                       <p className={cn(
-                        "text-[13px] font-body truncate",
+                        "text-sm font-body truncate",
                         slotCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
                       )}>
                         {module.title}
                         {hasMultiple && !slotCompleted && (
-                          <span className="text-muted-foreground/40 text-[11px] ml-1">
+                          <span className="text-muted-foreground/40 text-xs ml-1">
                             ({slotCompletedCount} of {slotPractices.length})
                           </span>
                         )}
                       </p>
                       {hm.whyLine && !slotCompleted && (
-                        <p className="text-[11px] italic text-muted-foreground/50 font-body truncate">
+                        <p className="text-xs italic text-muted-foreground/50 font-body truncate">
                           {hm.whyLine}
                         </p>
                       )}
@@ -716,7 +716,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
                   {/* Type label */}
                   <span className={cn(
-                    "text-[10px] uppercase tracking-wider font-body",
+                    "text-xs uppercase tracking-wider font-body",
                     hm.isJit ? "text-saffron" : "text-saffron/80"
                   )}>
                     {hm.typeLabel}
@@ -724,13 +724,13 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
                   {/* Sequence reasoning (if multi-practice) */}
                   {hm.sequenceReasoning && hasMultiple && (
-                    <p className="text-[11px] text-foreground/70 font-body font-medium leading-relaxed">
+                    <p className="text-xs text-foreground/70 font-body font-medium leading-relaxed">
                       {hm.sequenceReasoning}
                     </p>
                   )}
 
                   {/* Why line */}
-                  <p className="text-[11px] italic text-muted-foreground font-body leading-relaxed">
+                  <p className="text-xs italic text-muted-foreground font-body leading-relaxed">
                     {hm.whyLine}
                   </p>
 
@@ -778,7 +778,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                           <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
                             {/* Step indicator for multi-practice */}
                             {hasMultiple && (
-                              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-body mb-0.5">
+                              <span className="text-xs uppercase tracking-wider text-muted-foreground/50 font-body mb-0.5">
                                 Step {pIdx + 1} of {slotPractices.length}
                               </span>
                             )}
@@ -796,7 +796,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
                             </span>
             {/* Per-practice reasoning */}
                             {practice.reasoning && (
-                              <p className="text-[10px] text-muted-foreground/60 font-body mt-1 line-clamp-2 leading-snug">
+                              <p className="text-xs text-muted-foreground/60 font-body mt-1 line-clamp-2 leading-snug">
                                 {practice.reasoning}
                               </p>
                             )}

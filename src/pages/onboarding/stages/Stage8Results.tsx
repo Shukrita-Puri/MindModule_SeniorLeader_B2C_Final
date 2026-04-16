@@ -277,8 +277,8 @@ export default function Stage8Results() {
         {dimensions.map((dim) => (
           <div key={dim.key} className="space-y-1.5">
             <div className="flex justify-between items-baseline">
-              <span className="text-[13px] font-medium text-foreground/80">{dim.label}</span>
-              <span className="text-[13px] font-semibold text-foreground tabular-nums">{dim.value}</span>
+              <span className="text-sm font-medium text-foreground/80">{dim.label}</span>
+              <span className="text-sm font-semibold text-foreground tabular-nums">{dim.value}</span>
             </div>
             <GradientProgress value={dim.value} />
           </div>
@@ -288,17 +288,17 @@ export default function Stage8Results() {
           <div className="flex justify-center pt-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="text-[10px] text-muted-foreground/60 underline underline-offset-2 cursor-help">
+                <button className="text-xs text-muted-foreground/60 underline underline-offset-2 cursor-help">
                   What do these dimensions measure?
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[260px] space-y-2 p-3">
                 {dimensions.map((dim) => (
                   <div key={dim.key} className="space-y-0.5">
-                    <span className="text-[11px] font-semibold">{dim.label}</span>
+                    <span className="text-xs font-semibold">{dim.label}</span>
                     <div className="flex gap-1 flex-wrap">
                       {DIMENSION_META_SKILLS[dim.key as keyof ComponentScoresV2].map((skill) => (
-                        <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10">
+                        <span key={skill} className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10">
                           {skill}
                         </span>
                       ))}
@@ -320,7 +320,7 @@ export default function Stage8Results() {
                 "{insightOpen ? insight : insightPreview}"
               </p>
               <CollapsibleTrigger asChild>
-                <button className="mt-2 text-[12px] text-saffron font-medium flex items-center gap-1 hover:opacity-80 transition-opacity">
+                <button className="mt-2 text-sm text-saffron font-medium flex items-center gap-1 hover:opacity-80 transition-opacity">
                   {insightOpen ? 'Show less' : 'Read full analysis'}
                   <ChevronDown size={14} className={`transition-transform ${insightOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -340,7 +340,7 @@ export default function Stage8Results() {
           <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Strengths</p>
           <div className="flex gap-2 flex-wrap">
             {strengths.map((skill) => (
-              <span key={skill} className="text-[12px] px-3 py-1 rounded-full bg-saffron/10 text-saffron font-medium">
+              <span key={skill} className="text-sm px-3 py-1 rounded-full bg-saffron/10 text-saffron font-medium">
                 {skill}
               </span>
             ))}
@@ -351,7 +351,7 @@ export default function Stage8Results() {
           <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Development Area</p>
           <div className="flex gap-2 flex-wrap">
             {developmentAreas.map((skill) => (
-              <span key={skill} className="text-[12px] px-3 py-1 rounded-full bg-foreground/5 text-foreground/70 font-medium">
+              <span key={skill} className="text-sm px-3 py-1 rounded-full bg-foreground/5 text-foreground/70 font-medium">
                 {skill}
               </span>
             ))}
@@ -364,11 +364,11 @@ export default function Stage8Results() {
         <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Development Path</p>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">Goal Focus</p>
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">Goal Focus</p>
             <p className="text-[14px] font-medium text-foreground capitalize">{results.practiceGoalLabel}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wider">Practice Focus</p>
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">Practice Focus</p>
             <p className="text-[14px] font-medium text-foreground">{practiceModality}</p>
           </div>
         </div>

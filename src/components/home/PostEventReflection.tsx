@@ -216,7 +216,7 @@ const PostEventReflection = () => {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground/60 text-center">
+            <p className="text-xs text-muted-foreground/60 text-center">
               After saving, we'll open your Coach to dig deeper
             </p>
           </div>

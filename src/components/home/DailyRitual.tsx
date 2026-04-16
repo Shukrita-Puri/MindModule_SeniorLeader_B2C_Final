@@ -572,7 +572,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
               <span className="text-[15px] font-medium text-foreground font-body">
                 {plan?.timeOfDayPlan?.label || 'Today'}
               </span>
-              <span className="text-[11px] text-muted-foreground/60 font-body">
+              <span className="text-xs text-muted-foreground/60 font-body">
                 ({activeModules.length}-step sequence)
               </span>
             </div>
@@ -599,7 +599,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
           {/* JIT collapsed message */}
           {isCollapsedByJit && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2">
-              <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+              <span className="text-sm text-muted-foreground font-medium font-body leading-relaxed">
                 Preparing for your event – your Time-of-Day plan is available after.
               </span>
             </div>
@@ -607,7 +607,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
 
           {!isCollapsedByJit && (plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
-              <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+              <span className="text-sm text-muted-foreground font-medium font-body leading-relaxed">
                 <TextWithEventEmphasis text={plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage || ''} />
               </span>
             </div>
@@ -650,7 +650,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
               >
                 {/* Completed overlay badge */}
                 {isCompleted && (
-                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
                     <Check size={10} className="stroke-[3]" />
                     Done
                   </div>
@@ -658,7 +658,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
 
                 {/* Step badge */}
                 {!isCompleted && (
-                  <span className="absolute top-2 right-2 z-10 text-[9px] uppercase tracking-wider text-muted-foreground/60 font-body">
+                  <span className="absolute top-2 right-2 z-10 text-xs uppercase tracking-wider text-muted-foreground/60 font-body">
                     Step {index + 1}
                   </span>
                 )}
@@ -690,7 +690,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
                 <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                   <div className="flex flex-col gap-0.5">
                     <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
-                    <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
+                    <span className="text-xs text-muted-foreground/60 font-body">{display.protocolType}</span>
                   </div>
                   <div className="flex items-start gap-1 mt-1.5">
                     <h4 className={cn("text-[15px] font-medium line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>

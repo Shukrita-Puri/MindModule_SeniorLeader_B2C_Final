@@ -142,7 +142,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
             <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
               MIND MODULE
             </h1>
-            <p className="text-[9px] sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+            <p className="text-xs sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
               Executive Edition
             </p>
             
@@ -172,12 +172,12 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
             <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>
           </div>
-          <span className="text-[10px] sm:text-xs text-white/40 font-body tracking-wide">
+          <span className="text-xs sm:text-xs text-white/40 font-body tracking-wide">
             Local &amp; End-to-End Encrypted
           </span>
           <button
             onClick={() => navigate('/powered-by-ai')}
-            className="text-[10px] sm:text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
+            className="text-xs sm:text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
           >
             Powered by AI →
           </button>

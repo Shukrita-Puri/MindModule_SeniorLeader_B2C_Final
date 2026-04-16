@@ -242,7 +242,7 @@ const CoachSplitView = ({
             <h1 className="text-[26px] sm:text-4xl font-headline font-semibold text-foreground tracking-tight">
               Mind Performance Coach
             </h1>
-            <p className="text-[12px] text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
+            <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed mt-1 context-clamp">
               The one conversation that helps you understand what's in the way — before the moment that matters.
             </p>
           </div>
@@ -268,7 +268,7 @@ const CoachSplitView = ({
 
           {/* Input bar */}
           <InputBar glass={false} {...inputBarProps} />
-          <p className="text-[10px] text-muted-foreground/50 text-center pb-2 px-4">
+          <p className="text-xs text-muted-foreground/50 text-center pb-2 px-4">
             AI-powered coaching assistant. Responses are generated and may not always be accurate. Not a substitute for professional advice.
           </p>
         </div>
@@ -324,7 +324,7 @@ const CoachSplitView = ({
 
       {/* Input bar – pinned to bottom */}
       <InputBar glass={false} {...inputBarProps} />
-      <p className="text-[10px] text-muted-foreground/50 text-center pb-2 px-4">
+      <p className="text-xs text-muted-foreground/50 text-center pb-2 px-4">
         AI-powered coaching assistant. Responses are generated and may not always be accurate. Not a substitute for professional advice.
       </p>
     </div>

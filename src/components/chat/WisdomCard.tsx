@@ -53,7 +53,7 @@ export const WisdomCard = ({
       {/* Optional Context */}
       {context && (
         <p className={cn(
-          "text-[10px] mt-1 text-right",
+          "text-xs mt-1 text-right",
           isOnDark ? "text-muted-foreground/80" : "text-muted-foreground/70"
         )}>
           {context}

@@ -86,7 +86,7 @@ const LeftSidebar = () => {
               <span className="font-headline text-[15px] font-semibold tracking-widest text-foreground">
                 MIND MODULE
               </span>
-              <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+              <span className="text-xs tracking-wider text-muted-foreground uppercase">
                 Executive Edition
               </span>
             </div>

@@ -899,7 +899,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
+                        <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">
                           Your Week at a Glance
                         </span>
                         <InsightInfoModal
@@ -907,7 +907,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                           explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground/50">← scroll for past weeks</span>
+                      <span className="text-xs text-muted-foreground/50">← scroll for past weeks</span>
                     </div>
 
                     <div className="flex">
@@ -915,7 +915,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div className="flex flex-col gap-1.5 mr-2.5 pt-[38px]">
                         {['Morning', 'Midday', 'Evening'].map(label => (
                           <div key={label} className="h-[22px] flex items-center justify-end">
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap w-[44px] text-right">{label}</span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap w-[44px] text-right">{label}</span>
                           </div>
                         ))}
                       </div>
@@ -967,8 +967,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                             >
                               {/* Day header */}
                               <div className="flex flex-col items-center h-[34px] justify-end pb-1">
-                                <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
-                                <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
+                                <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                                <span className={cn('text-xs', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
                                   {day.dateNum}
                                 </span>
                               </div>
@@ -1025,7 +1025,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
                     How You Show Up
                   </span>
                   <InsightInfoModal
@@ -1065,7 +1065,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {/* Elevated: Your Sharpest Window */}
             {data.bestReadinessWindow && (
               <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
-                <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
+                <p className="text-xs font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
                   Your Sharpest Window
                 </p>
                 <p className="text-sm font-medium text-foreground">
@@ -1079,7 +1079,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-primary/70" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
                     Calendar Pattern
                   </span>
                 </div>
@@ -1110,7 +1110,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             )}
             {/* Data Source Note */}
             {data.checkInCount > 0 && (
-              <p className="text-[10px] text-muted-foreground/60 text-center">
+              <p className="text-xs text-muted-foreground/60 text-center">
                 {data.dataSourceNote}
               </p>
             )}

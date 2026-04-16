@@ -90,7 +90,7 @@ const RecentActivity = () => {
     <SidebarMenu>
       {groupedActivities.map((group) => (
         <div key={group.label}>
-          <p className="text-[10px] text-muted-foreground/60 px-2 py-1.5 uppercase tracking-wide font-medium">
+          <p className="text-xs text-muted-foreground/60 px-2 py-1.5 uppercase tracking-wide font-medium">
             {group.label}
           </p>
           

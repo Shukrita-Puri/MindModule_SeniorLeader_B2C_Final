@@ -190,7 +190,7 @@ const PresenceOutcomePage = () => {
         <h1 className="text-[28px] md:text-4xl font-headline font-semibold text-foreground mb-2">
           Flow Mastery
         </h1>
-        <p className="text-muted-foreground text-[13px] font-body">Enter deep focus, accelerate productivity, and sustain peak mental performance.</p>
+        <p className="text-muted-foreground text-sm font-body">Enter deep focus, accelerate productivity, and sustain peak mental performance.</p>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">
@@ -198,7 +198,7 @@ const PresenceOutcomePage = () => {
         <section className="mb-12">
           <div className="mb-6">
             <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2">Mindset Protocol</h2>
-            <p className="text-[13px] text-muted-foreground italic font-body">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
+            <p className="text-sm text-muted-foreground italic font-body">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {mindsetItems.map((item) => (
@@ -243,7 +243,7 @@ const PresenceOutcomePage = () => {
                       <Clock className="h-3.5 w-3.5" />
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
-                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
+                    {item.steps && <span className="text-xs text-muted-foreground/70">{item.steps} steps</span>}
                   </div>
                 </CardContent>
               </Card>
@@ -255,7 +255,7 @@ const PresenceOutcomePage = () => {
         <section className="mb-12">
           <div className="mb-6">
             <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2">Somatic Protocol</h2>
-            <p className="text-[13px] text-muted-foreground italic font-body">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
+            <p className="text-sm text-muted-foreground italic font-body">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {somaticItems.map((item) => (
@@ -307,7 +307,7 @@ const PresenceOutcomePage = () => {
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
                     {item.steps && (
-                      <span className="text-[10px] text-muted-foreground/70">
+                      <span className="text-xs text-muted-foreground/70">
                         {item.steps} steps
                       </span>
                     )}
