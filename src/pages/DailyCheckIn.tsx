@@ -47,18 +47,18 @@ const outcomes = [
     gradient: "from-slate-700/90 to-gray-400/90",
   },
   {
-    value: "steady" as Outcome,
-    icon: Target,
-    title: "Okay / Steady",
-    subtitle: "Grounded. Present.",
-    gradient: "from-amber-700/90 to-yellow-200/90",
-  },
-  {
     value: "scattered" as Outcome,
     icon: Wind,
     title: "Scattered / Unfocused",
     subtitle: "Mind in motion",
     gradient: "from-teal-700/90 to-emerald-300/90",
+  },
+  {
+    value: "steady" as Outcome,
+    icon: Target,
+    title: "Okay / Steady",
+    subtitle: "Grounded. Present.",
+    gradient: "from-amber-700/90 to-yellow-200/90",
   },
   {
     value: "focused" as Outcome,
