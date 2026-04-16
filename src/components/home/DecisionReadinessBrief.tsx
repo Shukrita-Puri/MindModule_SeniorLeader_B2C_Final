@@ -526,7 +526,7 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
       <button
         onClick={handleClick}
         className={cn(
-          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-500",
+          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-body transition-all duration-500",
           chipBgColor(chip.color),
           (hasBack || onNavigate) && "cursor-pointer active:scale-95",
           !hasBack && !onNavigate && "cursor-default",
@@ -543,7 +543,7 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
         </span>
       </button>
       {!flipped && chip.qualifier && (
-        <p className="text-[9px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
+        <p className="text-[11px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
       )}
     </div>
   );
@@ -552,10 +552,10 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
 // ─── LEAN ON / WATCH FOR — plain text: "signal · SOURCE" (uppercase source) ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
-    <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
+    <span className="text-sm font-body text-foreground/80 leading-relaxed">
       {signal}
       {source && (
-        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">
+        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">
           · {source}
         </span>
       )}
@@ -584,7 +584,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       <div className="flex gap-2 mt-2">
         <button
           onClick={() => window.location.href = '/connected-data'}
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
+          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
         >
           Connect calendar
         </button>
@@ -601,10 +601,10 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       : `${nextHS.title} · in ${nextHS.minutesUntil} mins`;
     return (
       <div className="flex flex-wrap gap-2 mt-2">
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body font-medium italic", eventPillStyle)}>
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body font-medium italic", eventPillStyle)}>
           {urgentLabel}
         </span>
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
           {loadLabel} day · {meetingLabel}
         </span>
       </div>
@@ -614,7 +614,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   // Regular calendar display
   const pills: JSX.Element[] = [];
   pills.push(
-    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
+    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
       {loadLabel} day · {meetingLabel}
     </span>
   );
@@ -631,13 +631,13 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
     };
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
         {remainingHS[0]} · {timeLabel}
       </span>
     );
   } else if (remainingHS.length > 0) {
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
         {remainingHS[0]} · ahead
       </span>
     );
