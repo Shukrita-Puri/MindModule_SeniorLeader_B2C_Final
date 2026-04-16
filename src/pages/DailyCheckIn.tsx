@@ -48,7 +48,7 @@ const outcomes = [
     value: "scattered" as Outcome,
     icon: Wind,
     title: "Scattered / Unfocused",
-    gradient: "from-purple-800/90 to-indigo-400/90",
+    gradient: "from-stone-600/90 to-zinc-400/90",
   },
   {
     value: "steady" as Outcome,
@@ -296,8 +296,14 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
-      <GlobalHeader />
+    <SidebarProvider defaultOpen={false}>
+    <div className="h-screen flex w-full bg-background overflow-hidden">
+      <LeftSidebar />
+      <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
+      <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
+        <SidebarDiscoveryPulse />
+      </header>
 
       {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
       {alreadyCheckedIn && (
@@ -399,11 +405,14 @@ const DailyCheckIn = () => {
       {showGuide && (
         <FirstSessionGuide onComplete={() => {
           setShowGuide(false);
-          // Persist walkthrough completion to DB (fire-and-forget)
           recordStep('first_session_walkthrough', { completed: true });
         }} />
       )}
     </div>
+    <FloatingPillNav />
+    </SidebarInset>
+    </div>
+    </SidebarProvider>
   );
 };
 
