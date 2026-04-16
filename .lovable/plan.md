@@ -1,67 +1,83 @@
 
 
-## Plan: Layout Polish + Color Distinctness + Audit Confirmation
+## Audit: Daily Check-In Data Flow
 
-### Audit Findings (No code changes needed)
+### Tables written by these pages
 
-| Item | Status |
-|---|---|
-| Page 1 → `daily_checkins.outcome` (lowercase: `overwhelmed`/`drained`/`scattered`/`steady`/`focused`) | ✓ Correct |
-| Page 2 → `clarity_level`, `confidence_level`, `mental_sharpness_score` (NOT `clarity_score`/`sharpness_score` as you wrote — those columns don't exist) | ✓ Writing to the correct existing columns |
-| Single row per session (unique `user_id + checkin_date + time_window`) | ✓ Page 1 upserts, Page 2 updates same row |
-| Sidebar shows "Executive Edition" + "Assessment" entry | ✓ Already in place |
-| Edge functions / DB column names untouched | ✓ Frontend translation layer (display labels) bridges UI ↔ DB |
-| Insights "Week at a Glance" using new labels + palette | ✓ Already updated previously — only Steady color change pending |
+**Only one table:** `public.daily_checkins` (single row per `user_id + checkin_date + time_window`, enforced by unique constraint). Page 1 upserts the row; Page 2 updates the same row.
 
-**Note**: Your prompt referenced `sharpness_score` / `clarity_score` / `confidence_score`. The actual DB columns are `mental_sharpness_score`, `clarity_level`, `confidence_level`. Sliders are correctly writing to these.
+### Column-by-column audit
+
+| Column | Type | Source | Currently Populated? |
+|---|---|---|---|
+| `outcome` | text | Page 1 button selection (`overwhelmed`/`drained`/`scattered`/`steady`/`focused`) | ✅ Yes — **this IS the energy state column** |
+| `time_window` | text | Auto-derived from local hour (`morning`/`afternoon`/`evening`) | ✅ Yes |
+| `checkin_date` | date | Today's date | ✅ Yes |
+| `timestamp` | timestamptz | Submission moment | ✅ Yes |
+| `data_sources` | jsonb | `{ check_in: true }` | ✅ Yes |
+| `clarity_level` | int (1–5) | Page 2 Clarity slider | ✅ Yes (151/156 rows) |
+| `confidence_level` | int (1–5) | Page 2 Confidence slider | ✅ Yes (151/156 rows) |
+| `mental_sharpness_score` | int (1–5) | Page 2 Sharpness slider | ❌ **0 / 156 rows** |
+| `state_tags` | text[] | (intended: derived from outcome via `mapCheckInToTags`) | ❌ **0 / 156 rows** |
+| `energy_balance` | int | Currently hard-coded by old logic (legacy) | ⚠️ Partial |
+| `skipped` | bool | Skip path | ✅ Yes |
+
+### Findings — confirming your three questions
+
+**1. `outcome` is correct as the Energy State column.** Values match the Page 1 buttons 1:1. No rename needed.
+
+**2. `mental_sharpness_score` is NOT being written from production.** Two confirmed root causes:
+   - **A. Edge function payload typing**: `RequestBody.checkinData` (line 34–45 of `supabase/functions/daily-checkins/index.ts`) does not declare `mental_sharpness_score`, AND the `SAVE_CHECKIN` upsert (lines 222–238) does not include it. Page 1 doesn't write it (correct — it's a Page 2 input). Page 2's `UPDATE_CLARITY_CONFIDENCE` action (line 280–282) DOES include it conditionally — so the path exists, but the column has never been populated.
+   - **B. Naming**: You're right — it should be `mental_sharpness_level` for consistency with `clarity_level` and `confidence_level`. All three are 1–5 ordinal levels, not scores.
+
+**3. `state_tags` is NOT being populated.** `mapCheckInToTags()` exists in `src/utils/checkInToTags.ts` (with the modern outcome keys) but is **never called** from `DailyCheckIn.tsx → saveCheckin()`. The `state_tags` field is sent as `undefined`, so the column stays empty. Downstream consumers (Insights, Coach intelligence, pattern learning) lose this signal.
+
+### Why Page 2 hasn't populated sharpness in production
+
+Looking at the most recent rows (all from `2026-04-15` → `2026-04-16`), `clarity_level` and `confidence_level` are populated but `mental_sharpness_score` is `null`. The Page 2 update logic IS sending `mentalSharpness`. The likely cause: **the production edge function deployment is stale** — the audit shows the current `daily-checkins/index.ts` already accepts `mentalSharpness`, but the deployed version may predate that change, OR Page 2 isn't actually being completed to the slider stage in production sessions. Either way the field path needs verification + a rename.
 
 ---
 
-### 1. Page 1 Layout Fix (`src/pages/DailyCheckIn.tsx`)
+## Plan
 
-- **Subtitle obscured** root cause: `pt-16` on the scroll container + `py-6` on hero leaves the subtitle vertically tight under the fixed header. Fix: increase top padding to `pt-20` (creates breathing room below the 56px header) and add hero `mt-2`.
-- **Buttons too wide**: container is currently `max-w-lg` full-width. Change buttons to ~88% width via `w-[88%] mx-auto` on each card, keeping the container width unchanged (clean centered look, breathing room on both sides).
-- **Cloud icon shape**: keep `lucide-react` `Cloud` but apply `strokeWidth={1.75}` and `className="w-5 h-5"` (currently `1.75` strokeWidth not set — Lucide default `2` makes the cloud look angular at small sizes). Use `strokeWidth={1.5}` for a softer, more recognizable cloud silhouette.
+### 1. Rename `mental_sharpness_score` → `mental_sharpness_level` (DB migration)
 
-### 2. Page 2 Layout Fix (`src/pages/CheckInDetail.tsx`)
+For consistency with `clarity_level` and `confidence_level`. Update the CHECK constraint name accordingly. No data loss (column is empty everywhere). Update:
+- DB: `ALTER TABLE … RENAME COLUMN mental_sharpness_score TO mental_sharpness_level;` + rename check constraint.
+- Edge function `daily-checkins/index.ts` `UPDATE_CLARITY_CONFIDENCE` payload key: `mental_sharpness_score` → `mental_sharpness_level`.
+- Frontend `CheckInDetail.tsx`: state var `mentalSharpness` keeps its name; only the DB write key + DEV_MODE update changes.
+- `src/integrations/supabase/types.ts` will auto-regenerate.
 
-- **"Mental Performance Signals" subtitle obscured**: same root cause. Fix: change scroll container from `pt-16` to `pt-20`, and add `mt-2` on hero block. Also add `mt-6` on the slider card wrapper to push the glass card down further so the subtitle clears comfortably.
-- **Slider width** already `max-w-lg` — confirmed adequate. No change needed beyond the top spacing fix.
+### 2. Wire up `state_tags` so Page 1 populates it on every check-in
 
-### 3. Distinct "Steady" Color (Page 1 + Insights)
+In `src/pages/DailyCheckIn.tsx` `handleOutcomeSelect()`, derive tags from the chosen outcome via `mapCheckInToTags(outcome)` and pass them in the `saveCheckin({ … state_tags: [...] })` call. Send the combined `[stateTag, energyTag, ...recommendationTags]` array (deduped).
 
-Steady currently uses `from-teal-800 to-teal-600`, which on small mobile screens reads close to Focused's `from-emerald-800 to-emerald-600`. 
+`saveCheckin` already forwards `state_tags` to both DEV_MODE upsert and the edge function payload (lines 232/271). The edge function already persists it (line 232 of `daily-checkins/index.ts`). The only missing step is the call site in `DailyCheckIn.tsx`.
 
-**New Steady palette**: deep slate-blue → indigo (clearly distinct from both grey Scattered and green Focused, while staying in the "calm/stable" semiotic family).
+### 3. Ensure `mental_sharpness_level` actually persists from production
 
-`from-blue-900 to-blue-700` — deep navy-blue gradient. Glow: `rgba(30, 58, 138, 0.35)`.
+After the rename:
+- Verify Page 2's edge-function call (`UPDATE_CLARITY_CONFIDENCE`) sends `mentalSharpness` (already does — `CheckInDetail.tsx` line ~70).
+- The redeployed `daily-checkins` function will write the new column on the next Page 2 completion.
+- Add a one-line console log in the edge function to confirm receipt during QA.
 
-Color separation map (visual distance verified):
-- Scattered → cool grey (slate-700→500)
-- **Steady → deep navy-blue (blue-900→700)** ← new
-- Focused → emerald green (emerald-800→600)
+### 4. Out of scope (guardrails)
 
-Applied in 3 files:
-- `src/pages/DailyCheckIn.tsx` — `outcomes[3].gradient`
-- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors.steady`
-- `src/components/insights/EnergyRhythm.tsx` — same
+- No changes to `outcome` column or its values.
+- No changes to readiness scoring, brief logic, or any other edge function.
+- No changes to `energy_balance` (legacy field — separate concern).
+- No backfill — historical rows remain `null` for the new field.
 
-### 4. Mobile Responsiveness Sanity
+### Files Touched
 
-Both pages already have:
-- `pb-[200px]` → ample clearance for sticky CTA + 72px FloatingPillNav
-- Sticky CTA `bottom: calc(env(safe-area-inset-bottom) + 88px)` → above pill nav
-- Header uses `pt-[max(0.75rem,env(safe-area-inset-top))]` → safe area respected
+- **DB migration**: rename column + check constraint.
+- `supabase/functions/daily-checkins/index.ts` — rename key in `UPDATE_CLARITY_CONFIDENCE` update payload.
+- `src/pages/DailyCheckIn.tsx` — call `mapCheckInToTags()` and pass `state_tags` into `saveCheckin()`.
+- `src/pages/CheckInDetail.tsx` — DEV_MODE update key rename.
 
-Adding `pt-20` on the scroll container (up from `pt-16`) gives the title/subtitle the extra 16px of breathing room needed below the fixed header on small viewports (390–414px wide).
+### Verification After Implementation
 
-### 5. Files Touched
-
-- `src/pages/DailyCheckIn.tsx` — `pt-20`, `mt-2`, button `w-[88%]`, Cloud `strokeWidth={1.5}`, Steady gradient.
-- `src/pages/CheckInDetail.tsx` — `pt-20`, `mt-2` on hero, `mt-6` on card.
-- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors.steady` gradient + glow.
-- `src/components/insights/EnergyRhythm.tsx` — same.
-
-### Out of Scope
-No DB migration. No edge function changes. No column renames. No scoring/brief logic touched. Pure UI polish + 1 color swap.
+- New Page 1 check-in → DB row has populated `state_tags` array.
+- Complete Page 2 → DB row has populated `mental_sharpness_level` (1–5).
+- Confirm with: `SELECT outcome, state_tags, clarity_level, confidence_level, mental_sharpness_level FROM daily_checkins ORDER BY created_at DESC LIMIT 5;`
 
