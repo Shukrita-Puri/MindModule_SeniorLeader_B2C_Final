@@ -526,7 +526,7 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
       <button
         onClick={handleClick}
         className={cn(
-          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-body transition-all duration-500",
+          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-body transition-all duration-500",
           chipBgColor(chip.color),
           (hasBack || onNavigate) && "cursor-pointer active:scale-95",
           !hasBack && !onNavigate && "cursor-default",
@@ -543,7 +543,7 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
         </span>
       </button>
       {!flipped && chip.qualifier && (
-        <p className="text-[9px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
+        <p className="text-[11px] text-muted-foreground/50 font-body mt-0.5 pl-1">{chip.qualifier}</p>
       )}
     </div>
   );
@@ -552,10 +552,10 @@ function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: ()
 // ─── LEAN ON / WATCH FOR — plain text: "signal · SOURCE" (uppercase source) ───
 function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   return (
-    <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
+    <span className="text-sm font-body text-foreground/80 leading-relaxed">
       {signal}
       {source && (
-        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">
+        <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">
           · {source}
         </span>
       )}
@@ -584,7 +584,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       <div className="flex gap-2 mt-2">
         <button
           onClick={() => window.location.href = '/connected-data'}
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
+          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
         >
           Connect calendar
         </button>
@@ -601,10 +601,10 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       : `${nextHS.title} · in ${nextHS.minutesUntil} mins`;
     return (
       <div className="flex flex-wrap gap-2 mt-2">
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body font-medium italic", eventPillStyle)}>
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body font-medium italic", eventPillStyle)}>
           {urgentLabel}
         </span>
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
           {loadLabel} day · {meetingLabel}
         </span>
       </div>
@@ -614,7 +614,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
   // Regular calendar display
   const pills: JSX.Element[] = [];
   pills.push(
-    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body", calendarLoadPillStyle(calLoad))}>
+    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
       {loadLabel} day · {meetingLabel}
     </span>
   );
@@ -631,13 +631,13 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
     };
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
         {remainingHS[0]} · {timeLabel}
       </span>
     );
   } else if (remainingHS.length > 0) {
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-body italic", eventPillStyle)}>
+      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
         {remainingHS[0]} · ahead
       </span>
     );
@@ -697,7 +697,7 @@ const PerformanceReadinessBrief = () => {
         <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
           Performance Readiness Brief
         </span>
-        <span className="text-[9px] text-muted-foreground/50 font-body">
+        <span className="text-xs text-muted-foreground/50 font-body">
           {getTimeLabel()} · {getDateLabel()}
         </span>
       </div>
@@ -710,14 +710,14 @@ const PerformanceReadinessBrief = () => {
               {score}
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
-            <span className={cn("text-[10px] uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
+            <span className={cn("text-xs uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
               {getTierLabel(tier)}
             </span>
           </>
         ) : (
           <>
             <span className="text-[40px] font-medium leading-none text-muted-foreground/30">--</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/40 ml-2">Not yet assessed</span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">Not yet assessed</span>
           </>
         )}
       </div>
@@ -732,14 +732,14 @@ const PerformanceReadinessBrief = () => {
 
       {/* 5. BODY COPY */}
       {bodyText && (
-        <p className="mt-2 text-[12px] text-muted-foreground/70 font-body leading-relaxed">
+        <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
           {renderBody(bodyText)}
         </p>
       )}
 
       {/* 6. SIGNAL SECTION */}
       <div className="mt-4">
-        <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
+        <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
           Based on your signals
         </span>
 
@@ -765,7 +765,7 @@ const PerformanceReadinessBrief = () => {
 
         {/* 8. FLIP AFFORDANCE HINT */}
         {chips.some(c => !!c.backLabel) && (
-          <p className="mt-1.5 text-[9px] text-muted-foreground/40 font-body italic">
+          <p className="mt-1.5 text-xs text-muted-foreground/40 font-body italic">
             Tap a pill to see the number behind it
           </p>
         )}
@@ -774,87 +774,92 @@ const PerformanceReadinessBrief = () => {
       {/* 9. DIVIDER */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--taupe))]/20 to-transparent my-4" />
 
-      {/* 10. HOW TO SHOW UP */}
-      <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
-        How to show up
-      </span>
+      {/* 10. HOW TO SHOW UP — Progressive Disclosure (collapsed by default) */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
+          How to show up
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
 
-      {/* 11. LEAN ON — plain text, no pill */}
-      {outerBrief?.leanOn && (() => {
-        const pairs = parseSignalSourcePairs(outerBrief.leanOn);
-        return (
-          <div className="flex items-baseline gap-2 mt-3">
-            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
-              Lean on
-            </span>
-            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
-              {pairs ? (
-                pairs.map((pair, idx) => (
-                  <span key={`lean-${idx}`}>
-                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
-                    {pair.signal}
-                    {pair.source && (
-                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
-                    )}
-                  </span>
-                ))
-              ) : (
-                <>
-                  {outerBrief.leanOn}
-                  {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {leanOnSource}</span>}
-                </>
-              )}
-            </span>
-          </div>
-        );
-      })()}
+        <CollapsibleContent>
+          {/* 11. LEAN ON — plain text, no pill */}
+          {outerBrief?.leanOn && (() => {
+            const pairs = parseSignalSourcePairs(outerBrief.leanOn);
+            return (
+              <div className="flex items-baseline gap-2 mt-3">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider">
+                  Lean on
+                </span>
+                <span className="text-sm font-body text-foreground/80 leading-relaxed">
+                  {pairs ? (
+                    pairs.map((pair, idx) => (
+                      <span key={`lean-${idx}`}>
+                        {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                        {pair.signal}
+                        {pair.source && (
+                          <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {pair.source}</span>
+                        )}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      {outerBrief.leanOn}
+                      {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {leanOnSource}</span>}
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
 
-      {/* 12. WATCH FOR — plain text, no pill */}
-      {outerBrief?.watchFor && (() => {
-        const pairs = parseSignalSourcePairs(outerBrief.watchFor);
-        return (
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
-              Watch for
-            </span>
-            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
-              {pairs ? (
-                pairs.map((pair, idx) => (
-                  <span key={`watch-${idx}`}>
-                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
-                    {pair.signal}
-                    {pair.source && (
-                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
-                    )}
-                  </span>
-                ))
-              ) : (
-                <>
-                  {outerBrief.watchFor}
-                  {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {watchForSource}</span>}
-                </>
-              )}
-            </span>
-          </div>
-        );
-      })()}
+          {/* 12. WATCH FOR — plain text, no pill */}
+          {outerBrief?.watchFor && (() => {
+            const pairs = parseSignalSourcePairs(outerBrief.watchFor);
+            return (
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider">
+                  Watch for
+                </span>
+                <span className="text-sm font-body text-foreground/80 leading-relaxed">
+                  {pairs ? (
+                    pairs.map((pair, idx) => (
+                      <span key={`watch-${idx}`}>
+                        {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                        {pair.signal}
+                        {pair.source && (
+                          <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {pair.source}</span>
+                        )}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      {outerBrief.watchFor}
+                      {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {watchForSource}</span>}
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
 
-      {/* 13. DATA SOURCE NOTE */}
-      <p className="mt-4 text-[9px] text-muted-foreground/35 font-body">
-        {dataSources.join(' · ')}
-      </p>
+          {/* 13. DATA SOURCE NOTE */}
+          <p className="mt-4 text-xs text-muted-foreground/35 font-body">
+            {dataSources.join(' · ')}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* 14. TAP FOR RAW NUMBERS */}
       {hasCheckIn && (
         <Collapsible open={rawExpanded} onOpenChange={setRawExpanded}>
           <CollapsibleTrigger asChild>
-            <button className="flex items-center justify-end w-full mt-2 text-[9px] text-muted-foreground/35 font-body gap-1 hover:text-muted-foreground/50 transition-colors">
+            <button className="flex items-center justify-end w-full mt-2 text-xs text-muted-foreground/35 font-body gap-1 hover:text-muted-foreground/50 transition-colors">
               {rawExpanded ? 'Hide raw numbers' : 'Tap for raw numbers ›'}
               {rawExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
-            <div className="space-y-1 text-[10px] font-body text-muted-foreground/60">
+            <div className="space-y-1 text-xs font-body text-muted-foreground/60">
               {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData || outerBrief?.wearableStatus?.isStale) && (
                 <>
                   {outerBrief?.hrvValue != null && (
