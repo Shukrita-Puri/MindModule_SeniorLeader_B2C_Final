@@ -8,15 +8,12 @@ import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
+import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import LeftSidebar from "@/components/navigation/LeftSidebar";
-import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
-import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -34,42 +31,41 @@ interface CheckInData {
   completedFull: boolean;
 }
 
-// Gradient colors follow emotional semiotics:
-// Red/warm = high-arousal negative (overwhelmed)
-// Cool gray = low-energy negative (drained)
-// Indigo/violet = cognitive dissonance (scattered)
-// Warm amber = neutral/stable (steady)
-// Green/emerald = positive/optimal (focused)
 const outcomes = [
   {
     value: "overwhelmed" as Outcome,
     icon: Waves,
     title: "Overwhelmed / Stressed",
-    gradient: "from-red-700/90 to-rose-500/90",
+    subtitle: "Too much, too fast",
+    gradient: "from-red-800/90 to-amber-600/90",
   },
   {
     value: "drained" as Outcome,
     icon: Zap,
     title: "Low Energy / Drained",
-    gradient: "from-slate-600/90 to-gray-400/90",
+    subtitle: "Running on empty",
+    gradient: "from-slate-700/90 to-gray-400/90",
   },
   {
     value: "scattered" as Outcome,
     icon: Wind,
     title: "Scattered / Unfocused",
-    gradient: "from-indigo-700/90 to-violet-400/90",
+    subtitle: "Mind in motion",
+    gradient: "from-teal-700/90 to-emerald-300/90",
   },
   {
     value: "steady" as Outcome,
     icon: Target,
     title: "Okay / Steady",
-    gradient: "from-amber-600/90 to-yellow-400/90",
+    subtitle: "Grounded. Present.",
+    gradient: "from-amber-700/90 to-yellow-200/90",
   },
   {
     value: "focused" as Outcome,
     icon: Sparkles,
     title: "Focused / Energised",
-    gradient: "from-emerald-700/90 to-green-400/90",
+    subtitle: "Sharp and ready",
+    gradient: "from-green-800/90 to-yellow-500/90",
   },
 ];
 
@@ -305,130 +301,117 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <div className="h-screen flex w-full bg-background overflow-hidden">
-        <LeftSidebar />
-        
-        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-          <div className="min-h-screen flex flex-col bg-background pb-[160px]">
+    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
+      <FloatingNavigation showCoachButton={false} />
 
-            {/* Top bar with hamburger */}
-            <header className="relative z-50 flex items-center justify-between px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-              <div className="p-2 -m-2 rounded-full">
-                <SidebarDiscoveryPulse />
-              </div>
-              <div className="hidden p-2 -m-2 rounded-full">
-                <CoachAccessButton />
-              </div>
-            </header>
-
-            {/* Already checked in banner */}
-            {alreadyCheckedIn && (
-              <div className="px-4 pb-2">
-                <div className="p-3 rounded-xl bg-muted border border-border text-center space-y-2 max-w-lg mx-auto">
-                  <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
-                  <div className="flex gap-3 justify-center">
-                    <button
-                      onClick={() => setAlreadyCheckedIn(false)}
-                      className="text-sm font-medium text-primary underline"
-                    >
-                      Update anyway
-                    </button>
-                    <button
-                      onClick={() => navigate('/executive-home')}
-                      className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
-                    >
-                      Go to Home
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Hero Banner */}
-            <div className="relative h-auto py-6 overflow-hidden">
-              <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-                <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
-                  Performance Readiness
-                </h1>
-                <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">How are you showing up right now?</p>
-              </div>
+      {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
+      {alreadyCheckedIn && (
+        <div className="fixed top-0 left-0 right-0 z-[210] px-4 pt-[calc(env(safe-area-inset-top,0px)+56px)] pb-2 bg-gradient-to-b from-background via-background to-background/0">
+          <div className="p-3 rounded-xl bg-muted border border-border text-center space-y-2 max-w-lg mx-auto">
+            <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setAlreadyCheckedIn(false)}
+                className="text-sm font-medium text-primary underline"
+              >
+                Update anyway
+              </button>
+              <button
+                onClick={() => navigate('/executive-home')}
+                className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
+              >
+                Go to Home
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Hero Banner – compact for single-fold */}
+      <div className="relative h-auto py-6 overflow-hidden">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
+          <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
+            Performance Readiness Assessment
+          </h1>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Sharpness State</p>
+        </div>
+      </div>
 
-            <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
 
-              {/* Instruction */}
-              <p className="text-base text-muted-foreground font-body mb-5 tracking-wide text-center leading-none">
-                Select your current state
-              </p>
+        {/* Instruction */}
+        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
+          Select your current state
+        </p>
 
-              {/* Vertical state list */}
-              <div data-tour="check-in-carousel" className="flex flex-col gap-3 w-full">
-                {outcomes.map((outcome) => {
-                  const IconComponent = outcome.icon;
-                  const isSelected = selectedOutcome === outcome.value;
-                  return (
-                    <TouchOptimized
-                      key={outcome.value}
-                      onTap={() => setSelectedOutcome(outcome.value)}
-                      className="w-full"
-                    >
-                      <div
-                        className={`
-                          w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
-                          flex items-center gap-4 px-5 py-5
-                          border backdrop-blur-sm cursor-pointer
-                          transition-all duration-200
-                          ${isSelected
-                            ? 'scale-[1.02] shadow-[0_8px_28px_rgba(0,0,0,0.30)] border-white/40 opacity-100'
-                            : 'border-white/20 opacity-85 hover:opacity-100'}
-                        `}
-                      >
-                        <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
-                          <IconComponent className="w-6 h-6 text-white" />
-                        </div>
-                        <h3 className="text-base font-semibold font-body text-white tracking-[0.01em] leading-tight">
-                          {outcome.title}
-                        </h3>
-                      </div>
-                    </TouchOptimized>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Sticky bottom CTA */}
-            <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
-            >
-              <div className="max-w-lg mx-auto">
-                <button
-                  onClick={handleConfirm}
-                  disabled={!selectedOutcome || isSubmitting}
+        {/* Vertical state list – compact gaps */}
+        <div data-tour="check-in-carousel" className="flex flex-col gap-3 w-full">
+          {outcomes.map((outcome) => {
+            const IconComponent = outcome.icon;
+            const isSelected = selectedOutcome === outcome.value;
+            return (
+              <TouchOptimized
+                key={outcome.value}
+                onTap={() => setSelectedOutcome(outcome.value)}
+                className="w-full"
+              >
+                <div
                   className={`
-                    w-full py-4 rounded-xl font-body text-[17px] font-medium tracking-wide
+                    w-full rounded-2xl bg-gradient-to-br ${outcome.gradient}
+                    flex items-center gap-4 px-5 py-4
+                    border backdrop-blur-sm cursor-pointer
                     transition-all duration-200
-                    ${selectedOutcome
-                      ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
-                      : 'bg-muted text-muted-foreground cursor-not-allowed'}
+                    ${isSelected
+                      ? 'scale-[1.02] shadow-[0_8px_28px_rgba(0,0,0,0.30)] border-white/40 opacity-100'
+                      : 'border-white/20 opacity-85 hover:opacity-100'}
                   `}
                 >
-                  {isSubmitting ? 'Saving…' : 'Confirm'}
-                </button>
-              </div>
-            </div>
-
-            {/* First Session Guide overlay */}
-            {showGuide && (
-              <FirstSessionGuide onComplete={() => {
-                setShowGuide(false);
-                recordStep('first_session_walkthrough', { completed: true });
-              }} />
-            )}
-          </div>
-        </SidebarInset>
+                  <div className="w-11 h-11 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
+                    <IconComponent className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
+                      {outcome.title}
+                    </h3>
+                    <p className="text-sm text-white/80 font-body leading-tight">
+                      {outcome.subtitle}
+                    </p>
+                  </div>
+                </div>
+              </TouchOptimized>
+            );
+          })}
+        </div>
       </div>
-    </SidebarProvider>
+
+      {/* Sticky bottom CTA – sits above pill nav */}
+      <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+      >
+        <div className="max-w-lg mx-auto">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedOutcome || isSubmitting}
+            className={`
+              w-full py-4 rounded-xl font-body text-[16px] font-medium tracking-wide
+              transition-all duration-200
+              ${selectedOutcome
+                ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'}
+            `}
+          >
+            {isSubmitting ? 'Saving…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+      {/* First Session Guide overlay */}
+      {showGuide && (
+        <FirstSessionGuide onComplete={() => {
+          setShowGuide(false);
+          // Persist walkthrough completion to DB (fire-and-forget)
+          recordStep('first_session_walkthrough', { completed: true });
+        }} />
+      )}
+    </div>
   );
 };
 
