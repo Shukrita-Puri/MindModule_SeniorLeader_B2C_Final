@@ -560,10 +560,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       >
         {/* Phase + counter */}
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-white/60">
+          <p className="text-xs tracking-[0.2em] uppercase font-medium text-white/60">
             {step.phaseLabel}
           </p>
-          <p className="text-[10px] text-white/50 font-medium">
+          <p className="text-xs text-white/50 font-medium">
             {currentStep + 1} of {STEPS.length}
           </p>
         </div>
@@ -609,10 +609,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
           style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)', maxWidth: '360px' }}
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] tracking-[0.2em] uppercase font-medium text-white/60">
+            <p className="text-xs tracking-[0.2em] uppercase font-medium text-white/60">
               {step.phaseLabel}
             </p>
-            <p className="text-[10px] text-white/50 font-medium">
+            <p className="text-xs text-white/50 font-medium">
               {currentStep + 1} of {STEPS.length}
             </p>
           </div>

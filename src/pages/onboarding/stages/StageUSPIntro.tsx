@@ -125,7 +125,7 @@ export default function StageUSPIntro() {
             <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
               MIND MODULE
             </h1>
-            <p className="text-[9px] sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+            <p className="text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
               Executive Edition
             </p>
 

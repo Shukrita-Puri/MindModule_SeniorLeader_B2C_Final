@@ -1142,7 +1142,7 @@ const GuidedPracticePlayer = () => {
               <h1 className="text-[28px] md:text-5xl font-headline font-semibold text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {practice?.title}
               </h1>
-              <p className="text-white/80 text-[13px] md:text-sm font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+              <p className="text-white/80 text-sm font-body leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                 {contentData.storyHook}
               </p>
             </div>
@@ -1162,7 +1162,7 @@ const GuidedPracticePlayer = () => {
               <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
             </Button>
 
-            <p className="text-white/80 text-[13px] md:text-sm font-hint tracking-wide mb-8">
+            <p className="text-white/80 text-sm font-hint tracking-wide mb-8">
               Tap to begin
             </p>
 
@@ -1504,7 +1504,7 @@ const GuidedPracticePlayer = () => {
                     <ChevronDown className={`h-4 w-4 text-gold transition-transform ${isOriginOpen ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <p className="text-[13px] md:text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {practice.fullStory}
                     </p>
                     <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground pt-2">
@@ -1524,7 +1524,7 @@ const GuidedPracticePlayer = () => {
                   {practice.whatYouNeed.map((item, index) => (
                     <li 
                       key={index} 
-                      className={`flex items-start gap-2 text-[13px] md:text-sm ${
+                      className={`flex items-start gap-2 text-sm ${
                         item.startsWith('⚠️') || item.includes('DO NOT') 
                           ? 'text-red-500 font-semibold' 
                           : 'text-muted-foreground'
@@ -1544,7 +1544,7 @@ const GuidedPracticePlayer = () => {
                 <h2 className="text-[15px] font-medium text-gold">Expected Outcomes</h2>
                 <ul className="space-y-2">
                   {practice.expectedOutcomes.map((outcome, index) => (
-                    <li key={index} className="flex items-start gap-2 text-[13px] md:text-sm text-muted-foreground">
+                    <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-gold mt-1" />
                       <span>{outcome}</span>
                     </li>
@@ -1557,7 +1557,7 @@ const GuidedPracticePlayer = () => {
             <Card>
               <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
                 <h2 className="text-[15px] font-medium text-gold">Practice Journey</h2>
-                <p className="text-[13px] md:text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {practice.steps.length} steps • {Math.floor(practice.totalDuration / 60)} minutes
                 </p>
                 <div className="space-y-2">
@@ -1659,7 +1659,7 @@ const GuidedPracticePlayer = () => {
           {/* Instruction */}
           <Card className="w-full mb-4 md:mb-6">
             <CardContent className="pt-4 md:pt-6">
-              <p className="text-[13px] md:text-sm leading-relaxed text-center">
+              <p className="text-sm leading-relaxed text-center">
                 {currentStepData.instruction}
               </p>
             </CardContent>

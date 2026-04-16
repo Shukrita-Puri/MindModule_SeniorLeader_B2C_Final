@@ -16,13 +16,13 @@ import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 /** Parse leanOn text for contextual enrichment blocks (text after \n\n_..._) */
 function renderLeanOn(text: string) {
   const parts = text.split('\n\n_');
-  if (parts.length === 1) return <p className="text-[13px] text-primary/80 font-body leading-relaxed"><span className="typo-lean-label">Lean on:</span> {text}</p>;
+  if (parts.length === 1) return <p className="text-sm text-primary/80 font-body leading-relaxed"><span className="typo-lean-label">Lean on:</span> {text}</p>;
   return (
     <>
-      <p className="text-[13px] text-primary/80 font-body leading-relaxed">
+      <p className="text-sm text-primary/80 font-body leading-relaxed">
         <span className="typo-lean-label">Lean on:</span> {parts[0]}
       </p>
-      <p className="text-[12px] text-muted-foreground/70 font-body leading-relaxed italic mt-2 pt-2 border-t border-border/30">
+      <p className="text-sm text-muted-foreground/70 font-body leading-relaxed italic mt-2 pt-2 border-t border-border/30">
         {parts[1].replace(/_$/, '')}
       </p>
     </>
@@ -58,7 +58,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
     )}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-[11px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
+        <h2 className="text-xs tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
         <MetricInfoModal
           title="Your Outer Readiness Brief"
           description="Your Compass is where your inner world meets the outer demands of the day. It takes your Decision Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
@@ -80,7 +80,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         {/* JIT event context banner */}
         {jitEvent && (
           <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
-            <span className="text-[13px] text-foreground font-medium font-body">
+            <span className="text-sm text-foreground font-medium font-body">
               <TextWithEventEmphasis text={`'${jitEvent.title}' in ${jitEvent.minutesUntil} min – your sequence is ready`} />
             </span>
           </div>
@@ -100,7 +100,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
           {renderLeanOn(brief.leanOn)}
-          <p className="text-[13px] text-muted-foreground/80 font-body leading-relaxed">
+          <p className="text-sm text-muted-foreground/80 font-body leading-relaxed">
             <span className="typo-lean-label">Watch for:</span>{' '}
             {brief.watchFor}
           </p>
@@ -109,7 +109,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
 
       {/* Footer - data sources */}
       <div className="pt-1">
-        <span className="text-[10px] text-muted-foreground/50 font-body">
+        <span className="text-xs text-muted-foreground/50 font-body">
           Based on {brief.dataSources.join(', ')}
         </span>
       </div>

@@ -27,7 +27,7 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
             <img src={appLogo} alt="Mind Module" className="w-10 h-10 rounded-xl" />
             <div>
               <p className="text-sm font-headline font-bold leading-tight">Mind Module</p>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Executive Edition</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Executive Edition</p>
             </div>
           </div>
           {sessionsRemaining > 0 && (
