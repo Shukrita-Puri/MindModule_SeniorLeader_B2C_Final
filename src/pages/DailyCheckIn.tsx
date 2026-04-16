@@ -384,8 +384,8 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      {/* Sticky bottom CTA – sits above pill nav */}
-      <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
+      {/* Sticky bottom CTA – sits above pill nav, behind sidebar overlay */}
+      <div className="fixed left-0 right-0 z-30 px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
       >
         <div className="max-w-lg mx-auto">
