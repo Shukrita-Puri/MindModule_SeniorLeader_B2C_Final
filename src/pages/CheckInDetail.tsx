@@ -109,8 +109,8 @@ const CheckInDetail = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">
+      <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
       
