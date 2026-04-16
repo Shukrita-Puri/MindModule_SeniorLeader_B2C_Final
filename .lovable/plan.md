@@ -1,62 +1,114 @@
 
 
-# Radical Visual Simplification: Typography & Progressive Disclosure
+# Typography Audit & Simplification: All Remaining Pages
 
 ## Problem
-The brief card and supporting UI use font sizes as small as **9px** throughout — unreadable on mobile iOS. CEOs need glance-and-act, not squinting. Current violations: `text-[9px]`, `text-[10px]`, `text-[11px]`, `text-[12px]` used extensively across the Performance Readiness Brief and global CSS utilities.
+The initial simplification only covered `DecisionReadinessBrief.tsx`, `ExecutiveHome.tsx`, and `index.css`. Across 44+ component files and 15+ page files, there are still **600+ instances** of sub-14px font sizes (`text-[9px]` through `text-[13px]`). This audit covers PLAN, RESET (Recalibrate), LEARN (Insights), and all supporting components.
 
-## Changes
+## Rules Applied
+- **Body/value text**: anything meant to be read → `text-sm` (14px) minimum
+- **Uppercase labels** with wide tracking: `text-xs` (12px) acceptable — reads like 14px
+- **Inline annotations** (source tags like "· From coach"): `text-[11px]` minimum
+- **Bottom nav labels**: `text-[10px]` acceptable — standard iOS tab bar convention
+- **Badges/pills** (PRO, Done, Step N): `text-xs` (12px) minimum
 
-### 1. Global Minimum Font Size Floor (`src/index.css`)
-- Update typography scale classes: bump `typo-supporting` from 12px → 14px, `typo-lean-value` from 13px → 14px, `typo-section-label` from 11px → 12px (labels only exception at 12px minimum for uppercase tracking-wide text which reads larger)
-- Add a global comment documenting the 14px minimum rule
+## Files & Changes
 
-### 2. Performance Readiness Brief (`src/components/home/DecisionReadinessBrief.tsx`)
-**Every sub-14px instance gets bumped or restructured:**
+### PLAN Pages
 
-| Current | Element | New Size |
-|---------|---------|----------|
-| `text-[9px]` | Eyebrow "Performance Readiness Brief" | `text-xs` (12px) — uppercase + tracking makes 12px read like 14px |
-| `text-[9px]` | Time/date label | `text-xs` (12px) |
-| `text-[9px]` | "Based on your signals" section label | `text-xs` (12px) |
-| `text-[9px]` | "How to show up" section label | `text-xs` (12px) |
-| `text-[9px]` | "Lean on" / "Watch for" labels | `text-xs` (12px) |
-| `text-[9px]` | Source tags (· From coach etc.) | `text-[11px]` — minimum for inline annotation |
-| `text-[9px]` | Data source footer | `text-xs` (12px) |
-| `text-[9px]` | "Tap for raw numbers" | `text-xs` (12px) |
-| `text-[9px]` | Qualifier text under chips | `text-[11px]` |
-| `text-[10px]` | Signal chips | `text-xs` (12px) |
-| `text-[10px]` | Calendar pills | `text-xs` (12px) |
-| `text-[10px]` | Tier label "STRONG" | `text-xs` (12px) |
-| `text-[10px]` | Raw numbers panel | `text-xs` (12px) |
-| `text-[11px]` | Lean on / Watch for value text | `text-sm` (14px) |
-| `text-[12px]` | Body copy | `text-sm` (14px) |
-| `text-[16px]` | "/100" suffix | Keep as-is (already ≥14px) |
-| `text-[17px]` | Phrase | Keep as-is |
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/PlanPage.tsx` | `text-[13px]` | Page subtitle | `text-sm` (14px) |
+| `src/components/home/TodayThreePriorities.tsx` | `text-[11px]` ×3 | Time label, why line, count indicator | `text-xs` (12px) |
+| | `text-[9px]` ×2 | Priority pill, Step indicator | `text-xs` (12px) |
+| | `text-[10px]` ×2 | Type label, practice reasoning | `text-xs` (12px) |
+| | `text-[13px]` | Practice title | `text-sm` (14px) |
+| `src/components/home/DailyRitual.tsx` | `text-[13px]` ×2 | Plan brief text | `text-sm` (14px) |
 
-**Chip flip hint** ("Tap a pill to see the number"): Remove the persistent hint text. Instead, add a subtle shimmer animation on the first chip on mount (1-time affordance) — or keep the text but at 12px.
+### RESET (Recalibrate) Pages
 
-### 3. Progressive Disclosure: Collapse "How to show up" by default
-- Wrap the "How to show up" section (Lean on + Watch for + data sources) inside a `<Collapsible>` that defaults to **closed**
-- Trigger label: "How to show up ›" — tapping expands the section
-- This cuts ~40% of visible text on first glance, showing only: score → calendar → phrase → signal chips
-- The existing "Tap for raw numbers" collapsible stays nested inside
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/RecalibrateMode.tsx` | `text-[11px]` | Tool card description | `text-xs` (12px) |
+| `src/pages/recalibrate/PauseOutcomePage.tsx` | `text-[13px]` ×4 | Page subtitle, protocol descriptions | `text-sm` (14px) |
+| | `text-[10px]` ×2 | Steps count | `text-xs` (12px) |
+| `src/pages/recalibrate/PresenceOutcomePage.tsx` | `text-[13px]` ×4 | Page subtitle, protocol descriptions | `text-sm` (14px) |
+| | `text-[10px]` ×2 | Steps count | `text-xs` (12px) |
+| `src/pages/recalibrate/PowerUpOutcomePage.tsx` | `text-[13px]` ×4 | Page subtitle, protocol descriptions | `text-sm` (14px) |
+| | `text-[10px]` ×2 | Steps count | `text-xs` (12px) |
 
-### 4. ExecutiveHome hero text (`src/pages/ExecutiveHome.tsx`)
-- Subheadline `text-[15px]` → `text-base` (16px) — meets floor
+### LEARN (Insights) Page
 
-### 5. Sidebar / Navigation — already addressed in prior changes, no sub-14px violations remain
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/Insights.tsx` | `text-[10px]` ×4 | Stat labels, tag pills, date text | `text-xs` (12px) |
+| `src/components/insights/PerformanceRhythmCard.tsx` | `text-[9px]` | Day label | `text-xs` (12px) |
+| | `text-[10px]` ×3 | Row labels, scroll hint, data source | `text-xs` (12px) |
+| | `text-[11px]` ×4 | Section headers, date number | `text-xs` (12px) |
+| `src/components/insights/CalendarStateCorrelations.tsx` | `text-[10px]` ×2 | Occurrence count, data source | `text-xs` (12px) |
+| `src/components/insights/EnergyRhythmCurve.tsx` | `text-[13px]` ×2 | Empty state, window labels | `text-sm` (14px) |
+| `src/components/insights/LockedInsightSection.tsx` | `text-[10px]` ×3 | PRO badge, feature list | `text-xs` (12px) |
 
-## Files Changed
+### Check-In Pages
 
-| File | Change |
-|------|--------|
-| `src/components/home/DecisionReadinessBrief.tsx` | Bump all font sizes to floor; collapse "How to show up" section |
-| `src/index.css` | Update typography scale classes |
-| `src/pages/ExecutiveHome.tsx` | Bump subheadline to 16px |
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/DailyCheckIn.tsx` | `text-[13px]` ×3 | Subtitle, instruction, outcome text | `text-sm` (14px) |
+| `src/pages/CheckInDetail.tsx` | `text-[13px]` | Subtitle | `text-sm` (14px) |
 
-## No Changes To
-- Edge functions, database schema, RLS, scoring logic, LLM prompts
-- Signal chip logic, color mapping, or data flow
-- Sidebar, bottom nav, or any other page
+### Coach
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/components/coach/CoachSplitView.tsx` | `text-[12px]` | Subtitle | `text-sm` (14px) |
+| | `text-[10px]` ×2 | Disclaimer | `text-xs` (12px) |
+| `src/components/coach/CoachSurfaceMessage.tsx` | `text-[12px]` | Message text | `text-sm` (14px) |
+
+### JIT & Home Components
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/components/home/JitCarousel.tsx` | `text-[11px]` ×2 | JIT label, step count | `text-xs` (12px) |
+| | `text-[10px]` ×3 | Time pill, type pill, HRV note | `text-xs` (12px) |
+| | `text-[9px]` ×2 | Done badge, step label | `text-xs` (12px) |
+| `src/components/home/PostEventReflection.tsx` | `text-[10px]` | Helper text | `text-xs` (12px) |
+| `src/components/home/GreetingBanner.tsx` | `text-[13px]` | Subtitle | `text-sm` (14px) |
+
+### Navigation & Misc
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/components/navigation/LeftSidebar.tsx` | `text-[10px]` | "Executive Edition" | `text-xs` (12px) |
+| `src/components/navigation/RecentActivity.tsx` | `text-[10px]` | Group date label | `text-xs` (12px) |
+| `src/components/navigation/FloatingPillNav.tsx` | `text-[9px]` | Tab labels | Keep — iOS tab bar convention |
+| `src/components/chat/WisdomCard.tsx` | `text-[10px]` | Context line | `text-xs` (12px) |
+| `src/pages/Front.tsx` | `text-[9px]`, `text-[10px]` ×2 | Edition label, privacy/AI links | `text-xs` (12px) |
+
+### Onboarding (Results)
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/onboarding/stages/Stage8Results.tsx` | `text-[13px]` ×2 | Dimension labels/values | `text-sm` (14px) |
+| | `text-[10px]`, `text-[11px]`, `text-[9px]` | Tooltip button, skill labels, skill chips | `text-xs` (12px) |
+| | `text-[12px]` ×2 | CTA button, skill pills | `text-sm` (14px) |
+
+### Micro Practice Player
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| `src/pages/MicroPracticePlayerCards.tsx` | `text-[13px]` | Card subtitle | `text-sm` (14px) |
+
+### Simulation Components
+
+| File | Current | Element | New |
+|------|---------|---------|-----|
+| Various simulation components | `text-[10px]`–`text-[12px]` | Labels, annotations | `text-xs`–`text-sm` per rule |
+
+## Exceptions (No Change)
+- `FloatingPillNav.tsx` — `text-[9px]` tab labels follow iOS native convention
+- `DecisionReadinessBrief.tsx` — already fixed in prior pass
+- `src/index.css` — already fixed in prior pass
+
+## Scope
+~30 files, ~600 class replacements. No logic, database, or edge function changes. Pure CSS class swaps.
 
