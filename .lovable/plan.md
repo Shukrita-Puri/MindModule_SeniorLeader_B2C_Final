@@ -1,113 +1,70 @@
 
 
-## Mental Performance OS Refactor — Plan
+## Plan: Mature C-Suite Palette + Layout Polish
 
-### Critical Architectural Decision
+### 1. Color Palette — Mature Single-Hue Gradients
 
-The prompt has an internal conflict:
-- **Rule 1 (DB)**: "Rename column 'Sharpness/Energy' to `mental_energy_state`" + "Update allowable strings to `Overloaded | Depleted | Scattered | Steady | Focused`"
-- **Guardrail 5**: "Do not modify the logic of the Performance Brief... Do not update Edge Functions or scoring formulas... Ensure the string is passed correctly to avoid breaking existing data row entries"
+Replace bright dual-hue gradients with deeper, single-hue tonal gradients (light-to-dark within the same family), matching the previous luxury palette feel.
 
-The current column is `daily_checkins.outcome` (text), with values `overwhelmed | drained | scattered | steady | focused` consumed by **16+ files including 6+ Edge Functions** (`generate-mastery-plan`, `infer-current-state`, `compute-outer-readiness`, `learn-checkin-patterns`, `state-patterns-insights`, `daily-checkins`). Renaming the column AND changing the value casing/vocabulary would break every one of these — directly violating Guardrail 5 and the existing data.
+| State (DB value) | Display label | New gradient | Glow |
+|---|---|---|---|
+| `overwhelmed` | OVERLOADED | `from-red-900 to-red-700` | `rgba(127, 29, 29, 0.35)` |
+| `drained` | **DRAINED** (revert from "Depleted") | `from-amber-800 to-amber-600` | `rgba(146, 64, 14, 0.35)` |
+| `scattered` | SCATTERED | `from-slate-700 to-slate-500` | `rgba(51, 65, 85, 0.35)` |
+| `steady` | STEADY | `from-teal-800 to-teal-600` | `rgba(17, 94, 89, 0.35)` |
+| `focused` | FOCUSED | `from-emerald-800 to-emerald-600` | `rgba(6, 95, 70, 0.35)` |
 
-### Recommended Approach: Semantic Rename Only (Strict Scope honored)
+Applied to:
+- `src/pages/DailyCheckIn.tsx` — outcome buttons.
+- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors` map + legend label `Depleted` → `Drained`.
+- `src/components/insights/EnergyRhythm.tsx` — same map + label change.
 
-1. **Keep DB column name `outcome`** (treat it semantically as `mental_energy_state` in UI/comments only). All edge functions stay untouched.
-2. **Keep the value strings lowercase** (`overwhelmed | drained | scattered | steady | focused`) — these map 1:1 to the new display labels (`Overloaded | Depleted | Scattered | Steady | Focused`). A pure UI label change. No data migration needed, no edge functions touched, no broken historical rows.
-3. **Add new column** `daily_checkins.mental_sharpness_score INTEGER` (1–5, nullable) via migration.
-4. **Reuse existing columns** `clarity_level` (1–5) and `confidence_level` (1–5) for Mental Clarity and Confidence — only display labels change.
+DB value `drained` is unchanged. Only the displayed string flips back to "Drained".
 
-This satisfies the user's intent (new vocabulary, new score column, three sliders) while honoring every guardrail.
+### 2. Slider Label Updates (`CheckInDetail.tsx`)
 
----
+- "Mental Sharpness" → **"Sharpness"**
+- "Mental Clarity" → **"Clarity"**
+- "Confidence" — unchanged.
 
-### 1. Database Migration
+### 3. Wider Sliders + Layout Anchoring (`DailyCheckIn.tsx` + `CheckInDetail.tsx`)
 
-```sql
-ALTER TABLE public.daily_checkins
-  ADD COLUMN IF NOT EXISTS mental_sharpness_score INTEGER
-  CHECK (mental_sharpness_score IS NULL OR mental_sharpness_score BETWEEN 1 AND 5);
+Both assessment pages need the same layout fix so the iOS feel is consistent:
+
+```text
+┌─────────────────────────────┐
+│  Sidebar trigger (top)       │  ← anchored top, safe-area-inset-top
+├─────────────────────────────┤
+│  Title + subtitle            │
+│                              │
+│  Content (buttons / sliders) │  ← wider container on slider page
+│                              │
+├─────────────────────────────┤
+│  CTA button                  │  ← sits ABOVE pill nav, not behind it
+├─────────────────────────────┤
+│  FloatingPillNav             │  ← bottom, safe-area-inset-bottom
+└─────────────────────────────┘
 ```
 
-No rename. No value migration. No edge function changes.
+Specific changes:
 
----
+**`CheckInDetail.tsx`**
+- Card max-width: `max-w-md` → `max-w-lg` (wider sliders for finer control).
+- Sticky CTA `bottom`: change from `calc(env(safe-area-inset-bottom) + 16px)` to `calc(env(safe-area-inset-bottom) + 88px)` so it clears the 72px tall `FloatingPillNav` + 16px gap.
+- Page padding-bottom: increase from `pb-[108px]` to `pb-[180px]` so the last slider isn't hidden behind the CTA.
+- Top: ensure header uses `pt-[max(0.75rem,env(safe-area-inset-top))]` (already correct) — page anchored to top of safe area.
 
-### 2. Page 1 — `/daily-check-in` Refactor
+**`DailyCheckIn.tsx`**
+- Same sticky CTA reposition (`bottom: calc(env(safe-area-inset-bottom) + 88px)`).
+- Same page `pb-` increase to clear CTA + nav.
+- Confirm top header uses safe-area-inset-top.
 
-File: `src/pages/DailyCheckIn.tsx`
+### 4. Out of Scope
+No DB migration. No edge function changes. No scoring/brief logic touched. Pure UI refactor — palette, labels, spacing.
 
-- **Subtitle**: change `"Mental Sharpness State"` → `"Mental Energy State"`
-- **Reorder + restyle outcomes array** (value strings unchanged, only display + colors + icons):
-
-| value (DB) | Display label | Icon | Gradient |
-|---|---|---|---|
-| `overwhelmed` | OVERLOADED | `AlertTriangle` | `from-red-700 to-rose-500` (Deep Crimson) |
-| `drained` | DEPLETED | `BatteryLow` | `from-amber-600 to-orange-400` (Amber/Orange) |
-| `scattered` | SCATTERED | `Cloud` | `from-slate-500 to-zinc-400` (Muted Grey) |
-| `steady` | STEADY | `Minus` (level/bed icon) | `from-teal-600 to-cyan-400` (Soft Teal) |
-| `focused` | FOCUSED | `ArrowUp` | `from-emerald-700 to-green-400` (Emerald) |
-
-- Remove sub-text (already done).
-- Keep current sidebar header + `FloatingPillNav` + sticky CTA layout untouched.
-
----
-
-### 3. Page 2 — `/check-in-detail` Refactor
-
-File: `src/pages/CheckInDetail.tsx`
-
-- **Title subtitle**: change `"Clarity & Confidence State"` → `"Mental Performance Signals"`
-- **Add a 3rd slider** above the existing two: **Mental Sharpness (Renewal)** with state `mentalSharpness`, `mentalSharpnessTouched`.
-- **Update all three slider labels**:
-  - **Mental Sharpness (Renewal)**: `Depleted, Dull, Stable, Acute, Peak`
-  - **Mental Clarity (Resolve)**: `Clouded, Obscured, Neutral, Lucid, Crystal` (replaces current "Foggy/Hazy/Neutral/Clear/Sharp")
-  - **Confidence (Recalibration)**: `Reactive, Uncertain, Poised, Certain, Unshakable` (replaces current "Uncertain/Hesitant/Neutral/Steady/Certain")
-- **Save logic**: `bothTouched` → `allThreeTouched`. Persist `mental_sharpness_score` in addition to `clarity_level` and `confidence_level`.
-  - DEV_MODE: extend the existing `.update({ clarity_level, confidence_level, mental_sharpness_score })` call directly on the table.
-  - Production: extend the existing `UPDATE_CLARITY_CONFIDENCE` invocation body with `mentalSharpness` (the edge function will need a tiny additive change — see §5).
-- Keep all existing styling (luxury glass card, slider variant, layout, sidebar, FloatingPillNav).
-
----
-
-### 4. Edge Function — Minimal Additive Change (NOT a logic change)
-
-File: `supabase/functions/daily-checkins/index.ts`
-
-Single additive change in the `UPDATE_CLARITY_CONFIDENCE` action: accept optional `mentalSharpness` in the body and include `mental_sharpness_score` in the UPDATE payload when provided. No scoring logic touched, no other actions touched, no read-side functions touched. Zero downstream impact (existing consumers don't read this column).
-
-This is the minimum required to persist the new score from production. It does not modify any "Performance Brief" calculations or scoring formulas.
-
----
-
-### 5. Insights Page — `Your Week at a Glance` Recolor
-
-File: `src/components/insights/PerformanceRhythmCard.tsx` (the actual "Week at a Glance" widget; `EnergyRhythm.tsx` is unused/legacy here but will be updated for consistency).
-
-Update the `stateColors` map only — gradients + glow + legend labels:
-
-| value | Legend label | New gradient |
-|---|---|---|
-| `overwhelmed` | Overloaded | `from-red-700 to-rose-500` |
-| `drained` | Depleted | `from-amber-600 to-orange-400` |
-| `scattered` | Scattered | `from-slate-500 to-zinc-400` |
-| `steady` | Steady | `from-teal-600 to-cyan-400` |
-| `focused` | Focused | `from-emerald-700 to-green-400` |
-
-The legend currently uses `capitalize` on the raw value. Switch to a `displayLabel` map so `overwhelmed → Overloaded` and `drained → Depleted`. All other UI, layout, dot sizing, scroll behaviour, info modal copy — unchanged.
-
-Apply the same color/label map to `src/components/insights/EnergyRhythm.tsx` so any other surface stays consistent.
-
----
-
-### 6. Files Touched (summary)
-
-- **Migration**: add `mental_sharpness_score` column.
-- **`src/pages/DailyCheckIn.tsx`**: outcomes array (icons, gradients, labels), subtitle.
-- **`src/pages/CheckInDetail.tsx`**: add 3rd slider, relabel all three, persist new score, title subtitle.
-- **`supabase/functions/daily-checkins/index.ts`**: single additive field in `UPDATE_CLARITY_CONFIDENCE` (the only edge-function touch — required to write the new column).
-- **`src/components/insights/PerformanceRhythmCard.tsx`**: `stateColors` palette + legend labels.
-- **`src/components/insights/EnergyRhythm.tsx`**: same palette/labels for consistency.
-
-Out of scope: no changes to `generate-mastery-plan`, `infer-current-state`, `compute-outer-readiness`, `learn-checkin-patterns`, `state-patterns-insights`, scoring weights, brief logic, mastery plan derivation, RLS, or any read paths.
+### Files Touched
+- `src/pages/DailyCheckIn.tsx`
+- `src/pages/CheckInDetail.tsx`
+- `src/components/insights/PerformanceRhythmCard.tsx`
+- `src/components/insights/EnergyRhythm.tsx`
 
