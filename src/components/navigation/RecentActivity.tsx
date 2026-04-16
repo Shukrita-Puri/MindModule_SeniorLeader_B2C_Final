@@ -96,25 +96,38 @@ const RecentActivity = () => {
           
           {group.items.map((activity) => {
             const { icon: Icon, isPhosphor } = getIcon(activity.type) as any;
+            const IconNode = isPhosphor ? (
+              <Icon size={14} weight="duotone" className="text-muted-foreground flex-shrink-0" />
+            ) : (
+              <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            );
+
+            // Assessments are informational only — render as static row
+            if (activity.type === 'assessment') {
+              return (
+                <SidebarMenuItem key={activity.id}>
+                  <div className="flex items-center gap-2 px-2 py-1.5 h-auto text-sidebar-foreground/80">
+                    {IconNode}
+                    <span className="text-xs truncate flex-1">{activity.title}</span>
+                  </div>
+                </SidebarMenuItem>
+              );
+            }
+
             return (
               <SidebarMenuItem key={activity.id}>
                 <SidebarMenuButton
                   onClick={() => {
-                    if (activity.type === 'assessment') {
-                      navigate('/daily-check-in');
-                    } else if (activity.type === 'recalibrate') {
+                    if (activity.type === 'recalibrate') {
                       navigate('/recalibrate');
                     } else if (activity.type === 'brief') {
-                      navigate('/executive-home');
+                      const dateStr = activity.date.toISOString().split('T')[0];
+                      navigate(`/executive-home?briefDate=${dateStr}`);
                     }
                   }}
                   className="h-auto py-1.5"
                 >
-                  {isPhosphor ? (
-                    <Icon size={14} weight="duotone" className="text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  )}
+                  {IconNode}
                   <span className="text-xs truncate flex-1">{activity.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
