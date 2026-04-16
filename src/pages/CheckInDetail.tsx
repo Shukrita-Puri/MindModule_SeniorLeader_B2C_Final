@@ -109,13 +109,13 @@ const CheckInDetail = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-    <div className="min-h-screen flex flex-col bg-background pt-24 pb-[248px]">
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
       
-      <div className="relative h-auto py-7 mt-2 mb-3 overflow-hidden">
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+      <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
+        <div className="relative h-full flex flex-col items-center justify-center text-center z-10 space-y-1.5">
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight leading-tight">
             Performance Readiness Assessment
           </h1>
@@ -123,19 +123,19 @@ const CheckInDetail = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pb-24 mt-8">
+      <div className="flex-1 flex min-h-0 items-start justify-center px-4 pt-1 pb-0">
         <div className="w-full max-w-lg animate-fade-in">
           {/* Luxury glass card wrapper */}
-          <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
+          <div className="relative overflow-hidden rounded-2xl p-5 space-y-6
             bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
             border border-black/[0.08]
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
             {/* Mental Sharpness Slider (Renewal) */}
-            <div className="relative space-y-4">
+            <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Sharpness</span>
-                <span className="text-[15px] font-medium text-primary font-body">{sharpnessLabels[mentalSharpness - 1]}</span>
+                <span className="text-[14px] font-medium text-foreground font-body">Sharpness</span>
+                <span className="text-[14px] font-medium text-primary font-body">{sharpnessLabels[mentalSharpness - 1]}</span>
               </div>
               <Slider
                 value={[mentalSharpness]}
@@ -144,7 +144,7 @@ const CheckInDetail = () => {
                 max={5}
                 step={1}
                 variant="luxury"
-                className="w-full py-1"
+                className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Depleted</span>
@@ -153,10 +153,10 @@ const CheckInDetail = () => {
             </div>
 
             {/* Mental Clarity Slider (Resolve) */}
-            <div className="relative space-y-4">
+            <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Clarity</span>
-                <span className="text-[15px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
+                <span className="text-[14px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[14px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
               </div>
               <Slider
                 value={[clarity]}
@@ -165,7 +165,7 @@ const CheckInDetail = () => {
                 max={5}
                 step={1}
                 variant="luxury"
-                className="w-full py-1"
+                className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Clouded</span>
@@ -174,10 +174,10 @@ const CheckInDetail = () => {
             </div>
 
             {/* Confidence Slider (Recalibration) */}
-            <div className="relative space-y-4">
+            <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Confidence</span>
-                <span className="text-[15px] font-medium text-primary font-body">{confidenceLabels[confidence - 1]}</span>
+                <span className="text-[14px] font-medium text-foreground font-body">Confidence</span>
+                <span className="text-[14px] font-medium text-primary font-body">{confidenceLabels[confidence - 1]}</span>
               </div>
               <Slider
                 value={[confidence]}
@@ -186,7 +186,7 @@ const CheckInDetail = () => {
                 max={5}
                 step={1}
                 variant="luxury"
-                className="w-full py-1"
+                className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Reactive</span>
@@ -198,8 +198,8 @@ const CheckInDetail = () => {
       </div>
 
       {/* Sticky bottom CTA – sits above pill nav, behind sidebar overlay */}
-      <div className="fixed left-0 right-0 z-30 px-4 pt-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
+      <div className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2.5 bg-gradient-to-t from-background via-background to-background/0"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button
