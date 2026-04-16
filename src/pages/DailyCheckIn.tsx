@@ -39,31 +39,31 @@ const outcomes = [
     value: "overwhelmed" as Outcome,
     icon: AlertTriangle,
     title: "Overloaded",
-    gradient: "from-red-700/95 to-rose-500/90",
+    gradient: "from-red-900 to-red-700",
   },
   {
     value: "drained" as Outcome,
     icon: BatteryLow,
-    title: "Depleted",
-    gradient: "from-amber-600/95 to-orange-400/90",
+    title: "Drained",
+    gradient: "from-amber-800 to-amber-600",
   },
   {
     value: "scattered" as Outcome,
     icon: Cloud,
     title: "Scattered",
-    gradient: "from-slate-500/90 to-zinc-400/90",
+    gradient: "from-slate-700 to-slate-500",
   },
   {
     value: "steady" as Outcome,
     icon: Minus,
     title: "Steady",
-    gradient: "from-teal-600/95 to-cyan-400/90",
+    gradient: "from-teal-800 to-teal-600",
   },
   {
     value: "focused" as Outcome,
     icon: ArrowUp,
     title: "Focused",
-    gradient: "from-emerald-700/95 to-green-400/90",
+    gradient: "from-emerald-800 to-emerald-600",
   },
 ];
 
@@ -303,7 +303,7 @@ const DailyCheckIn = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-      <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
+      <div className="min-h-screen flex flex-col bg-background pt-16 pb-[200px]">
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
@@ -386,7 +386,7 @@ const DailyCheckIn = () => {
 
       {/* Sticky bottom CTA – sits above pill nav */}
       <div className="fixed left-0 right-0 z-[220] px-4 py-3 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button
