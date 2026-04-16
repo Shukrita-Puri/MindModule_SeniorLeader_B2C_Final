@@ -233,7 +233,7 @@ const BehaviorOutcomeCorrelations = ({ userId }: BehaviorOutcomeCorrelationsProp
               <span className="text-sm font-semibold text-foreground">
                 {Math.round(correlation.confidence * 100)}%
               </span>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 ({correlation.occurrences}×)
               </p>
             </div>
@@ -254,7 +254,7 @@ const BehaviorOutcomeCorrelations = ({ userId }: BehaviorOutcomeCorrelationsProp
       )}
 
       {/* Data source note */}
-      <p className="text-[10px] text-muted-foreground/60 text-center">
+      <p className="text-xs text-muted-foreground/60 text-center">
         Based on last 30 days of behavior logs and check-ins
       </p>
     </div>

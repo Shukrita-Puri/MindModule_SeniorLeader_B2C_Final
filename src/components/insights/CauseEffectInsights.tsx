@@ -217,7 +217,7 @@ const CauseEffectInsights = ({ userId }: CauseEffectInsightsProps) => {
         </div>
       ))}
 
-      <p className="text-[10px] text-muted-foreground/60 text-center">
+      <p className="text-xs text-muted-foreground/60 text-center">
         Based on last 30 days of behaviors, practices, and check-ins
       </p>
     </div>

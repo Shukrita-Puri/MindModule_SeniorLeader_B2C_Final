@@ -129,7 +129,7 @@ const CheckInDetail = () => {
                 variant="luxury"
                 className="w-full"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Foggy</span>
                 <span>Sharp</span>
               </div>
@@ -150,7 +150,7 @@ const CheckInDetail = () => {
                 variant="luxury"
                 className="w-full"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Uncertain</span>
                 <span>Certain</span>
               </div>

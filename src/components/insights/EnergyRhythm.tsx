@@ -189,7 +189,7 @@ const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
 
       {/* Data source note */}
       {hasData && (
-        <p className="text-[10px] text-muted-foreground/60 text-center">
+        <p className="text-xs text-muted-foreground/60 text-center">
           Based on {checkInCount} check-in{checkInCount !== 1 ? 's' : ''} this week
         </p>
       )}

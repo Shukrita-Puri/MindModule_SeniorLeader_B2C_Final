@@ -172,7 +172,7 @@ const FrictionAndStrengthDetail = ({ userId, profileBaseline }: FrictionAndStren
       </div>
 
       {/* Source note */}
-      <p className="text-[10px] text-muted-foreground/60 text-center">
+      <p className="text-xs text-muted-foreground/60 text-center">
         Derived from your {archetype.title} archetype
         {totalCheckins > 0 && ` and ${totalCheckins} check-ins`}
       </p>
