@@ -44,7 +44,19 @@ export async function trackEngagement(type: Engagement['type'], timestamp?: stri
   }
 }
 
-export async function trackBriefView(phrase: string): Promise<void> {
+export interface BriefSnapshot {
+  phrase: string;
+  body?: string;
+  leanOn?: string;
+  watchFor?: string;
+}
+
+function truncate(text: string | undefined, max: number): string | undefined {
+  if (!text) return undefined;
+  return text.length > max ? text.slice(0, max) + '…' : text;
+}
+
+export async function trackBriefView(snapshot: BriefSnapshot): Promise<void> {
   try {
     const accessToken = await getAuthToken();
     if (!accessToken) return;
@@ -55,7 +67,12 @@ export async function trackBriefView(phrase: string): Promise<void> {
         action: 'TRACK_ENGAGEMENT',
         eventType: 'brief_view',
         timestamp: new Date().toISOString(),
-        metadata: { phrase }
+        metadata: {
+          phrase: snapshot.phrase,
+          body: truncate(snapshot.body, 500),
+          leanOn: truncate(snapshot.leanOn, 200),
+          watchFor: truncate(snapshot.watchFor, 200),
+        }
       }
     });
   } catch (error) {

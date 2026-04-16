@@ -172,15 +172,20 @@ const ExecutiveHome = () => {
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
 
-  // Track brief view once per phrase
+  // Track brief view once per phrase (stores full snapshot for historical browsing)
   const trackedPhraseRef = useRef<string | null>(null);
   useEffect(() => {
     const phrase = outerBrief?.phrase;
     if (phrase && phrase !== trackedPhraseRef.current) {
       trackedPhraseRef.current = phrase;
-      trackBriefView(phrase);
+      trackBriefView({
+        phrase,
+        body: outerBrief?.bodyText || outerBrief?.context,
+        leanOn: outerBrief?.leanOn,
+        watchFor: outerBrief?.watchFor,
+      });
     }
-  }, [outerBrief?.phrase]);
+  }, [outerBrief?.phrase, outerBrief?.bodyText, outerBrief?.context, outerBrief?.leanOn, outerBrief?.watchFor]);
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
