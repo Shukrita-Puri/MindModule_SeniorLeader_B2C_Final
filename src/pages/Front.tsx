@@ -148,7 +148,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
             
             {/* Tagline */}
             <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-10 sm:mt-8">
-              First Proactive Mental Performance OS for Leaders.
+              Proactive Mental Performance OS for Leaders.
             </h2>
           </div>
 
