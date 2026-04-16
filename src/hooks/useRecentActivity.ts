@@ -84,7 +84,7 @@ export const useRecentActivity = () => {
             allActivities.push({
               id: event.id,
               type: 'recalibrate',
-              title: `Reset: ${event.content_type || event.category}`,
+              title: capitalize(event.content_type || event.category || 'Reset'),
               date: new Date(event.timestamp),
             });
           });
@@ -106,7 +106,7 @@ export const useRecentActivity = () => {
             allActivities.push({
               id: event.id,
               type: 'brief',
-              title: `Brief: ${phrase.length > 40 ? phrase.slice(0, 40) + '…' : phrase}`,
+              title: phrase.length > 30 ? phrase.slice(0, 30) + '…' : phrase,
               date: new Date(event.timestamp),
             });
           });
