@@ -50,7 +50,7 @@ const CheckInDetail = () => {
           .update({
             clarity_level: clarity,
             confidence_level: confidence,
-            mental_sharpness_score: mentalSharpness,
+            mental_sharpness_level: mentalSharpness,
           })
           .eq('user_id', DEV_USER.id)
           .eq('checkin_date', checkinDate)

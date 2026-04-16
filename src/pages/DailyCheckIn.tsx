@@ -8,6 +8,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
+import { mapCheckInToTags } from "@/utils/checkInToTags";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
@@ -223,6 +224,15 @@ const DailyCheckIn = () => {
 
     // Save to database (no localStorage for sensitive check-in data)
     const timeWindow = getCurrentTimeWindow();
+
+    // Derive state_tags from outcome (energy/state/recommendation tags), deduped
+    const tagMapping = mapCheckInToTags(outcome);
+    const stateTags = Array.from(new Set([
+      tagMapping.stateTag,
+      tagMapping.energyTag,
+      ...tagMapping.recommendationTags,
+    ].filter(Boolean)));
+
     try {
       const result = await saveCheckin({
         checkin_date: checkinDate,
@@ -230,6 +240,7 @@ const DailyCheckIn = () => {
         outcome,
         skipped: false,
         timestamp,
+        state_tags: stateTags,
         data_sources: { check_in: true }
       });
 
