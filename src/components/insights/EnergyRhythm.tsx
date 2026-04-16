@@ -21,33 +21,38 @@ const TIME_WINDOWS = [
 // Day labels
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// State colors matching existing design - enhanced with gradients
-const stateColors: Record<string, { bg: string; gradient: string; glow: string }> = {
-  focused: { 
-    bg: 'bg-green-500', 
-    gradient: 'from-green-400 via-green-500 to-green-600',
-    glow: 'rgba(34, 197, 94, 0.4)'
+// State colors aligned with Mental Energy State semiotics
+const stateColors: Record<string, { bg: string; gradient: string; glow: string; label: string }> = {
+  overwhelmed: {
+    bg: 'bg-red-600',
+    gradient: 'from-red-700 to-rose-500',
+    glow: 'rgba(190, 18, 60, 0.4)',
+    label: 'Overloaded',
   },
-  steady: { 
-    bg: 'bg-blue-500', 
-    gradient: 'from-blue-400 via-blue-500 to-blue-600',
-    glow: 'rgba(59, 130, 246, 0.4)'
+  drained: {
+    bg: 'bg-amber-500',
+    gradient: 'from-amber-600 to-orange-400',
+    glow: 'rgba(217, 119, 6, 0.4)',
+    label: 'Depleted',
   },
-  scattered: { 
-    bg: 'bg-amber-500', 
-    gradient: 'from-amber-400 via-amber-500 to-amber-600',
-    glow: 'rgba(245, 158, 11, 0.4)'
+  scattered: {
+    bg: 'bg-slate-500',
+    gradient: 'from-slate-500 to-zinc-400',
+    glow: 'rgba(100, 116, 139, 0.4)',
+    label: 'Scattered',
   },
-  drained: { 
-    bg: 'bg-slate-400', 
-    gradient: 'from-slate-300 via-slate-400 to-slate-500',
-    glow: 'rgba(148, 163, 184, 0.4)'
+  steady: {
+    bg: 'bg-teal-500',
+    gradient: 'from-teal-600 to-cyan-400',
+    glow: 'rgba(13, 148, 136, 0.4)',
+    label: 'Steady',
   },
-  overwhelmed: { 
-    bg: 'bg-red-500', 
-    gradient: 'from-red-400 via-red-500 to-red-600',
-    glow: 'rgba(239, 68, 68, 0.4)'
-  }
+  focused: {
+    bg: 'bg-emerald-600',
+    gradient: 'from-emerald-700 to-green-400',
+    glow: 'rgba(4, 120, 87, 0.4)',
+    label: 'Focused',
+  },
 };
 
 const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
@@ -182,7 +187,7 @@ const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
                 style.gradient
               )} 
             />
-            <span className="capitalize">{state}</span>
+            <span>{style.label}</span>
           </div>
         ))}
       </div>

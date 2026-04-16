@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
-import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
+import { AlertTriangle, BatteryLow, Cloud, Minus, ArrowUp } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,33 +37,33 @@ interface CheckInData {
 const outcomes = [
   {
     value: "overwhelmed" as Outcome,
-    icon: Waves,
-    title: "Overwhelmed / Stressed",
-    gradient: "from-red-800/90 to-amber-600/90",
+    icon: AlertTriangle,
+    title: "Overloaded",
+    gradient: "from-red-700/95 to-rose-500/90",
   },
   {
     value: "drained" as Outcome,
-    icon: Zap,
-    title: "Low Energy / Drained",
-    gradient: "from-slate-700/90 to-gray-400/90",
+    icon: BatteryLow,
+    title: "Depleted",
+    gradient: "from-amber-600/95 to-orange-400/90",
   },
   {
     value: "scattered" as Outcome,
-    icon: Wind,
-    title: "Scattered / Unfocused",
-    gradient: "from-amber-900/90 to-orange-400/90",
+    icon: Cloud,
+    title: "Scattered",
+    gradient: "from-slate-500/90 to-zinc-400/90",
   },
   {
     value: "steady" as Outcome,
-    icon: Target,
-    title: "Okay / Steady",
-    gradient: "from-amber-700/90 to-yellow-200/90",
+    icon: Minus,
+    title: "Steady",
+    gradient: "from-teal-600/95 to-cyan-400/90",
   },
   {
     value: "focused" as Outcome,
-    icon: Sparkles,
-    title: "Focused / Energised",
-    gradient: "from-green-800/90 to-yellow-500/90",
+    icon: ArrowUp,
+    title: "Focused",
+    gradient: "from-emerald-700/95 to-green-400/90",
   },
 ];
 
@@ -336,7 +336,7 @@ const DailyCheckIn = () => {
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Sharpness State</p>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Energy State</p>
         </div>
       </div>
 
