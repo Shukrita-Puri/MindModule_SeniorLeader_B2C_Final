@@ -318,7 +318,7 @@ const DailyCheckIn = () => {
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
-...
+
       {/* Hero Banner – compact for single-fold */}
       <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
         <div className="relative h-full flex flex-col items-center justify-center text-center z-10 space-y-1.5">
@@ -332,12 +332,12 @@ const DailyCheckIn = () => {
       <div className="flex-1 flex min-h-0 flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-sm text-muted-foreground font-body mb-3 tracking-wide text-center leading-none">
+        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
           Select your current state
         </p>
 
         {/* Vertical state list – compact gaps */}
-        <div data-tour="check-in-carousel" className="flex flex-1 flex-col gap-2.5 w-full">
+        <div data-tour="check-in-carousel" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
           {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -382,7 +382,7 @@ const DailyCheckIn = () => {
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
             className={`
-              w-full h-12 rounded-xl font-body text-[15px] font-medium tracking-wide
+              w-[84%] mx-auto block h-12 rounded-xl font-body text-[15px] font-medium tracking-wide
               transition-all duration-200
               ${selectedOutcome
                 ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
