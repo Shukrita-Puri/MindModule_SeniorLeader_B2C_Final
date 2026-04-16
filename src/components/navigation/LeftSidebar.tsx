@@ -2,13 +2,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import appLogo from '@/assets/app-logo-5.png';
 import { 
   Compass, 
-  Smiley, 
+  CalendarCheck,
   TrendUp,
-  BookmarkSimple,
+  Heart,
   Clock,
   FileText,
   ListChecks
 } from '@phosphor-icons/react';
+import { Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +33,7 @@ import StarredItems from './StarredItems';
 const features = [
   {
     title: 'Assessment',
-    icon: Smiley,
+    icon: CalendarCheck,
     path: '/daily-check-in',
     description: 'Track your state',
   },
@@ -139,12 +141,12 @@ const LeftSidebar = () => {
         {/* Starred Section */}
         <SidebarGroup>
           <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
-            <BookmarkSimple 
+            <Heart 
               size={14} 
               weight="duotone" 
               className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
             />
-            Starred
+            Favourites
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <StarredItems />
@@ -155,13 +157,25 @@ const LeftSidebar = () => {
 
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
-          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
+          <SidebarGroupLabel className={cn("text-primary font-body flex items-center gap-1", hideLabels && "sr-only")}>
             <Clock 
               size={14} 
               weight="duotone" 
               className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
             />
             Recent
+            {!hideLabels && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground/50 cursor-help ml-1" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[200px] text-xs">
+                  <p className="font-medium mb-1">Symbols</p>
+                  <p>▲ High · ─ Moderate · ▼ Low</p>
+                  <p className="mt-0.5 text-muted-foreground">First = Clarity, Second = Confidence</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </SidebarGroupLabel>
           <SidebarGroupContent className="overflow-auto">
             <RecentActivity />

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Star, Compass } from 'lucide-react';
+import { Heart } from 'lucide-react';
+import { Compass } from '@phosphor-icons/react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useFavorites } from '@/hooks/useFavorites';
 
@@ -28,7 +29,7 @@ const StarredItems = () => {
   if (favoritesArray.length === 0) {
     return (
       <div className="px-2 py-3">
-        <p className="text-xs text-muted-foreground/70 italic">No starred items yet</p>
+        <p className="text-xs text-muted-foreground/70 italic">No favourites yet</p>
       </div>
     );
   }
@@ -67,11 +68,10 @@ const StarredItems = () => {
             onClick={() => handlePracticeClick(favorite)}
             className="h-auto py-1.5"
           >
-            <Compass className="h-3.5 w-3.5 text-muted-foreground" />
+            <Heart className="h-3.5 w-3.5 text-[#8B7D6B] fill-[#8B7D6B] flex-shrink-0" />
             <span className="text-xs truncate">
               {formatPracticeName(favorite)}
             </span>
-            <Star className="h-3 w-3 text-amber-500 ml-auto fill-amber-500" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       ))}

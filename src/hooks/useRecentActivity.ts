@@ -21,18 +21,11 @@ const getAccessTokenOrAnon = async () => {
 
 const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
 
-const clarityIcon = (level: number | null | undefined): string => {
+const levelIcon = (level: number | null | undefined): string => {
   if (level == null) return '';
   if (level >= 4) return '▲';
   if (level <= 2) return '▼';
-  return '●';
-};
-
-const confidenceIcon = (level: number | null | undefined): string => {
-  if (level == null) return '';
-  if (level >= 4) return '▲';
-  if (level <= 2) return '▼';
-  return '●';
+  return '─';
 };
 
 export const useRecentActivity = () => {
@@ -56,15 +49,15 @@ export const useRecentActivity = () => {
         if (!error && data?.data) {
           data.data.forEach((checkin: any) => {
             const outcome = capitalize(checkin.outcome || 'Completed');
-            const cl = clarityIcon(checkin.clarity_level);
-            const co = confidenceIcon(checkin.confidence_level);
-            // e.g. "Focused ▲▲" or "Scattered ▼●"
-            const suffix = [cl, co].filter(Boolean).join('');
+            const cl = levelIcon(checkin.clarity_level);
+            const co = levelIcon(checkin.confidence_level);
+            // e.g. "Focused, ▲ ▲" or "Drained, ▼ ─"
+            const suffix = [cl, co].filter(Boolean).join(' ');
 
             allActivities.push({
               id: checkin.id,
               type: 'assessment',
-              title: suffix ? `${outcome} ${suffix}` : outcome,
+              title: suffix ? `${outcome}, ${suffix}` : outcome,
               date: new Date(checkin.checkin_date),
             });
           });

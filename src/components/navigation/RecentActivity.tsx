@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Compass, CalendarCheck, FileText } from 'lucide-react';
+import { Compass, FileText } from 'lucide-react';
+import { CalendarCheck } from '@phosphor-icons/react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
@@ -51,14 +52,13 @@ const RecentActivity = () => {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'assessment':
-        return CalendarCheck;
       case 'recalibrate':
-        return Compass;
+        return { icon: Compass, isLucide: true };
       case 'brief':
-        return FileText;
+        return { icon: FileText, isLucide: true };
+      case 'assessment':
       default:
-        return CalendarCheck;
+        return { icon: CalendarCheck, isPhosphor: true };
     }
   };
 
@@ -95,7 +95,7 @@ const RecentActivity = () => {
           </p>
           
           {group.items.map((activity) => {
-            const Icon = getIcon(activity.type);
+            const { icon: Icon, isPhosphor } = getIcon(activity.type) as any;
             return (
               <SidebarMenuItem key={activity.id}>
                 <SidebarMenuButton
@@ -110,7 +110,11 @@ const RecentActivity = () => {
                   }}
                   className="h-auto py-1.5"
                 >
-                  <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  {isPhosphor ? (
+                    <Icon size={14} weight="duotone" className="text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  )}
                   <span className="text-xs truncate flex-1">{activity.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
