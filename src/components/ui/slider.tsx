@@ -10,7 +10,7 @@ const sliderTrackVariants = cva(
     variants: {
       variant: {
         default: "h-2 bg-secondary",
-        luxury: "h-3 bg-secondary",
+        luxury: "h-4 bg-secondary",
       },
     },
     defaultVariants: { variant: "default" },
@@ -33,7 +33,7 @@ const sliderThumbVariants = cva(
     variants: {
       variant: {
         default: "h-5 w-5",
-        luxury: "h-7 w-7 shadow-[0_2px_8px_rgba(0,0,0,0.15)] border-primary/80",
+        luxury: "h-8 w-8 shadow-[0_2px_8px_rgba(0,0,0,0.15)] border-primary/80",
       },
     },
     defaultVariants: { variant: "default" },
