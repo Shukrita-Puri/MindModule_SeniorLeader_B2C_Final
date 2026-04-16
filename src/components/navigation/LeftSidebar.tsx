@@ -97,9 +97,11 @@ const LeftSidebar = () => {
       <SidebarContent>
         {/* Features Section */}
         <SidebarGroup data-tour="sidebar-suite-group">
-          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
-            Mental Performance Suite
-          </SidebarGroupLabel>
+          {!hideLabels && (
+            <SidebarGroupLabel className="text-primary font-body">
+              Mental Performance Suite
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu data-tour="sidebar-nav">
               {features.map((feature, idx) => {
@@ -140,14 +142,16 @@ const LeftSidebar = () => {
 
         {/* Starred Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
-            <Heart 
-              size={14} 
-              weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
-            />
-            Favourites
-          </SidebarGroupLabel>
+          {!hideLabels && (
+            <SidebarGroupLabel className="text-primary font-body">
+              <Heart 
+                size={14} 
+                weight="duotone" 
+                className="mr-1.5 inline icon-duotone-luxury text-primary" 
+              />
+              Favourites
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <StarredItems />
           </SidebarGroupContent>
@@ -157,14 +161,14 @@ const LeftSidebar = () => {
 
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
-          <SidebarGroupLabel className={cn("text-primary font-body flex items-center gap-1", hideLabels && "sr-only")}>
-            <Clock 
-              size={14} 
-              weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
-            />
-            Recent
-            {!hideLabels && (
+          {!hideLabels && (
+            <SidebarGroupLabel className="text-primary font-body flex items-center gap-1">
+              <Clock 
+                size={14} 
+                weight="duotone" 
+                className="mr-1.5 inline icon-duotone-luxury text-primary" 
+              />
+              Recent
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-3 w-3 text-muted-foreground/50 cursor-help ml-1" />
@@ -175,8 +179,8 @@ const LeftSidebar = () => {
                   <p className="mt-0.5 text-muted-foreground">First = Clarity, Second = Confidence</p>
                 </TooltipContent>
               </Tooltip>
-            )}
-          </SidebarGroupLabel>
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent className="overflow-auto">
             <RecentActivity />
           </SidebarGroupContent>
