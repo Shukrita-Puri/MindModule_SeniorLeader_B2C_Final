@@ -25,17 +25,20 @@ const CheckInDetail = () => {
   const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
+  const [mentalSharpness, setMentalSharpness] = useState(3);
   const [clarityTouched, setClarityTouched] = useState(false);
   const [confidenceTouched, setConfidenceTouched] = useState(false);
+  const [mentalSharpnessTouched, setMentalSharpnessTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const bothTouched = clarityTouched && confidenceTouched;
+  const allThreeTouched = clarityTouched && confidenceTouched && mentalSharpnessTouched;
 
   const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
   const timeWindow = (location.state as any)?.timeWindow;
 
-  const clarityLabels = ['Foggy', 'Hazy', 'Neutral', 'Clear', 'Sharp'];
-  const confidenceLabels = ['Uncertain', 'Hesitant', 'Neutral', 'Steady', 'Certain'];
+  const sharpnessLabels = ['Depleted', 'Dull', 'Stable', 'Acute', 'Peak'];
+  const clarityLabels = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
+  const confidenceLabels = ['Reactive', 'Uncertain', 'Poised', 'Certain', 'Unshakable'];
 
   const handleSave = async () => {
     setSaving(true);
@@ -44,7 +47,11 @@ const CheckInDetail = () => {
         const { getCurrentTimeWindow } = await import('@/utils/dailyCheckins');
         await supabase
           .from('daily_checkins')
-          .update({ clarity_level: clarity, confidence_level: confidence })
+          .update({
+            clarity_level: clarity,
+            confidence_level: confidence,
+            mental_sharpness_score: mentalSharpness,
+          })
           .eq('user_id', DEV_USER.id)
           .eq('checkin_date', checkinDate)
           .eq('time_window', timeWindow || getCurrentTimeWindow());
@@ -64,6 +71,7 @@ const CheckInDetail = () => {
             checkinDate,
             clarity,
             confidence,
+            mentalSharpness,
             timeWindow,
           },
         });
@@ -111,7 +119,7 @@ const CheckInDetail = () => {
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Clarity & Confidence State</p>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Performance Signals</p>
         </div>
       </div>
 
@@ -123,10 +131,31 @@ const CheckInDetail = () => {
             border border-black/[0.08]
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
-            {/* Clarity Slider */}
+            {/* Mental Sharpness Slider (Renewal) */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[15px] font-medium text-foreground font-body">Mental Sharpness</span>
+                <span className="text-[15px] font-medium text-primary font-body">{sharpnessLabels[mentalSharpness - 1]}</span>
+              </div>
+              <Slider
+                value={[mentalSharpness]}
+                onValueChange={(v) => { setMentalSharpness(v[0]); setMentalSharpnessTouched(true); }}
+                min={1}
+                max={5}
+                step={1}
+                variant="luxury"
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground/60">
+                <span>Depleted</span>
+                <span>Peak</span>
+              </div>
+            </div>
+
+            {/* Mental Clarity Slider (Resolve) */}
+            <div className="relative space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[15px] font-medium text-foreground font-body">Mental Clarity</span>
                 <span className="text-[15px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
               </div>
               <Slider
@@ -139,12 +168,12 @@ const CheckInDetail = () => {
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
-                <span>Foggy</span>
-                <span>Sharp</span>
+                <span>Clouded</span>
+                <span>Crystal</span>
               </div>
             </div>
 
-            {/* Confidence Slider */}
+            {/* Confidence Slider (Recalibration) */}
             <div className="relative space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-medium text-foreground font-body">Confidence</span>
@@ -160,8 +189,8 @@ const CheckInDetail = () => {
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
-                <span>Uncertain</span>
-                <span>Certain</span>
+                <span>Reactive</span>
+                <span>Unshakable</span>
               </div>
             </div>
           </div>
@@ -175,9 +204,9 @@ const CheckInDetail = () => {
         <div className="max-w-md mx-auto">
           <button
             onClick={handleSave}
-            disabled={saving || !bothTouched}
+            disabled={saving || !allThreeTouched}
             className={`w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
-              bothTouched
+              allThreeTouched
                 ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
                 : 'bg-muted text-foreground/60 cursor-not-allowed'
             }`}
