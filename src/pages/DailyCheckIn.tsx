@@ -297,7 +297,7 @@ const DailyCheckIn = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background pt-16 pb-[160px]">
-      <FloatingNavigation showCoachButton={false} />
+      <GlobalHeader />
 
       {/* Already checked in banner – fixed overlay so it never pushes cards under CTA */}
       {alreadyCheckedIn && (
@@ -367,9 +367,6 @@ const DailyCheckIn = () => {
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-sm text-white/80 font-body leading-tight">
-                      {outcome.subtitle}
-                    </p>
                   </div>
                 </div>
               </TouchOptimized>
