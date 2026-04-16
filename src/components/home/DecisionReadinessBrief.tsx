@@ -853,13 +853,13 @@ const PerformanceReadinessBrief = () => {
       {hasCheckIn && (
         <Collapsible open={rawExpanded} onOpenChange={setRawExpanded}>
           <CollapsibleTrigger asChild>
-            <button className="flex items-center justify-end w-full mt-2 text-[9px] text-muted-foreground/35 font-body gap-1 hover:text-muted-foreground/50 transition-colors">
+            <button className="flex items-center justify-end w-full mt-2 text-xs text-muted-foreground/35 font-body gap-1 hover:text-muted-foreground/50 transition-colors">
               {rawExpanded ? 'Hide raw numbers' : 'Tap for raw numbers ›'}
               {rawExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
-            <div className="space-y-1 text-[10px] font-body text-muted-foreground/60">
+            <div className="space-y-1 text-xs font-body text-muted-foreground/60">
               {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData || outerBrief?.wearableStatus?.isStale) && (
                 <>
                   {outerBrief?.hrvValue != null && (
