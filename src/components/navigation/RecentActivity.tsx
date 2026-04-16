@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Compass, FileText } from 'lucide-react';
-import { CalendarCheck } from '@phosphor-icons/react';
+import { FileText } from 'lucide-react';
+import { Brain, Compass } from '@phosphor-icons/react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
@@ -53,12 +53,12 @@ const RecentActivity = () => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'recalibrate':
-        return { icon: Compass, isLucide: true };
+        return { icon: Compass, isPhosphor: true };
       case 'brief':
         return { icon: FileText, isLucide: true };
       case 'assessment':
       default:
-        return { icon: CalendarCheck, isPhosphor: true };
+        return { icon: Brain, isPhosphor: true };
     }
   };
 
