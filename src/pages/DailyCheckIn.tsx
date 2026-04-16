@@ -318,7 +318,7 @@ const DailyCheckIn = () => {
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
-...
+
       {/* Hero Banner – compact for single-fold */}
       <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
         <div className="relative h-full flex flex-col items-center justify-center text-center z-10 space-y-1.5">
@@ -332,12 +332,12 @@ const DailyCheckIn = () => {
       <div className="flex-1 flex min-h-0 flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-sm text-muted-foreground font-body mb-3 tracking-wide text-center leading-none">
+        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
           Select your current state
         </p>
 
         {/* Vertical state list – compact gaps */}
-        <div data-tour="check-in-carousel" className="flex flex-1 flex-col gap-2.5 w-full">
+        <div data-tour="check-in-carousel" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
           {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -377,7 +377,7 @@ const DailyCheckIn = () => {
       <div className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2.5 bg-gradient-to-t from-background via-background to-background/0"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto w-[84%]">
           <button
             onClick={handleConfirm}
             disabled={!selectedOutcome || isSubmitting}
