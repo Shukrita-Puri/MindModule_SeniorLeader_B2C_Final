@@ -63,7 +63,7 @@ const CoachSurfaceMessage = () => {
   return (
     <div className="flex items-start gap-2 px-3 py-2 bg-muted/20 border-l-[3px] border-l-saffron/40 rounded-sm animate-fade-in">
       <ChatCircle size={14} weight="duotone" className="text-saffron/70 shrink-0 mt-0.5" />
-      <p className="text-[12px] italic text-muted-foreground/80 font-body leading-relaxed flex-1">
+      <p className="text-sm italic text-muted-foreground/80 font-body leading-relaxed flex-1">
         {message.message}
       </p>
       <button

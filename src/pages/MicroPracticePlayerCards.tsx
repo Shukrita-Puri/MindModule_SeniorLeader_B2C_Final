@@ -1707,19 +1707,19 @@ const StepCardContent = ({ card }: { card: any }) => {
               {card.insight && (card.insight.text || card.insight.quote || card.insight.wisdom) && (
                 <div className="pt-2 border-t border-white/10">
                   {card.insight.text && (
-                    <p className="text-[11px] text-white/40 italic">
+                    <p className="text-xs text-white/40 italic">
                       {card.insight.text}
                       {card.insight.source && <span className="text-amber-300/50"> – {card.insight.source}</span>}
                     </p>
                   )}
                   {card.insight.wisdom && (
-                    <p className="text-[11px] text-white/40 italic">
+                    <p className="text-xs text-white/40 italic">
                       {card.insight.wisdom}
                       {card.insight.wisdomSource && <span className="text-amber-300/50"> – {card.insight.wisdomSource}</span>}
                     </p>
                   )}
                   {card.insight.quote && (
-                    <p className="text-[11px] text-white/40 italic mt-1">
+                    <p className="text-xs text-white/40 italic mt-1">
                       "{card.insight.quote.text}" <span className="text-amber-300/50">– {card.insight.quote.author}</span>
                     </p>
                   )}
@@ -2199,7 +2199,7 @@ const MicroPracticePlayerCards = () => {
                         <h1 className="text-2xl md:text-3xl font-serif leading-tight text-white">
                           {card.title}
                         </h1>
-                        <p className="text-[13px] md:text-sm text-white/60">
+                        <p className="text-sm md:text-sm text-white/60">
                           {card.subtitle}
                         </p>
                       </div>

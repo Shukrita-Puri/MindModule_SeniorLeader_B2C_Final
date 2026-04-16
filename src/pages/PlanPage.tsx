@@ -23,7 +23,7 @@ const PlanPage = () => {
               <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
                 Today's Mental Performance Priorities
               </h1>
-              <p className="text-[13px] text-muted-foreground/70 mt-1 font-body">
+              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
                 Your performance priorities for today
               </p>
             </div>

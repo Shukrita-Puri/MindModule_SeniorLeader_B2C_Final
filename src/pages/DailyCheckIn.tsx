@@ -332,14 +332,14 @@ const DailyCheckIn = () => {
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-[13px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Sharpness State</p>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Mental Sharpness State</p>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col px-4 max-w-lg mx-auto w-full">
 
         {/* Instruction */}
-        <p className="text-[13px] text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
+        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
           Select your current state
         </p>
 
@@ -372,7 +372,7 @@ const DailyCheckIn = () => {
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
-                    <p className="text-[13px] text-white/80 font-body leading-tight">
+                    <p className="text-sm text-white/80 font-body leading-tight">
                       {outcome.subtitle}
                     </p>
                   </div>

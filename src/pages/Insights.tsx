@@ -829,7 +829,7 @@ const Insights = () => {
               <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
                 Mental Performance Insights
               </h1>
-              <p className="text-[13px] text-muted-foreground/70 mt-1 font-body">
+              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
                 What's consistently true about how you lead, perform, and recover
               </p>
             </div>
@@ -919,11 +919,11 @@ const Insights = () => {
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                             <p className="text-[20px] font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
-                            <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
+                            <p className="text-xs text-muted-foreground tracking-wider uppercase">Wins this month</p>
                           </div>
                            <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                             <p className="text-[20px] font-headline text-foreground">{dominantCount}</p>
-                            <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
+                            <p className="text-xs text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
                           </div>
                         </div>
 
@@ -974,10 +974,10 @@ const Insights = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
+                                <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', tagBg)}>
                                   {domain}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground">{win.date}</span>
+                                <span className="text-xs text-muted-foreground">{win.date}</span>
                               </div>
                             </div>
                           </div>

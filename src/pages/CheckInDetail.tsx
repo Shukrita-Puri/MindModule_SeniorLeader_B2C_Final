@@ -102,7 +102,7 @@ const CheckInDetail = () => {
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-[13px] tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Clarity & Confidence State</p>
+          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Clarity & Confidence State</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ const CheckInDetail = () => {
                 variant="luxury"
                 className="w-full"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Foggy</span>
                 <span>Sharp</span>
               </div>
@@ -150,7 +150,7 @@ const CheckInDetail = () => {
                 variant="luxury"
                 className="w-full"
               />
-              <div className="flex justify-between text-[10px] text-muted-foreground/60">
+              <div className="flex justify-between text-xs text-muted-foreground/60">
                 <span>Uncertain</span>
                 <span>Certain</span>
               </div>

@@ -283,7 +283,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       {/* Section header – tooltip aligned with Time of Day section */}
       <div className="px-4 md:px-6 max-w-lg mx-auto">
         <div className="flex items-center justify-between py-1">
-          <span className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
+          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
             Just-in-Time
           </span>
           <MetricInfoModal
@@ -301,13 +301,13 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
               <span className="text-sm font-semibold text-foreground font-body">
                 {preEventPlan.eventTitle || 'Upcoming Event'}
               </span>
-              <span className="text-[11px] text-muted-foreground/60 font-body">
+              <span className="text-xs text-muted-foreground/60 font-body">
                 ({preEventPlan.modules.length}-step sequence)
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-background border border-border text-foreground">
                 {preEventPlan.timePill}
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                 {eventTypeLabel}
               </span>
             </div>
@@ -349,7 +349,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
             <span className="font-medium">
               HRV {preEventPlan.hrvCorrelation.avgDeviation > 0 ? '+' : ''}{preEventPlan.hrvCorrelation.avgDeviation}%
             </span>
-            <span className="text-[10px] opacity-70 italic">
+            <span className="text-xs opacity-70 italic">
               (based on {preEventPlan.hrvCorrelation.historicalCount} past {preEventPlan.hrvCorrelation.eventType} meetings)
             </span>
           </div>
@@ -384,7 +384,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                         >
                           {/* Completed overlay badge */}
                           {isCompleted && (
-                            <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                            <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
                               <Check size={10} className="stroke-[3]" />
                               Done
                             </div>
@@ -392,7 +392,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
                           {/* Step badge */}
                           {!isCompleted && (
-                            <span className="absolute top-2 right-2 z-10 text-[9px] uppercase tracking-wider text-muted-foreground/60 font-body">
+                            <span className="absolute top-2 right-2 z-10 text-xs uppercase tracking-wider text-muted-foreground/60 font-body">
                               Step {index + 1}
                             </span>
                           )}
@@ -424,7 +424,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                           <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                             <div className="flex flex-col gap-0.5">
                               <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
-                              <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
+                              <span className="text-xs text-muted-foreground/60 font-body">{display.protocolType}</span>
                             </div>
                             <div className="flex items-start gap-1 mt-1.5">
                               <h4 className={cn("text-[15px] font-medium line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
@@ -433,7 +433,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                               )}
                             </div>
                             {module.reasoning && !isCompleted && (
-                              <p className="text-[11px] text-muted-foreground/90 italic font-medium font-body line-clamp-2 leading-snug mt-0.5">
+                              <p className="text-xs text-muted-foreground/90 italic font-medium font-body line-clamp-2 leading-snug mt-0.5">
                                 {module.reasoning}
                               </p>
                             )}

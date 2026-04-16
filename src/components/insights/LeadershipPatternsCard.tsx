@@ -296,7 +296,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
             {/* ── SECTION 1: YOUR DIMENSIONS ── */}
             <div className="space-y-3">
               <div className="flex items-center gap-1.5">
-                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
                   Your Dimensions
                 </p>
                 <InsightInfoModal
@@ -329,7 +329,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                   {renderDimensionRow('Clarity', data.baselineScores.clarity, data.currentScores?.clarity, data.scoreDeltas?.clarity, data.currentScores ? data.trendDirection : undefined)}
                   {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal, data.currentScores ? data.trendDirection : undefined)}
                   {!data.currentScores && (
-                    <p className="text-[10px] text-muted-foreground/60 pt-1">
+                    <p className="text-xs text-muted-foreground/60 pt-1">
                       Your current scores build after 5 check-ins
                     </p>
                   )}
@@ -339,7 +339,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
 
             {/* ── SECTION 3: WHAT YOUR PATTERNS REVEAL ── */}
             <div className="space-y-3 pt-3">
-              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+              <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
                 What Your Patterns Reveal
               </p>
 
@@ -370,7 +370,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
               {data.recurringThemes.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
-                    <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
                       Recurring Themes
                     </p>
                     <InsightInfoModal
@@ -395,7 +395,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
               )}
 
               {/* Heading for Lean On / Watch For */}
-              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground pt-1">
+              <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground pt-1">
                 Your Inner Edge
               </p>
 
@@ -406,11 +406,11 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
                     {data.coreStrengths && data.coreStrengths.length > 0 ? (
-                      <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
+                      <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
                     ) : data.coachStrength ? (
-                      <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                      <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
-                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                      <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
                   </div>
                   {data.coreStrengths && data.coreStrengths.length > 0 ? (
@@ -440,11 +440,11 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
                     {data.growthEdges && data.growthEdges.length > 0 ? (
-                      <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
+                      <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
                     ) : data.coachFriction ? (
-                      <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                      <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
-                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                      <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
                   </div>
                   {data.growthEdges && data.growthEdges.length > 0 ? (
@@ -465,7 +465,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <>
                       <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
                       {data.coachSessionCount < 3 && (
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">Will personalize with coach sessions</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Will personalize with coach sessions</p>
                       )}
                     </>
                   )}
@@ -487,7 +487,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
 
             {/* ── SECTION 4: DATA SOURCE NOTE ── */}
             {data.checkInCount > 0 && (
-              <p className="text-[10px] text-muted-foreground/60 text-center">
+              <p className="text-xs text-muted-foreground/60 text-center">
                 {data.dataSourceNote}
               </p>
             )}

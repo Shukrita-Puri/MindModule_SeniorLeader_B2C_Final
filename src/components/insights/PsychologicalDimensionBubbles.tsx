@@ -175,13 +175,13 @@ const PsychologicalDimensionBubbles = ({
               <span 
                 className={cn(
                   "font-semibold leading-tight px-1 relative z-10 capitalize",
-                  isLarge ? "text-xs" : "text-[10px]"
+                  isLarge ? "text-xs" : "text-xs"
                 )}
               >
                 {displayLabel}
               </span>
               {item.count > 1 && (
-                <span className="text-[9px] opacity-60 mt-0.5 relative z-10">
+                <span className="text-xs opacity-60 mt-0.5 relative z-10">
                   {item.count}×
                 </span>
               )}
@@ -255,7 +255,7 @@ const PsychologicalDimensionBubbles = ({
                   {filteredWins.slice(0, 2).map((win, i) => (
                     <div key={i} className="bg-muted/50 rounded-xl p-3 text-sm text-foreground">
                       "{win.content}"
-                      <div className="text-[10px] text-muted-foreground mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
                         {win.date}
                       </div>
                     </div>
@@ -292,7 +292,7 @@ const PsychologicalDimensionBubbles = ({
       )}
 
       {/* Color Legend – uses C-suite display labels, no sentiment */}
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[10px] text-muted-foreground pt-2">
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground pt-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-400/50"></span>
           <span>What you felt</span>

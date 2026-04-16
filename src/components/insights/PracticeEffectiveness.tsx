@@ -162,13 +162,13 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
           <p className="text-xs text-muted-foreground">
             Used {topPractice.timesUsed}× · {Math.round(topPractice.effectivenessRate * 100)}% followed by improved state
           </p>
-          <p className="text-[10px] text-saffron">Your top restorer</p>
+          <p className="text-xs text-saffron">Your top restorer</p>
         </>
       ) : totalPractices > 0 ? (
         <>
           <p className="text-2xl font-headline font-semibold text-foreground">{totalPractices}</p>
           <p className="text-xs text-muted-foreground">practices completed</p>
-          <p className="text-[10px] text-muted-foreground/60">Use 2+ times to see effectiveness</p>
+          <p className="text-xs text-muted-foreground/60">Use 2+ times to see effectiveness</p>
         </>
       ) : (
         <>
