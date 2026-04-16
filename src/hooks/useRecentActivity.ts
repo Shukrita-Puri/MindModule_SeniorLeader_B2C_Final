@@ -21,18 +21,18 @@ const getAccessTokenOrAnon = async () => {
 
 const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
 
-const clarityLabel = (level: number | null | undefined): string | null => {
-  if (level == null) return null;
-  if (level >= 4) return 'High Clarity';
-  if (level <= 2) return 'Low Clarity';
-  return 'Moderate Clarity';
+const clarityIcon = (level: number | null | undefined): string => {
+  if (level == null) return '';
+  if (level >= 4) return '▲';
+  if (level <= 2) return '▼';
+  return '●';
 };
 
-const confidenceLabel = (level: number | null | undefined): string | null => {
-  if (level == null) return null;
-  if (level >= 4) return 'High Confidence';
-  if (level <= 2) return 'Low Confidence';
-  return 'Moderate Confidence';
+const confidenceIcon = (level: number | null | undefined): string => {
+  if (level == null) return '';
+  if (level >= 4) return '▲';
+  if (level <= 2) return '▼';
+  return '●';
 };
 
 export const useRecentActivity = () => {
@@ -55,16 +55,16 @@ export const useRecentActivity = () => {
         });
         if (!error && data?.data) {
           data.data.forEach((checkin: any) => {
-            const parts = [capitalize(checkin.outcome || 'Completed')];
-            const cl = clarityLabel(checkin.clarity_level);
-            if (cl) parts.push(cl);
-            const co = confidenceLabel(checkin.confidence_level);
-            if (co) parts.push(co);
+            const outcome = capitalize(checkin.outcome || 'Completed');
+            const cl = clarityIcon(checkin.clarity_level);
+            const co = confidenceIcon(checkin.confidence_level);
+            // e.g. "Focused ▲▲" or "Scattered ▼●"
+            const suffix = [cl, co].filter(Boolean).join('');
 
             allActivities.push({
               id: checkin.id,
               type: 'assessment',
-              title: `Assessment: ${parts.join(', ')}`,
+              title: suffix ? `${outcome} ${suffix}` : outcome,
               date: new Date(checkin.checkin_date),
             });
           });
