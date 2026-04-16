@@ -697,7 +697,7 @@ const PerformanceReadinessBrief = () => {
         <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
           Performance Readiness Brief
         </span>
-        <span className="text-[9px] text-muted-foreground/50 font-body">
+        <span className="text-xs text-muted-foreground/50 font-body">
           {getTimeLabel()} · {getDateLabel()}
         </span>
       </div>
@@ -710,14 +710,14 @@ const PerformanceReadinessBrief = () => {
               {score}
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
-            <span className={cn("text-[10px] uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
+            <span className={cn("text-xs uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
               {getTierLabel(tier)}
             </span>
           </>
         ) : (
           <>
             <span className="text-[40px] font-medium leading-none text-muted-foreground/30">--</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/40 ml-2">Not yet assessed</span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground/40 ml-2">Not yet assessed</span>
           </>
         )}
       </div>
@@ -732,14 +732,14 @@ const PerformanceReadinessBrief = () => {
 
       {/* 5. BODY COPY */}
       {bodyText && (
-        <p className="mt-2 text-[12px] text-muted-foreground/70 font-body leading-relaxed">
+        <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
           {renderBody(bodyText)}
         </p>
       )}
 
       {/* 6. SIGNAL SECTION */}
       <div className="mt-4">
-        <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
+        <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
           Based on your signals
         </span>
 
@@ -765,7 +765,7 @@ const PerformanceReadinessBrief = () => {
 
         {/* 8. FLIP AFFORDANCE HINT */}
         {chips.some(c => !!c.backLabel) && (
-          <p className="mt-1.5 text-[9px] text-muted-foreground/40 font-body italic">
+          <p className="mt-1.5 text-xs text-muted-foreground/40 font-body italic">
             Tap a pill to see the number behind it
           </p>
         )}
