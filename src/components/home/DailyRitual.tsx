@@ -699,7 +699,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
                     )}
                   </div>
                   {module.reasoning && !isCompleted && (
-                    <p className="text-[12px] text-muted-foreground font-medium font-body line-clamp-3 leading-snug mt-0.5">
+                    <p className="text-sm text-muted-foreground font-medium font-body line-clamp-3 leading-snug mt-0.5">
                       {module.reasoning}
                     </p>
                   )}

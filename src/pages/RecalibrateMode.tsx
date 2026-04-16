@@ -108,7 +108,7 @@ const RecalibrateMode = () => {
               <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
                 Reset Studio
               </h1>
-              <p className="text-[13px] text-muted-foreground/70 mt-1 font-body">
+              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
                 Performance protocols drawn from centuries of proven wisdom
               </p>
             </div>
