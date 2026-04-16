@@ -774,75 +774,80 @@ const PerformanceReadinessBrief = () => {
       {/* 9. DIVIDER */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--taupe))]/20 to-transparent my-4" />
 
-      {/* 10. HOW TO SHOW UP */}
-      <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
-        How to show up
-      </span>
+      {/* 10. HOW TO SHOW UP — Progressive Disclosure (collapsed by default) */}
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
+          How to show up
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
 
-      {/* 11. LEAN ON — plain text, no pill */}
-      {outerBrief?.leanOn && (() => {
-        const pairs = parseSignalSourcePairs(outerBrief.leanOn);
-        return (
-          <div className="flex items-baseline gap-2 mt-3">
-            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
-              Lean on
-            </span>
-            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
-              {pairs ? (
-                pairs.map((pair, idx) => (
-                  <span key={`lean-${idx}`}>
-                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
-                    {pair.signal}
-                    {pair.source && (
-                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
-                    )}
-                  </span>
-                ))
-              ) : (
-                <>
-                  {outerBrief.leanOn}
-                  {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {leanOnSource}</span>}
-                </>
-              )}
-            </span>
-          </div>
-        );
-      })()}
+        <CollapsibleContent>
+          {/* 11. LEAN ON — plain text, no pill */}
+          {outerBrief?.leanOn && (() => {
+            const pairs = parseSignalSourcePairs(outerBrief.leanOn);
+            return (
+              <div className="flex items-baseline gap-2 mt-3">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider">
+                  Lean on
+                </span>
+                <span className="text-sm font-body text-foreground/80 leading-relaxed">
+                  {pairs ? (
+                    pairs.map((pair, idx) => (
+                      <span key={`lean-${idx}`}>
+                        {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                        {pair.signal}
+                        {pair.source && (
+                          <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {pair.source}</span>
+                        )}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      {outerBrief.leanOn}
+                      {leanOnSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {leanOnSource}</span>}
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
 
-      {/* 12. WATCH FOR — plain text, no pill */}
-      {outerBrief?.watchFor && (() => {
-        const pairs = parseSignalSourcePairs(outerBrief.watchFor);
-        return (
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className="shrink-0 text-[9px] font-medium text-muted-foreground/50 uppercase tracking-wider">
-              Watch for
-            </span>
-            <span className="text-[11px] font-body text-foreground/80 leading-relaxed">
-              {pairs ? (
-                pairs.map((pair, idx) => (
-                  <span key={`watch-${idx}`}>
-                    {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
-                    {pair.signal}
-                    {pair.source && (
-                      <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {pair.source}</span>
-                    )}
-                  </span>
-                ))
-              ) : (
-                <>
-                  {outerBrief.watchFor}
-                  {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[9px]">· {watchForSource}</span>}
-                </>
-              )}
-            </span>
-          </div>
-        );
-      })()}
+          {/* 12. WATCH FOR — plain text, no pill */}
+          {outerBrief?.watchFor && (() => {
+            const pairs = parseSignalSourcePairs(outerBrief.watchFor);
+            return (
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider">
+                  Watch for
+                </span>
+                <span className="text-sm font-body text-foreground/80 leading-relaxed">
+                  {pairs ? (
+                    pairs.map((pair, idx) => (
+                      <span key={`watch-${idx}`}>
+                        {idx > 0 && <span className="mx-1 text-muted-foreground/30">·</span>}
+                        {pair.signal}
+                        {pair.source && (
+                          <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {pair.source}</span>
+                        )}
+                      </span>
+                    ))
+                  ) : (
+                    <>
+                      {outerBrief.watchFor}
+                      {watchForSource && <span className="text-muted-foreground/45 ml-1 uppercase tracking-wider text-[11px]">· {watchForSource}</span>}
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
 
-      {/* 13. DATA SOURCE NOTE */}
-      <p className="mt-4 text-[9px] text-muted-foreground/35 font-body">
-        {dataSources.join(' · ')}
-      </p>
+          {/* 13. DATA SOURCE NOTE */}
+          <p className="mt-4 text-xs text-muted-foreground/35 font-body">
+            {dataSources.join(' · ')}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* 14. TAP FOR RAW NUMBERS */}
       {hasCheckIn && (
