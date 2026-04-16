@@ -1,70 +1,67 @@
 
 
-## Plan: Mature C-Suite Palette + Layout Polish
+## Plan: Layout Polish + Color Distinctness + Audit Confirmation
 
-### 1. Color Palette — Mature Single-Hue Gradients
+### Audit Findings (No code changes needed)
 
-Replace bright dual-hue gradients with deeper, single-hue tonal gradients (light-to-dark within the same family), matching the previous luxury palette feel.
+| Item | Status |
+|---|---|
+| Page 1 → `daily_checkins.outcome` (lowercase: `overwhelmed`/`drained`/`scattered`/`steady`/`focused`) | ✓ Correct |
+| Page 2 → `clarity_level`, `confidence_level`, `mental_sharpness_score` (NOT `clarity_score`/`sharpness_score` as you wrote — those columns don't exist) | ✓ Writing to the correct existing columns |
+| Single row per session (unique `user_id + checkin_date + time_window`) | ✓ Page 1 upserts, Page 2 updates same row |
+| Sidebar shows "Executive Edition" + "Assessment" entry | ✓ Already in place |
+| Edge functions / DB column names untouched | ✓ Frontend translation layer (display labels) bridges UI ↔ DB |
+| Insights "Week at a Glance" using new labels + palette | ✓ Already updated previously — only Steady color change pending |
 
-| State (DB value) | Display label | New gradient | Glow |
-|---|---|---|---|
-| `overwhelmed` | OVERLOADED | `from-red-900 to-red-700` | `rgba(127, 29, 29, 0.35)` |
-| `drained` | **DRAINED** (revert from "Depleted") | `from-amber-800 to-amber-600` | `rgba(146, 64, 14, 0.35)` |
-| `scattered` | SCATTERED | `from-slate-700 to-slate-500` | `rgba(51, 65, 85, 0.35)` |
-| `steady` | STEADY | `from-teal-800 to-teal-600` | `rgba(17, 94, 89, 0.35)` |
-| `focused` | FOCUSED | `from-emerald-800 to-emerald-600` | `rgba(6, 95, 70, 0.35)` |
+**Note**: Your prompt referenced `sharpness_score` / `clarity_score` / `confidence_score`. The actual DB columns are `mental_sharpness_score`, `clarity_level`, `confidence_level`. Sliders are correctly writing to these.
 
-Applied to:
-- `src/pages/DailyCheckIn.tsx` — outcome buttons.
-- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors` map + legend label `Depleted` → `Drained`.
-- `src/components/insights/EnergyRhythm.tsx` — same map + label change.
+---
 
-DB value `drained` is unchanged. Only the displayed string flips back to "Drained".
+### 1. Page 1 Layout Fix (`src/pages/DailyCheckIn.tsx`)
 
-### 2. Slider Label Updates (`CheckInDetail.tsx`)
+- **Subtitle obscured** root cause: `pt-16` on the scroll container + `py-6` on hero leaves the subtitle vertically tight under the fixed header. Fix: increase top padding to `pt-20` (creates breathing room below the 56px header) and add hero `mt-2`.
+- **Buttons too wide**: container is currently `max-w-lg` full-width. Change buttons to ~88% width via `w-[88%] mx-auto` on each card, keeping the container width unchanged (clean centered look, breathing room on both sides).
+- **Cloud icon shape**: keep `lucide-react` `Cloud` but apply `strokeWidth={1.75}` and `className="w-5 h-5"` (currently `1.75` strokeWidth not set — Lucide default `2` makes the cloud look angular at small sizes). Use `strokeWidth={1.5}` for a softer, more recognizable cloud silhouette.
 
-- "Mental Sharpness" → **"Sharpness"**
-- "Mental Clarity" → **"Clarity"**
-- "Confidence" — unchanged.
+### 2. Page 2 Layout Fix (`src/pages/CheckInDetail.tsx`)
 
-### 3. Wider Sliders + Layout Anchoring (`DailyCheckIn.tsx` + `CheckInDetail.tsx`)
+- **"Mental Performance Signals" subtitle obscured**: same root cause. Fix: change scroll container from `pt-16` to `pt-20`, and add `mt-2` on hero block. Also add `mt-6` on the slider card wrapper to push the glass card down further so the subtitle clears comfortably.
+- **Slider width** already `max-w-lg` — confirmed adequate. No change needed beyond the top spacing fix.
 
-Both assessment pages need the same layout fix so the iOS feel is consistent:
+### 3. Distinct "Steady" Color (Page 1 + Insights)
 
-```text
-┌─────────────────────────────┐
-│  Sidebar trigger (top)       │  ← anchored top, safe-area-inset-top
-├─────────────────────────────┤
-│  Title + subtitle            │
-│                              │
-│  Content (buttons / sliders) │  ← wider container on slider page
-│                              │
-├─────────────────────────────┤
-│  CTA button                  │  ← sits ABOVE pill nav, not behind it
-├─────────────────────────────┤
-│  FloatingPillNav             │  ← bottom, safe-area-inset-bottom
-└─────────────────────────────┘
-```
+Steady currently uses `from-teal-800 to-teal-600`, which on small mobile screens reads close to Focused's `from-emerald-800 to-emerald-600`. 
 
-Specific changes:
+**New Steady palette**: deep slate-blue → indigo (clearly distinct from both grey Scattered and green Focused, while staying in the "calm/stable" semiotic family).
 
-**`CheckInDetail.tsx`**
-- Card max-width: `max-w-md` → `max-w-lg` (wider sliders for finer control).
-- Sticky CTA `bottom`: change from `calc(env(safe-area-inset-bottom) + 16px)` to `calc(env(safe-area-inset-bottom) + 88px)` so it clears the 72px tall `FloatingPillNav` + 16px gap.
-- Page padding-bottom: increase from `pb-[108px]` to `pb-[180px]` so the last slider isn't hidden behind the CTA.
-- Top: ensure header uses `pt-[max(0.75rem,env(safe-area-inset-top))]` (already correct) — page anchored to top of safe area.
+`from-blue-900 to-blue-700` — deep navy-blue gradient. Glow: `rgba(30, 58, 138, 0.35)`.
 
-**`DailyCheckIn.tsx`**
-- Same sticky CTA reposition (`bottom: calc(env(safe-area-inset-bottom) + 88px)`).
-- Same page `pb-` increase to clear CTA + nav.
-- Confirm top header uses safe-area-inset-top.
+Color separation map (visual distance verified):
+- Scattered → cool grey (slate-700→500)
+- **Steady → deep navy-blue (blue-900→700)** ← new
+- Focused → emerald green (emerald-800→600)
 
-### 4. Out of Scope
-No DB migration. No edge function changes. No scoring/brief logic touched. Pure UI refactor — palette, labels, spacing.
+Applied in 3 files:
+- `src/pages/DailyCheckIn.tsx` — `outcomes[3].gradient`
+- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors.steady`
+- `src/components/insights/EnergyRhythm.tsx` — same
 
-### Files Touched
-- `src/pages/DailyCheckIn.tsx`
-- `src/pages/CheckInDetail.tsx`
-- `src/components/insights/PerformanceRhythmCard.tsx`
-- `src/components/insights/EnergyRhythm.tsx`
+### 4. Mobile Responsiveness Sanity
+
+Both pages already have:
+- `pb-[200px]` → ample clearance for sticky CTA + 72px FloatingPillNav
+- Sticky CTA `bottom: calc(env(safe-area-inset-bottom) + 88px)` → above pill nav
+- Header uses `pt-[max(0.75rem,env(safe-area-inset-top))]` → safe area respected
+
+Adding `pt-20` on the scroll container (up from `pt-16`) gives the title/subtitle the extra 16px of breathing room needed below the fixed header on small viewports (390–414px wide).
+
+### 5. Files Touched
+
+- `src/pages/DailyCheckIn.tsx` — `pt-20`, `mt-2`, button `w-[88%]`, Cloud `strokeWidth={1.5}`, Steady gradient.
+- `src/pages/CheckInDetail.tsx` — `pt-20`, `mt-2` on hero, `mt-6` on card.
+- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors.steady` gradient + glow.
+- `src/components/insights/EnergyRhythm.tsx` — same.
+
+### Out of Scope
+No DB migration. No edge function changes. No column renames. No scoring/brief logic touched. Pure UI polish + 1 color swap.
 
