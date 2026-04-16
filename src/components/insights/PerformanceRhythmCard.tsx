@@ -87,8 +87,8 @@ const stateColors: Record<string, { gradient: string; glow: string; label: strin
     label: 'Scattered',
   },
   steady: {
-    gradient: 'from-teal-800 to-teal-600',
-    glow: 'rgba(17, 94, 89, 0.35)',
+    gradient: 'from-blue-900 to-blue-700',
+    glow: 'rgba(30, 58, 138, 0.35)',
     label: 'Steady',
   },
   focused: {

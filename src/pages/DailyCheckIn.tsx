@@ -57,7 +57,7 @@ const outcomes = [
     value: "steady" as Outcome,
     icon: Minus,
     title: "Steady",
-    gradient: "from-teal-800 to-teal-600",
+    gradient: "from-blue-900 to-blue-700",
   },
   {
     value: "focused" as Outcome,
@@ -303,7 +303,7 @@ const DailyCheckIn = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-      <div className="min-h-screen flex flex-col bg-background pt-16 pb-[200px]">
+      <div className="min-h-screen flex flex-col bg-background pt-20 pb-[200px]">
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
@@ -331,7 +331,7 @@ const DailyCheckIn = () => {
         </div>
       )}
       {/* Hero Banner – compact for single-fold */}
-      <div className="relative h-auto py-6 overflow-hidden">
+      <div className="relative h-auto py-6 mt-2 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
@@ -356,7 +356,7 @@ const DailyCheckIn = () => {
               <TouchOptimized
                 key={outcome.value}
                 onTap={() => setSelectedOutcome(outcome.value)}
-                className="w-full"
+                className="w-[88%] mx-auto"
               >
                 <div
                   className={`
@@ -370,7 +370,7 @@ const DailyCheckIn = () => {
                   `}
                 >
                   <div className="w-11 h-11 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
-                    <IconComponent className="w-5 h-5 text-white" />
+                    <IconComponent className="w-5 h-5 text-white" strokeWidth={outcome.value === 'scattered' ? 1.5 : 2} />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
