@@ -25,7 +25,7 @@ const levelIcon = (level: number | null | undefined): string => {
   if (level == null) return '';
   if (level >= 4) return '▲';
   if (level <= 2) return '▼';
-  return '─';
+  return '●';
 };
 
 export const useRecentActivity = () => {
@@ -51,8 +51,11 @@ export const useRecentActivity = () => {
             const outcome = capitalize(checkin.outcome || 'Completed');
             const cl = levelIcon(checkin.clarity_level);
             const co = levelIcon(checkin.confidence_level);
-            // e.g. "Focused, ▲ ▲" or "Drained, ▼ ─"
-            const suffix = [cl, co].filter(Boolean).join(' ');
+            // e.g. "Focused, ● Clarity, ▲ Confidence"
+            const parts: string[] = [];
+            if (cl) parts.push(`${cl} Clarity`);
+            if (co) parts.push(`${co} Confidence`);
+            const suffix = parts.join(', ');
 
             allActivities.push({
               id: checkin.id,

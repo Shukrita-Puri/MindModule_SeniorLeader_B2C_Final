@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Heart } from 'lucide-react';
-import { Compass } from '@phosphor-icons/react';
+import { Compass, Brain, FileText, ListChecks, TrendUp } from '@phosphor-icons/react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useFavorites } from '@/hooks/useFavorites';
 
@@ -68,7 +67,7 @@ const StarredItems = () => {
             onClick={() => handlePracticeClick(favorite)}
             className="h-auto py-1.5"
           >
-            <Heart className="h-3.5 w-3.5 text-[#8B7D6B] fill-[#8B7D6B] flex-shrink-0" />
+            <Compass size={14} weight="duotone" className="text-muted-foreground flex-shrink-0" />
             <span className="text-xs truncate">
               {formatPracticeName(favorite)}
             </span>

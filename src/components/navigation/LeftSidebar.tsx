@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import appLogo from '@/assets/app-logo-5.png';
 import { 
   Compass, 
-  CalendarCheck,
+  Brain,
   TrendUp,
   Heart,
   Clock,
@@ -33,7 +33,7 @@ import StarredItems from './StarredItems';
 const features = [
   {
     title: 'Assessment',
-    icon: CalendarCheck,
+    icon: Brain,
     path: '/daily-check-in',
     description: 'Track your state',
   },
@@ -171,7 +171,7 @@ const LeftSidebar = () => {
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-[200px] text-xs">
                   <p className="font-medium mb-1">Symbols</p>
-                  <p>▲ High · ─ Moderate · ▼ Low</p>
+                  <p>▲ High · ● Moderate · ▼ Low</p>
                   <p className="mt-0.5 text-muted-foreground">First = Clarity, Second = Confidence</p>
                 </TooltipContent>
               </Tooltip>
