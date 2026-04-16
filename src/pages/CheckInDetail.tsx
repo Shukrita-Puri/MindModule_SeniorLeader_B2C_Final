@@ -187,6 +187,10 @@ const CheckInDetail = () => {
         </div>
       </div>
     </div>
+    <FloatingPillNav />
+    </SidebarInset>
+    </div>
+    </SidebarProvider>
   );
 };
 
