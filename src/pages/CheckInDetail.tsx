@@ -8,7 +8,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import FloatingNavigation from '@/components/navigation/FloatingNavigation';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import LeftSidebar from '@/components/navigation/LeftSidebar';
+import SidebarDiscoveryPulse from '@/components/navigation/SidebarDiscoveryPulse';
+import FloatingPillNav from '@/components/navigation/FloatingPillNav';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -94,8 +97,14 @@ const CheckInDetail = () => {
   };
 
   return (
+    <SidebarProvider defaultOpen={false}>
+    <div className="h-screen flex w-full bg-background overflow-hidden">
+      <LeftSidebar />
+      <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
     <div className="min-h-screen flex flex-col bg-background pt-16 pb-[108px]">
-      <FloatingNavigation backPath="/daily-check-in" showCoachButton={false} />
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
+        <SidebarDiscoveryPulse />
+      </header>
       
       <div className="relative h-auto py-6 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
