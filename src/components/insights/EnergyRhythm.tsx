@@ -42,9 +42,9 @@ const stateColors: Record<string, { bg: string; gradient: string; glow: string; 
     label: 'Scattered',
   },
   steady: {
-    bg: 'bg-teal-700',
-    gradient: 'from-teal-800 to-teal-600',
-    glow: 'rgba(17, 94, 89, 0.35)',
+    bg: 'bg-blue-800',
+    gradient: 'from-blue-900 to-blue-700',
+    glow: 'rgba(30, 58, 138, 0.35)',
     label: 'Steady',
   },
   focused: {

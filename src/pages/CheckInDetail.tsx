@@ -109,12 +109,12 @@ const CheckInDetail = () => {
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-    <div className="min-h-screen flex flex-col bg-background pt-16 pb-[200px]">
+    <div className="min-h-screen flex flex-col bg-background pt-20 pb-[200px]">
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-3 md:px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-background/80 backdrop-blur-sm">
         <SidebarDiscoveryPulse />
       </header>
       
-      <div className="relative h-auto py-6 overflow-hidden">
+      <div className="relative h-auto py-6 mt-2 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-1.5">
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight">
             Performance Readiness Assessment
@@ -123,7 +123,7 @@ const CheckInDetail = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pb-24">
+      <div className="flex-1 flex items-center justify-center p-4 pb-24 mt-6">
         <div className="w-full max-w-lg animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
