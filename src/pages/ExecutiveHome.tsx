@@ -319,7 +319,7 @@ const ExecutiveHome = () => {
             <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
-              <p className="text-[15px] text-muted-foreground/70 mt-2 font-body">
+              <p className="text-base text-muted-foreground/70 mt-2 font-body">
                 {getSubheadline()}
               </p>
             </div>
