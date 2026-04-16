@@ -113,7 +113,7 @@ const WeeklyRitualStreak = () => {
               {day.status === 'partial' && <Star size={12} fill="currentColor" />}
             </div>
             <span className={cn(
-              "text-[9px] sm:text-[10px] truncate",
+              "text-xs truncate",
               day.isToday ? "text-primary font-semibold" : "text-muted-foreground"
             )}>
               {day.day}

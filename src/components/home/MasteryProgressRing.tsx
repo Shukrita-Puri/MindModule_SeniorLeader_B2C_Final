@@ -70,7 +70,7 @@ const MasteryProgressRing = ({ currentPoints, maxPoints = 250, cluster, label }:
           <span className="text-2xl font-bold text-foreground">
             {currentPoints}
           </span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             /{maxPoints}
           </span>
         </div>

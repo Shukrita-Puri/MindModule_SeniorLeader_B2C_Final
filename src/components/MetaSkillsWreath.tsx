@@ -142,7 +142,7 @@ const MetaSkillsWreath = ({ metaSkills, growthPercentage = 0, className = "" }: 
                   {skill.subSkills.slice(0, 3).map(subSkill => (
                     <span 
                       key={subSkill} 
-                      className="text-[10px] text-muted-foreground"
+                      className="text-xs text-muted-foreground"
                     >
                       #{subSkill.replace(/\s+/g, '')}
                     </span>

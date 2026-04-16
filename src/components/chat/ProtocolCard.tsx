@@ -96,13 +96,13 @@ export const ProtocolCard = ({
           {/* Module Label + Protocol Type */}
           <div className="flex items-center gap-2 mb-1.5">
             <span className={cn(
-              "text-[10px] font-semibold tracking-wider uppercase",
+              "text-xs font-semibold tracking-wider uppercase",
               isOnDark ? "text-saffron" : "text-saffron"
             )}>
               {getModuleLabel(type)}
             </span>
             <span className={cn(
-              "text-[9px]",
+              "text-xs",
               isOnDark ? "text-muted-foreground/80" : "text-muted-foreground/60"
             )}>
               {getProtocolTypeLabel(type)}
@@ -120,7 +120,7 @@ export const ProtocolCard = ({
           {/* Story Hook (optional) */}
           {storyHook && (
             <p className={cn(
-              "text-[10px] line-clamp-1 mt-1",
+              "text-xs line-clamp-1 mt-1",
               isOnDark ? "text-muted-foreground/90" : "text-muted-foreground"
             )}>
               {storyHook}

@@ -7,14 +7,14 @@ const PrivacyFooter = () => {
     <div className="py-8 text-center flex items-center justify-center gap-3">
       <button
         onClick={() => navigate('/privacy')}
-        className="text-[10px] font-body text-gold/60 hover:text-gold transition-colors"
+        className="text-xs font-body text-gold/60 hover:text-gold transition-colors"
       >
         Privacy by Design
       </button>
-      <span className="text-gold/30 text-[10px]">·</span>
+      <span className="text-gold/30 text-xs">·</span>
       <button
         onClick={() => navigate('/powered-by-ai')}
-        className="text-[10px] font-body text-gold/60 hover:text-gold transition-colors"
+        className="text-xs font-body text-gold/60 hover:text-gold transition-colors"
       >
         Powered by AI
       </button>
