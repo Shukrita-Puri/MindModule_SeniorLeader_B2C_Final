@@ -51,10 +51,12 @@ export const useRecentActivity = () => {
             const outcome = capitalize(checkin.outcome || 'Completed');
             const cl = levelIcon(checkin.clarity_level);
             const co = levelIcon(checkin.confidence_level);
-            // e.g. "Focused, ● Clarity, ▲ Confidence"
+            const ms = levelIcon(checkin.mental_sharpness_level);
+            // e.g. "Focused, ● Clarity, ▲ Confidence, ● Sharpness"
             const parts: string[] = [];
             if (cl) parts.push(`${cl} Clarity`);
             if (co) parts.push(`${co} Confidence`);
+            if (ms) parts.push(`${ms} Sharpness`);
             const suffix = parts.join(', ');
 
             allActivities.push({

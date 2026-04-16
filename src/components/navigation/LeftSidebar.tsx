@@ -176,7 +176,7 @@ const LeftSidebar = () => {
                 <TooltipContent side="right" className="max-w-[200px] text-xs">
                   <p className="font-medium mb-1">Symbols</p>
                   <p>▲ High · ● Moderate · ▼ Low</p>
-                  <p className="mt-0.5 text-muted-foreground">First = Clarity, Second = Confidence</p>
+                  <p className="mt-0.5 text-muted-foreground">Order: Clarity · Confidence · Mental Sharpness</p>
                 </TooltipContent>
               </Tooltip>
             </SidebarGroupLabel>
