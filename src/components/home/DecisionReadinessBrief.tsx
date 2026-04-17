@@ -670,7 +670,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   return [
     {
       id: 'cognitive',
-      headline: 'COGNITIVE LOAD',
+      headline: 'COGNITIVE',
       signalWord: cognitiveWord(cogState),
       state: cogState,
       Icon: Brain,
@@ -680,7 +680,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     },
     {
       id: 'physiological',
-      headline: 'PHYSIOLOGICAL',
+      headline: 'PHYSIOLOGY',
       signalWord: physWord(physState),
       state: physState,
       Icon: BatteryMedium,
@@ -690,7 +690,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     },
     {
       id: 'emotional',
-      headline: 'EMOTIONAL',
+      headline: 'RESILIENCE',
       signalWord: emoWord(emoState),
       state: emoState,
       Icon: ShieldCheck,
