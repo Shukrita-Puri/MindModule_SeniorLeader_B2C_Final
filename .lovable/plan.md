@@ -1,54 +1,46 @@
 
 
-## Plan: Polish Executive Pills + Tighten Top Spacing
+## Plan: Unify Calendar Pills into "Based on your signals"
 
-### Scope (isolated)
-Two files touched, minimal changes:
-1. `src/pages/ExecutiveHome.tsx` — tighten vertical spacing above greeting + above Brief card (2-3px pull-up)
-2. `src/components/home/DecisionReadinessBrief.tsx` — rename pill titles, upgrade icons to premium 3D style, remove pill borders
+### Scope
+Single file: `src/components/home/DecisionReadinessBrief.tsx`. UI-only — calendar logic, scoring, data pipeline all untouched.
 
----
+### What changes
 
-### Change 1 — Tighten top spacing (`ExecutiveHome.tsx`)
+**1. Move location**
+- Remove `<CalendarPills outerBrief={outerBrief} />` from line 1082 (right after the Score row).
+- Render it inside the "Based on your signals" section (below `<ExecutivePillRow>`), so all 3 executive pills + calendar pills live together under one heading.
 
-Pull the greeting and Brief card up by ~2-3px:
-- Hero greeting block: reduce `pt-6 pb-16` → `pt-4 pb-12` (saves ~4px top, ~16px bottom so Brief sits closer)
-- Brief wrapper: reduce `pt-4` → `pt-2`
+**2. Match the executive pill UI style (capsule + icon badge + state color)**
+Refactor `CalendarPills` to render as **horizontal capsule pills** matching the executive pill aesthetic:
+- Same rounded-full capsule shape, padding, and height (`pl-2 pr-3 py-2 rounded-full`)
+- Same circular gradient icon badge (radial gradient + inset shadow, matching state color)
+- Same text stack: small uppercase headline (top) + bold signal word (bottom)
+- Same `PILL_COLORS` palette (green/amber/red/neutral) — reuse the existing object
+- No expansion/chevron (calendar pills stay non-collapsible to preserve current behaviour)
+- No borders (consistent with executive pills)
 
-Net effect: greeting sits ~2-3px higher, Brief card rises ~4-6px closer to the hero.
+**3. Pill mapping (logic unchanged — only presentation)**
 
-### Change 2 — Rename pill titles
+| Pill | Icon | Headline | Signal word | State color |
+|---|---|---|---|---|
+| Calendar load | `CalendarDays` (lucide) | `CALENDAR` | `LIGHT` / `MODERATE` / `HEAVY` (existing `loadLabel`) | green / amber / red (from existing `calLoad`) |
+| Next high-stakes event (when present) | `Clock` (lucide) | `NEXT UP` | `{event title} · {time}` (existing logic preserved for "now" / "in X mins" / formatted clock time) | neutral (taupe-equivalent) — use `neutral` palette |
+| Connect calendar (when not connected) | `CalendarPlus` (lucide) | `CALENDAR` | `CONNECT` | neutral, clickable → `/connected-data` |
 
-In `buildExecutivePills()` helper inside `DecisionReadinessBrief.tsx`:
-- `COGNITIVE LOAD` → **COGNITIVE**
-- `PHYSIOLOGICAL` → **PHYSIOLOGY**
-- `EMOTIONAL` → **RESILIENCE**
+The meeting count (`X meetings ahead / done`) becomes a small qualifier line below the signal word in the same capsule (matches the secondary text treatment used for executive pill qualifiers).
 
-Only the small top-label string changes. Signal phrase logic, colors, glass box content all untouched.
+**4. Layout**
+- Update the grid in "Based on your signals" so executive pills + calendar pills flow in the same `grid-cols-1 sm:grid-cols-3 gap-2` container, with calendar pills appearing after the 3 executive pills (wrapping on mobile, fitting alongside on desktop).
 
-### Change 3 — Premium 3D icons
-
-Current icons use flat `lucide-react` line glyphs (`Brain`, `BatteryMedium`, `ShieldCheck`). Upgrade visual weight:
-
-- Wrap each icon in a **circular gradient badge** with soft inner shadow + outer glow matching pill state color (green/amber/red)
-- Use **filled duotone treatment**: icon in white/near-white on a tinted gradient disc (e.g. `radial-gradient` from pill color 40% → pill color 10%)
-- Add `drop-shadow-[0_2px_4px_rgba(...)]` using the state color for subtle 3D lift
-- Keep same lucide components (no new library) — the premium feel comes from the badge treatment, not a new icon set
-- Icon size bumped slightly (20px → 22px) with `strokeWidth={1.75}` for more refined line weight
-
-Result: icons feel like embossed/raised badges rather than flat line glyphs — consistent with the executive glass aesthetic.
-
-### Change 4 — Remove pill borders
-
-In `ExecutivePillCapsule`:
-- Remove the `border border-[color]/30` (or equivalent) on the collapsed capsule
-- Remove the `border-t` divider inside the glass box expansion between top/bottom halves — replace with a subtle gradient hairline (`bg-gradient-to-r from-transparent via-white/10 to-transparent`) so the split is still readable without a hard line
-- Keep the frosted glass background + backdrop blur — depth comes from shadow + gradient, not borders
-
-### Files edited
-- `src/pages/ExecutiveHome.tsx` (2 className tweaks)
-- `src/components/home/DecisionReadinessBrief.tsx` (3 title strings, icon badge wrapper, border removal)
+### Logic preserved (verbatim)
+- All conditions in `CalendarPills` (not connected → connect prompt; no meetings → render nothing; high-stakes within 90 mins → urgent display; otherwise regular load + remaining HS event)
+- `calendarLoadPillStyle`, `eventPillStyle`, `formatEventTime`, all `outerBrief` field reads
+- Calendar data flow from `useOuterReadiness` / `compute-outer-readiness`
 
 ### Untouched
-All readiness logic, scoring, LLM brief, pattern mapping, glass box content, calendar pills, "How to show up", raw numbers, navigation, hero video.
+Score, tier, phrase, body, executive pills, "How to show up", lean on / watch for, raw numbers, navigation, hero, scoring, edge functions.
+
+### Files edited
+- `src/components/home/DecisionReadinessBrief.tsx` (refactor `CalendarPills` render output + relocate one JSX line)
 
