@@ -191,10 +191,8 @@ const ExecutiveHome = () => {
   const firstName = fullName.split(' ')[0];
   
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return `Morning, ${firstName}`;
-    if (hour >= 12 && hour < 18) return `Afternoon, ${firstName}`;
-    return `Evening, ${firstName}`;
+    // Time-neutral Chief-of-Staff salutation — temporal context lives in the brief eyebrow
+    return `Welcome back, ${firstName}`;
   };
   
   const getSubheadline = () => {
@@ -315,13 +313,16 @@ const ExecutiveHome = () => {
               </div>
             </header>
             
-            <div className="relative z-10 pt-2 pb-4 max-w-lg mx-auto text-center">
-            <h1 className="text-[22px] sm:text-3xl md:text-4xl font-headline text-foreground tracking-tight">
+            <div className="relative z-10 pt-0 pb-2 max-w-lg mx-auto text-center">
+            <h1 className="text-[28px] sm:text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
-              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
-                {getSubheadline()}
-              </p>
+              {/* TEMP_SUPPRESSED: subheadline phrase hidden to avoid duplication with brief italic line */}
+              {false && (
+                <p className="text-sm text-muted-foreground/70 mt-1 font-body">
+                  {getSubheadline()}
+                </p>
+              )}
             </div>
           </div>
 
