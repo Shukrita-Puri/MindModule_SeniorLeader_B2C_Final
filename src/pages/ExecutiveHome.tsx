@@ -315,7 +315,7 @@ const ExecutiveHome = () => {
               </div>
             </header>
             
-            <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
+            <div className="relative z-10 pt-4 pb-12 max-w-lg mx-auto text-center">
             <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
@@ -329,7 +329,7 @@ const ExecutiveHome = () => {
           <div className="flex-1 w-full pb-[100px]">
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
-            <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
+            <div className="px-4 md:px-6 max-w-lg mx-auto pt-2">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief />
               </section>

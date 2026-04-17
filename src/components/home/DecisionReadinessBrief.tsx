@@ -670,7 +670,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   return [
     {
       id: 'cognitive',
-      headline: 'COGNITIVE LOAD',
+      headline: 'COGNITIVE',
       signalWord: cognitiveWord(cogState),
       state: cogState,
       Icon: Brain,
@@ -680,7 +680,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     },
     {
       id: 'physiological',
-      headline: 'PHYSIOLOGICAL',
+      headline: 'PHYSIOLOGY',
       signalWord: physWord(physState),
       state: physState,
       Icon: BatteryMedium,
@@ -690,7 +690,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     },
     {
       id: 'emotional',
-      headline: 'EMOTIONAL',
+      headline: 'RESILIENCE',
       signalWord: emoWord(emoState),
       state: emoState,
       Icon: ShieldCheck,
@@ -702,34 +702,42 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   ];
 }
 
-const PILL_COLORS: Record<PillState, { bg: string; text: string; icon: string; border: string; glow: string }> = {
+const PILL_COLORS: Record<PillState, { bg: string; text: string; icon: string; border: string; glow: string; badge: string; badgeRing: string }> = {
   green: {
     bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/70',
     text: 'text-emerald-800',
-    icon: 'text-emerald-600 drop-shadow-[0_0_6px_rgba(16,185,129,0.45)]',
+    icon: 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]',
     border: 'border-emerald-300/60',
     glow: 'shadow-[0_2px_12px_rgba(16,185,129,0.18)]',
+    badge: 'bg-[radial-gradient(circle_at_30%_25%,#34d399_0%,#10b981_55%,#059669_100%)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.55),inset_0_-2px_3px_rgba(0,0,0,0.18),0_3px_8px_rgba(16,185,129,0.45)]',
+    badgeRing: 'ring-1 ring-emerald-200/60',
   },
   amber: {
     bg: 'bg-gradient-to-br from-amber-50 to-amber-100/70',
     text: 'text-amber-800',
-    icon: 'text-amber-600 drop-shadow-[0_0_6px_rgba(245,158,11,0.45)]',
+    icon: 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]',
     border: 'border-amber-300/60',
     glow: 'shadow-[0_2px_12px_rgba(245,158,11,0.18)]',
+    badge: 'bg-[radial-gradient(circle_at_30%_25%,#fbbf24_0%,#f59e0b_55%,#d97706_100%)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.55),inset_0_-2px_3px_rgba(0,0,0,0.18),0_3px_8px_rgba(245,158,11,0.45)]',
+    badgeRing: 'ring-1 ring-amber-200/60',
   },
   red: {
     bg: 'bg-gradient-to-br from-red-50 to-red-100/70',
     text: 'text-red-800',
-    icon: 'text-red-600 drop-shadow-[0_0_6px_rgba(239,68,68,0.45)]',
+    icon: 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]',
     border: 'border-red-300/60',
     glow: 'shadow-[0_2px_12px_rgba(239,68,68,0.18)]',
+    badge: 'bg-[radial-gradient(circle_at_30%_25%,#f87171_0%,#ef4444_55%,#dc2626_100%)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.55),inset_0_-2px_3px_rgba(0,0,0,0.18),0_3px_8px_rgba(239,68,68,0.45)]',
+    badgeRing: 'ring-1 ring-red-200/60',
   },
   neutral: {
     bg: 'bg-gradient-to-br from-muted/40 to-muted/20',
     text: 'text-muted-foreground',
-    icon: 'text-muted-foreground/70',
+    icon: 'text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]',
     border: 'border-border/40',
     glow: 'shadow-[0_2px_8px_rgba(0,0,0,0.04)]',
+    badge: 'bg-[radial-gradient(circle_at_30%_25%,hsl(var(--muted-foreground)/0.7)_0%,hsl(var(--muted-foreground)/0.5)_60%,hsl(var(--muted-foreground)/0.35)_100%)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),inset_0_-2px_3px_rgba(0,0,0,0.15),0_2px_6px_rgba(0,0,0,0.15)]',
+    badgeRing: 'ring-1 ring-border/40',
   },
 };
 
@@ -750,13 +758,20 @@ function ExecutivePillCapsule({
         type="button"
         onClick={onToggle}
         className={cn(
-          'group flex items-center gap-3 w-full pl-3 pr-3 py-2.5 rounded-full border transition-all duration-300 active:scale-[0.98]',
-          c.bg, c.border, c.glow,
+          'group flex items-center gap-3 w-full pl-2 pr-3 py-2 rounded-full transition-all duration-300 active:scale-[0.98]',
+          c.bg, c.glow,
           expanded && 'rounded-b-none'
         )}
         aria-expanded={expanded}
       >
-        <Icon className={cn('w-5 h-5 shrink-0', c.icon)} strokeWidth={1.75} />
+        <span
+          className={cn(
+            'shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full',
+            c.badge, c.badgeRing
+          )}
+        >
+          <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
+        </span>
         <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
           <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
             {pill.headline}
@@ -781,10 +796,7 @@ function ExecutivePillCapsule({
           expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className={cn(
-          'rounded-b-2xl border border-t-0 backdrop-blur-md bg-white/55 px-4 py-3',
-          c.border
-        )}>
+        <div className="rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
           {/* Top: wearable */}
           <div className="space-y-1">
             {pill.topLines.length > 0 ? (
@@ -803,8 +815,8 @@ function ExecutivePillCapsule({
             )}
           </div>
 
-          {/* Divider */}
-          <div className="my-2 h-px bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
+          {/* Subtle gradient hairline divider */}
+          <div className="my-2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
           {/* Bottom: self-declared */}
           <div className="space-y-1">
