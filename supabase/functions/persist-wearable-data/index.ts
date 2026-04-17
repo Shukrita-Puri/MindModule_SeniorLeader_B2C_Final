@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
         if (sample.hrv != null) row.hrv = sample.hrv;
         if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) row.hrv_samples = sample.hrv_samples;
         if (sample.resting_heart_rate != null) row.resting_heart_rate = sample.resting_heart_rate;
+        if (sample.heart_rate != null) row.heart_rate = sample.heart_rate;
         if (sample.total_sleep_minutes != null) row.total_sleep_minutes = sample.total_sleep_minutes;
         if (sample.deep_sleep_minutes != null) row.deep_sleep_minutes = sample.deep_sleep_minutes;
         if (sample.rem_sleep_minutes != null) row.rem_sleep_minutes = sample.rem_sleep_minutes;
@@ -177,6 +178,7 @@ Deno.serve(async (req) => {
       summary_date,
       hrv = null,
       resting_heart_rate = null,
+      heart_rate = null,
       steps = null,
       active_calories = null,
       sleep_score = null,
@@ -199,6 +201,7 @@ Deno.serve(async (req) => {
       source: "apple-healthkit",
       hrv,
       resting_heart_rate,
+      heart_rate,
       steps,
       active_calories,
       sleep_score,

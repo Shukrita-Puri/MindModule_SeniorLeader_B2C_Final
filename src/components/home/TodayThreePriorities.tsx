@@ -100,11 +100,18 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   const [fetchFailed, setFetchFailed] = useState(false);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
-  const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string } | null>(null);
-  // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger
+  const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string; key: string } | null>(null);
+
+  // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger.
+  // Keys are scoped to ritual_date + session_period so a new ritual cycle gets a clean slate
+  // but reload/refresh within the same window reuses the same fingerprint.
   const todayKey = new Date().toISOString().split('T')[0];
-  const celebratedStorageKey = `celebrated-ids-${todayKey}`;
-  const feedbackSlotsStorageKey = `feedback-slots-${todayKey}`;
+  const periodKey = getCurrentTimeWindow();
+  const scopeKey = `${todayKey}-${periodKey}`;
+  const celebratedStorageKey = `celebrated-ids-${scopeKey}`;
+  // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
+  // a remount or rehydration cannot "discover" an already-shown priority as new.
+  const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -113,14 +120,28 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     } catch { return new Set(); }
   };
   const persistSet = (key: string, s: Set<string>) => {
-    sessionStorage.setItem(key, JSON.stringify(Array.from(s)));
+    try { sessionStorage.setItem(key, JSON.stringify(Array.from(s))); } catch { /* ignore quota */ }
   };
 
-  const prevCompletedIdsRef = useRef<string[] | null>(null);
-  const completedSlotsRef = useRef<Set<number>>(new Set(
-    Array.from(loadPersistedSet(feedbackSlotsStorageKey)).map(Number).filter(n => !isNaN(n))
-  ));
+  // Build the stable per-priority fingerprint used as the dedupe key.
+  const buildPriorityKey = (slotIndex: number, hm: HorizonModule): string => {
+    const sp = hm.practices || [hm.practice];
+    const ids = sp.map(p => p.contentId).sort().join('|');
+    return `${slotIndex}:${ids}`;
+  };
+
+  // Tracks which priority fingerprints have ALREADY had their feedback modal shown
+  // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
+  const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
+
+  // Hydration gate: only switch from "seeding" to "newly completed" detection AFTER
+  // the first successful load of completedPracticeIds for this plan instance.
+  // Without this gate, the initial setCompletedPracticeIds() call (after plan load)
+  // would be interpreted as a fresh batch of completions and re-trigger feedback/confetti.
+  const hydratedRef = useRef(false);
+  const prevCompletedIdsRef = useRef<string[]>([]);
+
   const autoRetryDoneRef = useRef(false);
   const authTimeoutRef = useRef(false);
 
@@ -144,53 +165,74 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
       title: isAllComplete ? 'All Priorities Complete!' : 'Practice Complete!',
       description: isAllComplete ? "Amazing work! You've completed all three priorities." : `Great job completing "${practiceName}"!`,
     });
-  }, []);
+  }, [celebratedStorageKey]);
+
+  // ── Reset hydration gate when plan identity changes (new ritual / new period) ──
+  useEffect(() => {
+    hydratedRef.current = false;
+    prevCompletedIdsRef.current = [];
+  }, [plan?.meta?.generatedAt]);
 
   // ── Detect newly completed + per-priority feedback ──
+  // Critical: this effect must NOT treat the initial hydration of completedPracticeIds
+  // (loaded from DB / sessionStorage cache) as "new completions". The `hydratedRef` gate
+  // ensures the very first run after a plan load just records baseline state.
   useEffect(() => {
-    const prev = prevCompletedIdsRef.current;
-    // Don't seed until plan is loaded — avoids treating existing completions as "new"
-    if (prev === null) {
-      if (!plan) return;
-      prevCompletedIdsRef.current = completedPracticeIds;
-      // Pre-populate completedSlotsRef & celebratedIdsRef for already-done slots
-      const modules = plan.horizonModules || [];
+    if (!plan) return;
+    const modules = plan.horizonModules || [];
+
+    // FIRST PASS after plan load: seed all already-complete priorities + celebrated IDs
+    // from whatever was hydrated from storage. Do NOT trigger any modal/confetti.
+    if (!hydratedRef.current) {
       modules.forEach((hm, idx) => {
         const sp = hm.practices || [hm.practice];
-        if (sp.every(p => completedPracticeIds.includes(p.contentId))) {
-          completedSlotsRef.current.add(idx);
+        const slotComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
+        if (slotComplete) {
+          // Mark the priority key as already-shown so we never re-surface feedback
+          // for a priority that was completed before this mount/refresh.
+          feedbackShownRef.current.add(buildPriorityKey(idx, hm));
         }
       });
       completedPracticeIds.forEach(id => celebratedIdsRef.current.add(id));
-      // Persist the seeded state
       persistSet(celebratedStorageKey, celebratedIdsRef.current);
-      persistSet(feedbackSlotsStorageKey, new Set(Array.from(completedSlotsRef.current).map(String)));
+      persistSet(feedbackShownStorageKey, feedbackShownRef.current);
+      prevCompletedIdsRef.current = completedPracticeIds;
+      hydratedRef.current = true;
       return;
     }
 
+    const prev = prevCompletedIdsRef.current;
     const newlyDone = completedPracticeIds.filter(id => !prev.includes(id));
-    if (newlyDone.length > 0) {
-      const modules = plan?.horizonModules || [];
-      const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
-      const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
-      const allIds = allPracticesList.map(p => p.contentId);
-      const allDone = allIds.every(id => completedPracticeIds.includes(id));
-      if (found) triggerCelebration(found.title, allDone, found.contentId);
-
-      // Check if a new priority slot just completed
-      modules.forEach((hm, idx) => {
-        if (completedSlotsRef.current.has(idx)) return;
-        const sp = hm.practices || [hm.practice];
-        const slotNowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
-        if (slotNowComplete) {
-          completedSlotsRef.current.add(idx);
-          persistSet(feedbackSlotsStorageKey, new Set(Array.from(completedSlotsRef.current).map(String)));
-          setFeedbackSlot({ index: idx, horizon: hm.horizon });
-        }
-      });
+    if (newlyDone.length === 0) {
+      prevCompletedIdsRef.current = completedPracticeIds;
+      return;
     }
+
+    const allPracticesList = modules.flatMap(m => m.practices || [m.practice]);
+    const found = allPracticesList.find(p => newlyDone.includes(p.contentId));
+    const allIds = allPracticesList.map(p => p.contentId);
+    const allDone = allIds.every(id => completedPracticeIds.includes(id));
+    if (found) triggerCelebration(found.title, allDone, found.contentId);
+
+    // Surface feedback for at most ONE newly completed priority per pass — and only if
+    // its stable fingerprint has never been shown before.
+    for (let idx = 0; idx < modules.length; idx++) {
+      const hm = modules[idx];
+      const key = buildPriorityKey(idx, hm);
+      if (feedbackShownRef.current.has(key)) continue;
+      const sp = hm.practices || [hm.practice];
+      const wasComplete = sp.every(p => prev.includes(p.contentId));
+      const nowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
+      if (!wasComplete && nowComplete) {
+        feedbackShownRef.current.add(key);
+        persistSet(feedbackShownStorageKey, feedbackShownRef.current);
+        setFeedbackSlot({ index: idx, horizon: hm.horizon, key });
+        break; // only one modal at a time
+      }
+    }
+
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async () => {
