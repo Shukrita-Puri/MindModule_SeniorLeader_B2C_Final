@@ -758,13 +758,20 @@ function ExecutivePillCapsule({
         type="button"
         onClick={onToggle}
         className={cn(
-          'group flex items-center gap-3 w-full pl-3 pr-3 py-2.5 rounded-full border transition-all duration-300 active:scale-[0.98]',
-          c.bg, c.border, c.glow,
+          'group flex items-center gap-3 w-full pl-2 pr-3 py-2 rounded-full transition-all duration-300 active:scale-[0.98]',
+          c.bg, c.glow,
           expanded && 'rounded-b-none'
         )}
         aria-expanded={expanded}
       >
-        <Icon className={cn('w-5 h-5 shrink-0', c.icon)} strokeWidth={1.75} />
+        <span
+          className={cn(
+            'shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full',
+            c.badge, c.badgeRing
+          )}
+        >
+          <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
+        </span>
         <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
           <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
             {pill.headline}
@@ -789,10 +796,7 @@ function ExecutivePillCapsule({
           expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className={cn(
-          'rounded-b-2xl border border-t-0 backdrop-blur-md bg-white/55 px-4 py-3',
-          c.border
-        )}>
+        <div className="rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
           {/* Top: wearable */}
           <div className="space-y-1">
             {pill.topLines.length > 0 ? (
@@ -811,8 +815,8 @@ function ExecutivePillCapsule({
             )}
           </div>
 
-          {/* Divider */}
-          <div className="my-2 h-px bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
+          {/* Subtle gradient hairline divider */}
+          <div className="my-2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
           {/* Bottom: self-declared */}
           <div className="space-y-1">
