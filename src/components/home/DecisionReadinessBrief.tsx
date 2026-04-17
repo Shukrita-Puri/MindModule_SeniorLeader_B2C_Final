@@ -841,18 +841,22 @@ function ExecutivePillCapsule({
   );
 }
 
-function ExecutivePillRow({ pills }: { pills: ExecutivePill[] }) {
+function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; inline?: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const items = pills.map((pill) => (
+    <ExecutivePillCapsule
+      key={pill.id}
+      pill={pill}
+      expanded={expandedId === pill.id}
+      onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
+    />
+  ));
+  if (inline) {
+    return <>{items}</>;
+  }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-      {pills.map((pill) => (
-        <ExecutivePillCapsule
-          key={pill.id}
-          pill={pill}
-          expanded={expandedId === pill.id}
-          onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
-        />
-      ))}
+      {items}
     </div>
   );
 }
