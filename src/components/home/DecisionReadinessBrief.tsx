@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, Brain, BatteryMedium, ShieldCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ─── TYPES ───
@@ -841,18 +841,22 @@ function ExecutivePillCapsule({
   );
 }
 
-function ExecutivePillRow({ pills }: { pills: ExecutivePill[] }) {
+function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; inline?: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const items = pills.map((pill) => (
+    <ExecutivePillCapsule
+      key={pill.id}
+      pill={pill}
+      expanded={expandedId === pill.id}
+      onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
+    />
+  ));
+  if (inline) {
+    return <>{items}</>;
+  }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-      {pills.map((pill) => (
-        <ExecutivePillCapsule
-          key={pill.id}
-          pill={pill}
-          expanded={expandedId === pill.id}
-          onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
-        />
-      ))}
+      {items}
     </div>
   );
 }
@@ -919,14 +923,72 @@ function LeanOnPill({ signal, source }: { signal: string; source: string }) {
   );
 }
 
-// ─── CALENDAR PILLS ───
+// ─── CALENDAR PILL CAPSULE (matches ExecutivePillCapsule visual style, non-collapsible) ───
+function CalendarPillCapsule({
+  state,
+  Icon,
+  headline,
+  signalWord,
+  qualifier,
+  onClick,
+}: {
+  state: PillState;
+  Icon: LucideIcon;
+  headline: string;
+  signalWord: string;
+  qualifier?: string;
+  onClick?: () => void;
+}) {
+  const c = PILL_COLORS[state];
+  const isInteractive = !!onClick;
+  return (
+    <div className="flex flex-col w-full">
+      <div
+        role={isInteractive ? 'button' : undefined}
+        tabIndex={isInteractive ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={isInteractive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
+        className={cn(
+          'group flex items-center gap-3 w-full pl-2 pr-3 py-2 rounded-full transition-all duration-300',
+          c.bg, c.glow,
+          isInteractive && 'cursor-pointer active:scale-[0.98]'
+        )}
+      >
+        <span
+          className={cn(
+            'shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full',
+            c.badge, c.badgeRing
+          )}
+        >
+          <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
+        </span>
+        <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
+          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
+            {headline}
+          </span>
+          <span className={cn('text-sm font-semibold tracking-wide uppercase truncate max-w-full', c.text)}>
+            {signalWord}
+          </span>
+          {qualifier && (
+            <span className={cn('text-[10px] font-body opacity-60 truncate max-w-full', c.text)}>
+              {qualifier}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CALENDAR PILLS (logic preserved verbatim — only presentation changed) ───
 function CalendarPills({ outerBrief }: { outerBrief: any }) {
   const hasCalendar = outerBrief?.hasCalendar ?? (outerBrief?.calendarState === 'active');
   const calendarState = outerBrief?.calendarState;
   const nextHS = outerBrief?.nextHighStakesEvent;
   const remainingHS: string[] = outerBrief?.remainingHighStakes ?? [];
   const calLoad = outerBrief?.calendarLoad ?? 'low';
-  const loadLabel = calLoad === 'high' ? 'Heavy' : calLoad === 'medium' ? 'Moderate' : 'Light';
+  const loadLabel = calLoad === 'high' ? 'HEAVY' : calLoad === 'medium' ? 'MODERATE' : 'LIGHT';
+  const loadState: PillState = calLoad === 'high' ? 'red' : calLoad === 'medium' ? 'amber' : 'green';
   const meetingCount = outerBrief?.meetingCount ?? 0;
   const remainingMeetings = outerBrief?.remainingMeetings ?? meetingCount;
   const meetingLabel = remainingMeetings > 0
@@ -935,71 +997,88 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       ? `${meetingCount} meeting${meetingCount !== 1 ? 's' : ''} done`
       : '0 meetings';
 
+  // Connect-calendar prompt
   if (!hasCalendar && calendarState === 'not_connected') {
     return (
-      <div className="flex gap-2 mt-2">
-        <button
-          onClick={() => window.location.href = '/connected-data'}
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body bg-muted/50 text-muted-foreground/60 border border-border/30 cursor-pointer active:scale-95 transition-transform"
-        >
-          Connect calendar
-        </button>
-      </div>
+      <>
+        <CalendarPillCapsule
+          state="neutral"
+          Icon={CalendarPlus}
+          headline="CALENDAR"
+          signalWord="CONNECT"
+          onClick={() => { window.location.href = '/connected-data'; }}
+        />
+      </>
     );
   }
 
   if (!hasCalendar || meetingCount === 0) return null;
 
-  // High-stakes within 90 mins — taupe pill (consistent with event pill system)
-  if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
-    const urgentLabel = nextHS.minutesUntil < 30
-      ? `${nextHS.title} · now`
-      : `${nextHS.title} · in ${nextHS.minutesUntil} mins`;
-    return (
-      <div className="flex flex-wrap gap-2 mt-2">
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body font-medium italic", eventPillStyle)}>
-          {urgentLabel}
-        </span>
-        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
-          {loadLabel} day · {meetingLabel}
-        </span>
-      </div>
-    );
-  }
+  // Format event time helper (preserved from original)
+  const formatEventTime = (minsUntil: number) => {
+    if (minsUntil < 30) return 'now';
+    if (minsUntil < 90) return `in ${minsUntil} mins`;
+    const eventTime = new Date(Date.now() + minsUntil * 60000);
+    const h = eventTime.getHours();
+    const m = eventTime.getMinutes();
+    return m === 0
+      ? `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`
+      : `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`;
+  };
 
-  // Regular calendar display
   const pills: JSX.Element[] = [];
+
+  // Calendar load pill (always present when there are meetings)
   pills.push(
-    <span key="load" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body", calendarLoadPillStyle(calLoad))}>
-      {loadLabel} day · {meetingLabel}
-    </span>
+    <CalendarPillCapsule
+      key="load"
+      state={loadState}
+      Icon={CalendarDays}
+      headline="CALENDAR"
+      signalWord={loadLabel}
+      qualifier={meetingLabel}
+    />
   );
 
-  // Show next remaining high-stakes event with formatted time
-  if (remainingHS.length > 0 && nextHS?.title) {
-    const formatEventTime = (minsUntil: number) => {
-      if (minsUntil < 30) return 'now';
-      if (minsUntil < 90) return `in ${minsUntil} mins`;
-      const eventTime = new Date(Date.now() + minsUntil * 60000);
-      const h = eventTime.getHours();
-      const m = eventTime.getMinutes();
-      return m === 0 ? `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}` : `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`;
-    };
+  // High-stakes event within 90 mins — urgent variant
+  if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
+    const timeLabel = formatEventTime(nextHS.minutesUntil);
+    pills.push(
+      <CalendarPillCapsule
+        key="next-up-urgent"
+        state="neutral"
+        Icon={Clock}
+        headline="NEXT UP"
+        signalWord={nextHS.title}
+        qualifier={timeLabel}
+      />
+    );
+  } else if (remainingHS.length > 0 && nextHS?.title) {
     const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
-        {remainingHS[0]} · {timeLabel}
-      </span>
+      <CalendarPillCapsule
+        key="next-up"
+        state="neutral"
+        Icon={Clock}
+        headline="NEXT UP"
+        signalWord={remainingHS[0]}
+        qualifier={timeLabel}
+      />
     );
   } else if (remainingHS.length > 0) {
     pills.push(
-      <span key="hs" className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-body italic", eventPillStyle)}>
-        {remainingHS[0]} · ahead
-      </span>
+      <CalendarPillCapsule
+        key="next-up-fallback"
+        state="neutral"
+        Icon={Clock}
+        headline="NEXT UP"
+        signalWord={remainingHS[0]}
+        qualifier="ahead"
+      />
     );
   }
 
-  return <div className="flex flex-wrap gap-2 mt-2">{pills}</div>;
+  return <>{pills}</>;
 }
 
 // ─── MAIN COMPONENT ───
@@ -1078,8 +1157,7 @@ const PerformanceReadinessBrief = () => {
         )}
       </div>
 
-      {/* 3. CALENDAR PILLS */}
-      <CalendarPills outerBrief={outerBrief} />
+      {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
       {/* 4. PHRASE */}
       <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
@@ -1099,32 +1177,42 @@ const PerformanceReadinessBrief = () => {
           Based on your signals
         </span>
 
-        {/* 7. EXECUTIVE PILLS — 3 capsules (cognitive / physiological / emotional) */}
+        {/* 7. EXECUTIVE PILLS + CALENDAR PILLS — unified capsule grid */}
         {(() => {
           const execPills = buildExecutivePills(outerBrief);
           if (execPills) {
-            return <ExecutivePillRow pills={execPills} />;
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <ExecutivePillRow pills={execPills} inline />
+                <CalendarPills outerBrief={outerBrief} />
+              </div>
+            );
           }
           // Fallback: pre-check-in prompts (Check in / Connect wearable) — preserved
           return (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {chips.map(chip => {
-                const navMap: Record<string, string> = {
-                  'no-checkin': '/daily-check-in',
-                  'wearable-prompt': '/connected-data',
-                  'wearable-stale': '/connected-data',
-                  'calendar-prompt': '/connected-data',
-                };
-                const navTarget = navMap[chip.id];
-                return (
-                  <FlippableChip
-                    key={chip.id}
-                    chip={chip}
-                    onNavigate={navTarget ? () => navigate(navTarget) : undefined}
-                  />
-                );
-              })}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {chips.map(chip => {
+                  const navMap: Record<string, string> = {
+                    'no-checkin': '/daily-check-in',
+                    'wearable-prompt': '/connected-data',
+                    'wearable-stale': '/connected-data',
+                    'calendar-prompt': '/connected-data',
+                  };
+                  const navTarget = navMap[chip.id];
+                  return (
+                    <FlippableChip
+                      key={chip.id}
+                      chip={chip}
+                      onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+                    />
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <CalendarPills outerBrief={outerBrief} />
+              </div>
+            </>
           );
         })()}
       </div>
