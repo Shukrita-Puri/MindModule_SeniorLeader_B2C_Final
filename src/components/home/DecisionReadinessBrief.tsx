@@ -929,7 +929,7 @@ function CalendarPillCapsule({
   onClick,
 }: {
   state: PillState;
-  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  Icon: LucideIcon;
   headline: string;
   signalWord: string;
   qualifier?: string;
@@ -1153,8 +1153,7 @@ const PerformanceReadinessBrief = () => {
         )}
       </div>
 
-      {/* 3. CALENDAR PILLS */}
-      <CalendarPills outerBrief={outerBrief} />
+      {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
       {/* 4. PHRASE */}
       <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
@@ -1174,32 +1173,42 @@ const PerformanceReadinessBrief = () => {
           Based on your signals
         </span>
 
-        {/* 7. EXECUTIVE PILLS — 3 capsules (cognitive / physiological / emotional) */}
+        {/* 7. EXECUTIVE PILLS + CALENDAR PILLS — unified capsule grid */}
         {(() => {
           const execPills = buildExecutivePills(outerBrief);
           if (execPills) {
-            return <ExecutivePillRow pills={execPills} />;
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <ExecutivePillRow pills={execPills} inline />
+                <CalendarPills outerBrief={outerBrief} />
+              </div>
+            );
           }
           // Fallback: pre-check-in prompts (Check in / Connect wearable) — preserved
           return (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {chips.map(chip => {
-                const navMap: Record<string, string> = {
-                  'no-checkin': '/daily-check-in',
-                  'wearable-prompt': '/connected-data',
-                  'wearable-stale': '/connected-data',
-                  'calendar-prompt': '/connected-data',
-                };
-                const navTarget = navMap[chip.id];
-                return (
-                  <FlippableChip
-                    key={chip.id}
-                    chip={chip}
-                    onNavigate={navTarget ? () => navigate(navTarget) : undefined}
-                  />
-                );
-              })}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {chips.map(chip => {
+                  const navMap: Record<string, string> = {
+                    'no-checkin': '/daily-check-in',
+                    'wearable-prompt': '/connected-data',
+                    'wearable-stale': '/connected-data',
+                    'calendar-prompt': '/connected-data',
+                  };
+                  const navTarget = navMap[chip.id];
+                  return (
+                    <FlippableChip
+                      key={chip.id}
+                      chip={chip}
+                      onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+                    />
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <CalendarPills outerBrief={outerBrief} />
+              </div>
+            </>
           );
         })()}
       </div>
