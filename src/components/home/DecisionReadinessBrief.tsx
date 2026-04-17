@@ -1087,32 +1087,34 @@ const PerformanceReadinessBrief = () => {
           Based on your signals
         </span>
 
-        {/* 7. SIGNAL CHIPS */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {chips.map(chip => {
-            const navMap: Record<string, string> = {
-              'no-checkin': '/daily-check-in',
-              'wearable-prompt': '/connected-data',
-              'wearable-stale': '/connected-data',
-              'calendar-prompt': '/connected-data',
-            };
-            const navTarget = navMap[chip.id];
-            return (
-              <FlippableChip
-                key={chip.id}
-                chip={chip}
-                onNavigate={navTarget ? () => navigate(navTarget) : undefined}
-              />
-            );
-          })}
-        </div>
-
-        {/* 8. FLIP AFFORDANCE HINT */}
-        {chips.some(c => !!c.backLabel) && (
-          <p className="mt-1.5 text-xs text-muted-foreground/40 font-body italic">
-            Tap a pill to see the number behind it
-          </p>
-        )}
+        {/* 7. EXECUTIVE PILLS — 3 capsules (cognitive / physiological / emotional) */}
+        {(() => {
+          const execPills = buildExecutivePills(outerBrief);
+          if (execPills) {
+            return <ExecutivePillRow pills={execPills} />;
+          }
+          // Fallback: pre-check-in prompts (Check in / Connect wearable) — preserved
+          return (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {chips.map(chip => {
+                const navMap: Record<string, string> = {
+                  'no-checkin': '/daily-check-in',
+                  'wearable-prompt': '/connected-data',
+                  'wearable-stale': '/connected-data',
+                  'calendar-prompt': '/connected-data',
+                };
+                const navTarget = navMap[chip.id];
+                return (
+                  <FlippableChip
+                    key={chip.id}
+                    chip={chip}
+                    onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+                  />
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 9. DIVIDER */}
