@@ -1,68 +1,54 @@
 
 
-## Refined Plan: Pill Capsule Design with State-Driven Colors
+## Plan: Polish Executive Pills + Tighten Top Spacing
 
-### Scope
-Only the "Based on your signals" block in `src/components/home/DecisionReadinessBrief.tsx`. No backend, no other UI.
+### Scope (isolated)
+Two files touched, minimal changes:
+1. `src/pages/ExecutiveHome.tsx` — tighten vertical spacing above greeting + above Brief card (2-3px pull-up)
+2. `src/components/home/DecisionReadinessBrief.tsx` — rename pill titles, upgrade icons to premium 3D style, remove pill borders
 
-### Pill front (collapsed) — matches reference image
+---
 
-```text
-┌──────────────────────────────────┐
-│ 🧠  COGNITIVE LOAD          ⌄    │   ← small label (top)
-│     CALM / ACUTE                 │   ← bold signal word (analysis)
-└──────────────────────────────────┘
-```
+### Change 1 — Tighten top spacing (`ExecutiveHome.tsx`)
 
-- **Capsule shape** (fully rounded, horizontal pill)
-- **Left**: glowing line icon (Brain / Battery / Shield)
-- **Center stack**: small uppercase headline + bold signal phrase below
-- **Top-right**: chevron-down (toggles glass box)
-- **Color** = state-driven (worst-of of pill's signals):
-  - GREEN `#10B981` = Good
-  - AMBER `#F59E0B` = Ok
-  - RED `#EF4444` = Bad
-- Soft glass gradient + glow tint matching state color
+Pull the greeting and Brief card up by ~2-3px:
+- Hero greeting block: reduce `pt-6 pb-16` → `pt-4 pb-12` (saves ~4px top, ~16px bottom so Brief sits closer)
+- Brief wrapper: reduce `pt-4` → `pt-2`
 
-### Three pills + signal phrases
+Net effect: greeting sits ~2-3px higher, Brief card rises ~4-6px closer to the hero.
 
-| Pill | Headline | Signal phrase examples (analysis word) | Color from |
-|---|---|---|---|
-| 🧠 **COGNITIVE LOAD** | COGNITIVE LOAD | CALM / ACUTE · HIGH LOAD · STRAINED · STEADY | worst of HRV tier + Sharpness/Clarity |
-| 🔋 **PHYSIOLOGICAL** | PHYSIOLOGICAL | READY / RESTED · FADING · DEPLETED | worst of Sleep tier + Energy outcome |
-| 🛡 **EMOTIONAL** | EMOTIONAL | FOCUSED / STEADY · REACTIVE · STRAINED | worst of RHR tier + Confidence |
+### Change 2 — Rename pill titles
 
-Phrase mapping is deterministic from existing `outerBrief` tier data — no LLM, no backend change.
+In `buildExecutivePills()` helper inside `DecisionReadinessBrief.tsx`:
+- `COGNITIVE LOAD` → **COGNITIVE**
+- `PHYSIOLOGICAL` → **PHYSIOLOGY**
+- `EMOTIONAL` → **RESILIENCE**
 
-### Glass Box (expanded) — top/bottom split, no labels
+Only the small top-label string changes. Signal phrase logic, colors, glass box content all untouched.
 
-```text
-┌──────────────────────────────────────┐
-│  PAST WEEK                           │  ← top: WEARABLE (no label)
-│  HRV (7-Day Avg): 110ms (+15%↑)      │
-│  ─────────────  sparkline ─────────  │
-├──────────────────────────────────────┤
-│  Sharpness: 8/10                     │  ← bottom: SELF-DECLARED (no label)
-│  Clarity: High                       │
-└──────────────────────────────────────┘
-```
+### Change 3 — Premium 3D icons
 
-- **Top half** = wearable raw metric + deviation + inline pattern qualifier (reuse existing pattern logic from `mem://features/performance-readiness/inline-pattern-mapping` for ALL three pills)
-- **Bottom half** = self-declared score(s) + outcome label + inline pattern qualifier
-- No "WEARABLE" / "SELF-DECLARED" headers shown
-- Inline patterns appear on **all three pills** (HRV trend / Sleep trend / RHR trend on top; Sharpness streak / Energy streak / Confidence streak on bottom)
-- Frosted glass surface, subtle inner border in pill's state color
-- One pill expanded at a time (local `useState`)
-- Empty wearable on a pill → top half shows "Connect wearable for full reading"
+Current icons use flat `lucide-react` line glyphs (`Brain`, `BatteryMedium`, `ShieldCheck`). Upgrade visual weight:
 
-### Layout
-- 3 pills in a row, wrapping to stacked on narrow widths
-- Capsule height ~56px collapsed; expansion grows inline (no overlay, no layout shift on the rest of the page)
-- Chevron rotates 180° when expanded
+- Wrap each icon in a **circular gradient badge** with soft inner shadow + outer glow matching pill state color (green/amber/red)
+- Use **filled duotone treatment**: icon in white/near-white on a tinted gradient disc (e.g. `radial-gradient` from pill color 40% → pill color 10%)
+- Add `drop-shadow-[0_2px_4px_rgba(...)]` using the state color for subtle 3D lift
+- Keep same lucide components (no new library) — the premium feel comes from the badge treatment, not a new icon set
+- Icon size bumped slightly (20px → 22px) with `strokeWidth={1.75}` for more refined line weight
+
+Result: icons feel like embossed/raised badges rather than flat line glyphs — consistent with the executive glass aesthetic.
+
+### Change 4 — Remove pill borders
+
+In `ExecutivePillCapsule`:
+- Remove the `border border-[color]/30` (or equivalent) on the collapsed capsule
+- Remove the `border-t` divider inside the glass box expansion between top/bottom halves — replace with a subtle gradient hairline (`bg-gradient-to-r from-transparent via-white/10 to-transparent`) so the split is still readable without a hard line
+- Keep the frosted glass background + backdrop blur — depth comes from shadow + gradient, not borders
 
 ### Files edited
-- `src/components/home/DecisionReadinessBrief.tsx` — replace the chip block (~lines 740-772) with new `<ExecutivePillRow>` + `<ExecutivePill>` + `buildExecutivePills()` helper. All other code untouched.
+- `src/pages/ExecutiveHome.tsx` (2 className tweaks)
+- `src/components/home/DecisionReadinessBrief.tsx` (3 title strings, icon badge wrapper, border removal)
 
 ### Untouched
-Score, tier, phrase, body, calendar pills, "How to show up", lean on / watch for, raw numbers, navigation, edge functions, scoring weights.
+All readiness logic, scoring, LLM brief, pattern mapping, glass box content, calendar pills, "How to show up", raw numbers, navigation, hero video.
 
