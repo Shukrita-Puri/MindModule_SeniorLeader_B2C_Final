@@ -191,10 +191,8 @@ const ExecutiveHome = () => {
   const firstName = fullName.split(' ')[0];
   
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return `Morning, ${firstName}`;
-    if (hour >= 12 && hour < 18) return `Afternoon, ${firstName}`;
-    return `Evening, ${firstName}`;
+    // Time-neutral Chief-of-Staff salutation — temporal context lives in the brief eyebrow
+    return `Welcome back, ${firstName}`;
   };
   
   const getSubheadline = () => {
