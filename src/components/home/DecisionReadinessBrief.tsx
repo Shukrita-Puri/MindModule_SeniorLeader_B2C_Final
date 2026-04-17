@@ -1091,7 +1091,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
   const navigate = useNavigate();
-  const [signalsOpen, setSignalsOpen] = useState(true);
+  const [signalsOpen, setSignalsOpen] = useState(false);
 
   // Single canonical payload — no separate computeEnergyState call
   const { data: outerBrief } = useOuterReadiness();
