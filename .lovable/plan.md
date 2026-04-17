@@ -1,83 +1,68 @@
 
 
-## Audit: Daily Check-In Data Flow
+## Refined Plan: Pill Capsule Design with State-Driven Colors
 
-### Tables written by these pages
+### Scope
+Only the "Based on your signals" block in `src/components/home/DecisionReadinessBrief.tsx`. No backend, no other UI.
 
-**Only one table:** `public.daily_checkins` (single row per `user_id + checkin_date + time_window`, enforced by unique constraint). Page 1 upserts the row; Page 2 updates the same row.
+### Pill front (collapsed) — matches reference image
 
-### Column-by-column audit
+```text
+┌──────────────────────────────────┐
+│ 🧠  COGNITIVE LOAD          ⌄    │   ← small label (top)
+│     CALM / ACUTE                 │   ← bold signal word (analysis)
+└──────────────────────────────────┘
+```
 
-| Column | Type | Source | Currently Populated? |
+- **Capsule shape** (fully rounded, horizontal pill)
+- **Left**: glowing line icon (Brain / Battery / Shield)
+- **Center stack**: small uppercase headline + bold signal phrase below
+- **Top-right**: chevron-down (toggles glass box)
+- **Color** = state-driven (worst-of of pill's signals):
+  - GREEN `#10B981` = Good
+  - AMBER `#F59E0B` = Ok
+  - RED `#EF4444` = Bad
+- Soft glass gradient + glow tint matching state color
+
+### Three pills + signal phrases
+
+| Pill | Headline | Signal phrase examples (analysis word) | Color from |
 |---|---|---|---|
-| `outcome` | text | Page 1 button selection (`overwhelmed`/`drained`/`scattered`/`steady`/`focused`) | ✅ Yes — **this IS the energy state column** |
-| `time_window` | text | Auto-derived from local hour (`morning`/`afternoon`/`evening`) | ✅ Yes |
-| `checkin_date` | date | Today's date | ✅ Yes |
-| `timestamp` | timestamptz | Submission moment | ✅ Yes |
-| `data_sources` | jsonb | `{ check_in: true }` | ✅ Yes |
-| `clarity_level` | int (1–5) | Page 2 Clarity slider | ✅ Yes (151/156 rows) |
-| `confidence_level` | int (1–5) | Page 2 Confidence slider | ✅ Yes (151/156 rows) |
-| `mental_sharpness_score` | int (1–5) | Page 2 Sharpness slider | ❌ **0 / 156 rows** |
-| `state_tags` | text[] | (intended: derived from outcome via `mapCheckInToTags`) | ❌ **0 / 156 rows** |
-| `energy_balance` | int | Currently hard-coded by old logic (legacy) | ⚠️ Partial |
-| `skipped` | bool | Skip path | ✅ Yes |
+| 🧠 **COGNITIVE LOAD** | COGNITIVE LOAD | CALM / ACUTE · HIGH LOAD · STRAINED · STEADY | worst of HRV tier + Sharpness/Clarity |
+| 🔋 **PHYSIOLOGICAL** | PHYSIOLOGICAL | READY / RESTED · FADING · DEPLETED | worst of Sleep tier + Energy outcome |
+| 🛡 **EMOTIONAL** | EMOTIONAL | FOCUSED / STEADY · REACTIVE · STRAINED | worst of RHR tier + Confidence |
 
-### Findings — confirming your three questions
+Phrase mapping is deterministic from existing `outerBrief` tier data — no LLM, no backend change.
 
-**1. `outcome` is correct as the Energy State column.** Values match the Page 1 buttons 1:1. No rename needed.
+### Glass Box (expanded) — top/bottom split, no labels
 
-**2. `mental_sharpness_score` is NOT being written from production.** Two confirmed root causes:
-   - **A. Edge function payload typing**: `RequestBody.checkinData` (line 34–45 of `supabase/functions/daily-checkins/index.ts`) does not declare `mental_sharpness_score`, AND the `SAVE_CHECKIN` upsert (lines 222–238) does not include it. Page 1 doesn't write it (correct — it's a Page 2 input). Page 2's `UPDATE_CLARITY_CONFIDENCE` action (line 280–282) DOES include it conditionally — so the path exists, but the column has never been populated.
-   - **B. Naming**: You're right — it should be `mental_sharpness_level` for consistency with `clarity_level` and `confidence_level`. All three are 1–5 ordinal levels, not scores.
+```text
+┌──────────────────────────────────────┐
+│  PAST WEEK                           │  ← top: WEARABLE (no label)
+│  HRV (7-Day Avg): 110ms (+15%↑)      │
+│  ─────────────  sparkline ─────────  │
+├──────────────────────────────────────┤
+│  Sharpness: 8/10                     │  ← bottom: SELF-DECLARED (no label)
+│  Clarity: High                       │
+└──────────────────────────────────────┘
+```
 
-**3. `state_tags` is NOT being populated.** `mapCheckInToTags()` exists in `src/utils/checkInToTags.ts` (with the modern outcome keys) but is **never called** from `DailyCheckIn.tsx → saveCheckin()`. The `state_tags` field is sent as `undefined`, so the column stays empty. Downstream consumers (Insights, Coach intelligence, pattern learning) lose this signal.
+- **Top half** = wearable raw metric + deviation + inline pattern qualifier (reuse existing pattern logic from `mem://features/performance-readiness/inline-pattern-mapping` for ALL three pills)
+- **Bottom half** = self-declared score(s) + outcome label + inline pattern qualifier
+- No "WEARABLE" / "SELF-DECLARED" headers shown
+- Inline patterns appear on **all three pills** (HRV trend / Sleep trend / RHR trend on top; Sharpness streak / Energy streak / Confidence streak on bottom)
+- Frosted glass surface, subtle inner border in pill's state color
+- One pill expanded at a time (local `useState`)
+- Empty wearable on a pill → top half shows "Connect wearable for full reading"
 
-### Why Page 2 hasn't populated sharpness in production
+### Layout
+- 3 pills in a row, wrapping to stacked on narrow widths
+- Capsule height ~56px collapsed; expansion grows inline (no overlay, no layout shift on the rest of the page)
+- Chevron rotates 180° when expanded
 
-Looking at the most recent rows (all from `2026-04-15` → `2026-04-16`), `clarity_level` and `confidence_level` are populated but `mental_sharpness_score` is `null`. The Page 2 update logic IS sending `mentalSharpness`. The likely cause: **the production edge function deployment is stale** — the audit shows the current `daily-checkins/index.ts` already accepts `mentalSharpness`, but the deployed version may predate that change, OR Page 2 isn't actually being completed to the slider stage in production sessions. Either way the field path needs verification + a rename.
+### Files edited
+- `src/components/home/DecisionReadinessBrief.tsx` — replace the chip block (~lines 740-772) with new `<ExecutivePillRow>` + `<ExecutivePill>` + `buildExecutivePills()` helper. All other code untouched.
 
----
-
-## Plan
-
-### 1. Rename `mental_sharpness_score` → `mental_sharpness_level` (DB migration)
-
-For consistency with `clarity_level` and `confidence_level`. Update the CHECK constraint name accordingly. No data loss (column is empty everywhere). Update:
-- DB: `ALTER TABLE … RENAME COLUMN mental_sharpness_score TO mental_sharpness_level;` + rename check constraint.
-- Edge function `daily-checkins/index.ts` `UPDATE_CLARITY_CONFIDENCE` payload key: `mental_sharpness_score` → `mental_sharpness_level`.
-- Frontend `CheckInDetail.tsx`: state var `mentalSharpness` keeps its name; only the DB write key + DEV_MODE update changes.
-- `src/integrations/supabase/types.ts` will auto-regenerate.
-
-### 2. Wire up `state_tags` so Page 1 populates it on every check-in
-
-In `src/pages/DailyCheckIn.tsx` `handleOutcomeSelect()`, derive tags from the chosen outcome via `mapCheckInToTags(outcome)` and pass them in the `saveCheckin({ … state_tags: [...] })` call. Send the combined `[stateTag, energyTag, ...recommendationTags]` array (deduped).
-
-`saveCheckin` already forwards `state_tags` to both DEV_MODE upsert and the edge function payload (lines 232/271). The edge function already persists it (line 232 of `daily-checkins/index.ts`). The only missing step is the call site in `DailyCheckIn.tsx`.
-
-### 3. Ensure `mental_sharpness_level` actually persists from production
-
-After the rename:
-- Verify Page 2's edge-function call (`UPDATE_CLARITY_CONFIDENCE`) sends `mentalSharpness` (already does — `CheckInDetail.tsx` line ~70).
-- The redeployed `daily-checkins` function will write the new column on the next Page 2 completion.
-- Add a one-line console log in the edge function to confirm receipt during QA.
-
-### 4. Out of scope (guardrails)
-
-- No changes to `outcome` column or its values.
-- No changes to readiness scoring, brief logic, or any other edge function.
-- No changes to `energy_balance` (legacy field — separate concern).
-- No backfill — historical rows remain `null` for the new field.
-
-### Files Touched
-
-- **DB migration**: rename column + check constraint.
-- `supabase/functions/daily-checkins/index.ts` — rename key in `UPDATE_CLARITY_CONFIDENCE` update payload.
-- `src/pages/DailyCheckIn.tsx` — call `mapCheckInToTags()` and pass `state_tags` into `saveCheckin()`.
-- `src/pages/CheckInDetail.tsx` — DEV_MODE update key rename.
-
-### Verification After Implementation
-
-- New Page 1 check-in → DB row has populated `state_tags` array.
-- Complete Page 2 → DB row has populated `mental_sharpness_level` (1–5).
-- Confirm with: `SELECT outcome, state_tags, clarity_level, confidence_level, mental_sharpness_level FROM daily_checkins ORDER BY created_at DESC LIMIT 5;`
+### Untouched
+Score, tier, phrase, body, calendar pills, "How to show up", lean on / watch for, raw numbers, navigation, edge functions, scoring weights.
 
