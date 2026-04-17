@@ -780,17 +780,17 @@ function ExecutivePillCapsule({
           <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
         </span>
         <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
-          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
+          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body', PILL_HEADLINE)}>
             {pill.headline}
           </span>
-          <span className={cn('text-sm font-semibold tracking-wide uppercase', c.text)}>
+          <span className={cn('text-sm font-semibold tracking-wide uppercase', PILL_SIGNAL)}>
             {pill.signalWord}
           </span>
         </div>
         <ChevronDown
           className={cn(
             'w-4 h-4 shrink-0 transition-transform duration-300',
-            c.text,
+            PILL_CHEVRON,
             expanded && 'rotate-180'
           )}
         />
