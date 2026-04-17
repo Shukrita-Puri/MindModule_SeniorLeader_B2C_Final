@@ -1,35 +1,37 @@
 
 
-## Plan: Soften Pill Colors to Taupe/White with Colored Icons
+## Plan: Greeting Polish + Collapse Signals by Default
 
 ### Scope
-Single file: `src/components/home/DecisionReadinessBrief.tsx`. Visual-only changes to `ExecutivePillCapsule` and `CalendarPillCapsule`.
+Two files, minimal changes.
 
 ### Changes
 
-**1. Pill body → neutral taupe/white**
-- Replace state-color gradient backgrounds on the capsule with a near-white/light-taupe surface (e.g. `bg-white/85` with subtle taupe tint)
-- Add soft drop shadow (`shadow-[0_2px_8px_rgba(0,0,0,0.06)]` + subtle hover lift) so pills read as separated cards
-- Remove state-colored glow on the capsule itself
-- Keep no borders (per prior approval)
+**1. `src/pages/ExecutiveHome.tsx` — Greeting box**
+- Reduce hero padding: `pt-2 pb-4` → `pt-0 pb-2`
+- Headline size + weight: `text-[22px] sm:text-3xl md:text-4xl font-headline` → `text-[28px] sm:text-3xl md:text-4xl font-headline font-bold`
+- **Suppress duplicate "Evening" + remove subheadline italic line:**
+  - Update `getGreeting()` to use Chief-of-Staff style salutations that do NOT repeat the time-of-day word (since the brief card already carries temporal context). New phrasing:
+    - Morning: `Good morning, {firstName}`
+    - Afternoon: `Good afternoon, {firstName}`
+    - Evening: `Good evening, {firstName}`
+  - Wait — user said "Remove the mention of Evening Twice". The duplicate is: greeting says "Evening, Name" AND the brief eyebrow says "Evening · Sun 17 Apr". To fix without touching the card, drop the time word from the greeting itself:
+    - Morning: `Hello, {firstName}` 
+    - Afternoon: `Hello, {firstName}`
+    - Evening: `Hello, {firstName}`
+  - More Chief-of-Staff voice options (pick one): `Welcome back, {firstName}` / `Ready when you are, {firstName}` / `Hello, {firstName}`
+  - **Going with**: `Welcome back, {firstName}` (warm, executive, time-neutral, no duplication with the card)
+- Wrap subheadline `<p>` with `{false && ...}` + `// TEMP_SUPPRESSED:` comment (preserves code for later reactivation)
 
-**2. Icon badge stays state-colored**
-- The circular icon disc keeps its radial-gradient in the state color (green/amber/red/neutral)
-- Icon glyph itself rendered in the matching state color (or white-on-color, whichever reads cleaner — match the reference left image which shows green icon on light-green disc)
-- Icon badge gets the soft glow/lift, not the pill body
-
-**3. Headline text → muted grey**
-- Change small uppercase headline (`COGNITIVE`, `PHYSIOLOGY`, `RESILIENCE`, `CALENDAR`, `NEXT UP`) to the same muted grey used in the "BASED ON YOUR SIGNALS" section header (`text-muted-foreground` / taupe-grey)
-- Signal word below stays bold and dark (`text-foreground`) for hierarchy — readable on the now-light pill background
-- Chevron stays muted grey
-
-**4. Calendar pill: inline meeting count**
-- Move `1 meeting ahead` qualifier inline with the signal word (e.g. `LIGHT · 1 meeting ahead`) at the same font size/weight as the signal word, instead of stacked below
-- Apply same to other calendar count qualifiers (`X meetings ahead`, `X done`)
+**2. `src/components/home/DecisionReadinessBrief.tsx` — Collapse signals**
+- Change `useState(true)` → `useState(false)` for `signalsOpen`
+- Brief reading order becomes: Score → Phrase → Body → [tap "Based on your signals"] → [tap "How to show up"]
 
 ### Untouched
-All scoring logic, state-color mapping (good/ok/bad still drives icon color), expansion behavior, glass box content, layout, all other components.
+- The card eyebrow keeps "Evening · Sun 17 Apr" (preserved per user request — useful for regeneration context)
+- All scoring, LLM brief, pill internals, calendar logic, "How to show up" content, navigation, hero video, edge functions
 
 ### Files edited
-- `src/components/home/DecisionReadinessBrief.tsx`
+- `src/pages/ExecutiveHome.tsx` (3 tweaks: padding, headline class, greeting copy + suppress subheadline)
+- `src/components/home/DecisionReadinessBrief.tsx` (1 tweak: signalsOpen default)
 
