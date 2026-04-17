@@ -1091,7 +1091,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 // ─── MAIN COMPONENT ───
 const PerformanceReadinessBrief = () => {
   const navigate = useNavigate();
-  const [rawExpanded, setRawExpanded] = useState(false);
+  const [signalsOpen, setSignalsOpen] = useState(true);
 
   // Single canonical payload — no separate computeEnergyState call
   const { data: outerBrief } = useOuterReadiness();
@@ -1178,51 +1178,54 @@ const PerformanceReadinessBrief = () => {
         </p>
       )}
 
-      {/* 6. SIGNAL SECTION */}
-      <div className="mt-4">
-        <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
+      {/* 6. SIGNAL SECTION — collapsible, open by default */}
+      <Collapsible open={signalsOpen} onOpenChange={setSignalsOpen} className="mt-4">
+        <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
           Based on your signals
-        </span>
+          <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", signalsOpen && "rotate-180")} />
+        </CollapsibleTrigger>
 
-        {/* 7. EXECUTIVE PILLS + CALENDAR PILLS — unified capsule grid */}
-        {(() => {
-          const execPills = buildExecutivePills(outerBrief);
-          if (execPills) {
+        <CollapsibleContent>
+          {/* 7. EXECUTIVE PILLS + CALENDAR PILLS — unified capsule grid */}
+          {(() => {
+            const execPills = buildExecutivePills(outerBrief);
+            if (execPills) {
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                  <ExecutivePillRow pills={execPills} inline />
+                  <CalendarPills outerBrief={outerBrief} />
+                </div>
+              );
+            }
+            // Fallback: pre-check-in prompts (Check in / Connect wearable) — preserved
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                <ExecutivePillRow pills={execPills} inline />
-                <CalendarPills outerBrief={outerBrief} />
-              </div>
+              <>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {chips.map(chip => {
+                    const navMap: Record<string, string> = {
+                      'no-checkin': '/daily-check-in',
+                      'wearable-prompt': '/connected-data',
+                      'wearable-stale': '/connected-data',
+                      'calendar-prompt': '/connected-data',
+                    };
+                    const navTarget = navMap[chip.id];
+                    return (
+                      <FlippableChip
+                        key={chip.id}
+                        chip={chip}
+                        onNavigate={navTarget ? () => navigate(navTarget) : undefined}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                  <CalendarPills outerBrief={outerBrief} />
+                </div>
+              </>
             );
-          }
-          // Fallback: pre-check-in prompts (Check in / Connect wearable) — preserved
-          return (
-            <>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {chips.map(chip => {
-                  const navMap: Record<string, string> = {
-                    'no-checkin': '/daily-check-in',
-                    'wearable-prompt': '/connected-data',
-                    'wearable-stale': '/connected-data',
-                    'calendar-prompt': '/connected-data',
-                  };
-                  const navTarget = navMap[chip.id];
-                  return (
-                    <FlippableChip
-                      key={chip.id}
-                      chip={chip}
-                      onNavigate={navTarget ? () => navigate(navTarget) : undefined}
-                    />
-                  );
-                })}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                <CalendarPills outerBrief={outerBrief} />
-              </div>
-            </>
-          );
-        })()}
-      </div>
+          })()}
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* 9. DIVIDER */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--taupe))]/20 to-transparent my-4" />
@@ -1295,51 +1298,8 @@ const PerformanceReadinessBrief = () => {
             );
           })()}
 
-          {/* 13. DATA SOURCE NOTE */}
-          <p className="mt-4 text-xs text-muted-foreground/35 font-body">
-            {dataSources.join(' · ')}
-          </p>
         </CollapsibleContent>
       </Collapsible>
-
-      {/* 14. TAP FOR RAW NUMBERS */}
-      {hasCheckIn && (
-        <Collapsible open={rawExpanded} onOpenChange={setRawExpanded}>
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center justify-end w-full mt-2 text-xs text-muted-foreground/35 font-body gap-1 hover:text-muted-foreground/50 transition-colors">
-              {rawExpanded ? 'Hide raw numbers' : 'Tap for raw numbers ›'}
-              {rawExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/20">
-            <div className="space-y-1 text-xs font-body text-muted-foreground/60">
-              {outerBrief?.wearableStatus?.isConnected && (outerBrief?.wearableStatus?.hasTodayData || outerBrief?.wearableStatus?.hasRecentData || outerBrief?.wearableStatus?.isStale) && (
-                <>
-                  {outerBrief?.hrvValue != null && (
-                    <div>HRV: {outerBrief.hrvValue}ms {outerBrief?.hrvBaseline ? `(${outerBrief?.hrvDeviation != null ? `${outerBrief.hrvDeviation > 0 ? '+' : ''}${outerBrief.hrvDeviation}%` : 'n/a'} vs your ${outerBrief.hrvBaseline}ms avg)` : '(baseline not yet established)'}</div>
-                  )}
-                  {outerBrief?.sleepDuration != null && (
-                    <div>Sleep: {Math.floor(outerBrief.sleepDuration / 60)}h {outerBrief.sleepDuration % 60}m {outerBrief?.sleepBaseline ? `(${outerBrief?.sleepDeviation != null ? `${outerBrief.sleepDeviation > 0 ? '+' : ''}${outerBrief.sleepDeviation}%` : 'n/a'} vs your ${Math.floor(outerBrief.sleepBaseline / 60)}h avg)` : ''}</div>
-                  )}
-                  {outerBrief?.sleepScore != null && (
-                    <div>Sleep score: {outerBrief.sleepScore} {outerBrief?.sleepBaseline && outerBrief?.sleepDuration == null ? `(vs your ${outerBrief.sleepBaseline} avg)` : ''}</div>
-                  )}
-                  {outerBrief?.rhrValue != null && (
-                    <div>RHR: {outerBrief.rhrValue}bpm {outerBrief?.rhrBaseline ? `(${outerBrief?.rhrDeviation != null ? `${outerBrief.rhrDeviation > 0 ? '+' : ''}${outerBrief.rhrDeviation}%` : 'n/a'} vs your ${outerBrief.rhrBaseline}bpm avg)` : '(baseline not yet established)'}</div>
-                  )}
-                </>
-              )}
-              {(outerBrief?.clarityLevel) != null && (
-                <div>Clarity: {outerBrief.clarityLevel}/5</div>
-              )}
-              {(outerBrief?.confidenceLevel) != null && (
-                <div>Confidence: {outerBrief.confidenceLevel}/5</div>
-              )}
-              <div>Score: {score ?? '--'} ({getTierLabel(tier).toLowerCase()})</div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
     </div>
   );
 };
