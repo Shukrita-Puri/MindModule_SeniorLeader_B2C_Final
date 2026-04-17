@@ -501,6 +501,350 @@ function buildSignalChips(
   return chips.slice(0, 6);
 }
 
+// ─── EXECUTIVE PILLS (3-capsule signal redesign) ───
+type PillState = 'green' | 'amber' | 'red' | 'neutral';
+type LineKind = 'wearable' | 'self';
+interface PillLine { text: string; qualifier?: string; kind: LineKind }
+interface ExecutivePill {
+  id: 'cognitive' | 'physiological' | 'emotional';
+  headline: string;
+  signalWord: string;
+  state: PillState;
+  Icon: typeof Brain;
+  topLines: PillLine[];      // wearable rows (top of glass box)
+  bottomLines: PillLine[];   // self-declared rows (bottom of glass box)
+  topEmptyText?: string;
+  bottomEmptyText?: string;
+}
+
+const worstOf = (states: PillState[]): PillState => {
+  if (states.includes('red')) return 'red';
+  if (states.includes('amber')) return 'amber';
+  if (states.includes('green')) return 'green';
+  return 'neutral';
+};
+
+function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
+  const checkInOutcome = outerBrief?.checkInOutcome as string | null;
+  if (!checkInOutcome) return null;
+
+  const tier = getWearableTier(outerBrief);
+  const wearableConnected = !!outerBrief?.wearableStatus?.isConnected;
+  const wearableTrend = outerBrief?.wearableTrend7d as string | null;
+  const scoreTrajectory = outerBrief?.scoreTrajectory7d as string | null;
+
+  // Tier helpers
+  const hrvVal = outerBrief?.hrvValue as number | null;
+  const hrvDev = outerBrief?.hrvDeviation as number | null;
+  const hrvBaseline = outerBrief?.hrvBaseline as number | null;
+  const rhrVal = outerBrief?.rhrValue as number | null;
+  const rhrDev = outerBrief?.rhrDeviation as number | null;
+  const rhrBaseline = outerBrief?.rhrBaseline as number | null;
+  const sleepDur = outerBrief?.sleepDuration as number | null;
+  const sleepScore = outerBrief?.sleepScore as number | null;
+  const sleepDev = outerBrief?.sleepDeviation as number | null;
+  const sleepBaseline = outerBrief?.sleepBaseline as number | null;
+  const clarity = outerBrief?.clarityLevel as number | null;
+  const confidence = outerBrief?.confidenceLevel as number | null;
+  const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
+  const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
+
+  let hrvTier: PillState = hrvVal == null ? 'neutral' : 'green';
+  if (hrvVal != null) {
+    if (hrvDev != null) {
+      if (hrvDev < -15) hrvTier = 'red';
+      else if (hrvDev < -5) hrvTier = 'amber';
+    } else {
+      if (hrvVal < 20) hrvTier = 'red';
+      else if (hrvVal < 40) hrvTier = 'amber';
+    }
+  }
+  let rhrTier: PillState = rhrVal == null ? 'neutral' : 'green';
+  if (rhrVal != null) {
+    if (rhrDev != null) {
+      if (rhrDev > 20) rhrTier = 'red';
+      else if (rhrDev > 10) rhrTier = 'amber';
+    } else {
+      if (rhrVal > 90) rhrTier = 'red';
+      else if (rhrVal > 80) rhrTier = 'amber';
+    }
+  }
+  let sleepTier: PillState = (sleepDur == null && sleepScore == null) ? 'neutral' : 'green';
+  if (sleepDur != null && sleepDur < 360) sleepTier = 'red';
+  else if (sleepScore != null && sleepScore < 60) sleepTier = 'red';
+  else if (sleepDev != null && sleepDev < -15) sleepTier = 'red';
+  else if (sleepDev != null && sleepDev < -5) sleepTier = 'amber';
+  else if (sleepScore != null && sleepScore < 70) sleepTier = 'amber';
+  else if (sleepDur != null && sleepDur < 420) sleepTier = 'amber';
+
+  const outcomeTier = (o: string | null): PillState => {
+    if (!o) return 'neutral';
+    if (['overwhelmed', 'drained'].includes(o)) return 'red';
+    if (['scattered', 'anxious', 'frustrated'].includes(o)) return 'amber';
+    if (['focused', 'steady', 'energised', 'calm'].includes(o)) return 'green';
+    return 'amber';
+  };
+  const cTier: PillState = clarity == null ? 'neutral' : clarity <= 2 ? 'red' : clarity <= 3 ? 'amber' : 'green';
+  const confTier: PillState = confidence == null ? 'neutral' : confidence <= 2 ? 'red' : confidence <= 3 ? 'amber' : 'green';
+  const oTier = outcomeTier(checkInOutcome);
+
+  // Signal-word maps
+  const cognitiveWord = (s: PillState): string => {
+    if (s === 'red') return 'STRAINED';
+    if (s === 'amber') return 'HIGH LOAD';
+    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'STEADY';
+    return 'BUILDING';
+  };
+  const physWord = (s: PillState): string => {
+    if (s === 'red') return 'DEPLETED';
+    if (s === 'amber') return 'FADING';
+    if (s === 'green') return 'RESTED';
+    return 'BUILDING';
+  };
+  const emoWord = (s: PillState): string => {
+    if (s === 'red') return 'REACTIVE';
+    if (s === 'amber') return 'STRAINED';
+    if (s === 'green') return 'STEADY';
+    return 'BUILDING';
+  };
+
+  // ── COGNITIVE LOAD: HRV (top) + Sharpness/Clarity (bottom) ──
+  const cogState = worstOf([hrvTier, oTier === 'green' ? 'green' : oTier, cTier]);
+  const cogTop: PillLine[] = [];
+  if (hrvVal != null) {
+    let q = '';
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
+    if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
+    else if (wearableTrend === 'improving') q = q ? `${q} · trend improving` : 'trend improving';
+    cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+  }
+  const cogBottom: PillLine[] = [];
+  cogBottom.push({
+    text: `Sharpness: ${checkInOutcome.charAt(0).toUpperCase() + checkInOutcome.slice(1)}`,
+    qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
+    kind: 'self',
+  });
+  if (clarity != null) {
+    const q = consecLowClarity >= 3 ? `${consecLowClarity}th day low clarity` : undefined;
+    cogBottom.push({ text: `Clarity ${clarity}/5`, qualifier: q, kind: 'self' });
+  }
+
+  // ── PHYSIOLOGICAL: Sleep (top) + Energy/outcome (bottom) ──
+  const physState = worstOf([sleepTier, oTier]);
+  const physTop: PillLine[] = [];
+  if (sleepScore != null || sleepDur != null) {
+    const parts: string[] = [];
+    if (sleepScore != null) parts.push(`Sleep ${sleepScore}`);
+    if (sleepDur != null) parts.push(fmtSleepDur(sleepDur));
+    let q = '';
+    if (sleepDev != null && sleepBaseline) q = `${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
+    if (scoreTrajectory === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
+    physTop.push({ text: parts.join(' · '), qualifier: q || undefined, kind: 'wearable' });
+  }
+  const energyLabel = ['drained', 'overwhelmed'].includes(checkInOutcome) ? 'Drained'
+    : ['scattered', 'anxious'].includes(checkInOutcome) ? 'Fading'
+    : ['energised', 'focused', 'steady', 'calm'].includes(checkInOutcome) ? 'Strong' : 'Mixed';
+  const physBottom: PillLine[] = [
+    { text: `Energy: ${energyLabel}`, kind: 'self' },
+  ];
+
+  // ── EMOTIONAL: RHR (top) + Confidence (bottom) ──
+  const emoState = worstOf([rhrTier, confTier]);
+  const emoTop: PillLine[] = [];
+  if (rhrVal != null) {
+    let q = '';
+    if (rhrDev != null && rhrBaseline) q = `${devSign(rhrDev)} vs ${rhrBaseline}bpm baseline`;
+    if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
+    emoTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
+  }
+  const emoBottom: PillLine[] = [];
+  if (confidence != null) {
+    const q = consecLowConf >= 3 ? `${consecLowConf}th day low confidence` : undefined;
+    emoBottom.push({ text: `Confidence ${confidence}/5`, qualifier: q, kind: 'self' });
+  }
+
+  const emptyWearable = !wearableConnected
+    ? 'Connect wearable for full reading'
+    : tier === 'none' ? 'Waiting for wearable data' : undefined;
+
+  return [
+    {
+      id: 'cognitive',
+      headline: 'COGNITIVE LOAD',
+      signalWord: cognitiveWord(cogState),
+      state: cogState,
+      Icon: Brain,
+      topLines: cogTop,
+      bottomLines: cogBottom,
+      topEmptyText: cogTop.length === 0 ? emptyWearable : undefined,
+    },
+    {
+      id: 'physiological',
+      headline: 'PHYSIOLOGICAL',
+      signalWord: physWord(physState),
+      state: physState,
+      Icon: BatteryMedium,
+      topLines: physTop,
+      bottomLines: physBottom,
+      topEmptyText: physTop.length === 0 ? emptyWearable : undefined,
+    },
+    {
+      id: 'emotional',
+      headline: 'EMOTIONAL',
+      signalWord: emoWord(emoState),
+      state: emoState,
+      Icon: ShieldCheck,
+      topLines: emoTop,
+      bottomLines: emoBottom,
+      topEmptyText: emoTop.length === 0 ? emptyWearable : undefined,
+      bottomEmptyText: emoBottom.length === 0 ? 'No confidence reading yet' : undefined,
+    },
+  ];
+}
+
+const PILL_COLORS: Record<PillState, { bg: string; text: string; icon: string; border: string; glow: string }> = {
+  green: {
+    bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/70',
+    text: 'text-emerald-800',
+    icon: 'text-emerald-600 drop-shadow-[0_0_6px_rgba(16,185,129,0.45)]',
+    border: 'border-emerald-300/60',
+    glow: 'shadow-[0_2px_12px_rgba(16,185,129,0.18)]',
+  },
+  amber: {
+    bg: 'bg-gradient-to-br from-amber-50 to-amber-100/70',
+    text: 'text-amber-800',
+    icon: 'text-amber-600 drop-shadow-[0_0_6px_rgba(245,158,11,0.45)]',
+    border: 'border-amber-300/60',
+    glow: 'shadow-[0_2px_12px_rgba(245,158,11,0.18)]',
+  },
+  red: {
+    bg: 'bg-gradient-to-br from-red-50 to-red-100/70',
+    text: 'text-red-800',
+    icon: 'text-red-600 drop-shadow-[0_0_6px_rgba(239,68,68,0.45)]',
+    border: 'border-red-300/60',
+    glow: 'shadow-[0_2px_12px_rgba(239,68,68,0.18)]',
+  },
+  neutral: {
+    bg: 'bg-gradient-to-br from-muted/40 to-muted/20',
+    text: 'text-muted-foreground',
+    icon: 'text-muted-foreground/70',
+    border: 'border-border/40',
+    glow: 'shadow-[0_2px_8px_rgba(0,0,0,0.04)]',
+  },
+};
+
+function ExecutivePillCapsule({
+  pill,
+  expanded,
+  onToggle,
+}: {
+  pill: ExecutivePill;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const c = PILL_COLORS[pill.state];
+  const Icon = pill.Icon;
+  return (
+    <div className="flex flex-col w-full">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          'group flex items-center gap-3 w-full pl-3 pr-3 py-2.5 rounded-full border transition-all duration-300 active:scale-[0.98]',
+          c.bg, c.border, c.glow,
+          expanded && 'rounded-b-none'
+        )}
+        aria-expanded={expanded}
+      >
+        <Icon className={cn('w-5 h-5 shrink-0', c.icon)} strokeWidth={1.75} />
+        <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
+          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
+            {pill.headline}
+          </span>
+          <span className={cn('text-sm font-semibold tracking-wide uppercase', c.text)}>
+            {pill.signalWord}
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 shrink-0 transition-transform duration-300',
+            c.text,
+            expanded && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {/* Glass Box (top = wearable, bottom = self-declared) */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-300 ease-out',
+          expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className={cn(
+          'rounded-b-2xl border border-t-0 backdrop-blur-md bg-white/55 px-4 py-3',
+          c.border
+        )}>
+          {/* Top: wearable */}
+          <div className="space-y-1">
+            {pill.topLines.length > 0 ? (
+              pill.topLines.map((line, i) => (
+                <div key={`t-${i}`} className="flex flex-col">
+                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  {line.qualifier && (
+                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+                {pill.topEmptyText || 'No wearable reading'}
+              </span>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="my-2 h-px bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
+
+          {/* Bottom: self-declared */}
+          <div className="space-y-1">
+            {pill.bottomLines.length > 0 ? (
+              pill.bottomLines.map((line, i) => (
+                <div key={`b-${i}`} className="flex flex-col">
+                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  {line.qualifier && (
+                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+                {pill.bottomEmptyText || 'No self-declared reading'}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExecutivePillRow({ pills }: { pills: ExecutivePill[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+      {pills.map((pill) => (
+        <ExecutivePillCapsule
+          key={pill.id}
+          pill={pill}
+          expanded={expandedId === pill.id}
+          onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── FLIPPABLE CHIP COMPONENT (with 3D flip + 4s auto-reset) ───
 function FlippableChip({ chip, onNavigate }: { chip: SignalChip; onNavigate?: () => void }) {
   const [flipped, setFlipped] = useState(false);
