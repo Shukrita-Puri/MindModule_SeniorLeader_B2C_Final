@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ─── TYPES ───
