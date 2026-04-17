@@ -970,17 +970,17 @@ function CalendarPillCapsule({
           <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
         </span>
         <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
-          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body opacity-70', c.text)}>
+          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body', PILL_HEADLINE)}>
             {headline}
           </span>
-          <span className={cn('text-sm font-semibold tracking-wide uppercase truncate max-w-full', c.text)}>
+          <span className={cn('text-sm font-semibold tracking-wide uppercase truncate max-w-full', PILL_SIGNAL)}>
             {signalWord}
+            {qualifier && (
+              <span className={cn('ml-1.5 font-semibold tracking-wide normal-case', PILL_HEADLINE)}>
+                · {qualifier}
+              </span>
+            )}
           </span>
-          {qualifier && (
-            <span className={cn('text-[10px] font-body opacity-60 truncate max-w-full', c.text)}>
-              {qualifier}
-            </span>
-          )}
         </div>
       </div>
     </div>
