@@ -315,11 +315,11 @@ const ExecutiveHome = () => {
               </div>
             </header>
             
-            <div className="relative z-10 pt-4 pb-12 max-w-lg mx-auto text-center">
-            <h1 className="text-[28px] sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
+            <div className="relative z-10 pt-2 pb-4 max-w-lg mx-auto text-center">
+            <h1 className="text-[22px] sm:text-3xl md:text-4xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
-              <p className="text-base text-muted-foreground/70 mt-2 font-body">
+              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
                 {getSubheadline()}
               </p>
             </div>
@@ -329,7 +329,7 @@ const ExecutiveHome = () => {
           <div className="flex-1 w-full pb-[100px]">
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
-            <div className="px-4 md:px-6 max-w-lg mx-auto pt-2">
+            <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief />
               </section>
