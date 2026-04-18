@@ -3365,7 +3365,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             return { valid: true, reason: '' };
           }
 
-          const normalizeLlmBrief = (parsed: any): { brief: LlmBriefPackage | null; reason: string } => {
+          const normalizeLlmBrief = (parsed: any, opts: { strict?: boolean } = {}): { brief: LlmBriefPackage | null; reason: string; softReject?: boolean } => {
             const phrase = typeof parsed?.phrase === 'string' && parsed.phrase !== 'null' ? parsed.phrase.trim() : null;
             const bodyText = typeof parsed?.body === 'string' && parsed.body !== 'null'
               ? parsed.body.trim()
@@ -3375,9 +3375,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const leanOn = Array.isArray(parsed?.leanOn) ? parsed.leanOn : null;
             const watchFor = Array.isArray(parsed?.watchFor) ? parsed.watchFor : null;
 
-            const validation = validateV4Output({ ...parsed, leanOn, watchFor }, phrase, bodyText);
+            const validation = validateV61Output({ ...parsed, leanOn, watchFor }, phrase, bodyText, opts);
             if (!validation.valid) {
-              return { brief: null, reason: `validation_${validation.reason}` };
+              return { brief: null, reason: `validation_${validation.reason}`, softReject: validation.softReject };
             }
 
             return {
@@ -3396,6 +3396,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             { model: 'google/gemini-2.5-flash', timeoutMs: 4000, useGateway: true },
             { model: CLAUDE_MODELS.SONNET, timeoutMs: 6000, useGateway: false },
           ];
+
+          // §2.18 stricter retry instruction appended on soft-reject
+          const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–3 words. 4 words only if the 4th word is load-bearing. Reject any 5+ word phrase. Do not start with "you", "your", or "the".`;
 
           for (let attempt = 1; attempt <= llmAttempts.length; attempt++) {
             const { model, timeoutMs, useGateway } = llmAttempts[attempt - 1];
@@ -3435,7 +3438,46 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }
                   const parsed = JSON.parse(jsonStr);
 
-                  const normalized = normalizeLlmBrief(parsed);
+                  let normalized = normalizeLlmBrief(parsed);
+
+                  // §2.18 Soft-reject on 4-word phrase: retry ONCE with stricter prompt (same model)
+                  if (!normalized.brief && normalized.softReject) {
+                    console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} soft-reject (${normalized.reason}) — retrying with STRICT_PHRASE_RETRY`);
+                    const retryController = new AbortController();
+                    const retryTimeout = setTimeout(() => retryController.abort(), timeoutMs);
+                    try {
+                      const retryUserPrompt = userPrompt + STRICT_PHRASE_RETRY;
+                      let retryContent: string;
+                      if (useGateway) {
+                        retryContent = await callLovableAIText({
+                          system: systemPrompt,
+                          messages: [{ role: 'user', content: retryUserPrompt }],
+                          model,
+                          max_tokens: 380,
+                          response_format: { type: 'json_object' },
+                          signal: retryController.signal,
+                        });
+                      } else {
+                        retryContent = await callClaudeText({
+                          system: systemPrompt,
+                          messages: [{ role: 'user', content: retryUserPrompt }],
+                          model,
+                          max_tokens: 380,
+                          signal: retryController.signal,
+                        });
+                      }
+                      clearTimeout(retryTimeout);
+                      let retryJsonStr = retryContent.trim();
+                      if (retryJsonStr.startsWith('```')) retryJsonStr = retryJsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                      const retryParsed = JSON.parse(retryJsonStr);
+                      // Run validator in strict mode (4-word phrase now passes if other rules satisfied)
+                      normalized = normalizeLlmBrief(retryParsed, { strict: true });
+                    } catch (retryErr) {
+                      clearTimeout(retryTimeout);
+                      console.warn(`[compute-outer-readiness] [LLM] Strict-retry failed:`, retryErr);
+                    }
+                  }
+
                   if (!normalized.brief) {
                     llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
                     const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
