@@ -191,8 +191,14 @@ const ExecutiveHome = () => {
   const firstName = fullName.split(' ')[0];
   
   const getGreeting = () => {
-    // Time-neutral Chief-of-Staff salutation — temporal context lives in the brief eyebrow
-    return `Welcome back, ${firstName}`;
+    // Chief-of-Staff salutations — short, capable, time-neutral.
+    // Rotates deterministically by day-of-week so it feels stable per session but not templated.
+    const phrases = [
+      `Ready, ${firstName}`,
+      `Standing by, ${firstName}`,
+      `Ready to roll, ${firstName}`,
+    ];
+    return phrases[new Date().getDay() % phrases.length];
   };
   
   const getSubheadline = () => {
