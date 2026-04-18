@@ -3224,6 +3224,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== KEY SIGNALS ===\n${selectedSignals.join('\n')}`;
           }
 
+          // === GLOBAL & ENVIRONMENTAL LOAD === (timezone-derived; rest null until instrumented)
+          {
+            const tzHours = Math.round(-timezoneOffset / 60); // user's UTC offset in hours
+            userPrompt += `\n\n=== GLOBAL & ENVIRONMENTAL LOAD ===`;
+            userPrompt += `\nUser timezone offset (UTC): ${tzHours >= 0 ? '+' : ''}${tzHours}h`;
+            userPrompt += `\nTravel/circadian drift: null (not instrumented)`;
+            userPrompt += `\nExternal market/macro pressure: null (not instrumented)`;
+          }
+
+          // === STRATEGIC CONTEXT === (derivable today)
+          {
+            // postPeakWindow: within 3h after a high-stakes event ended
+            let postPeakWindow = false;
+            if (todayHighStakes.length > 0 && nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 0 && Math.abs(nextHighStakesEvent.minutesUntil) <= 180) {
+              postPeakWindow = true;
+            }
+            // isHighVisibilityToday: any high-stakes event today (board, town hall, investor, all-hands keywords)
+            const visibilityRegex = /\b(board|town hall|townhall|investor|all-hands|allhands|earnings|press|keynote)\b/i;
+            const isHighVisibilityToday = todayHighStakes.some((t: string) => visibilityRegex.test(t));
+            userPrompt += `\n\n=== STRATEGIC CONTEXT ===`;
+            userPrompt += `\npostPeakWindow: ${postPeakWindow ? 'yes' : 'no'}`;
+            userPrompt += `\nisHighVisibilityToday: ${isHighVisibilityToday ? 'yes' : 'no'}`;
+          }
+
           // === TRIANGULATION ===
           if (crossHorizonConnection) {
             userPrompt += `\n\n=== TRIANGULATION ===`;
