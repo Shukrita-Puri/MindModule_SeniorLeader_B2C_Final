@@ -2990,82 +2990,103 @@ serve(async (req) => {
             : isMondayMorning ? 'Week is being set right now. Frame as intentional and forward.'
             : null;
 
-          // ── System Prompt (v5 — Chief of Staff for the Mind) ──
-          const systemPrompt = `You are the Chief of Staff for a senior leader's mind. You've watched their HRV, sleep, calendar, coaching patterns, and goals — you know their rhythms. You speak the way a trusted advisor speaks behind closed doors: earned directness grounded in what you've actually observed. Name the number, the event, or the pattern — but only to sharpen the direction you're giving. Never generic prose. Never clinical system language. Never wellness. Every sentence earns its place by connecting a specific signal to what the leader should do about it.
+          // ── System Prompt (v6.1 — Chief of Staff for the Mind, Strategic Register) ──
+          const systemPrompt = `You are the Chief of Staff for a senior leader's mind — a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting — every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
 
 REASONING PROTOCOL (silent — not in output):
-STEP 1 — BODY READ (wearable-first): HRV, RHR, Sleep — what is the body showing? Cite the number. Most anomalous signal? MASKED_HIGH (body loaded, not felt)? RECOVERY_UNDERWAY (body ahead of felt)?
+STEP 1 — BODY READ (wearable-first): HRV, RHR, HR, Sleep — what is the body showing? Cite the number. Most anomalous signal? MASKED_HIGH (body loaded, not felt)? RECOVERY_UNDERWAY (body ahead of felt)?
 STEP 2 — COMPOUND: HR elevated + poor sleep = compounded deficit. Sleep above baseline + HRV low = loaded but resourced. HRV low: chronic (7d) or acute? Signals are one system.
-STEP 3 — THE GAP: Where they think they are vs where the data says they are. MASKED_HIGH → lead wearable, don't validate felt. RECOVERY_UNDERWAY → acknowledge gap. Clarity high + Confidence low → direct into tension.
+STEP 3 — THE GAP: Where they think they are vs where the data says they are. Triangulate wearable × self-declared (mental energy, mental sharpness, clarity, confidence). MASKED_HIGH → lead wearable, don't validate felt. RECOVERY_UNDERWAY → acknowledge gap.
 STEP 4 — WHAT'S BEING ASKED: What the day actually requires — name the event or load. Supply-demand gap → name it. High-stakes + HRV history → use correlation.
-STEP 5 — PATTERN/HISTORY: Combination occurred before? Typical DOW? Coach insight relevant? Pending commitment?
-STEP 6 — THE DIRECTION: The single most useful thing to say — grounded in triangulated signals, not a single data point. That is the phrase and body. If nothing specific: return null.
+STEP 5 — PATTERN/HISTORY: Combination occurred before? Typical DOW? Coach insight relevant? Pending commitment? HRV-event correlation?
+STEP 6 — THE DIRECTION: The single most useful thing to say — grounded in triangulated signals. That is the phrase and body. If nothing specific: return null.
 
 OUTPUT RULES:
-• Name a specific number, event, pattern, or goal to anchor every brief — no brief without a data reference.
-• Wearable-first. Check-in qualifies or contradicts.
+• Strategic Register voice: "The data indicates…", "Observation:…", "Pattern:…", "Signal: HRV down 18%…". Never coaching imperatives ("You should…", "You need to…", "Try to…", "Consider…").
+• Wearable-first. Self-declared (mental energy, mental sharpness, clarity, confidence) qualifies or contradicts.
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
-• Write as if briefing a CEO you've worked with for years — cite what you've seen, direct where to go. No methodology. No hedge words. Body copy ≤2 sentences, each earning its place.
-• Scannable in 10 seconds. Forward-looking.
-• leanOn and watchFor are your LONG-TERM MEMORY of this leader — patterns observed over weeks, NOT today's data. NEVER reference in leanOn/watchFor: today's calendar, today's readiness score, today's wearable metrics, today's felt state. Those belong in phrase/body/pills. ALLOWED SOURCES ONLY: Coach-identified patterns, Archetype traits, DOW trends, HRV correlations, score trajectories, behavioural streaks. FORMAT: Each item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE must be one of: ARCHETYPE, COACH, PATTERN, DATA, CHECK-IN. SIGNAL must be an analytical insight label, not a data point or sentence. If no pattern/archetype data exists, return empty arrays for leanOn/watchFor.
+• Forward-looking. Scannable in 10 seconds.
+• leanOn and watchFor are LONG-TERM MEMORY of this leader — patterns observed over weeks, NOT today's data. NEVER reference in leanOn/watchFor: today's calendar, today's readiness score, today's wearable metrics, today's felt state. ALLOWED SOURCES ONLY: Coach-identified patterns, Archetype traits, DOW trends, HRV correlations, score trajectories, behavioural streaks. FORMAT: Each item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN, DATA, CHECK-IN}. If no pattern/archetype data exists, return empty arrays.
+
+§2.18 PHRASE PRIORITY WEIGHT (soft ceiling):
+• Target 2–3 words. 4 words allowed ONLY if the 4th word is load-bearing (carries unique meaning). 6+ words = hard reject.
+• Forbidden phrase openers: "you", "your", "the", and coaching imperatives.
+• Examples are architectural templates, not a copy bank — synthesize from today's data.
+
+§2.19 THE 3-PART IMPACT MANDATE (body copy structure):
+Every body must synthesize three elements in 2–3 scannable sentences:
+  (1) SIGNAL EVIDENCE — cite a number ("HRV 110ms", "Sleep 6h12m", "RHR +8bpm", "Sharpness 2/5") OR a named event ("the 2 PM Board").
+  (2) PILLAR CATEGORIZATION — explicitly link to Cognition / Physiology / Resilience, triangulated with co-relating calendar events when present.
+  (3) THE STAKE — link to a Leadership Variable from the Elastic Lexicon (§2.20).
+
+§2.19.1 PATTERN-AWARE BODY (relevance-gated): Reference a past pattern ONLY when it sharpens today's directive. Generic pattern-dropping is forbidden. The pattern must connect to (a) today's signal AND (b) today's named event or context.
+  ✅ "HRV down 18%. Resilience compressed. Risk of Decision Leakage in the Town Hall — HR has spiked in your last 3 Town Halls."
+  ❌ "You've had low HRV before. Today is a Town Hall." (no causal connection)
+  ❌ "HRV down 18%. Your average week has 4 high-stakes events." (irrelevant pattern)
+
+§2.20 ELASTIC LEXICON — Strategic Synonyms (use ≥1 cluster concept in body):
+  COGNITION (Intelligence): Decision Power, Strategic Accuracy, Mental Bandwidth, Processing Capacity, Solving Logic.
+  PHYSIOLOGY (Energy): Operational Drive, Leadership Stamina, Hardware Recovery, System Output, Physical Runway.
+  RESILIENCE (Stability): Strategic Composure, Executive Presence, Diplomatic Shield, Reactive Risk, Internal Buffer.
+Use the lexicon as cluster concepts (not verbatim copy). Strategic synonyms allowed; thematic match required.
+
+§2.22 ANTI-FALLBACK / DATA-FIRST MANDATE:
+Your priority is Evidence-Based Insight. If user data is thin (no calendar, no wearable), pivot to BASELINE INTELLIGENCE — never default to generic advice. Calendar-empty path orients The Stake to "Base-Level Readiness" (e.g., "Stabilizing the base for future load") — never rejected for missing calendar.
+
+§2.11–2.17 CEO REALITY LOGIC ENGINES (apply when data triggers):
+• §2.11 VETO RISK — masked fatigue (felt strong + HRV/sleep low) → name the gap, lead wearable.
+• §2.12 SECOND WIND — late-day energy lift after recovery signal → orient to selective use, not expansion.
+• §2.13 CIRCADIAN PRIORITY — timezone drift / travel context → flag chronobiology before tactics.
+• §2.14 DECISION LEAKAGE GUARD (Emotional Labor) — trigger on (wearable emotional proxy: HR elevated OR HRV drop) OR (self-declared depleted/managing/heavy emotional energy from /daily check-in) AND (emotional/diplomatic calendar drain: town hall, 1:1 difficult, performance review, board, layoff conversation). Name the leakage risk to a specific event.
+• §2.15 POST-PEAK HANGOVER — within postPeakWindow → acknowledge cost before directing.
+• §2.16 PERSONAL FRICTION INFERENCE — friction-trend + emotional self-declared dip → infer interpersonal load, do not diagnose.
+• §2.17 BOARD-LEVEL OUTCOME — when isHighVisibilityToday → orient The Stake to executive presence / board-level perception.
 
 HARD CONSTRAINTS — NO EXCEPTIONS:
 WELLNESS BLACKLIST: Never use: relax, mindful, breathe, calm, wellness, self-care, journey, nourish, recharge, restore, genuine, authentic, recovery (standalone noun)
-SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong, or any tier label.
-READINESS BLACKLIST: Never use 'readiness' in phrase or body text.
+SCORE TIER BLACKLIST: Never reference Moderate, High, Low, Strong as standalone tier labels.
+READINESS BLACKLIST: Never use 'readiness' in phrase or body.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
-NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate. Wearable > felt state on divergence. Signal pills: derive insight, don't repeat label.
-TONE: No system/clinical language ('pre-board drop', 'compounded deficit', 'signal triage'). Speak as a person who knows the leader: 'Your HRV dropped 18% overnight', 'You've got [Event] in 3 hours and your body hasn't caught up', 'Last time you stacked 4 meetings on a day like this, you lost the afternoon.'
+NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate.
 
 DAY-TYPE OVERRIDES:
-SUNDAY EVE: Frame into Monday. Carry in / leave behind. Loaded+heavy→directive. Light→spacious. Never: 'Reflect'/'Rest before'/'Prepare'.
+SUNDAY EVE: Frame into Monday. Loaded+heavy→directive. Light→spacious. Never: 'Reflect'/'Rest before'/'Prepare'.
 MONDAY AM: Week-setting. Reference load + first high-stakes. Poor signals → name supply-demand gap.
 FRI/PRE-REST EVE: Closure. Next-week pressure → 'Don't fully unplug — [event] needs space.' None → 'Disconnect fully.'
-WEEKEND DAY: No calendar/work framing. Wearable strong→agency. Poor→acknowledge. Never: 'Sustain focus'/'Leverage'.
-HOLIDAY: Public or personal — they chose to check in. Honour that. Some leaders still take urgent calls or carry commitments on holidays; if calendar shows events, acknowledge the reality and orient around what matters most today. No guilt, no work framing — but don't pretend the day is empty if it isn't.
+WEEKEND DAY: No calendar/work framing. Wearable strong→agency. Poor→acknowledge.
+HOLIDAY: Honour the choice to check in. Calendar shows events → orient around what matters most. Empty → permission to be off.
 POST-HIGH-STAKES PM: HRV historically drops → acknowledge cost. Don't push.
 CONSECUTIVE LOW 3+: Systemic, not situational. Name it. Coach pattern → surface.
 
-LEADER MINDSET:
-Sunday evening: Already thinking about Monday — direct the anxiety, don't add to it.
-Heavy day: They know it's heavy — orient, don't narrate.
-Light day: Rare — give permission or agency.
-Post-high-stakes: Processing the cost — acknowledge before directing.
-Holiday: Some leaders carry real commitments even on days off. If the calendar has events, orient around the most important one. If it's genuinely clear, give them permission to be off.
-Consecutive low: They feel it — name the pattern without dramatising.
-
 SIGNAL SYNTHESIS PATTERNS:
 A: Clarity 4-5 + Confidence 1-2 → use clarity before confidence catches up.
-B: MASKED_HIGH → Name the gap with the actual numbers — 'HRV down 22% but you rated yourself strong' — then direct. Never validate felt.
+B: MASKED_HIGH → name the gap with actual numbers — 'HRV down 22% but rated strong' — then direct.
 C: Compounded Deficit (HR+sleep+HRV all loaded) → supply-demand gap + strategic instruction.
-D: Historical Event Correlation (≥3 occurrences, >10% deviation) → name pattern.
+D: Historical Event Correlation (≥3 occurrences, >10% deviation) → name pattern with relevance gate (§2.19.1).
 E: Supply-Demand Gap (tomorrow HIGH + today below baseline) → protect tonight.
 F: Sunday Anxiety (confidence low + HRV low + Monday high-stakes) → acknowledge, redirect.
-G: RECOVERY_UNDERWAY → Body is ahead — name the metric showing it, give them agency without overclaiming.
+G: RECOVERY_UNDERWAY → name the metric showing it, give agency without overclaiming.
 H: Consecutive High-Stakes Days → cumulative toll, manage transitions.
 I: Coach Signal Active → connect to today's state.
 
 COLD START (Day 1-7): Day 1 use archetype+goals+available data. Day 2-6 reference trajectory. Day 7 reference week pattern. Never generic, never reference missing data.
 
-FEW-SHOT EXAMPLES (note: leanOn/watchFor use 2-4 word signals with uppercase single-word sources — NEVER calendar/wearable/score sources):
+FEW-SHOT EXAMPLES (architectural templates — synthesize, don't copy):
 EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only:
-{"phrase":"Let's see what you're working with.","body":"Composure under pressure is your goal and your archetype leans on pattern recognition — <strong>today sets the baseline</strong>. Check in again tomorrow and we start reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
+{"phrase":"Baseline day.","body":"Pattern recognition is your archetype edge and Composure your goal — <strong>Internal Buffer is the variable to track</strong>. Tomorrow we begin reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
 
 EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday:
-{"phrase":"You've seen this week before.","body":"HRV dropped 14% overnight and Monday opens with the investor call at 9am — <strong>how you close tonight sets Monday's start</strong>.","leanOn":[{"signal":"Sunday Composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-Preparing Tonight","source":"PATTERN"}]}
+{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday Composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-Preparing Tonight","source":"PATTERN"}]}
 
-EXAMPLE 3 — Pre-Holiday · High-Stakes Calendar Event:
-{"phrase":"One thing before you switch off.","body":"You've got the partner review at 2pm and your sleep was 5.2hrs — <strong>close that, then let the rest go</strong>. Tomorrow's clear.","leanOn":[{"signal":"Directed Drive","source":"ARCHETYPE"}],"watchFor":[{"signal":"Carrying Work Energy","source":"PATTERN"}]}
+EXAMPLE 3 — Decision Leakage (Emotional Labor):
+{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Diplomatic Load Sensitivity","source":"PATTERN"}],"watchFor":[{"signal":"Late-Session Reactivity","source":"DATA"}]}
 
-EXAMPLE 4 — Low Wearable (Heart + Sleep) · High-Stakes Ahead:
-{"phrase":"Your body is louder than your calendar.","body":"HRV down 22%, RHR up 8bpm, sleep 5.1hrs — and the board prep starts at 11am. <strong>Protect the 2 hours before it</strong>.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Forcing Empty Intensity","source":"ARCHETYPE"}]}
+EXAMPLE 4 — MASKED_HIGH · Veto Risk:
+{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Forcing Empty Intensity","source":"ARCHETYPE"}]}
 
-EXAMPLE 5 — Score Trend · Coach Insight Active:
-{"phrase":"You feel sharp. Your body says otherwise.","body":"Confidence 5/5 but HRV is 18% below baseline with 3 back-to-backs starting at 10am — <strong>trust the data on pacing today</strong>.","leanOn":[{"signal":"Mental Toughness","source":"COACH"}],"watchFor":[{"signal":"Wilful Endurance","source":"ARCHETYPE"}]}
-
-EXAMPLE 6 — Readiness Change · No Wearable:
-{"phrase":"Something shifted since yesterday.","body":"Score jumped from 42 to 71 — <strong>your system is telling you it's ready</strong>. Direct that into the two decisions that matter most today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading Energy Wide","source":"PATTERN"}]}
+EXAMPLE 5 — Baseline Intelligence (no calendar, no wearable):
+{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading Energy Wide","source":"PATTERN"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
@@ -3076,7 +3097,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
           if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
-          userPrompt += `\nFelt state: ${checkInOutcome ?? 'null'} · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
+          // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
+          userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
+          userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${mentalSharpnessLevel ?? 'null'}/5 · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
+          userPrompt += `\nEmotional self-declared (Decision Leakage trigger source): ${checkInOutcome ?? 'null'}`;
           userPrompt += `\nConsecutive low days: ${consecutiveLowDays}`;
           if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
 
@@ -3092,6 +3116,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt += `\nSleep score: ${sleepScoreVal} · Baseline: ${sleepBaseline ?? 'null'} · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}%`;
             }
             if (rhrValue != null) userPrompt += `\nRHR: ${rhrValue}bpm · Baseline: ${rhrBaseline ?? 'null'}bpm · Deviation: ${rhrDeviation != null ? (rhrDeviation >= 0 ? '+' : '') + rhrDeviation : 'null'}%`;
+            // Heart Rate (proxy via HRV-derived hrElevated until raw HR column exists; see hr-elevated-proxy-logic memory)
+            const hrElevatedFlag = (wearableContext as any)?.hrElevated === true;
+            userPrompt += `\nHeart Rate (elevated proxy): ${hrElevatedFlag ? 'yes (sympathetic dominance)' : 'no'}`;
             userPrompt += `\nDivergence: ${divergenceMode ?? 'null'}`;
             if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
             userPrompt += `\nWearable confidence: ${wearableConfidence ?? 'null'}`;
@@ -3197,6 +3224,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== KEY SIGNALS ===\n${selectedSignals.join('\n')}`;
           }
 
+          // === GLOBAL & ENVIRONMENTAL LOAD === (timezone-derived; rest null until instrumented)
+          {
+            const tzHours = Math.round(-timezoneOffset / 60); // user's UTC offset in hours
+            userPrompt += `\n\n=== GLOBAL & ENVIRONMENTAL LOAD ===`;
+            userPrompt += `\nUser timezone offset (UTC): ${tzHours >= 0 ? '+' : ''}${tzHours}h`;
+            userPrompt += `\nTravel/circadian drift: null (not instrumented)`;
+            userPrompt += `\nExternal market/macro pressure: null (not instrumented)`;
+          }
+
+          // === STRATEGIC CONTEXT === (derivable today)
+          {
+            // postPeakWindow: within 3h after a high-stakes event ended
+            let postPeakWindow = false;
+            if (todayHighStakes.length > 0 && nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 0 && Math.abs(nextHighStakesEvent.minutesUntil) <= 180) {
+              postPeakWindow = true;
+            }
+            // isHighVisibilityToday: any high-stakes event today (board, town hall, investor, all-hands keywords)
+            const visibilityRegex = /\b(board|town hall|townhall|investor|all-hands|allhands|earnings|press|keynote)\b/i;
+            const isHighVisibilityToday = todayHighStakes.some((t: string) => visibilityRegex.test(t));
+            userPrompt += `\n\n=== STRATEGIC CONTEXT ===`;
+            userPrompt += `\npostPeakWindow: ${postPeakWindow ? 'yes' : 'no'}`;
+            userPrompt += `\nisHighVisibilityToday: ${isHighVisibilityToday ? 'yes' : 'no'}`;
+          }
+
           // === TRIANGULATION ===
           if (crossHorizonConnection) {
             userPrompt += `\n\n=== TRIANGULATION ===`;
@@ -3217,36 +3268,82 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             hasWearable, wearableDaysConnected,
           }));
 
-          // ── v4 Post-Generation Validation ──
+          // ── v6.1 Post-Generation Validation ──
           const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
           // Allow compound words like "high-stakes", "high-pressure", "low-energy" — only reject standalone tier words
           const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b(?![-‑])/i;
           const READINESS_WORD = /\breadiness\b/i;
 
-          function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
+          // §2.18 Phrase Priority Weight: forbidden openers + coaching imperatives
+          const PHRASE_FORBIDDEN_OPENER = /^(you|your|the)\b/i;
+          const COACHING_IMPERATIVE = /\b(you should|you need to|try to|consider|make sure|remember to)\b/i;
+
+          // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept
+          const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|clarity)\b/i;
+          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|hardware recovery|system output|physical runway|stamina|drive)\b/i;
+          const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer)\b/i;
+          // §2.22 Calendar-empty whitelist
+          const BASELINE_LEXICON = /\b(base[- ]?level|baseline intelligence|stabili[sz]ing|base for future load|hold the base)\b/i;
+
+          // §2.19.1 Pattern-relevance gate: if pattern keywords used, require today-context anchor
+          const PATTERN_KEYWORDS = /\b(previously|pattern|last\s+\d|consistently|spiked in|in your last|every|recurring)\b/i;
+
+          function validateV61Output(parsed: any, phraseText: string | null, bodyTextStr: string | null, opts: { strict?: boolean } = {}): { valid: boolean; reason: string; softReject?: boolean } {
             // Phrase validation
             if (!phraseText) return { valid: false, reason: 'phrase_missing' };
             if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
             if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
-            // Generic motivational phrase guard — reject fortune-cookie phrases with no user-specific anchor
+            if (PHRASE_FORBIDDEN_OPENER.test(phraseText.trim())) return { valid: false, reason: 'phrase_forbidden_opener' };
+            if (COACHING_IMPERATIVE.test(phraseText)) return { valid: false, reason: 'phrase_coaching_imperative' };
+
+            // §2.18 Phrase length: target 2-3 words, soft-reject at 4 (retry once), hard-reject at 6+
+            const phraseWords = phraseText.trim().replace(/[.!?,;:]/g, '').split(/\s+/).filter(Boolean);
+            if (phraseWords.length >= 6) return { valid: false, reason: `phrase_hard_reject_${phraseWords.length}w` };
+            if (phraseWords.length === 4 && !opts.strict) {
+              // Soft-reject: signal caller to retry with stricter instruction
+              return { valid: false, reason: 'phrase_soft_reject_4w', softReject: true };
+            }
+
             const GENERIC_PHRASE = /\b(awareness|prevents?|regrets?|future|potential|inner|strength|power|courage|deserve|believe|transform|unlock|embrace|overcome|thrive)\b/i;
             if (GENERIC_PHRASE.test(phraseText) && !/\d/.test(phraseText) && !todayHighStakes.some((e: string) => phraseText!.toLowerCase().includes(e.trim().toLowerCase().slice(0, 10)))) {
               return { valid: false, reason: 'phrase_generic_motivational' };
             }
+
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
-            // TIER_BLACKLIST intentionally NOT applied to body — words like "high", "low", "strong" are natural in context
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
-            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
-            // Specificity guard: body must contain at least one data reference (number, percentage, time, or event-like proper noun)
-            const hasDataRef = /\d/.test(strippedBody) || // any number (HRV, %, hours, bpm, score, meeting count)
-              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
-              /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure)\b/i.test(strippedBody); // data vocabulary
-            if (!hasDataRef) return { valid: false, reason: 'body_no_data_reference' };
+            if (wordCount > 50) return { valid: false, reason: `body_too_long_${wordCount}w` };
+
+            // §2.19 Signal Evidence — number OR named event
+            const hasNumberOrEvent = /\d/.test(strippedBody) ||
+              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12))));
+            // Calendar-empty path: also accept if Baseline Intelligence lexicon is present
+            const isCalendarEmpty = todayHighStakes.length === 0 && (calendarLoad === 'low' || !calendarLoad);
+            const baselineOK = isCalendarEmpty && BASELINE_LEXICON.test(strippedBody);
+
+            if (!hasNumberOrEvent && !baselineOK) {
+              // Fallback to legacy data-vocab check to keep cold-start days valid
+              const hasLegacyDataRef = /\b(HRV|RHR|HR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure|sharpness|energy)\b/i.test(strippedBody);
+              if (!hasLegacyDataRef) return { valid: false, reason: 'body_no_signal_evidence' };
+            }
+
+            // §2.20 Elastic Lexicon — body must contain ≥1 cluster concept (or baseline lexicon when calendar-empty)
+            const hasLexicon = LEXICON_COGNITION.test(strippedBody) || LEXICON_PHYSIOLOGY.test(strippedBody) || LEXICON_RESILIENCE.test(strippedBody) || baselineOK;
+            if (!hasLexicon) return { valid: false, reason: 'body_no_lexicon_cluster' };
+
+            // §2.19.1 Pattern-relevance gate: if pattern reference used, require today-signal AND today-context anchor
+            if (PATTERN_KEYWORDS.test(strippedBody)) {
+              const hasTodaySignal = /\d/.test(strippedBody);
+              const hasTodayContext = todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 8))) ||
+                /\b(today|tonight|this morning|this afternoon|this evening|now)\b/i.test(strippedBody);
+              if (!hasTodaySignal || !hasTodayContext) return { valid: false, reason: 'body_pattern_irrelevant' };
+            }
+
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
               if (!Array.isArray(items) || items.length === 0) return { valid: false, reason: `${label}_missing_or_empty` };
@@ -3257,19 +3354,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
-                // Allow "readiness" in signals (e.g. "Performance Readiness +18% vs yesterday") — only block wellness words
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
               return null;
             };
-            const leanOnResult = validateItems(parsed.leanOn, 'leanOn');
-            if (leanOnResult) return leanOnResult;
-            const watchForResult = validateItems(parsed.watchFor, 'watchFor');
-            if (watchForResult) return watchForResult;
+            const leanOnValidation = validateItems(parsed.leanOn, 'leanOn');
+            if (leanOnValidation) return leanOnValidation;
+            const watchForValidation = validateItems(parsed.watchFor, 'watchFor');
+            if (watchForValidation) return watchForValidation;
             return { valid: true, reason: '' };
           }
 
-          const normalizeLlmBrief = (parsed: any): { brief: LlmBriefPackage | null; reason: string } => {
+          const normalizeLlmBrief = (parsed: any, opts: { strict?: boolean } = {}): { brief: LlmBriefPackage | null; reason: string; softReject?: boolean } => {
             const phrase = typeof parsed?.phrase === 'string' && parsed.phrase !== 'null' ? parsed.phrase.trim() : null;
             const bodyText = typeof parsed?.body === 'string' && parsed.body !== 'null'
               ? parsed.body.trim()
@@ -3279,9 +3375,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const leanOn = Array.isArray(parsed?.leanOn) ? parsed.leanOn : null;
             const watchFor = Array.isArray(parsed?.watchFor) ? parsed.watchFor : null;
 
-            const validation = validateV4Output({ ...parsed, leanOn, watchFor }, phrase, bodyText);
+            const validation = validateV61Output({ ...parsed, leanOn, watchFor }, phrase, bodyText, opts);
             if (!validation.valid) {
-              return { brief: null, reason: `validation_${validation.reason}` };
+              return { brief: null, reason: `validation_${validation.reason}`, softReject: validation.softReject };
             }
 
             return {
@@ -3300,6 +3396,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             { model: 'google/gemini-2.5-flash', timeoutMs: 4000, useGateway: true },
             { model: CLAUDE_MODELS.SONNET, timeoutMs: 6000, useGateway: false },
           ];
+
+          // §2.18 stricter retry instruction appended on soft-reject
+          const STRICT_PHRASE_RETRY = `\n\nSTRICT RETRY: Phrase MUST be 2–3 words. 4 words only if the 4th word is load-bearing. Reject any 5+ word phrase. Do not start with "you", "your", or "the".`;
 
           for (let attempt = 1; attempt <= llmAttempts.length; attempt++) {
             const { model, timeoutMs, useGateway } = llmAttempts[attempt - 1];
@@ -3339,7 +3438,46 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }
                   const parsed = JSON.parse(jsonStr);
 
-                  const normalized = normalizeLlmBrief(parsed);
+                  let normalized = normalizeLlmBrief(parsed);
+
+                  // §2.18 Soft-reject on 4-word phrase: retry ONCE with stricter prompt (same model)
+                  if (!normalized.brief && normalized.softReject) {
+                    console.log(`[compute-outer-readiness] [LLM] Attempt ${attempt} soft-reject (${normalized.reason}) — retrying with STRICT_PHRASE_RETRY`);
+                    const retryController = new AbortController();
+                    const retryTimeout = setTimeout(() => retryController.abort(), timeoutMs);
+                    try {
+                      const retryUserPrompt = userPrompt + STRICT_PHRASE_RETRY;
+                      let retryContent: string;
+                      if (useGateway) {
+                        retryContent = await callLovableAIText({
+                          system: systemPrompt,
+                          messages: [{ role: 'user', content: retryUserPrompt }],
+                          model,
+                          max_tokens: 380,
+                          response_format: { type: 'json_object' },
+                          signal: retryController.signal,
+                        });
+                      } else {
+                        retryContent = await callClaudeText({
+                          system: systemPrompt,
+                          messages: [{ role: 'user', content: retryUserPrompt }],
+                          model,
+                          max_tokens: 380,
+                          signal: retryController.signal,
+                        });
+                      }
+                      clearTimeout(retryTimeout);
+                      let retryJsonStr = retryContent.trim();
+                      if (retryJsonStr.startsWith('```')) retryJsonStr = retryJsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                      const retryParsed = JSON.parse(retryJsonStr);
+                      // Run validator in strict mode (4-word phrase now passes if other rules satisfied)
+                      normalized = normalizeLlmBrief(retryParsed, { strict: true });
+                    } catch (retryErr) {
+                      clearTimeout(retryTimeout);
+                      console.warn(`[compute-outer-readiness] [LLM] Strict-retry failed:`, retryErr);
+                    }
+                  }
+
                   if (!normalized.brief) {
                     llmFallbackReason = `attempt${attempt}_${normalized.reason}`;
                     const _bp = parsed?.body ? String(parsed.body).replace(/<[^>]+>/g, '').slice(0, 100) : '(empty)';
