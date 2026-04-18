@@ -3097,7 +3097,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
           if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
-          userPrompt += `\nFelt state: ${checkInOutcome ?? 'null'} · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
+          // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
+          userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
+          userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${mentalSharpnessLevel ?? 'null'}/5 · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
+          userPrompt += `\nEmotional self-declared (Decision Leakage trigger source): ${checkInOutcome ?? 'null'}`;
           userPrompt += `\nConsecutive low days: ${consecutiveLowDays}`;
           if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
 
@@ -3113,6 +3116,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               userPrompt += `\nSleep score: ${sleepScoreVal} · Baseline: ${sleepBaseline ?? 'null'} · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}%`;
             }
             if (rhrValue != null) userPrompt += `\nRHR: ${rhrValue}bpm · Baseline: ${rhrBaseline ?? 'null'}bpm · Deviation: ${rhrDeviation != null ? (rhrDeviation >= 0 ? '+' : '') + rhrDeviation : 'null'}%`;
+            // Heart Rate (proxy via HRV-derived hrElevated until raw HR column exists; see hr-elevated-proxy-logic memory)
+            const hrElevatedFlag = (wearableContext as any)?.hrElevated === true;
+            userPrompt += `\nHeart Rate (elevated proxy): ${hrElevatedFlag ? 'yes (sympathetic dominance)' : 'no'}`;
             userPrompt += `\nDivergence: ${divergenceMode ?? 'null'}`;
             if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
             userPrompt += `\nWearable confidence: ${wearableConfidence ?? 'null'}`;
