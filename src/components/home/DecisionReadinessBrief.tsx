@@ -530,6 +530,34 @@ const worstOf = (states: PillState[]): PillState => {
   return 'neutral';
 };
 
+// ─── SIGNAL PILL REALIGNMENT v2 ───
+// Severity-aware tier composition with strong-red override + median fallback.
+// Inputs are weighted contributions, not flat tiers, so a single mild amber
+// cannot dominate a pillar.
+type ContribTier = 'red' | 'amber' | 'green' | 'neutral';
+type Severity = 'strong' | 'mild' | 'normal';
+interface PillarContrib { tier: ContribTier; severity?: Severity; weight?: number }
+
+// Median-of-tiers fallback (treats neutral as missing). Ties break upward toward worse.
+const medianTier = (contribs: PillarContrib[]): PillState => {
+  const order: Record<Exclude<ContribTier, 'neutral'>, number> = { green: 0, amber: 1, red: 2 };
+  const vals = contribs
+    .filter(c => c.tier !== 'neutral')
+    .map(c => order[c.tier as Exclude<ContribTier, 'neutral'>]);
+  if (vals.length === 0) return 'neutral';
+  vals.sort((a, b) => a - b);
+  // Upper-median: bias toward the more concerning signal on ties
+  const med = vals[Math.ceil((vals.length - 1) / 2)];
+  return med === 2 ? 'red' : med === 1 ? 'amber' : 'green';
+};
+
+// Compose pillar state: strong-red on any input forces RED; otherwise median.
+const composePillar = (contribs: PillarContrib[]): PillState => {
+  const hasStrongRed = contribs.some(c => c.tier === 'red' && c.severity === 'strong');
+  if (hasStrongRed) return 'red';
+  return medianTier(contribs);
+};
+
 function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
   if (!checkInOutcome) return null;
@@ -539,7 +567,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const wearableTrend = outerBrief?.wearableTrend7d as string | null;
   const scoreTrajectory = outerBrief?.scoreTrajectory7d as string | null;
 
-  // Tier helpers
+  // Raw signals
   const hrvVal = outerBrief?.hrvValue as number | null;
   const hrvDev = outerBrief?.hrvDeviation as number | null;
   const hrvBaseline = outerBrief?.hrvBaseline as number | null;
@@ -552,52 +580,158 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const sleepBaseline = outerBrief?.sleepBaseline as number | null;
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
+  const sharpness = outerBrief?.mentalSharpnessLevel as number | null;
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
 
-  let hrvTier: PillState = hrvVal == null ? 'neutral' : 'green';
-  if (hrvVal != null) {
+  // ── HRV contribution — Cognitive (primary, standard thresholds) ──
+  const hrvCognitiveContrib = (): PillarContrib => {
+    if (hrvVal == null) return { tier: 'neutral' };
     if (hrvDev != null) {
-      if (hrvDev < -15) hrvTier = 'red';
-      else if (hrvDev < -5) hrvTier = 'amber';
-    } else {
-      if (hrvVal < 20) hrvTier = 'red';
-      else if (hrvVal < 40) hrvTier = 'amber';
+      if (hrvDev <= -20) return { tier: 'red', severity: 'strong' };
+      if (hrvDev < -15) return { tier: 'red', severity: 'mild' };
+      if (hrvDev < -8) return { tier: 'amber' };
+      return { tier: 'green' };
     }
-  }
-  let rhrTier: PillState = rhrVal == null ? 'neutral' : 'green';
-  if (rhrVal != null) {
-    if (rhrDev != null) {
-      if (rhrDev > 20) rhrTier = 'red';
-      else if (rhrDev > 10) rhrTier = 'amber';
-    } else {
-      if (rhrVal > 90) rhrTier = 'red';
-      else if (rhrVal > 80) rhrTier = 'amber';
-    }
-  }
-  let sleepTier: PillState = (sleepDur == null && sleepScore == null) ? 'neutral' : 'green';
-  if (sleepDur != null && sleepDur < 360) sleepTier = 'red';
-  else if (sleepScore != null && sleepScore < 60) sleepTier = 'red';
-  else if (sleepDev != null && sleepDev < -15) sleepTier = 'red';
-  else if (sleepDev != null && sleepDev < -5) sleepTier = 'amber';
-  else if (sleepScore != null && sleepScore < 70) sleepTier = 'amber';
-  else if (sleepDur != null && sleepDur < 420) sleepTier = 'amber';
-
-  const outcomeTier = (o: string | null): PillState => {
-    if (!o) return 'neutral';
-    if (['overwhelmed', 'drained'].includes(o)) return 'red';
-    if (['scattered', 'anxious', 'frustrated'].includes(o)) return 'amber';
-    if (['focused', 'steady', 'energised', 'calm'].includes(o)) return 'green';
-    return 'amber';
+    if (hrvVal < 20) return { tier: 'red', severity: 'mild' };
+    if (hrvVal < 40) return { tier: 'amber' };
+    return { tier: 'green' };
   };
-  const cTier: PillState = clarity == null ? 'neutral' : clarity <= 2 ? 'red' : clarity <= 3 ? 'amber' : 'green';
-  const confTier: PillState = confidence == null ? 'neutral' : confidence <= 2 ? 'red' : confidence <= 3 ? 'amber' : 'green';
-  const oTier = outcomeTier(checkInOutcome);
 
-  // Signal-word maps
+  // ── HRV contribution — Resilience (secondary, stricter thresholds) ──
+  const hrvResilienceContrib = (): PillarContrib => {
+    if (hrvVal == null) return { tier: 'neutral' };
+    if (hrvDev != null) {
+      if (hrvDev <= -25) return { tier: 'red', severity: 'strong' };
+      if (hrvDev < -20) return { tier: 'red', severity: 'mild' };
+      if (hrvDev < -15) return { tier: 'amber' };
+      return { tier: 'green' };
+    }
+    if (hrvVal < 18) return { tier: 'red', severity: 'mild' };
+    if (hrvVal < 35) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+
+  // ── Sleep contribution (Physiology) ──
+  const sleepContrib = (): PillarContrib => {
+    if (sleepDur == null && sleepScore == null) return { tier: 'neutral' };
+    // Hard floor: < 5h is always strong RED
+    if (sleepDur != null && sleepDur < 300) return { tier: 'red', severity: 'strong' };
+    if (sleepDur != null && sleepDur < 360) return { tier: 'red', severity: 'mild' };
+    if (sleepScore != null && sleepScore < 60) return { tier: 'red', severity: 'mild' };
+    if (sleepDev != null && sleepDev < -15) return { tier: 'red', severity: 'mild' };
+    if (sleepDev != null && sleepDev < -8) return { tier: 'amber' };
+    if (sleepScore != null && sleepScore < 70) return { tier: 'amber' };
+    if (sleepDur != null && sleepDur < 420) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+
+  // ── RHR contribution (Physiology) ──
+  const rhrContrib = (): PillarContrib => {
+    if (rhrVal == null) return { tier: 'neutral' };
+    if (rhrDev != null) {
+      if (rhrDev > 20) return { tier: 'red', severity: 'strong' };
+      if (rhrDev > 10) return { tier: 'amber' };
+      return { tier: 'green' };
+    }
+    if (rhrVal > 90) return { tier: 'red', severity: 'mild' };
+    if (rhrVal > 80) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+
+  // ── HR-elevated proxy (Physiology, sympathetic dominance) ──
+  // No dedicated heart_rate column yet; proxy from significant RHR elevation.
+  const hrElevatedContrib = (): PillarContrib => {
+    if (rhrDev == null) return { tier: 'neutral' };
+    if (rhrDev > 25) return { tier: 'red', severity: 'mild' };
+    if (rhrDev > 15) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+
+  // ── Slider contribs ──
+  const sharpnessContrib = (): PillarContrib => {
+    if (sharpness == null) return { tier: 'neutral' };
+    if (sharpness === 1) return { tier: 'red', severity: 'strong' };
+    if (sharpness === 2) return { tier: 'red', severity: 'mild' };
+    if (sharpness === 3) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+  const clarityContrib = (): PillarContrib => {
+    if (clarity == null) return { tier: 'neutral' };
+    if (clarity <= 1) return { tier: 'red', severity: 'mild' };
+    if (clarity <= 2) return { tier: 'red', severity: 'mild' };
+    if (clarity === 3) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+  const confidenceContrib = (): PillarContrib => {
+    if (confidence == null) return { tier: 'neutral' };
+    if (confidence === 1) return { tier: 'red', severity: 'strong' };
+    if (confidence === 2) return { tier: 'red', severity: 'mild' };
+    if (confidence === 3) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+
+  // ── Outcome routing — each outcome contributes to exactly ONE pillar ──
+  const COGNITIVE_OUTCOMES = new Set(['scattered', 'focused']);
+  const RESILIENCE_OUTCOMES = new Set(['overwhelmed', 'drained', 'steady', 'anxious', 'frustrated', 'calm', 'energised']);
+  const cognitiveOutcomeContrib = (): PillarContrib => {
+    if (!COGNITIVE_OUTCOMES.has(checkInOutcome) && checkInOutcome !== 'thriving') return { tier: 'neutral' };
+    if (checkInOutcome === 'scattered') return { tier: 'red', severity: 'mild' };
+    if (checkInOutcome === 'focused' || checkInOutcome === 'thriving') return { tier: 'green' };
+    return { tier: 'neutral' };
+  };
+  const resilienceOutcomeContrib = (): PillarContrib => {
+    if (!RESILIENCE_OUTCOMES.has(checkInOutcome) && checkInOutcome !== 'thriving') return { tier: 'neutral' };
+    if (checkInOutcome === 'overwhelmed') return { tier: 'red', severity: 'strong' };
+    if (checkInOutcome === 'drained') return { tier: 'red', severity: 'mild' };
+    if (checkInOutcome === 'anxious' || checkInOutcome === 'frustrated') return { tier: 'amber' };
+    if (checkInOutcome === 'steady' || checkInOutcome === 'calm' || checkInOutcome === 'energised' || checkInOutcome === 'thriving') return { tier: 'green' };
+    return { tier: 'neutral' };
+  };
+
+  // ── COGNITIVE PILLAR ──
+  // Inputs: HRV (primary) + Sharpness + Clarity + cognitive outcome
+  const cogContribs: PillarContrib[] = [
+    hrvCognitiveContrib(),
+    sharpnessContrib(),
+    clarityContrib(),
+    cognitiveOutcomeContrib(),
+  ];
+  let cogState = composePillar(cogContribs);
+
+  // ── Wearable Authority on Cognitive ──
+  // MASKED_HIGH: HRV red + self-reports green/amber → cap at AMBER minimum
+  // RECOVERY_UNDERWAY: HRV green + self-reports red → cap at AMBER (don't show fully red)
+  const hrvCog = hrvCognitiveContrib();
+  const selfContribs = [sharpnessContrib(), clarityContrib(), cognitiveOutcomeContrib()].filter(c => c.tier !== 'neutral');
+  const selfWorst = selfContribs.length > 0
+    ? (selfContribs.some(c => c.tier === 'red') ? 'red' : selfContribs.some(c => c.tier === 'amber') ? 'amber' : 'green')
+    : 'neutral';
+  let cogAuthorityFlag: 'masked-high' | 'recovery-underway' | null = null;
+  if (hrvCog.tier === 'red' && (selfWorst === 'green' || selfWorst === 'amber')) {
+    // Masked: system sees what user doesn't
+    if (cogState === 'green') cogState = 'amber';
+    cogAuthorityFlag = 'masked-high';
+  } else if (hrvCog.tier === 'green' && selfWorst === 'red') {
+    // Recovering: don't fully alarm
+    if (cogState === 'red') cogState = 'amber';
+    cogAuthorityFlag = 'recovery-underway';
+  }
+
+  // ── PHYSIOLOGY PILLAR ── pure body, no self-report, no outcome
+  const physState = composePillar([sleepContrib(), rhrContrib(), hrElevatedContrib()]);
+
+  // ── RESILIENCE PILLAR ──
+  const emoState = composePillar([
+    hrvResilienceContrib(),
+    confidenceContrib(),
+    resilienceOutcomeContrib(),
+  ]);
+
+  // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
     if (s === 'red') return 'STRAINED';
-    if (s === 'amber') return 'HIGH LOAD';
+    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'HIGH LOAD';
     if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'STEADY';
     return 'BUILDING';
   };
@@ -614,27 +748,20 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return 'BUILDING';
   };
 
-  // ── COGNITIVE LOAD: HRV (top) + Sharpness/Clarity (bottom) ──
-  const cogState = worstOf([hrvTier, oTier === 'green' ? 'green' : oTier, cTier]);
+  // ── COGNITIVE display lines ──
   const cogTop: PillLine[] = [];
   if (hrvVal != null) {
     let q = '';
     if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
     if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     else if (wearableTrend === 'improving') q = q ? `${q} · trend improving` : 'trend improving';
+    if (cogAuthorityFlag === 'masked-high') q = q ? `${q} · system signal ahead of felt state` : 'system signal ahead of felt state';
     cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   const cogBottom: PillLine[] = [];
-  const sharpnessLevel = outerBrief?.mentalSharpnessLevel as number | null;
-  if (sharpnessLevel != null && sharpnessLevel >= 1 && sharpnessLevel <= 5) {
+  if (sharpness != null && sharpness >= 1 && sharpness <= 5) {
     cogBottom.push({
-      text: `Sharpness: ${fmtScored(SHARPNESS_LABELS[sharpnessLevel - 1], sharpnessLevel)}`,
-      qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
-      kind: 'self',
-    });
-  } else {
-    cogBottom.push({
-      text: `Sharpness: ${titleCase(checkInOutcome)}`,
+      text: `Sharpness: ${fmtScored(SHARPNESS_LABELS[sharpness - 1], sharpness)}`,
       qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
       kind: 'self',
     });
@@ -643,9 +770,11 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     const q = consecLowClarity >= 3 ? `${consecLowClarity}th day low clarity` : undefined;
     cogBottom.push({ text: `Clarity: ${fmtScored(CLARITY_LABELS[clarity - 1], clarity)}`, qualifier: q, kind: 'self' });
   }
+  if (COGNITIVE_OUTCOMES.has(checkInOutcome)) {
+    cogBottom.push({ text: `Check-in: ${titleCase(checkInOutcome)}`, kind: 'self' });
+  }
 
-  // ── PHYSIOLOGICAL: Sleep (top) + Energy/outcome (bottom) ──
-  const physState = worstOf([sleepTier, oTier]);
+  // ── PHYSIOLOGY display lines ── body only
   const physTop: PillLine[] = [];
   if (sleepScore != null || sleepDur != null) {
     const parts: string[] = [];
@@ -656,23 +785,29 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (scoreTrajectory === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     physTop.push({ text: parts.join(' · '), qualifier: q || undefined, kind: 'wearable' });
   }
-  const physBottom: PillLine[] = [
-    { text: `Energy: ${titleCase(checkInOutcome)}`, kind: 'self' },
-  ];
-
-  // ── EMOTIONAL: RHR (top) + Confidence (bottom) ──
-  const emoState = worstOf([rhrTier, confTier]);
-  const emoTop: PillLine[] = [];
   if (rhrVal != null) {
     let q = '';
     if (rhrDev != null && rhrBaseline) q = `${devSign(rhrDev)} vs ${rhrBaseline}bpm baseline`;
-    if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
-    emoTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
+    if (rhrDev != null && rhrDev > 15) q = q ? `${q} · sympathetic dominance` : 'sympathetic dominance';
+    physTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
+  }
+  const physBottom: PillLine[] = [];
+
+  // ── RESILIENCE display lines ──
+  const emoTop: PillLine[] = [];
+  if (hrvVal != null) {
+    let q = '';
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline · buffer signal`;
+    else q = 'autonomic buffer';
+    emoTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   const emoBottom: PillLine[] = [];
   if (confidence != null && confidence >= 1 && confidence <= 5) {
     const q = consecLowConf >= 3 ? `${consecLowConf}th day low confidence` : undefined;
     emoBottom.push({ text: `Confidence: ${fmtScored(CONFIDENCE_LABELS[confidence - 1], confidence)}`, qualifier: q, kind: 'self' });
+  }
+  if (RESILIENCE_OUTCOMES.has(checkInOutcome)) {
+    emoBottom.push({ text: `Check-in: ${titleCase(checkInOutcome)}`, kind: 'self' });
   }
 
   const emptyWearable = !wearableConnected
@@ -689,6 +824,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       topLines: cogTop,
       bottomLines: cogBottom,
       topEmptyText: cogTop.length === 0 ? emptyWearable : undefined,
+      bottomEmptyText: cogBottom.length === 0 ? 'No cognitive self-report yet' : undefined,
     },
     {
       id: 'physiological',
@@ -699,6 +835,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       topLines: physTop,
       bottomLines: physBottom,
       topEmptyText: physTop.length === 0 ? emptyWearable : undefined,
+      bottomEmptyText: physTop.length === 0 ? undefined : 'Body signals only',
     },
     {
       id: 'emotional',
