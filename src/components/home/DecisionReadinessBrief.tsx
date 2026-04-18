@@ -821,14 +821,14 @@ function ExecutivePillCapsule({
             {pill.topLines.length > 0 ? (
               pill.topLines.map((line, i) => (
                 <div key={`t-${i}`} className="flex flex-col">
-                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
                   {line.qualifier && (
-                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
                   )}
                 </div>
               ))
             ) : (
-              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+              <span className="text-xs text-muted-foreground/55 font-body italic">
                 {pill.topEmptyText || 'No wearable reading'}
               </span>
             )}
@@ -842,14 +842,14 @@ function ExecutivePillCapsule({
             {pill.bottomLines.length > 0 ? (
               pill.bottomLines.map((line, i) => (
                 <div key={`b-${i}`} className="flex flex-col">
-                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
                   {line.qualifier && (
-                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
                   )}
                 </div>
               ))
             ) : (
-              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+              <span className="text-xs text-muted-foreground/55 font-body italic">
                 {pill.bottomEmptyText || 'No self-declared reading'}
               </span>
             )}
