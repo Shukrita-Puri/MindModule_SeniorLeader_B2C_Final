@@ -30,6 +30,12 @@ interface SignalChip {
 }
 
 // ─── HELPERS ───
+// Self-declared label maps (mirror /check-in-detail sliders)
+const SHARPNESS_LABELS = ['Depleted', 'Dull', 'Stable', 'Acute', 'Peak'];
+const CLARITY_LABELS   = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
+const CONFIDENCE_LABELS = ['Reactive', 'Uncertain', 'Poised', 'Certain', 'Unshakable'];
+const fmtScored = (label: string, score: number) => `${label} [score ${score}/5]`;
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 const getTierColor = (tier: string): string => {
   switch (tier) {
     case 'depleted': return 'text-[hsl(var(--state-depleted))]';
@@ -619,14 +625,23 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   const cogBottom: PillLine[] = [];
-  cogBottom.push({
-    text: `Sharpness: ${checkInOutcome.charAt(0).toUpperCase() + checkInOutcome.slice(1)}`,
-    qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
-    kind: 'self',
-  });
-  if (clarity != null) {
+  const sharpnessLevel = outerBrief?.mentalSharpnessLevel as number | null;
+  if (sharpnessLevel != null && sharpnessLevel >= 1 && sharpnessLevel <= 5) {
+    cogBottom.push({
+      text: `Sharpness: ${fmtScored(SHARPNESS_LABELS[sharpnessLevel - 1], sharpnessLevel)}`,
+      qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
+      kind: 'self',
+    });
+  } else {
+    cogBottom.push({
+      text: `Sharpness: ${titleCase(checkInOutcome)}`,
+      qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
+      kind: 'self',
+    });
+  }
+  if (clarity != null && clarity >= 1 && clarity <= 5) {
     const q = consecLowClarity >= 3 ? `${consecLowClarity}th day low clarity` : undefined;
-    cogBottom.push({ text: `Clarity ${clarity}/5`, qualifier: q, kind: 'self' });
+    cogBottom.push({ text: `Clarity: ${fmtScored(CLARITY_LABELS[clarity - 1], clarity)}`, qualifier: q, kind: 'self' });
   }
 
   // ── PHYSIOLOGICAL: Sleep (top) + Energy/outcome (bottom) ──
@@ -641,11 +656,8 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (scoreTrajectory === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     physTop.push({ text: parts.join(' · '), qualifier: q || undefined, kind: 'wearable' });
   }
-  const energyLabel = ['drained', 'overwhelmed'].includes(checkInOutcome) ? 'Drained'
-    : ['scattered', 'anxious'].includes(checkInOutcome) ? 'Fading'
-    : ['energised', 'focused', 'steady', 'calm'].includes(checkInOutcome) ? 'Strong' : 'Mixed';
   const physBottom: PillLine[] = [
-    { text: `Energy: ${energyLabel}`, kind: 'self' },
+    { text: `Energy: ${titleCase(checkInOutcome)}`, kind: 'self' },
   ];
 
   // ── EMOTIONAL: RHR (top) + Confidence (bottom) ──
@@ -658,9 +670,9 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     emoTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
   }
   const emoBottom: PillLine[] = [];
-  if (confidence != null) {
+  if (confidence != null && confidence >= 1 && confidence <= 5) {
     const q = consecLowConf >= 3 ? `${consecLowConf}th day low confidence` : undefined;
-    emoBottom.push({ text: `Confidence ${confidence}/5`, qualifier: q, kind: 'self' });
+    emoBottom.push({ text: `Confidence: ${fmtScored(CONFIDENCE_LABELS[confidence - 1], confidence)}`, qualifier: q, kind: 'self' });
   }
 
   const emptyWearable = !wearableConnected
@@ -809,14 +821,14 @@ function ExecutivePillCapsule({
             {pill.topLines.length > 0 ? (
               pill.topLines.map((line, i) => (
                 <div key={`t-${i}`} className="flex flex-col">
-                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
                   {line.qualifier && (
-                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
                   )}
                 </div>
               ))
             ) : (
-              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+              <span className="text-xs text-muted-foreground/55 font-body italic">
                 {pill.topEmptyText || 'No wearable reading'}
               </span>
             )}
@@ -830,14 +842,14 @@ function ExecutivePillCapsule({
             {pill.bottomLines.length > 0 ? (
               pill.bottomLines.map((line, i) => (
                 <div key={`b-${i}`} className="flex flex-col">
-                  <span className="text-xs font-medium text-foreground/85 font-body">{line.text}</span>
+                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
                   {line.qualifier && (
-                    <span className="text-[11px] text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
                   )}
                 </div>
               ))
             ) : (
-              <span className="text-[11px] text-muted-foreground/55 font-body italic">
+              <span className="text-xs text-muted-foreground/55 font-body italic">
                 {pill.bottomEmptyText || 'No self-declared reading'}
               </span>
             )}

@@ -37,6 +37,7 @@ interface ComputeRequest {
   archetype?: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
+  mentalSharpnessLevel?: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
   componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
@@ -1710,6 +1711,7 @@ serve(async (req) => {
       innerReadinessScore,
       clarityLevel,
       confidenceLevel,
+      mentalSharpnessLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
     } = body;
@@ -3497,6 +3499,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       coachStrength,
       clarityLevel: clarityLevel,
       confidenceLevel: confidenceLevel,
+      mentalSharpnessLevel: mentalSharpnessLevel,
       // New enrichment fields
       yesterdayScore,
       scoreTrend,
