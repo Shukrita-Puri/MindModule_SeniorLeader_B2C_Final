@@ -1,68 +1,104 @@
 
 
-## Plan: Rewire Glass-Box "Self-Declared" Rows + Bigger Mobile Type
+## Plan: v6 Refined — Elastic Lexicon, Soft Phrase Ceiling, Evidence-First Anti-Fallback
 
-### Mapping (current → target)
+Two-stage delivery, surgical scope. Doc only first → code only after approval.
 
-| Pill | Self-declared row source today | Target source |
+---
+
+### Stage 1 — `Decision_Readiness_Brief_LLM_Prompt_v2.docx`
+
+**§2.18 Phrase Ceiling — softened to Priority Weight**
+- 2–3 word target; 4 words allowed if the 4th is load-bearing
+- Soft-reject at 4 words (retry once with stricter instruction)
+- Hard-reject at 6+ words (fall through)
+- Forbidden: "you", "your", "the" at sentence start; coaching imperatives
+- Examples reframed as templates, not copy bank
+
+**§2.19 The 3-Part Impact Mandate (replaces "occasional outcome framing")**
+Every body copy synthesizes 3 elements in 2–3 scannable sentences:
+1. **Signal Evidence** — cite a number ("HRV 110ms", "Sleep 6h12m") OR a named event ("the 2 PM Board")
+2. **Pillar Categorization** — explicitly link to Cognition / Physiology / Resilience, triangulated with co-relating calendar events
+3. **The Stake** — link to a Leadership Variable from the Elastic Lexicon
+
+Triangulation contract preserved: internal (wearable + self-declared) × outer (calendar load/pressure/high-stakes) — unchanged from v5.
+
+**§2.20 Elastic Lexicon — Thematic Clusters (replaces rigid lexicon)**
+
+| Pillar | Core Theme | Strategic Synonyms (cluster) |
 |---|---|---|
-| COGNITIVE / Sharpness | `Sharpness: {checkInOutcome}` (from /daily-check-in) | `Sharpness: {sharpnessLabel} [score X/5]` from `mental_sharpness_level` (slider 1 on /check-in-detail) |
-| COGNITIVE / Clarity | `Clarity {x}/5` | `Clarity: {clarityLabel} [score X/5]` (slider on /check-in-detail) |
-| PHYSIOLOGY / Energy | `Energy: {Drained/Fading/Strong/Mixed}` (derived word) | `Energy: {Overwhelmed/Drained/Scattered/Steady/Focused}` — verbatim Title-cased outcome from /daily-check-in |
-| RESILIENCE / Confidence | `Confidence {x}/5` | `Confidence: {confidenceLabel} [score X/5]` (slider on /check-in-detail) |
+| Cognition | Intelligence | Decision Power, Strategic Accuracy, Mental Bandwidth, Processing Capacity, Solving Logic |
+| Physiology | Energy | Operational Drive, Leadership Stamina, Hardware Recovery, System Output, Physical Runway |
+| Resilience | Stability | Strategic Composure, Executive Presence, Diplomatic Shield, Reactive Risk, Internal Buffer |
 
-Label maps come straight from `CheckInDetail.tsx`:
-- `sharpnessLabels = ['Depleted', 'Dull', 'Stable', 'Acute', 'Peak']`
-- `clarityLabels   = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal']`
-- `confidenceLabels= ['Reactive', 'Uncertain', 'Poised', 'Certain', 'Unshakable']`
+Validation: body must contain ≥1 concept from one cluster — not verbatim, but strategic-synonym match. Regex/keyword set per cluster maintained server-side.
 
-### Backend: expose `mental_sharpness_level`
+**§2.21 Generative, not verbatim** — examples are architectural templates; LLM synthesizes from data, not from the example pool.
 
-`mentalSharpnessLevel` is not currently returned by `compute-outer-readiness`. To bind the Sharpness row to the slider value, plumb it through:
+**§2.22 Anti-Fallback Success Protocol (Data-First Mandate)**
+> "Your priority is Evidence-Based Insight. If user data is thin (e.g., no calendar, no wearable), pivot to **Baseline Intelligence** — do not default to generic advice."
 
-1. `supabase/functions/compute-outer-readiness/index.ts`
-   - Extend the today-checkin row select to include `mental_sharpness_level`
-   - Add `mentalSharpnessLevel: number | null` to the returned payload (alongside `clarityLevel` / `confidenceLevel`)
-2. `src/hooks/useOuterReadiness.ts` — add `mentalSharpnessLevel?: number | null` to `OuterReadinessData`
+- Weak-data path: `"Physiology stable. Maintaining the base for future load."` ← still valid output
+- Strong-data path: `"HRV down 18%. Resilience compressed. Risk of Decision Leakage in the Town Hall."`
 
-Graceful fallback: if `mental_sharpness_level` is null (older check-ins, or user didn't complete /check-in-detail), the row falls back to current behaviour (`Sharpness: {checkInOutcome}`).
+**Safety Valve:** if no calendar events, "Stake" orients to **Base-Level Readiness** (e.g., "Stabilizing the base for future load") — never rejected for missing calendar.
 
-### Frontend: `src/components/home/DecisionReadinessBrief.tsx`
+**§2.11–2.17 — 7 CEO Reality Logic Engines (unchanged from prior plan)**
+Veto Risk, Second Wind, Circadian Priority, Decision Leakage Guard, Post-Peak Hangover, Personal Friction Inference, Board-Level Outcome — all retained as logic engines, not copy banks.
 
-**1. Add label-formatting helpers** (top of file, near other helpers):
-```ts
-const SHARPNESS_LABELS = ['Depleted','Dull','Stable','Acute','Peak'];
-const CLARITY_LABELS   = ['Clouded','Obscured','Neutral','Lucid','Crystal'];
-const CONFIDENCE_LABELS= ['Reactive','Uncertain','Poised','Certain','Unshakable'];
-const fmtScored = (label: string, score: number) => `${label} [score ${score}/5]`;
-```
+**§3.12 Global & Environmental Load** — timezone-derived fields only (rest null until instrumented)
 
-**2. `buildExecutivePills` — rewire bottom rows**
+**§3.13 Strategic Context** — `postPeakWindow`, `isHighVisibilityToday` (derivable today)
 
-- COGNITIVE bottom (lines ~621-630): replace
-  - First row: if `mentalSharpnessLevel != null` → `Sharpness: ${fmtScored(SHARPNESS_LABELS[m-1], m)}`. Else fallback to current Title-cased outcome.
-  - Second row: if `clarity != null` → `Clarity: ${fmtScored(CLARITY_LABELS[c-1], c)}`.
-- PHYSIOLOGY bottom (lines ~644-649): replace `energyLabel` derivation with verbatim Title-cased outcome. Row becomes `Energy: ${Title(checkInOutcome)}` for any of overwhelmed/drained/scattered/steady/focused (and others).
-- RESILIENCE bottom (lines ~660-664): if `confidence != null` → `Confidence: ${fmtScored(CONFIDENCE_LABELS[co-1], co)}`. Keep the consec-low qualifier.
+**§Signal Coverage Matrix — UPDATED**
+- **Heart Rate** added (now available via wearable HR column / HR-elevated proxy)
+- **Mental Energy** = `/daily-check-in` outcome (renamed from "mental sharpness" at this surface)
+- **Mental Sharpness** = `/check-in-detail` slider 1 (relocated)
+- Clarity, Confidence sliders unchanged from v5
+- HRV, RHR, Sleep unchanged
 
-Tier color logic on these pills already keys off the numeric clarity/confidence and outcome — unchanged.
+**Voice (refined persona)**
+- CoS who knows the leader by data, not prose
+- Sees the adrenaline mask and names it
+- Authentic, not harsh, never sycophantic
+- DO: "The data indicates…", "Observation:…", "Pattern: three consecutive…", "Signal: HRV down 18%…"
+- DON'T: "You should…", "You need to…", "Try to…", "Consider…", wellness/clinical jargon
+- Tagline: *"You do not report data. You provide Decision Intelligence."*
 
-**3. Bigger glass-box type for mobile** (lines ~812-836)
+**Untouched in doc:** Reasoning protocol, output JSON contract, fallback architecture (Lovable AI → Claude → deterministic), pattern-building section, time context rules, Sun/Fri/holiday rules, day 1–30 progression tiers.
 
-Bump the size of every row inside the glass dropdown so leaders can read it on iOS without squinting:
-- Main line: `text-xs` → `text-sm` (currently `text-xs font-medium text-foreground/85`)
-- Qualifier line: `text-[11px]` → `text-xs` (currently `text-[11px] text-muted-foreground/65 italic`)
-- Empty-state line: `text-[11px]` → `text-xs`
+**Appendix:** v5 → v6 diff (one page).
 
-Apply identically to top rows and bottom rows so the box stays balanced.
+Generated via `docx` skill, validated, page-checked as images.
 
-### Untouched
-- Pill front (icon, headline, signal word, badge color)
-- All scoring, tier logic, calendar pills, lean-on / watch-for, brief copy
-- Front-of-pill chips, FlippableChip variant, layout
+---
 
-### Files edited
-1. `supabase/functions/compute-outer-readiness/index.ts` — add `mental_sharpness_level` to today-checkin select + payload
-2. `src/hooks/useOuterReadiness.ts` — add `mentalSharpnessLevel` field to type
-3. `src/components/home/DecisionReadinessBrief.tsx` — label maps, rewire bottom rows in `buildExecutivePills`, bump glass-box type sizes
+### Stage 2 — Code (post-doc approval)
+
+**File:** `supabase/functions/compute-outer-readiness/index.ts`
+**Touch:** LLM system + user prompt strings + phrase/body validator. Nothing else.
+
+**Adds:**
+- 7 CEO Reality logic engines
+- Strategic Register voice block + tagline
+- Phrase Priority Weight (soft-reject at 4 words, hard-reject at 6+)
+- 3-Part Impact Mandate instruction
+- Elastic Lexicon clusters inline
+- Data-First / Baseline Intelligence anti-fallback instruction
+- Heart Rate field surfaced in `=== KEY SIGNALS ===` block
+- Mental Energy / Mental Sharpness source labels updated
+- `=== GLOBAL & ENVIRONMENTAL LOAD ===` (timezone-derived)
+- `=== STRATEGIC CONTEXT ===` (`postPeakWindow`, `isHighVisibilityToday`)
+
+**Validator changes:**
+- Phrase: soft-reject 4 words → retry with stricter prompt; hard-reject 6+ → deterministic fallback
+- Body: must contain ≥1 cluster-synonym (regex set across all 3 pillars) AND ≥1 number-or-named-event reference
+- Calendar-empty path: "Base-Level Readiness" lexicon variants whitelisted (no event reference required)
+
+**Untouched:** scoring, signal pills, calendar load/pressure math, deterministic `getTheme()`, hook, client component, output JSON shape, all other edge functions.
+
+---
+
+### Confirmation gate
+Approve → I generate Stage 1 doc and deliver as artifact. After your sign-off on the doc, Stage 2 is the surgical prompt edit.
 
