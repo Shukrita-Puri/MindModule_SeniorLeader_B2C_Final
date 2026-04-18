@@ -3268,36 +3268,82 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             hasWearable, wearableDaysConnected,
           }));
 
-          // ── v4 Post-Generation Validation ──
+          // ── v6.1 Post-Generation Validation ──
           const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
           // Allow compound words like "high-stakes", "high-pressure", "low-energy" — only reject standalone tier words
           const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b(?![-‑])/i;
           const READINESS_WORD = /\breadiness\b/i;
 
-          function validateV4Output(parsed: any, phraseText: string | null, bodyTextStr: string | null): { valid: boolean; reason: string } {
+          // §2.18 Phrase Priority Weight: forbidden openers + coaching imperatives
+          const PHRASE_FORBIDDEN_OPENER = /^(you|your|the)\b/i;
+          const COACHING_IMPERATIVE = /\b(you should|you need to|try to|consider|make sure|remember to)\b/i;
+
+          // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept
+          const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|clarity)\b/i;
+          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|hardware recovery|system output|physical runway|stamina|drive)\b/i;
+          const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer)\b/i;
+          // §2.22 Calendar-empty whitelist
+          const BASELINE_LEXICON = /\b(base[- ]?level|baseline intelligence|stabili[sz]ing|base for future load|hold the base)\b/i;
+
+          // §2.19.1 Pattern-relevance gate: if pattern keywords used, require today-context anchor
+          const PATTERN_KEYWORDS = /\b(previously|pattern|last\s+\d|consistently|spiked in|in your last|every|recurring)\b/i;
+
+          function validateV61Output(parsed: any, phraseText: string | null, bodyTextStr: string | null, opts: { strict?: boolean } = {}): { valid: boolean; reason: string; softReject?: boolean } {
             // Phrase validation
             if (!phraseText) return { valid: false, reason: 'phrase_missing' };
             if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
             if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
-            // Generic motivational phrase guard — reject fortune-cookie phrases with no user-specific anchor
+            if (PHRASE_FORBIDDEN_OPENER.test(phraseText.trim())) return { valid: false, reason: 'phrase_forbidden_opener' };
+            if (COACHING_IMPERATIVE.test(phraseText)) return { valid: false, reason: 'phrase_coaching_imperative' };
+
+            // §2.18 Phrase length: target 2-3 words, soft-reject at 4 (retry once), hard-reject at 6+
+            const phraseWords = phraseText.trim().replace(/[.!?,;:]/g, '').split(/\s+/).filter(Boolean);
+            if (phraseWords.length >= 6) return { valid: false, reason: `phrase_hard_reject_${phraseWords.length}w` };
+            if (phraseWords.length === 4 && !opts.strict) {
+              // Soft-reject: signal caller to retry with stricter instruction
+              return { valid: false, reason: 'phrase_soft_reject_4w', softReject: true };
+            }
+
             const GENERIC_PHRASE = /\b(awareness|prevents?|regrets?|future|potential|inner|strength|power|courage|deserve|believe|transform|unlock|embrace|overcome|thrive)\b/i;
             if (GENERIC_PHRASE.test(phraseText) && !/\d/.test(phraseText) && !todayHighStakes.some((e: string) => phraseText!.toLowerCase().includes(e.trim().toLowerCase().slice(0, 10)))) {
               return { valid: false, reason: 'phrase_generic_motivational' };
             }
+
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
-            // TIER_BLACKLIST intentionally NOT applied to body — words like "high", "low", "strong" are natural in context
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
-            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
-            // Specificity guard: body must contain at least one data reference (number, percentage, time, or event-like proper noun)
-            const hasDataRef = /\d/.test(strippedBody) || // any number (HRV, %, hours, bpm, score, meeting count)
-              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12)))) || // event name fragment
-              /\b(HRV|RHR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure)\b/i.test(strippedBody); // data vocabulary
-            if (!hasDataRef) return { valid: false, reason: 'body_no_data_reference' };
+            if (wordCount > 50) return { valid: false, reason: `body_too_long_${wordCount}w` };
+
+            // §2.19 Signal Evidence — number OR named event
+            const hasNumberOrEvent = /\d/.test(strippedBody) ||
+              (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12))));
+            // Calendar-empty path: also accept if Baseline Intelligence lexicon is present
+            const isCalendarEmpty = todayHighStakes.length === 0 && (calendarLoad === 'low' || !calendarLoad);
+            const baselineOK = isCalendarEmpty && BASELINE_LEXICON.test(strippedBody);
+
+            if (!hasNumberOrEvent && !baselineOK) {
+              // Fallback to legacy data-vocab check to keep cold-start days valid
+              const hasLegacyDataRef = /\b(HRV|RHR|HR|bpm|hrs?|hours?|sleep|baseline|pattern|streak|consecutive|archetype|goal|coach|meetings?|calendar|clarity|confidence|composure|sharpness|energy)\b/i.test(strippedBody);
+              if (!hasLegacyDataRef) return { valid: false, reason: 'body_no_signal_evidence' };
+            }
+
+            // §2.20 Elastic Lexicon — body must contain ≥1 cluster concept (or baseline lexicon when calendar-empty)
+            const hasLexicon = LEXICON_COGNITION.test(strippedBody) || LEXICON_PHYSIOLOGY.test(strippedBody) || LEXICON_RESILIENCE.test(strippedBody) || baselineOK;
+            if (!hasLexicon) return { valid: false, reason: 'body_no_lexicon_cluster' };
+
+            // §2.19.1 Pattern-relevance gate: if pattern reference used, require today-signal AND today-context anchor
+            if (PATTERN_KEYWORDS.test(strippedBody)) {
+              const hasTodaySignal = /\d/.test(strippedBody);
+              const hasTodayContext = todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 8))) ||
+                /\b(today|tonight|this morning|this afternoon|this evening|now)\b/i.test(strippedBody);
+              if (!hasTodaySignal || !hasTodayContext) return { valid: false, reason: 'body_pattern_irrelevant' };
+            }
+
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
+
             // LeanOn/WatchFor validation
             const validateItems = (items: any[], label: string) => {
               if (!Array.isArray(items) || items.length === 0) return { valid: false, reason: `${label}_missing_or_empty` };
@@ -3308,15 +3354,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (!signal || !source) return { valid: false, reason: `${label}_missing_field` };
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
-                // Allow "readiness" in signals (e.g. "Performance Readiness +18% vs yesterday") — only block wellness words
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
               }
               return null;
             };
-            const leanOnResult = validateItems(parsed.leanOn, 'leanOn');
-            if (leanOnResult) return leanOnResult;
-            const watchForResult = validateItems(parsed.watchFor, 'watchFor');
-            if (watchForResult) return watchForResult;
+            const leanOnValidation = validateItems(parsed.leanOn, 'leanOn');
+            if (leanOnValidation) return leanOnValidation;
+            const watchForValidation = validateItems(parsed.watchFor, 'watchFor');
+            if (watchForValidation) return watchForValidation;
             return { valid: true, reason: '' };
           }
 
