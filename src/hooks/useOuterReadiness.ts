@@ -62,6 +62,7 @@ export interface OuterReadinessData {
   coachStrength?: string | null;
   clarityLevel?: number | null;
   confidenceLevel?: number | null;
+  mentalSharpnessLevel?: number | null;
   // Enrichment fields
   consecutiveLowClarity?: number;
   typicalDOWOutcome?: string | null;
@@ -121,6 +122,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
       innerReadinessScore: energyState.overallBalance ?? 50,
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
+      mentalSharpnessLevel: (checkin as any)?.mental_sharpness_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
       timezoneOffset: new Date().getTimezoneOffset(),
       ...(DEV_MODE ? { userId } : {}),
