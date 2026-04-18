@@ -30,6 +30,12 @@ interface SignalChip {
 }
 
 // ─── HELPERS ───
+// Self-declared label maps (mirror /check-in-detail sliders)
+const SHARPNESS_LABELS = ['Depleted', 'Dull', 'Stable', 'Acute', 'Peak'];
+const CLARITY_LABELS   = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
+const CONFIDENCE_LABELS = ['Reactive', 'Uncertain', 'Poised', 'Certain', 'Unshakable'];
+const fmtScored = (label: string, score: number) => `${label} [score ${score}/5]`;
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 const getTierColor = (tier: string): string => {
   switch (tier) {
     case 'depleted': return 'text-[hsl(var(--state-depleted))]';
