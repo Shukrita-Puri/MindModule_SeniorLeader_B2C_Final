@@ -349,28 +349,26 @@ const DailyCheckIn = () => {
               >
                 <div
                   className={`
-                    w-full rounded-2xl bg-white
+                    w-full rounded-2xl
                     min-h-[58px] flex items-center gap-3.5 px-4 py-2.5
                     cursor-pointer
                     transition-all duration-200
                     ${isSelected
-                      ? 'scale-[1.02] shadow-[0_8px_28px_rgba(0,0,0,0.12)]'
-                      : 'hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)]'}
+                      ? 'scale-[1.02] shadow-[0_10px_32px_rgba(0,0,0,0.20)]'
+                      : 'shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.10)]'}
                   `}
                   style={{
-                    border: `${isSelected ? 3 : 2}px solid ${outcome.accent}`,
-                    backgroundColor: isSelected ? `${outcome.accent}0D` : '#ffffff',
+                    backgroundColor: outcome.accent,
                   }}
                 >
                   <div className="w-10 h-10 flex items-center justify-center shrink-0">
                     <IconComponent
-                      className="w-6 h-6"
+                      className="w-6 h-6 text-white"
                       strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
-                      style={{ color: outcome.accent }}
                     />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="text-[15px] font-medium font-body text-foreground tracking-[0.01em] leading-tight">
+                    <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
                   </div>
