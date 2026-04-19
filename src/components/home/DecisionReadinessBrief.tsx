@@ -101,7 +101,7 @@ const getSourceLabel = (source: string | undefined): string => {
     case 'coach-insights-recent':
     case 'coach-insights-grace': return 'From coach';
     case 'cc-modifier':
-    case 'cc-modifier-with-context': return 'From check-in';
+    case 'cc-modifier-with-context': return 'From Mental Energy';
     case 'coach-partial-strength':
     case 'coach-partial-growth': return 'Coach + archetype';
     case 'archetype-tier': return 'From archetype';
@@ -386,9 +386,9 @@ function buildSignalChips(
   }
 
   // ────────────────────────────────────────
-  // §7.1  MIND SHARPNESS PILL — Stage 1 (check-in outcome only)
+  // §7.1  MIND SHARPNESS PILL — Stage 1 (Mental Energy outcome only)
   // Front: Focused / Steady / Scattered / Drained / Depleted
-  // Back: Check-in: {outcome}
+  // Back: Mental Energy: {outcome}
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
@@ -424,7 +424,7 @@ function buildSignalChips(
     chips.push({
       id: 'mind-sharpness',
       label: outcomeToLabel(outcome),
-      backLabel: `Check-in: ${outcome}`,
+      backLabel: `Mental Energy: ${outcome}`,
       color: oColor,
     });
   }
@@ -771,7 +771,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     cogBottom.push({ text: `Clarity: ${fmtScored(CLARITY_LABELS[clarity - 1], clarity)}`, qualifier: q, kind: 'self' });
   }
   if (COGNITIVE_OUTCOMES.has(checkInOutcome)) {
-    cogBottom.push({ text: `Check-in: ${titleCase(checkInOutcome)}`, kind: 'self' });
+    cogBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, kind: 'self' });
   }
 
   // ── PHYSIOLOGY display lines ── body only
@@ -807,7 +807,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     emoBottom.push({ text: `Confidence: ${fmtScored(CONFIDENCE_LABELS[confidence - 1], confidence)}`, qualifier: q, kind: 'self' });
   }
   if (RESILIENCE_OUTCOMES.has(checkInOutcome)) {
-    emoBottom.push({ text: `Check-in: ${titleCase(checkInOutcome)}`, kind: 'self' });
+    emoBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, kind: 'self' });
   }
 
   const emptyWearable = !wearableConnected

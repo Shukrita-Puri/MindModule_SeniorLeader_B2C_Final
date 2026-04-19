@@ -3024,6 +3024,20 @@ Every body must synthesize three elements in 2–3 scannable sentences:
   ❌ "You've had low HRV before. Today is a Town Hall." (no causal connection)
   ❌ "HRV down 18%. Your average week has 4 high-stakes events." (irrelevant pattern)
 
+§2.19.2 PILLAR-VOCABULARY MAP (mandatory — phrase + body must match the pill the user sees):
+The dashboard renders three pillars derived from the same signals you receive. Use vocabulary that matches the pillar driving the lead signal. The user sees pills labeled COGNITIVE / PHYSIOLOGY / RESILIENCE — your language must agree.
+
+  Lead signal                                  → REQUIRED vocabulary cluster
+  HRV alone (sleep + RHR within baseline)      → COGNITIVE: "Mind", "Sharpness", "Processing capacity", "Decision Power"
+  Sleep deficit OR RHR elevated (no HRV crash) → PHYSIOLOGY: "Body", "Hardware", "Operational Drive", "System recovery"
+  HRV + Sleep + RHR all loaded                 → COMPOUND: "System debt", "Whole-stack load"
+  HRV low + Mental Energy red/amber            → RESILIENCE: "Buffer", "Composure", "Internal Buffer", "Diplomatic Shield"
+  Mental Energy red, wearable green            → RESILIENCE only — never say "Body" or "Hardware"
+
+FORBIDDEN: Saying "Body shows load" / "Body is loaded" / "Hardware under-recovered" when sleepDeviation > -8% AND rhrDeviation < +10%. HRV is NOT body — HRV belongs to Cognitive (primary) or Resilience (secondary). If only HRV is red, lead with "Mind" or "Cognition" language.
+
+PHRASE OPACITY RULE: The phrase + the first sentence of the body, read together, MUST contain at least one explicit pillar word from {Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Hardware, Resilience, Composure, Buffer, Mental Energy}. Standalone metaphors like "Body is loaded.", "Body ahead.", "Body louder." are forbidden as phrases unless the body's first sentence anchors them to a named pillar.
+
 §2.20 ELASTIC LEXICON — Strategic Synonyms (use ≥1 cluster concept in body):
   COGNITION (Intelligence): Decision Power, Strategic Accuracy, Mental Bandwidth, Processing Capacity, Solving Logic.
   PHYSIOLOGY (Energy): Operational Drive, Leadership Stamina, Hardware Recovery, System Output, Physical Runway.
