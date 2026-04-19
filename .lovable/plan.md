@@ -1,70 +1,56 @@
 
 
-## Plan: v6.1 Refinement — Emotional Self-Declared Signal + Pattern-Aware Body Copy
+The user is challenging Fix 2's necessity. Let me think this through honestly.
 
-Surgical addendum to the approved v6 plan. Same two-stage delivery. Same surgical scope.
+**User's logic:** LLM has the same raw data (HRV, sleep, RHR, outcome, clarity, confidence) → it should naturally describe reality accurately → pills (also derived from same data) should naturally align → no extra "pillar awareness" needed.
 
----
+**Where this is right:** Same source data. Two derivations of the same truth shouldn't contradict.
 
-### What changes
+**Where this breaks:** The contradiction the user saw ("Body shows load" + Physiology RESTED) wasn't because the LLM hallucinated. It was because:
+- LLM saw HRV -20% → wrote "Body shows load" (HRV = body in common language)
+- Pill engine routes HRV → Cognitive primary, NOT Physiology
+- So the pill correctly showed Physiology RESTED (since Sleep + RHR were fine)
+- Both are accurate to the data. They disagree because **they classify HRV differently.**
 
-**1. Signal Coverage Matrix — add Emotional/Energy self-declared signal**
+This is a taxonomy mismatch, not a data mismatch. The LLM uses everyday anatomy ("body = anything physical"). The pill engine uses our v2 model ("body = sleep + RHR only; HRV = cognitive performance").
 
-The `/daily-check-in` outcome already captures an emotional/energy state (e.g., "depleted", "managing", "peak"). Surface this explicitly as an **Emotional Self-Declared** signal in the prompt's signal block, separate from wearable-derived emotional proxies (HR elevated, HRV drop).
+**So is Fix 2 necessary?** Yes — but it's not "teach the LLM the data." It's "teach the LLM our **classification convention** so its language matches our pillar labels." One paragraph in the prompt mapping HRV→Cognitive vocab, Sleep/RHR→Physiology vocab, etc.
 
-Used by:
-- §2.14 **Decision Leakage Guard** — primary trigger when wearable is missing or weak
-- Any rule needing emotional state confirmation (Veto Risk, Personal Friction Inference)
+**Could we skip it?** Only if we accept the LLM occasionally calling HRV "body" when the Physiology pill says rested. The user already flagged this as the exact problem.
 
-Triangulation hierarchy (tightened):
-```
-Emotional state = (wearable HR/HRV proxy) × (self-declared /daily-check-in outcome) × (calendar drain type)
-```
-If wearable is null, self-declared carries the load — never block the rule.
-
-**2. §2.19 — Pattern-Aware Body Copy (Relevance-Gated)**
-
-Body copy may now reference historical patterns when they are **directly relevant** to today's signal + today's calendar event. Reuses v5's existing pattern library (HRV-event correlations, recurring DOW outcomes, consecutive-day streaks — already computed by `compute-outer-readiness`).
-
-**Pattern reference rule:**
-> "Reference a past pattern ONLY when it sharpens today's directive. Generic pattern-dropping is forbidden. The pattern must connect to (a) today's signal AND (b) today's named event or context."
-
-Examples (templates, not copy bank):
-- ✅ Strong: `"HRV down 18%. Resilience compressed. Risk of Decision Leakage in the Town Hall — HR has spiked in your last 3 Town Halls."`
-- ✅ Strong: `"Sharpness 2/5. Cognition narrow. Pattern: Tuesday mornings consistently low — front-load recovery before the 11 AM strategy review."`
-- ❌ Weak (rejected): `"You've had low HRV before. Today is a Town Hall."` (no causal connection drawn)
-- ❌ Weak (rejected): `"HRV down 18%. Your average week has 4 high-stakes events."` (irrelevant pattern)
-
-**Validation addition:** if body cites a pattern, it must also cite (a) a today-signal AND (b) a today-context anchor. Otherwise reject pattern reference (body still passes if other criteria met).
-
-**3. Proactive Framing — explicit in system prompt**
-
-Add to the voice/persona block:
-> "Your purpose is **proactive preparation**, not retrospective reporting. Every brief should help the leader walk into what's next more prepared than they would be without you."
-
-This is a tone constraint, not a new validator — but it shapes how the LLM weights "what should I say" toward forward-looking directives.
+**Lighter alternative:** Drop the validation gate (no soft-reject/retry overhead). Keep just the vocabulary map in the prompt. Trust the model to follow it. If it drifts, we add the gate later.
 
 ---
 
-### Updated deliverables
+## Plan: Lean Fix 2 — Vocabulary map only, no validation gate
 
-**Stage 1 doc (`Decision_Readiness_Brief_LLM_Prompt_v2.docx` — overwrite same file):**
-- §Signal Coverage Matrix → add `Emotional/Energy Self-Declared` row, source: `/daily-check-in` outcome
-- §2.14 Decision Leakage Guard → expand trigger to `(wearable emotional proxy OR self-declared depleted/managing) AND (emotional/diplomatic calendar drain)`
-- §2.19 → add Pattern-Aware Body Copy subsection with relevance gate + examples
-- §Voice block → add proactive-preparation tagline
-- Appendix v5→v6 diff → append v6.1 delta line
+### What's necessary
+A short prompt addendum teaching the LLM that "Body / Hardware" language is reserved for Sleep + RHR + HR (Physiology pillar inputs), and HRV-led signals must use Cognitive language ("Mind / Sharpness / Processing"). This is the minimum needed to stop the contradiction the user saw.
 
-**Stage 2 code (deferred until doc approved):**
-- `=== KEY SIGNALS ===` block adds `emotionalSelfDeclared: <outcome label>` field
-- `=== PATTERNS ===` block (already present in v5) gets explicit relevance-gate instruction in system prompt
-- Decision Leakage Guard logic engine text updated to reflect dual-source trigger
-- Body validator: if pattern-reference keywords detected ("previously", "pattern", "last", "consistently", "spiked in"), require co-occurrence of today-signal AND today-context anchor; else strip pattern claim or fail
+### What's not necessary (dropping from original Fix 2)
+- Server-side pill-coherence validation gate
+- Soft-reject + retry loop
+- Phrase opacity gate as a separate validator
 
-**Untouched (still):** scoring, signal pills, calendar math, deterministic `getTheme()`, hook, client component, output JSON shape, all other edge functions, output contract.
+Rationale: validation adds latency + retry cost. The vocabulary map alone fixes 90% of the issue. We can add validation later if the LLM drifts.
 
----
+### What stays from the original plan
+- **Fix 1** (Mental Energy renaming) — unchanged, 4 string swaps in `DecisionReadinessBrief.tsx` + same term in LLM prompt
+- **Fix 3** (phrase opacity) — fold into the same prompt block as a one-liner: "Phrase + first body sentence must together name a pillar word. Never standalone metaphors like 'Body is loaded.'"
+
+### Updated scope
+
+| File | Change |
+|---|---|
+| `DecisionReadinessBrief.tsx` | Pill back-labels, source label, and Mind Sharpness back text → "Mental Energy: …" / "From Mental Energy" |
+| `compute-outer-readiness/index.ts` | Add §2.19.2 prompt block: vocabulary map (HRV→Cognitive, Sleep/RHR/HR→Physiology, HRV+Confidence/emotional outcome→Resilience) + opacity rule (phrase must connect to a pillar word). No validators. |
+| Backend / scoring / JSON contract | None |
+
+### Why this answers the user's question directly
+The user is right that the LLM has the data. But "having the data" ≠ "using the same labels we display on screen." The fix is a one-paragraph translation layer in the prompt — not a re-architecture. We're giving the LLM our vocabulary, not new information.
 
 ### Confirmation gate
-Approve → I regenerate Stage 1 doc with v6.1 additions baked in (same filename, supersedes current v2). After your sign-off, Stage 2 surgical code edit proceeds.
+Approve lean version → I implement Fix 1 + lean Fix 2 (prompt-only, no validators).
+Want full Fix 2 with validation → say so and I add the gate back.
+Skip Fix 2 entirely → I implement Fix 1 only and we accept the occasional contradiction.
 
