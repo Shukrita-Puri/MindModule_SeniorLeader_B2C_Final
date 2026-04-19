@@ -386,9 +386,9 @@ function buildSignalChips(
   }
 
   // ────────────────────────────────────────
-  // §7.1  MIND SHARPNESS PILL — Stage 1 (check-in outcome only)
+  // §7.1  MIND SHARPNESS PILL — Stage 1 (Mental Energy outcome only)
   // Front: Focused / Steady / Scattered / Drained / Depleted
-  // Back: Check-in: {outcome}
+  // Back: Mental Energy: {outcome}
   // ────────────────────────────────────────
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
