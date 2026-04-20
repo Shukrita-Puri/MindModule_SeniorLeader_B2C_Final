@@ -3358,6 +3358,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const wordCount = strippedBody.split(/\s+/).length;
             if (wordCount > 50) return { valid: false, reason: `body_too_long_${wordCount}w` };
 
+            // §2.19.5 RULE 1 — body must not restate the numeric score or tier label
+            // Forbidden patterns: "31/100", "score of 31", "31 out of 100", "your score is", "low/high readiness score"
+            if (/\b\d{1,3}\s*\/\s*100\b/.test(strippedBody)) return { valid: false, reason: 'body_restates_score_xx_100' };
+            if (/\b(score\s+(of|is)|your\s+score|readiness\s+score)\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_phrase' };
+            if (/\b\d{1,3}\s+out\s+of\s+100\b/i.test(strippedBody)) return { valid: false, reason: 'body_restates_score_out_of_100' };
+            // Tier label restatement (e.g. "you're depleted today", "in peak today")
+            if (/\b(you(?:'re|\sare)\s+(depleted|managing|strong|peak)|(?:in|at)\s+(depleted|managing|strong|peak)\s+(?:state|tier|today))\b/i.test(strippedBody)) {
+              return { valid: false, reason: 'body_restates_tier_label' };
+            }
+
+            // §2.19.5 RULE 2 — body must not be a data list (≥2 metric qualifiers in close proximity)
+            // Match patterns like "HRV down 20%", "RHR -18%", "sleep 6h", "HRV is 20% below"
+            const metricPattern = /\b(HRV|RHR|HR|sleep|bpm)\b[^.,;]{0,40}?(\d+\s*(%|h\b|hr|hrs|hours?|bpm|min)|\d+\s*(?:%|h\b)\s*(?:below|above|under|over|down|up))/gi;
+            const metricMatches = strippedBody.match(metricPattern) || [];
+            if (metricMatches.length >= 2) return { valid: false, reason: `body_metric_list_${metricMatches.length}` };
+
             // §2.19 Signal Evidence — number OR named event
             const hasNumberOrEvent = /\d/.test(strippedBody) ||
               (todayHighStakes.length > 0 && todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 12))));
