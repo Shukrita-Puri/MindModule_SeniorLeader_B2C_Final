@@ -3038,6 +3038,33 @@ FORBIDDEN: Saying "Body shows load" / "Body is loaded" / "Hardware under-recover
 
 PHRASE OPACITY RULE: The phrase + the first sentence of the body, read together, MUST contain at least one explicit pillar word from {Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Hardware, Resilience, Composure, Buffer, Mental Energy}. Standalone metaphors like "Body is loaded.", "Body ahead.", "Body louder." are forbidden as phrases unless the body's first sentence anchors them to a named pillar.
 
+§2.19.5 BODY COPY: ASSESSMENT CONTRACT (mandatory — body advises, pills report):
+The score (X/100) and tier label render directly above the body. The signal pills below the body display every raw value and delta (HRV %, RHR %, sleep h, check-in outcome, clarity/confidence). The body must NOT duplicate either role. The body's job is synthesis and direction, not data reporting.
+
+  RULE 1 — NEVER restate the numeric score. Forbidden in body: "31/100", "score of X", "X out of 100", "low/high readiness score", "your score is". Refer to state via pillar language only ("Mind is taxed", "Body is rested", "Resilience compressed").
+
+  RULE 2 — Pills own numbers. Body owns synthesis. The body does not list raw signals. If a number appears, it appears as a single qualifier inside an assessment sentence, never as the subject of a sentence and never in a list of 2+ metrics.
+    ❌ Forbidden: "HRV is 20% below baseline, RHR is 18% below, score is 31/100, 4 consecutive depleted days."
+    ❌ Forbidden: "HRV down 20%. RHR down 18%. Sleep 6h12m." (data list)
+    ✅ Allowed: "Cognitive load is high while physiology is recovered — your edge today is using rested hardware to fund a taxed mind."
+    ✅ Allowed: "Mind is carrying the strain — HRV's drop is the lever, not the headline." (one number, used as qualifier)
+
+  RULE 3 — TRIANGULATE three layers in every body. Every body must connect:
+    (a) INNER SIGNAL READ — name the pillar that is the lever today (Mind / Body / Resilience), per §2.19.2.
+    (b) OUTER DEMAND — calendar load, pressure window, time-of-day, or a named high-stakes event from today's events.
+    (c) DIRECTIONAL MOVE — one proactive instruction the leader can apply (e.g. "front-load the Board prep before noon", "protect the gap before the 3pm review", "let physiology carry today, defer creative work").
+    If outer context is absent (no calendar, weekend, holiday), replace (b) with one relevant CEO REALITY drawn from: decision velocity, attention as scarce resource, performance under uncertainty, energy as capital, stakeholder presence, recovery debt, judgement under load.
+
+  RULE 4 — Pick the few numbers that matter. No fixed count. Typical body uses 0–2 specific numbers, only when they sharpen the assessment. If a pill's delta is the REASON for the recommendation, naming it once is fine. If the pill already shows it obviously, skip it.
+
+  RULE 5 — TONE: directional, not descriptive. The body is a brief from a Chief of Staff, not a data report. It tells the leader what shape the day takes and what move it asks for — not what the numbers were.
+
+  WORKED EXAMPLE:
+    ❌ Bad (data-led, restates score, lists metrics):
+      "HRV is 20% below baseline and RHR is 18% below baseline, with a score of 31/100. With 4 consecutive depleted days, hardware recovery is the necessary focus."
+    ✅ Good (assessment-led, triangulated, no score, one calendar reference, one directional move):
+      "Body is recovered but Mind is carrying the strain — and the calendar adds three high-stakes touchpoints before lunch. The day's edge is sequencing: handle the Board prep while attention is fresh, then let easier blocks ride on physiology. One real recovery window before evening is what protects tomorrow."
+
 §2.20 ELASTIC LEXICON — Strategic Synonyms (use ≥1 cluster concept in body):
   COGNITION (Intelligence): Decision Power, Strategic Accuracy, Mental Bandwidth, Processing Capacity, Solving Logic.
   PHYSIOLOGY (Energy): Operational Drive, Leadership Stamina, Hardware Recovery, System Output, Physical Runway.
