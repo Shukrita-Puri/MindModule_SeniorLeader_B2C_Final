@@ -399,7 +399,7 @@ const SelfMasteryCoach = () => {
       localStorage.removeItem('jitInterventionData');
       localStorage.removeItem('practiceQueue');
       toast.success('🎉 Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
     } else {
       navigateToNext();
     }
