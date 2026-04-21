@@ -1,126 +1,74 @@
 
 
-## Pt B redesign: adopt "Hardware Veto + Three Modes" as the Signal Pill v6.2 architecture
+## Add non-intrusive feedback row to the Performance Readiness Brief card
 
-Yes — this direction is a material upgrade to Pt B of the prior plan, not just a patch. It replaces the median-of-tiers composition with a model that handles missing data, contradiction, and hardware reality honestly. Below is what changes vs. what we keep, the unified spec, and the implementation footprint.
+### Goal
 
-### What this replaces in the prior Pt B
+Add a small thumbs row (👍 / ⚌ / 👎) to the bottom-right of the Performance Readiness Brief. Tapping any icon expands an inline `FeedbackCapture` block (textarea + Submit/Skip) inside the card itself — never a modal, never blocking the screen. After submit, the row collapses to a quiet "Feedback noted ✓" line. Once given for the day, the row stays in submitted state.
 
-| Prior Pt B fix | Replaced by |
-|---|---|
-| Promote `drained` to `severity: 'strong'` to force amber via median | **Outcome Veto** rule: `drained` → min AMBER, `overwhelmed` → RED (Resilience pillar only) |
-| Sharpness qualifier rename (use sharpness-specific trend) | Kept — feeds the Cognitive bottom line |
-| Physiology "BODY OK · sleep unread" when sleep null | Replaced by **Mode-aware physiology**: requires ≥2 hardware signals to assert "BODY READY"; otherwise downgrades label and tier ceiling |
-| `composePillar` median-of-tiers | Replaced by `finalTier = max(hardwareFloor, weightedAverage)` |
+### UX behaviour
 
-What stays from the prior Pt B: telemetry columns on `brief_snapshots`, validator loosening, prompt §2.19.6 data-honesty addition, ccModifier pattern preference, snapshot invalidation.
+- **Default state:** Card renders exactly as today, plus a subtle right-aligned row at the very bottom: `Was this brief useful?  [👍] [⚌] [👎]` in muted-foreground/50, no border above (just `mt-4 pt-3` separator).
+- **On click:** Selected icon fills with taupe; the row inline-expands an embedded `FeedbackCapture` (variant `default`, no rating prompt — rating already chosen, just textarea + Submit/Skip). 250ms slide-in.
+- **On submit:** Block collapses → replaced by `✓ Feedback noted` (muted, 12px), persists for the day.
+- **On skip:** Returns to default thumbs row, no rating recorded.
+- **Persistence:** `localStorage` flag `prb-feedback-{YYYY-MM-DD}` so the row stays in submitted state across reloads. DB write is fire-and-forget (no spinner, no toast).
 
-### Final pill spec (v6.2)
+### Backend
 
-**Architecture: Hardware Veto + Confidence-aware composition**
+The existing `content_relevance_feedback` table has a CHECK constraint that only permits `soundbath`/`guided-practice`/`micro-practice` for `content_type`. The current `submitPlanFeedback('tod'/'jit')` writes are being silently dropped (verified: zero `plan-*` rows exist).
 
-```text
-finalTier = MAX(
-  hardwareFloor,        // strong-red wearable signals lock the floor
-  outcomeFloor,         // drained/overwhelmed force resilience floor
-  weightedAverage(...)  // per-pillar weights below
-)
-confidence = signalCount / expectedSignalCount  // drives qualifier, not tier
+**Migration:** Drop the constraint and re-add it with `'brief'`, `'plan-tod'`, `'plan-jit'` included — fixes the brief path AND repairs the existing plan-feedback write that's been failing silently.
+
+```sql
+ALTER TABLE content_relevance_feedback
+  DROP CONSTRAINT content_relevance_feedback_content_type_check;
+ALTER TABLE content_relevance_feedback
+  ADD CONSTRAINT content_relevance_feedback_content_type_check
+  CHECK (content_type IN ('soundbath','guided-practice','micro-practice','brief','plan-tod','plan-jit'));
 ```
 
-**COGNITIVE — "Decision Power"**
+### New helper: `submitBriefFeedback`
 
-| Input | Weight | Veto rule |
-|---|---|---|
-| HRV deviation | 0.5 | dev ≤ -20% → pillar locked RED ("MASKED LOAD" if self-reports green) |
-| Sharpness (1–5) | 0.3 | ≤2 → min AMBER |
-| Clarity (1–5) | 0.2 | ≤2 → min AMBER |
+In `src/utils/relevanceFeedback.ts`:
 
-State words: 🟢 CLEAR · 🟠 TAXED · 🔴 DEGRADED
-Qualifier triggers: HRV trend declining → "declining trend"; HRV red + sharpness green → "MASKED LOAD"
+```ts
+export async function submitBriefFeedback(
+  rating: 'up' | 'neutral' | 'down',
+  feedback?: string,
+  briefSnapshotId?: string,
+)
+```
 
-**PHYSIOLOGY — "Operational Drive"** (pure hardware, zero self-report)
+Maps `up→5, neutral→3, down→1`, posts to `content-feedback` edge function with:
+- `content_id: 'prb-' + YYYY-MM-DD`
+- `content_type: 'brief'`
+- `feedback_type: 'star_rating'`
+- `trigger_context: 'brief_inline'`
+- `context_data: { feedback_scope: 'brief', brief_snapshot_id, tier, score }`
 
-| Input | Weight | Veto rule |
-|---|---|---|
-| Sleep (score + duration) | 0.5 | duration <5h → RED; <6.5h or score <70 → min AMBER |
-| RHR deviation | 0.25 | dev > +20% → RED; > +10% → AMBER |
-| HR-elevated proxy | 0.25 | dev > +25% → RED; > +15% → AMBER |
+Fire-and-forget (no await on UI), errors logged in DEV only.
 
-State words (with completeness gate):
-- 🟢 BODY READY — requires sleep ≥70/≥6.5h AND RHR within +5% AND HR not elevated
-- 🟢 BODY STABLE — RHR good only, sleep missing
-- 🟠 LOAD BUILDING — partial signals, one amber
-- 🔴 SYSTEM STRAIN — any veto fired
-- ⚪ UNKNOWN — zero hardware signals (Mode 3)
+### Component changes
 
-Cap: sleep missing → ceiling = AMBER, never green-confident.
+**`src/components/home/DecisionReadinessBrief.tsx`** — add at end of card (after Collapsible "How to show up", inside the outer `<div>`):
 
-**RESILIENCE — "Strategic Composure"**
+- New `BriefFeedbackRow` sub-component encapsulating the three states (`idle` / `capturing` / `submitted`).
+- Uses `FeedbackCapture` with `variant="default"`, hides the rating prompt (rating is set by the row click), only shows the textarea + Submit/Skip.
+- Reads/writes `localStorage['prb-feedback-' + dateKey]` to start in `submitted` state if already given today.
+- Passes `outerBrief?.briefSnapshotId` (if available — otherwise undefined) for traceability.
 
-| Input | Weight | Veto rule |
-|---|---|---|
-| Mental Energy outcome | 0.5 | overwhelmed → RED; drained → min AMBER |
-| HRV deviation (strict band) | 0.3 | dev ≤ -25% → min AMBER |
-| Confidence (1–5) | 0.2 | modifier only — high confidence + drained → "felt ahead of system" qualifier |
+### Files touched
 
-State words: 🟢 HOLDING · 🟠 UNDER LOAD · 🔴 COMPROMISED
-
-### Three operational modes
-
-**Mode 1 — Wearable + Check-in (full system)**
-All weights active. Contradiction detection on: if wearable=RED and self-report=GREEN → "MASKED LOAD" qualifier surfaces in pill bottom line AND flag is passed to the LLM brief as a `divergence` field for body copy.
-
-**Mode 2 — Wearable only (no check-in today)**
-- Cognitive: HRV-only, weight renormalized to 1.0
-- Physiology: unchanged
-- Resilience: HRV strict thresholds + HR trend; ceiling = AMBER (no truth layer)
-- Universal qualifier: "Hardware-only read"
-
-**Mode 3 — Check-in only (no wearable)**
-- Cognitive: sharpness + clarity, weights renormalized
-- Physiology: UNKNOWN (grey pill, "No body data") — never guess from mood
-- Resilience: outcome-driven with confidence modifier
-- Universal qualifier: "Subjective read; no hardware data"
-
-### Telemetry & cache (unchanged from Pt B)
-
-- Add `llm_fallback_reason TEXT`, `llm_attempts JSONB`, `validator_rejections JSONB`, `pillar_mode TEXT` ('full'|'wearable'|'checkin') to `brief_snapshots`
-- Persist mode + per-pillar floor/weighted/final tiers in `payload_json.pillarDebug`
-- Invalidate today's snapshot on deploy
-
-### Implementation footprint
-
-**`src/components/home/DecisionReadinessBrief.tsx`** — replace `composePillar`, `cognitiveContribs`, `physiologyContribs`, `resilienceContribs`:
-- New `computePillar(inputs, weights, vetos, mode)` returning `{ tier, stateWord, qualifier, confidence, debug }`
-- New `detectMode(outerBrief)` → 'full' | 'wearable' | 'checkin'
-- State-word maps per pillar × tier × mode
-- "BODY READY" vs "BODY STABLE" vs "PHYSIOLOGY OK" branching by signal completeness
-- Divergence flag bubbled up through `outerBrief.divergence` for the LLM body
-
-**`supabase/functions/compute-outer-readiness/index.ts`**:
-- Add `divergence: { cognitiveMasked: boolean, resilienceFeltAhead: boolean }` to outerBrief response
-- Validator loosening (remove `leanOn_repeats_body`, soften lexicon)
-- Prompt §2.19.6 — Data-Honesty Ledger now references the divergence flag explicitly: "When `divergence.cognitiveMasked` is true, body MUST name the gap"
-- ccModifier prefers PATTERN source over "Full Alignment" stock pair
-- Telemetry persistence
-
-**DB migration** — add 4 columns to `brief_snapshots`, clear today's row.
-
-### Verification
-
-1. HRV 18.1 (-25% dev), Sharpness 4, Clarity 4, drained, Confidence 4 →
-   - Cognitive: HRV veto → 🔴 DEGRADED · "MASKED LOAD"
-   - Physiology (sleep null, RHR -16%): 🟢 BODY STABLE · "sleep not captured"
-   - Resilience: drained veto → 🟠 UNDER LOAD · "felt ahead of system"
-2. Mode-3 user (no wearable): Physiology pill renders ⚪ UNKNOWN, not fake-green
-3. Snapshot row shows `pillar_mode`, `pillarDebug`, `divergence` populated
-4. LLM body cites divergence honestly when flag fires
-5. Lean On / Watch For pattern-sourced, not "Full Alignment" stock
+- `src/components/home/DecisionReadinessBrief.tsx` — add `BriefFeedbackRow` and render at card bottom
+- `src/utils/relevanceFeedback.ts` — add `submitBriefFeedback`
+- `supabase/migrations/<timestamp>_brief_feedback_content_type.sql` — relax CHECK constraint
+- `src/components/feedback/FeedbackCapture.tsx` — small additive prop `hideRatingPrompt?: boolean` so the inline expansion can suppress the prompt + icon row (rating already chosen above)
 
 ### Out of scope
 
-- No four-role contract changes
-- No edge-function topology changes beyond outerBrief response shape
-- No client routing or layout changes
+- No modal, no toast, no full-screen takeover
+- No changes to LLM, validators, or pillar logic
+- No auto-prompting or nagging (one chance per day, silent if ignored)
+- No analytics dashboard surface for this data yet (data lands in `content_relevance_feedback`, queryable later)
 
