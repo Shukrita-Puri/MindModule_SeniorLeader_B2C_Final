@@ -19,6 +19,9 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ThumbsUp, ThumbsDown, Equal, Check } from 'lucide-react';
+import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
+import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -1584,8 +1587,116 @@ const PerformanceReadinessBrief = () => {
 
         </CollapsibleContent>
       </Collapsible>
+
+      {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
+      <BriefFeedbackRow />
     </div>
   );
 };
 
 export default PerformanceReadinessBrief;
+
+// ─── BRIEF FEEDBACK ROW ───
+// Non-intrusive inline feedback at the bottom of the Performance Readiness Brief.
+// States: idle (thumbs row) → capturing (textarea + submit/skip) → submitted (✓ noted)
+// Persists submitted state per-day via localStorage key `prb-feedback-{YYYY-MM-DD}`.
+const BRIEF_FEEDBACK_ICONS: Array<{ value: FeedbackRating; Icon: typeof ThumbsUp; label: string }> = [
+  { value: 'up', Icon: ThumbsUp, label: 'Useful' },
+  { value: 'neutral', Icon: Equal, label: 'Neutral' },
+  { value: 'down', Icon: ThumbsDown, label: 'Off' },
+];
+
+const BriefFeedbackRow = () => {
+  const dateKey = new Date().toISOString().slice(0, 10);
+  const storageKey = `prb-feedback-${dateKey}`;
+
+  const [mode, setMode] = useState<'idle' | 'capturing' | 'submitted'>(() => {
+    if (typeof window === 'undefined') return 'idle';
+    return window.localStorage.getItem(storageKey) ? 'submitted' : 'idle';
+  });
+  const [rating, setRating] = useState<FeedbackRating | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePick = (value: FeedbackRating) => {
+    setRating(value);
+    setFeedback('');
+    setMode('capturing');
+  };
+
+  const handleSubmit = async () => {
+    if (!rating) return;
+    setIsSubmitting(true);
+    // Fire-and-forget; flip UI immediately for executive feel
+    submitBriefFeedback(rating, feedback.trim() || undefined).catch(() => {
+      /* errors logged inside helper */
+    });
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify({ rating, at: Date.now() }));
+    } catch {
+      /* ignore quota / privacy mode errors */
+    }
+    setMode('submitted');
+    setIsSubmitting(false);
+  };
+
+  const handleCancel = () => {
+    setRating(null);
+    setFeedback('');
+    setMode('idle');
+  };
+
+  if (mode === 'submitted') {
+    return (
+      <div className="mt-4 pt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground/60 font-body animate-in fade-in duration-300">
+        <Check className="w-3 h-3" strokeWidth={2.25} />
+        <span>Feedback noted</span>
+      </div>
+    );
+  }
+
+  if (mode === 'capturing') {
+    return (
+      <div className="mt-4 pt-3 animate-in slide-in-from-top-1 fade-in duration-250">
+        <FeedbackCapture
+          rating={rating}
+          onRatingChange={setRating}
+          feedback={feedback}
+          onFeedbackChange={setFeedback}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          submitLabel="Send"
+          cancelLabel="Skip"
+          isSubmitting={isSubmitting}
+          hideRatingPrompt
+          variant="default"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 pt-3 flex items-center justify-end gap-2.5">
+      <span className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium">
+        Was this brief useful?
+      </span>
+      <div className="flex items-center gap-1.5">
+        {BRIEF_FEEDBACK_ICONS.map(({ value, Icon, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => handlePick(value)}
+            aria-label={label}
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-full border border-transparent',
+              'text-muted-foreground/50 hover:text-taupe-foreground hover:bg-taupe/10 hover:border-taupe/30',
+              'transition-all duration-200 active:scale-95'
+            )}
+          >
+            <Icon size={14} strokeWidth={2} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
