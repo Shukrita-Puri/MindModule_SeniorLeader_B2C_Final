@@ -364,28 +364,35 @@ serve(async (req) => {
       }
     }
 
-    // Scoped delete: remove future-dated events that are no longer in the upstream response.
-    // Past events are preserved (history floor enforced by 90-day cleanup cron).
+    // Scoped delete: mirror upstream deletions across the ENTIRE active sync window
+    // (past lookback + future). This means:
+    //   • Future events deleted in Google → removed here on next sync
+    //   • Past events deleted in Google within the lookback window → also removed (privacy + accuracy)
+    //   • Past events OUTSIDE the lookback window (older than 2d on routine sync, 30d on first sync) →
+    //     PRESERVED until the 90-day retention cron prunes them. Deep history is safe.
     const upstreamIds = classifiedEvents.map(e => e.external_id);
-    const todayIso = new Date(localMidnight.getTime()).toISOString();
+    const windowStartIso = syncWindowStart.toISOString();
+    const windowEndIso = syncWindowEnd.toISOString();
 
     if (upstreamIds.length > 0) {
       const { error: scopedDelErr } = await serviceClient
         .from('calendar_events')
         .delete()
         .eq('user_id', userId)
-        .gte('start_time', todayIso)
+        .gte('start_time', windowStartIso)
+        .lte('start_time', windowEndIso)
         .not('external_id', 'in', `(${upstreamIds.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`);
       if (scopedDelErr) {
         console.warn('[sync-calendar] Scoped delete warning (non-fatal):', scopedDelErr.message);
       }
     } else {
-      // No upstream events at all – clear future-only window
+      // No upstream events at all in window – clear it (calendar emptied or all events deleted)
       await serviceClient
         .from('calendar_events')
         .delete()
         .eq('user_id', userId)
-        .gte('start_time', todayIso);
+        .gte('start_time', windowStartIso)
+        .lte('start_time', windowEndIso);
     }
 
     // Update last_sync
