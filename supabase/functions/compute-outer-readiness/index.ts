@@ -1333,6 +1333,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
+  context?: { consecutiveLowDays?: number; checkInOutcome?: string | null; hrvDeviation?: number | null; sleepHardFloor?: boolean }
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1340,6 +1341,17 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
+
+  // v6.2 Pattern Preference — when an active pattern exists (sustained low days,
+  // sustained HRV deficit, drained/overwhelmed outcome), prefer naming the pattern
+  // over the generic trait pair. Source remains 'PATTERN' downstream.
+  const consec = context?.consecutiveLowDays ?? 0;
+  const outcome = context?.checkInOutcome ?? null;
+  const hrvDev = context?.hrvDeviation ?? null;
+  if (consec >= 3) return { leanOn: `Day ${consec} pattern`, watchFor: "Treating systemic as situational" };
+  if (outcome === 'drained' || outcome === 'overwhelmed') return { leanOn: "Mental Energy Truth", watchFor: "Performing through depletion" };
+  if (hrvDev != null && hrvDev <= -20) return { leanOn: "Recovery Intelligence", watchFor: "Borrowing from buffer" };
+  if (context?.sleepHardFloor) return { leanOn: "Sleep Floor First", watchFor: "Trading sleep for output" };
 
   if (clarityLow && confidenceLow) return { leanOn: "Self-Honesty", watchFor: "Premature Commitments" };
   if (clarityHigh && confidenceHigh) return { leanOn: "Full Alignment", watchFor: "Rigidity from Conviction" };
@@ -1584,7 +1596,7 @@ function getLeanOnWatchFor(
     }
 
     // P2: C×C modifier
-    const ccMod = getCCModifier(clarity, confidence);
+    const ccMod = getCCModifier(clarity, confidence);  // narrow caller, no context here
     if (ccMod) {
       return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
     }
@@ -1666,7 +1678,11 @@ function getLeanOnWatchFor(
   }
 
   // P6: C×C modifier
-  const ccMod = getCCModifier(clarity, confidence);
+  const ccMod = getCCModifier(clarity, confidence, {
+    consecutiveLowDays: (consecutiveLowDays as number | undefined) ?? undefined,
+    checkInOutcome: (checkInOutcome as string | null | undefined) ?? null,
+    hrvDeviation: (hrvDeviation as number | null | undefined) ?? null,
+  });
   if (ccMod) {
     return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
   }
@@ -3279,6 +3295,15 @@ The score (X/100) and tier label render directly above the body. The signal pill
   RESILIENCE (Stability): Strategic Composure, Executive Presence, Diplomatic Shield, Reactive Risk, Internal Buffer.
 Use the lexicon as cluster concepts (not verbatim copy). Strategic synonyms allowed; thematic match required.
 
+§2.19.6 DATA-HONESTY LEDGER (mandatory under v6.2 Hardware Veto):
+The pills below the body now apply Hardware Veto + Outcome Veto. Your body MUST mirror that honesty:
+  • If WEARABLE divergence flag = MASKED_HIGH → body MUST name the gap explicitly (e.g. "HRV says one thing, felt state says another"). Do NOT smooth it over.
+  • If MENTAL ENERGY = drained or overwhelmed AND Confidence ≥ 4 → body MUST acknowledge "felt ahead of system" — confidence is high but the truth layer (mental energy) is depleted. The wearable will not yet show this; the human signal is the lead.
+  • If SLEEP is null/missing → body MUST NOT assert physiological recovery, rest, or "body is ready". Use language like "body partial read" or "sleep not captured".
+  • Phrase MUST orient to the actual lever. "Sustain the pace" / "Steady ground" / "Hold the base" are FORBIDDEN when the user reports drained/overwhelmed or when consecutiveLowDays ≥ 3.
+  • NEVER reproduce the deterministic-template phrases: "not a single bad night", "day's margins can provide", "system may need more than the days margine can provide". These are placeholder copy you are replacing.
+  • Lean On / Watch For: prefer PATTERN source when consecutiveLowDays ≥ 3, when Mental Energy is drained/overwhelmed, or when HRV deviation ≤ -20%. Do NOT use generic traits ("Full Alignment", "Self-Honesty", "Discernment") unless source=COACH and the coach insight is ≤7 days old.
+
 §2.22 ANTI-FALLBACK / DATA-FIRST MANDATE:
 Your priority is Evidence-Based Insight. If user data is thin (no calendar, no wearable), pivot to BASELINE INTELLIGENCE — never default to generic advice. Calendar-empty path orients The Stake to "Base-Level Readiness" (e.g., "Stabilizing the base for future load") — never rejected for missing calendar.
 
@@ -3633,12 +3658,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   return { valid: false, reason: `${label}_generic_trait` };
                 }
 
-                // §2.18.5 Non-redundancy: signal must not appear as substring of body
+                // v6.2: substring-overlap rule removed. It formed a trap with the
+                // generic-trait gate (forced LLM into trait words → trait blocked →
+                // fallback). Body↔Lean On overlap is now a soft signal — log only.
                 if (bodyTextStr) {
                   const bodyLower = bodyTextStr.replace(/<[^>]+>/g, '').toLowerCase();
                   const signalLower = signal.toLowerCase();
-                  if (signalLower.length >= 6 && bodyLower.includes(signalLower)) {
-                    return { valid: false, reason: `${label}_repeats_body` };
+                  if (signalLower.length >= 8 && bodyLower.includes(signalLower)) {
+                    console.log(`[validator-soft] ${label} overlaps body — allowed but flagged`);
                   }
                 }
               }
@@ -3911,6 +3938,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             driver: theme.driver,
             score: innerReadinessScore ?? null,
             tier: safeTier,
+            llm_fallback_reason: llmFallbackReason ?? null,
+            llm_attempts: llmAttempts as any,
+            validator_rejections: null,
+            pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             payload_json: {
               signals: {
                 checkInOutcome: checkInOutcome || null,
@@ -4021,6 +4052,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       weekAheadShape,
       hrvEventCorrelation,
       mostEffectivePractice,
+      divergence: {
+        cognitiveMasked: divergenceMode === 'MASKED_HIGH',
+        resilienceFeltAhead: (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+          && (confidenceLevel != null && confidenceLevel >= 4),
+        sleepUnread: sleepDuration == null && sleepScoreVal == null,
+      },
       // Echo inner readiness so client doesn't need a separate computeEnergyState call
       innerReadinessScore,
       innerReadinessTier: safeTier,

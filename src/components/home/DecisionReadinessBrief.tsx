@@ -531,32 +531,74 @@ const worstOf = (states: PillState[]): PillState => {
 };
 
 // ─── SIGNAL PILL REALIGNMENT v2 ───
-// Severity-aware tier composition with strong-red override + median fallback.
-// Inputs are weighted contributions, not flat tiers, so a single mild amber
-// cannot dominate a pillar.
+// ─── SIGNAL PILL v6.2 — Hardware Veto + Three Modes ───
+// Replaces median-of-tiers with `finalTier = MAX(hardwareFloor, outcomeFloor, weightedAverage)`.
+// Honest under missing data: fewer signals reduce certainty, never "promote" a green.
 type ContribTier = 'red' | 'amber' | 'green' | 'neutral';
 type Severity = 'strong' | 'mild' | 'normal';
-interface PillarContrib { tier: ContribTier; severity?: Severity; weight?: number }
+type PillarMode = 'full' | 'wearable' | 'checkin' | 'unknown';
+interface PillarContrib {
+  tier: ContribTier;
+  severity?: Severity;
+  weight?: number;         // base weight (0..1) — defaults to 1 when omitted
+  veto?: PillState;        // if set, raises floor (e.g. drained → amber, HRV -25% → red)
+  source?: 'hardware' | 'outcome' | 'self';  // defaults to 'self' when omitted
+}
 
-// Median-of-tiers fallback (treats neutral as missing). Ties break upward toward worse.
-const medianTier = (contribs: PillarContrib[]): PillState => {
-  const order: Record<Exclude<ContribTier, 'neutral'>, number> = { green: 0, amber: 1, red: 2 };
-  const vals = contribs
-    .filter(c => c.tier !== 'neutral')
-    .map(c => order[c.tier as Exclude<ContribTier, 'neutral'>]);
-  if (vals.length === 0) return 'neutral';
-  vals.sort((a, b) => a - b);
-  // Upper-median: bias toward the more concerning signal on ties
-  const med = vals[Math.ceil((vals.length - 1) / 2)];
-  return med === 2 ? 'red' : med === 1 ? 'amber' : 'green';
+const TIER_RANK: Record<PillState, number> = { neutral: -1, green: 0, amber: 1, red: 2 };
+const RANK_TIER: PillState[] = ['green', 'amber', 'red'];
+const stateMax = (a: PillState, b: PillState): PillState => {
+  if (a === 'neutral') return b;
+  if (b === 'neutral') return a;
+  return TIER_RANK[a] >= TIER_RANK[b] ? a : b;
 };
 
-// Compose pillar state: strong-red on any input forces RED; otherwise median.
-const composePillar = (contribs: PillarContrib[]): PillState => {
-  const hasStrongRed = contribs.some(c => c.tier === 'red' && c.severity === 'strong');
-  if (hasStrongRed) return 'red';
-  return medianTier(contribs);
+// Weighted average across present contributions (renormalizes weights when signals missing).
+const weightedAverageTier = (contribs: PillarContrib[]): PillState => {
+  const present = contribs.filter(c => c.tier !== 'neutral');
+  if (present.length === 0) return 'neutral';
+  const totalWeight = present.reduce((s, c) => s + (c.weight ?? 1), 0) || 1;
+  const score = present.reduce((s, c) => {
+    const v = c.tier === 'red' ? 2 : c.tier === 'amber' ? 1 : 0;
+    return s + v * ((c.weight ?? 1) / totalWeight);
+  }, 0);
+  if (score >= 1.34) return 'red';
+  if (score >= 0.67) return 'amber';
+  return 'green';
 };
+
+interface PillarComputation {
+  tier: PillState;
+  hardwareFloor: PillState;
+  outcomeFloor: PillState;
+  weighted: PillState;
+  presentSignals: number;
+  expectedSignals: number;
+}
+
+// Hardware Veto + Outcome Veto + Weighted Average compose into final tier.
+const computePillar = (contribs: PillarContrib[]): PillarComputation => {
+  // Hardware floor: any strong-red hardware veto, OR any non-neutral hardware veto
+  const hardwareFloor = contribs
+    .filter(c => c.source === 'hardware' && c.veto)
+    .reduce<PillState>((acc, c) => stateMax(acc, c.veto!), 'neutral');
+  const outcomeFloor = contribs
+    .filter(c => c.source === 'outcome' && c.veto)
+    .reduce<PillState>((acc, c) => stateMax(acc, c.veto!), 'neutral');
+  const weighted = weightedAverageTier(contribs);
+  const tier = stateMax(stateMax(hardwareFloor, outcomeFloor), weighted);
+  return {
+    tier,
+    hardwareFloor,
+    outcomeFloor,
+    weighted,
+    presentSignals: contribs.filter(c => c.tier !== 'neutral').length,
+    expectedSignals: contribs.length,
+  };
+};
+
+// Legacy alias — kept so any unrelated callers continue to work but routed through new engine.
+const composePillar = (contribs: PillarContrib[]): PillState => computePillar(contribs).tier;
 
 function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
@@ -689,15 +731,37 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return { tier: 'neutral' };
   };
 
-  // ── COGNITIVE PILLAR ──
-  // Inputs: HRV (primary) + Sharpness + Clarity + cognitive outcome
+  // ── COGNITIVE PILLAR (v6.2 Hardware Veto) ──
+  // Weights: HRV 0.5 (hardware veto at -20% dev), Sharpness 0.3 (veto AMBER ≤2),
+  // Clarity 0.2 (veto AMBER ≤2). Outcome routed as 'self' but no veto.
+  const hrvCogRaw = hrvCognitiveContrib();
+  const sharpRaw = sharpnessContrib();
+  const clarityRaw = clarityContrib();
+  const cogOutcomeRaw = cognitiveOutcomeContrib();
   const cogContribs: PillarContrib[] = [
-    hrvCognitiveContrib(),
-    sharpnessContrib(),
-    clarityContrib(),
-    cognitiveOutcomeContrib(),
+    {
+      ...hrvCogRaw,
+      weight: 0.5,
+      source: 'hardware',
+      // Hardware veto: HRV dev ≤ -20% locks pillar RED
+      veto: hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined,
+    },
+    {
+      ...sharpRaw,
+      weight: 0.3,
+      source: 'self',
+      veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined,
+    },
+    {
+      ...clarityRaw,
+      weight: 0.2,
+      source: 'self',
+      veto: (clarity != null && clarity <= 2) ? 'amber' : undefined,
+    },
+    { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
   ];
-  let cogState = composePillar(cogContribs);
+  const cogComp = computePillar(cogContribs);
+  let cogState = cogComp.tier;
 
   // ── Wearable Authority on Cognitive ──
   // MASKED_HIGH: HRV red + self-reports green/amber → cap at AMBER minimum
@@ -719,32 +783,85 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
 
   // ── PHYSIOLOGY PILLAR ── pure body, no self-report, no outcome
-  const physState = composePillar([sleepContrib(), rhrContrib(), hrElevatedContrib()]);
+  // Hardware-only. Sleep weight 0.5 (veto RED <5h, AMBER <6.5h or <70 score),
+  // RHR 0.25, HR-elevated proxy 0.25.
+  const sleepRaw = sleepContrib();
+  const rhrRaw = rhrContrib();
+  const hrElevatedRaw = hrElevatedContrib();
+  const sleepKnown = (sleepDur != null) || (sleepScore != null);
+  const sleepVeto: PillState | undefined =
+    (sleepDur != null && sleepDur < 300) ? 'red'
+    : (sleepDur != null && sleepDur < 390) ? 'amber'
+    : (sleepScore != null && sleepScore < 70) ? 'amber'
+    : undefined;
+  const rhrVeto: PillState | undefined =
+    (rhrDev != null && rhrDev > 20) ? 'red'
+    : (rhrDev != null && rhrDev > 10) ? 'amber'
+    : undefined;
+  const physContribs: PillarContrib[] = [
+    { ...sleepRaw, weight: 0.5, source: 'hardware', veto: sleepVeto },
+    { ...rhrRaw, weight: 0.25, source: 'hardware', veto: rhrVeto },
+    { ...hrElevatedRaw, weight: 0.25, source: 'hardware' },
+  ];
+  const physComp = computePillar(physContribs);
+  let physState = physComp.tier;
+  // Completeness ceiling: sleep missing → never green-confident, cap at AMBER
+  if (!sleepKnown && physState === 'green' && physComp.presentSignals > 0) {
+    physState = 'amber';
+  }
+  // Mode-3 (no hardware at all) — physiology becomes UNKNOWN
+  const physHasAnySignal = physComp.presentSignals > 0;
+  if (!physHasAnySignal) physState = 'neutral';
 
   // ── RESILIENCE PILLAR ──
-  const emoState = composePillar([
-    hrvResilienceContrib(),
-    confidenceContrib(),
-    resilienceOutcomeContrib(),
-  ]);
+  // Mental Energy (outcome) 0.5 with HARD veto (drained→AMBER, overwhelmed→RED).
+  // HRV (strict band) 0.3. Confidence 0.2 modifier only.
+  const hrvResRaw = hrvResilienceContrib();
+  const confRaw = confidenceContrib();
+  const emoOutcomeRaw = resilienceOutcomeContrib();
+  const emoOutcomeVeto: PillState | undefined =
+    checkInOutcome === 'overwhelmed' ? 'red'
+    : checkInOutcome === 'drained' ? 'amber'
+    : undefined;
+  const hrvResVeto: PillState | undefined =
+    (hrvDev != null && hrvDev <= -25) ? 'amber'
+    : undefined;
+  const emoContribs: PillarContrib[] = [
+    { ...emoOutcomeRaw, weight: 0.5, source: 'outcome', veto: emoOutcomeVeto },
+    { ...hrvResRaw, weight: 0.3, source: 'hardware', veto: hrvResVeto },
+    { ...confRaw, weight: 0.2, source: 'self' },
+  ];
+  const emoComp = computePillar(emoContribs);
+  const emoState = emoComp.tier;
+
+  // ── Divergence flags (used in qualifiers + bubbled to outerBrief.divergence) ──
+  const cognitiveMasked = cogAuthorityFlag === 'masked-high';
+  const resilienceFeltAhead = (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+    && (confidence != null && confidence >= 4);
 
   // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
-    if (s === 'red') return 'STRAINED';
-    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'HIGH LOAD';
-    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'STEADY';
+    if (s === 'red') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : 'DEGRADED';
+    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'TAXED';
+    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'CLEAR';
     return 'BUILDING';
   };
   const physWord = (s: PillState): string => {
-    if (s === 'red') return 'DEPLETED';
-    if (s === 'amber') return 'FADING';
-    if (s === 'green') return 'RESTED';
-    return 'BUILDING';
+    if (s === 'neutral') return 'NO BODY DATA';
+    if (s === 'red') return 'SYSTEM STRAIN';
+    if (s === 'amber') return sleepKnown ? 'LOAD BUILDING' : 'PARTIAL READ';
+    // green
+    const sleepGood = (sleepScore != null && sleepScore >= 70) || (sleepDur != null && sleepDur >= 390);
+    const rhrGood = (rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70);
+    const hrCalm = (rhrDev == null || rhrDev <= 15);
+    if (sleepKnown && sleepGood && rhrGood && hrCalm) return 'BODY READY';
+    if (!sleepKnown && rhrGood) return 'BODY STABLE';
+    return 'PHYSIOLOGY OK';
   };
   const emoWord = (s: PillState): string => {
-    if (s === 'red') return 'REACTIVE';
-    if (s === 'amber') return 'STRAINED';
-    if (s === 'green') return 'STEADY';
+    if (s === 'red') return 'COMPROMISED';
+    if (s === 'amber') return 'UNDER LOAD';
+    if (s === 'green') return 'HOLDING';
     return 'BUILDING';
   };
 
@@ -760,9 +877,15 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
   const cogBottom: PillLine[] = [];
   if (sharpness != null && sharpness >= 1 && sharpness <= 5) {
+    // v6.2: only apply trend qualifier when sharpness itself is low (≤2). The overall
+    // scoreTrajectory7d was misleading users into thinking sharpness was declining
+    // when in fact it was their overall readiness trend. Honest > harmonised.
+    const sharpQualifier = (sharpness <= 2)
+      ? `${sharpness}/5 — limited bandwidth`
+      : undefined;
     cogBottom.push({
       text: `Sharpness: ${fmtScored(SHARPNESS_LABELS[sharpness - 1], sharpness)}`,
-      qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
+      qualifier: sharpQualifier,
       kind: 'self',
     });
   }
@@ -803,16 +926,26 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
   const emoBottom: PillLine[] = [];
   if (confidence != null && confidence >= 1 && confidence <= 5) {
-    const q = consecLowConf >= 3 ? `${consecLowConf}th day low confidence` : undefined;
+    let q: string | undefined;
+    if (resilienceFeltAhead) q = 'felt ahead of system — confidence high, mental energy depleted';
+    else if (consecLowConf >= 3) q = `${consecLowConf}th day low confidence`;
     emoBottom.push({ text: `Confidence: ${fmtScored(CONFIDENCE_LABELS[confidence - 1], confidence)}`, qualifier: q, kind: 'self' });
   }
   if (RESILIENCE_OUTCOMES.has(checkInOutcome)) {
-    emoBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, kind: 'self' });
+    const meQualifier = (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+      ? 'truth layer — overrides wearable'
+      : undefined;
+    emoBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, qualifier: meQualifier, kind: 'self' });
   }
 
   const emptyWearable = !wearableConnected
     ? 'Connect wearable for full reading'
     : tier === 'none' ? 'Waiting for wearable data' : undefined;
+
+  // Physiology Mode-3 explicit text — never guess from mood
+  const physEmpty = !physHasAnySignal
+    ? (wearableConnected ? 'Body data not synced today' : 'No body data — connect a wearable')
+    : (!sleepKnown ? 'Sleep not captured · partial physiology read' : undefined);
 
   return [
     {
@@ -834,8 +967,10 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       Icon: BatteryMedium,
       topLines: physTop,
       bottomLines: physBottom,
-      topEmptyText: physTop.length === 0 ? emptyWearable : undefined,
-      bottomEmptyText: physTop.length === 0 ? undefined : 'Body signals only',
+      topEmptyText: physTop.length === 0 ? (physEmpty ?? emptyWearable) : undefined,
+      bottomEmptyText: physTop.length === 0
+        ? undefined
+        : (physEmpty ?? 'Body signals only'),
     },
     {
       id: 'emotional',

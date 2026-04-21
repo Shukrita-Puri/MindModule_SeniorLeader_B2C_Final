@@ -163,9 +163,12 @@ export type Database = {
           input_signature: string
           lean_on: string | null
           lean_on_source: string | null
+          llm_attempts: Json | null
+          llm_fallback_reason: string | null
           local_date: string
           payload_json: Json | null
           phrase: string | null
+          pillar_mode: string | null
           prompt_version: string
           score: number | null
           tier: string | null
@@ -173,6 +176,7 @@ export type Database = {
           updated_at: string
           user_id: string
           user_rating: string | null
+          validator_rejections: Json | null
           watch_for: string | null
           watch_for_source: string | null
         }
@@ -186,9 +190,12 @@ export type Database = {
           input_signature: string
           lean_on?: string | null
           lean_on_source?: string | null
+          llm_attempts?: Json | null
+          llm_fallback_reason?: string | null
           local_date: string
           payload_json?: Json | null
           phrase?: string | null
+          pillar_mode?: string | null
           prompt_version: string
           score?: number | null
           tier?: string | null
@@ -196,6 +203,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           user_rating?: string | null
+          validator_rejections?: Json | null
           watch_for?: string | null
           watch_for_source?: string | null
         }
@@ -209,9 +217,12 @@ export type Database = {
           input_signature?: string
           lean_on?: string | null
           lean_on_source?: string | null
+          llm_attempts?: Json | null
+          llm_fallback_reason?: string | null
           local_date?: string
           payload_json?: Json | null
           phrase?: string | null
+          pillar_mode?: string | null
           prompt_version?: string
           score?: number | null
           tier?: string | null
@@ -219,6 +230,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           user_rating?: string | null
+          validator_rejections?: Json | null
           watch_for?: string | null
           watch_for_source?: string | null
         }
