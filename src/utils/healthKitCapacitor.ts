@@ -229,33 +229,58 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     }
 
     // ---- Group Sleep by day ----
-    // Sleep samples have startDate/endDate; attribute to the END date's day
-    const sleepByDay: Record<string, { totalMinutes: number; deepMinutes: number; remMinutes: number; inBedMinutes: number }> = {};
+    // @capgo/capacitor-health emits one sample per state region.
+    // iOS emits two parallel streams:
+    //   (a) per-stage: 'deep' | 'rem' | 'light' | 'core' | 'awake'  (Apple Watch w/ stages)
+    //   (b) umbrella: 'asleep' | 'inBed'                            (older devices / iPhone-only)
+    // Bug: the prior aggregator double-counted when both streams existed because 'asleep'
+    // overlaps with deep+rem+light. Fix: bucket per-stage and umbrella separately,
+    // then prefer per-stage total when present, else fall back to umbrella 'asleep'.
+    interface SleepBucket {
+      perStageMinutes: number;   // deep + rem + light + core (excl. awake)
+      asleepUmbrellaMinutes: number; // 'asleep'
+      deepMinutes: number;
+      remMinutes: number;
+      inBedMinutes: number;
+    }
+    const sleepByDay: Record<string, SleepBucket> = {};
     for (const s of sleepSamples) {
       const startDate = s.startDate ?? s.date;
       const endDate = s.endDate ?? s.date;
       if (!startDate || !endDate) continue;
+      // Attribute to wake-up day (end of sleep block)
       const dayKey = new Date(endDate).toISOString().split('T')[0];
       const durationMs = new Date(endDate).getTime() - new Date(startDate).getTime();
       const durationMin = Math.round(durationMs / 60000);
       if (durationMin <= 0) continue;
 
-      if (!sleepByDay[dayKey]) sleepByDay[dayKey] = { totalMinutes: 0, deepMinutes: 0, remMinutes: 0, inBedMinutes: 0 };
-
-      // @capgo/capacitor-health uses sleepState: 'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light'
-      const state = (s.sleepState ?? s.value ?? s.category ?? '').toString().toLowerCase();
-      if (state.includes('deep')) {
-        sleepByDay[dayKey].deepMinutes += durationMin;
-        sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (state.includes('rem')) {
-        sleepByDay[dayKey].remMinutes += durationMin;
-        sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (state.includes('asleep') || state.includes('core') || state.includes('light')) {
-        sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (state.includes('inbed') || state.includes('in_bed')) {
-        sleepByDay[dayKey].inBedMinutes += durationMin;
+      if (!sleepByDay[dayKey]) {
+        sleepByDay[dayKey] = {
+          perStageMinutes: 0,
+          asleepUmbrellaMinutes: 0,
+          deepMinutes: 0,
+          remMinutes: 0,
+          inBedMinutes: 0,
+        };
       }
-      // "Awake" periods are intentionally excluded from total sleep
+      const bucket = sleepByDay[dayKey];
+      const state = (s.sleepState ?? s.value ?? s.category ?? '').toString().toLowerCase();
+
+      if (state.includes('deep')) {
+        bucket.deepMinutes += durationMin;
+        bucket.perStageMinutes += durationMin;
+      } else if (state.includes('rem')) {
+        bucket.remMinutes += durationMin;
+        bucket.perStageMinutes += durationMin;
+      } else if (state.includes('core') || state.includes('light')) {
+        bucket.perStageMinutes += durationMin;
+      } else if (state.includes('asleepunspecified') || state === 'asleep') {
+        // umbrella – only used as a fallback when per-stage data is absent
+        bucket.asleepUmbrellaMinutes += durationMin;
+      } else if (state.includes('inbed') || state.includes('in_bed') || state === 'inbed') {
+        bucket.inBedMinutes += durationMin;
+      }
+      // 'awake' periods are intentionally excluded from total sleep.
     }
 
     // ---- Merge all days ----
@@ -279,7 +304,16 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       const rhrAvg = rhrDay ? Math.round(rhrDay.reduce((s, v) => s + v, 0) / rhrDay.length) : null;
       const hrAvg = hrDay ? Math.round(hrDay.reduce((s, v) => s + v, 0) / hrDay.length) : null;
 
-      const totalSleep = sleepDay?.totalMinutes ?? null;
+      // Prefer per-stage total when present (modern Apple Watch); fall back to 'asleep' umbrella otherwise.
+      // This avoids double-counting the same sleep block from both data streams.
+      let totalSleep: number | null = null;
+      if (sleepDay) {
+        if (sleepDay.perStageMinutes > 0) {
+          totalSleep = sleepDay.perStageMinutes;
+        } else if (sleepDay.asleepUmbrellaMinutes > 0) {
+          totalSleep = sleepDay.asleepUmbrellaMinutes;
+        }
+      }
       const deepSleep = sleepDay?.deepMinutes ?? null;
       const remSleep = sleepDay?.remMinutes ?? null;
       const inBed = sleepDay?.inBedMinutes ?? null;
