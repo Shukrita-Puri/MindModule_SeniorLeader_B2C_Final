@@ -53,6 +53,9 @@ export interface OuterReadinessData {
   rhrValue?: number | null;
   sleepScore?: number | null;
   hrvValue?: number | null;
+  hrValue?: number | null;
+  hrBaseline?: number | null;
+  hrDeviation?: number | null;
   hrvBaseline?: number | null;
   sleepBaseline?: number | null;
   rhrBaseline?: number | null;

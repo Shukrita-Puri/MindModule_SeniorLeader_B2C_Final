@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
+import { Button } from '@/components/ui/button';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -685,8 +686,16 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   };
 
   // ── HR-elevated proxy (Physiology, sympathetic dominance) ──
-  // No dedicated heart_rate column yet; proxy from significant RHR elevation.
+  // Prefer real heart_rate deviation when present; fall back to RHR-derived proxy.
+  const hrVal = outerBrief?.hrValue as number | null;
+  const hrDev = outerBrief?.hrDeviation as number | null;
+  const hrBaseline = outerBrief?.hrBaseline as number | null;
   const hrElevatedContrib = (): PillarContrib => {
+    if (hrVal != null && hrDev != null) {
+      if (hrDev > 20) return { tier: 'red', severity: 'mild' };
+      if (hrDev > 10) return { tier: 'amber' };
+      return { tier: 'green' };
+    }
     if (rhrDev == null) return { tier: 'neutral' };
     if (rhrDev > 25) return { tier: 'red', severity: 'mild' };
     if (rhrDev > 15) return { tier: 'amber' };
@@ -926,18 +935,31 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (rhrDev != null && rhrDev > 15) q = q ? `${q} · sympathetic dominance` : 'sympathetic dominance';
     physTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
   }
-  // HR-elevated proxy line — sympathetic-dominance signal derived from RHR deviation.
-  // Per §7.2, HR-elevated is a distinct Physiology input alongside Sleep and RHR.
-  // Render only when we have a deviation signal (so it's evidence-based, not a guess).
-  if (rhrDev != null) {
+  // HR line — prefer real heart_rate (avg bpm) when present; otherwise use the
+  // RHR-deviation proxy and label it as estimated. Per §7.2, HR is a distinct
+  // Physiology input alongside Sleep and RHR.
+  if (hrVal != null) {
+    const tier = hrDev == null
+      ? 'calm'
+      : hrDev > 20 ? 'elevated' : hrDev > 10 ? 'rising' : 'calm';
+    const stateNote = tier === 'calm'
+      ? 'autonomic state stable'
+      : tier === 'rising'
+        ? 'sympathetic activation building'
+        : 'sustained sympathetic dominance';
+    const baselinePart = (hrDev != null && hrBaseline)
+      ? `${devSign(hrDev)} vs ${hrBaseline}bpm baseline · ${tier} · ${stateNote}`
+      : `${tier} · ${stateNote}`;
+    physTop.push({ text: `HR ${hrVal}bpm`, qualifier: baselinePart, kind: 'wearable' });
+  } else if (rhrDev != null) {
     const hrTier = rhrDev > 25 ? 'elevated' : rhrDev > 15 ? 'rising' : 'calm';
     const hrText = hrTier === 'calm' ? 'HR — calm' : hrTier === 'rising' ? 'HR — rising' : 'HR — elevated';
-    const hrQ = hrTier === 'calm'
+    const hrStateQ = hrTier === 'calm'
       ? 'autonomic state stable'
       : hrTier === 'rising'
       ? 'sympathetic activation building'
       : 'sustained sympathetic dominance';
-    physTop.push({ text: hrText, qualifier: hrQ, kind: 'wearable' });
+    physTop.push({ text: hrText, qualifier: `estimated · ${hrStateQ}`, kind: 'wearable' });
   }
   const physBottom: PillLine[] = [];
 
@@ -1440,6 +1462,26 @@ const PerformanceReadinessBrief = () => {
   const leanOnSource = outerBrief?.leanOnSource ? getSourceLabel(outerBrief.leanOnSource) : '';
   const watchForSource = outerBrief?.watchForSource ? getSourceLabel(outerBrief.watchForSource) : '';
 
+  // ── Brief → Plan handoff CTA reveal ──
+  // Hidden for ~3.5s after the brief renders so the user has time to read it.
+  // Short-circuits to visible immediately when feedback is submitted, OR when
+  // a previous feedback row is already saved for this brief (so refreshes show
+  // it instantly).
+  const briefId = (outerBrief as any)?.briefId ?? null;
+  const feedbackKey = briefId ? `prb-feedback-${briefId}` : null;
+  const [showCta, setShowCta] = useState(false);
+  useEffect(() => {
+    if (!phrase) return;
+    // Already-fed-back briefs: show immediately on mount/refresh
+    if (feedbackKey && typeof window !== 'undefined' && window.localStorage.getItem(feedbackKey)) {
+      setShowCta(true);
+      return;
+    }
+    setShowCta(false);
+    const t = setTimeout(() => setShowCta(true), 3500);
+    return () => clearTimeout(t);
+  }, [phrase, feedbackKey]);
+
   return (
     <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
 
@@ -1610,27 +1652,26 @@ const PerformanceReadinessBrief = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* 12.5 BRIEF → PLAN HANDOFF — always-visible CTA */}
-      <button
-        type="button"
-        onClick={() => navigate('/plan')}
-        className="group mt-4 pt-3 w-full flex flex-col items-end gap-0.5 text-right hover:opacity-100 transition-opacity"
-      >
-        <span className="inline-flex items-center gap-1 text-[13px] font-body text-taupe-foreground/90 group-hover:text-taupe-foreground transition-colors">
-          View today's 3 priorities
-          <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2} />
-        </span>
-        <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/45 font-body">
-          Built from this brief
-        </span>
-      </button>
-
       {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
       <BriefFeedbackRow
-        briefId={(outerBrief as any)?.briefId ?? null}
+        briefId={briefId}
         tier={(outerBrief as any)?.innerReadinessTier ?? null}
         score={(outerBrief as any)?.innerReadinessScore ?? null}
+        onFeedbackSubmitted={() => setShowCta(true)}
       />
+
+      {/* 12.5 BRIEF → PLAN HANDOFF — full-width saffron CTA, revealed after read window */}
+      {showCta && (
+        <Button
+          type="button"
+          variant="critical"
+          onClick={() => navigate('/plan')}
+          className="mt-4 w-full h-11 animate-in fade-in duration-300"
+        >
+          Activate Today's 3 Priorities
+          <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
+        </Button>
+      )}
     </div>
   );
 };
@@ -1654,10 +1695,10 @@ interface BriefFeedbackRowProps {
   briefId?: string | null;
   tier?: string | null;
   score?: number | null;
+  onFeedbackSubmitted?: () => void;
 }
 
-const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
-  const navigate = useNavigate();
+const BriefFeedbackRow = ({ briefId, tier, score, onFeedbackSubmitted }: BriefFeedbackRowProps) => {
   // Prefer per-brief key so feedback resets when a genuinely new brief is generated.
   // Fall back to a date+window key for the brief moment before briefId is available
   // (very rare — the snapshot id is included in the very first edge response).
@@ -1709,6 +1750,7 @@ const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
     }
     setMode('submitted');
     setIsSubmitting(false);
+    onFeedbackSubmitted?.();
   };
 
   const handleCancel = () => {
@@ -1719,15 +1761,10 @@ const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
 
   if (mode === 'submitted') {
     return (
-      <button
-        type="button"
-        onClick={() => navigate('/plan')}
-        className="group mt-4 pt-3 w-full flex items-center justify-end gap-1.5 text-[11px] font-body text-taupe-foreground/80 hover:text-taupe-foreground transition-colors animate-in fade-in duration-300"
-      >
+      <div className="mt-4 pt-3 w-full flex items-center justify-end gap-1.5 text-[11px] font-body text-muted-foreground/60 animate-in fade-in duration-300">
         <Check className="w-3 h-3" strokeWidth={2.25} />
-        <span>Noted — your 3 priorities are ready</span>
-        <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2.25} />
-      </button>
+        <span>Feedback noted</span>
+      </div>
     );
   }
 

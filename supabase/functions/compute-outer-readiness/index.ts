@@ -146,6 +146,7 @@ interface CalendarMetricsResult {
 interface WearableContext {
   hrv: number | null;
   rhr: number | null;
+  hr: number | null;
   sleepScore: number | null;
   sleepDuration: number | null;
   hrElevated: boolean;  // Derived: HRV significantly below baseline implies sympathetic dominance (elevated HR)
@@ -1860,7 +1861,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1869,6 +1870,7 @@ serve(async (req) => {
       if (wearableRow) {
         const rhr = wearableRow.resting_heart_rate ?? null;
         const hrv = wearableRow.hrv ?? null;
+        const hr = (wearableRow as any).heart_rate ?? null;
         const sleepScore = wearableRow.sleep_score ?? null;
         const rawSleepDuration = wearableRow.total_sleep_minutes ?? null;
         const source = wearableRow.source ?? null;
@@ -1893,6 +1895,7 @@ serve(async (req) => {
         wearableContext = {
           hrv,
           rhr,
+          hr,
           sleepScore,
           sleepDuration,
           hrElevated,
@@ -2310,16 +2313,19 @@ serve(async (req) => {
     let hrvDeviation: number | null = null;
     let sleepDeviation: number | null = null;
     let rhrDeviation: number | null = null;
+    let hrDeviation: number | null = null;
     let hrvBaseline: number | null = null;
     let sleepBaseline: number | null = null;
     let rhrBaseline: number | null = null;
+    let hrBaseline: number | null = null;
+    const hrValue: number | null = wearableContext?.hr ?? null;
     const hasHistoricalData = wearableDaysConnected >= 7;
     try {
       if (hasWearable) {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, total_sleep_minutes, source')
+          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2365,8 +2371,19 @@ serve(async (req) => {
             }
           }
 
+          // HR baseline (real average daily HR — preferred over HRV-derived proxy)
+          const hrRows = baseline.filter((r: any) => r.heart_rate != null && r.heart_rate > 0);
+          if (hrRows.length >= 3 && hrValue != null) {
+            const avgHR = hrRows.reduce((s: number, r: any) => s + r.heart_rate, 0) / hrRows.length;
+            hrBaseline = Math.round(avgHR);
+            hrDeviation = Math.round(((hrValue - avgHR) / avgHR) * 100);
+          }
+
           // Refine hrElevated from HRV baseline deviation (>25% below = sympathetic dominance)
-          if (wearableContext && hrvBaseline && hrvValue != null) {
+          // Prefer real HR deviation when available; fall back to HRV-derived proxy.
+          if (wearableContext && hrValue != null && hrDeviation != null) {
+            wearableContext.hrElevated = hrDeviation > 10;
+          } else if (wearableContext && hrvBaseline && hrvValue != null) {
             const hrvPctBelow = ((hrvBaseline - hrvValue) / hrvBaseline) * 100;
             wearableContext.hrElevated = hrvPctBelow > 25;
           }
@@ -4156,6 +4173,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           hrv: hrvValue != null,
           sleep: sleepDuration != null || sleepScoreVal != null,
           rhr: rhrValue != null,
+          hr: hrValue != null,
         },
         sourceRowDate,
         dataSource: wearableDataSource,
@@ -4164,8 +4182,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       hrvDeviation,
       sleepDeviation,
       rhrDeviation,
+      hrDeviation,
       sleepDuration,
       rhrValue,
+      hrValue,
+      hrBaseline,
       sleepScore: sleepScoreVal,
       hrvValue,
       hrvBaseline,
