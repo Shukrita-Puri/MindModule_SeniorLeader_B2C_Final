@@ -200,6 +200,25 @@ serve(async (req) => {
 
     console.log(`[refresh-calendar-tokens] cron_refresh_completed – refreshed=${refreshedCount} reconnect=${reconnectCount} failed=${failedCount}`);
 
+    // After token refresh pass, also renew expiring webhook channels.
+    // Fire-and-forget: don't block the cron response on watch renewal.
+    const supaUrl = Deno.env.get('SUPABASE_URL');
+    if (supaUrl) {
+      fetch(`${supaUrl}/functions/v1/register-calendar-watch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY') ?? ''}`,
+        },
+        body: JSON.stringify({}), // empty body = scan-and-renew mode
+      }).then(async (r) => {
+        const txt = await r.text();
+        console.log('[refresh-calendar-tokens] watch_renewal status:', r.status, txt.slice(0, 200));
+      }).catch((err) => {
+        console.warn('[refresh-calendar-tokens] watch_renewal enqueue failed:', err);
+      });
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

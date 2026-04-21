@@ -292,7 +292,27 @@ serve(async (req) => {
       const frontendUrl = Deno.env.get('FRONTEND_URL');
       if (!frontendUrl) throw new Error('FRONTEND_URL not configured');
       const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true`;
-      
+
+      // Fire-and-forget: register the Google push-notification watch channel for this user.
+      // Failure is non-fatal — the daily cron will pick it up.
+      const supaUrl = Deno.env.get('SUPABASE_URL');
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supaUrl && serviceKey && validProvider === 'google') {
+        fetch(`${supaUrl}/functions/v1/register-calendar-watch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY') ?? ''}`,
+          },
+          body: JSON.stringify({ userId: validUserId }),
+        }).then(async (r) => {
+          const txt = await r.text();
+          console.log('[calendar-auth] register-calendar-watch enqueued user:', validUserId, 'status:', r.status, txt.slice(0, 200));
+        }).catch((err) => {
+          console.warn('[calendar-auth] register-calendar-watch enqueue failed (non-fatal):', err);
+        });
+      }
+
       return new Response(null, { status: 302, headers: { 'Location': redirectUrl } });
 
     } else if (action === 'disconnect') {

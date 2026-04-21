@@ -1,1 +1,4 @@
 project_id = "iyilcpvercoywaweybpc"
+
+[functions.calendar-webhook]
+verify_jwt = false

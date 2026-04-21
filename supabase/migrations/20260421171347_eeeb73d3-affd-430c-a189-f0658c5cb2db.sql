@@ -1,0 +1,1 @@
+ALTER VIEW public.event_physiology_join SET (security_invoker = true);
