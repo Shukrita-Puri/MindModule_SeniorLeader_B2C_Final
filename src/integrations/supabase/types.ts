@@ -4180,13 +4180,19 @@ export type Database = {
           end_time: string | null
           event_id: string | null
           event_type: string | null
+          hr_delta: number | null
+          hr_morning_of: number | null
+          hr_next_morning: number | null
           hrv_delta: number | null
           hrv_morning_of: number | null
           hrv_next_morning: number | null
           is_high_stakes: boolean | null
           is_organizer: boolean | null
+          rhr_delta: number | null
+          rhr_morning_of: number | null
           rhr_next_morning: number | null
-          sleep_minutes_next_night: number | null
+          sleep_minutes_night_before: number | null
+          sleep_score_night_before: number | null
           start_time: string | null
           title: string | null
           user_id: string | null
