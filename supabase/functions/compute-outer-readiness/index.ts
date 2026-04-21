@@ -3858,6 +3858,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
+
+    // ═══ SAFEGUARD: defensive guard before first cachedSnapshot use ═══
+    if (typeof cachedSnapshot === 'undefined') {
+      console.error('[compute-outer-readiness] cachedSnapshot unexpectedly undefined — scope regression');
+    }
+
+    // ═══ SAFEGUARD: response-assembly try/catch ═══
+    // If anything below throws (scope regression, undefined access, etc.), fail soft with a
+    // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
+    try {
     const briefSource: 'llm' | 'deterministic' = cachedSnapshot
       ? cachedSnapshot.brief_source
       : (llmBrief ? 'llm' : 'deterministic');
