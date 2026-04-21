@@ -2905,17 +2905,6 @@ serve(async (req) => {
       // All material inputs are gathered above. Compute the canonical signature now and,
       // on cache hit, hydrate llmBrief from the snapshot so the existing rendering code
       // emits the same response shape — and skip the LLM call entirely.
-      let cachedSnapshot: {
-        phrase: string | null;
-        body_text: string | null;
-        lean_on: string | null;
-        lean_on_source: string | null;
-        watch_for: string | null;
-        watch_for_source: string | null;
-        brief_source: 'llm' | 'deterministic';
-        driver: string | null;
-      } | null = null;
-      let inputSignature = 'no-sig';
       try {
         inputSignature = await computeInputSignature({
           localDate: userLocalDate,
