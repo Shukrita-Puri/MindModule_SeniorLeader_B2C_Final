@@ -99,6 +99,32 @@ serve(async (req) => {
           }
         }
 
+        // Dedupe brief_view writes: if the same brief_id was logged for this user
+        // within the last 6 hours (one time-window cadence), skip the insert.
+        // Prevents refresh-spam from cluttering the Recent sidebar.
+        if (eventType === 'brief_view' && enrichedMetadata.brief_id) {
+          try {
+            const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+            const { data: existing } = await supabase
+              .from('user_engagements')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('event_type', 'brief_view')
+              .eq('metadata->>brief_id', enrichedMetadata.brief_id)
+              .gte('timestamp', sixHoursAgo)
+              .limit(1);
+            if (existing && existing.length > 0) {
+              console.log('[user-events] brief_view deduped (within 6h):', enrichedMetadata.brief_id);
+              return new Response(
+                JSON.stringify({ success: true, deduped: true }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          } catch (e) {
+            console.warn('[user-events] brief_view dedupe check failed:', (e as Error)?.message);
+          }
+        }
+
         const { error } = await supabase
           .from('user_engagements')
           .insert({

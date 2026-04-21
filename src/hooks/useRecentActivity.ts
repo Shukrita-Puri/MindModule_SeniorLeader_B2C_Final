@@ -53,11 +53,12 @@ export const useRecentActivity = () => {
             const cl = levelIcon(checkin.clarity_level);
             const co = levelIcon(checkin.confidence_level);
             const ms = levelIcon(checkin.mental_sharpness_level);
-            // e.g. "Focused, ● Clarity, ▲ Confidence, ● Sharpness"
+            // e.g. "Focused, ● Clear, ▲ Confident, ● Sharp" — short labels keep
+            // the row from clipping inside the fixed-width sidebar.
             const parts: string[] = [];
-            if (cl) parts.push(`${cl} Clarity`);
-            if (co) parts.push(`${co} Confidence`);
-            if (ms) parts.push(`${ms} Sharpness`);
+            if (cl) parts.push(`${cl} Clear`);
+            if (co) parts.push(`${co} Confident`);
+            if (ms) parts.push(`${ms} Sharp`);
             const suffix = parts.join(', ');
 
             allActivities.push({
@@ -100,7 +101,17 @@ export const useRecentActivity = () => {
         });
         if (!error && data?.success && data.data) {
           const briefEvents = data.data.filter((e: any) => e.event_type === 'brief_view');
-          briefEvents.slice(0, 5).forEach((event: any) => {
+          // Dedupe by brief_id (kept first/most-recent since list is timestamp DESC)
+          // so refresh-spam in the same window collapses to a single sidebar row.
+          const seen = new Set<string>();
+          const uniqueBriefEvents = briefEvents.filter((e: any) => {
+            const id = e.metadata?.brief_id;
+            if (!id) return true; // keep legacy rows lacking brief_id
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+          });
+          uniqueBriefEvents.slice(0, 5).forEach((event: any) => {
             const phrase = event.metadata?.phrase || 'Viewed';
             const briefId = event.metadata?.brief_id as string | undefined;
             allActivities.push({
