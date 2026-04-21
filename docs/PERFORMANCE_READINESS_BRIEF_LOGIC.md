@@ -1,24 +1,23 @@
 # Performance Readiness Brief – Complete Technical Documentation
 
-> **Last updated**: 2026-04-13
+> **Version**: v6.1
+> **Last updated**: 2026-04-21
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
+> **Persona**: *Chief of Staff for the Mind* — strategic register, wearable-first, never coaching imperatives
 
-### v4 Changes Summary (2026-04-13)
+### v6.1 Changes Summary (2026-04-21)
 
-- **Wearable extraction**: `||` → `??` for all wearable fields (prevents `0` coercion to `null`)
-- **Unified wearable contract**: New `wearableStatus` object in response unifies wearable state for pills and insights (fixes split-logic bug where Lean On showed "Physiological credit" while pills showed "Wearable syncing")
-- **Wearable syncing chip**: Replaced with 3-state logic: `hasTodayData` → normal pills; `hasRecentData` → "Based on recent data"; else → "Waiting for wearable data"
-- **Lean On gating**: "Physiological credit" only shown when actual metric data exists (`hasTodayData`), not just wearable connection
-- **Mind pill split**: Unified mind pill replaced by two pills: **Mind Sharpness** (Stage 1 outcome) + **Clarity & Confidence** (Stage 2 C×C matrix)
-- **Mind pill prefix**: All Mind Sharpness labels prefixed with "Mind" (e.g., "Mind steady", "Mind focused") for disambiguation
-- **Meeting count fix**: Pills now use `remainingMeetings` (shows "X meetings ahead" or "X meetings done") instead of total daily count
-- **Pill vocabulary**: `Overwhelmed` → `Depleted` (C-suite appropriate); no raw numbers on front of any pill
-- **Deterministic fallback signals**: All fallback leanOn/watchFor forced into `signal · Source` format via `formatFallbackSignal()` helper — strips parenthetical sources, truncates signal to max 3 words, maps source key to human label (Archetype, Readiness, Coach, Check-in, System, Wearable). Source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
-- **Watch For prose guard**: Client-side guard truncates lines >40 chars without `·` separator to first 3 words + `· System`
-- **Bold rendering**: `<strong>` HTML tags only (no markdown asterisks)
-- **LLM retries**: Reduced from 4 (10s/8s/6s/5s) → 2 (10s/6s); worst-case ~24s instead of ~38s
-- **Few-shot examples**: Replaced with v5 corrected "Chief of Staff for the Mind" calibration set
+- **3-pillar Executive Pills**: The 6-chip system (Heart / Sleep / Mind-Sharpness / Clarity×Confidence) has been replaced by **three executive pillars** rendered as glass capsules: `COGNITIVE`, `PHYSIOLOGY`, `RESILIENCE`. Each pill composes multiple inputs through severity-aware median-of-tiers logic.
+- **Four-Role Contract (§2.18.5)**: Phrase / Body / Lean On / Watch For are formally bound to distinct **jobs, data layers, and time horizons**. Each must add information the others did not.
+- **Pillar-Vocabulary Map (§2.19.2)**: Phrase + first body sentence MUST contain ≥1 explicit pillar word. HRV is treated as Cognitive (primary) or Resilience (secondary) — never "Body".
+- **3-Part Impact Mandate (§2.19)**: Body must triangulate Signal Evidence + Pillar Categorization + The Stake.
+- **Body Copy Assessment Contract (§2.19.5)**: Pills own numbers; body owns synthesis. Five rules govern the sentence shape.
+- **Snapshot cache (`brief_snapshots`)**: Server-side dedupe by `input_signature`; persists `briefSource: 'llm' | 'deterministic'` so a successful synthesis stays canonical for the day.
+- **Telemetry**: `llmFallbackReason`, `llmAttempts`, validator rejection codes are written into the snapshot for diagnosis.
+- **Response-assembly try/catch**: Final assembly is wrapped — a downstream error degrades to a soft 200 fallback, never a 500 that blanks the dashboard.
+- **Two-tier LLM strategy**: Gemini 2.5 Flash (4s) → Claude Sonnet (6s). Worst case ~10s.
+- **Strict V6.1 validators**: 25+ rules — wellness/tier/readiness blacklists, generic-trait blocklist, pattern-relevance gate, signal-substring-of-body gate, lexicon-cluster gate. **Any rejection drops the LLM brief and ships the deterministic template.**
 
 ---
 
@@ -27,64 +26,70 @@
 1. [Purpose & Architecture](#1-purpose--architecture)
 2. [Upstream Data Sources](#2-upstream-data-sources)
 3. [Connected Database Tables](#3-connected-database-tables)
-4. [Inner Readiness Scoring (compute-inner-readiness)](#4-inner-readiness-scoring)
-5. [Outer Readiness / Compass (compute-outer-readiness)](#5-outer-readiness--compass)
-6. [LLM Synthesis Prompt](#6-llm-synthesis-prompt)
-7. [Signal Pill Logic & Calculations](#7-signal-pill-logic--calculations)
-8. [Lean On / Watch For Logic](#8-lean-on--watch-for-logic)
-9. [Phase (Directive Phrase) Logic](#9-phase-directive-phrase-logic)
-10. [Body Copy Logic](#10-body-copy-logic)
-11. [Source Labels](#11-source-labels)
-12. [DB Column Audit](#12-db-column-audit)
-13. [Known Issues & Gaps](#13-known-issues--gaps)
+4. [Inner Readiness Scoring](#4-inner-readiness-scoring)
+5. [Outer Readiness / Compass](#5-outer-readiness--compass)
+6. [LLM Synthesis – Chief of Staff for the Mind (v6.1)](#6-llm-synthesis--chief-of-staff-for-the-mind-v61)
+7. [Signal Pills v6 – 3 Executive Pillars](#7-signal-pills-v6--3-executive-pillars)
+8. [Lean On / Watch For v6](#8-lean-on--watch-for-v6)
+9. [Phrase Logic v6](#9-phrase-logic-v6)
+10. [Body Copy Logic v6](#10-body-copy-logic-v6)
+11. [LLM Resilience & Snapshot Cache](#11-llm-resilience--snapshot-cache)
+12. [Source Labels](#12-source-labels)
+13. [DB Column Audit](#13-db-column-audit)
+14. [Known Issues & Gaps](#14-known-issues--gaps)
 
 ---
 
 ## 1. Purpose & Architecture
 
-The **Performance Readiness Brief** is a unified dashboard card that answers:
-- **"What is my readiness right now?"** (score, tier, signal chips)
-- **"What should I do about it?"** (phase directive, body copy)
-- **"What should I lean on / watch for?"** (personalised tactical insights)
+The **Performance Readiness Brief** answers three questions for a senior leader, every check-in, in under 10 seconds of scanning:
 
-### Architecture Flow
+- **"What is my readiness right now?"** → score, tier, three Signal Pills
+- **"What does the day actually require, and what is the move?"** → Phrase + Body
+- **"What can I lean on, and what should I watch for?"** → Lean On / Watch For (history- and pattern-grounded)
+
+### 1.1 Architecture Flow
 
 ```
-┌─────────────────────┐     ┌──────────────────────────────┐
-│ Client (PRB Card)   │────▶│ computeEnergyState() client  │
-│ DecisionReadiness   │     │ → fetches DB for check-in,   │
-│ Brief.tsx           │     │   wearable, scores            │
-└────────┬────────────┘     └──────────────────────────────┘
-         │
-         │ Sends: tier, score, clarity, confidence, checkInOutcome, timezoneOffset
-         ▼
-┌────────────────────────────────────────────────────────────┐
-│ compute-outer-readiness (Edge Function, ~3300 lines)       │
-│                                                            │
-│ 1. Server-side calendar metrics (today + tomorrow)         │
-│ 2. Wearable data fetch + 30-day baseline deviations        │
-│ 3. Coach insights, memories, commitments, breakthroughs    │
-│ 4. Archetype from profiles                                 │
-│ 5. Recent check-ins (7-day patterns)                       │
-│ 6. Enrichment queries (40+ signals)                        │
-│ 7. Signal Triage → top 5 signals                           │
-│ 8. Temporal Triangulation (Immediate/Tactical/Strategic)   │
-│ 9. LLM synthesis (Gemini 2.5 Flash, 6s timeout)           │
-│ 10. Deterministic fallback templates                       │
-│                                                            │
-│ Returns: phrase, bodyText, leanOn, watchFor, signal data,  │
-│          deviations, baselines, calendar state, etc.        │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────┐    ┌─────────────────────────────────────┐
+│ Client (PRB Card)        │───▶│ computeEnergyState() client          │
+│ DecisionReadinessBrief   │    │ → DB read: check-in, wearable, score │
+└──────────┬───────────────┘    └─────────────────────────────────────┘
+           │ POST tier · score · clarity · confidence · checkInOutcome · timezoneOffset
+           ▼
+┌────────────────────────────────────────────────────────────────────┐
+│ compute-outer-readiness (Edge Function · ~4087 lines)              │
+│                                                                    │
+│ 1.  Server-side calendar metrics (today + tomorrow + week-ahead)   │
+│ 2.  Wearable fetch + 30-day baseline + deviations                  │
+│ 3.  Coach intelligence (insights, memories, commitments, breakthr) │
+│ 4.  Archetype + onboarding component scores                        │
+│ 5.  Recent check-ins (7-day + 30-day patterns)                     │
+│ 6.  40+ enrichment signals (HRV×event, friction, DOW, streaks)     │
+│ 7.  Signal Triage → top 5 signals                                  │
+│ 8.  Temporal Triangulation (Immediate · Tactical · Strategic)      │
+│ 9.  ─── Snapshot Cache lookup (by input_signature) ────────────┐   │
+│      │ HIT  → return cached phrase/body/leanOn/watchFor         │  │
+│      └ MISS → continue                                          │  │
+│ 10. LLM synthesis (Gemini 2.5 Flash 4s → Claude Sonnet 6s)        │
+│       └─ validateV61Output: 25+ gates                              │
+│ 11. Deterministic fallback templates (getTheme, getCcModifier)     │
+│ 12. Snapshot upsert (fire-and-forget) + telemetry                  │
+│ 13. Response assembly (try/catch → soft 200 on error)              │
+│                                                                    │
+│ Returns: phrase · context (body) · leanOn · watchFor · pills data  │
+│          · briefSource · llmFallbackReason · wearableStatus · ...  │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-### Downstream Consumers
+### 1.2 Downstream Consumers
 
 | Consumer | What it uses |
 |----------|-------------|
-| PRB Card (home) | phrase, bodyText, leanOn, watchFor, signal chips, score, tier |
-| Mastery Plan | stateAlreadyUsed[], compassAlreadyUsed[] (no-repeat relay) |
+| PRB Card (home) | phrase, bodyText, leanOn, watchFor, **3 Signal Pills**, score, tier |
+| Mastery Plan | `stateAlreadyUsed[]`, `compassAlreadyUsed[]` (no-repeat relay) |
 | Coach sessions | leanOn, watchFor for session context |
-| JIT nudges | coachInsightAge, nextHighStakesEvent |
+| JIT nudges | `coachInsightAge`, `nextHighStakesEvent` |
 
 ---
 
@@ -98,31 +103,32 @@ The **Performance Readiness Brief** is a unified dashboard card that answers:
 | `innerReadinessScore` | `computeEnergyState()` | `0-100` | Composite readiness score |
 | `clarityLevel` | Today's check-in | `1-5 \| null` | Cognitive clarity |
 | `confidenceLevel` | Today's check-in | `1-5 \| null` | Decision confidence |
-| `checkInOutcome` | Today's check-in | `string \| null` | e.g., "steady", "drained", "focused" |
+| `mentalSharpnessLevel` | Today's `/check-in-detail` | `1-5 \| null` | Cognitive acuity slider |
+| `checkInOutcome` | Today's `/daily-check-in` | `string \| null` | drained · overwhelmed · scattered · steady · focused · thriving · anxious · frustrated · calm · energised |
 | `timezoneOffset` | `Date.getTimezoneOffset()` | `number` | Minutes offset from UTC |
 
 ### 2.2 Server-Fetched (Inside Edge Function)
 
-| Signal | DB Table | Columns Used | Description |
-|--------|----------|-------------|-------------|
-| Calendar events (today) | `calendar_events` | `start_time, end_time, is_organizer, attendees_count, is_recurring, title` | Gated on `calendar_connections.is_active` |
-| Calendar events (tomorrow) | `calendar_events` | Same | Fetched for evening periods (≥18:00) |
+| Signal | DB Table | Columns Used | Notes |
+|--------|----------|-------------|-------|
+| Calendar today | `calendar_events` | `start_time, end_time, is_organizer, attendees_count, is_recurring, title` | Gated on `calendar_connections.is_active` |
+| Calendar tomorrow | `calendar_events` | Same | Fetched evenings (≥17:00) + Friday + Sunday |
+| Calendar week-ahead | `calendar_events` | Same | Sunday evening only |
 | Wearable (latest day) | `wearable_data` | `hrv, resting_heart_rate, sleep_score, total_sleep_minutes, source` | Most recent row |
-| Wearable (30-day baseline) | `wearable_data` | `hrv, sleep_score, resting_heart_rate, total_sleep_minutes, source` | Last 30 rows for deviation |
-| Wearable (7-day trend) | `wearable_data` | `hrv, summary_date` | HRV trend direction |
+| Wearable baseline (30d) | `wearable_data` | Same | Personal baseline + deviation % |
+| Wearable trend (7d) | `wearable_data` | `hrv, summary_date` | Improving / declining / stable |
 | Coach insights | `user_coach_insights` | `insight_type, insight_content, created_at` | Active strength + growth_area |
 | Coach memories | `coach_memory_index` | `memory_content, memory_type, pattern_area, key_themes, importance_score` | Importance ≥ 5 |
 | Coach commitments | `coach_accountability_tracker` | `commitment_text, status, meta_skill, pattern_area` | Status = 'pending' |
 | Coach breakthroughs | `coach_breakthrough_moments` | `breakthrough_content, breakthrough_type, meta_skill, impact_score` | Impact ≥ 3 |
 | Coach session recency | `coach_session_summaries` | `created_at, session_id` | Most recent session |
-| Archetype | `profiles` | `user_archetype` | Onboarding-derived archetype |
-| Recent check-ins | `daily_checkins` | `checkin_date, outcome, clarity_level, confidence_level, energy_balance` | Last 7 days |
-| DOW check-ins | `daily_checkins` | `outcome, energy_balance, checkin_date` | Last 60 days for DOW patterns |
-| Practice completions | `sanctuary_events` | `id, content_id` | Event_type = 'completed', last 7 days |
-| Coach patterns | `coach_pattern_observations` | `pattern_description` | Active, last 7 days |
-| Practice effectiveness | `sanctuary_events` | `content_id, effectiveness_rating` | Top-rated practices |
-| Next event | `calendar_events` | `title, start_time` | Next upcoming event |
-| Holiday detection | `profiles` | `timezone` | Maps to country for static holiday lookup |
+| Archetype | `profiles` | `user_archetype` | Maps to archetype × tier matrix |
+| Recent check-ins | `daily_checkins` | `checkin_date, outcome, clarity_level, confidence_level, mental_sharpness_level, energy_balance` | Last 7 days |
+| DOW patterns | `daily_checkins` | `outcome, energy_balance, checkin_date` | Last 60 days |
+| `consecutiveLowClarity` | `daily_checkins` | `clarity_level` | Server-derived from last 10 check-ins |
+| `consecutiveLowConfidence` | `daily_checkins` | `confidence_level` | Server-derived from last 10 check-ins |
+| `mostEffectivePractice` | `sanctuary_events` | `content_id, effectiveness_rating` | Top-rated practice |
+| Holiday detection | `profiles` | `timezone` | Static lookup UK / US / UAE / SG / AU 2025-2026 |
 
 ---
 
@@ -130,432 +136,440 @@ The **Performance Readiness Brief** is a unified dashboard card that answers:
 
 ### 3.1 `wearable_data` – Primary Wearable Store
 
-| Column | Type | Used By PRB | Read | Write | Notes |
-|--------|------|-------------|------|-------|-------|
-| `id` | uuid | — | — | — | PK |
-| `user_id` | text | ✅ | ✅ | ✅ | User FK |
-| `summary_date` | date | ✅ | ✅ | ✅ | Daily key |
-| `source` | text | ✅ | ✅ | ✅ | e.g., 'apple-healthkit', 'oura' |
-| `hrv` | numeric | ✅ | ✅ | ✅ | HRV RMSSD in ms |
-| `resting_heart_rate` | integer | ✅ | ✅ | ✅ | RHR in bpm |
-| `sleep_score` | integer | ✅ | ✅ | ✅ | 0-100 sleep quality score |
-| `total_sleep_minutes` | integer | ✅ | ✅ | ✅ | Total sleep duration |
-| `deep_sleep_minutes` | integer | — | — | ✅ | Deep sleep stage |
-| `rem_sleep_minutes` | integer | — | — | ✅ | REM stage |
-| `steps` | integer | — | — | ✅ | Daily steps |
-| `active_calories` | integer | — | — | ✅ | Active energy |
-| `hrv_samples` | jsonb | — | — | ✅ | Raw HRV samples |
-| `raw_data` | jsonb | — | — | ✅ | Full raw payload |
-
-**⚠️ NOTE**: The column is `source` NOT `data_source`. The column is `hrv` NOT `hrv_rmssd`.
-
-### 3.2 `calendar_events` – Calendar Store
-
-| Column | Type | Used By PRB | Notes |
-|--------|------|-------------|-------|
-| `user_id` | text | ✅ | User FK |
-| `start_time` | timestamptz | ✅ | Event start (UTC) |
-| `end_time` | timestamptz | ✅ | Event end (UTC) |
-| `title` | text | ✅ | Used for high-stakes detection |
-| `is_organizer` | boolean | ✅ | Pressure scoring (+2) |
-| `attendees_count` | integer | ✅ | Pressure scoring (+1/+3) |
-| `is_recurring` | boolean | ✅ | Non-recurring = +1 pressure |
-
-### 3.3 `daily_checkins` – Check-in Store
-
 | Column | Type | Used By PRB | Notes |
 |--------|------|-------------|-------|
 | `user_id` | text | ✅ | |
-| `checkin_date` | date | ✅ | |
-| `outcome` | text | ✅ | drained/overwhelmed/scattered/steady/focused |
-| `clarity_level` | integer | ✅ | 1-5 scale |
-| `confidence_level` | integer | ✅ | 1-5 scale |
-| `energy_balance` | integer | ✅ | 0-100, mapped to tier |
+| `summary_date` | date | ✅ | Daily key |
+| `source` | text | ✅ | `apple-healthkit`, `oura`, etc. |
+| `hrv` | numeric | ✅ | RMSSD in ms |
+| `resting_heart_rate` | integer | ✅ | bpm |
+| `sleep_score` | integer | ✅ | 0–100 |
+| `total_sleep_minutes` | integer | ✅ | Adjusted ×0.85 for Apple "in-bed" → "asleep" |
 
-### 3.4 `user_coach_insights` – Coach Intelligence
+> ⚠️ Column is `source` (not `data_source`), `hrv` (not `hrv_rmssd`).
 
-| Column | Type | Used By PRB | Notes |
-|--------|------|-------------|-------|
-| `insight_type` | text | ✅ | 'strength' or 'growth_area' |
-| `insight_content` | text | ✅ | The actual insight text |
-| `is_active` | boolean | ✅ | Active insights only |
-| `created_at` | timestamptz | ✅ | Age determines priority tier |
+### 3.2 `calendar_events`, `daily_checkins`, `user_coach_insights`, `profiles`
 
-### 3.5 `profiles` – User Profile
+(Unchanged from v4 — see §13 DB Column Audit.)
 
-| Column | Type | Used By PRB | Notes |
-|--------|------|-------------|-------|
-| `user_archetype` | text | ✅ | Maps to archetype×tier matrix |
-| `timezone` | text | ✅ | Holiday detection |
+### 3.3 `brief_snapshots` – v6.1 Snapshot Cache
 
-### 3.6 `oura_daily_data` – ⚠️ TABLE DOES NOT EXIST
+| Column | Type | Used By | Notes |
+|--------|------|---------|-------|
+| `user_id` | text | ✅ | |
+| `local_date` | date | ✅ | User's local calendar day |
+| `time_window` | text | ✅ | morning / afternoon / evening |
+| `input_signature` | text | ✅ | Deterministic hash of inputs (calendarLoad, deviations, outcome, clarity, confidence, etc.) |
+| `prompt_version` | text | ✅ | `BRIEF_PROMPT_VERSION` (currently `v6.1`) |
+| `phrase` / `body_text` | text | ✅ | Cached output |
+| `lean_on` / `lean_on_source` | text | ✅ | |
+| `watch_for` / `watch_for_source` | text | ✅ | |
+| `brief_source` | text | ✅ | `llm` or `deterministic` |
+| `driver` / `score` / `tier` | text/int | ✅ | Theme + readiness reference |
+| `payload_json` | jsonb | ✅ | Full signal snapshot for diagnostics: `signals{}`, `llmAttempts[]`, `llmFallbackReason`, `validatorRejections{}` |
 
-The `sync-oura` edge function writes to `oura_daily_data` (line 104 of sync-oura/index.ts), but this table does not exist in the database. Oura data sync is non-functional.
+**Conflict key**: `(user_id, local_date, time_window, input_signature, prompt_version)` — same inputs collapse to a single row per time window.
 
 ---
 
 ## 4. Inner Readiness Scoring
 
-**Edge function**: `compute-inner-readiness`
+(Edge function: `compute-inner-readiness` — unchanged from v5.)
 
 ### 4.1 Input Signals
 
-| Signal | Score Range | Source |
-|--------|-----------|--------|
-| Felt State | 0-100 | Check-in outcome mapped: drained=20, overwhelmed=25, scattered=35, steady=55, focused=80 |
-| Internal Readiness (C×C) | 0-80 | `(clarity + confidence) × 8` |
-| Circadian | ~35-65 | Time-of-day ± day-of-week adjustments |
-| Wearable (HRV) | 0-100 | HRV vs 30-day baseline: >+15% → 80, <-15% → 20, else 50 |
+| Signal | Range | Source |
+|--------|-------|--------|
+| Felt State | 0–100 | Outcome mapped: drained=20, overwhelmed=25, scattered=35, steady=55, focused=80 |
+| Internal Readiness (C×C) | 0–80 | `(clarity + confidence) × 8` |
+| Circadian | ~35–65 | Time-of-day ± day-of-week |
+| Wearable (HRV) | 0–100 | HRV vs 30-day baseline: >+15% → 80, <-15% → 20, else 50 |
 
 ### 4.2 Weighting Modes
 
 | Mode | Condition | Wearable | Felt | C×C | Circadian |
 |------|-----------|----------|------|-----|-----------|
-| **No Wearable** | No wearable data | — | 40% | 45% | 15% |
-| **Aligned** | Felt ≈ Wearable (gap ≤ 30) | 35% | 25% | 30% | 10% |
-| **Masked High** | Felt > Wearable (gap > 30) | 40% | ~25% | ~25% | 10% |
-| **Recovery Underway** | Wearable > Felt (gap > 30) | 35% | ~27.5% | ~27.5% | 10% |
-
-**Baseline confidence scaling**: Wearable weight is scaled by data maturity:
-- `low` (1-2 days): × 0.6
-- `medium` (3-6 days): × 0.85
-- `high` (7+ days): × 1.0
+| **No Wearable** | No wearable | — | 40% | 45% | 15% |
+| **Aligned** | gap ≤ 30 | 35% | 25% | 30% | 10% |
+| **Masked High** | felt − wearable > 30 | 40% | ~25% | ~25% | 10% |
+| **Recovery Underway** | wearable − felt > 30 | 35% | ~27.5% | ~27.5% | 10% |
 
 ### 4.3 Tier Mapping
 
 | Score | Tier | Sub-Tiers |
 |-------|------|-----------|
-| 0-39 | `depleted` | very-low (≤15), low (≤25), low-mid (≤35) |
-| 40-59 | `managing` | mid (≤55) |
-| 60-74 | `strong` | mid-high (≤65), high (≤75) |
-| 75-100 | `peak` | very-high (>75) |
+| 0–39 | `depleted` | very-low (≤15), low (≤25), low-mid (≤35) |
+| 40–59 | `managing` | mid (≤55) |
+| 60–74 | `strong` | mid-high (≤65), high (≤75) |
+| 75–100 | `peak` | very-high (>75) |
 
 ### 4.4 Divergence Detection
 
 | Flag | Condition | Implication |
 |------|-----------|-------------|
-| `ALIGNED` | \|felt - wearable\| ≤ 30 | Body and mind agree |
-| `MASKED_HIGH` | felt - wearable > 30 | User feels better than body shows |
-| `RECOVERY_UNDERWAY` | wearable - felt > 30 | Body recovering faster than perceived |
-
-### 4.5 Context Statement (3-Layer Assembly)
-
-**Layer 1 – Base Statement**: 15 combinations of outcome × time-of-day (morning/afternoon/evening). Falls back to tier-based statements when no check-in.
-
-**Layer 2 – Clarity × Confidence Modifier**: 12 patterns detect divergent cognitive signals (e.g., "High clarity with low confidence"). Time-of-day aware (evening has distinct modifiers).
-
-**Layer 3 – HRV Context**: Always-on when wearable is present. Shows HRV deviation % vs baseline with data-density-aware labeling ("your 30-day baseline" vs "5 days of HRV data").
+| `ALIGNED` | \|felt − wearable\| ≤ 30 | Body and mind agree |
+| `MASKED_HIGH` | felt − wearable > 30 | User feels better than body shows |
+| `RECOVERY_UNDERWAY` | wearable − felt > 30 | Body recovering faster than perceived |
 
 ---
 
-## 5. Outer Readiness / Compass (compute-outer-readiness)
+## 5. Outer Readiness / Compass
 
 ### 5.1 Calendar Metrics
 
-**Load Calculation**:
-- 4+ events → `high`
-- 3 events + avg gap < 20min → `high`
-- 3 events → `medium`
-- < 3 events → `low`
+**Load**: 4+ events → high · 3 + avg gap < 20min → high · 3 → medium · <3 → low.
 
-**Pressure Scoring** (per-event weights, summed):
+**Pressure** (per-event weights summed): organizer +2 · attendees>5 +3 · attendees>2 +1 · duration>60m +2 · duration≥30m +1 · non-recurring +1 · prime time (9–12, 14–16) +1 · gap<5m +3 · gap<15m +2 · density boost (3+ meetings, total gap <30m) +3 · intensity multiplier (>50% non-recurring + organizer) ×1.5. Thresholds: ≥6 = high, ≥3 = medium. Past events ½ weight; future events full.
 
-| Factor | Points |
-|--------|--------|
-| Organizer | +2 |
-| Attendees > 5 | +3 |
-| Attendees > 2 | +1 |
-| Duration > 60min | +2 |
-| Duration ≥ 30min | +1 |
-| Non-recurring | +1 |
-| Prime time (9-12, 14-16) | +1 |
-| Back-to-back gap < 5min | +3 |
-| Back-to-back gap < 15min | +2 |
-| Density boost (3+ meetings, total gap < 30min) | +3 |
-| Intensity multiplier (>50% non-recurring + organizer) | × 1.5 |
+**High-Stakes**: non-recurring AND (attendees>5 OR organizer+attendees>2 OR duration>60m). Excludes personal blocks + all-day blockers.
 
-**Thresholds**: ≥ 6 = `high`, ≥ 3 = `medium`
-
-Past events carry half weight. Future events carry full weight.
-
-**High-Stakes Detection**:
-- Non-recurring AND (attendees > 5 OR organizer + attendees > 2 OR duration > 60min)
-- Excludes: personal blocks (regex), all-day blockers (>4h, ≤1 attendee)
-
-**Meeting Count** (filtered): Excludes personal blocks and all-day blockers for user-facing text.
+**Meeting Count**: filtered (excludes personal blocks + all-day blockers) for user-facing text.
 
 ### 5.2 Wearable Context
 
-| Signal | Threshold | Source |
-|--------|-----------|--------|
-| `hrvElevated` | HRV < 30ms (absolute) | Latest `wearable_data.hrv` |
-| `poorSleep` | sleep_score < 60 OR total_sleep_minutes < 360 (6h hard floor) | Latest `wearable_data` |
-| `rhrElevated` | RHR deviation > +10% vs 30-day baseline | Deviation-based (not absolute) |
+| Signal | Threshold |
+|--------|-----------|
+| `hrvElevated` | HRV < 30 ms (absolute) |
+| `poorSleep` | sleep_score < 60 OR total_sleep_minutes < 360 (6 h hard floor) |
+| `rhrElevated` | RHR deviation > +10 % vs 30-day baseline |
+| `hrElevated` (proxy) | HRV deviation > 25 % below baseline → infer sympathetic dominance |
 
-**Apple Health correction**: `total_sleep_minutes × 0.85` for "in-bed" vs "asleep" adjustment.
+Apple Health correction: `total_sleep_minutes × 0.85`.
 
-### 5.3 4-Tier Wearable Calibration Model
+### 5.3 4-Tier Wearable Calibration
 
 | Tier | Days Connected | Label | Thresholds |
-|------|---------------|-------|------------|
+|------|---------------|-------|-----------|
 | 0 (None) | 0 | Prompt to connect | — |
-| 1 (Absolute) | 1-2 | "establishing baseline" | Population norms (HRV < 20ms = RED) |
-| 2 (Partial) | 3-6 | "early reading" | Short-term deviation |
+| 1 (Absolute) | 1–2 | "establishing baseline" | Population norms (HRV<20 ms = RED) |
+| 2 (Partial) | 3–6 | "early reading" | Short-term deviation |
 | 3 (Full) | 7+ | Full qualifiers | 30-day personal baseline |
 
 ---
 
-## 6. LLM Synthesis Prompt
+## 6. LLM Synthesis – Chief of Staff for the Mind (v6.1)
 
-### 6.1 System Prompt
+### 6.1 Persona & Tagline
 
+> *"You are the Chief of Staff for a senior leader's mind — a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it."*
+>
+> **Tagline**: "You do not report data. You provide Decision Intelligence."
+
+### 6.2 Reasoning Protocol (silent — not in output)
+
+| Step | Lens |
+|------|------|
+| **1 BODY READ** | Wearable-first: HRV, RHR, HR, Sleep. Cite the number. Flag MASKED_HIGH / RECOVERY_UNDERWAY. |
+| **2 COMPOUND** | HR elevated + poor sleep = compounded deficit. Sleep above baseline + HRV low = loaded but resourced. Acute vs chronic (7d). |
+| **3 THE GAP** | Where they think they are vs where the data says. Triangulate wearable × Mental Energy / Sharpness / Clarity / Confidence. |
+| **4 WHAT'S BEING ASKED** | Today's actual demand — name the event or load. Supply-demand gap → name it. |
+| **5 PATTERN/HISTORY** | Has this combination occurred before? Typical DOW? Coach insight relevant? Pending commitment? HRV×event correlation? |
+| **6 THE DIRECTION** | The single most useful thing to say. If nothing specific: return null. |
+
+### 6.3 §2.18.5 The Four-Role Contract (master rule — read before every output)
+
+| Element | Job | Data Layer | Time Horizon | Length |
+|---------|-----|-----------|--------------|--------|
+| **PHRASE** | ORIENT — "What kind of day is this?" | Today | Immediate | 2–4 words |
+| **BODY** | ADVISE — "What shape, what move?" | Today + Patterns | Immediate + Tactical | 2–3 sentences (≤50 words) |
+| **LEAN ON** | RESOURCE — "What history says you can deploy" | Pattern · Archetype · Coach | Tactical + Strategic | 2–4 words + source |
+| **WATCH FOR** | RISK — "The recurring trap this state activates" | Pattern · Archetype · Coach | Tactical + Strategic | 2–4 words + source |
+
+**Non-redundancy test (silent before emitting)**:
+1. Phrase orients without explaining? If it explains, shorten.
+2. Body names BOTH green AND red and ends with a move?
+3. LEAN ON adds something body did not say?
+4. WATCH FOR names a pattern/trap, not today's red signal?
+5. Could any element be removed without losing information? If yes, rewrite.
+
+### 6.4 §2.19 The 3-Part Impact Mandate (body copy structure)
+
+Every body must synthesize three elements in 2–3 scannable sentences:
+
+1. **SIGNAL EVIDENCE** — cite a number ("HRV 110 ms", "Sleep 6h12m", "RHR +8 bpm", "Sharpness 2/5") OR a named event ("the 2 PM Board").
+2. **PILLAR CATEGORIZATION** — explicitly link to Cognition / Physiology / Resilience, triangulated with co-relating calendar events when present.
+3. **THE STAKE** — link to a Leadership Variable from the Elastic Lexicon (§2.20).
+
+### 6.5 §2.19.2 Pillar-Vocabulary Map (mandatory)
+
+The dashboard renders three pillars derived from the same signals the LLM receives. Vocabulary must match the pill the user sees.
+
+| Lead signal | Required vocabulary cluster |
+|-------------|------------------------------|
+| HRV alone (sleep + RHR within baseline) | **COGNITIVE**: Mind · Sharpness · Processing capacity · Decision Power |
+| Sleep deficit OR RHR elevated (no HRV crash) | **PHYSIOLOGY**: Body · Hardware · Operational Drive · System recovery |
+| HRV + Sleep + RHR all loaded | **COMPOUND**: System debt · Whole-stack load |
+| HRV low + Mental Energy red/amber | **RESILIENCE**: Buffer · Composure · Internal Buffer · Diplomatic Shield |
+| Mental Energy red, wearable green | **RESILIENCE only** — never say "Body" or "Hardware" |
+
+**FORBIDDEN**: Saying "Body shows load" / "Hardware under-recovered" when sleepDeviation > -8 % AND rhrDeviation < +10 %. HRV is NOT body — HRV belongs to Cognitive (primary) or Resilience (secondary).
+
+**Phrase Opacity Rule**: Phrase + first body sentence MUST contain ≥1 explicit pillar word from `{Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Hardware, Resilience, Composure, Buffer, Mental Energy}`.
+
+### 6.6 §2.19.5 Body Copy Assessment Contract (5 rules)
+
+| Rule | Constraint |
+|------|-----------|
+| **RULE 1 — No score restate** | Forbidden: "31/100", "score of X", "X out of 100", "your score is", "low/high readiness score". Pillar language only. |
+| **RULE 2 — Pills own numbers** | Body owns synthesis. If a number appears, it is a single qualifier inside an assessment sentence — never the subject, never in a list of 2+ metrics. |
+| **RULE 3 — Triangulate 3 layers** | (a) inner signal read — name the lever pillar; (b) outer demand — calendar load / pressure window / named JIT event; (c) directional move — one proactive instruction. If outer context is absent → CEO REALITY (decision velocity, attention as scarce resource, recovery debt, judgement under load). |
+| **RULE 4 — Few numbers that matter** | Typical body uses 0–2 specific numbers, only when they sharpen the assessment. |
+| **RULE 5 — Directional tone** | Brief from a Chief of Staff, not a data report. Tells the leader what shape the day takes and what move it asks for — not what the numbers were. |
+
+**Worked example**:
+
+❌ Bad (data-led, restates score, lists metrics):
+> "HRV is 20 % below baseline and RHR is 18 % below baseline, with a score of 31/100. With 4 consecutive depleted days, hardware recovery is the necessary focus."
+
+✅ Good (assessment-led, triangulated, no score, one calendar reference, one directional move):
+> "Body is recovered but Mind is carrying the strain — and the calendar adds three high-stakes touchpoints before lunch. The day's edge is sequencing: handle the Board prep while attention is fresh, then let easier blocks ride on physiology. One real recovery window before evening is what protects tomorrow."
+
+### 6.7 §2.20 Elastic Lexicon (use ≥1 cluster concept in body)
+
+| Cluster | Concepts |
+|---------|----------|
+| **COGNITION (Intelligence)** | Decision Power · Strategic Accuracy · Mental Bandwidth · Processing Capacity · Solving Logic |
+| **PHYSIOLOGY (Energy)** | Operational Drive · Leadership Stamina · Hardware Recovery · System Output · Physical Runway |
+| **RESILIENCE (Stability)** | Strategic Composure · Executive Presence · Diplomatic Shield · Reactive Risk · Internal Buffer |
+
+### 6.8 §2.11–2.17 CEO Reality Logic Engines (apply when triggers fire)
+
+| § | Engine | Trigger |
+|---|--------|---------|
+| 2.11 | **VETO RISK** | masked fatigue (felt strong + HRV/sleep low) → name the gap, lead wearable |
+| 2.12 | **SECOND WIND** | late-day energy lift after recovery signal → orient to selective use |
+| 2.13 | **CIRCADIAN PRIORITY** | timezone drift / travel → flag chronobiology before tactics |
+| 2.14 | **DECISION LEAKAGE GUARD** | (HR elevated OR HRV drop) + (depleted self-state) + (emotional/diplomatic event: town hall, 1:1 difficult, performance review, board, layoff). Name leakage risk to a specific event |
+| 2.15 | **POST-PEAK HANGOVER** | within `postPeakWindow` (≤180 min after high-stakes ended) → acknowledge cost |
+| 2.16 | **PERSONAL FRICTION INFERENCE** | friction-trend + emotional self-declared dip → infer interpersonal load (do not diagnose) |
+| 2.17 | **BOARD-LEVEL OUTCOME** | `isHighVisibilityToday` (board, town hall, investor, all-hands, earnings, press, keynote) → orient stake to executive presence |
+
+### 6.9 Hard Constraints — No Exceptions
+
+- **WELLNESS BLACKLIST**: relax · mindful · breathe · calm · wellness · self-care · journey · nourish · recharge · restore · genuine · authentic · recovery (standalone)
+- **SCORE TIER BLACKLIST**: never reference Moderate / High / Low / Strong as standalone tier labels
+- **READINESS BLACKLIST**: never use the word "readiness" in phrase or body
+- **DAY NAMING**: name a future day only if ≤2 days away; otherwise "this week" / "mid-week"
+- **JIT OVERRIDE**: <30 min → orient entirely · 30–90 min → preparation · >90 min → context only
+- **NO PHRASE IN BODY**. **NO CALENDAR WITHOUT CONNECTION**. **BOLD via `<strong>` only** (no asterisks). **NULL fields → ignore, never fabricate.**
+
+### 6.10 Day-Type Overrides
+
+| Day | Frame |
+|-----|-------|
+| **Sunday eve** | Frame into Monday. Loaded+heavy → directive. Light → spacious. Never "Reflect" / "Rest before" / "Prepare". |
+| **Monday AM** | Week-setting. Reference load + first high-stakes. Poor signals → name supply-demand gap. |
+| **Fri / pre-rest eve** | Closure. Next-week pressure → "Don't fully unplug — [event] needs space." None → "Disconnect fully." |
+| **Weekend day** | No calendar/work framing. Wearable strong → agency. Poor → acknowledge. |
+| **Holiday** | Honour the choice to check in. Calendar shows events → orient around what matters. Empty → permission to be off. |
+| **Post-high-stakes PM** | HRV historically drops → acknowledge cost. Don't push. |
+| **Consecutive low 3+** | Systemic, not situational. Name it. Coach pattern → surface. |
+
+### 6.11 Signal Synthesis Patterns (A–I)
+
+| Pattern | Trigger | Direction |
+|---------|---------|-----------|
+| **A** | Clarity 4–5 + Confidence 1–2 | Use clarity before confidence catches up |
+| **B** | MASKED_HIGH | Name the gap with actual numbers — "HRV down 22 % but rated strong" — then direct |
+| **C** | Compounded Deficit (HR + sleep + HRV all loaded) | Supply-demand gap + strategic instruction |
+| **D** | Historical Event Correlation (≥3 occurrences, >10 % deviation) | Name pattern with §2.19.1 relevance gate |
+| **E** | Supply-Demand Gap (tomorrow HIGH + today below baseline) | Protect tonight |
+| **F** | Sunday Anxiety (confidence low + HRV low + Monday high-stakes) | Acknowledge, redirect |
+| **G** | RECOVERY_UNDERWAY | Name the metric showing it; agency without overclaiming |
+| **H** | Consecutive High-Stakes Days | Cumulative toll, manage transitions |
+| **I** | Coach Signal Active | Connect to today's state |
+
+### 6.12 Few-Shot Examples (architectural templates — synthesize, don't copy)
+
+```json
+// EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only
+{"phrase":"Baseline day.","body":"Pattern recognition is your archetype edge and Composure your goal — <strong>Internal Buffer is the variable to track</strong>. Tomorrow we begin reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
+
+// EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday
+{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-preparing tonight","source":"PATTERN"}]}
+
+// EXAMPLE 3 — Decision Leakage (Emotional Labor)
+{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Pre-Town-Hall composure track","source":"PATTERN"}],"watchFor":[{"signal":"Late-session reactivity","source":"PATTERN"}]}
+
+// EXAMPLE 4 — MASKED_HIGH · Veto Risk
+{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Performing Resilience","source":"ARCHETYPE"}]}
+
+// EXAMPLE 5 — Baseline Intelligence (no calendar, no wearable)
+{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading energy wide","source":"PATTERN"}]}
 ```
-You are a performance intelligence system briefing a C-suite leader.
-Voice: trusted chief of staff. Precise. Never generic. Never fluffy.
 
-Produce two things:
-1. PHRASE: 3-6 words. Crisp directive earned by their data.
-2. BODY: One sentence, max 15 words. **Bold** the key action.
+### 6.13 Output Contract
 
-Core rule: if triangulation data is provided, the body MUST connect at least two
-time horizons — what is true now AND what pattern or goal this connects to. This
-is what makes the brief feel like it knows the leader.
-
-Rules (no exceptions):
-- Reference at least one specific signal provided
-- No wellness words ever: relax, mindful, breathe, calm, wellness, self-care,
-  journey, practice, routine, nourish, recharge
-- No affirmations, no softening, no encouragement
-- C-suite register only: direct, precise, data-referenced
-- Wearable data > felt state when they diverge
-- Never say "readiness"
-- Never repeat the phrase in the body
-- JIT event within 90 mins: orient entirely around it
-- If calendar load is 'none': do not reference meetings or scheduling
-- If signals are insufficient for specificity: output null
-
-Output ONLY valid JSON: {"phrase": "...", "bodyText": "..."}
+```json
+{"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}
 ```
 
-### 6.2 User Prompt (Dynamically Assembled)
-
-Format: `{tier} · {score}/100 · {timeOfDay} · {dayName}`
-
-Conditionally appended sections:
-
-1. **Context Frame** (if applicable):
-   - Sunday evening → "Preparing for the week ahead. Write forward, not reflective."
-   - Day before rest → "Heading into rest. Frame as closure and release."
-   - Monday morning → "Week is being set right now. Frame as intentional and forward."
-
-2. **Key Signals** (top 5 from Signal Triage):
-   ```
-   Key signals for today:
-   HIGH PRIORITY: Board Presentation in 45 mins
-   Body signal: wearable shows load not yet registered (HRV -18% vs baseline)
-   Coach commitment: Practice 2-minute centering before high-stakes meetings
-   ```
-
-3. **Temporal Triangulation** (when cross-horizon connection exists):
-   ```
-   Triangulation:
-     Now: Board Presentation in 45 mins
-     Pattern: HRV drops avg 15% before Board meetings — 4 occurrences
-     Development: Pending coach commitment: Practice 2-minute centering
-     Connection: immediate_tactical_strategic — All three horizons align
-     Lead with: tactical
-   ```
-
-4. **Coach Strength** (if available)
-5. **Archetype** (with lean on/watch for)
-
-### 6.3 Signal Triage Rules (Priority Order)
-
-| Rule | Signal | Condition |
-|------|--------|-----------|
-| 1 | JIT event < 90min | `nextHighStakesEvent.minutesUntil < 90` |
-| 2 | Wearable divergence | `MASKED_HIGH` or `RECOVERY_UNDERWAY` |
-| 3 | Personalisation | Coach commitment → Coach pattern → Consecutive low days → DOW comparison |
-| 4 | Tomorrow context | Evening only: rest day, heavy load, or high-stakes |
-| 5 | Week ahead | Sunday evening only |
-| 6 | Physiological deviation | HRV deviation > 8%, or sleep hard floor |
-| 7 | Score trajectory | Meaningful change vs yesterday (> 5 points) |
-| 8 | Back-to-back density | Longest block ≥ 2hrs |
-
-**Cap**: Maximum 5 signals sent to LLM.
-
-### 6.4 Temporal Triangulation
-
-| Horizon | Signal Source |
-|---------|-------------|
-| **Immediate** (now) | JIT event < 90min → Divergence mode → Depleted state → Check-in outcome |
-| **Tactical** (patterns) | HRV×event correlation → Consecutive low days → DOW comparison → Friction trend → Score trajectory |
-| **Strategic** (development) | Pending commitment → Coach growth area → Archetype watch for |
-
-**Cross-horizon connections**:
-
-| Connection | When | Framing |
-|-----------|------|---------|
-| `immediate_tactical_strategic` | All 3 horizons present | "All three horizons align — be specific." |
-| `immediate_confirms_tactical` | Immediate + Tactical | "Today is confirming a pattern." |
-| `tactical_connects_strategic` | Tactical + Strategic | "The pattern connects to their development goal." |
-| `immediate_activates_strategic` | Immediate + Strategic | "Today's state activates their development area." |
-
-### 6.5 Fallback (6-Second Timeout)
-
-If LLM fails or times out, the system uses deterministic template-based `phrase` and `context` from the `getTheme()` function (tier × time-of-day × calendar pressure × load matrix).
+`source ∈ {ARCHETYPE, COACH, PATTERN}`. `DATA` and `CHECK-IN` are **NOT allowed** in LLM output.
 
 ---
 
-## 7. Signal Pill Logic & Calculations
+## 7. Signal Pills v6 – 3 Executive Pillars
 
-### 7.0 Signal Pill Priority (Canonical Contract)
+The PRB renders **three glass capsules** above the body copy. Each pill composes multiple raw inputs through a severity-aware **median-of-tiers** rule with a **strong-red override**. State color appears on the icon badge only; the capsule body is neutral.
 
-Signal pills render in this fixed priority order. All states (green/amber/red) render — not only threshold-breakers.
-Patterns are inlined as qualifiers on the relevant pill — there is NO separate pattern pill.
-**No raw numbers on front of any pill** — front is always analysis; back reveals evidence.
+### 7.0 Composition Logic (`composePillar`)
 
-```text
-1. Calendar pills (separate component, always first)
-2. Heart pill — merged HRV + RHR (with inline wearable pattern if applicable)
-3. Sleep pill — analysis-only front (with inline score trajectory if applicable)
-4. Wearable syncing pill (when hasWearable=true but no Heart/Sleep data yet)
-5. Mind Sharpness pill — Stage 1 check-in outcome only
-6. Clarity & Confidence pill — Stage 2 C×C matrix (with inline patterns)
+```ts
+type ContribTier = 'red' | 'amber' | 'green' | 'neutral';
+type Severity   = 'strong' | 'mild' | 'normal';
+interface PillarContrib { tier: ContribTier; severity?: Severity }
+
+// 1. Any single contrib with {tier:'red', severity:'strong'} → forces RED.
+// 2. Otherwise: median-of-tiers on non-neutral inputs; ties break UPWARD (toward worse).
+//    e.g. [green, amber, red] → upper-median = amber.
+//    e.g. [amber, red] → upper-median = red.
+//    e.g. [green, red] → upper-median = red.
 ```
 
-Cap: maximum 5 signal chips visible (calendar is rendered separately above).
+State words:
 
-### 7.1 Chip Generation (`buildSignalChips()`)
+| Pill | green | amber | red | neutral |
+|------|-------|-------|-----|---------|
+| COGNITIVE | STEADY (or CALM if wearable trend improving) | HIGH LOAD · MASKED LOAD (if `masked-high`) · RECOVERING (if `recovery-underway`) | STRAINED | BUILDING |
+| PHYSIOLOGY | RESTED | FADING | DEPLETED | BUILDING |
+| RESILIENCE | STEADY | STRAINED | REACTIVE | BUILDING |
 
-Signal chips are generated client-side in `DecisionReadinessBrief.tsx` using data returned by `compute-outer-readiness`.
-
-**Prompt Chips (missing data)**:
-- `{ id: 'no-checkin', label: 'Check in to unlock your state' }` → Clickable → `/daily-check-in`
-- `{ id: 'wearable-prompt', label: 'Connect wearable' }` → Clickable → `/connected-data`
-- `{ id: 'wearable-syncing', label: 'Wearable syncing' }` → Neutral, shown when wearable connected but no metrics yet
-- `{ id: 'calendar-prompt', label: 'Connect calendar' }` → Clickable → `/connected-data`
-
-**Signal Chips (data present) — always render when data exists, even at baseline**:
-
-| Chip ID | Condition | Front Label (Analysis) | Back Label (Evidence) | Color |
-|---------|-----------|------------------------|----------------------|-------|
-| **heart** | `hrvValue != null OR rhrValue != null` | "Heart steady" / "Heart elevated" / "Heart strained" / "Heart dipped" / "Heart recovering" + inline pattern | `HRV {v}ms · {dev}% vs {base}ms · RHR {v}bpm · {dev}% vs {base}bpm` | Worst-of HRV/RHR tier |
-| **sleep** | `sleepDuration != null OR sleepScore != null` | "Well-rested body" / "Solid sleep" / "Sleep slightly short" / "Short sleep" / "Sleep below baseline" / "Poor sleep" / "Fair sleep" | `Sleep score {s} · {duration} · {dev}% vs {baseline} baseline` | RED/AMBER/GREEN by deviation |
-| **mind-sharpness** | `outcome != null` | Mind focused / Mind steady / Mind scattered / Mind drained / Mind depleted / Mind energised / Mind calm | `Check-in: {outcome}` | Outcome tier |
-| **clarity-confidence** | `clarityLevel OR confidenceLevel != null` | "High clarity" / "Sharp confidence" / "Low clarity" / "Clear but cautious" / "Moderate mind" + inline patterns | `Clarity {x}/5 · Confidence {y}/5` | C×C tier |
-
-**§7.1a Heart Pill Label Vocabulary**
-
-| HRV Tier | RHR Tier | Front Label | Color |
-|----------|----------|-------------|-------|
-| green | green | Heart steady | green |
-| any | red | Heart elevated | red |
-| red | green | Heart strained | red |
-| amber | green | Heart dipped | amber |
-| green (improving) | green | Heart recovering | green |
-
-**§7.1b Sleep Pill Label Vocabulary**
-
-| Condition | Front Label | Color |
-|-----------|-------------|-------|
-| duration < 6h | Short sleep | red |
-| score < 60 | Poor sleep | red |
-| deviation < -15% | Sleep below baseline | red |
-| deviation -5% to -15% | Sleep slightly short | amber |
-| score 60-70 (no deviation) | Fair sleep | amber |
-| deviation > +10% | Solid sleep | green |
-| at baseline | Well-rested body | green |
-
-**§7.1c Mind Sharpness Pill Label Vocabulary**
-
-### 7.2 Calibration-Aware Qualifiers
-
-| Tier | Days | Qualifier |
-|------|------|-----------|
-| 1 (Absolute) | 1-2 | "· establishing baseline" |
-| 2 (Partial) | 3-6 | "· early reading" |
-| 3 (Full) | 7+ | "· unusual for you" (if notable deviation) |
-
-### 7.3 Calendar Pills
-
-| State | Display |
-|-------|---------|
-| `active` + remaining > 0 | `{loadLabel} day · {remainingMeetings} meetings ahead` + high-stakes event titles |
-| `active` + remaining = 0, total > 0 | `{loadLabel} day · {meetingCount} meetings done` |
-| `active` + no events | "Clear calendar" |
-| `connected_no_events` | "No events today" |
-| `not_connected` | "Connect calendar" (clickable → `/connected-data`) |
-
-### 7.4 FlippableChip Behavior
-
-- **Prompt chips** (`no-checkin`, `wearable-prompt`, `calendar-prompt`): Click triggers navigation (not flip)
-- **Signal chips**: Tap toggles front (interpretation) ↔ back (raw metric) with 3D CSS flip animation
-- Flip auto-resets after 4 seconds
-- **No icon** on pills — the hint text below is sufficient affordance
-- A helper line "Tap a pill to see the number behind it" appears when flippable chips are present
-- **No duplicate summary line** — pills are the sole signal representation
-
-### 7.5 Wearable Data Contract (Unified)
-
-- All wearable field extraction uses `??` (nullish coalescing), not `||`
-- `0` values are valid data, not coerced to null
-- **Unified `wearableStatus` object** in response payload:
-  - `isConnected`: wearable row exists (regardless of metrics)
-  - `hasTodayData`: at least one metric (HRV, sleep, RHR) is non-null
-  - `hasRecentData`: `wearableDaysConnected > 0` (any row in 30-day window)
-  - `metricsAvailable`: per-metric boolean (`{ hrv, sleep, rhr }`)
-  - `sourceRowDate`: `summary_date` of the wearable row used
-- **Rendering logic** (client):
-  - `!isConnected` → "Connect wearable" prompt chip
-  - `hasTodayData` → Heart + Sleep pills render normally (no fallback)
-  - `!hasTodayData && hasRecentData` → "Based on recent data" neutral chip with last sync date
-  - `isConnected && !hasRecentData` → "Waiting for wearable data" neutral chip
-- **Lean On gating**: "Physiological credit" only surfaces when `hasTodayData=true`
-- `hasWearable` legacy field now equals `hasTodayData` (not just `isConnected`)
-
-### 7.6 Deterministic Fallback Signal Brevity
-
-All deterministic fallback Lean On / Watch For signals use 1-3 word derived labels:
-- Source priority: Wearable → Coach → Check-in → Calendar → Archetype → Goals
-- Archetype traits truncated to first 3 words
-- Labels must not duplicate signal pill content
-- `<strong>` HTML tags for bold (no markdown asterisks)
+Pill display structure:
+- **Top lines** = wearable rows
+- **Bottom lines** = self-declared rows
+- Empty fallback: `topEmptyText` / `bottomEmptyText`
 
 ---
 
-## 8. Lean On / Watch For Logic
+### 7.1 COGNITIVE Pillar
+
+**Inputs**: HRV (primary) · Sharpness (1–5 slider) · Clarity (1–5 slider) · cognitive outcome.
+
+**Per-input contribution functions** (from `DecisionReadinessBrief.tsx` lines 587–698):
+
+| Input | Function | Thresholds |
+|-------|----------|-----------|
+| HRV (Cognitive) | `hrvCognitiveContrib` | `dev ≤ -20 %` → strong-RED · `dev < -15 %` → mild-RED · `dev < -8 %` → AMBER · else GREEN. No deviation: `hrv<20` → mild-RED · `hrv<40` → AMBER · else GREEN. Null → NEUTRAL. |
+| Sharpness | `sharpnessContrib` | `1` → strong-RED · `2` → mild-RED · `3` → AMBER · else GREEN. Null → NEUTRAL. |
+| Clarity | `clarityContrib` | `≤2` → mild-RED · `3` → AMBER · else GREEN. Null → NEUTRAL. |
+| Cognitive outcome | `cognitiveOutcomeContrib` | `scattered` → mild-RED · `focused`/`thriving` → GREEN. Other outcomes → NEUTRAL. |
+
+**Outcome routing**: `COGNITIVE_OUTCOMES = {scattered, focused}` (+ `thriving` accepted as green).
+
+**Wearable Authority overrides** (Cognitive only):
+- `MASKED_HIGH` (HRV red, self-reports green/amber): if pill composed to GREEN → cap at AMBER. Signal word becomes `MASKED LOAD`. Qualifier: *"system signal ahead of felt state"*.
+- `RECOVERY_UNDERWAY` (HRV green, self-reports red): if pill composed to RED → cap at AMBER. Signal word becomes `RECOVERING`.
+
+**Display lines**:
+
+| Position | Line | Qualifiers |
+|----------|------|-----------|
+| Top (wearable) | `HRV {v}ms` | `{±dev}% vs {baseline}ms baseline` · `trend declining` / `trend improving` · `system signal ahead of felt state` |
+| Bottom (self) | `Sharpness: {label} {n}/5` | ⚠️ `score trending down` / `score trending up` (driven by `scoreTrajectory7d`, NOT sharpness-specific — see §14) |
+| Bottom (self) | `Clarity: {label} {n}/5` | `{n}th day low clarity` if `consecutiveLowClarity ≥ 3` |
+| Bottom (self) | `Mental Energy: {Outcome}` | Only if outcome is in COGNITIVE set |
+
+**Worked example** (matches the user's screenshot):
+- Inputs: HRV = 18.1 ms (no deviation provided), Sharpness = 4/5 (Acute), Clarity = 4/5, outcome = `drained` (not in cognitive set → NEUTRAL).
+- Contribs: `hrvCognitiveContrib` → `hrv<20` → mild-RED · sharpness 4 → GREEN · clarity 4 → GREEN · outcome → NEUTRAL.
+- `composePillar([red(mild), green, green])` → no strong-red → median of `[red, green, green]` (upper) → GREEN.
+- **Result**: Cognitive pill renders **STEADY · green**. Sharpness qualifier "score trending down" is fired by `scoreTrajectory7d='declining'`, NOT by sharpness itself — this is the misleading qualifier reported by the user.
+
+---
+
+### 7.2 PHYSIOLOGY Pillar
+
+**Inputs**: Sleep · RHR · HR-elevated proxy. **Body-only** — no self-report, no outcome.
+
+| Input | Function | Thresholds |
+|-------|----------|-----------|
+| Sleep | `sleepContrib` | `dur<300m` → strong-RED · `dur<360m` → mild-RED · `score<60` → mild-RED · `dev<-15%` → mild-RED · `dev<-8%` → AMBER · `score<70` → AMBER · `dur<420m` → AMBER · else GREEN. Both null → NEUTRAL. |
+| RHR | `rhrContrib` | `dev>+20%` → strong-RED · `dev>+10%` → AMBER · else GREEN. No deviation: `rhr>90` → mild-RED · `rhr>80` → AMBER · else GREEN. Null → NEUTRAL. |
+| HR-elevated (proxy via RHR dev) | `hrElevatedContrib` | `dev>+25%` → mild-RED · `dev>+15%` → AMBER · else GREEN. Null → NEUTRAL. |
+
+**Outcome routing**: **none** — Physiology never receives outcome contributions.
+
+**Display lines**:
+
+| Position | Line | Qualifiers |
+|----------|------|-----------|
+| Top | `Sleep {score} · {duration}` | `{±dev}% vs {baseline} baseline` · `trend declining` if `scoreTrajectory='declining'` |
+| Top | `RHR {v}bpm` | `{±dev}% vs {baseline}bpm baseline` · `sympathetic dominance` if `dev>+15%` |
+| Bottom | (none) | `'Body signals only'` empty text |
+
+**Worked example** (user's screenshot):
+- Inputs: Sleep = null (both fields), RHR = 56 bpm (no deviation provided), HR-proxy = null.
+- Contribs: sleep → NEUTRAL (both fields null) · `rhrContrib`: rhr<80 → GREEN · `hrElevatedContrib`: NEUTRAL.
+- `composePillar([neutral, green, neutral])` → median of `[green]` → GREEN.
+- **Result**: Physiology pill renders **RESTED · green**, asserting full physiological recovery from RHR alone. ⚠️ Known issue (§14): when sleep is missing, the "RESTED" assertion overclaims.
+
+---
+
+### 7.3 RESILIENCE Pillar
+
+**Inputs**: HRV (secondary, stricter thresholds) · Confidence · resilience outcome.
+
+| Input | Function | Thresholds |
+|-------|----------|-----------|
+| HRV (Resilience) | `hrvResilienceContrib` | `dev ≤ -25 %` → strong-RED · `dev < -20 %` → mild-RED · `dev < -15 %` → AMBER · else GREEN. No deviation: `hrv<18` → mild-RED · `hrv<35` → AMBER · else GREEN. Null → NEUTRAL. |
+| Confidence | `confidenceContrib` | `1` → strong-RED · `2` → mild-RED · `3` → AMBER · else GREEN. Null → NEUTRAL. |
+| Resilience outcome | `resilienceOutcomeContrib` | `overwhelmed` → strong-RED · `drained` → mild-RED · `anxious`/`frustrated` → AMBER · `steady`/`calm`/`energised`/`thriving` → GREEN. |
+
+**Outcome routing**: `RESILIENCE_OUTCOMES = {overwhelmed, drained, steady, anxious, frustrated, calm, energised}` (+ `thriving` accepted as green).
+
+**No wearable-authority override on Resilience.**
+
+**Display lines**:
+
+| Position | Line | Qualifiers |
+|----------|------|-----------|
+| Top | `HRV {v}ms` | `{±dev}% vs {baseline}ms baseline · buffer signal` (or just `autonomic buffer` if no deviation) |
+| Bottom | `Confidence: {label} {n}/5` | `{n}th day low confidence` if `consecutiveLowConfidence ≥ 3` |
+| Bottom | `Mental Energy: {Outcome}` | Only if outcome is in RESILIENCE set |
+
+**Worked example** (user's screenshot — the contradiction):
+- Inputs: HRV = 18.1 ms (no deviation provided), Confidence = 4/5, outcome = `drained`.
+- Contribs: `hrvResilienceContrib`: `hrv<35` → AMBER · `confidenceContrib`: 4 → GREEN · `resilienceOutcomeContrib`: `drained` → mild-RED.
+- `composePillar([amber, green, red(mild)])` → no strong-red → median of `[green, amber, red]` → upper-median = AMBER.
+- **Expected**: Resilience renders **STRAINED · amber**.
+- **Observed in user's screenshot**: rendered as **STEADY · green**. This indicates either a stale cached snapshot (pre-drained check-in) OR `hrvDeviation` was non-null and green for that user, dropping HRV's contribution to GREEN and pulling the median up. Either way, this is the **`drained=mild`** severity issue called out in §14: a felt `drained` self-report should never compose to green.
+
+---
+
+### 7.4 Outcome Routing Table (full)
+
+| `daily_checkins.outcome` | Cognitive | Physiology | Resilience |
+|--------------------------|-----------|-----------|-----------|
+| `scattered` | mild-RED | — | — |
+| `focused` | GREEN | — | — |
+| `thriving` | GREEN | — | GREEN |
+| `overwhelmed` | — | — | **strong-RED** |
+| `drained` | — | — | mild-RED |
+| `anxious` | — | — | AMBER |
+| `frustrated` | — | — | AMBER |
+| `steady` | — | — | GREEN |
+| `calm` | — | — | GREEN |
+| `energised` | — | — | GREEN |
+
+Each outcome contributes to **exactly one** pillar (except `thriving`, which lifts both Cognitive and Resilience).
+
+---
+
+## 8. Lean On / Watch For v6
 
 ### 8.1 Priority Cascade
 
 ```
-P-1: Wearable Sustained Deficit Override (feature-flagged OFF)
+P-1: Wearable Sustained Deficit Override  (ENABLE_WEARABLE_RECOVERY_TRIGGER=true)
      → Fires on 2+ consecutive days HRV < -20% below baseline
-
-P0a: Sunday evening (after 9pm)
-     → getSundayEveningInsights() — tier × tomorrow-load matrix
-
-P0b: Late evening weekdays/Saturday (after 9pm)
-     → getEveningInsights() — recovery-focused content
-
-P1a: Coach insights ≤ 3 days old ("recent")
-     → "{coachStrength} (coach)" / "{coachGrowth} (coach)"
-
-P1b: Coach insights 4-7 days old ("grace")
-     → Same but with age label: "(coach, 5d ago)"
-     → Suppressed if C×C contradicts coach insight
-
-P2:  C×C Modifier (clarity × confidence)
-     → 8 patterns, time-aware (see matrix below)
-
+P0a: Sunday evening (after 9pm) → getSundayEveningInsights — tier × tomorrow-load matrix
+P0b: Late evening weekdays/Saturday (after 9pm) → getEveningInsights — recovery-focused
+P1a: Coach insights ≤ 3 days old ("recent")  → "{coachStrength}" / "{coachGrowth}"
+P1b: Coach insights 4-7 days old ("grace")   → with age label, suppressed if C×C contradicts
+P2:  C×C Modifier (clarity × confidence) → 8 patterns, time-aware (see §8.2)
 P3:  Partial coach + archetype/tier fill
-     → Mix coach strength with archetype watchFor (or vice versa)
-
-P4:  Archetype × Tier matrix
-     → 5 archetypes × 4 tiers = 20 combinations
-
-P5:  Tier fallback
-     → Generic tier-based leanOn/watchFor
+P4:  Archetype × Tier matrix → 5 archetypes × 4 tiers = 20 combinations
+P5:  Tier fallback → generic tier-based leanOn/watchFor
 ```
 
 ### 8.2 C×C Modifier Patterns (8 patterns)
@@ -563,7 +577,7 @@ P5:  Tier fallback
 | Pattern | Lean On | Watch For (Day) | Watch For (Evening) |
 |---------|---------|-----------------|---------------------|
 | Both low (C≤2, Co≤2) | Your self-honesty | Premature commitments | Forcing resolution tonight |
-| Both high (C≥4, Co≥4) | Your alignment | Rigidity from conviction | Over-optimising what worked |
+| **Both high (C≥4, Co≥4)** | **Your alignment** | **Rigidity from conviction** | **Over-optimising what worked** |
 | High clarity + low confidence | Your clarity | Delaying action | Replaying doubt |
 | Low clarity + high confidence | Your confidence | Moving without direction | Forcing clarity tonight |
 | Low clarity only | Your discernment | Acting without anchor | Grinding open questions |
@@ -571,213 +585,296 @@ P5:  Tier fallback
 | High clarity only | Your direction | Crowding out perspectives | Replaying what held |
 | High confidence only | Your conviction | Closing off inputs | Running past the close |
 
+> ⚠️ The screenshot pair "Full Alignment · PATTERN" / "Rigidity from Conviction · PATTERN" comes from the **Both high** row — this is the deterministic C×C modifier, not a real coach or pattern observation.
+
 ### 8.3 Archetype × Tier Matrix
 
 | Archetype | Depleted | Managing | Strong | Peak |
 |-----------|----------|----------|--------|------|
-| **grounded-leader** | Lean: Stillness instinct / Watch: Absorbing others' energy | Lean: Rootedness / Watch: Quiet drain | Lean: Natural stability / Watch: Maintenance mode | Lean: Grounded precision / Watch: Tunnel focus |
-| **resilient-performer** | Lean: Recovery wisdom / Watch: Performing resilience | Lean: Baseline reliability / Watch: Settling for operational | Lean: Performance window / Watch: Burning it early | Lean: Competitive edge / Watch: Spending peak too fast |
-| **clear-thinker** | Lean: Economy of thought / Watch: Over-processing | Lean: Analytical clarity / Watch: Over-investing cognitively | Lean: Sharpest insights / Watch: Analysis past insight | Lean: Analytical precision / Watch: Complexity for own sake |
-| **intensity-driver** | Lean: Rest-as-fuel wisdom / Watch: Forcing intensity on empty | Lean: Directed drive / Watch: Impatience with pace | Lean: Sustainable intensity / Watch: Outpacing the day | Lean: Full-force capability / Watch: Opening at full intensity |
-| **adaptive-navigator** | Lean: Situational awareness / Watch: Adapting to others' demands | Lean: Flexibility / Watch: Staying adaptive vs holding firm | Lean: Strategic read / Watch: Over-navigating | Lean: Strategic agility / Watch: Complexity over decisiveness |
+| **grounded-leader** | Stillness instinct / Absorbing others' energy | Rootedness / Quiet drain | Natural stability / Maintenance mode | Grounded precision / Tunnel focus |
+| **resilient-performer** | Recovery wisdom / Performing resilience | Baseline reliability / Settling for operational | Performance window / Burning it early | Competitive edge / Spending peak too fast |
+| **clear-thinker** | Economy of thought / Over-processing | Analytical clarity / Over-investing cognitively | Sharpest insights / Analysis past insight | Analytical precision / Complexity for own sake |
+| **intensity-driver** | Rest-as-fuel wisdom / Forcing intensity on empty | Directed drive / Impatience with pace | Sustainable intensity / Outpacing the day | Full-force capability / Opening at full intensity |
+| **adaptive-navigator** | Situational awareness / Adapting to others' demands | Flexibility / Staying adaptive vs holding firm | Strategic read / Over-navigating | Strategic agility / Complexity over decisiveness |
 
-### 8.4 Context Enrichment Suffixes
+### 8.4 Source Tag Rules
 
-After core Lean On/Watch For, situational suffixes are appended:
+**LLM output** allows ONLY: `ARCHETYPE` · `COACH` · `PATTERN`. `DATA` and `CHECK-IN` are rejected by `validateV61Output`.
 
-**Lean On Suffixes** (from `buildDaytimeLeanOnSuffix`):
-- Morning + body strained + high-stakes: "A demanding day ahead is meeting that instinct – and your body is carrying strain into it."
-- Morning + body strained: "Your body is carrying strain into today. That awareness is itself an advantage."
-- Afternoon + body strained: "The morning tested that capacity – the afternoon will too."
-- Evening + remaining events + strained: "The day isn't done – that instinct still serves you, and your body is signalling to pace what's left."
+**Deterministic fallback** maps internal sources via `formatFallbackSignal()` (lines 3835–3859):
 
-**Watch For Suffixes** (from `buildDaytimeWatchForSuffix`):
-- Morning + body strained + high-stakes: "Spending your advantage before the day's biggest moments."
-- Morning + poor sleep: "Opening at full intensity when your recovery was incomplete."
-- Evening + remaining + strained: "Pushing through the remaining meetings when your body is already signalling the cost."
+| Internal source | Display label |
+|-----------------|---------------|
+| `archetype-tier` | ARCHETYPE |
+| `tier-fallback` | PATTERN |
+| `cc-modifier` / `cc-modifier-with-context` | PATTERN |
+| `coach-insights-recent` / `coach-insights-grace` | (passed through with age label) |
+| `sunday-evening-override` | Sunday |
+| `evening-recovery-override` | Evening |
 
-### 8.5 Coach Insight Age Tiers
+Source priority for label selection: Wearable → Coach → Check-in → Calendar → Archetype → Goals.
 
-| Tier | Days Old | Behavior |
-|------|----------|----------|
-| `recent` | 0-3 | Full authority, no age label |
-| `grace` | 4-7 | Used with age label, suppressed if C×C contradicts |
-| `contextual` | 8-14 | Used as context only alongside C×C |
-| `historical` | 15-30 | Not used directly |
+### 8.5 Forbidden Generic Traits (LLM)
+
+`Self-Honesty · Self-Awareness · Self-Discernment · Discernment · Alignment · Conviction Strength · Execution Confidence · Clear Direction`
+
+**Allowed only** when `source = COACH` AND a coach insight ≤7 d explicitly named the trait. Otherwise rejected with reason `leanOn_generic_trait` / `watchFor_generic_trait`.
+
+### 8.6 Coach Insight Age Tiers
+
+| Tier | Days Old | Behaviour |
+|------|----------|-----------|
+| `recent` | 0–3 | Full authority, no age label |
+| `grace` | 4–7 | Used with age label; suppressed if C×C contradicts |
+| `contextual` | 8–14 | Used as context only alongside C×C |
+| `historical` | 15–30 | Not used directly |
 | `archived` | 31+ | Not used |
 
-### 8.6 C×C Contradiction Detection
+**C×C contradiction suppression** (grace tier only): coach mentions "clarity/clear/direction/focus" AND clarity ≤ 2 → suppress · coach mentions "confidence/conviction/certainty/trust in" AND confidence ≤ 2 → suppress.
 
-Coach insights are suppressed in `grace` tier if:
-- Coach mentions "clarity/clear/direction/focus" AND clarity ≤ 2
-- Coach mentions "confidence/conviction/certainty/trust in" AND confidence ≤ 2
+### 8.7 Daytime Suffixes
+
+After core leanOn/watchFor, situational suffixes append (lines: `buildDaytimeLeanOnSuffix`, `buildDaytimeWatchForSuffix`).
+
+**Lean On**: morning + body strained + high-stakes → "A demanding day ahead is meeting that instinct…" · afternoon + strained → "The morning tested that capacity – the afternoon will too." · evening + remaining + strained → "The day isn't done…"
+
+**Watch For**: morning + strained + high-stakes → "Spending your advantage before the day's biggest moments." · morning + poor sleep → "Opening at full intensity when your recovery was incomplete." · evening + remaining + strained → "Pushing through the remaining meetings when your body is already signalling the cost."
 
 ---
 
-## 9. Phase (Directive Phrase) Logic
+## 9. Phrase Logic v6
 
 ### 9.1 Source Priority
 
-1. **LLM-generated** (if successful within 6s timeout): 3-6 word directive
-2. **Template fallback** (`getTheme()` function): Deterministic tier × time × calendar matrix
+```
+1. Snapshot cache hit (same input_signature today) → cached phrase
+2. LLM Tier 1: Gemini 2.5 Flash, 4s timeout (via Lovable AI Gateway)
+3. LLM Tier 2: Claude Sonnet, 6s timeout (direct Anthropic)
+4. Deterministic getTheme() — tier × time × calendar matrix
+```
 
-### 9.2 Template Matrix (4 tiers × 3 times × 8 pressure/load combos)
+### 9.2 Hard Rules
 
-Each cell produces a `{ phrase, context, driver }`. Example entries:
+- **Length**: target 2–3 words. Soft-reject at 4 words (retry once with strict instruction). **Hard-reject at 6+** (`phrase_hard_reject_Nw`).
+- **No numbers** in phrase.
+- **Forbidden openers**: "you", "your", "the".
+- **No coaching imperatives**: "should", "need to", "try to", "consider".
+- **No references** to patterns, coach, archetype.
+- **No instructions** ("front-load…", "sequence…").
+- **Wellness blacklist** + **tier blacklist** + **readiness blacklist** all apply.
+- **Generic motivational** blocklist: awareness · prevents · regrets · future · potential · inner · strength · power · courage · deserve · believe · transform · unlock · embrace · overcome · thrive (rejected unless number or named event present).
+
+### 9.3 Pillar Opacity Rule
+
+The phrase + the first body sentence, read together, MUST contain ≥1 explicit pillar word from `{Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Hardware, Resilience, Composure, Buffer, Mental Energy}`. Standalone metaphors like "Body is loaded.", "Body ahead.", "Body louder." are forbidden as phrases unless the body's first sentence anchors them to a named pillar.
+
+### 9.4 Deterministic Template Matrix (`getTheme()`)
+
+4 tiers × 3 times × 8 calendar combinations. Sample cells:
 
 | Tier | Time | Calendar | Phrase |
 |------|------|----------|--------|
 | depleted | morning | high pressure + high load | "One thing at a time." |
 | depleted | evening | remaining meetings | "Protect what's left." |
-| managing | afternoon | — | "Sustain the pace." |
+| **managing** | **afternoon** | **—** | **"Sustain the pace."** |
 | strong | morning | high-stakes | "Protect the window." |
 | peak | morning | — | "Protect the peak." |
-| peak | evening | Sunday, heavy Monday | "Protect it for Monday." |
+| peak | evening | Sunday + heavy Monday | "Protect it for Monday." |
 
-### 9.3 Special Overrides
+> ⚠️ The screenshot phrase "Sustain the pace." originates from this `managing × afternoon` cell. When deterministic fires (LLM rejected by validators), this is a stock template — not a Chief-of-Staff synthesis.
 
-- **"Strength without clarity"**: When tier = strong/peak but clarity OR confidence ≤ 2 → phrase = "Strength without clarity."
+### 9.5 Special Overrides
+
+- **"Strength without clarity"**: tier = strong/peak but clarity OR confidence ≤ 2 → forces phrase = "Strength without clarity."
 - **Pattern override**: 3+ consecutive days same outcome → prepends pattern context
-- **Same-day state shift**: ≥ 15 energy_balance drop/rise between today's check-ins → prepends shift context
+- **Same-day state shift**: ≥15 energy_balance drop/rise between today's check-ins → prepends shift context
 
-### 9.4 Morning Theme Builder Priority Cascade
+### 9.6 Day-Type Branches (overrides §9.4)
 
-1. Poor sleep + high-stakes events → Tier-specific pacing
-2. Good recovery + high-stakes events → Tier-specific protection
-3. Poor sleep only → Sleep deficit
-4. HRV elevated → HRV strain
-5. RHR elevated only → RHR above baseline
-6. High-stakes, no wearable → Tier-aware event prep
-7. Dense calendar (4+), no wearable/stakes → Volume pacing
-8. Default fallback → Tier-aware, demand-aware
-
-### 9.5 Evening Theme Builder
-
-**Branch A** (remaining meetings > 0):
-- A-1: Remaining high-stakes → "Protect what's left." / "Finish at your best."
-- A-2: Remaining + body strain → "Pace the remaining hours."
-- A-3: Remaining, no strain → "Close with care."
-
-**Branch B** (day done):
-- P1: Heavy today + tomorrow stakes → "Ground before tomorrow." / "Restore for what matters."
-- P2: Heavy today + body stressed → "Let the body close."
-- P3: Light today + heavy tomorrow → "Ground before tomorrow." / "Arrive at your best."
-- P4: Tomorrow high-stakes → Tier-aware tomorrow prep
-- P5: Body stressed, no stakes → "Let the body close."
-- P6: Today acknowledgment → Tier-aware close directive
-- Default: Tier-aware soft close
+Sunday evening → forward into Monday · Friday/pre-rest evening → closure · Monday morning → week-setting · weekend day → no work framing · holiday → permission framing.
 
 ---
 
-## 10. Body Copy Logic
+## 10. Body Copy Logic v6
 
 ### 10.1 Source Priority
 
-1. **LLM-generated `bodyText`**: Single sentence, max 15 words, **bold** key action
-2. **Template `context`**: 1-3 sentences from `getTheme()`, enriched with:
-   - `buildContextSuffix()`: Connects body signals to calendar demands
-   - `buildAfternoonContext()`: Afternoon-specific accumulated strain
-   - Sleep/RHR notes appended to evening contexts
+```
+1. Snapshot cache hit → cached body_text
+2. LLM-generated `body` (must pass §2.19.5 + §2.19 + §2.20 + 25+ validators)
+3. Deterministic context from getTheme() + buildContextSuffix() + outcome signals
+```
 
-### 10.2 Context Suffix Rules
+### 10.2 The 3-Part Impact Mandate (recap)
 
-- Never list event titles standalone — only when paired with strain or density
-- Evening: retrospective framing ("You carried...")
-- Morning/Afternoon: forward-looking framing ("A day anchored by...")
-- Good recovery state: "Your body is well-recovered and ready for what's ahead."
+Every body MUST connect:
+1. **SIGNAL EVIDENCE** — a number or a named event
+2. **PILLAR CATEGORIZATION** — Cognition / Physiology / Resilience triangulated with calendar
+3. **THE STAKE** — a Leadership Variable from the Elastic Lexicon (§2.20)
+
+### 10.3 Five Assessment Rules (recap from §6.6)
+
+| Rule | One-line summary |
+|------|-------------------|
+| 1 | Never restate the score |
+| 2 | Pills own numbers; body owns synthesis |
+| 3 | Triangulate Inner Signal × Outer Demand × Directional Move |
+| 4 | Pick the few numbers that matter (0–2 typical) |
+| 5 | Directional tone, not descriptive |
+
+### 10.4 Why Current Body Copy Sometimes Sounds Prose-y
+
+The body in the screenshot ("A multi-day depletion pattern signals an accumulating recovery deficit, not a single bad night. Your system may need more than the day's margins can provide.") is **deterministic** — it comes from `outcomeSignals.drained` (line 1728), a hardcoded template fired when 3+ consecutive `drained` check-ins are detected. The LLM was either rejected by a validator OR the cached snapshot was generated under deterministic fallback.
+
+Common LLM rejection codes (see §11 telemetry):
+
+| Validator code | Trigger | Frequency in screenshot day |
+|----------------|---------|------------------------------|
+| `body_no_lexicon_cluster` | Body lacks Cognition/Physiology/Resilience cluster word | High |
+| `body_metric_list_N` | ≥2 metrics in close proximity | Medium |
+| `body_restates_score_*` | Score appears as "X/100" or "score of X" | Low |
+| `body_pattern_irrelevant` | Pattern keyword used without today-signal + today-context anchor | Medium |
+| `leanOn_repeats_body` / `watchFor_repeats_body` | Signal substring (≥6 chars) appears in body | **Highest — forces fallback** |
+| `leanOn_generic_trait` / `watchFor_generic_trait` | Generic trait used without `source=COACH` | High |
+| `phrase_hard_reject_Nw` | Phrase ≥6 words | Medium |
+| `phrase_generic_motivational` | Generic motivational word without number/event | Medium |
+| `phrase_forbidden_opener` / `phrase_coaching_imperative` | Starts with you/your/the OR contains should/need to | Medium |
+
+When **any** of these fires and both LLM tiers are exhausted, `briefSource` flips to `deterministic` and the snapshot caches the deterministic output — making it sticky for the rest of the time window.
+
+### 10.5 Worked Example (recap)
+
+❌ **Bad** (data-led, restates score, lists metrics):
+> "HRV is 20 % below baseline and RHR is 18 % below baseline, with a score of 31/100. With 4 consecutive depleted days, hardware recovery is the necessary focus."
+
+✅ **Good** (assessment-led, triangulated, no score, one calendar reference, one directional move):
+> "Body is recovered but Mind is carrying the strain — and the calendar adds three high-stakes touchpoints before lunch. The day's edge is sequencing: handle the Board prep while attention is fresh, then let easier blocks ride on physiology. One real recovery window before evening is what protects tomorrow."
 
 ---
 
-## 11. Source Labels
+## 11. LLM Resilience & Snapshot Cache
 
-| Source Key | Display Label |
-|-----------|--------------|
+### 11.1 Two-Tier LLM Strategy
+
+```ts
+const llmAttempts = [
+  { model: 'google/gemini-2.5-flash', timeoutMs: 4000, useGateway: true  }, // Lovable AI Gateway
+  { model: CLAUDE_MODELS.SONNET,       timeoutMs: 6000, useGateway: false }, // Direct Anthropic
+];
+```
+
+Worst case: ~10 s. On any failure, validation rejection, or both-attempt timeout, `llmFallbackReason` is set (e.g. `attempt1_validation_body_no_lexicon_cluster`) and the deterministic path runs.
+
+### 11.2 Snapshot Cache (`brief_snapshots`)
+
+**Key**: `(user_id, local_date, time_window, input_signature, prompt_version)`.
+
+**`input_signature`** is a deterministic hash over: tier, score (rounded), calendarLoad, calendarPressure, meetingCount, hrvDeviation, sleepDeviation, rhrDeviation, checkInOutcome, clarity, confidence, sharpness, isHoliday, isSundayEve, isMondayAm, isFridayEve. Two requests with the same signature in the same time window return the **same** brief.
+
+**Cache hit path**: returns immediately with `briefSource = snapshot.brief_source`, no LLM call.
+
+**Cache miss path**: runs full pipeline → upserts the result fire-and-forget so the next refresh hits cache.
+
+### 11.3 Telemetry Fields (in `payload_json` / response)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `briefSource` | `'llm' \| 'deterministic'` | Which path produced this brief |
+| `llmFallbackReason` | string | e.g. `attempt2_timeout_6000ms`, `attempt1_validation_body_pattern_irrelevant`, `null` if LLM succeeded |
+| `llmAttempts[]` | array | (planned) per-attempt model + duration + outcome |
+| `validatorRejections{}` | object | (planned) per-rule rejection counter |
+| `signals{}` | object | full signal snapshot at generation time |
+
+### 11.4 Response-Assembly Try/Catch
+
+The block from `briefSource = ...` through the final `return new Response(...)` is wrapped in a try/catch. On any unexpected error during assembly, the function returns a soft 200 with `briefSource: 'deterministic'`, `fallback: true`, and the deterministic phrase/body/leanOn/watchFor — preventing a 500 from blanking the entire dashboard.
+
+### 11.5 Server-Side Truncation Safety Net
+
+LLM `signal` strings > 4 words are server-truncated (`truncSignal`, line 3877) before being formatted as `{signal} · {SOURCE}`.
+
+---
+
+## 12. Source Labels
+
+| Source Key (`leanOnSource` / `watchForSource`) | Display Label |
+|-----------------------------------------------|---------------|
+| `llm-v4` | (no label — LLM-generated, source baked into signal as PATTERN/ARCHETYPE/COACH) |
 | `coach-insights-recent` | "Coach" |
 | `coach-insights-grace` | "Coach (Xd ago)" |
-| `cc-modifier` | "Check-in" |
-| `archetype-tier` | "Archetype" |
-| `tier-fallback` | "Readiness" |
+| `cc-modifier` / `cc-modifier-with-context` | "Check-in" (deterministic) → mapped to `PATTERN` in display |
+| `archetype-tier` | "Archetype" → `ARCHETYPE` |
+| `tier-fallback` | "Readiness" → `PATTERN` |
 | `sunday-evening-override` | "Sunday" |
 | `evening-recovery-override` | "Evening" |
 
 ---
 
-## 12. DB Column Audit
+## 13. DB Column Audit
 
-### 12.1 `wearable_data` Column Mapping
+### 13.1 `wearable_data` Mapping
 
 | Edge Function Uses | Actual DB Column | Status |
 |-------------------|-----------------|--------|
-| `hrv` | `hrv` | ✅ Correct |
-| `resting_heart_rate` | `resting_heart_rate` | ✅ Correct |
-| `sleep_score` | `sleep_score` | ✅ Correct |
-| `total_sleep_minutes` | `total_sleep_minutes` | ✅ Correct |
+| `hrv` | `hrv` | ✅ |
+| `resting_heart_rate` | `resting_heart_rate` | ✅ |
+| `sleep_score` | `sleep_score` | ✅ |
+| `total_sleep_minutes` | `total_sleep_minutes` | ✅ |
 | `source` | `source` | ✅ Fixed (was `data_source`) |
-| `hrv` (7d trend) | `hrv` | ✅ Fixed (was `hrv_rmssd`) |
-| `summary_date` | `summary_date` | ✅ Correct |
+| 7-day HRV trend `hrv` | `hrv` | ✅ Fixed (was `hrv_rmssd`) |
+| `summary_date` | `summary_date` | ✅ |
 
-### 12.2 `oura_daily_data` – Missing Table
+### 13.2 `oura_daily_data` – Missing Table
 
-The `sync-oura` edge function (line 104) inserts into `oura_daily_data` which does not exist. This means Oura ring sync is completely non-functional. Oura data is NOT flowing into the Performance Readiness Brief pipeline.
+`sync-oura/index.ts:104` writes to a non-existent table. Oura ring sync is non-functional (deprioritised).
 
-**Impact**: Users with Oura rings will have no wearable data in the system despite having an active `oura_connections` record.
-
-### 12.3 `calendar_events` – Complete
-
-All columns referenced by the edge function exist and are correctly named.
-
-### 12.4 `daily_checkins` – Complete
-
-All columns referenced exist and are correctly named.
-
-### 12.5 `user_coach_insights` – Complete
+### 13.3 `calendar_events`, `daily_checkins`, `user_coach_insights`, `brief_snapshots` – Complete
 
 All columns referenced exist and are correctly named.
 
 ---
 
-## 13. Known Issues & Gaps
+## 14. Known Issues & Gaps
 
-### 13.1 Critical
+### 14.1 Pill-Scoring Issues
 
-| Issue | Impact | Location |
-|-------|--------|----------|
-| ~~`data_source` column doesn't exist~~ | ~~Wearable source detection fails~~ | **FIXED → `source`** |
-| ~~`hrv_rmssd` column doesn't exist~~ | ~~7-day HRV trend silently fails~~ | **FIXED → `hrv`** |
-| `oura_daily_data` table missing | Oura sync completely broken (deprioritised) | `sync-oura/index.ts:104` |
+| # | Issue | Location | Impact |
+|---|-------|----------|--------|
+| 1 | **Sharpness qualifier** reads "score trending down" / "score trending up" but is driven by `scoreTrajectory7d` (overall readiness score), NOT sharpness-specific. Misleading: a stable Sharpness 4/5 reads "trending down" when the wider score is declining for unrelated reasons. | `DecisionReadinessBrief.tsx:765` | High — user trust in pill detail |
+| 2 | **Physiology pill defaults to RESTED** when sleep is null and only RHR is available. Asserts full physiological recovery from a single signal. | `DecisionReadinessBrief.tsx:722` (`composePillar([sleepContrib, rhrContrib, hrElevatedContrib])` with sleep=neutral pulls median to GREEN) | High — overclaims when data is sparse |
+| 3 | **Resilience can render STEADY/green when outcome is `drained`** if HRV+confidence are GREEN. `drained` is currently `mild` severity, so the upper-median tilts green. Felt depletion gets masked by stable wearable. | `DecisionReadinessBrief.tsx:686` (`resilienceOutcomeContrib`: drained → mild-RED) | Critical — user-reported contradiction |
+| 4 | No "felt-vs-wearable divergence" qualifier on Resilience: when outcome is RED but HRV+confidence compose GREEN, the pill should surface the gap. | `DecisionReadinessBrief.tsx:797–811` | Medium |
 
-### 13.2 Architecture Gaps
+### 14.2 LLM / Synthesis Issues
+
+| # | Issue | Impact |
+|---|-------|--------|
+| 5 | **LLM fallback frequency is high.** 25+ validators include the **`signal-substring-of-body` rule** (`leanOn_repeats_body`) which forces the LLM to dodge any pillar word that already appears in the body — pushing it into archetype-trait words that the next gate (`generic_trait`) rejects. Net: many strategically correct briefs are silently dropped. | Critical |
+| 6 | "**Full Alignment · PATTERN**" / "**Rigidity from Conviction · PATTERN**" stock pair is the deterministic C×C `Both high (C≥4, Co≥4)` modifier (§8.2 row 2). Appears whenever clarity ≥4 AND confidence ≥4 AND no coach/pattern data ≤7 d AND LLM fell back. Looks personalised; isn't. | Medium |
+| 7 | "**A multi-day depletion pattern signals an accumulating recovery deficit, not a single bad night. Your system may need more than the day's margins can provide.**" is the deterministic `outcomeSignals.drained` template (line 1728), fired on 3+ consecutive `drained` check-ins. Reads as prose because it's a static string. | Medium |
+| 8 | Telemetry fields `llmAttempts[]` and `validatorRejections{}` are referenced in design but not yet persisted to `payload_json`. Currently only `llmFallbackReason` is logged. | Low — observability gap |
+| 9 | LLM phrase + body compete for the same vocabulary; pillar opacity rule is enforced but synthesis quality varies when no high-stakes event is present (calendar-empty path). | Low |
+
+### 14.3 Architecture Gaps (carried over from v4)
 
 | Gap | Description |
 |-----|-------------|
-| No dedicated heart rate (HR) column | `wearable_data` has no `heart_rate` column. `hrElevated` is now **derived** from HRV baseline deviation: when HRV is >25% below personal 30-day baseline, sympathetic dominance is inferred. Initial absolute heuristic: HRV < 25ms. |
-| ~~Wearable recovery trigger OFF~~ | **FIXED** — `ENABLE_WEARABLE_RECOVERY_TRIGGER = true`. Sustained HRV deficit detection (≥3 consecutive days <-20% below baseline) now active. |
-| No LinkedIn analysis | Listed in priority cascade as future source |
-| No LLM conversation analysis | Listed as future personal data source |
+| No dedicated `heart_rate` column in `wearable_data` | `hrElevated` is derived from HRV deviation > 25 % below baseline. Initial absolute heuristic: HRV < 25 ms. |
+| `oura_daily_data` table missing | Oura sync broken; deprioritised. |
+| No LinkedIn / external context analysis | Listed as future signal source. |
+| No conversation-derived signals from coach sessions feeding pills directly | Coach insights flow via leanOn/watchFor only. |
 
-### 13.3 Enrichment Signal Coverage
+### 14.4 Resolved Issues
 
-| Signal | Status | Notes |
-|--------|--------|-------|
-| Yesterday score + trend | ✅ Working | |
-| Back-to-back detection | ✅ Working | |
-| Next event (any) | ✅ Working | |
-| Practice completion rate | ✅ Working | Queries `sanctuary_events` |
-| Coach session recency | ✅ Working | |
-| Coach session impact delta | ✅ Working | Compares session day vs next day |
-| 7-day avg + trajectory | ✅ Working | |
-| Wearable 7d trend | ✅ Fixed | Was using wrong column `hrv_rmssd` |
-| DOW typical outcome | ✅ Working | Needs 4+ data points for same DOW |
-| HRV × event correlation | ✅ Fixed | Was using wrong column `hrv_rmssd` |
-| Friction trend | ✅ Working | 7d vs previous 7d friction comparison |
-| Pending commitment | ✅ Working | |
-| Recent pattern | ✅ Working | |
-| Most effective practice | ✅ Working | |
-| Holiday detection | ✅ Working | Static lookup UK/US/UAE/SG/AU 2025-2026 |
-| Week-ahead shape | ✅ Working | Sunday evening only |
-| State shift (intra-day) | ✅ Working | ≥15 energy_balance change |
-| Divergence mode | ✅ Working | MASKED_HIGH / RECOVERY_UNDERWAY |
-| hrElevated (peak HR proxy) | ✅ Fixed | Derived from HRV deviation >25% below baseline |
-| Wearable recovery trigger | ✅ Enabled | Sustained HRV deficit (≥3 days <-20%) triggers recovery override |
-| `consecutiveLowClarity` | ✅ Working | Computed server-side from last 10 check-ins, returned to client |
-| `consecutivePattern` fallback crash | ✅ Fixed | Replaced undefined var with inline `recentCheckIns` loop in fallback path |
+| Issue | Status |
+|-------|--------|
+| `data_source` column doesn't exist | ✅ Fixed → `source` |
+| `hrv_rmssd` column doesn't exist | ✅ Fixed → `hrv` |
+| Wearable recovery trigger OFF | ✅ Fixed — `ENABLE_WEARABLE_RECOVERY_TRIGGER = true` |
+| `consecutivePattern` fallback crash | ✅ Fixed — replaced undefined var with inline `recentCheckIns` loop |
+| Response-assembly 500 → blank dashboard | ✅ Fixed — try/catch returns soft 200 fallback |
+| Snapshot cache duplicate writes | ✅ Fixed — onConflict `(user_id, local_date, time_window, input_signature, prompt_version)` |
+
+---
+
+*End of v6.1 reference. For the v5.0 doc see git history at commit prior to 2026-04-21. Pill-scoring fixes (Items 1–4) and validator-loosening (Item 5) are tracked as a separate code task — this document is reference-only.*
