@@ -1333,6 +1333,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
+  context?: { consecutiveLowDays?: number; checkInOutcome?: string | null; hrvDeviation?: number | null; sleepHardFloor?: boolean }
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1340,6 +1341,17 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
+
+  // v6.2 Pattern Preference — when an active pattern exists (sustained low days,
+  // sustained HRV deficit, drained/overwhelmed outcome), prefer naming the pattern
+  // over the generic trait pair. Source remains 'PATTERN' downstream.
+  const consec = context?.consecutiveLowDays ?? 0;
+  const outcome = context?.checkInOutcome ?? null;
+  const hrvDev = context?.hrvDeviation ?? null;
+  if (consec >= 3) return { leanOn: `Day ${consec} pattern`, watchFor: "Treating systemic as situational" };
+  if (outcome === 'drained' || outcome === 'overwhelmed') return { leanOn: "Mental Energy Truth", watchFor: "Performing through depletion" };
+  if (hrvDev != null && hrvDev <= -20) return { leanOn: "Recovery Intelligence", watchFor: "Borrowing from buffer" };
+  if (context?.sleepHardFloor) return { leanOn: "Sleep Floor First", watchFor: "Trading sleep for output" };
 
   if (clarityLow && confidenceLow) return { leanOn: "Self-Honesty", watchFor: "Premature Commitments" };
   if (clarityHigh && confidenceHigh) return { leanOn: "Full Alignment", watchFor: "Rigidity from Conviction" };
