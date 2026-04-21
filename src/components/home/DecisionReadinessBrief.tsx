@@ -1652,27 +1652,26 @@ const PerformanceReadinessBrief = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* 12.5 BRIEF → PLAN HANDOFF — always-visible CTA */}
-      <button
-        type="button"
-        onClick={() => navigate('/plan')}
-        className="group mt-4 pt-3 w-full flex flex-col items-end gap-0.5 text-right hover:opacity-100 transition-opacity"
-      >
-        <span className="inline-flex items-center gap-1 text-[13px] font-body text-taupe-foreground/90 group-hover:text-taupe-foreground transition-colors">
-          View today's 3 priorities
-          <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2} />
-        </span>
-        <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/45 font-body">
-          Built from this brief
-        </span>
-      </button>
-
       {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
       <BriefFeedbackRow
-        briefId={(outerBrief as any)?.briefId ?? null}
+        briefId={briefId}
         tier={(outerBrief as any)?.innerReadinessTier ?? null}
         score={(outerBrief as any)?.innerReadinessScore ?? null}
+        onFeedbackSubmitted={() => setShowCta(true)}
       />
+
+      {/* 12.5 BRIEF → PLAN HANDOFF — full-width saffron CTA, revealed after read window */}
+      {showCta && (
+        <Button
+          type="button"
+          variant="critical"
+          onClick={() => navigate('/plan')}
+          className="mt-4 w-full h-11 animate-in fade-in duration-300"
+        >
+          Activate Today's 3 Priorities
+          <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
+        </Button>
+      )}
     </div>
   );
 };
