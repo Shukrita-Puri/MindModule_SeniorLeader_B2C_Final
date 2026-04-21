@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Check, Heart, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,6 +91,7 @@ interface MasteryPlanResponse {
 
 const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
@@ -452,7 +453,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Navigation ──
   const navigateToCoach = (prompt: string, flowType: string, eventTitle?: string) => {
     navigate('/coach', {
-      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true, entryContext: { entryPoint: 'tod_plan', lastAction: 'started daily plan', triggeredBy: null } },
+      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true, entryRoute: location.pathname, entryContext: { entryPoint: 'tod_plan', lastAction: 'started daily plan', triggeredBy: null } },
     });
   };
 
@@ -500,7 +501,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (module.contentType === 'soundbath') route = `/soundscapes/${module.contentId}`;
     else if (module.contentType === 'guided-practice') route = `/guided-practices/${module.contentId}`;
     else route = `/micro-practice/${module.contentId}/cards`;
-    navigate(route, { state: { category: 'pause', fromRitual: true } });
+    navigate(route, { state: { category: 'pause', fromRitual: true, entryRoute: location.pathname } });
   };
 
   // ── JIT Dismiss ──
