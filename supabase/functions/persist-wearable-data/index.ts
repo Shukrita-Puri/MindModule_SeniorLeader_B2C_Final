@@ -106,6 +106,10 @@ Deno.serve(async (req) => {
       const results = { inserted: 0, updated: 0, errors: 0 };
       let latestSummaryDate: string | null = null;
 
+      // Distinguish foreground JS sync vs. iOS background native sync for observability
+      const syncSource: string = body.source === 'ios-background' ? 'ios-background' : 'foreground';
+      console.log(`[persist-wearable-data] Bulk sync source: ${syncSource}, samples: ${body.samples.length}`);
+
       for (const sample of body.samples) {
         // Allow rows where at least one metric exists (partial availability)
         const hasAnyMetric = sample.hrv != null || sample.resting_heart_rate != null
@@ -164,9 +168,13 @@ Deno.serve(async (req) => {
         watch_last_error_at: results.errors > 0 ? new Date().toISOString() : null,
         watch_disconnected_at: null,
         watch_status_updated_at: new Date().toISOString(),
+        // Persist anchor for incremental native reads when provided
+        ...(typeof body.healthkit_anchor === 'string' && body.healthkit_anchor.length > 0
+          ? { healthkit_anchor: body.healthkit_anchor }
+          : {}),
       });
 
-      console.log("[persist-wearable-data] Bulk result:", results);
+      console.log(`[persist-wearable-data] Bulk result (${syncSource}):`, results);
       return new Response(
         JSON.stringify({ success: true, ...results }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
