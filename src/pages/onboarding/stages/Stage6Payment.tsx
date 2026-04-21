@@ -179,6 +179,16 @@ export default function Stage6Payment() {
     );
   }
 
+  // First-paint guard: valid beta users without explicit upgrade source should
+  // never see the pricing UI (the useEffect above will redirect them).
+  if (isBetaValid && !hasExplicitUpgradeSource) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto pt-2 pb-6 px-4 animate-fade-in">
       {/* Toggle + Title row */}
