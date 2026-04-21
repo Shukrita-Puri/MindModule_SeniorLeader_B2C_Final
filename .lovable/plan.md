@@ -1,77 +1,120 @@
 
 
-User wants me to evaluate the current LLM prompt for the body copy (and phrase) and propose a refinement so that:
+## Refinement: The Four-Role Contract for the Performance Readiness Card
 
-1. The score (X/100) is never restated in the body
-2. There's no hard cap on raw numbers — the LLM picks the few that matter, but the body is **assessment-led, not data-led**
-3. Numbers in body appear as qualifiers, not as the subject
-4. Body must **triangulate** inner signals (HRV/sleep/RHR/check-in) + outer context (calendar load/pressure/high-stakes events) + the **7 CEO realities** → land on a directional recommendation for how the leader proactively handles the event/time-of-day
-5. Pills already carry the numbers and % deltas — body shouldn't duplicate that role
+This is a **prompt-only** refinement. No UI, no scoring, no signals, no data inputs change. We sharpen the role definition of the four LLM-generated text elements so they stop overlapping.
 
-Let me read the current prompt to assess what's actually there.
+### What's wrong today (in the current prompt)
 
-I'll need to view `compute-outer-readiness/index.ts` system prompt block (the §2.19.x sections we added) and the existing body-copy guidance, plus the brief-logic memory and phrase-validation memory to align with what's already standardized.
+| Element | Current rule location | Current drift |
+|---|---|---|
+| Phrase | §2.18 (length only) | Often doubles as a mini-explanation; no ban on explaining/numbers |
+| Body | §2.19 / §2.19.5 | Good — already triangulates, no score, no data list |
+| Lean On | §3009 (long-term memory rule) | Falls back to generic ("Self-Honesty · CHECK-IN"); no rule that it must add something the body didn't say |
+| Watch For | §3009 | Same — drifts into restating today's red signal that body already named |
 
-## Assessment of current state (to confirm in the plan)
+### What changes (one file, prompt-only)
 
-From earlier work in this thread, the prompt already has:
-- §2.19.2 PILLAR-VOCABULARY MAP (HRV→Mind, Sleep/RHR→Body, MentalEnergy/Confidence→Resilience)
-- §2.19 phrase opacity rule (phrase or first body sentence must name a pillar)
+**`supabase/functions/compute-outer-readiness/index.ts`** — two edits inside the system prompt block:
 
-What's missing (based on the screenshot showing "score 31/100" repeated and a data-list sentence):
-- No explicit ban on restating the numeric score in body
-- No "assessment-over-listing" directive
-- No explicit triangulation contract (inner signals × outer context × CEO reality → directional move)
-- No guidance that pills own the numbers and body owns the synthesis
+#### 1. Replace §3009 with §2.18.5 — THE FOUR-ROLE CONTRACT
 
-## Plan: Body Copy = Triangulated Assessment, Not Data List
+This becomes the master rule the LLM reads before every output. It defines four jobs, four data layers, four time horizons.
 
-### File to change
-`supabase/functions/compute-outer-readiness/index.ts` — add §2.19.5 to the system prompt (after the existing §2.19.2 pillar-vocabulary block). ~25 lines, prompt-only, no scoring/contract changes.
+```
+§2.18.5 THE FOUR-ROLE CONTRACT (read before every output)
 
-### New §2.19.5 — BODY COPY: ASSESSMENT CONTRACT
+The card has four text elements. Each has a distinct JOB, DATA LAYER, TIME HORIZON.
+They must NEVER repeat each other. If two elements say the same thing in different words, REWRITE.
 
-Five rules, written as directives the LLM can follow:
+  PHRASE     → Immediate · ORIENT      → "What kind of day is this?"
+  BODY       → Immediate + Tactical · ADVISE     → "What shape, what move?"
+  LEAN ON    → Tactical + Strategic · RESOURCE   → "What history says you can deploy"
+  WATCH FOR  → Tactical + Strategic · RISK       → "The recurring trap this state activates"
 
-1. **Never restate the numeric score.** The score (X/100) and tier label are rendered above the body. Do not write "31/100", "score of X", or "low readiness score" in the body. Refer to state via pillar language ("Mind is taxed", "Body is rested") instead.
+PHRASE
+  Job: Orient in one crisp directive. The frame, the lens.
+  Length: 2–4 words. 5 only if word #5 is load-bearing. 6+ = reject.
+  Allowed: a posture, a pillar word, a directive verb.
+  FORBIDDEN: explanation, numbers, "you/your/the" openers, references to patterns/coach/archetype, instructions ("front-load…", "sequence…").
+  ✅ "Pace from the start." / "Let physiology lead." / "Protect the morning window." / "Rest is the work."
+  ❌ "HRV is down today." / "Pace yourself before the board meeting at 2pm."
 
-2. **Pills own the numbers. Body owns the synthesis.** The signal pills (HRV %, RHR %, sleep h, check-in outcome, clarity/confidence) already display the raw values and deltas. The body does not repeat them as a list. If a number appears, it appears as a *qualifier inside an assessment sentence*, not as the subject.
-   - Forbidden: "HRV is 20% below baseline, RHR is 18% below, score is 31/100, 4 consecutive depleted days."
-   - Allowed: "Cognitive load is high while physiology is recovered — your edge today is using rested hardware to fund a taxed mind."
+BODY (already governed by §2.19 / §2.19.5 — the contract below tightens the sentence shape)
+  Job: Name the tension between today's GREEN pillar and today's RED pillar, then end with ONE directional move.
+  Length: ONE sentence, max 25 words. Two sentences allowed only when a JIT event <90min requires the second sentence.
+  Required structure: "[Green resource], [red constraint] — [directional move]."
+  Allowed inputs: today's green pillar, today's red pillar, calendar load/pressure/named JIT event, time-of-day, tactical reason (HRV×event correlation, score trajectory, back-to-back, tomorrow load on evenings).
+  FORBIDDEN: restating phrase, restating score/tier, listing data points, drifting into LEAN ON territory (archetype traits, weekly patterns as the subject), drifting into WATCH FOR territory (recurring traps).
+  Numbers are qualifiers inside an assessment sentence — never the subject. Pills own the numbers.
 
-3. **Triangulate three layers in every body.** Every body must connect:
-   - **(a) Inner signal read** — which pillar is the lever (Mind / Body / Resilience), based on the strongest pill
-   - **(b) Outer demand** — calendar load, pressure, time-of-day, or named high-stakes event from today's events
-   - **(c) Directional move** — one proactive instruction the leader can apply (e.g. "front-load the Board prep before noon", "protect the gap before the 3pm review", "let physiology carry today, defer creative work")
-   
-   If outer context is missing, replace (b) with a relevant CEO reality (decision velocity, attention as scarce resource, performance under uncertainty, energy as capital, stakeholder presence, recovery debt, judgement under load).
+LEAN ON
+  Job: Name the strategic RESOURCE — drawn from history, archetype, or development — that makes the body's move possible.
+  Length: 2–4 words. Named noun phrase. Source tag after " · ".
+  MUST: add information the body did not already say. If body said "use rested physiology", LEAN ON does NOT say "Rested Physiology" — it says WHY that resource matters over time, e.g. "Post-rest decision window · PATTERN".
+  Sources allowed: PATTERN (7–30d DOW outcome, HRV×event correlation, post-coach-session lift, score trajectory, consecutive streak), ARCHETYPE (the leader's archetype strength), COACH (insight ≤7 days old).
+  FORBIDDEN: today's green pillar restated, today's score, today's calendar event names, today's wearable values, generic trait words ("Self-Honesty", "Self-Awareness", "Self-Discernment", "Discernment", "Alignment") UNLESS a coach insight ≤7d explicitly named that trait.
+  No-data fallback: archetype trait specific to this leader (NEVER generic).
+  ✅ "Post-rest decision window · PATTERN" / "Recovery Intelligence · ARCHETYPE" / "Pre-board composure track · PATTERN" / "Sunday composure · PATTERN"
+  ❌ "Self-Honesty · CHECK-IN" / "Rested Physiology · PHYSIOLOGY" (repeats body)
 
-4. **Pick the few numbers that matter — no fixed count.** The LLM decides. Typical body uses 0–2 specific numbers, only when they sharpen the assessment. If a pill's delta is the *reason* for the recommendation, naming it once is fine. If it's already obvious from the pill, skip it.
+WATCH FOR
+  Job: Name the recurring TRAP that today's state or pattern activates — the failure mode that makes today's risk worse than it appears.
+  Length: 2–4 words. Named noun phrase. Source tag after " · ".
+  MUST: add information the body did not already say. If body said "mind under strain", WATCH FOR does NOT say "Cognitive Load" — it says the recurring trap, e.g. "Forcing clarity · PATTERN" or "Spending surplus early · PATTERN".
+  Sources allowed: PATTERN (recurring failure mode with ≥3 observations, HRV×event failure mode, friction trend, consecutive low streak), ARCHETYPE (the leader's archetype shadow), COACH (growth area ≤7d).
+  FORBIDDEN: today's red pillar restated, today's score, today's wearable values, generic trait words.
+  ✅ "Forcing clarity · PATTERN" / "Performing Resilience · ARCHETYPE" / "Spending surplus early · PATTERN" / "Over-adapting · ARCHETYPE" / "Back-to-back compounding · PATTERN"
+  ❌ "Body Under Load · PHYSIOLOGY" (repeats body) / "Self-Honesty · CHECK-IN" (generic)
 
-5. **Tone: directional, not descriptive.** A body copy is a brief from a Chief of Staff, not a data report. It tells the leader *what shape the day takes* and *what move it asks for*, not *what the numbers were*.
+NON-REDUNDANCY TEST (run silently before emitting):
+  1. Phrase orients without explaining? If it explains, shorten.
+  2. Body names BOTH green AND red and ends with a move? If not, rewrite.
+  3. LEAN ON adds something body did not say? If it repeats body's green, rewrite.
+  4. WATCH FOR names a pattern/trap, not today's red signal? If it repeats body's red, rewrite.
+  5. Could any element be removed without losing information? If yes, that element is redundant — rewrite.
+```
 
-### Worked example (to include in the prompt as a reference)
+#### 2. Update §2.18 to remove the soft-ceiling overlap and point to §2.18.5
 
-Bad (current behaviour):
-> "HRV is 20% below baseline and RHR is 18% below baseline, with a score of 31/100. With 4 consecutive depleted days, hardware recovery is the necessary focus."
+Replace the current §2.18 phrase block with a one-line pointer: *"§2.18 PHRASE — see §2.18.5 (PHRASE row). 2–4 words; orient only; never explain; never number; never instruct."*
 
-Good (target behaviour):
-> "Body is recovered but Mind is carrying the strain — and the calendar adds three high-stakes touchpoints before lunch. The day's edge is sequencing: handle the Board prep while attention is fresh, then let easier blocks ride on physiology. One real recovery window before evening is what protects tomorrow."
+#### 3. Update the 5 few-shot examples (§3117–3130)
 
-Notice: no score, no list, one pillar lever named, one calendar reference, one directional move, one CEO reality (recovery debt) implied.
+Rewrite leanOn/watchFor in all 5 examples to match the new contract — none may restate the body's green/red, none may use generic trait words. Source tags stay {ARCHETYPE, COACH, PATTERN}; **DATA and CHECK-IN are removed** from the allowed set (they were the source labels that produced "Self-Honesty · CHECK-IN" outputs).
+
+Example rewrite (Example 4 — MASKED_HIGH):
+- Body already says: *"Operational Drive is borrowed, not earned. Board prep at 11am: protect the 2 hours before."*
+- Old leanOn/watchFor: `Recovery Intelligence · ARCHETYPE` / `Forcing Empty Intensity · ARCHETYPE` ✅ already pattern-correct, keep.
+- Example 3 (Town Hall) old watchFor: `Late-Session Reactivity · DATA` → rewrite to `Late-session reactivity · PATTERN`.
+- Example 1 (Day 1) old: keep — already archetype-only and non-redundant.
+
+### Light validator additions (same file, ~12 lines in `validateV61Output`)
+
+- Reject any leanOn/watchFor `signal` that contains a generic trait word from the blocklist `{Self-Honesty, Self-Awareness, Self-Discernment, Discernment, Alignment, Conviction Strength, Execution Confidence, Clear Direction}` UNLESS source is `COACH`.
+- Reject any leanOn/watchFor `source` outside the new allowed set `{ARCHETYPE, COACH, PATTERN}`.
+- Reject when leanOn `signal` (lowercased, normalized) appears as a substring of `body` — i.e. it literally repeats the body.
+- Same substring check for watchFor.
+
+These are guards. The deterministic fallback (lines 1252–1340) stays as-is for safety, but its source labels in the deterministic-source map already point to ARCHETYPE/PATTERN/COACH after our prior edit; the C×C generic outputs ("Self-Honesty", etc.) will only render when the LLM brief is rejected entirely — preserving the safety net without exposing generic outputs as the first answer.
 
 ### What stays untouched
-- Phrase logic (already opacity-checked in §2.19)
-- Pillar-vocabulary map (§2.19.2)
-- Lean on / Watch for (deferred — that's a separate thread)
-- Scoring, signals, atomic brief contract, validators
 
-### Why this is the right fix
-- It moves the body from *reporting* to *advising* — which is what a leader needs in 5 seconds
-- It removes duplication with pills (pills = data, body = meaning)
-- It enforces triangulation in plain language so the LLM doesn't fall back to listing
-- It keeps the LLM's discretion on which numbers to use (no rigid "max 1 number" rule the user explicitly rejected)
+- §2.19, §2.19.1, §2.19.2, §2.19.5 (body copy contract — already aligned with the new BODY row)
+- §2.20 Elastic Lexicon, §2.11–2.17 CEO Reality engines, §2.22 Anti-Fallback
+- All scoring, all signal pills, all client rendering, atomic brief contract
+- Deterministic fallback cascade (priority cascade in §8 doc) — kept as the safety net
+- Data inputs to the LLM — unchanged
+
+### Why this fixes the user's feedback
+
+- **Phrase now has its own job**: orient only. No more phrases that double as mini-explanations.
+- **Body is unchanged in tone but bounded**: the green-×-red-→-move structure is now explicit, so the body never drifts into archetype/pattern territory that belongs to LEAN ON.
+- **Lean On adds value over body**: the non-redundancy test forces it to bring history/archetype/coach intelligence the body did not state. Generic words are blocked.
+- **Watch For names the recurring trap**, not today's red signal. The validator + non-redundancy test enforces it.
+- **2–4 word ceiling** is hard-coded. No prose, no noise.
 
 ### Confirmation
-Approve → I add §2.19.5 to the prompt and redeploy `compute-outer-readiness`. No other files change.
+
+Approve → I edit the system prompt block (§2.18 + new §2.18.5 + 5 few-shot rewrites) and add 4 validator rules in `compute-outer-readiness/index.ts`. One file. No DB, no UI, no client changes.
 
