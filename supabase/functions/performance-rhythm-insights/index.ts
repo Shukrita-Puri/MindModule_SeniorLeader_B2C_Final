@@ -257,6 +257,52 @@ serve(async (req) => {
 
     // Path A (NEW): Calendar Event Type × HRV Correlation
     if (hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
+      // Path A.0: Try the event_physiology_join view first — captures next-morning HRV
+      // delta (true causation signal: did the event tax the nervous system overnight?).
+      // Only use when the view returns rich data; otherwise fall through to same-day logic.
+      try {
+        const { data: joinRows } = await sb
+          .from('event_physiology_join')
+          .select('event_type, title, hrv_delta, hrv_morning_of, hrv_next_morning, is_high_stakes')
+          .eq('user_id', userId)
+          .not('hrv_delta', 'is', null);
+
+        if (joinRows && joinRows.length >= 3) {
+          const grouped = new Map<string, { deltas: number[]; titles: string[] }>();
+          for (const r of joinRows) {
+            const key = (r.event_type as string) || 'general';
+            if (!grouped.has(key)) grouped.set(key, { deltas: [], titles: [] });
+            grouped.get(key)!.deltas.push(r.hrv_delta as number);
+            if (r.title) grouped.get(key)!.titles.push(r.title as string);
+          }
+          let strongest: { key: string; avgDelta: number; count: number; recentTitle: string } | null = null;
+          grouped.forEach((v, k) => {
+            if (v.deltas.length < 2) return;
+            const avg = v.deltas.reduce((a, b) => a + b, 0) / v.deltas.length;
+            if (Math.abs(avg) >= 5 && (!strongest || Math.abs(avg) > Math.abs(strongest.avgDelta))) {
+              strongest = { key: k, avgDelta: avg, count: v.deltas.length, recentTitle: v.titles[v.titles.length - 1] || '' };
+            }
+          });
+          if (strongest) {
+            const s = strongest as { key: string; avgDelta: number; count: number; recentTitle: string };
+            const label = s.key.replace(/[-_]/g, ' ');
+            const cap = label.charAt(0).toUpperCase() + label.slice(1);
+            const ms = Math.abs(Math.round(s.avgDelta));
+            const ref = s.recentTitle ? ` (e.g. "${s.recentTitle}")` : '';
+            if (s.avgDelta < 0) {
+              causeEffectInsight = `${cap} events${ref} drop your next-morning HRV by ${ms}ms on average — observed across ${s.count} events.`;
+            } else {
+              causeEffectInsight = `${cap} events${ref} lift your next-morning HRV by ${ms}ms on average — your nervous system handles them well.`;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[perf-rhythm] event_physiology_join query failed, falling back:', e);
+      }
+    }
+
+    // Path A (legacy fallback): Same-day HRV correlation if the view didn't yield a signal
+    if (!causeEffectInsight && hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
       // Calculate 30-day HRV baseline
       const allHRVs = wearableData.map((w: any) => w.hrv as number);
       const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
