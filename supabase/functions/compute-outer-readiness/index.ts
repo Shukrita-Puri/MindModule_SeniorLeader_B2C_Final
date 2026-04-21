@@ -3805,6 +3805,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       }
     }
 
+    // ═══ SAFEGUARD: post-LLM scope verification (temporary observability) ═══
+    // Confirms that cachedSnapshot and inputSignature survived past the LLM block
+    // and are visible to the response-assembly code below. Remove after ~48h of clean logs.
+    console.log('[compute-outer-readiness] post-LLM state', {
+      hasCachedSnapshot: !!cachedSnapshot,
+      hasInputSignature: !!inputSignature && inputSignature !== 'no-sig',
+      hasLlmBrief: !!llmBrief,
+    });
+
     console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'deterministic'}`);
 
     // Map leanOn source to human-readable label
