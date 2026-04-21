@@ -212,7 +212,7 @@ Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
   const result = data as OuterReadinessResult;
   // After 9 PM, archetype and C+C are suppressed – evening tier insights take over
   assertEquals(result.leanOn, "Full Capacity · PATTERN");
-  assertEquals(result.watchFor, "Mistaking Late-Night Activation · PATTERN");
+  assertEquals(result.watchFor, "Peak Spent Unchecked · PATTERN");
 });
 
 // ==================== SUNDAY EVENING TESTS ====================
