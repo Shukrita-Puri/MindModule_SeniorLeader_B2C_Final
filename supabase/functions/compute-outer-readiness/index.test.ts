@@ -191,8 +191,8 @@ Deno.test("Depleted + no calendar + late evening → recovery theme", async () =
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Let the day close.");
-  // leanOn now formatted as "Title Case · UPPERCASE-SOURCE" (post §2.18.5 source taxonomy)
-  assertEquals(result.leanOn, "State Awareness · READINESS");
+  // leanOn formatted as "Signal · UPPERCASE-SOURCE" (post §2.18.5 source taxonomy: ARCHETYPE|COACH|PATTERN)
+  assertEquals(result.leanOn, "State Awareness · PATTERN");
 });
 
 Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
@@ -211,8 +211,8 @@ Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // After 9 PM, archetype and C+C are suppressed – evening tier insights take over
-  assertEquals(result.leanOn, "Full Capacity · READINESS");
-  assertEquals(result.watchFor, "Mistaking Late-Night Activation · READINESS");
+  assertEquals(result.leanOn, "Full Capacity · PATTERN");
+  assertEquals(result.watchFor, "Mistaking Late-Night Activation · PATTERN");
 });
 
 // ==================== SUNDAY EVENING TESTS ====================
@@ -233,7 +233,7 @@ Deno.test("Managing + Sunday evening → Sunday-specific theme and lean-on", asy
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Close into the week.");
-  assertEquals(result.leanOn, "Operational Steadiness · READINESS");
+  assertEquals(result.leanOn, "Operational Steadiness · PATTERN");
 });
 
 // ==================== LEAN ON / WATCH FOR CASCADE TESTS (daytime) ====================
@@ -253,8 +253,8 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // Falls to tier fallback since server can't find archetype in profiles
-  assertEquals(result.leanOn, "State Awareness · READINESS");
-  assertEquals(result.watchFor, "Over-Committing · READINESS");
+  assertEquals(result.leanOn, "State Awareness · PATTERN");
+  assertEquals(result.watchFor, "Over-Committing · PATTERN");
 });
 
 Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
@@ -271,7 +271,7 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Operational Steadiness · READINESS");
+  assertEquals(result.leanOn, "Operational Steadiness · PATTERN");
 });
 
 Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
@@ -288,7 +288,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Above-Baseline Capacity · READINESS");
+  assertEquals(result.leanOn, "Above-Baseline Capacity · PATTERN");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
