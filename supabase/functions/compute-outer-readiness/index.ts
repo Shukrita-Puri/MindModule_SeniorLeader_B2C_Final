@@ -2426,6 +2426,23 @@ serve(async (req) => {
     let stateShiftToday = false;
     let stateShiftDirection: string | null = null;
 
+    // ═══ BRIEF SNAPSHOT CACHE: hoisted declarations ═══
+    // These must live in the outer handler scope so the response-assembly block
+    // (line ~3846) can read them. Previously declared inside the
+    // `if (dataCompleteness !== 'day1')` block, which caused a ReferenceError
+    // on every request and blanked the dashboard with "NOT YET ASSESSED".
+    let cachedSnapshot: {
+      phrase: string | null;
+      body_text: string | null;
+      lean_on: string | null;
+      lean_on_source: string | null;
+      watch_for: string | null;
+      watch_for_source: string | null;
+      brief_source: 'llm' | 'deterministic';
+      driver: string | null;
+    } | null = null;
+    let inputSignature = 'no-sig';
+
     if (dataCompleteness !== 'day1') {
       // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
       {
