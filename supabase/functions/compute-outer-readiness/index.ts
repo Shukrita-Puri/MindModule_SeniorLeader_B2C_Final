@@ -2054,7 +2054,8 @@ serve(async (req) => {
       typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
       consecutiveLowDaysEarly,
       checkInOutcome ?? null,
-      typeof hrvDeviation === 'number' ? hrvDeviation : null,
+      // hrvDeviation is computed later (line ~2293); pass null at this early call site.
+      null,
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
