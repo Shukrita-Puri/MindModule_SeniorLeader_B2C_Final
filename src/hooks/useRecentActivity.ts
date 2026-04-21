@@ -10,6 +10,7 @@ interface Activity {
   title: string;
   date: Date;
   sessionId?: string;
+  briefId?: string;
 }
 
 const getAccessTokenOrAnon = async () => {
@@ -101,11 +102,13 @@ export const useRecentActivity = () => {
           const briefEvents = data.data.filter((e: any) => e.event_type === 'brief_view');
           briefEvents.slice(0, 5).forEach((event: any) => {
             const phrase = event.metadata?.phrase || 'Viewed';
+            const briefId = event.metadata?.brief_id as string | undefined;
             allActivities.push({
               id: event.id,
               type: 'brief',
               title: phrase.length > 30 ? phrase.slice(0, 30) + '…' : phrase,
               date: new Date(event.timestamp),
+              briefId,
             });
           });
         }

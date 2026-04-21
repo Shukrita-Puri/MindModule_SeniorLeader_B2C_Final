@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallbac
 import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebase
 import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
+import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 
 
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
@@ -53,6 +54,14 @@ const ExecutiveHome = () => {
   const { user } = useAuth();
   const location = useLocation();
   const { recordStep } = useOnboardingProgress();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const historicalBriefId = searchParams.get('briefId');
+
+  const closeHistoricalBrief = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('briefId');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
@@ -354,6 +363,14 @@ const ExecutiveHome = () => {
               setShowGuide(false);
               recordStep('first_session_walkthrough', { completed: true });
             }} />
+          )}
+
+          {/* Historical Brief Overlay (frosted glass over live home) */}
+          {historicalBriefId && (
+            <HistoricalBriefOverlay
+              briefId={historicalBriefId}
+              onClose={closeHistoricalBrief}
+            />
           )}
 
           {/* Plan Feedback Modal */}

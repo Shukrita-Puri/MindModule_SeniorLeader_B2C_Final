@@ -72,6 +72,33 @@ serve(async (req) => {
           );
         }
 
+        // Enrich brief_view events with brief_id when missing — enables historical
+        // overlay navigation from the sidebar without requiring client changes.
+        let enrichedMetadata: Record<string, any> = metadata || {};
+        if (eventType === 'brief_view' && !enrichedMetadata.brief_id) {
+          try {
+            const { data: latest } = await supabase
+              .from('brief_snapshots')
+              .select('id, phrase, local_date, time_window')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            // Match by phrase if available, otherwise take most recent.
+            const phrase = enrichedMetadata.phrase as string | undefined;
+            const match = (latest || []).find(s => phrase && s.phrase === phrase) || (latest || [])[0];
+            if (match) {
+              enrichedMetadata = {
+                ...enrichedMetadata,
+                brief_id: match.id,
+                local_date: match.local_date,
+                time_window: match.time_window,
+              };
+            }
+          } catch (e) {
+            console.warn('[user-events] brief_view enrichment failed:', (e as Error)?.message);
+          }
+        }
+
         const { error } = await supabase
           .from('user_engagements')
           .insert({
@@ -81,7 +108,7 @@ serve(async (req) => {
             content_id: contentId || null,
             content_type: contentType || null,
             timestamp: timestamp || new Date().toISOString(),
-            metadata: metadata || {}
+            metadata: enrichedMetadata
           });
 
         if (error) {
