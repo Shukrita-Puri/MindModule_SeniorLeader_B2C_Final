@@ -554,6 +554,18 @@ const TodayThreePriorities = ({
   useEffect(() => {
     if (!plan?.horizonModules) return;
     const modules = plan.horizonModules;
+    // If the URL asked us to expand the Reflection Corner, find the integrate / Tiny Win slot
+    // and expand it instead of the default "next uncompleted" logic.
+    if (expandReflection) {
+      const idx = modules.findIndex((hm) => {
+        const sp = hm.practices || [hm.practice];
+        return sp.some((p) => p.title === 'Tiny Win and Reflection' || p.type === 'integrate');
+      });
+      if (idx >= 0) {
+        setExpandedSlot(idx);
+        return;
+      }
+    }
     for (let i = 0; i < modules.length; i++) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
@@ -564,7 +576,7 @@ const TodayThreePriorities = ({
     }
     // All done
     setExpandedSlot(-1);
-  }, [completedPracticeIds, plan]);
+  }, [completedPracticeIds, plan, expandReflection]);
 
   const horizonModules = plan?.horizonModules;
 
