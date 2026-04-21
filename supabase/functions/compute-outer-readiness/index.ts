@@ -3843,20 +3843,80 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
-    const briefSource = llmBrief ? 'llm' : 'deterministic';
-    const responsePhrase = llmBrief?.phrase ?? finalPhrase;
-    const responseBody = llmBrief?.bodyText ?? finalContext;
+    const briefSource: 'llm' | 'deterministic' = cachedSnapshot
+      ? cachedSnapshot.brief_source
+      : (llmBrief ? 'llm' : 'deterministic');
+    const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
+    const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
       return w.length > 4 ? w.slice(0, 4).join(' ') : s;
     };
-    const formattedLeanOn = llmBrief
-      ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
-      : formattedDeterministicLeanOn;
-    const formattedWatchFor = llmBrief
-      ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
-      : formattedDeterministicWatchFor;
+    const formattedLeanOn = cachedSnapshot?.lean_on
+      ?? (llmBrief
+        ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
+        : formattedDeterministicLeanOn);
+    const formattedWatchFor = cachedSnapshot?.watch_for
+      ?? (llmBrief
+        ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
+        : formattedDeterministicWatchFor);
+    const finalLeanOnSource = cachedSnapshot?.lean_on_source ?? (llmBrief ? 'llm-v4' : leanOnResult.source);
+    const finalWatchForSource = cachedSnapshot?.watch_for_source ?? (llmBrief ? 'llm-v4' : leanOnResult.source);
+
+    // ═══ BRIEF SNAPSHOT CACHE: persist on cache miss ═══
+    // Fire-and-forget upsert. Never block the response. Stores both LLM and deterministic outputs
+    // so a failed/timed-out LLM call still produces a stable canonical brief on next refresh.
+    if (!cachedSnapshot && inputSignature !== 'no-sig') {
+      (async () => {
+        try {
+          await db.from('brief_snapshots').upsert({
+            user_id: userId,
+            local_date: userLocalDate,
+            time_window: getTimeOfDay(hour),
+            input_signature: inputSignature,
+            prompt_version: BRIEF_PROMPT_VERSION,
+            phrase: responsePhrase,
+            body_text: responseBody,
+            lean_on: formattedLeanOn,
+            lean_on_source: finalLeanOnSource,
+            watch_for: formattedWatchFor,
+            watch_for_source: finalWatchForSource,
+            brief_source: briefSource,
+            driver: theme.driver,
+            score: innerReadinessScore ?? null,
+            tier: safeTier,
+            payload_json: {
+              signals: {
+                checkInOutcome: checkInOutcome || null,
+                clarityLevel, confidenceLevel, mentalSharpnessLevel,
+                hrvDeviation, sleepDeviation, rhrDeviation,
+                calendarLoad, calendarPressure,
+                meetingCount: calendarResult.meetingCount,
+                remainingMeetings: calendarResult.remainingMeetings,
+                remainingHighStakes: calendarResult.remainingHighStakes,
+                nextHighStakesEvent,
+                isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+                consecutiveLowConfidence, consecutiveLowClarity,
+                scoreTrajectory7d, wearableTrend7d, typicalDOWOutcome,
+                tomorrowLoad, isPublicHoliday,
+              },
+            },
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' });
+          console.log('[brief-cache] Result:', JSON.stringify({
+            snapshotHit: false,
+            briefSource,
+            promptVersion: BRIEF_PROMPT_VERSION,
+            inputSignature: inputSignature.slice(0, 8) + '...',
+            generationPath: briefSource === 'llm' ? 'fresh_llm' : 'fresh_deterministic',
+            snapshotReason: 'miss_fresh_generation',
+          }));
+        } catch (writeError) {
+          console.error('[brief-cache] Snapshot write failed:', writeError instanceof Error ? writeError.message : writeError);
+        }
+      })();
+    }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
       phrase: responsePhrase,
