@@ -165,7 +165,7 @@ const MicroPracticePlayer = () => {
       }
 
       toast.success(planType === 'jit' ? 'JIT plan complete!' : 'Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
       return;
     }
 
