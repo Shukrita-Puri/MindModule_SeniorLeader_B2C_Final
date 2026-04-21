@@ -1820,6 +1820,8 @@ serve(async (req) => {
       mentalSharpnessLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
+      currentTimezone: clientCurrentTz = null,
+      homeTimezone: clientHomeTz = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
