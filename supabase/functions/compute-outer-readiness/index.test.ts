@@ -253,8 +253,8 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // Falls to tier fallback since server can't find archetype in profiles
-  assertEquals(result.leanOn, "State Awareness · READINESS");
-  assertEquals(result.watchFor, "Over-Committing · READINESS");
+  assertEquals(result.leanOn, "State Awareness · PATTERN");
+  assertEquals(result.watchFor, "Over-Committing · PATTERN");
 });
 
 Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
@@ -271,7 +271,7 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Operational Steadiness · READINESS");
+  assertEquals(result.leanOn, "Operational Steadiness · PATTERN");
 });
 
 Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
@@ -288,7 +288,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Above-Baseline Capacity · READINESS");
+  assertEquals(result.leanOn, "Above-Baseline Capacity · PATTERN");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
