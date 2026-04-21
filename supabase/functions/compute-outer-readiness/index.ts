@@ -3938,6 +3938,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             driver: theme.driver,
             score: innerReadinessScore ?? null,
             tier: safeTier,
+            llm_fallback_reason: llmFallbackReason ?? null,
+            llm_attempts: llmAttempts as any,
+            validator_rejections: null,
+            pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             payload_json: {
               signals: {
                 checkInOutcome: checkInOutcome || null,
