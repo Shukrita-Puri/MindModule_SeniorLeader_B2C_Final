@@ -3633,12 +3633,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   return { valid: false, reason: `${label}_generic_trait` };
                 }
 
-                // §2.18.5 Non-redundancy: signal must not appear as substring of body
+                // v6.2: substring-overlap rule removed. It formed a trap with the
+                // generic-trait gate (forced LLM into trait words → trait blocked →
+                // fallback). Body↔Lean On overlap is now a soft signal — log only.
                 if (bodyTextStr) {
                   const bodyLower = bodyTextStr.replace(/<[^>]+>/g, '').toLowerCase();
                   const signalLower = signal.toLowerCase();
-                  if (signalLower.length >= 6 && bodyLower.includes(signalLower)) {
-                    return { valid: false, reason: `${label}_repeats_body` };
+                  if (signalLower.length >= 8 && bodyLower.includes(signalLower)) {
+                    console.log(`[validator-soft] ${label} overlaps body — allowed but flagged`);
                   }
                 }
               }
