@@ -255,45 +255,85 @@ serve(async (req) => {
     // ── CAUSE-EFFECT (1C) ──
     let causeEffectInsight: string | null = null;
 
-    // Path A (NEW): Calendar Event Type × HRV Correlation
+    // Path A (NEW): Calendar Event Type × Physiology Correlation (HRV / RHR / HR peak)
     if (hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
-      // Path A.0: Try the event_physiology_join view first — captures next-morning HRV
-      // delta (true causation signal: did the event tax the nervous system overnight?).
-      // Only use when the view returns rich data; otherwise fall through to same-day logic.
+      // Path A.0: Try the event_physiology_join view first — captures next-morning physiology
+      // deltas (true causation signal: did the event tax the nervous system overnight?).
+      // We evaluate HRV, RHR, and peak HR; the strongest, most consistent signal wins.
       try {
         const { data: joinRows } = await sb
           .from('event_physiology_join')
-          .select('event_type, title, hrv_delta, hrv_morning_of, hrv_next_morning, is_high_stakes')
-          .eq('user_id', userId)
-          .not('hrv_delta', 'is', null);
+          .select('event_type, title, hrv_delta, rhr_delta, hr_delta, is_high_stakes')
+          .eq('user_id', userId);
 
         if (joinRows && joinRows.length >= 3) {
-          const grouped = new Map<string, { deltas: number[]; titles: string[] }>();
+          // Group by event type, collect per-metric deltas
+          type Grp = { hrv: number[]; rhr: number[]; hr: number[]; titles: string[] };
+          const grouped = new Map<string, Grp>();
           for (const r of joinRows) {
             const key = (r.event_type as string) || 'general';
-            if (!grouped.has(key)) grouped.set(key, { deltas: [], titles: [] });
-            grouped.get(key)!.deltas.push(r.hrv_delta as number);
-            if (r.title) grouped.get(key)!.titles.push(r.title as string);
+            if (!grouped.has(key)) grouped.set(key, { hrv: [], rhr: [], hr: [], titles: [] });
+            const g = grouped.get(key)!;
+            if (r.hrv_delta !== null && r.hrv_delta !== undefined) g.hrv.push(r.hrv_delta as number);
+            if (r.rhr_delta !== null && r.rhr_delta !== undefined) g.rhr.push(r.rhr_delta as number);
+            if (r.hr_delta !== null && r.hr_delta !== undefined) g.hr.push(r.hr_delta as number);
+            if (r.title) g.titles.push(r.title as string);
           }
-          let strongest: { key: string; avgDelta: number; count: number; recentTitle: string } | null = null;
-          grouped.forEach((v, k) => {
-            if (v.deltas.length < 2) return;
-            const avg = v.deltas.reduce((a, b) => a + b, 0) / v.deltas.length;
-            if (Math.abs(avg) >= 5 && (!strongest || Math.abs(avg) > Math.abs(strongest.avgDelta))) {
-              strongest = { key: k, avgDelta: avg, count: v.deltas.length, recentTitle: v.titles[v.titles.length - 1] || '' };
-            }
+
+          // Significance thresholds (each metric has different units / clinical meaning)
+          //   HRV (ms):  ≥5 ms shift = meaningful  (drop = stress)
+          //   RHR (bpm): ≥3 bpm shift = meaningful (rise = stress)
+          //   HR  (bpm): ≥5 bpm shift = meaningful (rise = arousal)
+          type Candidate = {
+            key: string; metric: 'HRV' | 'RHR' | 'HR'; avgDelta: number;
+            count: number; recentTitle: string; isStressSignal: boolean; severity: number;
+          };
+          const candidates: Candidate[] = [];
+          grouped.forEach((g, k) => {
+            const recent = g.titles[g.titles.length - 1] || '';
+            const consider = (
+              metric: 'HRV' | 'RHR' | 'HR',
+              vals: number[],
+              threshold: number,
+              stressDirection: 'down' | 'up'
+            ) => {
+              if (vals.length < 2) return;
+              const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+              if (Math.abs(avg) < threshold) return;
+              const isStressSignal = stressDirection === 'down' ? avg < 0 : avg > 0;
+              // Severity: normalised magnitude (so HRV ms and HR bpm compete fairly)
+              const severity = Math.abs(avg) / threshold;
+              candidates.push({ key: k, metric, avgDelta: avg, count: vals.length, recentTitle: recent, isStressSignal, severity });
+            };
+            consider('HRV', g.hrv, 5, 'down');
+            consider('RHR', g.rhr, 3, 'up');
+            consider('HR',  g.hr,  5, 'up');
           });
-          if (strongest) {
-            const s = strongest as { key: string; avgDelta: number; count: number; recentTitle: string };
-            const label = s.key.replace(/[-_]/g, ' ');
+
+          // Prefer stress signals; tie-break by severity
+          candidates.sort((a, b) => {
+            if (a.isStressSignal !== b.isStressSignal) return a.isStressSignal ? -1 : 1;
+            return b.severity - a.severity;
+          });
+          const top = candidates[0];
+          if (top) {
+            const label = top.key.replace(/[-_]/g, ' ');
             const cap = label.charAt(0).toUpperCase() + label.slice(1);
-            const ms = Math.abs(Math.round(s.avgDelta));
-            const ref = s.recentTitle ? ` (e.g. "${s.recentTitle}")` : '';
-            if (s.avgDelta < 0) {
-              causeEffectInsight = `${cap} events${ref} drop your next-morning HRV by ${ms}ms on average — observed across ${s.count} events.`;
-            } else {
-              causeEffectInsight = `${cap} events${ref} lift your next-morning HRV by ${ms}ms on average — your nervous system handles them well.`;
-            }
+            const mag = Math.abs(Math.round(top.avgDelta));
+            const unit = top.metric === 'HRV' ? 'ms' : 'bpm';
+            const ref = top.recentTitle ? ` (e.g. "${top.recentTitle}")` : '';
+            const verb =
+              top.metric === 'HRV'
+                ? (top.avgDelta < 0 ? 'drop' : 'lift')
+                : (top.avgDelta > 0 ? 'raise' : 'lower');
+            const metricLabel =
+              top.metric === 'HRV' ? 'HRV'
+              : top.metric === 'RHR' ? 'resting heart rate'
+              : 'peak heart rate';
+            const tail = top.isStressSignal
+              ? ` — observed across ${top.count} events.`
+              : ` — your nervous system handles them well, observed across ${top.count} events.`;
+            causeEffectInsight = `${cap} events${ref} ${verb} your next-morning ${metricLabel} by ${mag}${unit} on average${tail}`;
           }
         }
       } catch (e) {
