@@ -1587,6 +1587,9 @@ const PerformanceReadinessBrief = () => {
 
         </CollapsibleContent>
       </Collapsible>
+
+      {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
+      <BriefFeedbackRow />
     </div>
   );
 };
