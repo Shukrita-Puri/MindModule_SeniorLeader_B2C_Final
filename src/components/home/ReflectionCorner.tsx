@@ -89,7 +89,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
   };
 
   const openStoic = () => {
-    navigate('/practice/stoic-reflection/cards', {
+    navigate('/micro-practice/stoic-reflection/cards', {
       state: { entryRoute: '/plan', fromRitual: true, category: 'pause' },
     });
   };
