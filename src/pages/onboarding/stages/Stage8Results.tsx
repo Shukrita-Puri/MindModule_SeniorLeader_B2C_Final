@@ -375,7 +375,19 @@ export default function Stage8Results() {
         </div>
       </div>
 
-      <Button variant="critical" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg border-0">
+      <Button
+        variant="critical"
+        size="lg"
+        onClick={() => {
+          // Beta users already have access — skip payment entirely.
+          if (isBetaValid) {
+            navigate('/daily-check-in');
+          } else {
+            navigate('/onboarding/payment');
+          }
+        }}
+        className="w-full group shadow-lg border-0"
+      >
         Activate My System
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
