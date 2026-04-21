@@ -1635,6 +1635,7 @@ interface BriefFeedbackRowProps {
 }
 
 const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
+  const navigate = useNavigate();
   // Prefer per-brief key so feedback resets when a genuinely new brief is generated.
   // Fall back to a date+window key for the brief moment before briefId is available
   // (very rare — the snapshot id is included in the very first edge response).
@@ -1696,10 +1697,15 @@ const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
 
   if (mode === 'submitted') {
     return (
-      <div className="mt-4 pt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground/60 font-body animate-in fade-in duration-300">
+      <button
+        type="button"
+        onClick={() => navigate('/plan')}
+        className="group mt-4 pt-3 w-full flex items-center justify-end gap-1.5 text-[11px] font-body text-taupe-foreground/80 hover:text-taupe-foreground transition-colors animate-in fade-in duration-300"
+      >
         <Check className="w-3 h-3" strokeWidth={2.25} />
-        <span>Feedback noted</span>
-      </div>
+        <span>Noted — your 3 priorities are ready</span>
+        <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2.25} />
+      </button>
     );
   }
 
