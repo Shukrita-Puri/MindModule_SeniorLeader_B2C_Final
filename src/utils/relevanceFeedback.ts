@@ -304,3 +304,53 @@ function mapRatingToQualitative(rating: number): string {
   };
   return ratingMap[rating] || 'neutral';
 }
+
+/**
+ * Submit Performance Readiness Brief feedback (non-intrusive inline thumbs row)
+ * Maps up→5, neutral→3, down→1. Fire-and-forget — no toasts, no spinners.
+ */
+export async function submitBriefFeedback(
+  rating: 'up' | 'neutral' | 'down',
+  feedback?: string,
+  briefSnapshotId?: string,
+  extraContext?: { tier?: string; score?: number }
+) {
+  try {
+    const accessToken = await getAuthToken();
+    if (!accessToken) return { success: false, error: new Error('Not authenticated') };
+
+    const star = rating === 'up' ? 5 : rating === 'neutral' ? 3 : 1;
+    const qualitativeRating = mapRatingToQualitative(star);
+    const dateKey = new Date().toISOString().slice(0, 10);
+
+    const { data: result, error } = await supabase.functions.invoke('content-feedback', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'SUBMIT_FEEDBACK',
+        feedbackData: {
+          content_id: `prb-${dateKey}`,
+          content_type: 'brief',
+          feedback_type: 'star_rating',
+          star_rating: star,
+          trigger_context: 'brief_inline',
+          feedback_text: feedback,
+          feedback_reason: qualitativeRating,
+          context_data: {
+            feedback_scope: 'brief',
+            brief_snapshot_id: briefSnapshotId,
+            tier: extraContext?.tier,
+            score: extraContext?.score,
+          },
+        },
+      },
+    });
+
+    if (error) throw error;
+    return { success: true, data: result?.data };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to submit brief feedback:', error);
+    }
+    return { success: false, error };
+  }
+}

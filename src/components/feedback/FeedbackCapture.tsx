@@ -38,6 +38,11 @@ interface FeedbackCaptureProps {
    * - "glass":   light text on dark/glass surfaces (Reset Studio + plan completion)
    */
   variant?: "default" | "glass";
+  /**
+   * Hide the rating prompt + icon row.
+   * Use when the rating has already been chosen externally (e.g. inline brief feedback row).
+   */
+  hideRatingPrompt?: boolean;
 }
 
 const ICONS: Array<{ value: FeedbackRating; Icon: typeof ThumbsUp; label: string }> = [
@@ -62,6 +67,7 @@ const FeedbackCapture = ({
   isSubmitting = false,
   maxLength = 500,
   variant = "default",
+  hideRatingPrompt = false,
 }: FeedbackCaptureProps) => {
   const placeholder = useMemo(() => {
     if (rating === "down") return negativePlaceholder;
@@ -95,30 +101,32 @@ const FeedbackCapture = ({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
-        <p className={cn("text-sm", promptClass)}>{ratingPrompt}</p>
-        <div className="flex items-center justify-center gap-3">
-          {ICONS.map(({ value, Icon, label }) => {
-            const isActive = rating === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onRatingChange(value)}
-                aria-label={label}
-                aria-pressed={isActive}
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full border transition-all duration-200",
-                  "hover:scale-105 active:scale-95",
-                  isActive ? activeIconClass : inactiveIconClass
-                )}
-              >
-                <Icon size={20} strokeWidth={2} />
-              </button>
-            );
-          })}
+      {!hideRatingPrompt && (
+        <div className="space-y-3">
+          <p className={cn("text-sm", promptClass)}>{ratingPrompt}</p>
+          <div className="flex items-center justify-center gap-3">
+            {ICONS.map(({ value, Icon, label }) => {
+              const isActive = rating === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onRatingChange(value)}
+                  aria-label={label}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "flex h-12 w-12 items-center justify-center rounded-full border transition-all duration-200",
+                    "hover:scale-105 active:scale-95",
+                    isActive ? activeIconClass : inactiveIconClass
+                  )}
+                >
+                  <Icon size={20} strokeWidth={2} />
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {rating && (
         <div className="space-y-2 animate-in slide-in-from-top-1 duration-300">
