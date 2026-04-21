@@ -3944,6 +3944,7 @@ export type Database = {
         Row: {
           calendar_connected_at: string | null
           calendar_provider: string | null
+          healthkit_anchor: string | null
           updated_at: string | null
           user_id: string
           watch_connected_at: string | null
@@ -3960,6 +3961,7 @@ export type Database = {
         Insert: {
           calendar_connected_at?: string | null
           calendar_provider?: string | null
+          healthkit_anchor?: string | null
           updated_at?: string | null
           user_id: string
           watch_connected_at?: string | null
@@ -3976,6 +3978,7 @@ export type Database = {
         Update: {
           calendar_connected_at?: string | null
           calendar_provider?: string | null
+          healthkit_anchor?: string | null
           updated_at?: string | null
           user_id?: string
           watch_connected_at?: string | null
