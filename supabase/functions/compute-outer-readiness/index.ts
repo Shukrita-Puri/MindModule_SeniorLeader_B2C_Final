@@ -113,6 +113,19 @@ interface ComputeRequest {
   mentalSharpnessLevel?: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+  /**
+   * IANA timezone string (e.g. "Europe/London", "America/New_York").
+   * Reflects where the user CURRENTLY is — formatting all event times via
+   * Intl in this zone guarantees the brief speaks in the user's current
+   * local clock even when traveling.
+   */
+  currentTimezone?: string | null;
+  /**
+   * IANA timezone string for the user's home base. Used for circadian/jetlag
+   * commentary when it differs from currentTimezone. Optional — server falls
+   * back to the persisted profiles.home_timezone column.
+   */
+  homeTimezone?: string | null;
   componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
   practicePriorityTag?: string | null;
 }
@@ -1807,6 +1820,8 @@ serve(async (req) => {
       mentalSharpnessLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
+      currentTimezone: clientCurrentTz = null,
+      homeTimezone: clientHomeTz = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
@@ -2451,6 +2466,15 @@ serve(async (req) => {
     let tomorrowFirstEventTime: string | null = null;
     let tomorrowVsTodayLoad: string | null = null;
     let tomorrowHighStakesTitles: string[] = [];
+    // Per-event time strings paired with each high-stakes title (same indexes as
+    // tomorrowHighStakesTitles). Allows the prompt to emit "14:30 — Intro Call …"
+    // structured pairs instead of two free-floating lines the LLM can mis-glue.
+    let tomorrowHighStakesEventTimes: string[] = [];
+    let tomorrowFirstMeetingPair: string | null = null; // e.g. "14:30 — Intro Call …"
+    // Effective IANA timezone strings — resolved in the holiday block below
+    // from request body / profiles columns; nullable when neither is available.
+    let effectiveCurrentTz: string | null = null;
+    let effectiveHomeTz: string | null = null;
     let weekAheadShape: Record<string, unknown> | null = null;
     // hrvEventCorrelation already declared above (before getLeanOnWatchFor)
     let mostEffectivePractice: string | null = null;
@@ -2569,8 +2593,23 @@ serve(async (req) => {
       };
 
       try {
-        const { data: profileTz } = await db.from('profiles').select('timezone').eq('id', userId).maybeSingle();
-        const userTz = (profileTz as any)?.timezone || null;
+        // Read persisted IANA zones (added in 2026-04 migration). Fall back to
+        // values sent in the request body if the columns aren't populated yet.
+        const { data: profileTz } = await db
+          .from('profiles')
+          .select('home_timezone, current_timezone')
+          .eq('id', userId)
+          .maybeSingle();
+        const persistedCurrentTz = (profileTz as any)?.current_timezone || null;
+        const persistedHomeTz = (profileTz as any)?.home_timezone || null;
+        // Effective zones: client-provided wins (most up-to-date for travelers),
+        // then persisted profile, then nothing.
+        effectiveCurrentTz = clientCurrentTz || persistedCurrentTz || null;
+        effectiveHomeTz = clientHomeTz || persistedHomeTz || effectiveCurrentTz || null;
+        // Derive country from CURRENT zone first (where the user is now), then
+        // fall back to home zone for holidays — a UK user travelling in the US
+        // is more relevantly subject to US holidays than UK ones.
+        const userTz = effectiveCurrentTz || effectiveHomeTz;
         const userCountry = userTz ? tzToCountry[userTz] || null : null;
         const localDate = userTime.toISOString().split('T')[0];
         const tomorrowDate = new Date(userTime.getTime() + 86400000).toISOString().split('T')[0];
@@ -2817,20 +2856,60 @@ serve(async (req) => {
           const tomorrowRank = loadRank[tomorrowLoad || 'low'] || 1;
           tomorrowVsTodayLoad = tomorrowRank > todayRank ? 'heavier' : tomorrowRank < todayRank ? 'lighter' : 'similar';
 
-          // Tomorrow first event time
+          // Tomorrow first event time + per-title times for high-stakes events.
+          // CRITICAL: filter out all-day / multi-day blockers (e.g. expo passes that
+          // span 00:00–23:59) — they are not "first scheduled meetings" and the LLM
+          // would otherwise pair their 00:00 start with an unrelated meeting title.
           try {
             const tomorrowDateObj = new Date(userTime.getTime() + 86400000);
             const tStart = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 0, 0, 0));
             const tEnd = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 23, 59, 59));
             const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
             const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
-            const { data: tFirstEvt } = await db.from('calendar_events').select('start_time').eq('user_id', userId)
-              .gte('start_time', tStartUTC.toISOString()).lte('start_time', tEndUTC.toISOString())
-              .order('start_time', { ascending: true }).limit(1).maybeSingle();
-            if (tFirstEvt) {
-              const evTime = new Date(new Date(tFirstEvt.start_time).getTime() - timezoneOffset * 60000);
-              tomorrowFirstEventTime = `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            const { data: tEvts } = await db.from('calendar_events')
+              .select('title, start_time, end_time, attendees_count')
+              .eq('user_id', userId)
+              .gte('start_time', tStartUTC.toISOString())
+              .lte('start_time', tEndUTC.toISOString())
+              .order('start_time', { ascending: true });
+
+            // Format any UTC date in the user's CURRENT timezone (IANA) when
+            // available; otherwise fall back to numeric offset arithmetic.
+            const fmtLocalHHmm = (utcDate: Date): string => {
+              if (effectiveCurrentTz) {
+                try {
+                  return new Intl.DateTimeFormat('en-GB', {
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                    timeZone: effectiveCurrentTz,
+                  }).format(utcDate);
+                } catch { /* fall through */ }
+              }
+              const evTime = new Date(utcDate.getTime() - timezoneOffset * 60000);
+              return `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            };
+
+            // All-day / multi-day filter: anything ≥8h is treated as a calendar
+            // blocker (expo, vacation, OOO), not a "first scheduled meeting".
+            const isMeetingLike = (e: any): boolean => {
+              const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000;
+              return dur < 8;
+            };
+
+            const meetingEvents = (tEvts || []).filter(isMeetingLike);
+            if (meetingEvents.length > 0) {
+              const first = meetingEvents[0];
+              const firstTime = fmtLocalHHmm(new Date(first.start_time));
+              tomorrowFirstEventTime = firstTime;
+              tomorrowFirstMeetingPair = `${firstTime} — ${first.title || 'Untitled meeting'}`;
             }
+
+            // Pair each high-stakes title with its own time so the LLM can never
+            // mis-glue a title to a different line's time. Match by title.
+            tomorrowHighStakesEventTimes = tomorrowHighStakesTitles.map(title => {
+              const match = meetingEvents.find(e => (e.title || '').trim() === title.trim());
+              if (!match) return '';
+              return fmtLocalHHmm(new Date(match.start_time));
+            });
           } catch (e) { /* ignore */ }
         }
 
@@ -3338,6 +3417,7 @@ READINESS BLACKLIST: Never use 'readiness' in phrase or body.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
 NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate.
+EVENT-TIME PAIRING RULE: When you reference a meeting time, use ONLY the time printed next to that meeting's title (format "HH:MM — Title"). Never combine a meeting title with a time from a different line. If no time is paired with a title, omit the time. All event times provided are already in the user's CURRENT timezone — do not adjust or convert them, and do not mention the home timezone unless directly relevant to a sleep/circadian observation.
 
 DAY-TYPE OVERRIDES:
 SUNDAY EVE: Frame into Monday. Loaded+heavy→directive. Light→spacious. Never: 'Reflect'/'Rest before'/'Prepare'.
@@ -3439,8 +3519,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
             userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            if (tomorrowHighStakesTitles.length > 0) userPrompt += `\nHigh-stakes count: ${tomorrowHighStakesTitles.length} · Titles: ${tomorrowHighStakesTitles.join(', ')}`;
-            if (tomorrowFirstEventTime) userPrompt += `\nFirst event: ${tomorrowFirstEventTime}`;
+            // Pair every high-stakes title with its own local time so the LLM
+            // cannot mis-glue a title to an unrelated line's time. If a title's
+            // time is unknown (no exact match), omit time for that one event.
+            if (tomorrowHighStakesTitles.length > 0) {
+              const paired = tomorrowHighStakesTitles.map((t, i) => {
+                const tm = tomorrowHighStakesEventTimes[i];
+                return tm ? `${tm} — ${t}` : t;
+              }).join(', ');
+              userPrompt += `\nHigh-stakes meetings (with local times): ${paired}`;
+            }
+            if (tomorrowFirstMeetingPair) {
+              userPrompt += `\nFirst scheduled meeting: ${tomorrowFirstMeetingPair}`;
+            }
             if (tomorrowVsTodayLoad) userPrompt += `\nTomorrow vs today: ${tomorrowVsTodayLoad}`;
           }
 
@@ -3528,7 +3619,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tzHours = Math.round(-timezoneOffset / 60); // user's UTC offset in hours
             userPrompt += `\n\n=== GLOBAL & ENVIRONMENTAL LOAD ===`;
             userPrompt += `\nUser timezone offset (UTC): ${tzHours >= 0 ? '+' : ''}${tzHours}h`;
-            userPrompt += `\nTravel/circadian drift: null (not instrumented)`;
+            // Traveling = current zone differs from home zone. Surface to the LLM
+            // so it can apply §2.13 CIRCADIAN PRIORITY when relevant.
+            if (effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz) {
+              userPrompt += `\nTraveling: home ${effectiveHomeTz}, currently ${effectiveCurrentTz} (all event times above are in CURRENT zone)`;
+            } else {
+              userPrompt += `\nTravel/circadian drift: none`;
+            }
             userPrompt += `\nExternal market/macro pressure: null (not instrumented)`;
           }
 
@@ -3944,6 +4041,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // ═══ BRIEF SNAPSHOT CACHE: persist on cache miss ═══
     // Fire-and-forget upsert. Never block the response. Stores both LLM and deterministic outputs
     // so a failed/timed-out LLM call still produces a stable canonical brief on next refresh.
+    // Note: snapshot id resolution for the response is done synchronously below
+    // (best-effort) so the client can key feedback by it.
+    let resolvedBriefId: string | null = null;
+    if (cachedSnapshot && inputSignature !== 'no-sig') {
+      try {
+        const { data: idRow } = await db
+          .from('brief_snapshots')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('local_date', userLocalDate)
+          .eq('time_window', getTimeOfDay(hour))
+          .eq('input_signature', inputSignature)
+          .eq('prompt_version', BRIEF_PROMPT_VERSION)
+          .maybeSingle();
+        resolvedBriefId = (idRow as any)?.id ?? null;
+      } catch { /* ignore — non-fatal for response */ }
+    }
     if (!cachedSnapshot && inputSignature !== 'no-sig') {
       (async () => {
         try {
