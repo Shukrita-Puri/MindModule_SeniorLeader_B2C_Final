@@ -49,6 +49,7 @@ export interface BriefSnapshot {
   body?: string;
   leanOn?: string;
   watchFor?: string;
+  briefId?: string;
 }
 
 function truncate(text: string | undefined, max: number): string | undefined {
@@ -72,6 +73,7 @@ export async function trackBriefView(snapshot: BriefSnapshot): Promise<void> {
           body: truncate(snapshot.body, 500),
           leanOn: truncate(snapshot.leanOn, 200),
           watchFor: truncate(snapshot.watchFor, 200),
+          brief_id: snapshot.briefId,
         }
       }
     });
