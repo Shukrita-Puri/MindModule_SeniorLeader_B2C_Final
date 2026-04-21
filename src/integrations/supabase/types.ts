@@ -253,6 +253,9 @@ export type Database = {
           token_iv: string | null
           updated_at: string
           user_id: string
+          webhook_channel_id: string | null
+          webhook_expiration: string | null
+          webhook_resource_id: string | null
         }
         Insert: {
           access_token_enc?: string | null
@@ -270,6 +273,9 @@ export type Database = {
           token_iv?: string | null
           updated_at?: string
           user_id: string
+          webhook_channel_id?: string | null
+          webhook_expiration?: string | null
+          webhook_resource_id?: string | null
         }
         Update: {
           access_token_enc?: string | null
@@ -287,6 +293,9 @@ export type Database = {
           token_iv?: string | null
           updated_at?: string
           user_id?: string
+          webhook_channel_id?: string | null
+          webhook_expiration?: string | null
+          webhook_resource_id?: string | null
         }
         Relationships: []
       }
@@ -2390,6 +2399,13 @@ export type Database = {
             referencedRelation: "calendar_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "mastery_plan_completions_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_physiology_join"
+            referencedColumns: ["event_id"]
+          },
         ]
       }
       mental_fitness_scores: {
@@ -4158,7 +4174,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      event_physiology_join: {
+        Row: {
+          attendees_count: number | null
+          end_time: string | null
+          event_id: string | null
+          event_type: string | null
+          hrv_delta: number | null
+          hrv_morning_of: number | null
+          hrv_next_morning: number | null
+          is_high_stakes: boolean | null
+          is_organizer: boolean | null
+          rhr_next_morning: number | null
+          sleep_minutes_next_night: number | null
+          start_time: string | null
+          title: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       assign_user_role: {
@@ -4168,6 +4202,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      cleanup_old_calendar_events: { Args: never; Returns: number }
       credit_referrer_atomic: { Args: { p_referrer_id: string }; Returns: Json }
       enforce_trial_expiry: { Args: { p_user_id: string }; Returns: undefined }
       extend_subscription: {
