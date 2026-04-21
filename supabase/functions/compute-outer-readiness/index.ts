@@ -3163,16 +3163,16 @@ EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only:
 {"phrase":"Baseline day.","body":"Pattern recognition is your archetype edge and Composure your goal — <strong>Internal Buffer is the variable to track</strong>. Tomorrow we begin reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
 
 EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday:
-{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday Composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-Preparing Tonight","source":"PATTERN"}]}
+{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-preparing tonight","source":"PATTERN"}]}
 
 EXAMPLE 3 — Decision Leakage (Emotional Labor):
-{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Diplomatic Load Sensitivity","source":"PATTERN"}],"watchFor":[{"signal":"Late-Session Reactivity","source":"DATA"}]}
+{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Pre-Town-Hall composure track","source":"PATTERN"}],"watchFor":[{"signal":"Late-session reactivity","source":"PATTERN"}]}
 
 EXAMPLE 4 — MASKED_HIGH · Veto Risk:
-{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Forcing Empty Intensity","source":"ARCHETYPE"}]}
+{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Performing Resilience","source":"ARCHETYPE"}]}
 
 EXAMPLE 5 — Baseline Intelligence (no calendar, no wearable):
-{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading Energy Wide","source":"PATTERN"}]}
+{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading energy wide","source":"PATTERN"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
