@@ -113,6 +113,19 @@ interface ComputeRequest {
   mentalSharpnessLevel?: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+  /**
+   * IANA timezone string (e.g. "Europe/London", "America/New_York").
+   * Reflects where the user CURRENTLY is — formatting all event times via
+   * Intl in this zone guarantees the brief speaks in the user's current
+   * local clock even when traveling.
+   */
+  currentTimezone?: string | null;
+  /**
+   * IANA timezone string for the user's home base. Used for circadian/jetlag
+   * commentary when it differs from currentTimezone. Optional — server falls
+   * back to the persisted profiles.home_timezone column.
+   */
+  homeTimezone?: string | null;
   componentScores?: { energyRegulation?: number; focusRecovery?: number; energyRenewal?: number } | null;
   practicePriorityTag?: string | null;
 }
