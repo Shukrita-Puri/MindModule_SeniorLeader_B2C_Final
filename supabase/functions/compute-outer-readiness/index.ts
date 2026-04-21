@@ -8,6 +8,79 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// ==================== BRIEF SNAPSHOT CACHE ====================
+// Bump this constant whenever the brief prompt contract or canonical-output
+// behaviour changes. A bump intentionally invalidates all prior cached briefs.
+const BRIEF_PROMPT_VERSION = 'v6.2-stable-brief-cache';
+
+// Stable JSON.stringify with sorted keys so { a:1, b:2 } and { b:2, a:1 } hash identically.
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Material inputs that should change the brief content. Anything not listed here
+// (timestamps, ordering noise, derived display fields) MUST NOT enter the signature.
+interface BriefSignatureInput {
+  localDate: string;
+  timeWindow: 'morning' | 'afternoon' | 'evening';
+  promptVersion: string;
+  score: number | null;
+  tier: string | null;
+  checkInOutcome: string | null;
+  clarityLevel: number | null;
+  confidenceLevel: number | null;
+  sharpnessLevel: number | null;
+  wearableSummaryDate: string | null;
+  hrvDeviation: number | null;
+  sleepDeviation: number | null;
+  rhrDeviation: number | null;
+  wearableTier: string | null;
+  calendarLoad: string | null;
+  calendarPressure: string | null;
+  meetingCount: number | null;
+  remainingMeetingCount: number | null;
+  remainingHighStakesTitles: string[];
+  nextHighStakesTitle: string | null;
+  nextHighStakesMinutesUntil: number | null;
+  // Coach signals are intentionally null while suppressed in the prompt; keep field
+  // shape stable so future re-enablement is a one-line change rather than a v-bump.
+  coachStrength: string | null;
+  coachGrowthArea: string | null;
+  archetype: string | null;
+  scoreTrajectory: string | null;
+  consecutiveLowDays: number | null;
+  typicalDOWOutcome: string | null;
+  hrvEventCorrelation: boolean | null;
+  wearableTrend: string | null;
+  tomorrowLoad: string | null;
+  isWeekend: boolean;
+  isPublicHoliday: boolean;
+}
+
+async function computeInputSignature(ctx: BriefSignatureInput): Promise<string> {
+  const material = {
+    ...ctx,
+    // Round material number fields to suppress noise that would needlessly invalidate the cache.
+    hrvDeviation: ctx.hrvDeviation == null ? null : Math.round(ctx.hrvDeviation),
+    sleepDeviation: ctx.sleepDeviation == null ? null : Math.round(ctx.sleepDeviation),
+    rhrDeviation: ctx.rhrDeviation == null ? null : Math.round(ctx.rhrDeviation),
+    nextHighStakesMinutesUntil: ctx.nextHighStakesMinutesUntil == null
+      ? null
+      : Math.round(ctx.nextHighStakesMinutesUntil / 5) * 5, // 5-min bucket
+    remainingHighStakesTitles: [...(ctx.remainingHighStakesTitles || [])].sort(),
+  };
+  return await sha256Hex(stableStringify(material));
+}
+
 // ==================== TYPES ====================
 type EnergyTier = 'depleted' | 'managing' | 'strong' | 'peak';
 type CalendarLevel = 'low' | 'medium' | 'high';
