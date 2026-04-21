@@ -1462,6 +1462,26 @@ const PerformanceReadinessBrief = () => {
   const leanOnSource = outerBrief?.leanOnSource ? getSourceLabel(outerBrief.leanOnSource) : '';
   const watchForSource = outerBrief?.watchForSource ? getSourceLabel(outerBrief.watchForSource) : '';
 
+  // ── Brief → Plan handoff CTA reveal ──
+  // Hidden for ~3.5s after the brief renders so the user has time to read it.
+  // Short-circuits to visible immediately when feedback is submitted, OR when
+  // a previous feedback row is already saved for this brief (so refreshes show
+  // it instantly).
+  const briefId = (outerBrief as any)?.briefId ?? null;
+  const feedbackKey = briefId ? `prb-feedback-${briefId}` : null;
+  const [showCta, setShowCta] = useState(false);
+  useEffect(() => {
+    if (!phrase) return;
+    // Already-fed-back briefs: show immediately on mount/refresh
+    if (feedbackKey && typeof window !== 'undefined' && window.localStorage.getItem(feedbackKey)) {
+      setShowCta(true);
+      return;
+    }
+    setShowCta(false);
+    const t = setTimeout(() => setShowCta(true), 3500);
+    return () => clearTimeout(t);
+  }, [phrase, feedbackKey]);
+
   return (
     <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
 
