@@ -540,9 +540,9 @@ type PillarMode = 'full' | 'wearable' | 'checkin' | 'unknown';
 interface PillarContrib {
   tier: ContribTier;
   severity?: Severity;
-  weight: number;          // base weight (0..1)
+  weight?: number;         // base weight (0..1) — defaults to 1 when omitted
   veto?: PillState;        // if set, raises floor (e.g. drained → amber, HRV -25% → red)
-  source: 'hardware' | 'outcome' | 'self';
+  source?: 'hardware' | 'outcome' | 'self';  // defaults to 'self' when omitted
 }
 
 const TIER_RANK: Record<PillState, number> = { neutral: -1, green: 0, amber: 1, red: 2 };
@@ -557,10 +557,10 @@ const stateMax = (a: PillState, b: PillState): PillState => {
 const weightedAverageTier = (contribs: PillarContrib[]): PillState => {
   const present = contribs.filter(c => c.tier !== 'neutral');
   if (present.length === 0) return 'neutral';
-  const totalWeight = present.reduce((s, c) => s + c.weight, 0) || 1;
+  const totalWeight = present.reduce((s, c) => s + (c.weight ?? 1), 0) || 1;
   const score = present.reduce((s, c) => {
     const v = c.tier === 'red' ? 2 : c.tier === 'amber' ? 1 : 0;
-    return s + v * (c.weight / totalWeight);
+    return s + v * ((c.weight ?? 1) / totalWeight);
   }, 0);
   if (score >= 1.34) return 'red';
   if (score >= 0.67) return 'amber';
