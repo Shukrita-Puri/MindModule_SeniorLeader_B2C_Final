@@ -1555,6 +1555,10 @@ function getLeanOnWatchFor(
   hrvEventCorrelation: string | null,
   scoreTrajectory7d: string | null,
   dayOfWeek: number,
+  // Explicit pass-through (fixes ReferenceError when P6 branch fires post-check-in)
+  consecutiveLowDays: number = 0,
+  checkInOutcome: string | null = null,
+  hrvDeviation: number | null = null,
 ): LeanOnWatchForResult {
 
   // ── Coach insight age + tier ──
@@ -2037,10 +2041,21 @@ serve(async (req) => {
     let hrvEventCorrelation: string | null = null;
     let scoreTrajectory7d: string | null = null;
 
+    // Compute consecutive low-energy day streak from recent check-ins (most-recent-first)
+    let consecutiveLowDaysEarly = 0;
+    for (const c of recentCheckIns) {
+      if ((c as any).energy_balance != null && (c as any).energy_balance < 50) consecutiveLowDaysEarly++;
+      else break;
+    }
+
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, checkInCountTotal,
       typicalDOWOutcome, hrvEventCorrelation, scoreTrajectory7d, dayOfWeek,
+      consecutiveLowDaysEarly,
+      checkInOutcome ?? null,
+      // hrvDeviation is computed later (line ~2293); pass null at this early call site.
+      null,
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
