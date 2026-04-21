@@ -1589,7 +1589,11 @@ const PerformanceReadinessBrief = () => {
       </Collapsible>
 
       {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
-      <BriefFeedbackRow />
+      <BriefFeedbackRow
+        briefId={(outerBrief as any)?.briefId ?? null}
+        tier={(outerBrief as any)?.innerReadinessTier ?? null}
+        score={(outerBrief as any)?.innerReadinessScore ?? null}
+      />
     </div>
   );
 };
@@ -1599,21 +1603,45 @@ export default PerformanceReadinessBrief;
 // ─── BRIEF FEEDBACK ROW ───
 // Non-intrusive inline feedback at the bottom of the Performance Readiness Brief.
 // States: idle (thumbs row) → capturing (textarea + submit/skip) → submitted (✓ noted)
-// Persists submitted state per-day via localStorage key `prb-feedback-{YYYY-MM-DD}`.
+// Persists submitted state per-brief via localStorage key `prb-feedback-{briefId}`.
+// When a new brief is generated (different briefId), the row resets automatically
+// so the user gets a fresh chance to rate each genuinely new brief — but plain
+// refreshes (which return the same snapshot id) keep the "noted" state.
 const BRIEF_FEEDBACK_ICONS: Array<{ value: FeedbackRating; Icon: typeof ThumbsUp; label: string }> = [
   { value: 'up', Icon: ThumbsUp, label: 'Useful' },
   { value: 'neutral', Icon: Equal, label: 'Neutral' },
   { value: 'down', Icon: ThumbsDown, label: 'Off' },
 ];
 
-const BriefFeedbackRow = () => {
+interface BriefFeedbackRowProps {
+  briefId?: string | null;
+  tier?: string | null;
+  score?: number | null;
+}
+
+const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
+  // Prefer per-brief key so feedback resets when a genuinely new brief is generated.
+  // Fall back to a date+window key for the brief moment before briefId is available
+  // (very rare — the snapshot id is included in the very first edge response).
   const dateKey = new Date().toISOString().slice(0, 10);
-  const storageKey = `prb-feedback-${dateKey}`;
+  const hour = new Date().getHours();
+  const windowKey = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+  const storageKey = briefId
+    ? `prb-feedback-${briefId}`
+    : `prb-feedback-${dateKey}-${windowKey}`;
 
   const [mode, setMode] = useState<'idle' | 'capturing' | 'submitted'>(() => {
     if (typeof window === 'undefined') return 'idle';
     return window.localStorage.getItem(storageKey) ? 'submitted' : 'idle';
   });
+
+  // When briefId changes (a genuinely new brief was generated), re-evaluate
+  // submitted state from storage so the thumbs row re-appears.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setMode(window.localStorage.getItem(storageKey) ? 'submitted' : 'idle');
+  }, [storageKey]);
+
   const [rating, setRating] = useState<FeedbackRating | null>(null);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1628,7 +1656,12 @@ const BriefFeedbackRow = () => {
     if (!rating) return;
     setIsSubmitting(true);
     // Fire-and-forget; flip UI immediately for executive feel
-    submitBriefFeedback(rating, feedback.trim() || undefined).catch(() => {
+    submitBriefFeedback(
+      rating,
+      feedback.trim() || undefined,
+      briefId ?? undefined,
+      { tier: tier ?? undefined, score: typeof score === 'number' ? score : undefined },
+    ).catch(() => {
       /* errors logged inside helper */
     });
     try {
