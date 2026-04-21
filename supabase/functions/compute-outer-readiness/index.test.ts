@@ -191,8 +191,8 @@ Deno.test("Depleted + no calendar + late evening → recovery theme", async () =
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Let the day close.");
-  // leanOn formatted as "Signal · UPPERCASE-SOURCE" (post §2.18.5 source taxonomy)
-  assertEquals(result.leanOn, "State Awareness · READINESS");
+  // leanOn formatted as "Signal · UPPERCASE-SOURCE" — §2.18.5 restricts sources to {ARCHETYPE, COACH, PATTERN}
+  assertEquals(result.leanOn, "State Awareness · PATTERN");
 });
 
 Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
@@ -211,8 +211,8 @@ Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // After 9 PM, archetype and C+C are suppressed – evening tier insights take over
-  assertEquals(result.leanOn, "Full Capacity · READINESS");
-  assertEquals(result.watchFor, "Mistaking Late-Night Activation · READINESS");
+  assertEquals(result.leanOn, "Full Capacity · PATTERN");
+  assertEquals(result.watchFor, "Mistaking Late-Night Activation · PATTERN");
 });
 
 // ==================== SUNDAY EVENING TESTS ====================
@@ -233,7 +233,7 @@ Deno.test("Managing + Sunday evening → Sunday-specific theme and lean-on", asy
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   assertEquals(result.phrase, "Close into the week.");
-  assertEquals(result.leanOn, "Operational Steadiness · READINESS");
+  assertEquals(result.leanOn, "Operational Steadiness · PATTERN");
 });
 
 // ==================== LEAN ON / WATCH FOR CASCADE TESTS (daytime) ====================
