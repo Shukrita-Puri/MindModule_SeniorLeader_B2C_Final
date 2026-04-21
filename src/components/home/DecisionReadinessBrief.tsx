@@ -877,9 +877,15 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
   const cogBottom: PillLine[] = [];
   if (sharpness != null && sharpness >= 1 && sharpness <= 5) {
+    // v6.2: only apply trend qualifier when sharpness itself is low (≤2). The overall
+    // scoreTrajectory7d was misleading users into thinking sharpness was declining
+    // when in fact it was their overall readiness trend. Honest > harmonised.
+    const sharpQualifier = (sharpness <= 2)
+      ? `${sharpness}/5 — limited bandwidth`
+      : undefined;
     cogBottom.push({
       text: `Sharpness: ${fmtScored(SHARPNESS_LABELS[sharpness - 1], sharpness)}`,
-      qualifier: scoreTrajectory === 'declining' ? 'score trending down' : scoreTrajectory === 'improving' ? 'score trending up' : undefined,
+      qualifier: sharpQualifier,
       kind: 'self',
     });
   }
