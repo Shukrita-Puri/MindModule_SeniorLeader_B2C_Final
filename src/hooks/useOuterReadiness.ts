@@ -26,6 +26,13 @@ export interface OuterReadinessData {
   bodyText?: string;
   leanOnSource?: string;
   watchForSource?: string;
+  /**
+   * Stable identifier for the brief snapshot row that produced this brief.
+   * Same input set on the same day/window returns the same id, so the
+   * client can key per-brief UI state (e.g. feedback row) by it and reset
+   * automatically when a new brief is generated.
+   */
+  briefId?: string | null;
   hasWearable?: boolean;
   wearableStatus?: {
     isConnected: boolean;
@@ -125,6 +132,13 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
       mentalSharpnessLevel: (checkin as any)?.mental_sharpness_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
       timezoneOffset: new Date().getTimezoneOffset(),
+      // IANA timezone strings let the edge function format event times via Intl
+      // in the user's CURRENT clock (correct for travelers) while keeping their
+      // home zone available for circadian/jetlag commentary.
+      currentTimezone: (() => {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; }
+        catch { return null; }
+      })(),
       ...(DEV_MODE ? { userId } : {}),
     },
     headers,

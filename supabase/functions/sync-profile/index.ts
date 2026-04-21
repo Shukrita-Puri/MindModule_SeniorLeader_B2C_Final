@@ -119,6 +119,26 @@ Deno.serve(async (req) => {
       upsertData.timezone_offset = clientHints.timezone_offset;
     }
 
+    // current_timezone: refreshed on every sync (reflects where the user is right now).
+    // home_timezone: set ONCE on first sync (or backfilled when missing) and never overwritten,
+    // so we always know where the user normally lives for circadian/jetlag context.
+    const clientCurrentTz =
+      typeof clientHints.current_timezone === 'string' && clientHints.current_timezone.length > 0
+        ? clientHints.current_timezone
+        : null;
+    if (clientCurrentTz) {
+      upsertData.current_timezone = clientCurrentTz;
+      // Set home_timezone if missing (new profile OR existing profile without one yet).
+      const { data: existingTz } = await supabaseAdmin
+        .from("profiles")
+        .select("home_timezone")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!existingTz?.home_timezone) {
+        upsertData.home_timezone = clientCurrentTz;
+      }
+    }
+
     // Only set display_name on initial profile creation
     if (isNewProfile) {
       upsertData.display_name = name;

@@ -209,6 +209,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               name: payload.name || payload.nickname,
               picture: payload.picture,
               timezone_offset: -(new Date().getTimezoneOffset()),
+              current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
             }),
           }
         );
@@ -304,6 +305,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               name: auth0User.name,
               picture: auth0User.picture,
               timezone_offset: -(new Date().getTimezoneOffset()),
+              current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
             }),
           }
         );
@@ -402,7 +404,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ timezone_offset: -(new Date().getTimezoneOffset()) }),
+          body: JSON.stringify({
+            timezone_offset: -(new Date().getTimezoneOffset()),
+            current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
+          }),
         }
       );
 
