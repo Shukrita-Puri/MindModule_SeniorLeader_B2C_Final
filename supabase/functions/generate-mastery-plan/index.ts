@@ -2735,6 +2735,12 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
   const hasWearablePattern = ctx.wearableDaysConnected >= 7;
   const hasCalendar = ctx.meetingCount > 0;
   const timeAnchor = getTimeAnchor(ctx.timeOfDay);
+  const isEvening = ctx.timeOfDay === 'evening';
+  // In evening, today's meetingCount represents meetings already on today's calendar
+  // (typically completed), not meetings still ahead. Surface "still left" only when
+  // we know meetings remain; otherwise drop the count to avoid contradictions.
+  const remainingMeetings = isEvening ? 0 : ctx.meetingCount;
+  const hasRemainingMeetings = remainingMeetings > 0;
 
   // ─── IMMEDIATE ───
   if (ctx.horizon === 'immediate') {
@@ -2762,7 +2768,9 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       if (hasCalendar) {
         return {
           situation: 'Body under unregistered load',
-          whyLine: `Your body is carrying load you haven't registered — ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} will compound it unless you settle now.`
+          whyLine: isEvening
+            ? `Your body is carrying load you haven't registered — settle your system before you close the day.`
+            : `Your body is carrying load you haven't registered — ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} will compound it unless you settle now.`
         };
       }
       return { situation: 'Body under unregistered load', whyLine: `Your body is carrying load you haven't registered — settle your system ${timeAnchor}.` };
@@ -2771,12 +2779,18 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       if (ctx.coachGrowthArea) {
         return { situation: 'Depleted + coach growth area', whyLine: `Your coach flagged ${ctx.coachGrowthArea} — address your state first so that pattern doesn't drive your thinking.` };
       }
-      if (hasCalendar && ctx.meetingCount > 0) {
-        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} ahead — regulate ${timeAnchor}.` };
+      if (isEvening) {
+        return { situation: 'Low reserves + day close', whyLine: `Reserves low — regulate before you close the day.` };
+      }
+      if (hasRemainingMeetings) {
+        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead — regulate ${timeAnchor}.` };
       }
       return { situation: 'Low reserves', whyLine: `Reserves low — regulate ${timeAnchor}.` };
     }
     if (ctx.tier === 'managing' && hasCalendar && ctx.meetingCount > 3) {
+      if (isEvening) {
+        return { situation: 'Managing + heavy day close', whyLine: `Heavy day — settle your state before you close it.` };
+      }
       return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead — settle your state ${timeAnchor}.` };
     }
     if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
@@ -2891,20 +2905,8 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
 }
 
 function buildSequenceReasoning(practiceTypes: string[], ctx: SlotContextInput): string | undefined {
-  if (practiceTypes.length <= 1) return undefined;
-  const typeLabels: Record<string, string> = {
-    regulate: 'settle your nervous system',
-    align: 'shift how you hold the pressure',
-    prepare: 'sharpen your focus for what\'s ahead',
-    integrate: 'anchor the learning',
-  };
-  const steps = practiceTypes.map(t => typeLabels[t] || t);
-  if (steps.length === 2) {
-    return `${steps[0].charAt(0).toUpperCase() + steps[0].slice(1)} first, then ${steps[1]} — so you arrive composed.`;
-  }
-  if (steps.length === 3) {
-    return `${steps[0].charAt(0).toUpperCase() + steps[0].slice(1)}, then ${steps[1]}, then ${steps[2]}.`;
-  }
+  // Static sequence copy retired — read strangely in evening / weekend / depleted contexts.
+  // Future: re-enable with time-of-day / day-type / state-aware variants.
   return undefined;
 }
 
