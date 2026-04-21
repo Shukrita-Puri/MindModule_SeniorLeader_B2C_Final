@@ -926,16 +926,26 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
   const emoBottom: PillLine[] = [];
   if (confidence != null && confidence >= 1 && confidence <= 5) {
-    const q = consecLowConf >= 3 ? `${consecLowConf}th day low confidence` : undefined;
+    let q: string | undefined;
+    if (resilienceFeltAhead) q = 'felt ahead of system — confidence high, mental energy depleted';
+    else if (consecLowConf >= 3) q = `${consecLowConf}th day low confidence`;
     emoBottom.push({ text: `Confidence: ${fmtScored(CONFIDENCE_LABELS[confidence - 1], confidence)}`, qualifier: q, kind: 'self' });
   }
   if (RESILIENCE_OUTCOMES.has(checkInOutcome)) {
-    emoBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, kind: 'self' });
+    const meQualifier = (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+      ? 'truth layer — overrides wearable'
+      : undefined;
+    emoBottom.push({ text: `Mental Energy: ${titleCase(checkInOutcome)}`, qualifier: meQualifier, kind: 'self' });
   }
 
   const emptyWearable = !wearableConnected
     ? 'Connect wearable for full reading'
     : tier === 'none' ? 'Waiting for wearable data' : undefined;
+
+  // Physiology Mode-3 explicit text — never guess from mood
+  const physEmpty = !physHasAnySignal
+    ? (wearableConnected ? 'Body data not synced today' : 'No body data — connect a wearable')
+    : (!sleepKnown ? 'Sleep not captured · partial physiology read' : undefined);
 
   return [
     {
@@ -957,8 +967,10 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       Icon: BatteryMedium,
       topLines: physTop,
       bottomLines: physBottom,
-      topEmptyText: physTop.length === 0 ? emptyWearable : undefined,
-      bottomEmptyText: physTop.length === 0 ? undefined : 'Body signals only',
+      topEmptyText: physTop.length === 0 ? (physEmpty ?? emptyWearable) : undefined,
+      bottomEmptyText: physTop.length === 0
+        ? undefined
+        : (physEmpty ?? 'Body signals only'),
     },
     {
       id: 'emotional',
