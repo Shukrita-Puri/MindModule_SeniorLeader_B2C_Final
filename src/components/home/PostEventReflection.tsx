@@ -125,19 +125,13 @@ const PostEventReflection = () => {
 
       setStep('done');
 
-      // 3. Navigate to Coach for deeper reflection
-      const energyLabel = energy === 'down' ? 'drained' : energy === 'up' ? 'energized' : 'about the same';
-      navigate('/coach', {
-        state: {
-          flowType: 'guided-reflection',
-          initialPrompt: `You just came out of "${recentEvent.title}". You said you ${selectedBehavior} and feel ${energyLabel}. Let's process that together. What was the moment where you made that choice?`,
-          eventTitle: recentEvent.title,
-          behaviorType: selectedBehavior,
-          energyLevel: energy,
-          sourceFlow: 'post_event_reflection',
-          entryContext: { entryPoint: 'check_in', lastAction: `completed post-event reflection for "${recentEvent.title}"`, triggeredBy: null },
-        },
+      // 3. Route to /plan with Reflection Corner auto-expanded for the post-event win.
+      const params = new URLSearchParams({
+        expand: 'reflection',
+        context: 'post-event',
+        event: recentEvent.title,
       });
+      navigate(`/plan?${params.toString()}`);
     } catch (error) {
       console.error('[PostEventReflection] Error saving:', error);
     } finally {

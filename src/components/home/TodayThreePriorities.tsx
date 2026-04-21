@@ -23,6 +23,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
+import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
@@ -89,7 +90,19 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
+const TodayThreePriorities = ({
+  onEmpty,
+  onLoaded,
+  expandReflection,
+  reflectionContext,
+  reflectionEvent,
+}: {
+  onEmpty?: () => void;
+  onLoaded?: () => void;
+  expandReflection?: boolean;
+  reflectionContext?: string | null;
+  reflectionEvent?: string | null;
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -479,6 +492,12 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     }
 
     if (module.isCoachCard) {
+      // Reflection Corner replaces /coach for the evening "Tiny Win and Reflection" slot.
+      // We route back to /plan with the expand flag so the inline card opens here.
+      if (module.title === 'Tiny Win and Reflection' || module.type === 'integrate') {
+        navigate('/plan?expand=reflection');
+        return;
+      }
       const coachCard = plan?.timeOfDayPlan?.coachCard;
       const prompt = coachCard?.prompt || "Let's take a moment to center before what's ahead.";
       navigateToCoach(prompt, module.type, undefined);
@@ -535,6 +554,18 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   useEffect(() => {
     if (!plan?.horizonModules) return;
     const modules = plan.horizonModules;
+    // If the URL asked us to expand the Reflection Corner, find the integrate / Tiny Win slot
+    // and expand it instead of the default "next uncompleted" logic.
+    if (expandReflection) {
+      const idx = modules.findIndex((hm) => {
+        const sp = hm.practices || [hm.practice];
+        return sp.some((p) => p.title === 'Tiny Win and Reflection' || p.type === 'integrate');
+      });
+      if (idx >= 0) {
+        setExpandedSlot(idx);
+        return;
+      }
+    }
     for (let i = 0; i < modules.length; i++) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
@@ -545,7 +576,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     }
     // All done
     setExpandedSlot(-1);
-  }, [completedPracticeIds, plan]);
+  }, [completedPracticeIds, plan, expandReflection]);
 
   const horizonModules = plan?.horizonModules;
 
@@ -750,6 +781,31 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {/* Reflection Corner — inline replacement for the suppressed /coach surface
+                      on the evening "Tiny Win and Reflection" priority. */}
+                  {(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                    <ReflectionCorner
+                      postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
+                      onSaved={async () => {
+                        // Mark the slot complete via the standard ritual update path so the
+                        // Plan progress count advances and the slot flips to ✓.
+                        try {
+                          const { updateRitualCompletion } = await import('@/utils/dailyRituals');
+                          await updateRitualCompletion(
+                            'micro_exercise',
+                            module.contentId,
+                            allPractices.map((p) => ({ id: p.contentId }))
+                          );
+                          setCompletedPracticeIds((prev) =>
+                            prev.includes(module.contentId) ? prev : [...prev, module.contentId]
+                          );
+                        } catch (e) {
+                          console.error('[TodayThreePriorities] reflection mark complete failed', e);
+                        }
+                      }}
+                    />
+                  )}
+
                   {/* Type label */}
                   <span className={cn(
                     "text-xs uppercase tracking-wider font-body",

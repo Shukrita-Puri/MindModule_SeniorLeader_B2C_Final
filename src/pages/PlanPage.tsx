@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
@@ -8,6 +9,10 @@ import PrivacyFooter from "@/components/home/PrivacyFooter";
 
 const PlanPage = () => {
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
+  const [searchParams] = useSearchParams();
+  const expandReflection = searchParams.get('expand') === 'reflection';
+  const reflectionContext = searchParams.get('context'); // 'post-event' | null
+  const reflectionEvent = searchParams.get('event');
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -33,6 +38,9 @@ const PlanPage = () => {
                 <TodayThreePriorities
                   onEmpty={() => setPrioritiesEmpty(true)}
                   onLoaded={() => setPrioritiesEmpty(false)}
+                  expandReflection={expandReflection}
+                  reflectionContext={reflectionContext}
+                  reflectionEvent={reflectionEvent}
                 />
                 {prioritiesEmpty && <DailyRitual />}
               </div>
