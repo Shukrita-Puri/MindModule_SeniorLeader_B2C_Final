@@ -781,6 +781,31 @@ const TodayThreePriorities = ({
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {/* Reflection Corner — inline replacement for the suppressed /coach surface
+                      on the evening "Tiny Win and Reflection" priority. */}
+                  {(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                    <ReflectionCorner
+                      postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
+                      onSaved={async () => {
+                        // Mark the slot complete via the standard ritual update path so the
+                        // Plan progress count advances and the slot flips to ✓.
+                        try {
+                          const { updateRitualCompletion } = await import('@/utils/dailyRituals');
+                          await updateRitualCompletion(
+                            'micro_exercise',
+                            module.contentId,
+                            allPractices.map((p) => ({ id: p.contentId }))
+                          );
+                          setCompletedPracticeIds((prev) =>
+                            prev.includes(module.contentId) ? prev : [...prev, module.contentId]
+                          );
+                        } catch (e) {
+                          console.error('[TodayThreePriorities] reflection mark complete failed', e);
+                        }
+                      }}
+                    />
+                  )}
+
                   {/* Type label */}
                   <span className={cn(
                     "text-xs uppercase tracking-wider font-body",
