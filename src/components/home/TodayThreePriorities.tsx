@@ -492,6 +492,12 @@ const TodayThreePriorities = ({
     }
 
     if (module.isCoachCard) {
+      // Reflection Corner replaces /coach for the evening "Tiny Win and Reflection" slot.
+      // We route back to /plan with the expand flag so the inline card opens here.
+      if (module.title === 'Tiny Win and Reflection' || module.type === 'integrate') {
+        navigate('/plan?expand=reflection');
+        return;
+      }
       const coachCard = plan?.timeOfDayPlan?.coachCard;
       const prompt = coachCard?.prompt || "Let's take a moment to center before what's ahead.";
       navigateToCoach(prompt, module.type, undefined);
