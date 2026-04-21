@@ -564,11 +564,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   if (loading) {
     return (
       <div className="space-y-4 pt-2">
-        <div className="px-4 max-w-lg mx-auto">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
-        </div>
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
           {[1, 2, 3].map((n) => (
             <div key={n} className="flex items-center gap-3 py-2">
@@ -590,11 +585,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   if (!horizonModules || horizonModules.length === 0) {
     return (
       <div className="space-y-4 pt-2">
-        <div className="px-4 max-w-lg mx-auto">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
-        </div>
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
           {[1, 2, 3].map((n) => (
             <div key={n} className="flex items-center gap-3 py-2">
@@ -656,10 +646,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
-        <div className="flex items-center justify-between">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xs font-medium font-body whitespace-nowrap",
