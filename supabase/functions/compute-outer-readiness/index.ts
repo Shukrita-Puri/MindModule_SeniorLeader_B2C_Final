@@ -1678,7 +1678,11 @@ function getLeanOnWatchFor(
   }
 
   // P6: C×C modifier
-  const ccMod = getCCModifier(clarity, confidence);
+  const ccMod = getCCModifier(clarity, confidence, {
+    consecutiveLowDays: (consecutiveLowDays as number | undefined) ?? undefined,
+    checkInOutcome: (checkInOutcome as string | null | undefined) ?? null,
+    hrvDeviation: (hrvDeviation as number | null | undefined) ?? null,
+  });
   if (ccMod) {
     return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
   }
