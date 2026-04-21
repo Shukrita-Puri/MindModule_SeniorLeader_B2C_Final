@@ -2584,9 +2584,27 @@ serve(async (req) => {
       };
 
       try {
-        const { data: profileTz } = await db.from('profiles').select('timezone').eq('id', userId).maybeSingle();
-        const userTz = (profileTz as any)?.timezone || null;
+        // Read persisted IANA zones (added in 2026-04 migration). Fall back to
+        // values sent in the request body if the columns aren't populated yet.
+        const { data: profileTz } = await db
+          .from('profiles')
+          .select('home_timezone, current_timezone')
+          .eq('id', userId)
+          .maybeSingle();
+        const persistedCurrentTz = (profileTz as any)?.current_timezone || null;
+        const persistedHomeTz = (profileTz as any)?.home_timezone || null;
+        // Effective zones: client-provided wins (most up-to-date for travelers),
+        // then persisted profile, then nothing.
+        const effectiveCurrentTz = clientCurrentTz || persistedCurrentTz || null;
+        const effectiveHomeTz = clientHomeTz || persistedHomeTz || effectiveCurrentTz || null;
+        // Derive country from CURRENT zone first (where the user is now), then
+        // fall back to home zone for holidays — a UK user travelling in the US
+        // is more relevantly subject to US holidays than UK ones.
+        const userTz = effectiveCurrentTz || effectiveHomeTz;
         const userCountry = userTz ? tzToCountry[userTz] || null : null;
+        // Stash for later prompt assembly.
+        (globalThis as any).__effectiveCurrentTz = effectiveCurrentTz;
+        (globalThis as any).__effectiveHomeTz = effectiveHomeTz;
         const localDate = userTime.toISOString().split('T')[0];
         const tomorrowDate = new Date(userTime.getTime() + 86400000).toISOString().split('T')[0];
 
