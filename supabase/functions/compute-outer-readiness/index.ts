@@ -3381,6 +3381,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // ── User Prompt (v4 structured data sections) ──
           const isEveningForPrompt = hour >= 17;
 
+          // Outer-scope copy of the consecutive-low-days streak for the prompt.
+          // The inner-scope `consecutiveLowDays` (declared ~line 3040) is out of scope here;
+          // referencing it caused a ReferenceError that blanked the post-check-in brief.
+          // See mem://reliability/brief-prompt-variable-scoping.
+          let consecutiveLowDaysForPrompt = 0;
+          for (const c of recentCheckIns) {
+            if ((c as any).energy_balance != null && (c as any).energy_balance < 50) consecutiveLowDaysForPrompt++;
+            else break;
+          }
+
           let userPrompt = `=== TIME ===\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
 
           // === READINESS ===
@@ -3390,7 +3400,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
           userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${mentalSharpnessLevel ?? 'null'}/5 · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
           userPrompt += `\nEmotional self-declared (Decision Leakage trigger source): ${checkInOutcome ?? 'null'}`;
-          userPrompt += `\nConsecutive low days: ${consecutiveLowDays}`;
+          userPrompt += `\nConsecutive low days: ${consecutiveLowDaysForPrompt}`;
           if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
 
           // === WEARABLE ===
