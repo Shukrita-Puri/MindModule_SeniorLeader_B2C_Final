@@ -158,13 +158,21 @@ export function useOuterReadiness() {
   const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
   const period = getCurrentPeriod();
 
+  // When server-side brief snapshotting is enabled, the same input set always
+  // returns the same canonical brief. We can stop refetching on window focus
+  // because identical inputs would just return the cached snapshot anyway —
+  // and any material change (check-in, calendar, wearable) explicitly
+  // invalidates the query elsewhere.
+  const snapshotCacheEnabled =
+    import.meta.env.VITE_ENABLE_BRIEF_SNAPSHOT_CACHE === 'true';
+
   return useQuery({
     queryKey: ['outer-readiness', effectiveUserId, period],
     queryFn: () => fetchOuterReadiness(effectiveUserId),
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: snapshotCacheEnabled ? false : true,
     placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
   });
 }
