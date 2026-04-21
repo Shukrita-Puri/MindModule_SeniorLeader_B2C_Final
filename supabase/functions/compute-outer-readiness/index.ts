@@ -1596,7 +1596,7 @@ function getLeanOnWatchFor(
     }
 
     // P2: C×C modifier
-    const ccMod = getCCModifier(clarity, confidence);
+    const ccMod = getCCModifier(clarity, confidence);  // narrow caller, no context here
     if (ccMod) {
       return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor, source: 'cc-modifier' };
     }
