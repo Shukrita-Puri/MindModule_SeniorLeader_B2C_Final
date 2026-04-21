@@ -3006,12 +3006,57 @@ OUTPUT RULES:
 • Wearable-first. Self-declared (mental energy, mental sharpness, clarity, confidence) qualifies or contradicts.
 • Compound signals into one story — "HRV down 18% and 6 meetings" not four separate bullets.
 • Forward-looking. Scannable in 10 seconds.
-• leanOn and watchFor are LONG-TERM MEMORY of this leader — patterns observed over weeks, NOT today's data. NEVER reference in leanOn/watchFor: today's calendar, today's readiness score, today's wearable metrics, today's felt state. ALLOWED SOURCES ONLY: Coach-identified patterns, Archetype traits, DOW trends, HRV correlations, score trajectories, behavioural streaks. FORMAT: Each item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN, DATA, CHECK-IN}. If no pattern/archetype data exists, return empty arrays.
+§2.18.5 THE FOUR-ROLE CONTRACT (read before every output — master rule)
+The card has four text elements. Each has a distinct JOB, DATA LAYER, TIME HORIZON. They must NEVER repeat each other. If two elements say the same thing in different words, REWRITE.
+  PHRASE     → Immediate · ORIENT      → "What kind of day is this?"
+  BODY       → Immediate + Tactical · ADVISE     → "What shape, what move?"
+  LEAN ON    → Tactical + Strategic · RESOURCE   → "What history says you can deploy"
+  WATCH FOR  → Tactical + Strategic · RISK       → "The recurring trap this state activates"
 
-§2.18 PHRASE PRIORITY WEIGHT (soft ceiling):
-• Target 2–3 words. 4 words allowed ONLY if the 4th word is load-bearing (carries unique meaning). 6+ words = hard reject.
-• Forbidden phrase openers: "you", "your", "the", and coaching imperatives.
-• Examples are architectural templates, not a copy bank — synthesize from today's data.
+PHRASE
+  Job: Orient in one crisp directive — the frame, the lens.
+  Length: 2–4 words. 5 only if word #5 is load-bearing. 6+ = reject.
+  Allowed: a posture, a pillar word, a directive verb.
+  FORBIDDEN: explanation, numbers, "you/your/the" openers, references to patterns/coach/archetype, instructions ("front-load…", "sequence…").
+  ✅ "Pace from the start." / "Let physiology lead." / "Protect the morning window." / "Rest is the work."
+  ❌ "HRV is down today." / "Pace yourself before the board meeting at 2pm."
+
+BODY (governed by §2.19 / §2.19.5 — the contract here tightens the sentence shape)
+  Job: Name the tension between today's GREEN pillar and today's RED pillar, then end with ONE directional move.
+  Required structure: "[Green resource], [red constraint] — [directional move]."
+  Allowed inputs: today's green pillar, today's red pillar, calendar load/pressure/named JIT event, time-of-day, tactical reason (HRV×event correlation, score trajectory, back-to-back, tomorrow load on evenings).
+  FORBIDDEN: restating phrase, restating score/tier, listing data points, drifting into LEAN ON territory (archetype traits, weekly patterns AS the subject), drifting into WATCH FOR territory (recurring traps as the subject).
+  Numbers are qualifiers inside an assessment sentence — never the subject. Pills own the numbers.
+
+LEAN ON
+  Job: Name the strategic RESOURCE — drawn from history, archetype, or development — that makes the body's directional move possible.
+  Length: 2–4 words. Named noun phrase. Source tag after " · ".
+  MUST: add information the body did not already say. If body said "use rested physiology", LEAN ON does NOT say "Rested Physiology" — it says WHY that resource matters over time, e.g. "Post-rest decision window · PATTERN".
+  Sources allowed: PATTERN (7–30d DOW outcome, HRV×event correlation, post-coach-session lift, score trajectory, consecutive streak), ARCHETYPE (the leader's archetype strength), COACH (insight ≤7 days old).
+  FORBIDDEN: today's green pillar restated, today's score, today's calendar event names, today's wearable values, generic trait words ("Self-Honesty", "Self-Awareness", "Self-Discernment", "Discernment", "Alignment", "Conviction Strength", "Execution Confidence", "Clear Direction") UNLESS source is COACH and a coach insight ≤7d explicitly named that trait.
+  No-data fallback: archetype trait specific to this leader (NEVER generic).
+  ✅ "Post-rest decision window · PATTERN" / "Recovery Intelligence · ARCHETYPE" / "Pre-board composure track · PATTERN" / "Sunday composure · PATTERN"
+  ❌ "Self-Honesty · CHECK-IN" / "Rested Physiology · PHYSIOLOGY" (repeats body)
+
+WATCH FOR
+  Job: Name the recurring TRAP that today's state or pattern activates — the failure mode that makes today's risk worse than it appears.
+  Length: 2–4 words. Named noun phrase. Source tag after " · ".
+  MUST: add information the body did not already say. If body said "mind under strain", WATCH FOR does NOT say "Cognitive Load" — it names the recurring trap, e.g. "Forcing clarity · PATTERN" or "Spending surplus early · PATTERN".
+  Sources allowed: PATTERN (recurring failure mode with ≥3 observations, HRV×event failure mode, friction trend, consecutive low streak), ARCHETYPE (the leader's archetype shadow), COACH (growth area ≤7d).
+  FORBIDDEN: today's red pillar restated, today's score, today's wearable values, generic trait words.
+  ✅ "Forcing clarity · PATTERN" / "Performing Resilience · ARCHETYPE" / "Spending surplus early · PATTERN" / "Over-adapting · ARCHETYPE" / "Back-to-back compounding · PATTERN"
+  ❌ "Body Under Load · PHYSIOLOGY" (repeats body) / "Self-Honesty · CHECK-IN" (generic)
+
+FORMAT: Each leanOn/watchFor item = {"signal": "2-4 WORD SIGNAL", "source": "SINGLE UPPERCASE WORD"}. SOURCE ∈ {ARCHETYPE, COACH, PATTERN}. DATA and CHECK-IN are NOT allowed sources. If no pattern/archetype/coach data exists, return the archetype-specific trait — never generic, never empty.
+
+NON-REDUNDANCY TEST (run silently before emitting):
+  1. Phrase orients without explaining? If it explains, shorten.
+  2. Body names BOTH green AND red and ends with a move? If not, rewrite.
+  3. LEAN ON adds something body did not say? If it repeats body's green, rewrite.
+  4. WATCH FOR names a pattern/trap, not today's red signal? If it repeats body's red, rewrite.
+  5. Could any element be removed without losing information? If yes, that element is redundant — rewrite.
+
+§2.18 PHRASE — see §2.18.5 (PHRASE row). 2–4 words; orient only; never explain; never number; never instruct.
 
 §2.19 THE 3-PART IMPACT MANDATE (body copy structure):
 Every body must synthesize three elements in 2–3 scannable sentences:
@@ -3118,16 +3163,16 @@ EXAMPLE 1 — Day 1 · No Wearable · Onboarding Only:
 {"phrase":"Baseline day.","body":"Pattern recognition is your archetype edge and Composure your goal — <strong>Internal Buffer is the variable to track</strong>. Tomorrow we begin reading the signals.","leanOn":[{"signal":"Pattern Recognition","source":"ARCHETYPE"}],"watchFor":[{"signal":"Over-Analysis Early","source":"ARCHETYPE"}]}
 
 EXAMPLE 2 — Sunday Evening · Heavy Week · High-Stakes Monday:
-{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday Composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-Preparing Tonight","source":"PATTERN"}]}
+{"phrase":"Monday is loaded.","body":"HRV down 14%, investor call at 9am — <strong>Strategic Composure depends on how you close tonight</strong>. The first hour sets the week.","leanOn":[{"signal":"Sunday composure","source":"PATTERN"}],"watchFor":[{"signal":"Over-preparing tonight","source":"PATTERN"}]}
 
 EXAMPLE 3 — Decision Leakage (Emotional Labor):
-{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Diplomatic Load Sensitivity","source":"PATTERN"}],"watchFor":[{"signal":"Late-Session Reactivity","source":"DATA"}]}
+{"phrase":"Town Hall risk.","body":"HRV down 18%, mental energy depleted. Resilience compressed — <strong>Decision Leakage risk in the 2 PM Town Hall</strong>. HR has spiked in your last 3 Town Halls.","leanOn":[{"signal":"Pre-Town-Hall composure track","source":"PATTERN"}],"watchFor":[{"signal":"Late-session reactivity","source":"PATTERN"}]}
 
 EXAMPLE 4 — MASKED_HIGH · Veto Risk:
-{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Forcing Empty Intensity","source":"ARCHETYPE"}]}
+{"phrase":"Body is louder.","body":"Confidence 5/5, HRV 22% below, sleep 5.1hrs — <strong>Operational Drive is borrowed, not earned</strong>. Board prep at 11am: protect the 2 hours before.","leanOn":[{"signal":"Recovery Intelligence","source":"ARCHETYPE"}],"watchFor":[{"signal":"Performing Resilience","source":"ARCHETYPE"}]}
 
 EXAMPLE 5 — Baseline Intelligence (no calendar, no wearable):
-{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading Energy Wide","source":"PATTERN"}]}
+{"phrase":"Holding base.","body":"Mental sharpness 3/5, no calendar pressure — <strong>Internal Buffer stable for future load</strong>. Hardware Recovery is the hold today.","leanOn":[{"signal":"Composure Instinct","source":"ARCHETYPE"}],"watchFor":[{"signal":"Spreading energy wide","source":"PATTERN"}]}
 
 Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","source":"..."}],"watchFor":[{"signal":"...","source":"..."}]}`;
           // ── User Prompt (v4 structured data sections) ──
@@ -3412,6 +3457,27 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
+
+                // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN
+                const sourceUpper = source.toUpperCase();
+                if (!['ARCHETYPE', 'COACH', 'PATTERN'].includes(sourceUpper)) {
+                  return { valid: false, reason: `${label}_invalid_source_${sourceUpper}` };
+                }
+
+                // §2.18.5 Generic-trait blocklist (allowed only when source=COACH)
+                const GENERIC_TRAIT = /\b(self[- ]?honesty|self[- ]?awareness|self[- ]?discernment|discernment|alignment|conviction strength|execution confidence|clear direction)\b/i;
+                if (GENERIC_TRAIT.test(signal) && sourceUpper !== 'COACH') {
+                  return { valid: false, reason: `${label}_generic_trait` };
+                }
+
+                // §2.18.5 Non-redundancy: signal must not appear as substring of body
+                if (bodyTextStr) {
+                  const bodyLower = bodyTextStr.replace(/<[^>]+>/g, '').toLowerCase();
+                  const signalLower = signal.toLowerCase();
+                  if (signalLower.length >= 6 && bodyLower.includes(signalLower)) {
+                    return { valid: false, reason: `${label}_repeats_body` };
+                  }
+                }
               }
               return null;
             };
@@ -3604,15 +3670,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // Map source key to uppercase single-word label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'ARCHETYPE',
-        'tier-fallback': 'READINESS',
+        'tier-fallback': 'PATTERN',
         'coach-insights-recent': 'COACH',
         'coach-insights-grace': 'COACH',
         'coach-partial-strength': 'COACH',
         'coach-partial-growth': 'COACH',
-        'cc-modifier': 'CHECK-IN',
-        'cc-modifier-with-context': 'CHECK-IN',
+        'cc-modifier': 'PATTERN',
+        'cc-modifier-with-context': 'PATTERN',
         'dow-pattern': 'PATTERN',
-        'hrv-correlation': 'DATA',
+        'hrv-correlation': 'PATTERN',
         'score-trajectory': 'PATTERN',
       };
       return `${signal} · ${sourceLabels[source] || 'SYSTEM'}`;
