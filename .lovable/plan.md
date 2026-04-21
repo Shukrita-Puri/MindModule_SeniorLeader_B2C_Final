@@ -1,92 +1,121 @@
 
 
-## Wearable continuity fix — stop "ghost disconnects" and keep data flowing without manual syncing
+## Calendar continuity + correlation fix — make calendar sync proactive AND retain history for HR↔event pattern analysis
 
 ### What's actually happening (root cause)
 
-I checked your DB. Your data **isn't being removed**. Three real problems are creating that perception:
+Good news first: **calendar background sync is already running.** The `sync-calendar-scheduled` edge function fires server-side on a cron — your DB shows all 5 active connections were synced 28 minutes ago without any user opening the app. That part works. Token refresh (`refresh-calendar-tokens`) is also cron-driven.
 
-1. **Sync only runs when the app is open.** Today, HealthKit is read in JS via `useWearableSync` on app launch + foreground resume + a 30-min interval. iOS suspends JS the moment the app is backgrounded — so if you wear the watch but don't open the app for a day, **nothing syncs**, and yesterday's row simply doesn't exist yet in the DB. When you next open the app, it appears as if "yesterday is missing."
-2. **Sleep is never being captured.** Every row in `wearable_data` for your account has `total_sleep_minutes = null` and `sleep_score = null`. The `@capgo/capacitor-health` plugin returns sleep samples in a shape your aggregator is partially dropping (the `sleepState` field handling and the in-bed/awake split). This makes the Physiology pillar look broken even when you wore the watch overnight.
-3. **The "Connected" status flips to stale-looking too easily.** `useWearableSync` exposes `isStale=true` whenever the app reloads before HealthKit is live-verified, which the UI sometimes reads as "needs reconnect." Underneath, **the connection is still valid in HealthKit** — iOS does not silently revoke permission. The user just sees a "reconnect"-flavoured prompt and re-grants, which feels like the device was disconnected.
+But the architecture has **three structural gaps** that block the proactive + correlation use case you described:
 
-Your last DB row for HRV is `2026-04-15`; last status update `2026-04-18 20:45`. That's not "removal" — that's a 3-day gap where the app wasn't opened to pull HealthKit while you happened to be wearing the watch. iOS *kept* recording the data into Apple Health; **we just never asked for it.**
+1. **History is destroyed every sync.** `sync-calendar/index.ts` does `DELETE FROM calendar_events WHERE user_id = ?` then re-inserts only the "today → +7 days" window. Yesterday's board meeting is wiped from the DB ~30 min after it ends. Your wearable_data keeps 90+ days; your calendar keeps **0 days of history.** They can never be joined for "this meeting type spikes my HR" analysis.
 
-### The fix — three layers
+2. **The sync is poll-only (~30-min cadence).** No webhook channel from Google/Outlook. If you add a 1pm meeting at 12:50pm, the Performance Readiness Brief and JIT pipeline won't see it until the next cron tick. Not "proactive" in the way wearables now are.
 
-#### Layer 1 — True iOS background sync (silent, no app open required)
+3. **Cron is a global heartbeat, not event-driven.** Every active user gets synced on the same schedule whether their calendar changed or not — wasteful, and still slow for the user whose calendar just changed.
 
-`@capgo/capacitor-health` has no background-delivery API. We add a small native Swift module in `AppDelegate.swift` that uses `HKObserverQuery` + `HKHealthStore.enableBackgroundDelivery(...)`. iOS will then wake the app silently every time HealthKit gets new HRV / RHR / HR / Sleep samples (no UI, no notification — Apple's recommended pattern), pull a 7-day window via `HKAnchoredObjectQuery`, and POST it to the existing `persist-wearable-data` edge function using the Auth0 token cached in iOS Keychain.
+Confirmed in DB: 5 active connections, last_sync 28 min ago, but only **3 users have any events stored** and the earliest event in the entire `calendar_events` table is `2026-04-21 08:00` — i.e. today. Zero historical data exists for correlation today.
 
-Frequency: iOS coalesces these wake-ups to ~hourly when on Wi-Fi/charging, immediately when the watch syncs to the phone. No user action required.
+### The fix — three layers, mirroring the wearable architecture
 
-```text
-[Apple Watch] → [Health app] → [HKObserverQuery wakes our app silently]
-              → [HKAnchoredObjectQuery reads new samples since last anchor]
-              → [POST persist-wearable-data]  ✅ DB stays current
+#### Layer 1 — Stop destroying history (the prerequisite for correlation)
+
+Replace the `DELETE → INSERT` pattern in `sync-calendar/index.ts` with **upsert + scoped delete**:
+
+- **Upsert** events on `(user_id, external_id)` — needs a unique index migration.
+- **Scoped delete** only removes events whose `external_id` is no longer in the upstream API response **AND whose `start_time >= today`**. Past events are never deleted.
+- Keep a **90-day retention floor** on past events (matches wearable_data window). A nightly cleanup cron prunes events older than 90 days.
+
+This single change unlocks HR↔event correlation: with 90 days of past events + 90 days of HRV, the existing `historicalPatternEngine.ts` and `performance-rhythm-insights` function can finally compute "Board meetings drop your HRV by 18% the next morning" — patterns that simply cannot exist with today's 0-day history.
+
+Migration:
+```sql
+ALTER TABLE calendar_events
+  ADD CONSTRAINT calendar_events_user_external_unique UNIQUE (user_id, external_id);
 ```
 
-Files touched: `ios/App/App/AppDelegate.swift`, `ios/App/App/Info.plist` (add `processing` and `fetch` to `UIBackgroundModes`), `ios/App/App/App.entitlements` (HealthKit background delivery is already implicit in the HealthKit entitlement).
+#### Layer 2 — Real-time push (Google Calendar webhooks)
 
-Anchor + auth-token persistence: stored in iOS Keychain via a tiny `WearableSyncBridge.swift` so the JS layer and native layer share the same anchor cursor.
+Add a `calendar-webhook` edge function and a `register-calendar-watch` action:
 
-#### Layer 2 — Fix sleep ingestion (the silent failure you've been hitting)
+- On calendar connect AND on a daily cron, call Google's `events.watch` API to subscribe to push notifications for the user's primary calendar. (Outlook equivalent: Microsoft Graph `subscriptions` endpoint.)
+- Google calls our `calendar-webhook` endpoint within ~30 seconds of any event create/move/delete. The webhook just enqueues a sync for that user (calls `sync-calendar` with `_internalUserId`).
+- Subscriptions expire after 7 days for Google / ~3 days for Outlook → the daily cron renews them.
+- Store `webhook_channel_id`, `webhook_resource_id`, `webhook_expiration` on `calendar_connections`.
 
-In `src/utils/healthKitCapacitor.ts` the sleep aggregator:
-- correctly handles `'deep'`, `'rem'`, `'light'`, `'asleep'`, `'inBed'`
-- but the **`@capgo/capacitor-health` v8 sleep payload uses `sleepState`** as the discriminator AND emits separate samples per state — your aggregator sums durations correctly per state but then **excludes `'asleep'` (the iOS umbrella state) when both `'asleep'` and per-stage rows exist** — leading to `totalSleepMinutes = 0` → filtered out → `null` in DB.
+Result: a meeting added at 12:50pm appears in your DB by 12:51pm, not 1:20pm. JIT plans, the brief, and the homepage stay fresh in real time.
 
-Fix: switch to `queryAggregated({ dataType: 'sleep', bucket: 'day', aggregation: 'sum' })` (now exposed by capgo plugin) for total minutes, and keep the per-stage `readSamples` only to compute deep/REM splits. Cap `totalSleepMinutes` at the sum of all non-`awake`/non-`inBed` states. Sleep score recomputed from the corrected total + in-bed.
+Migration:
+```sql
+ALTER TABLE calendar_connections
+  ADD COLUMN webhook_channel_id TEXT,
+  ADD COLUMN webhook_resource_id TEXT,
+  ADD COLUMN webhook_expiration TIMESTAMPTZ;
+```
 
-#### Layer 3 — Stop the "reconnect" UX from firing when nothing is wrong
+#### Layer 3 — Lookback window + correlation surface
 
-In `src/hooks/useWearableSync.ts` and `src/pages/ConnectedData.tsx`:
+`sync-calendar` window changes from `[today, today+7d]` to:
 
-- **`isStale` no longer surfaces a reconnect CTA.** It just triggers a quiet re-verify in the background. The user only sees a reconnect button when `verifyHealthKitAccess()` returns `false` AND `getHealthKitAuthorization()` confirms denial — never on "we just haven't verified yet this session."
-- **"Last sample" copy reflects the truth.** When status = `connected` but the last sample is, say, 2 days old, the card reads `"Connected · No data captured Apr 16–17 (watch not worn)"` instead of `"Sync delayed"`. We compute the gap from `wearable_data` rows already in the DB — no HealthKit round-trip needed.
-- **Disconnect button does NOT delete historical rows** (already true) — confirmed in `persist-wearable-data` `disconnect` action. Adding a one-line note in the disconnect confirmation: *"Your historical data is preserved. Reconnecting will resume syncing — you won't lose anything."*
+- **First sync after connect:** `[today−30d, today+8d]` (one-time backfill — Google allows up to 250 results per page; paginate if needed).
+- **All subsequent syncs:** `[today−2d, today+8d]` (covers timezone edge cases + recently-edited past events that Google sometimes mutates).
 
-### Database / backend
+This gives the correlation engine 30 days of past events on day one, growing organically.
 
-`persist-wearable-data` already does the right thing (upsert on `user_id,summary_date`, partial-metric tolerance, status preserved on disconnect). The native module will hit the same endpoint with the same payload shape, so **no edge-function changes** beyond:
+**New view for correlation:** `event_physiology_join` (DB view, not a table):
+```sql
+CREATE VIEW event_physiology_join AS
+SELECT 
+  e.user_id, e.id AS event_id, e.title, e.start_time, e.end_time,
+  e.event_metadata->>'eventType' AS event_type,
+  (e.event_metadata->>'isHighStakes')::boolean AS is_high_stakes,
+  w_before.hrv_avg AS hrv_morning_of,
+  w_after.hrv_avg AS hrv_next_morning,
+  w_after.hrv_avg - w_before.hrv_avg AS hrv_delta
+FROM calendar_events e
+LEFT JOIN wearable_data w_before 
+  ON w_before.user_id = e.user_id 
+  AND w_before.summary_date = (e.start_time AT TIME ZONE 'UTC')::date
+LEFT JOIN wearable_data w_after 
+  ON w_after.user_id = e.user_id 
+  AND w_after.summary_date = (e.start_time AT TIME ZONE 'UTC')::date + 1
+WHERE e.start_time < now() - interval '12 hours';
+```
 
-- Add an optional `source: 'ios-background'` discriminator on the bulk path so we can log background syncs separately in `user_integrations.watch_sync_status`.
-- Persist `last_anchor` (opaque string) in a new column on `user_integrations` so the native module can resume incremental reads.
-
-Migration: 1 column added — `user_integrations.healthkit_anchor TEXT NULL`.
-
-### What this changes for you (as a user)
-
-- **Wear the watch → data appears next time the app opens, automatically.** No manual sync.
-- **Stop wearing it for a few days → no "device disconnected" prompt. Just a quiet "no data captured" line for those days.** Pick the watch back up → next sync resumes — no reconnect, no permission re-grant.
-- **Sleep data starts populating** (it currently doesn't).
-- **Decision Readiness pillars stop flipping to grey/UNKNOWN** when the watch is in a charger overnight.
+Powers the HRV↔event correlation insight in `performance-rhythm-insights` (already attempts this in "Path A" but currently returns nothing because no past events exist).
 
 ### Files touched
 
 | File | Change |
 |---|---|
-| `ios/App/App/AppDelegate.swift` | Wire up `HKObserverQuery` + `HKAnchoredObjectQuery` + `enableBackgroundDelivery` for HRV/RHR/HR/Sleep on `didFinishLaunchingWithOptions` |
-| `ios/App/App/WearableSyncBridge.swift` | NEW — Swift module: token from Keychain, anchored query, POST to edge function, anchor persistence |
-| `ios/App/App/Info.plist` | Add `processing` + `fetch` to `UIBackgroundModes` |
-| `src/utils/healthKitCapacitor.ts` | Switch sleep aggregation to `queryAggregated` + corrected per-stage logic |
-| `src/hooks/useWearableSync.ts` | Quieter `isStale` semantics; only flip to `permission_revoked` when authorization explicitly denied |
-| `src/pages/ConnectedData.tsx` | New "no data captured" copy when connected but last_sample > 24h; clearer disconnect confirmation |
-| `supabase/functions/persist-wearable-data/index.ts` | Accept + persist `healthkit_anchor`; log `source: 'ios-background'` separately |
-| `supabase/migrations/<ts>_healthkit_anchor.sql` | `ALTER TABLE user_integrations ADD COLUMN healthkit_anchor TEXT;` |
+| `supabase/functions/sync-calendar/index.ts` | Replace DELETE+INSERT with upsert; expand window for first-sync; preserve past events |
+| `supabase/functions/calendar-webhook/index.ts` | NEW — Google/Outlook push notification handler; enqueues per-user sync |
+| `supabase/functions/register-calendar-watch/index.ts` | NEW — Subscribes/renews watch channels; called on connect + daily cron |
+| `supabase/functions/calendar-auth/index.ts` | After OAuth success, call register-calendar-watch + first-sync with 30d backfill |
+| `supabase/functions/refresh-calendar-tokens/index.ts` | Also renew expiring webhook channels in same pass |
+| `supabase/migrations/<ts>_calendar_history_and_webhooks.sql` | Unique index `(user_id, external_id)`; webhook channel columns; `event_physiology_join` view; 90-day retention cleanup function |
+| Cron job (via insert tool, not migration) | Schedule `register-calendar-watch` daily; calendar-events 90-day cleanup nightly |
+| `supabase/functions/performance-rhythm-insights/index.ts` | Switch HRV-correlation Path A to query `event_physiology_join` view directly |
+
+### What this changes for you
+
+- **Wearable + Calendar history both retained 90 days** → real "this client call type drops my HRV next morning" patterns surface in Performance Intelligence.
+- **Sub-minute reaction time** when a meeting is added/moved (vs 30 min today) → JIT plans and the brief feel genuinely proactive.
+- **No "calendar disconnect" UX flips** — webhook expiry handled silently by daily cron.
+- **`event_physiology_join`** is queryable from any edge function — single source of truth for correlation, no more recomputing joins ad hoc.
 
 ### Verification
 
-1. Background-sync probe: kill the app, wait 60 min, check `wearable_data.updated_at` advanced without opening the app. Console-side, verify `user_integrations.watch_sync_status` reads `synced` with a recent `watch_last_sync_at`.
-2. Sleep probe: wear watch overnight → next morning, `total_sleep_minutes` and `sleep_score` non-null in DB.
-3. Off-day probe: don't wear watch for 2 days → ConnectedData card shows `"Connected · No data captured Apr 19–20"`, NOT `"Sync delayed"` or `"Reconnect"`.
-4. Permission integrity: confirm reconnect button never appears unless `getHealthKitAuthorization().permissionGranted === false`.
-5. Re-wear probe: skip 3 days → put watch back on → no manual sync needed → next background wake-up populates the missing days back to anchor (capped at 7 days).
+1. **History retention probe:** Add a test event for "yesterday", trigger sync, confirm row persists in `calendar_events` after a second sync 5 min later.
+2. **Webhook latency probe:** Add an event in Google Calendar UI, confirm `calendar_events` row appears within 90 seconds (no manual sync, no app open).
+3. **Backfill probe:** Disconnect a test calendar, reconnect, confirm `MIN(start_time)` is ~30 days in the past.
+4. **Correlation probe:** Query `event_physiology_join` after 14+ days of data — confirm `hrv_delta` populated for past events.
+5. **Webhook renewal probe:** Manually expire a `webhook_expiration` to 1 hour ago, run the daily cron, confirm new `webhook_channel_id` issued.
 
 ### Out of scope
 
-- Android Health Connect background delivery (separate work — current app is iOS-first)
-- Oura background sync (already cron-driven server-side)
-- Changing the v6.2 pillar/veto logic — the data quality fix alone resolves the displayed pillar weirdness
-- Deleting historical rows or backfilling > 7 days of missed data (HealthKit anchor model only walks forward)
+- Apple Calendar / iCloud sync (no public push API — would require an iOS native EventKit observer, separate work)
+- Per-meeting HR (intra-event) correlation — current wearable_data is daily-aggregated; intra-day requires a `wearable_intraday` table (separate plan).
+- Changing event classification logic or JIT scoring — those stay as-is, they just get more data to work with.
+- Outlook webhook implementation in v1 — ship Google first; Outlook subscription endpoint follows same pattern but lower urgency given user base.
 
