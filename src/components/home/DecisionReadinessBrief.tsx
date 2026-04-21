@@ -19,7 +19,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ThumbsUp, ThumbsDown, Equal, Check } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 
@@ -1588,6 +1588,21 @@ const PerformanceReadinessBrief = () => {
         </CollapsibleContent>
       </Collapsible>
 
+      {/* 12.5 BRIEF → PLAN HANDOFF — always-visible CTA */}
+      <button
+        type="button"
+        onClick={() => navigate('/plan')}
+        className="group mt-4 pt-3 w-full flex flex-col items-end gap-0.5 text-right hover:opacity-100 transition-opacity"
+      >
+        <span className="inline-flex items-center gap-1 text-[13px] font-body text-taupe-foreground/90 group-hover:text-taupe-foreground transition-colors">
+          View today's 3 priorities
+          <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2} />
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/45 font-body">
+          Built from this brief
+        </span>
+      </button>
+
       {/* 13. INLINE FEEDBACK ROW — non-intrusive, one chance per day */}
       <BriefFeedbackRow
         briefId={(outerBrief as any)?.briefId ?? null}
@@ -1620,6 +1635,7 @@ interface BriefFeedbackRowProps {
 }
 
 const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
+  const navigate = useNavigate();
   // Prefer per-brief key so feedback resets when a genuinely new brief is generated.
   // Fall back to a date+window key for the brief moment before briefId is available
   // (very rare — the snapshot id is included in the very first edge response).
@@ -1681,10 +1697,15 @@ const BriefFeedbackRow = ({ briefId, tier, score }: BriefFeedbackRowProps) => {
 
   if (mode === 'submitted') {
     return (
-      <div className="mt-4 pt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground/60 font-body animate-in fade-in duration-300">
+      <button
+        type="button"
+        onClick={() => navigate('/plan')}
+        className="group mt-4 pt-3 w-full flex items-center justify-end gap-1.5 text-[11px] font-body text-taupe-foreground/80 hover:text-taupe-foreground transition-colors animate-in fade-in duration-300"
+      >
         <Check className="w-3 h-3" strokeWidth={2.25} />
-        <span>Feedback noted</span>
-      </div>
+        <span>Noted — your 3 priorities are ready</span>
+        <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2.25} />
+      </button>
     );
   }
 
