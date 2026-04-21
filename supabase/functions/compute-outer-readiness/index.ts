@@ -4052,6 +4052,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       weekAheadShape,
       hrvEventCorrelation,
       mostEffectivePractice,
+      divergence: {
+        cognitiveMasked: divergenceMode === 'MASKED_HIGH',
+        resilienceFeltAhead: (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+          && (confidenceLevel != null && confidenceLevel >= 4),
+        sleepUnread: sleepDuration == null && sleepScoreVal == null,
+      },
       // Echo inner readiness so client doesn't need a separate computeEnergyState call
       innerReadinessScore,
       innerReadinessTier: safeTier,
