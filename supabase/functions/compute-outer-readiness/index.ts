@@ -4049,6 +4049,32 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+    } catch (assemblyErr) {
+      const aMsg = assemblyErr instanceof Error ? assemblyErr.message : String(assemblyErr);
+      console.error('[compute-outer-readiness] Response assembly failed — soft-fallback served:', aMsg);
+      const fallbackPhrase = (typeof finalPhrase === 'string' && finalPhrase) ? finalPhrase : 'Steady ground.';
+      const fallbackBody = (typeof finalContext === 'string' && finalContext) ? finalContext : 'Continue with what you know works.';
+      return new Response(JSON.stringify({
+        fallback: true,
+        phrase: fallbackPhrase,
+        context: fallbackBody,
+        bodyText: fallbackBody,
+        leanOn: '',
+        watchFor: '',
+        briefSource: 'deterministic',
+        leanOnSource: 'fallback',
+        watchForSource: 'fallback',
+        dataSources: [],
+        calendarState: 'unknown',
+        hasWearable: false,
+        wearableDaysConnected: 0,
+        innerReadinessScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
+        innerReadinessTier: typeof safeTier === 'string' ? safeTier : null,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[compute-outer-readiness] Error:', msg);
