@@ -203,8 +203,8 @@ Deno.test("assertNoRedundancy catches partial-trigram echo", () => {
   try {
     assertNoRedundancy(
       "self-test",
-      "Recovery intelligence available, calendar light — invest the surplus.",
-      "Recovery Intelligence Window · ARCHETYPE",
+      "Sequence board prep before lunch — recovery intelligence window opens.",
+      "Board prep before · PATTERN",
       "leanOn"
     );
   } catch { threw = true; }
