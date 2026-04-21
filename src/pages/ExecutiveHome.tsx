@@ -365,6 +365,14 @@ const ExecutiveHome = () => {
             }} />
           )}
 
+          {/* Historical Brief Overlay (frosted glass over live home) */}
+          {historicalBriefId && (
+            <HistoricalBriefOverlay
+              briefId={historicalBriefId}
+              onClose={closeHistoricalBrief}
+            />
+          )}
+
           {/* Plan Feedback Modal */}
           {planFeedback && (
             <PlanFeedbackModal

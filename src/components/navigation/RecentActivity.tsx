@@ -12,6 +12,7 @@ interface Activity {
   title: string;
   date: Date;
   sessionId?: string;
+  briefId?: string;
 }
 
 interface ActivityGroup {
@@ -121,8 +122,12 @@ const RecentActivity = () => {
                     if (activity.type === 'recalibrate') {
                       navigate('/recalibrate');
                     } else if (activity.type === 'brief') {
-                      const dateStr = activity.date.toISOString().split('T')[0];
-                      navigate(`/executive-home?briefDate=${dateStr}`);
+                      if (activity.briefId) {
+                        navigate(`/executive-home?briefId=${activity.briefId}`);
+                      } else {
+                        // Fallback: open live home if id missing
+                        navigate(`/executive-home`);
+                      }
                     }
                   }}
                   className="h-auto py-1.5"
