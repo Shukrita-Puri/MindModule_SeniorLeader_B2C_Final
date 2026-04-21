@@ -23,6 +23,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
+import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
@@ -89,7 +90,19 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
-const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
+const TodayThreePriorities = ({
+  onEmpty,
+  onLoaded,
+  expandReflection,
+  reflectionContext,
+  reflectionEvent,
+}: {
+  onEmpty?: () => void;
+  onLoaded?: () => void;
+  expandReflection?: boolean;
+  reflectionContext?: string | null;
+  reflectionEvent?: string | null;
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
