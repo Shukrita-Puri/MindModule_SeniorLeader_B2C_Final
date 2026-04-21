@@ -531,32 +531,74 @@ const worstOf = (states: PillState[]): PillState => {
 };
 
 // ─── SIGNAL PILL REALIGNMENT v2 ───
-// Severity-aware tier composition with strong-red override + median fallback.
-// Inputs are weighted contributions, not flat tiers, so a single mild amber
-// cannot dominate a pillar.
+// ─── SIGNAL PILL v6.2 — Hardware Veto + Three Modes ───
+// Replaces median-of-tiers with `finalTier = MAX(hardwareFloor, outcomeFloor, weightedAverage)`.
+// Honest under missing data: fewer signals reduce certainty, never "promote" a green.
 type ContribTier = 'red' | 'amber' | 'green' | 'neutral';
 type Severity = 'strong' | 'mild' | 'normal';
-interface PillarContrib { tier: ContribTier; severity?: Severity; weight?: number }
+type PillarMode = 'full' | 'wearable' | 'checkin' | 'unknown';
+interface PillarContrib {
+  tier: ContribTier;
+  severity?: Severity;
+  weight: number;          // base weight (0..1)
+  veto?: PillState;        // if set, raises floor (e.g. drained → amber, HRV -25% → red)
+  source: 'hardware' | 'outcome' | 'self';
+}
 
-// Median-of-tiers fallback (treats neutral as missing). Ties break upward toward worse.
-const medianTier = (contribs: PillarContrib[]): PillState => {
-  const order: Record<Exclude<ContribTier, 'neutral'>, number> = { green: 0, amber: 1, red: 2 };
-  const vals = contribs
-    .filter(c => c.tier !== 'neutral')
-    .map(c => order[c.tier as Exclude<ContribTier, 'neutral'>]);
-  if (vals.length === 0) return 'neutral';
-  vals.sort((a, b) => a - b);
-  // Upper-median: bias toward the more concerning signal on ties
-  const med = vals[Math.ceil((vals.length - 1) / 2)];
-  return med === 2 ? 'red' : med === 1 ? 'amber' : 'green';
+const TIER_RANK: Record<PillState, number> = { neutral: -1, green: 0, amber: 1, red: 2 };
+const RANK_TIER: PillState[] = ['green', 'amber', 'red'];
+const stateMax = (a: PillState, b: PillState): PillState => {
+  if (a === 'neutral') return b;
+  if (b === 'neutral') return a;
+  return TIER_RANK[a] >= TIER_RANK[b] ? a : b;
 };
 
-// Compose pillar state: strong-red on any input forces RED; otherwise median.
-const composePillar = (contribs: PillarContrib[]): PillState => {
-  const hasStrongRed = contribs.some(c => c.tier === 'red' && c.severity === 'strong');
-  if (hasStrongRed) return 'red';
-  return medianTier(contribs);
+// Weighted average across present contributions (renormalizes weights when signals missing).
+const weightedAverageTier = (contribs: PillarContrib[]): PillState => {
+  const present = contribs.filter(c => c.tier !== 'neutral');
+  if (present.length === 0) return 'neutral';
+  const totalWeight = present.reduce((s, c) => s + c.weight, 0) || 1;
+  const score = present.reduce((s, c) => {
+    const v = c.tier === 'red' ? 2 : c.tier === 'amber' ? 1 : 0;
+    return s + v * (c.weight / totalWeight);
+  }, 0);
+  if (score >= 1.34) return 'red';
+  if (score >= 0.67) return 'amber';
+  return 'green';
 };
+
+interface PillarComputation {
+  tier: PillState;
+  hardwareFloor: PillState;
+  outcomeFloor: PillState;
+  weighted: PillState;
+  presentSignals: number;
+  expectedSignals: number;
+}
+
+// Hardware Veto + Outcome Veto + Weighted Average compose into final tier.
+const computePillar = (contribs: PillarContrib[]): PillarComputation => {
+  // Hardware floor: any strong-red hardware veto, OR any non-neutral hardware veto
+  const hardwareFloor = contribs
+    .filter(c => c.source === 'hardware' && c.veto)
+    .reduce<PillState>((acc, c) => stateMax(acc, c.veto!), 'neutral');
+  const outcomeFloor = contribs
+    .filter(c => c.source === 'outcome' && c.veto)
+    .reduce<PillState>((acc, c) => stateMax(acc, c.veto!), 'neutral');
+  const weighted = weightedAverageTier(contribs);
+  const tier = stateMax(stateMax(hardwareFloor, outcomeFloor), weighted);
+  return {
+    tier,
+    hardwareFloor,
+    outcomeFloor,
+    weighted,
+    presentSignals: contribs.filter(c => c.tier !== 'neutral').length,
+    expectedSignals: contribs.length,
+  };
+};
+
+// Legacy alias — kept so any unrelated callers continue to work but routed through new engine.
+const composePillar = (contribs: PillarContrib[]): PillState => computePillar(contribs).tier;
 
 function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
