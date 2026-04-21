@@ -3417,6 +3417,7 @@ READINESS BLACKLIST: Never use 'readiness' in phrase or body.
 DAY NAMING: Name future day only if ≤2 days away. Otherwise: 'this week' / 'mid-week'.
 JIT OVERRIDE: <30min → orient entirely. 30-90min → preparation. >90min → context only.
 NO PHRASE IN BODY. NO CALENDAR WITHOUT CONNECTION. BOLD via <strong> tags only (no asterisks). NULL fields → ignore, never fabricate.
+EVENT-TIME PAIRING RULE: When you reference a meeting time, use ONLY the time printed next to that meeting's title (format "HH:MM — Title"). Never combine a meeting title with a time from a different line. If no time is paired with a title, omit the time. All event times provided are already in the user's CURRENT timezone — do not adjust or convert them, and do not mention the home timezone unless directly relevant to a sleep/circadian observation.
 
 DAY-TYPE OVERRIDES:
 SUNDAY EVE: Frame into Monday. Loaded+heavy→directive. Light→spacious. Never: 'Reflect'/'Rest before'/'Prepare'.
@@ -4040,6 +4041,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // ═══ BRIEF SNAPSHOT CACHE: persist on cache miss ═══
     // Fire-and-forget upsert. Never block the response. Stores both LLM and deterministic outputs
     // so a failed/timed-out LLM call still produces a stable canonical brief on next refresh.
+    // Note: snapshot id resolution for the response is done synchronously below
+    // (best-effort) so the client can key feedback by it.
+    let resolvedBriefId: string | null = null;
+    if (cachedSnapshot && inputSignature !== 'no-sig') {
+      try {
+        const { data: idRow } = await db
+          .from('brief_snapshots')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('local_date', userLocalDate)
+          .eq('time_window', getTimeOfDay(hour))
+          .eq('input_signature', inputSignature)
+          .eq('prompt_version', BRIEF_PROMPT_VERSION)
+          .maybeSingle();
+        resolvedBriefId = (idRow as any)?.id ?? null;
+      } catch { /* ignore — non-fatal for response */ }
+    }
     if (!cachedSnapshot && inputSignature !== 'no-sig') {
       (async () => {
         try {
