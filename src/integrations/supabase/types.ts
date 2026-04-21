@@ -2954,6 +2954,7 @@ export type Database = {
           component_scores: Json | null
           created_at: string | null
           current_streak: number | null
+          current_timezone: string | null
           display_name: string | null
           email: string
           energy_regulation_response: string | null
@@ -2963,6 +2964,7 @@ export type Database = {
           founding_member_granted_at: string | null
           full_name: string | null
           growth_priority: string | null
+          home_timezone: string | null
           id: string
           identity_role: string | null
           last_login_at: string | null
@@ -3012,6 +3014,7 @@ export type Database = {
           component_scores?: Json | null
           created_at?: string | null
           current_streak?: number | null
+          current_timezone?: string | null
           display_name?: string | null
           email: string
           energy_regulation_response?: string | null
@@ -3021,6 +3024,7 @@ export type Database = {
           founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
+          home_timezone?: string | null
           id: string
           identity_role?: string | null
           last_login_at?: string | null
@@ -3070,6 +3074,7 @@ export type Database = {
           component_scores?: Json | null
           created_at?: string | null
           current_streak?: number | null
+          current_timezone?: string | null
           display_name?: string | null
           email?: string
           energy_regulation_response?: string | null
@@ -3079,6 +3084,7 @@ export type Database = {
           founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
+          home_timezone?: string | null
           id?: string
           identity_role?: string | null
           last_login_at?: string | null
