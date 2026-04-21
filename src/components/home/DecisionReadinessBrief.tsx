@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
+import { Button } from '@/components/ui/button';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -685,8 +686,16 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   };
 
   // ── HR-elevated proxy (Physiology, sympathetic dominance) ──
-  // No dedicated heart_rate column yet; proxy from significant RHR elevation.
+  // Prefer real heart_rate deviation when present; fall back to RHR-derived proxy.
+  const hrVal = outerBrief?.hrValue as number | null;
+  const hrDev = outerBrief?.hrDeviation as number | null;
+  const hrBaseline = outerBrief?.hrBaseline as number | null;
   const hrElevatedContrib = (): PillarContrib => {
+    if (hrVal != null && hrDev != null) {
+      if (hrDev > 20) return { tier: 'red', severity: 'mild' };
+      if (hrDev > 10) return { tier: 'amber' };
+      return { tier: 'green' };
+    }
     if (rhrDev == null) return { tier: 'neutral' };
     if (rhrDev > 25) return { tier: 'red', severity: 'mild' };
     if (rhrDev > 15) return { tier: 'amber' };
@@ -926,18 +935,31 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (rhrDev != null && rhrDev > 15) q = q ? `${q} · sympathetic dominance` : 'sympathetic dominance';
     physTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
   }
-  // HR-elevated proxy line — sympathetic-dominance signal derived from RHR deviation.
-  // Per §7.2, HR-elevated is a distinct Physiology input alongside Sleep and RHR.
-  // Render only when we have a deviation signal (so it's evidence-based, not a guess).
-  if (rhrDev != null) {
+  // HR line — prefer real heart_rate (avg bpm) when present; otherwise use the
+  // RHR-deviation proxy and label it as estimated. Per §7.2, HR is a distinct
+  // Physiology input alongside Sleep and RHR.
+  if (hrVal != null) {
+    const tier = hrDev == null
+      ? 'calm'
+      : hrDev > 20 ? 'elevated' : hrDev > 10 ? 'rising' : 'calm';
+    const stateNote = tier === 'calm'
+      ? 'autonomic state stable'
+      : tier === 'rising'
+        ? 'sympathetic activation building'
+        : 'sustained sympathetic dominance';
+    const baselinePart = (hrDev != null && hrBaseline)
+      ? `${devSign(hrDev)} vs ${hrBaseline}bpm baseline · ${tier} · ${stateNote}`
+      : `${tier} · ${stateNote}`;
+    physTop.push({ text: `HR ${hrVal}bpm`, qualifier: baselinePart, kind: 'wearable' });
+  } else if (rhrDev != null) {
     const hrTier = rhrDev > 25 ? 'elevated' : rhrDev > 15 ? 'rising' : 'calm';
     const hrText = hrTier === 'calm' ? 'HR — calm' : hrTier === 'rising' ? 'HR — rising' : 'HR — elevated';
-    const hrQ = hrTier === 'calm'
+    const hrStateQ = hrTier === 'calm'
       ? 'autonomic state stable'
       : hrTier === 'rising'
       ? 'sympathetic activation building'
       : 'sustained sympathetic dominance';
-    physTop.push({ text: hrText, qualifier: hrQ, kind: 'wearable' });
+    physTop.push({ text: hrText, qualifier: `estimated · ${hrStateQ}`, kind: 'wearable' });
   }
   const physBottom: PillLine[] = [];
 
