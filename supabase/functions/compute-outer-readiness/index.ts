@@ -4079,7 +4079,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             score: innerReadinessScore ?? null,
             tier: safeTier,
             llm_fallback_reason: llmFallbackReason ?? null,
-            llm_attempts: llmAttempts as any,
+            // llm_attempts is fixed by build (gemini-2.5-flash → claude-sonnet); store
+            // null here — `llmAttempts` is locally scoped to the LLM block above and
+            // is not visible at this point, and the per-attempt detail is already
+            // captured in the structured logs.
+            llm_attempts: null,
             validator_rejections: null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
             payload_json: {
