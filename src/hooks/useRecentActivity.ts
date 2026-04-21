@@ -53,11 +53,12 @@ export const useRecentActivity = () => {
             const cl = levelIcon(checkin.clarity_level);
             const co = levelIcon(checkin.confidence_level);
             const ms = levelIcon(checkin.mental_sharpness_level);
-            // e.g. "Focused, ● Clarity, ▲ Confidence, ● Sharpness"
+            // e.g. "Focused, ● Clear, ▲ Confident, ● Sharp" — short labels keep
+            // the row from clipping inside the fixed-width sidebar.
             const parts: string[] = [];
-            if (cl) parts.push(`${cl} Clarity`);
-            if (co) parts.push(`${co} Confidence`);
-            if (ms) parts.push(`${ms} Sharpness`);
+            if (cl) parts.push(`${cl} Clear`);
+            if (co) parts.push(`${co} Confident`);
+            if (ms) parts.push(`${ms} Sharp`);
             const suffix = parts.join(', ');
 
             allActivities.push({
