@@ -544,7 +544,7 @@ const SoundscapePlayer = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
       return;
     }
     
