@@ -217,16 +217,21 @@ serve(async (req) => {
     }
 
     let events: CalendarEventRow[] = [];
-    // Sync window: start of today (user's local midnight) through 7 days ahead.
-    // This ensures past events from today are always captured, not just future ones.
+    // Sync window:
+    //  - First sync after connect: [today-30d, today+8d] for one-time historical backfill
+    //  - Subsequent syncs: [today-2d, today+8d] (covers timezone edge cases + recently-edited past events)
+    // History beyond the rolling window is preserved (we no longer delete past events on sync).
     const startOfTodayUTC = new Date(now);
     startOfTodayUTC.setUTCHours(0, 0, 0, 0);
-    // If timezoneOffset was passed, adjust – fall back to UTC midnight
     const timezoneOffset = body.timezoneOffset ?? 0;
-    const syncWindowStart = new Date(startOfTodayUTC.getTime() + timezoneOffset * 60000);
-    const syncWindowEnd = new Date(syncWindowStart.getTime() + 8 * 24 * 60 * 60 * 1000); // 8 days to cover full 7-day rolling window
+    const localMidnight = new Date(startOfTodayUTC.getTime() + timezoneOffset * 60000);
 
-    console.log('[sync-calendar] Sync window:', syncWindowStart.toISOString(), '→', syncWindowEnd.toISOString());
+    const isFirstSync = !connection.last_sync;
+    const lookbackDays = isFirstSync ? 30 : 2;
+    const syncWindowStart = new Date(localMidnight.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+    const syncWindowEnd = new Date(localMidnight.getTime() + 8 * 24 * 60 * 60 * 1000);
+
+    console.log('[sync-calendar] Sync window:', syncWindowStart.toISOString(), '→', syncWindowEnd.toISOString(), 'firstSync:', isFirstSync);
 
     if (provider === 'google') {
       const response = await fetch(
@@ -347,23 +352,48 @@ serve(async (req) => {
 
     console.log('[sync-calendar] Classified', classifiedEvents.length, 'events');
 
-    // Delete + insert
-    await serviceClient.from('calendar_events').delete().eq('user_id', userId);
-
+    // Layer 1: Upsert events (preserve history) instead of DELETE → INSERT.
+    // Only future-dated events that disappeared from the upstream API get deleted.
     if (classifiedEvents.length > 0) {
-      const { error: insertError } = await serviceClient.from('calendar_events').insert(classifiedEvents);
-      if (insertError) {
-        console.error('[sync-calendar] Insert error:', insertError);
-        throw insertError;
+      const { error: upsertError } = await serviceClient
+        .from('calendar_events')
+        .upsert(classifiedEvents, { onConflict: 'user_id,external_id' });
+      if (upsertError) {
+        console.error('[sync-calendar] Upsert error:', upsertError);
+        throw upsertError;
       }
+    }
+
+    // Scoped delete: remove future-dated events that are no longer in the upstream response.
+    // Past events are preserved (history floor enforced by 90-day cleanup cron).
+    const upstreamIds = classifiedEvents.map(e => e.external_id);
+    const todayIso = new Date(localMidnight.getTime()).toISOString();
+
+    if (upstreamIds.length > 0) {
+      const { error: scopedDelErr } = await serviceClient
+        .from('calendar_events')
+        .delete()
+        .eq('user_id', userId)
+        .gte('start_time', todayIso)
+        .not('external_id', 'in', `(${upstreamIds.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`);
+      if (scopedDelErr) {
+        console.warn('[sync-calendar] Scoped delete warning (non-fatal):', scopedDelErr.message);
+      }
+    } else {
+      // No upstream events at all – clear future-only window
+      await serviceClient
+        .from('calendar_events')
+        .delete()
+        .eq('user_id', userId)
+        .gte('start_time', todayIso);
     }
 
     // Update last_sync
     await serviceClient.from('calendar_connections').update({ last_sync: new Date().toISOString() }).eq('user_id', userId).eq('provider', provider);
 
-    console.log('[sync-calendar] Sync complete! Events:', classifiedEvents.length);
+    console.log('[sync-calendar] Sync complete! Events upserted:', classifiedEvents.length, 'firstSync:', isFirstSync);
 
-    return jsonOk({ success: true, eventCount: classifiedEvents.length, lastSync: new Date().toISOString() });
+    return jsonOk({ success: true, eventCount: classifiedEvents.length, lastSync: new Date().toISOString(), firstSync: isFirstSync });
   } catch (error) {
     console.error('[sync-calendar] Unhandled error:', error);
     // Return 200 with failure to prevent caller crashes
