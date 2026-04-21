@@ -731,15 +731,37 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return { tier: 'neutral' };
   };
 
-  // ── COGNITIVE PILLAR ──
-  // Inputs: HRV (primary) + Sharpness + Clarity + cognitive outcome
+  // ── COGNITIVE PILLAR (v6.2 Hardware Veto) ──
+  // Weights: HRV 0.5 (hardware veto at -20% dev), Sharpness 0.3 (veto AMBER ≤2),
+  // Clarity 0.2 (veto AMBER ≤2). Outcome routed as 'self' but no veto.
+  const hrvCogRaw = hrvCognitiveContrib();
+  const sharpRaw = sharpnessContrib();
+  const clarityRaw = clarityContrib();
+  const cogOutcomeRaw = cognitiveOutcomeContrib();
   const cogContribs: PillarContrib[] = [
-    hrvCognitiveContrib(),
-    sharpnessContrib(),
-    clarityContrib(),
-    cognitiveOutcomeContrib(),
+    {
+      ...hrvCogRaw,
+      weight: 0.5,
+      source: 'hardware',
+      // Hardware veto: HRV dev ≤ -20% locks pillar RED
+      veto: hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined,
+    },
+    {
+      ...sharpRaw,
+      weight: 0.3,
+      source: 'self',
+      veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined,
+    },
+    {
+      ...clarityRaw,
+      weight: 0.2,
+      source: 'self',
+      veto: (clarity != null && clarity <= 2) ? 'amber' : undefined,
+    },
+    { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
   ];
-  let cogState = composePillar(cogContribs);
+  const cogComp = computePillar(cogContribs);
+  let cogState = cogComp.tier;
 
   // ── Wearable Authority on Cognitive ──
   // MASKED_HIGH: HRV red + self-reports green/amber → cap at AMBER minimum
@@ -761,14 +783,61 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   }
 
   // ── PHYSIOLOGY PILLAR ── pure body, no self-report, no outcome
-  const physState = composePillar([sleepContrib(), rhrContrib(), hrElevatedContrib()]);
+  // Hardware-only. Sleep weight 0.5 (veto RED <5h, AMBER <6.5h or <70 score),
+  // RHR 0.25, HR-elevated proxy 0.25.
+  const sleepRaw = sleepContrib();
+  const rhrRaw = rhrContrib();
+  const hrElevatedRaw = hrElevatedContrib();
+  const sleepKnown = (sleepDur != null) || (sleepScore != null);
+  const sleepVeto: PillState | undefined =
+    (sleepDur != null && sleepDur < 300) ? 'red'
+    : (sleepDur != null && sleepDur < 390) ? 'amber'
+    : (sleepScore != null && sleepScore < 70) ? 'amber'
+    : undefined;
+  const rhrVeto: PillState | undefined =
+    (rhrDev != null && rhrDev > 20) ? 'red'
+    : (rhrDev != null && rhrDev > 10) ? 'amber'
+    : undefined;
+  const physContribs: PillarContrib[] = [
+    { ...sleepRaw, weight: 0.5, source: 'hardware', veto: sleepVeto },
+    { ...rhrRaw, weight: 0.25, source: 'hardware', veto: rhrVeto },
+    { ...hrElevatedRaw, weight: 0.25, source: 'hardware' },
+  ];
+  const physComp = computePillar(physContribs);
+  let physState = physComp.tier;
+  // Completeness ceiling: sleep missing → never green-confident, cap at AMBER
+  if (!sleepKnown && physState === 'green' && physComp.presentSignals > 0) {
+    physState = 'amber';
+  }
+  // Mode-3 (no hardware at all) — physiology becomes UNKNOWN
+  const physHasAnySignal = physComp.presentSignals > 0;
+  if (!physHasAnySignal) physState = 'neutral';
 
   // ── RESILIENCE PILLAR ──
-  const emoState = composePillar([
-    hrvResilienceContrib(),
-    confidenceContrib(),
-    resilienceOutcomeContrib(),
-  ]);
+  // Mental Energy (outcome) 0.5 with HARD veto (drained→AMBER, overwhelmed→RED).
+  // HRV (strict band) 0.3. Confidence 0.2 modifier only.
+  const hrvResRaw = hrvResilienceContrib();
+  const confRaw = confidenceContrib();
+  const emoOutcomeRaw = resilienceOutcomeContrib();
+  const emoOutcomeVeto: PillState | undefined =
+    checkInOutcome === 'overwhelmed' ? 'red'
+    : checkInOutcome === 'drained' ? 'amber'
+    : undefined;
+  const hrvResVeto: PillState | undefined =
+    (hrvDev != null && hrvDev <= -25) ? 'amber'
+    : undefined;
+  const emoContribs: PillarContrib[] = [
+    { ...emoOutcomeRaw, weight: 0.5, source: 'outcome', veto: emoOutcomeVeto },
+    { ...hrvResRaw, weight: 0.3, source: 'hardware', veto: hrvResVeto },
+    { ...confRaw, weight: 0.2, source: 'self' },
+  ];
+  const emoComp = computePillar(emoContribs);
+  const emoState = emoComp.tier;
+
+  // ── Divergence flags (used in qualifiers + bubbled to outerBrief.divergence) ──
+  const cognitiveMasked = cogAuthorityFlag === 'masked-high';
+  const resilienceFeltAhead = (checkInOutcome === 'drained' || checkInOutcome === 'overwhelmed')
+    && (confidence != null && confidence >= 4);
 
   // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
