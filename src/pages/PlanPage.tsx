@@ -21,10 +21,10 @@ const PlanPage = () => {
 
             <div className="px-3 md:px-4 pb-2 text-center">
               <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
-                Today's Mental Performance Priorities
+                Today's 3 Mental Performance Priorities
               </h1>
               <p className="text-sm text-muted-foreground/70 mt-1 font-body">
-                Your performance priorities for today
+                Your priorities mapped based on your readiness brief & your day
               </p>
             </div>
 

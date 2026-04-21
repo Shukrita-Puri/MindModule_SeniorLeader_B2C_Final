@@ -44,7 +44,7 @@ const PlanFeedbackModal = ({
     : "What got in the way?";
 
   const title = priorityLabel
-    ? `${priorityLabel} Complete`
+    ? "Plan Complete"
     : planType === "jit" ? "Pre-Event Preparation Complete" : "Plan Complete";
 
   const handleSubmit = () => {
@@ -78,25 +78,25 @@ const PlanFeedbackModal = ({
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="rounded-3xl max-w-md w-full max-h-[85vh] overflow-y-auto bg-white/15 backdrop-blur-md border border-white/40 shadow-xl">
-        <div className="px-6 md:px-8 pt-6 md:pt-8 pb-3 space-y-1">
-          <h2 className="text-[15px] md:text-[20px] font-medium tracking-tight text-white">
+        <div className="px-5 pt-5 pb-2 space-y-1.5">
+          <h2 className="text-[22px] md:text-[26px] font-headline tracking-tight text-white">
             {title}
           </h2>
-          <p className="text-xs text-white/60 animate-in fade-in duration-700">
-            How did this plan work for you?
+          <p className="text-[11px] uppercase tracking-[0.08em] text-white/60 font-body font-medium animate-in fade-in duration-700">
+            Did this plan work for you?
           </p>
         </div>
 
-        <div className="px-6 md:px-8 pb-6 md:pb-8 pt-1">
+        <div className="px-5 pb-5 pt-1">
           <FeedbackCapture
             variant="glass"
+            hideRatingPrompt
             rating={rating}
             onRatingChange={setRating}
             feedback={feedback}
             onFeedbackChange={setFeedback}
             onSubmit={handleSubmit}
             onCancel={onSkip}
-            ratingPrompt="Rate your experience"
             positivePlaceholder={positivePlaceholder}
             negativePlaceholder={negativePlaceholder}
             submitLabel="Submit"

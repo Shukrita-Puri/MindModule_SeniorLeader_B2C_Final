@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Check, Heart, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,6 +91,7 @@ interface MasteryPlanResponse {
 
 const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onLoaded?: () => void }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
@@ -452,7 +453,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   // ── Navigation ──
   const navigateToCoach = (prompt: string, flowType: string, eventTitle?: string) => {
     navigate('/coach', {
-      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true, entryContext: { entryPoint: 'tod_plan', lastAction: 'started daily plan', triggeredBy: null } },
+      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true, entryRoute: location.pathname, entryContext: { entryPoint: 'tod_plan', lastAction: 'started daily plan', triggeredBy: null } },
     });
   };
 
@@ -500,7 +501,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
     if (module.contentType === 'soundbath') route = `/soundscapes/${module.contentId}`;
     else if (module.contentType === 'guided-practice') route = `/guided-practices/${module.contentId}`;
     else route = `/micro-practice/${module.contentId}/cards`;
-    navigate(route, { state: { category: 'pause', fromRitual: true } });
+    navigate(route, { state: { category: 'pause', fromRitual: true, entryRoute: location.pathname } });
   };
 
   // ── JIT Dismiss ──
@@ -563,11 +564,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   if (loading) {
     return (
       <div className="space-y-4 pt-2">
-        <div className="px-4 max-w-lg mx-auto">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
-        </div>
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
           {[1, 2, 3].map((n) => (
             <div key={n} className="flex items-center gap-3 py-2">
@@ -589,11 +585,6 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
   if (!horizonModules || horizonModules.length === 0) {
     return (
       <div className="space-y-4 pt-2">
-        <div className="px-4 max-w-lg mx-auto">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
-        </div>
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
           {[1, 2, 3].map((n) => (
             <div key={n} className="flex items-center gap-3 py-2">
@@ -655,10 +646,7 @@ const TodayThreePriorities = ({ onEmpty, onLoaded }: { onEmpty?: () => void; onL
 
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
-        <div className="flex items-center justify-between">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Performance Priorities
-          </span>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xs font-medium font-body whitespace-nowrap",

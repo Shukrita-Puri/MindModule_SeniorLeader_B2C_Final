@@ -328,7 +328,7 @@ const SoundscapePlayer = () => {
     // Clear queue and return home
     localStorage.removeItem('practiceQueue');
     toast.success('Ritual paused');
-    navigate('/executive-home');
+    navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
   };
 
   const handleQueueComplete = () => {
@@ -362,7 +362,7 @@ const SoundscapePlayer = () => {
       setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
     }
   };
 
@@ -371,13 +371,13 @@ const SoundscapePlayer = () => {
     if (!next) return;
     
     localStorage.setItem('queueIndex', String(currentQueueIndex + 1));
-    
+    const entryRoute = (location.state as any)?.entryRoute;
     if (next.contentType === 'soundbath') {
-      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true, entryRoute } });
     } else if (next.contentType === 'guided-practice') {
-      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true, entryRoute } });
     } else if (next.contentType === 'micro-practice') {
-      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true, entryRoute } });
     } else if (next.contentType === 'coach') {
       // Handle Coach cards - navigate to coach page with context
       navigate('/coach', { 
@@ -386,7 +386,8 @@ const SoundscapePlayer = () => {
           initialPrompt: next.id === 'coach-prepare' 
             ? "I have an important moment coming up. Help me mentally prepare and visualize success."
             : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
-          fromRitual: true 
+          fromRitual: true,
+          entryRoute,
         } 
       });
     }
@@ -466,7 +467,7 @@ const SoundscapePlayer = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
       return;
     }
     
@@ -543,7 +544,7 @@ const SoundscapePlayer = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate('/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
       return;
     }
     

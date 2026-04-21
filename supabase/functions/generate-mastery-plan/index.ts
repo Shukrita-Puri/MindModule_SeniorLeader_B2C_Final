@@ -2847,14 +2847,26 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       return { situation: 'State trending down', whyLine: 'Your state has been trending down — this is the reset point.' };
     }
     if (hasCalendar && ctx.meetingCount >= 4) {
-      return { situation: 'Heavy calendar', whyLine: `${ctx.meetingCount} meetings today — this keeps you sharp through them.` };
+      if (isEvening) {
+        return { situation: 'Heavy day completed', whyLine: 'Heavy day completed — sustain your edge into tomorrow.' };
+      }
+      return { situation: 'Heavy calendar', whyLine: `Heavy day — this keeps you sharp through it.` };
     }
     if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel >= 4) {
       const todAnchor = ctx.timeOfDay === 'morning' ? 'afternoon' : ctx.timeOfDay === 'afternoon' ? 'evening' : 'tomorrow';
       return { situation: 'Clarity strong', whyLine: `Clarity strong — this maintains it through the ${todAnchor}.` };
     }
-    if (ctx.dayOfWeek === 'Monday') return { situation: 'Week entry', whyLine: "Monday demands more — this builds the week's foundation." };
-    if (ctx.dayOfWeek === 'Friday') return { situation: 'Week close', whyLine: 'End of week — this sustains your quality through the close.' };
+    if (ctx.dayOfWeek === 'Monday' && !isEvening) {
+      return { situation: 'Week entry', whyLine: "Monday demands more — this builds the week's foundation." };
+    }
+    if (ctx.dayOfWeek === 'Friday') {
+      return isEvening
+        ? { situation: 'Week close', whyLine: 'Week closing — recover what the week pulled from you.' }
+        : { situation: 'Week close', whyLine: 'End of week — this sustains your quality through the close.' };
+    }
+    if (isEvening) {
+      return { situation: 'Day close', whyLine: 'For your state — close the day with intention.' };
+    }
     return { situation: 'State maintenance', whyLine: 'For your state and demands today.' };
   }
 
