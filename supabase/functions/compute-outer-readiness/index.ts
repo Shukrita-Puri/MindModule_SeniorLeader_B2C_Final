@@ -2856,20 +2856,60 @@ serve(async (req) => {
           const tomorrowRank = loadRank[tomorrowLoad || 'low'] || 1;
           tomorrowVsTodayLoad = tomorrowRank > todayRank ? 'heavier' : tomorrowRank < todayRank ? 'lighter' : 'similar';
 
-          // Tomorrow first event time
+          // Tomorrow first event time + per-title times for high-stakes events.
+          // CRITICAL: filter out all-day / multi-day blockers (e.g. expo passes that
+          // span 00:00–23:59) — they are not "first scheduled meetings" and the LLM
+          // would otherwise pair their 00:00 start with an unrelated meeting title.
           try {
             const tomorrowDateObj = new Date(userTime.getTime() + 86400000);
             const tStart = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 0, 0, 0));
             const tEnd = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 23, 59, 59));
             const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
             const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
-            const { data: tFirstEvt } = await db.from('calendar_events').select('start_time').eq('user_id', userId)
-              .gte('start_time', tStartUTC.toISOString()).lte('start_time', tEndUTC.toISOString())
-              .order('start_time', { ascending: true }).limit(1).maybeSingle();
-            if (tFirstEvt) {
-              const evTime = new Date(new Date(tFirstEvt.start_time).getTime() - timezoneOffset * 60000);
-              tomorrowFirstEventTime = `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            const { data: tEvts } = await db.from('calendar_events')
+              .select('title, start_time, end_time, attendees_count')
+              .eq('user_id', userId)
+              .gte('start_time', tStartUTC.toISOString())
+              .lte('start_time', tEndUTC.toISOString())
+              .order('start_time', { ascending: true });
+
+            // Format any UTC date in the user's CURRENT timezone (IANA) when
+            // available; otherwise fall back to numeric offset arithmetic.
+            const fmtLocalHHmm = (utcDate: Date): string => {
+              if (effectiveCurrentTz) {
+                try {
+                  return new Intl.DateTimeFormat('en-GB', {
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                    timeZone: effectiveCurrentTz,
+                  }).format(utcDate);
+                } catch { /* fall through */ }
+              }
+              const evTime = new Date(utcDate.getTime() - timezoneOffset * 60000);
+              return `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            };
+
+            // All-day / multi-day filter: anything ≥8h is treated as a calendar
+            // blocker (expo, vacation, OOO), not a "first scheduled meeting".
+            const isMeetingLike = (e: any): boolean => {
+              const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000;
+              return dur < 8;
+            };
+
+            const meetingEvents = (tEvts || []).filter(isMeetingLike);
+            if (meetingEvents.length > 0) {
+              const first = meetingEvents[0];
+              const firstTime = fmtLocalHHmm(new Date(first.start_time));
+              tomorrowFirstEventTime = firstTime;
+              tomorrowFirstMeetingPair = `${firstTime} — ${first.title || 'Untitled meeting'}`;
             }
+
+            // Pair each high-stakes title with its own time so the LLM can never
+            // mis-glue a title to a different line's time. Match by title.
+            tomorrowHighStakesEventTimes = tomorrowHighStakesTitles.map(title => {
+              const match = meetingEvents.find(e => (e.title || '').trim() === title.trim());
+              if (!match) return '';
+              return fmtLocalHHmm(new Date(match.start_time));
+            });
           } catch (e) { /* ignore */ }
         }
 
