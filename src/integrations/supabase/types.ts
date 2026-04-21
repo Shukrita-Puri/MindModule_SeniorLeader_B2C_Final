@@ -152,6 +152,78 @@ export type Database = {
         }
         Relationships: []
       }
+      brief_snapshots: {
+        Row: {
+          body_text: string | null
+          brief_source: string
+          created_at: string
+          driver: string | null
+          feedback_text: string | null
+          id: string
+          input_signature: string
+          lean_on: string | null
+          lean_on_source: string | null
+          local_date: string
+          payload_json: Json | null
+          phrase: string | null
+          prompt_version: string
+          score: number | null
+          tier: string | null
+          time_window: string
+          updated_at: string
+          user_id: string
+          user_rating: string | null
+          watch_for: string | null
+          watch_for_source: string | null
+        }
+        Insert: {
+          body_text?: string | null
+          brief_source: string
+          created_at?: string
+          driver?: string | null
+          feedback_text?: string | null
+          id?: string
+          input_signature: string
+          lean_on?: string | null
+          lean_on_source?: string | null
+          local_date: string
+          payload_json?: Json | null
+          phrase?: string | null
+          prompt_version: string
+          score?: number | null
+          tier?: string | null
+          time_window: string
+          updated_at?: string
+          user_id: string
+          user_rating?: string | null
+          watch_for?: string | null
+          watch_for_source?: string | null
+        }
+        Update: {
+          body_text?: string | null
+          brief_source?: string
+          created_at?: string
+          driver?: string | null
+          feedback_text?: string | null
+          id?: string
+          input_signature?: string
+          lean_on?: string | null
+          lean_on_source?: string | null
+          local_date?: string
+          payload_json?: Json | null
+          phrase?: string | null
+          prompt_version?: string
+          score?: number | null
+          tier?: string | null
+          time_window?: string
+          updated_at?: string
+          user_id?: string
+          user_rating?: string | null
+          watch_for?: string | null
+          watch_for_source?: string | null
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           access_token_enc: string | null

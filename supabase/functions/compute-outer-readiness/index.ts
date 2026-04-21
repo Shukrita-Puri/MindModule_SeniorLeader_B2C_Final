@@ -8,6 +8,79 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// ==================== BRIEF SNAPSHOT CACHE ====================
+// Bump this constant whenever the brief prompt contract or canonical-output
+// behaviour changes. A bump intentionally invalidates all prior cached briefs.
+const BRIEF_PROMPT_VERSION = 'v6.2-stable-brief-cache';
+
+// Stable JSON.stringify with sorted keys so { a:1, b:2 } and { b:2, a:1 } hash identically.
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Material inputs that should change the brief content. Anything not listed here
+// (timestamps, ordering noise, derived display fields) MUST NOT enter the signature.
+interface BriefSignatureInput {
+  localDate: string;
+  timeWindow: 'morning' | 'afternoon' | 'evening';
+  promptVersion: string;
+  score: number | null;
+  tier: string | null;
+  checkInOutcome: string | null;
+  clarityLevel: number | null;
+  confidenceLevel: number | null;
+  sharpnessLevel: number | null;
+  wearableSummaryDate: string | null;
+  hrvDeviation: number | null;
+  sleepDeviation: number | null;
+  rhrDeviation: number | null;
+  wearableTier: string | null;
+  calendarLoad: string | null;
+  calendarPressure: string | null;
+  meetingCount: number | null;
+  remainingMeetingCount: number | null;
+  remainingHighStakesTitles: string[];
+  nextHighStakesTitle: string | null;
+  nextHighStakesMinutesUntil: number | null;
+  // Coach signals are intentionally null while suppressed in the prompt; keep field
+  // shape stable so future re-enablement is a one-line change rather than a v-bump.
+  coachStrength: string | null;
+  coachGrowthArea: string | null;
+  archetype: string | null;
+  scoreTrajectory: string | null;
+  consecutiveLowDays: number | null;
+  typicalDOWOutcome: string | null;
+  hrvEventCorrelation: boolean | null;
+  wearableTrend: string | null;
+  tomorrowLoad: string | null;
+  isWeekend: boolean;
+  isPublicHoliday: boolean;
+}
+
+async function computeInputSignature(ctx: BriefSignatureInput): Promise<string> {
+  const material = {
+    ...ctx,
+    // Round material number fields to suppress noise that would needlessly invalidate the cache.
+    hrvDeviation: ctx.hrvDeviation == null ? null : Math.round(ctx.hrvDeviation),
+    sleepDeviation: ctx.sleepDeviation == null ? null : Math.round(ctx.sleepDeviation),
+    rhrDeviation: ctx.rhrDeviation == null ? null : Math.round(ctx.rhrDeviation),
+    nextHighStakesMinutesUntil: ctx.nextHighStakesMinutesUntil == null
+      ? null
+      : Math.round(ctx.nextHighStakesMinutesUntil / 5) * 5, // 5-min bucket
+    remainingHighStakesTitles: [...(ctx.remainingHighStakesTitles || [])].sort(),
+  };
+  return await sha256Hex(stableStringify(material));
+}
+
 // ==================== TYPES ====================
 type EnergyTier = 'depleted' | 'managing' | 'strong' | 'peak';
 type CalendarLevel = 'low' | 'medium' | 'high';
@@ -2811,10 +2884,94 @@ serve(async (req) => {
 
       // ── Build & call LLM ──
 
+      // ═══ BRIEF SNAPSHOT CACHE: read-first ═══
+      // All material inputs are gathered above. Compute the canonical signature now and,
+      // on cache hit, hydrate llmBrief from the snapshot so the existing rendering code
+      // emits the same response shape — and skip the LLM call entirely.
+      let cachedSnapshot: {
+        phrase: string | null;
+        body_text: string | null;
+        lean_on: string | null;
+        lean_on_source: string | null;
+        watch_for: string | null;
+        watch_for_source: string | null;
+        brief_source: 'llm' | 'deterministic';
+        driver: string | null;
+      } | null = null;
+      let inputSignature = 'no-sig';
+      try {
+        inputSignature = await computeInputSignature({
+          localDate: userLocalDate,
+          timeWindow: getTimeOfDay(hour),
+          promptVersion: BRIEF_PROMPT_VERSION,
+          score: innerReadinessScore ?? null,
+          tier: safeTier,
+          checkInOutcome: checkInOutcome || null,
+          clarityLevel: clarityLevel ?? null,
+          confidenceLevel: confidenceLevel ?? null,
+          sharpnessLevel: mentalSharpnessLevel ?? null,
+          wearableSummaryDate: wearableContext?.sourceRowDate ?? null,
+          hrvDeviation: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+          sleepDeviation: typeof sleepDeviation === 'number' ? sleepDeviation : null,
+          rhrDeviation: typeof rhrDeviation === 'number' ? rhrDeviation : null,
+          wearableTier: wearableContext
+            ? (wearableContext.hrvElevated || wearableContext.poorSleep || wearableContext.rhrElevated ? 'strained' : 'good')
+            : null,
+          calendarLoad: calendarLoad ?? null,
+          calendarPressure: calendarPressure ?? null,
+          meetingCount: calendarResult.meetingCount ?? null,
+          remainingMeetingCount: calendarResult.remainingMeetings ?? null,
+          remainingHighStakesTitles: calendarResult.remainingHighStakes ?? [],
+          nextHighStakesTitle: nextHighStakesEvent?.title ?? null,
+          nextHighStakesMinutesUntil: nextHighStakesEvent?.minutesUntil ?? null,
+          coachStrength: null, // suppressed; field shape preserved for future re-enable
+          coachGrowthArea: null,
+          archetype: serverArchetype ?? null,
+          scoreTrajectory: scoreTrajectory7d ?? null,
+          consecutiveLowDays: (consecutiveLowConfidence + consecutiveLowClarity) || null,
+          typicalDOWOutcome: typeof typicalDOWOutcome === 'string' ? typicalDOWOutcome : null,
+          hrvEventCorrelation: hrvEventCorrelation ? true : null,
+          wearableTrend: wearableTrend7d ?? null,
+          tomorrowLoad: getTimeOfDay(hour) === 'evening' ? (tomorrowLoad ?? null) : null,
+          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isPublicHoliday: isPublicHoliday === true,
+        });
+      } catch (sigError) {
+        console.error('[brief-cache] Signature failed:', sigError instanceof Error ? sigError.message : sigError);
+        inputSignature = 'no-sig';
+      }
+
+      if (inputSignature !== 'no-sig') {
+        try {
+          const { data: snapshot } = await db
+            .from('brief_snapshots')
+            .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
+            .eq('user_id', userId)
+            .eq('local_date', userLocalDate)
+            .eq('time_window', getTimeOfDay(hour))
+            .eq('input_signature', inputSignature)
+            .eq('prompt_version', BRIEF_PROMPT_VERSION)
+            .maybeSingle();
+          if (snapshot) {
+            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            console.log('[brief-cache] Result:', JSON.stringify({
+              snapshotHit: true,
+              briefSource: snapshot.brief_source,
+              promptVersion: BRIEF_PROMPT_VERSION,
+              inputSignature: inputSignature.slice(0, 8) + '...',
+              generationPath: 'snapshot',
+              snapshotReason: 'exact_match',
+            }));
+          }
+        } catch (readError) {
+          console.error('[brief-cache] Snapshot read failed:', readError instanceof Error ? readError.message : readError);
+        }
+      }
+
       // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-        if (ANTHROPIC_API_KEY) {
+        if (ANTHROPIC_API_KEY && !cachedSnapshot) {
           const timeOfDayStr = getTimeOfDay(hour);
           const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
           const dayName = dayNames2[dayOfWeek];
@@ -3686,20 +3843,80 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
-    const briefSource = llmBrief ? 'llm' : 'deterministic';
-    const responsePhrase = llmBrief?.phrase ?? finalPhrase;
-    const responseBody = llmBrief?.bodyText ?? finalContext;
+    const briefSource: 'llm' | 'deterministic' = cachedSnapshot
+      ? cachedSnapshot.brief_source
+      : (llmBrief ? 'llm' : 'deterministic');
+    const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
+    const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
       return w.length > 4 ? w.slice(0, 4).join(' ') : s;
     };
-    const formattedLeanOn = llmBrief
-      ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
-      : formattedDeterministicLeanOn;
-    const formattedWatchFor = llmBrief
-      ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
-      : formattedDeterministicWatchFor;
+    const formattedLeanOn = cachedSnapshot?.lean_on
+      ?? (llmBrief
+        ? llmBrief.leanOn.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
+        : formattedDeterministicLeanOn);
+    const formattedWatchFor = cachedSnapshot?.watch_for
+      ?? (llmBrief
+        ? llmBrief.watchFor.map(item => `${truncSignal(item.signal)} · ${item.source}`).join('\n')
+        : formattedDeterministicWatchFor);
+    const finalLeanOnSource = cachedSnapshot?.lean_on_source ?? (llmBrief ? 'llm-v4' : leanOnResult.source);
+    const finalWatchForSource = cachedSnapshot?.watch_for_source ?? (llmBrief ? 'llm-v4' : leanOnResult.source);
+
+    // ═══ BRIEF SNAPSHOT CACHE: persist on cache miss ═══
+    // Fire-and-forget upsert. Never block the response. Stores both LLM and deterministic outputs
+    // so a failed/timed-out LLM call still produces a stable canonical brief on next refresh.
+    if (!cachedSnapshot && inputSignature !== 'no-sig') {
+      (async () => {
+        try {
+          await db.from('brief_snapshots').upsert({
+            user_id: userId,
+            local_date: userLocalDate,
+            time_window: getTimeOfDay(hour),
+            input_signature: inputSignature,
+            prompt_version: BRIEF_PROMPT_VERSION,
+            phrase: responsePhrase,
+            body_text: responseBody,
+            lean_on: formattedLeanOn,
+            lean_on_source: finalLeanOnSource,
+            watch_for: formattedWatchFor,
+            watch_for_source: finalWatchForSource,
+            brief_source: briefSource,
+            driver: theme.driver,
+            score: innerReadinessScore ?? null,
+            tier: safeTier,
+            payload_json: {
+              signals: {
+                checkInOutcome: checkInOutcome || null,
+                clarityLevel, confidenceLevel, mentalSharpnessLevel,
+                hrvDeviation, sleepDeviation, rhrDeviation,
+                calendarLoad, calendarPressure,
+                meetingCount: calendarResult.meetingCount,
+                remainingMeetings: calendarResult.remainingMeetings,
+                remainingHighStakes: calendarResult.remainingHighStakes,
+                nextHighStakesEvent,
+                isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+                consecutiveLowConfidence, consecutiveLowClarity,
+                scoreTrajectory7d, wearableTrend7d, typicalDOWOutcome,
+                tomorrowLoad, isPublicHoliday,
+              },
+            },
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' });
+          console.log('[brief-cache] Result:', JSON.stringify({
+            snapshotHit: false,
+            briefSource,
+            promptVersion: BRIEF_PROMPT_VERSION,
+            inputSignature: inputSignature.slice(0, 8) + '...',
+            generationPath: briefSource === 'llm' ? 'fresh_llm' : 'fresh_deterministic',
+            snapshotReason: 'miss_fresh_generation',
+          }));
+        } catch (writeError) {
+          console.error('[brief-cache] Snapshot write failed:', writeError instanceof Error ? writeError.message : writeError);
+        }
+      })();
+    }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
       phrase: responsePhrase,
