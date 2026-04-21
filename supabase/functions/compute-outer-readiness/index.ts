@@ -4059,9 +4059,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       } catch { /* ignore — non-fatal for response */ }
     }
     if (!cachedSnapshot && inputSignature !== 'no-sig') {
-      (async () => {
-        try {
-          await db.from('brief_snapshots').upsert({
+      try {
+        const { data: upsertRow, error: upsertError } = await db
+          .from('brief_snapshots')
+          .upsert({
             user_id: userId,
             local_date: userLocalDate,
             time_window: getTimeOfDay(hour),
@@ -4098,19 +4099,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               },
             },
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' });
+          }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' })
+          .select('id')
+          .maybeSingle();
+        if (upsertError) {
+          console.error('[brief-cache] Snapshot write failed:', upsertError.message);
+        } else {
+          resolvedBriefId = (upsertRow as any)?.id ?? null;
           console.log('[brief-cache] Result:', JSON.stringify({
             snapshotHit: false,
+            briefId: resolvedBriefId,
             briefSource,
             promptVersion: BRIEF_PROMPT_VERSION,
             inputSignature: inputSignature.slice(0, 8) + '...',
             generationPath: briefSource === 'llm' ? 'fresh_llm' : 'fresh_deterministic',
             snapshotReason: 'miss_fresh_generation',
           }));
-        } catch (writeError) {
-          console.error('[brief-cache] Snapshot write failed:', writeError instanceof Error ? writeError.message : writeError);
         }
-      })();
+      } catch (writeError) {
+        console.error('[brief-cache] Snapshot write failed:', writeError instanceof Error ? writeError.message : writeError);
+      }
     }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
@@ -4201,6 +4209,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       innerReadinessScore,
       innerReadinessTier: safeTier,
       checkInOutcome: checkInOutcome || null,
+      briefId: resolvedBriefId,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
