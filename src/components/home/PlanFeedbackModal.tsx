@@ -57,17 +57,17 @@ const PlanFeedbackModal = ({
 
   if (showConfirmation) {
     return (
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="relative bg-background/95 backdrop-blur-md rounded-2xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 border border-border shadow-2xl">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="relative rounded-3xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 bg-white/15 backdrop-blur-md border border-white/40 shadow-xl">
           <div className="relative mb-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Check className="w-8 h-8 text-primary" strokeWidth={3} />
+            <div className="w-16 h-16 mx-auto rounded-full bg-taupe/20 flex items-center justify-center border border-taupe/40">
+              <Check className="w-8 h-8 text-taupe-foreground" strokeWidth={3} />
             </div>
           </div>
-          <h3 className="text-lg font-headline text-foreground mb-2">
+          <h3 className="text-lg font-headline text-white mb-2">
             Feedback Received
           </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-white/70 leading-relaxed">
             Your input helps calibrate future plans to your needs.
           </p>
         </div>
@@ -76,19 +76,20 @@ const PlanFeedbackModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-background/95 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-border shadow-2xl">
-        <div className="px-5 pt-5 pb-3 space-y-1">
-          <h2 className="text-[15px] md:text-[20px] font-medium tracking-tight">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="rounded-3xl max-w-md w-full max-h-[85vh] overflow-y-auto bg-white/15 backdrop-blur-md border border-white/40 shadow-xl">
+        <div className="px-6 md:px-8 pt-6 md:pt-8 pb-3 space-y-1">
+          <h2 className="text-[15px] md:text-[20px] font-medium tracking-tight text-white">
             {title}
           </h2>
-          <p className="text-xs text-muted-foreground animate-in fade-in duration-700">
+          <p className="text-xs text-white/60 animate-in fade-in duration-700">
             How did this plan work for you?
           </p>
         </div>
 
-        <div className="px-5 pb-5 pt-1">
+        <div className="px-6 md:px-8 pb-6 md:pb-8 pt-1">
           <FeedbackCapture
+            variant="glass"
             rating={rating}
             onRatingChange={setRating}
             feedback={feedback}

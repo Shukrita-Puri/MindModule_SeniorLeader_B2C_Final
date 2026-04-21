@@ -32,6 +32,12 @@ interface FeedbackCaptureProps {
   /** Disable submit (e.g. while saving) */
   isSubmitting?: boolean;
   maxLength?: number;
+  /**
+   * Visual variant.
+   * - "default": light surface, standard borders
+   * - "glass":   light text on dark/glass surfaces (Reset Studio + plan completion)
+   */
+  variant?: "default" | "glass";
 }
 
 const ICONS: Array<{ value: FeedbackRating; Icon: typeof ThumbsUp; label: string }> = [
@@ -55,6 +61,7 @@ const FeedbackCapture = ({
   cancelLabel = "Skip",
   isSubmitting = false,
   maxLength = 500,
+  variant = "default",
 }: FeedbackCaptureProps) => {
   const placeholder = useMemo(() => {
     if (rating === "down") return negativePlaceholder;
@@ -65,10 +72,31 @@ const FeedbackCapture = ({
     feedbackPrompt ??
     (rating === "down" ? "What didn't land?" : "Anything to add?");
 
+  const isGlass = variant === "glass";
+
+  const promptClass = isGlass ? "text-white/80" : "text-foreground/80";
+  const hintClass = isGlass ? "text-white/50" : "text-muted-foreground";
+  const counterClass = isGlass ? "text-white/50" : "text-muted-foreground";
+
+  const inactiveIconClass = isGlass
+    ? "border-white/30 bg-white/10 text-white/60 hover:text-white hover:border-white/50"
+    : "border-border bg-background text-muted-foreground hover:text-foreground";
+
+  const activeIconClass =
+    "border-taupe bg-taupe/15 text-taupe-foreground shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]";
+
+  const textareaClass = isGlass
+    ? "min-h-[80px] text-sm resize-none bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-taupe/40"
+    : "min-h-[80px] text-sm resize-none";
+
+  const cancelClass = isGlass
+    ? "flex-1 text-sm text-white/70 hover:text-white hover:bg-white/10"
+    : "flex-1 text-sm";
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
-        <p className="text-sm text-foreground/80">{ratingPrompt}</p>
+        <p className={cn("text-sm", promptClass)}>{ratingPrompt}</p>
         <div className="flex items-center justify-center gap-3">
           {ICONS.map(({ value, Icon, label }) => {
             const isActive = rating === value;
@@ -82,9 +110,7 @@ const FeedbackCapture = ({
                 className={cn(
                   "flex h-12 w-12 items-center justify-center rounded-full border transition-all duration-200",
                   "hover:scale-105 active:scale-95",
-                  isActive
-                    ? "border-gold bg-gold/10 text-gold shadow-[0_0_0_3px_hsl(var(--gold)/0.15)]"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  isActive ? activeIconClass : inactiveIconClass
                 )}
               >
                 <Icon size={20} strokeWidth={2} />
@@ -96,18 +122,18 @@ const FeedbackCapture = ({
 
       {rating && (
         <div className="space-y-2 animate-in slide-in-from-top-1 duration-300">
-          <p className="text-sm text-foreground/80">
+          <p className={cn("text-sm", promptClass)}>
             {resolvedFeedbackPrompt}{" "}
-            <span className="text-xs text-muted-foreground">(optional)</span>
+            <span className={cn("text-xs", hintClass)}>(optional)</span>
           </p>
           <Textarea
             value={feedback}
             onChange={(e) => onFeedbackChange(e.target.value)}
             placeholder={placeholder}
             maxLength={maxLength}
-            className="min-h-[80px] text-sm resize-none"
+            className={textareaClass}
           />
-          <p className="text-xs text-muted-foreground text-right">
+          <p className={cn("text-xs text-right", counterClass)}>
             {feedback.length}/{maxLength}
           </p>
         </div>
@@ -118,7 +144,7 @@ const FeedbackCapture = ({
           <Button
             type="button"
             variant="ghost"
-            className="flex-1 text-sm"
+            className={cancelClass}
             onClick={onCancel}
             disabled={isSubmitting}
           >
@@ -129,7 +155,7 @@ const FeedbackCapture = ({
           type="button"
           onClick={onSubmit}
           disabled={!rating || isSubmitting}
-          className="flex-1 text-sm bg-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/90 text-gold-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 text-sm bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
