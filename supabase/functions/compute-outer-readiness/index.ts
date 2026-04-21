@@ -3670,15 +3670,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // Map source key to uppercase single-word label
       const sourceLabels: Record<string, string> = {
         'archetype-tier': 'ARCHETYPE',
-        'tier-fallback': 'READINESS',
+        'tier-fallback': 'PATTERN',
         'coach-insights-recent': 'COACH',
         'coach-insights-grace': 'COACH',
         'coach-partial-strength': 'COACH',
         'coach-partial-growth': 'COACH',
-        'cc-modifier': 'CHECK-IN',
-        'cc-modifier-with-context': 'CHECK-IN',
+        'cc-modifier': 'PATTERN',
+        'cc-modifier-with-context': 'PATTERN',
         'dow-pattern': 'PATTERN',
-        'hrv-correlation': 'DATA',
+        'hrv-correlation': 'PATTERN',
         'score-trajectory': 'PATTERN',
       };
       return `${signal} · ${sourceLabels[source] || 'SYSTEM'}`;
