@@ -1361,10 +1361,11 @@ function getCCModifier(
   const consec = context?.consecutiveLowDays ?? 0;
   const outcome = context?.checkInOutcome ?? null;
   const hrvDev = context?.hrvDeviation ?? null;
-  if (consec >= 3) return { leanOn: `Day ${consec} pattern`, watchFor: "Treating systemic as situational" };
-  if (outcome === 'drained' || outcome === 'overwhelmed') return { leanOn: "Mental Energy Truth", watchFor: "Performing through depletion" };
-  if (hrvDev != null && hrvDev <= -20) return { leanOn: "Recovery Intelligence", watchFor: "Borrowing from buffer" };
-  if (context?.sleepHardFloor) return { leanOn: "Sleep Floor First", watchFor: "Trading sleep for output" };
+  if (consec >= 7) return { leanOn: `${consec}-day energy deficit`, watchFor: "Treating chronic depletion as a one-off" };
+  if (consec >= 3) return { leanOn: `${consec}-day low-energy streak`, watchFor: "Treating systemic depletion as situational" };
+  if (outcome === 'drained' || outcome === 'overwhelmed') return { leanOn: "Mental energy reality", watchFor: "Performing through depletion" };
+  if (hrvDev != null && hrvDev <= -20) return { leanOn: "Recovery deficit signal", watchFor: "Borrowing from recovery buffer" };
+  if (context?.sleepHardFloor) return { leanOn: "Sleep floor first", watchFor: "Trading sleep for output" };
 
   if (clarityLow && confidenceLow) return { leanOn: "Self-Honesty", watchFor: "Premature Commitments" };
   if (clarityHigh && confidenceHigh) return { leanOn: "Full Alignment", watchFor: "Rigidity from Conviction" };
@@ -3675,9 +3676,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const COACHING_IMPERATIVE = /\b(you should|you need to|try to|consider|make sure|remember to)\b/i;
 
           // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept
-          const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|clarity)\b/i;
-          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|hardware recovery|system output|physical runway|stamina|drive)\b/i;
-          const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer)\b/i;
+          const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|sharp|clarity)\b/i;
+          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|hardware recovery|system output|physical runway|stamina|drive|restoration|restore|recover|recovery|heart rate|pulse|prepare|preparation)\b/i;
+          const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer|release)\b/i;
           // §2.22 Calendar-empty whitelist
           const BASELINE_LEXICON = /\b(base[- ]?level|baseline intelligence|stabili[sz]ing|base for future load|hold the base)\b/i;
 
