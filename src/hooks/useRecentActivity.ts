@@ -61,10 +61,10 @@ export const useRecentActivity = () => {
             if (ms) parts.push(`${ms} Sharp`);
             const suffix = parts.join(', ');
 
-            // Window prefix disambiguates same-day rows (Morning · / Afternoon · / Evening ·)
-            const windowLabel = capitalize(checkin.time_window || '');
-            const core = suffix ? `${outcome}, ${suffix}` : outcome;
-            const title = windowLabel ? `${windowLabel} · ${core}` : core;
+            // Title omits window prefix per UX: ordering already conveys recency,
+            // and a fixed Morning/Afternoon/Evening label collides when users
+            // check in 4+ times in one window.
+            const title = suffix ? `${outcome}, ${suffix}` : outcome;
 
             allActivities.push({
               id: checkin.id,
