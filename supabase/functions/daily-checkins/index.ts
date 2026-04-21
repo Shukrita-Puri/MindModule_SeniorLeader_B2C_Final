@@ -388,9 +388,9 @@ serve(async (req) => {
 
         const { data, error } = await supabase
           .from('daily_checkins')
-          .select('id, checkin_date, outcome, energy_balance, clarity_level, confidence_level, mental_sharpness_level')
+          .select('id, checkin_date, time_window, outcome, energy_balance, clarity_level, confidence_level, mental_sharpness_level, created_at')
           .eq('user_id', userId)
-          .order('checkin_date', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(limit);
 
         if (error) {

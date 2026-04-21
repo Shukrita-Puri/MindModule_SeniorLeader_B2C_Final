@@ -61,11 +61,17 @@ export const useRecentActivity = () => {
             if (ms) parts.push(`${ms} Sharp`);
             const suffix = parts.join(', ');
 
+            // Window prefix disambiguates same-day rows (Morning · / Afternoon · / Evening ·)
+            const windowLabel = capitalize(checkin.time_window || '');
+            const core = suffix ? `${outcome}, ${suffix}` : outcome;
+            const title = windowLabel ? `${windowLabel} · ${core}` : core;
+
             allActivities.push({
               id: checkin.id,
               type: 'assessment',
-              title: suffix ? `${outcome}, ${suffix}` : outcome,
-              date: new Date(checkin.checkin_date),
+              title,
+              // Prefer precise created_at; fall back to checkin_date for legacy rows
+              date: new Date(checkin.created_at ?? checkin.checkin_date),
             });
           });
         }
@@ -130,7 +136,7 @@ export const useRecentActivity = () => {
       // Sort all activities by date and return top 10
       return allActivities
         .sort((a, b) => b.date.getTime() - a.date.getTime())
-        .slice(0, 10);
+        .slice(0, 15);
     },
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
