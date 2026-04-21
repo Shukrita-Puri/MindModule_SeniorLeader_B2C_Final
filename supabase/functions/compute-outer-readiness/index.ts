@@ -3518,8 +3518,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
             userPrompt += `\n\n=== TOMORROW ===`;
             userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            if (tomorrowHighStakesTitles.length > 0) userPrompt += `\nHigh-stakes count: ${tomorrowHighStakesTitles.length} · Titles: ${tomorrowHighStakesTitles.join(', ')}`;
-            if (tomorrowFirstEventTime) userPrompt += `\nFirst event: ${tomorrowFirstEventTime}`;
+            // Pair every high-stakes title with its own local time so the LLM
+            // cannot mis-glue a title to an unrelated line's time. If a title's
+            // time is unknown (no exact match), omit time for that one event.
+            if (tomorrowHighStakesTitles.length > 0) {
+              const paired = tomorrowHighStakesTitles.map((t, i) => {
+                const tm = tomorrowHighStakesEventTimes[i];
+                return tm ? `${tm} — ${t}` : t;
+              }).join(', ');
+              userPrompt += `\nHigh-stakes meetings (with local times): ${paired}`;
+            }
+            if (tomorrowFirstMeetingPair) {
+              userPrompt += `\nFirst scheduled meeting: ${tomorrowFirstMeetingPair}`;
+            }
             if (tomorrowVsTodayLoad) userPrompt += `\nTomorrow vs today: ${tomorrowVsTodayLoad}`;
           }
 
@@ -3607,7 +3618,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const tzHours = Math.round(-timezoneOffset / 60); // user's UTC offset in hours
             userPrompt += `\n\n=== GLOBAL & ENVIRONMENTAL LOAD ===`;
             userPrompt += `\nUser timezone offset (UTC): ${tzHours >= 0 ? '+' : ''}${tzHours}h`;
-            userPrompt += `\nTravel/circadian drift: null (not instrumented)`;
+            // Traveling = current zone differs from home zone. Surface to the LLM
+            // so it can apply §2.13 CIRCADIAN PRIORITY when relevant.
+            if (effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz) {
+              userPrompt += `\nTraveling: home ${effectiveHomeTz}, currently ${effectiveCurrentTz} (all event times above are in CURRENT zone)`;
+            } else {
+              userPrompt += `\nTravel/circadian drift: none`;
+            }
             userPrompt += `\nExternal market/macro pressure: null (not instrumented)`;
           }
 
