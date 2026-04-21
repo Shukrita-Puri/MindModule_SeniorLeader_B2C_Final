@@ -19,6 +19,9 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ThumbsUp, ThumbsDown, Equal, Check } from 'lucide-react';
+import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
+import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 
 // ─── TYPES ───
 interface SignalChip {
