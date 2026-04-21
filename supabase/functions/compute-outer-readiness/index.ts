@@ -1555,6 +1555,10 @@ function getLeanOnWatchFor(
   hrvEventCorrelation: string | null,
   scoreTrajectory7d: string | null,
   dayOfWeek: number,
+  // Explicit pass-through (fixes ReferenceError when P6 branch fires post-check-in)
+  consecutiveLowDays: number = 0,
+  checkInOutcome: string | null = null,
+  hrvDeviation: number | null = null,
 ): LeanOnWatchForResult {
 
   // ── Coach insight age + tier ──
