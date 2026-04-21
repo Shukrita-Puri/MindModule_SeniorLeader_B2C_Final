@@ -902,6 +902,9 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
 
   // ── PHYSIOLOGY display lines ── body only
   const physTop: PillLine[] = [];
+  // Sleep line — always present so the user sees Sleep · RHR · HR side by side.
+  // When neither score nor duration is available, render an explicit "not synced" line
+  // (kind=self so it doesn't claim wearable authority) instead of silently dropping it.
   if (sleepScore != null || sleepDur != null) {
     const parts: string[] = [];
     if (sleepScore != null) parts.push(`Sleep ${sleepScore}`);
@@ -910,12 +913,31 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (sleepDev != null && sleepBaseline) q = `${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
     if (scoreTrajectory === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     physTop.push({ text: parts.join(' · '), qualifier: q || undefined, kind: 'wearable' });
+  } else {
+    physTop.push({
+      text: 'Sleep — not synced',
+      qualifier: wearableConnected ? 'no sleep data today' : 'connect a wearable',
+      kind: 'self',
+    });
   }
   if (rhrVal != null) {
     let q = '';
     if (rhrDev != null && rhrBaseline) q = `${devSign(rhrDev)} vs ${rhrBaseline}bpm baseline`;
     if (rhrDev != null && rhrDev > 15) q = q ? `${q} · sympathetic dominance` : 'sympathetic dominance';
     physTop.push({ text: `RHR ${rhrVal}bpm`, qualifier: q || undefined, kind: 'wearable' });
+  }
+  // HR-elevated proxy line — sympathetic-dominance signal derived from RHR deviation.
+  // Per §7.2, HR-elevated is a distinct Physiology input alongside Sleep and RHR.
+  // Render only when we have a deviation signal (so it's evidence-based, not a guess).
+  if (rhrDev != null) {
+    const hrTier = rhrDev > 25 ? 'elevated' : rhrDev > 15 ? 'rising' : 'calm';
+    const hrText = hrTier === 'calm' ? 'HR — calm' : hrTier === 'rising' ? 'HR — rising' : 'HR — elevated';
+    const hrQ = hrTier === 'calm'
+      ? 'autonomic state stable'
+      : hrTier === 'rising'
+      ? 'sympathetic activation building'
+      : 'sustained sympathetic dominance';
+    physTop.push({ text: hrText, qualifier: hrQ, kind: 'wearable' });
   }
   const physBottom: PillLine[] = [];
 
