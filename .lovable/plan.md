@@ -1,126 +1,91 @@
 
 
-## Plan: Fix post-check-in Brief crash (real cause) + Beta payment leak + permanent guardrail
+## Plan: Reset feedback per brief, fix event-time pairing, honor traveler timezone
 
-### Root cause #1 — Brief still crashing (previous fix missed the actual line)
+### Issue 1 — "Feedback noted" persists into the next brief
 
-Edge logs at 18:14 (after the last "fix") still show:
+**Cause:** `BriefFeedbackRow` keys its localStorage flag by **date only** (`prb-feedback-2026-04-21`). Submitting feedback on the afternoon brief makes the evening brief render in `submitted` mode without ever showing the thumbs row.
+
+**Fix:**
+- **Return a stable brief identifier from the edge function.** When `compute-outer-readiness` writes/reads `brief_snapshots`, it already has the canonical `(local_date, time_window, input_signature, prompt_version)` tuple. Surface it as `briefId` in the response. On cache miss, `select('id')` from the upsert; on cache hit, the existing read already loads the row — just add `id` to the SELECT.
+- **`useOuterReadiness`** propagates `briefId` (already permissive `Record<string, unknown>`, just add to typed interface).
+- **`BriefFeedbackRow`** rekeys storage to `prb-feedback-{briefId}` (falls back to `prb-feedback-{date}-{time_window}` for the brief view that occurs before the snapshot id is known — extremely rare). When `briefId` changes (new brief generated), `mode` re-initializes from storage → fresh thumbs row appears.
+- Pass `briefSnapshotId` into the existing `submitBriefFeedback(rating, feedback, briefSnapshotId, { tier, score })` call so feedback rows in `user_engagements.context_data.brief_snapshot_id` are properly attributed.
+
+This is the canonical fix — feedback resets every time a genuinely new brief is generated, never on plain refresh (snapshot id is stable for the same input window).
+
+### Issue 2 — "Intro Call at 01:00" (wrong time, wrong event paired)
+
+**Confirmed in DB**, tomorrow's calendar:
+- `SCALE Expo & Summit 2026` — all-day event, starts `2026-04-22T00:00:00Z` (= 01:00 BST)
+- `Intro Call > Isabel @ Karyon Partners` — 13:30–14:30 UTC (= 14:30–15:30 BST)
+- `MEETUP: AI, Data & Analytics` — 16:30–18:30 UTC (= 17:30–19:30 BST)
+
+**The TZ math is correct** — `01:00` is the actual BST start of the SCALE expo. The bug is twofold:
+1. **All-day / multi-day events leak into the "first event" extractor** (line 2820–2833). The user means "first scheduled meeting", not an all-day expo.
+2. **The LLM prompt feeds `Titles: Intro Call …` and `First event: 01:00` as two unrelated lines** (lines 3442–3443), so the LLM happily glues them: "the Intro Call at 01:00".
+
+**Fix in `compute-outer-readiness/index.ts`:**
+
+a. **Filter out all-day / multi-day events** when computing `tomorrowFirstEventTime`. Use the same heuristic already trusted elsewhere in the file (`isMeeting`): exclude events where duration ≥ 8h OR `start_time` is exactly 00:00:00 UTC AND end is 23:59:59 OR next day's 00:00:00. Add `end_time` to the SELECT and skip such events.
+
+b. **Pair title with time, not as separate lines.** Instead of two free-floating fields, emit a single structured line that the LLM cannot misglue:
 ```
-ERROR [compute-outer-readiness] Error: consecutiveLowDays is not defined
+First scheduled meeting: 14:30 — Intro Call > Isabel @ Karyon Partners
+High-stakes meetings tomorrow (with local times): 14:30 — Intro Call …, 17:30 — MEETUP: AI…
 ```
+Replace the current two lines (3442–3443) with a single titled-time list built by zipping each high-stakes event with its already-computed local time. This eliminates the conflation class entirely.
 
-My previous patch added the variable to `getLeanOnWatchFor`'s call site (line ~2050), but the **actual offender is line 3393** inside the LLM `userPrompt` builder:
+c. **Add a hard rule to the system prompt:** "When referencing a meeting time, use ONLY the time printed next to that meeting's title. Never combine a meeting title with a time from a different line. If no time is paired with a title, omit the time."
 
-```ts
-userPrompt += `\nConsecutive low days: ${consecutiveLowDays}`;
-```
+### Issue 3 — Traveler timezone & home-timezone awareness
 
-A brace-delta scan from line 3040 (where `let consecutiveLowDays = 0;` is declared inside an inner block) to line 3393 (where it's referenced) shows the net depth drops by **58 closing braces** in between — i.e. line 3393 is in a completely different, outer scope. The declaration is long out of scope by the time the prompt is assembled. DB confirms: still no evening `brief_snapshots` row for today, only the afternoon one from 15:24.
+**Current state (verified):**
+- Frontend sends `timezoneOffset: new Date().getTimezoneOffset()` on every brief request → this **already reflects the user's CURRENT location** (correct for a traveler).
+- `profiles` has `timezone_offset` (integer minutes east of UTC, written on login & token refresh) — **only one column, no IANA string, no separate "home" field**.
+- `compute-outer-readiness` line 2572 queries `profiles.select('timezone')` — that column **doesn't exist**. The query silently returns null, breaking holiday/country derivation.
 
-**Fix (minimal, targeted):**
+**Fix (minimal, non-breaking):**
 
-1. **Move the `consecutiveLowDays` computation up** to the same outer scope where `userPrompt` is built (immediately before line 3384 where `userPrompt` is initialised). Keep the inner block's local copy too — those are independent and safe to coexist.
+a. **Schema migration** — add two nullable columns to `profiles`:
+- `home_timezone text` (IANA, e.g. `Europe/London`) — set ONCE at first login from `Intl.DateTimeFormat().resolvedOptions().timeZone`, never overwritten.
+- `current_timezone text` (IANA) — refreshed on every `sync-profile` call alongside the existing `timezone_offset`.
+- Backfill `home_timezone = current_timezone` for existing users on next sync.
 
-```ts
-// At outer scope, just before line 3384
-let consecutiveLowDaysForPrompt = 0;
-for (const c of recentCheckIns) {
-  if ((c as any).energy_balance != null && (c as any).energy_balance < 50) consecutiveLowDaysForPrompt++;
-  else break;
-}
-```
+b. **Frontend `useAuth.tsx`** — extend the `sync-profile` body to include `current_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone`. On the first sync only (when `home_timezone IS NULL` server-side), `sync-profile/index.ts` also sets `home_timezone`.
 
-Then change line 3393 to reference `consecutiveLowDaysForPrompt`. Distinct name → zero risk of shadowing and clear semantic ("for the prompt").
+c. **Frontend `useOuterReadiness.ts`** — also send `currentTimezone` (IANA) and `homeTimezone` (IANA) in the brief request body. The IANA strings let the edge function format event times via `Intl.DateTimeFormat(currentTimezone, …)` instead of fragile `getUTCHours()` arithmetic.
 
-### Root cause #2 — Permanent guardrail (so this never silently breaks the dashboard again)
+d. **Edge function `compute-outer-readiness/index.ts`** —
+- Replace the broken `select('timezone')` with `select('home_timezone, current_timezone')` and use those for country/holiday derivation. Falls back to deriving country from `current_timezone` first (where the user is now), then `home_timezone`.
+- Format every event time using `event.toLocaleString('en-GB', { hour:'2-digit', minute:'2-digit', timeZone: currentTimezone })` — guarantees the time printed matches the user's CURRENT zone, so a traveler in EST sees the UK Intro Call as e.g. "09:30" not "14:30".
+- When `currentTimezone !== homeTimezone`, append a single line to the prompt: `Traveling: home ${homeTimezone}, currently ${currentTimezone}`. Add a system-prompt rule: "If the user is traveling, all event times above are in their CURRENT timezone. Do not mention the home timezone unless directly relevant to a sleep/circadian observation."
 
-Wrap the entire LLM-generation + response-assembly block in a `try/catch` that, on any thrown error:
-
-1. Logs `[compute-outer-readiness] FATAL` with `userId`, `safeTier`, `userLocalDate`, `getTimeOfDay(hour)`, and the error message/stack (per the Fatal Error Logging standard).
-2. Returns a **deterministic fallback brief** built from the existing `tierFallbacks` map already in the file (uses `safeTier` + `checkInOutcome`), with `briefSource: 'deterministic'` so the client labels it correctly and the snapshot still gets written.
-3. Still attempts the `brief_snapshots` upsert with the deterministic brief so the sidebar's "Recent" history records something instead of a permanent gap.
-
-This means: even if a future free-variable bug or LLM failure reappears, the user sees a graceful brief — never a blank "NOT YET ASSESSED" state — and the sidebar history stays continuous.
-
-### Root cause #3 — Beta testers seeing the payment page
-
-Confirmed in DB: 17 active beta testers (`beta_user=true`, `beta_expires_at>now()`), all with `subscription_status=NULL`, `subscription_tier='none'`. `hasValidAccess()` correctly grants them access via the beta branch. The leak path is in `Stage6Payment.tsx`:
-
-```ts
-// Line 38 — beta auto-skip
-if (isBetaValid && !isUpgradeVisit) { … skip … }
-
-// Line 34 — but isUpgradeVisit is TRUE for any user who has finished onboarding
-const isUpgradeVisit = hasExplicitUpgradeSource || hasCompletedOnboarding;
-```
-
-A returning beta user clicking "Activate My System" (`Stage8Results.tsx` line 377), or any path that lands them on `/onboarding/payment` after `onboarding_completed_at` is set, **never hits the auto-skip** and instead falls to the secondary redirect at line 50 which fires only after a render — producing a flash of the pricing page (and, for some users with stale auth state where `beta_user` hasn't yet hydrated, it never redirects).
-
-**Fix (two layers):**
-
-1. **`Stage6Payment.tsx` line 38** — make beta auto-skip take priority over `isUpgradeVisit` whenever the user has no `hasExplicitUpgradeSource`. If they came in WITHOUT explicitly clicking an upgrade CTA, beta access wins:
-
-```ts
-useEffect(() => {
-  if (!isBetaValid) return;
-  if (hasExplicitUpgradeSource) return; // honor explicit upgrade clicks
-  // Beta user, any other path → skip payment, send to home
-  console.log('[Stage6Payment] Beta valid + no upgrade source → skipping');
-  recordStep('payment', { skipped: true, reason: 'beta_user' });
-  navigate(hasCompletedOnboarding ? '/daily-check-in' : '/onboarding/app-intro', { replace: true });
-}, [isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
-```
-
-2. **`Stage8Results.tsx` line 377** — guard the "Activate My System" CTA: if the user is a valid beta tester, route them straight to `/daily-check-in` (or `/onboarding/app-intro` if not yet seen). They've already got access; sending them to a pricing page is wrong:
-
-```tsx
-onClick={() => {
-  if (isBetaValid) {
-    navigate('/daily-check-in');
-  } else {
-    navigate('/onboarding/payment');
-  }
-}}
-```
-
-3. **First-paint guard** — render a neutral loader while `useEffect` resolves the redirect for valid-access users, so beta testers never see the pricing UI flash. Add at the top of `Stage6Payment.tsx`'s render:
-
-```ts
-if (isBetaValid && !hasExplicitUpgradeSource) {
-  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
-}
-```
-
-### How to ensure the brief regression never happens again
-
-Beyond the deterministic fallback above, three concrete habits:
-
-- **Edge function observability standard**: I'll register `compute-outer-readiness` for the FATAL log scan so any future ReferenceError shows up as a structured fatal, not a silent 500. (Memory: `reliability/edge-function-observability-standard` is already adopted; this fix actually applies it here.)
-- **Memory note added** capturing this exact failure mode: "When adding new prompt variables, always declare them in the same scope as `userPrompt` initialization (outer `if (cachedSnapshot === null)` scope), never in nested blocks." Saved as `mem://reliability/brief-prompt-variable-scoping`.
-- **Snapshot upsert is now in the catch path** — even when the LLM call or assembly fails, a deterministic snapshot is written. This means the sidebar "Recent" feature can never lose continuity for a working day.
+This delivers the CEO-7 logic correctly: the brief always speaks in the user's CURRENT clock, with the home zone available for circadian/jetlag commentary.
 
 ### Files touched
 
 | File | Change |
 |---|---|
-| `supabase/functions/compute-outer-readiness/index.ts` | Declare `consecutiveLowDaysForPrompt` at outer scope before line 3384; reference it at 3393. Wrap LLM/response block in try/catch with deterministic fallback + FATAL log + snapshot upsert. |
-| `src/pages/onboarding/stages/Stage6Payment.tsx` | Beta-skip useEffect now wins whenever no explicit upgrade source; loader guard prevents pricing-page flash for valid-beta users. |
-| `src/pages/onboarding/stages/Stage8Results.tsx` | "Activate My System" CTA bypasses payment for valid beta users → routes to `/daily-check-in`. |
-| `mem://reliability/brief-prompt-variable-scoping` | New rule: prompt-variable scope must match `userPrompt` scope. |
+| `supabase/migrations/<ts>_add_profiles_iana_timezones.sql` | Add `home_timezone`, `current_timezone` text cols |
+| `src/hooks/useAuth.tsx` | Send `current_timezone` (and `home_timezone` on first sync) to `sync-profile` |
+| `supabase/functions/sync-profile/index.ts` | Persist new columns; only set `home_timezone` once |
+| `src/hooks/useOuterReadiness.ts` | Send `currentTimezone`, `homeTimezone` IANA strings + add `briefId` to result type |
+| `supabase/functions/compute-outer-readiness/index.ts` | Read IANA cols; format all event times via `Intl` in `currentTimezone`; exclude all-day/multi-day from "first event"; pair titles with their own times; return `briefId` from snapshot upsert/read; add traveler line + LLM grounding rule |
+| `src/components/home/DecisionReadinessBrief.tsx` | `BriefFeedbackRow` keys storage by `briefId`; passes `briefSnapshotId` to `submitBriefFeedback` |
 
 ### Verification
 
-1. After deploy, force a brief refresh on `/executive-home` → no `consecutiveLowDays is not defined` in `compute-outer-readiness` logs.
-2. `SELECT … FROM brief_snapshots WHERE local_date='2026-04-21' AND time_window='evening'` returns one row for today's user.
-3. Sidebar "Recent" shows the new evening brief once under TODAY, alongside afternoon's "Sustaining state."; opening either still works through `HistoricalBriefOverlay`.
-4. As a valid beta user: log out, log in, and walk through `/onboarding/results → Activate My System` → lands on `/daily-check-in`, no payment flash.
-5. As a valid beta user with `?source=insights-upgrade` → DOES land on payment (intentional — explicit upgrade click).
-6. Force-error simulation in compute-outer-readiness → fallback deterministic brief renders + snapshot row written + FATAL log fires.
+1. After deploy, re-render `/executive-home` for the user → body copy reads "the Intro Call at 14:30" (or current-tz equivalent), never "01:00". No all-day events surface as "first event".
+2. As the same user on the same window, refresh 3× → `BriefFeedbackRow` stays in `submitted` state (same `briefId`).
+3. When the next true window flips (evening → next morning's first brief), the row resets to thumbs UI.
+4. `SELECT brief_snapshot_id FROM user_engagements WHERE event_type='brief_feedback' ORDER BY created_at DESC LIMIT 5` shows IDs populated.
+5. Force `Intl.DateTimeFormat().resolvedOptions().timeZone` to `America/New_York` in dev → calendar event lines in the prompt log show `09:30 — Intro Call …`, traveler line added, brief copy uses NY clock.
+6. `home_timezone` populated for the user; never overwritten on subsequent logins.
 
 ### Out of scope
 
-- Changing `hasValidAccess` (already correct).
-- Touching `SubscriptionGuard` (correctly grants beta access).
-- Re-architecting `Stage6Payment` upgrade-mode logic (only the beta entry path is patched).
-- Sidebar / overlay / Sharpness shortening (already shipped and verified).
+- Migrating away from `timezone_offset` (kept as fallback for legacy code).
+- Detecting jet-lag / circadian misalignment commentary (data is now available; LLM may surface it organically — explicit logic later).
+- Changing snapshot caching cadence — fix only adds `id` to the existing flow.
 
