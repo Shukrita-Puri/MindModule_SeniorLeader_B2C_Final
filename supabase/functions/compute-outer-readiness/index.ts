@@ -3295,6 +3295,15 @@ The score (X/100) and tier label render directly above the body. The signal pill
   RESILIENCE (Stability): Strategic Composure, Executive Presence, Diplomatic Shield, Reactive Risk, Internal Buffer.
 Use the lexicon as cluster concepts (not verbatim copy). Strategic synonyms allowed; thematic match required.
 
+§2.19.6 DATA-HONESTY LEDGER (mandatory under v6.2 Hardware Veto):
+The pills below the body now apply Hardware Veto + Outcome Veto. Your body MUST mirror that honesty:
+  • If WEARABLE divergence flag = MASKED_HIGH → body MUST name the gap explicitly (e.g. "HRV says one thing, felt state says another"). Do NOT smooth it over.
+  • If MENTAL ENERGY = drained or overwhelmed AND Confidence ≥ 4 → body MUST acknowledge "felt ahead of system" — confidence is high but the truth layer (mental energy) is depleted. The wearable will not yet show this; the human signal is the lead.
+  • If SLEEP is null/missing → body MUST NOT assert physiological recovery, rest, or "body is ready". Use language like "body partial read" or "sleep not captured".
+  • Phrase MUST orient to the actual lever. "Sustain the pace" / "Steady ground" / "Hold the base" are FORBIDDEN when the user reports drained/overwhelmed or when consecutiveLowDays ≥ 3.
+  • NEVER reproduce the deterministic-template phrases: "not a single bad night", "day's margins can provide", "system may need more than the days margine can provide". These are placeholder copy you are replacing.
+  • Lean On / Watch For: prefer PATTERN source when consecutiveLowDays ≥ 3, when Mental Energy is drained/overwhelmed, or when HRV deviation ≤ -20%. Do NOT use generic traits ("Full Alignment", "Self-Honesty", "Discernment") unless source=COACH and the coach insight is ≤7 days old.
+
 §2.22 ANTI-FALLBACK / DATA-FIRST MANDATE:
 Your priority is Evidence-Based Insight. If user data is thin (no calendar, no wearable), pivot to BASELINE INTELLIGENCE — never default to generic advice. Calendar-empty path orients The Stake to "Base-Level Readiness" (e.g., "Stabilizing the base for future load") — never rejected for missing calendar.
 
