@@ -2466,6 +2466,15 @@ serve(async (req) => {
     let tomorrowFirstEventTime: string | null = null;
     let tomorrowVsTodayLoad: string | null = null;
     let tomorrowHighStakesTitles: string[] = [];
+    // Per-event time strings paired with each high-stakes title (same indexes as
+    // tomorrowHighStakesTitles). Allows the prompt to emit "14:30 — Intro Call …"
+    // structured pairs instead of two free-floating lines the LLM can mis-glue.
+    let tomorrowHighStakesEventTimes: string[] = [];
+    let tomorrowFirstMeetingPair: string | null = null; // e.g. "14:30 — Intro Call …"
+    // Effective IANA timezone strings — resolved in the holiday block below
+    // from request body / profiles columns; nullable when neither is available.
+    let effectiveCurrentTz: string | null = null;
+    let effectiveHomeTz: string | null = null;
     let weekAheadShape: Record<string, unknown> | null = null;
     // hrvEventCorrelation already declared above (before getLeanOnWatchFor)
     let mostEffectivePractice: string | null = null;
@@ -2595,16 +2604,13 @@ serve(async (req) => {
         const persistedHomeTz = (profileTz as any)?.home_timezone || null;
         // Effective zones: client-provided wins (most up-to-date for travelers),
         // then persisted profile, then nothing.
-        const effectiveCurrentTz = clientCurrentTz || persistedCurrentTz || null;
-        const effectiveHomeTz = clientHomeTz || persistedHomeTz || effectiveCurrentTz || null;
+        effectiveCurrentTz = clientCurrentTz || persistedCurrentTz || null;
+        effectiveHomeTz = clientHomeTz || persistedHomeTz || effectiveCurrentTz || null;
         // Derive country from CURRENT zone first (where the user is now), then
         // fall back to home zone for holidays — a UK user travelling in the US
         // is more relevantly subject to US holidays than UK ones.
         const userTz = effectiveCurrentTz || effectiveHomeTz;
         const userCountry = userTz ? tzToCountry[userTz] || null : null;
-        // Stash for later prompt assembly.
-        (globalThis as any).__effectiveCurrentTz = effectiveCurrentTz;
-        (globalThis as any).__effectiveHomeTz = effectiveHomeTz;
         const localDate = userTime.toISOString().split('T')[0];
         const tomorrowDate = new Date(userTime.getTime() + 86400000).toISOString().split('T')[0];
 
