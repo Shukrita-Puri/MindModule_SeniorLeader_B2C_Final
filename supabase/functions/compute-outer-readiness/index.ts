@@ -2426,6 +2426,23 @@ serve(async (req) => {
     let stateShiftToday = false;
     let stateShiftDirection: string | null = null;
 
+    // ═══ BRIEF SNAPSHOT CACHE: hoisted declarations ═══
+    // These must live in the outer handler scope so the response-assembly block
+    // (line ~3846) can read them. Previously declared inside the
+    // `if (dataCompleteness !== 'day1')` block, which caused a ReferenceError
+    // on every request and blanked the dashboard with "NOT YET ASSESSED".
+    let cachedSnapshot: {
+      phrase: string | null;
+      body_text: string | null;
+      lean_on: string | null;
+      lean_on_source: string | null;
+      watch_for: string | null;
+      watch_for_source: string | null;
+      brief_source: 'llm' | 'deterministic';
+      driver: string | null;
+    } | null = null;
+    let inputSignature = 'no-sig';
+
     if (dataCompleteness !== 'day1') {
       // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
       {
@@ -2888,17 +2905,6 @@ serve(async (req) => {
       // All material inputs are gathered above. Compute the canonical signature now and,
       // on cache hit, hydrate llmBrief from the snapshot so the existing rendering code
       // emits the same response shape — and skip the LLM call entirely.
-      let cachedSnapshot: {
-        phrase: string | null;
-        body_text: string | null;
-        lean_on: string | null;
-        lean_on_source: string | null;
-        watch_for: string | null;
-        watch_for_source: string | null;
-        brief_source: 'llm' | 'deterministic';
-        driver: string | null;
-      } | null = null;
-      let inputSignature = 'no-sig';
       try {
         inputSignature = await computeInputSignature({
           localDate: userLocalDate,
@@ -3799,6 +3805,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       }
     }
 
+    // ═══ SAFEGUARD: post-LLM scope verification (temporary observability) ═══
+    // Confirms that cachedSnapshot and inputSignature survived past the LLM block
+    // and are visible to the response-assembly code below. Remove after ~48h of clean logs.
+    console.log('[compute-outer-readiness] post-LLM state', {
+      hasCachedSnapshot: !!cachedSnapshot,
+      hasInputSignature: !!inputSignature && inputSignature !== 'no-sig',
+      hasLlmBrief: !!llmBrief,
+    });
+
     console.log(`[compute-outer-readiness] DRB brief source: ${llmBrief ? 'llm' : 'deterministic'}`);
 
     // Map leanOn source to human-readable label
@@ -3843,6 +3858,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     const formattedDeterministicLeanOn = formatFallbackSignal(leanOnResult.leanOn, leanOnResult.source);
     const formattedDeterministicWatchFor = formatFallbackSignal(leanOnResult.watchFor, leanOnResult.source);
+
+    // ═══ SAFEGUARD: defensive guard before first cachedSnapshot use ═══
+    if (typeof cachedSnapshot === 'undefined') {
+      console.error('[compute-outer-readiness] cachedSnapshot unexpectedly undefined — scope regression');
+    }
+
+    // ═══ SAFEGUARD: response-assembly try/catch ═══
+    // If anything below throws (scope regression, undefined access, etc.), fail soft with a
+    // 200 + deterministic fallback so the dashboard never blanks to "NOT YET ASSESSED".
+    try {
     const briefSource: 'llm' | 'deterministic' = cachedSnapshot
       ? cachedSnapshot.brief_source
       : (llmBrief ? 'llm' : 'deterministic');
@@ -4024,6 +4049,32 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+    } catch (assemblyErr) {
+      const aMsg = assemblyErr instanceof Error ? assemblyErr.message : String(assemblyErr);
+      console.error('[compute-outer-readiness] Response assembly failed — soft-fallback served:', aMsg);
+      const fallbackPhrase = (typeof finalPhrase === 'string' && finalPhrase) ? finalPhrase : 'Steady ground.';
+      const fallbackBody = (typeof finalContext === 'string' && finalContext) ? finalContext : 'Continue with what you know works.';
+      return new Response(JSON.stringify({
+        fallback: true,
+        phrase: fallbackPhrase,
+        context: fallbackBody,
+        bodyText: fallbackBody,
+        leanOn: '',
+        watchFor: '',
+        briefSource: 'deterministic',
+        leanOnSource: 'fallback',
+        watchForSource: 'fallback',
+        dataSources: [],
+        calendarState: 'unknown',
+        hasWearable: false,
+        wearableDaysConnected: 0,
+        innerReadinessScore: typeof innerReadinessScore === 'number' ? innerReadinessScore : null,
+        innerReadinessTier: typeof safeTier === 'string' ? safeTier : null,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[compute-outer-readiness] Error:', msg);
