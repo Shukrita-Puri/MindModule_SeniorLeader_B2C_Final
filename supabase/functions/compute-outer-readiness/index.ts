@@ -3457,6 +3457,27 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
+
+                // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN
+                const sourceUpper = source.toUpperCase();
+                if (!['ARCHETYPE', 'COACH', 'PATTERN'].includes(sourceUpper)) {
+                  return { valid: false, reason: `${label}_invalid_source_${sourceUpper}` };
+                }
+
+                // §2.18.5 Generic-trait blocklist (allowed only when source=COACH)
+                const GENERIC_TRAIT = /\b(self[- ]?honesty|self[- ]?awareness|self[- ]?discernment|discernment|alignment|conviction strength|execution confidence|clear direction)\b/i;
+                if (GENERIC_TRAIT.test(signal) && sourceUpper !== 'COACH') {
+                  return { valid: false, reason: `${label}_generic_trait` };
+                }
+
+                // §2.18.5 Non-redundancy: signal must not appear as substring of body
+                if (bodyTextStr) {
+                  const bodyLower = bodyTextStr.replace(/<[^>]+>/g, '').toLowerCase();
+                  const signalLower = signal.toLowerCase();
+                  if (signalLower.length >= 6 && bodyLower.includes(signalLower)) {
+                    return { valid: false, reason: `${label}_repeats_body` };
+                  }
+                }
               }
               return null;
             };
