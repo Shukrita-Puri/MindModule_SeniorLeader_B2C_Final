@@ -841,21 +841,27 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
 
   // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
-    if (s === 'red') return 'STRAINED';
-    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'HIGH LOAD';
-    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'STEADY';
+    if (s === 'red') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : 'DEGRADED';
+    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'TAXED';
+    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'CLEAR';
     return 'BUILDING';
   };
   const physWord = (s: PillState): string => {
-    if (s === 'red') return 'DEPLETED';
-    if (s === 'amber') return 'FADING';
-    if (s === 'green') return 'RESTED';
-    return 'BUILDING';
+    if (s === 'neutral') return 'NO BODY DATA';
+    if (s === 'red') return 'SYSTEM STRAIN';
+    if (s === 'amber') return sleepKnown ? 'LOAD BUILDING' : 'PARTIAL READ';
+    // green
+    const sleepGood = (sleepScore != null && sleepScore >= 70) || (sleepDur != null && sleepDur >= 390);
+    const rhrGood = (rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70);
+    const hrCalm = (rhrDev == null || rhrDev <= 15);
+    if (sleepKnown && sleepGood && rhrGood && hrCalm) return 'BODY READY';
+    if (!sleepKnown && rhrGood) return 'BODY STABLE';
+    return 'PHYSIOLOGY OK';
   };
   const emoWord = (s: PillState): string => {
-    if (s === 'red') return 'REACTIVE';
-    if (s === 'amber') return 'STRAINED';
-    if (s === 'green') return 'STEADY';
+    if (s === 'red') return 'COMPROMISED';
+    if (s === 'amber') return 'UNDER LOAD';
+    if (s === 'green') return 'HOLDING';
     return 'BUILDING';
   };
 
