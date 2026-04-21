@@ -20,11 +20,14 @@ Confirmed in DB: 5 active connections, last_sync 28 min ago, but only **3 users 
 
 #### Layer 1 — Stop destroying history (the prerequisite for correlation)
 
-Replace the `DELETE → INSERT` pattern in `sync-calendar/index.ts` with **upsert + scoped delete**:
+Replace the `DELETE → INSERT` pattern in `sync-calendar/index.ts` with **upsert + window-scoped mirror-delete**:
 
 - **Upsert** events on `(user_id, external_id)` — needs a unique index migration.
-- **Scoped delete** only removes events whose `external_id` is no longer in the upstream API response **AND whose `start_time >= today`**. Past events are never deleted.
-- Keep a **90-day retention floor** on past events (matches wearable_data window). A nightly cleanup cron prunes events older than 90 days.
+- **Window-scoped delete** removes events whose `external_id` is no longer in the upstream API response, scoped to the **active sync window** (today−2d → today+8d on routine sync; today−30d → today+8d on first sync). This means:
+  - Future deletions in Google → mirrored here on next sync
+  - Past-event deletions within the lookback window → also mirrored (privacy + accuracy)
+  - Past events OUTSIDE the lookback window (older than 2d on routine sync) → preserved until 90-day retention cron prunes them
+- 90-day retention floor on past events enforced by nightly cleanup cron.
 
 This single change unlocks HR↔event correlation: with 90 days of past events + 90 days of HRV, the existing `historicalPatternEngine.ts` and `performance-rhythm-insights` function can finally compute "Board meetings drop your HRV by 18% the next morning" — patterns that simply cannot exist with today's 0-day history.
 
@@ -62,7 +65,7 @@ ALTER TABLE calendar_connections
 
 This gives the correlation engine 30 days of past events on day one, growing organically.
 
-**New view for correlation:** `event_physiology_join` (DB view, not a table):
+**New view for correlation:** `event_physiology_join` (DB view, not a table) — exposes HRV, RHR, peak HR, and sleep deltas per past event so the engine can detect stress patterns across multiple physiological channels, not just HRV.
 ```sql
 CREATE VIEW event_physiology_join AS
 SELECT 
