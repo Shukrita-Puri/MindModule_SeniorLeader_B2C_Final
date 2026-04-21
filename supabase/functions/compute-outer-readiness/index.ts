@@ -2884,10 +2884,94 @@ serve(async (req) => {
 
       // ── Build & call LLM ──
 
+      // ═══ BRIEF SNAPSHOT CACHE: read-first ═══
+      // All material inputs are gathered above. Compute the canonical signature now and,
+      // on cache hit, hydrate llmBrief from the snapshot so the existing rendering code
+      // emits the same response shape — and skip the LLM call entirely.
+      let cachedSnapshot: {
+        phrase: string | null;
+        body_text: string | null;
+        lean_on: string | null;
+        lean_on_source: string | null;
+        watch_for: string | null;
+        watch_for_source: string | null;
+        brief_source: 'llm' | 'deterministic';
+        driver: string | null;
+      } | null = null;
+      let inputSignature = 'no-sig';
+      try {
+        inputSignature = await computeInputSignature({
+          localDate: userLocalDate,
+          timeWindow: getTimeOfDay(hour),
+          promptVersion: BRIEF_PROMPT_VERSION,
+          score: innerReadinessScore ?? null,
+          tier: safeTier,
+          checkInOutcome: checkInOutcome || null,
+          clarityLevel: clarityLevel ?? null,
+          confidenceLevel: confidenceLevel ?? null,
+          sharpnessLevel: mentalSharpnessLevel ?? null,
+          wearableSummaryDate: wearableContext?.sourceRowDate ?? null,
+          hrvDeviation: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+          sleepDeviation: typeof sleepDeviation === 'number' ? sleepDeviation : null,
+          rhrDeviation: typeof rhrDeviation === 'number' ? rhrDeviation : null,
+          wearableTier: wearableContext
+            ? (wearableContext.hrvElevated || wearableContext.poorSleep || wearableContext.rhrElevated ? 'strained' : 'good')
+            : null,
+          calendarLoad: calendarLoad ?? null,
+          calendarPressure: calendarPressure ?? null,
+          meetingCount: calendarResult.meetingCount ?? null,
+          remainingMeetingCount: calendarResult.remainingMeetings ?? null,
+          remainingHighStakesTitles: calendarResult.remainingHighStakes ?? [],
+          nextHighStakesTitle: nextHighStakesEvent?.title ?? null,
+          nextHighStakesMinutesUntil: nextHighStakesEvent?.minutesUntil ?? null,
+          coachStrength: null, // suppressed; field shape preserved for future re-enable
+          coachGrowthArea: null,
+          archetype: serverArchetype ?? null,
+          scoreTrajectory: scoreTrajectory7d ?? null,
+          consecutiveLowDays: (consecutiveLowConfidence + consecutiveLowClarity) || null,
+          typicalDOWOutcome: typeof typicalDOWOutcome === 'string' ? typicalDOWOutcome : null,
+          hrvEventCorrelation: hrvEventCorrelation ? true : null,
+          wearableTrend: wearableTrend7d ?? null,
+          tomorrowLoad: getTimeOfDay(hour) === 'evening' ? (tomorrowLoad ?? null) : null,
+          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isPublicHoliday: isPublicHoliday === true,
+        });
+      } catch (sigError) {
+        console.error('[brief-cache] Signature failed:', sigError instanceof Error ? sigError.message : sigError);
+        inputSignature = 'no-sig';
+      }
+
+      if (inputSignature !== 'no-sig') {
+        try {
+          const { data: snapshot } = await db
+            .from('brief_snapshots')
+            .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
+            .eq('user_id', userId)
+            .eq('local_date', userLocalDate)
+            .eq('time_window', getTimeOfDay(hour))
+            .eq('input_signature', inputSignature)
+            .eq('prompt_version', BRIEF_PROMPT_VERSION)
+            .maybeSingle();
+          if (snapshot) {
+            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            console.log('[brief-cache] Result:', JSON.stringify({
+              snapshotHit: true,
+              briefSource: snapshot.brief_source,
+              promptVersion: BRIEF_PROMPT_VERSION,
+              inputSignature: inputSignature.slice(0, 8) + '...',
+              generationPath: 'snapshot',
+              snapshotReason: 'exact_match',
+            }));
+          }
+        } catch (readError) {
+          console.error('[brief-cache] Snapshot read failed:', readError instanceof Error ? readError.message : readError);
+        }
+      }
+
       // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
         const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-        if (ANTHROPIC_API_KEY) {
+        if (ANTHROPIC_API_KEY && !cachedSnapshot) {
           const timeOfDayStr = getTimeOfDay(hour);
           const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
           const dayName = dayNames2[dayOfWeek];
