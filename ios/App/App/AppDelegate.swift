@@ -10,7 +10,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Set notification center delegate for foreground notifications
         UNUserNotificationCenter.current().delegate = self
+
+        // Register HealthKit background observers so iOS can wake the app silently
+        // when new HRV/RHR/HR/Sleep samples arrive — keeps wearable_data flowing
+        // without requiring the user to open the app. Permission must already be
+        // granted (handled by JS layer); if not, observers fire harmlessly.
+        WearableSyncBridge.shared.registerBackgroundObservers()
+
         return true
+    }
+
+    // MARK: - Background fetch (belt-and-braces)
+    // iOS may also call this on its own schedule. We delegate to the same sync path.
+    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        WearableSyncBridge.shared.fetchAndPersist {
+            completionHandler(.newData)
+        }
     }
 
     // MARK: - Remote Notification Registration

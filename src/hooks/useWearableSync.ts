@@ -11,7 +11,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { isNativeApp, requestHealthKitPermissions, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
+import { isNativeApp, requestHealthKitPermissions, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, isHealthKitPermissionGranted, type WearableConnectionState } from '@/services/wearableSyncService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -198,8 +198,16 @@ export function useWearableSync(): WearableSyncState {
           setLastVerifiedAt(new Date());
           await syncIfStale();
         } else {
-          console.log('[useWearableSync] Init: live HealthKit access DENIED – marking permission_revoked');
-          setConnectionState('permission_revoked');
+          // Only mark as permission_revoked when authorization is *explicitly* denied
+          // (not just "we couldn't verify this session"). This prevents ghost-disconnect UX.
+          const auth = await getHealthKitAuthorization();
+          if (auth.permissionGranted === false && (auth.readDenied?.length ?? 0) > 0) {
+            console.log('[useWearableSync] Init: HealthKit explicitly denied – marking permission_revoked');
+            setConnectionState('permission_revoked');
+          } else {
+            console.log('[useWearableSync] Init: HealthKit not verified yet – staying optimistic, will retry');
+            // Leave connectionState as-is; background re-verify will resolve later.
+          }
           setLastVerifiedAt(new Date());
         }
       } else if (!isNativeApp()) {

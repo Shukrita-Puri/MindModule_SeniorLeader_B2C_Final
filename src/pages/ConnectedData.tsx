@@ -384,6 +384,12 @@ const ConnectedData = () => {
   };
 
   const handleDisconnectAppleHealth = async () => {
+    // Confirm — make it clear historical data is preserved
+    const confirmed = window.confirm(
+      'Disconnect Apple Health?\n\nYour historical data is preserved. Reconnecting will resume syncing — you won\'t lose anything.'
+    );
+    if (!confirmed) return;
+
     try {
       localStorage.removeItem('contextConnections');
       const backendDisconnected = await disconnectAppleHealthFromBackend();
@@ -461,10 +467,18 @@ const ConnectedData = () => {
       }
 
       if (aw.syncStatus === 'sync_delayed' || aw.syncStatus === 'watch_unavailable') {
+        // Distinguish "watch wasn't worn" (last sample > 24h old) from "actual sync failure"
+        const hoursSinceSample = aw.lastSampleAt
+          ? (Date.now() - new Date(aw.lastSampleAt).getTime()) / (1000 * 60 * 60)
+          : null;
+        const watchNotWorn = hoursSinceSample !== null && hoursSinceSample > 24;
+        const gapMessage = watchNotWorn
+          ? `No data captured ${formatDistanceToNowStrict(new Date(aw.lastSampleAt!), { addSuffix: true })} — wear your watch to resume`
+          : 'Catching up — new data will appear shortly';
         return {
           showConnected: true,
-          statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
-          statusNote: [ 'Sync delayed — open the app on your phone to refresh', lastSyncNote, lastSampleNote ].filter(Boolean).join(' · '),
+          statusLabel: 'Connected',
+          statusNote: [ gapMessage, lastSampleNote ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
       }
