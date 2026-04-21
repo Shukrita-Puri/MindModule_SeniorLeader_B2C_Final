@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X } from "lucide-react";
+import { Check, X, Loader2 } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
@@ -35,12 +35,13 @@ export default function Stage6Payment() {
   const showUpgradeMode = hasExplicitUpgradeSource || (isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess));
 
   useEffect(() => {
-    if (isBetaValid && !isUpgradeVisit) {
-      console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
-      recordStep('payment', { skipped: true, reason: 'beta_user' });
-      navigate('/onboarding/app-intro', { replace: true });
-    }
-  }, [isBetaValid, isUpgradeVisit, navigate, recordStep]);
+    if (!isBetaValid) return;
+    // Honor explicit upgrade clicks even for beta users
+    if (hasExplicitUpgradeSource) return;
+    console.log('[Stage6Payment] Beta valid + no upgrade source → skipping payment');
+    recordStep('payment', { skipped: true, reason: 'beta_user' });
+    navigate(hasCompletedOnboarding ? '/daily-check-in' : '/onboarding/app-intro', { replace: true });
+  }, [isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
 
   useEffect(() => {
     if (!user) return;
@@ -174,6 +175,16 @@ export default function Stage6Payment() {
           <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
           <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
         </div>
+      </div>
+    );
+  }
+
+  // First-paint guard: valid beta users without explicit upgrade source should
+  // never see the pricing UI (the useEffect above will redirect them).
+  if (isBetaValid && !hasExplicitUpgradeSource) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
