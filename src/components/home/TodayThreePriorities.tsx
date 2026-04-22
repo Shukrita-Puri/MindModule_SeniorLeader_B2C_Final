@@ -610,7 +610,14 @@ const TodayThreePriorities = ({
             </div>
           ))}
 
-          <EngravedLoader label="Mapping your priorities…" />
+          <EngravedLoader
+            steps={[
+              "Reading today's brief…",
+              "Scanning your calendar & demands…",
+              "Matching practices to your state…",
+              "Sequencing your 3 priorities…",
+            ]}
+          />
         </div>
       </div>
     );

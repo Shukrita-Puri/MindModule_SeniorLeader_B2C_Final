@@ -1501,7 +1501,14 @@ const PerformanceReadinessBrief = () => {
             Preparing
           </span>
         </div>
-        <EngravedLoader label="Reading your signals…" />
+        <EngravedLoader
+          steps={[
+            "Reading your signals…",
+            "Assessing your day's demands…",
+            "Mapping patterns & context…",
+            "Drafting your brief…",
+          ]}
+        />
       </div>
     );
   }

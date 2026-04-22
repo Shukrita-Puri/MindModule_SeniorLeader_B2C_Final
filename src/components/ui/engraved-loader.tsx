@@ -5,10 +5,21 @@
  * the system is working and they don't need to act.
  */
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 interface EngravedLoaderProps {
   /** Optional message under the bar. Defaults to "Loading…". */
   label?: string;
+  /**
+   * Optional ordered list of progress steps. When provided, the loader
+   * cycles through them under the bar (giving the user a sense of what
+   * the system is doing — e.g. "Reading signals…", "Assessing demands…",
+   * "Drafting the brief…"). The last step stays visible until the parent
+   * unmounts the loader. Overrides `label` when present.
+   */
+  steps?: string[];
+  /** Milliseconds each step is shown before advancing. Default 1400ms. */
+  stepDurationMs?: number;
   /** Tighter vertical spacing for inline use inside cards. */
   compact?: boolean;
   className?: string;
@@ -16,14 +27,31 @@ interface EngravedLoaderProps {
 
 const EngravedLoader = ({
   label = "Loading…",
+  steps,
+  stepDurationMs = 1400,
   compact = false,
   className,
 }: EngravedLoaderProps) => {
+  const hasSteps = Array.isArray(steps) && steps.length > 0;
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    if (!hasSteps) return;
+    setStepIdx(0);
+    if (steps!.length === 1) return;
+    const id = window.setInterval(() => {
+      setStepIdx((i) => (i < steps!.length - 1 ? i + 1 : i));
+    }, stepDurationMs);
+    return () => window.clearInterval(id);
+  }, [hasSteps, steps, stepDurationMs]);
+
+  const currentLabel = hasSteps ? steps![Math.min(stepIdx, steps!.length - 1)] : label;
+
   return (
     <div
       role="status"
       aria-live="polite"
-      aria-label={label}
+      aria-label={currentLabel}
       className={cn(
         "flex flex-col items-center justify-center gap-3 text-foreground/75",
         compact ? "py-4" : "py-8",
@@ -116,10 +144,11 @@ const EngravedLoader = ({
       </svg>
 
       <p
+        key={currentLabel}
         className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground/70"
         style={{ fontFamily: "Georgia, serif", letterSpacing: "0.22em" }}
       >
-        {label}
+        <span className="inline-block animate-fade-in">{currentLabel}</span>
       </p>
     </div>
   );
