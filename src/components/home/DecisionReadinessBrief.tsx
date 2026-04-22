@@ -1421,7 +1421,11 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 }
 
 // ─── MAIN COMPONENT ───
-const PerformanceReadinessBrief = () => {
+interface PerformanceReadinessBriefProps {
+  onCtaReadyChange?: (ready: boolean) => void;
+}
+
+const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBriefProps = {}) => {
   const navigate = useNavigate();
   const [signalsOpen, setSignalsOpen] = useState(false);
 
