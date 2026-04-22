@@ -1,106 +1,85 @@
 
 
-## Plan: Gate page content behind the engraved loader's full step sequence
+## Root cause: a second unique constraint is still blocking multiple check-ins
 
-Today the loader cycles through its scripted steps, but the actual content reveals as soon as the data arrives — which can happen before the loader has finished narrating. Result: the steps look decorative instead of informative, and content can pop in mid-script.
+### What's actually happening
 
-This change makes the loader **the single source of "ready"**: content waits until **both** (a) the data has arrived AND (b) the loader has played every step at least once, in order. No jumbled reveals.
+The previous migration dropped `daily_checkins_user_id_checkin_date_time_window_key` — but the `daily_checkins` table has **a second unique constraint with a different name** still in place:
 
-### Behavior
-
-For each of the four surfaces (Brief, Plan, Insights, Onboarding Results):
-
-1. The loader plays its scripted steps in fixed order, one after the other.
-2. The last step holds on screen (it does not loop back to step 1).
-3. The page content stays hidden — the loader card stays mounted — until the loader signals "all steps done" AND the underlying fetch is complete.
-4. Once both conditions are true, the loader fades out and the content fades in as one block (no half-rendered cards).
-5. If the data is slower than the script, the loader sits on its final step (e.g. "Drafting your brief…") until data lands.
-6. If the data is faster than the script, content still waits for the script to finish — the user sees the full mixture narration.
-
-### Step durations & sequences (locked, in order)
-
-| Surface | Steps (in order) | Per-step | Total min wait |
-|---|---|---|---|
-| **Brief** (`DecisionReadinessBrief.tsx`) | Reading your signals… → Assessing your day… → Mapping patterns & context… → Drafting your brief… | 1400ms | ~5.6s |
-| **Plan** (`TodayThreePriorities.tsx`) | Reading today's brief… → Scanning your demands… → Matching practices to your state… → Sequencing your 3 priorities… | 1400ms | ~5.6s |
-| **Onboarding Results** (`Stage8Results.tsx`) | Reading your responses… → Mapping your performance dimensions… → Identifying your archetype… → Calibrating your baseline… → Drafting your report… | 1400ms | ~7s |
-| **Insights** (`Insights.tsx`) | Reading your leadership patterns… → Connecting wins & themes… → Synthesising your insights… | 1400ms | ~4.2s |
-
-(Per-step duration is tunable via the existing `stepDurationMs` prop. 1400ms keeps each line readable without feeling slow.)
-
-### Implementation
-
-**1. Extend `EngravedLoader` (`src/components/ui/engraved-loader.tsx`)**
-
-Add two props:
-- `onAllStepsComplete?: () => void` — fires once, when the last step has been displayed for one full `stepDurationMs` interval.
-- The existing cycling logic already stops at the last step (it does not wrap). After the final step's interval elapses, fire `onAllStepsComplete()` from inside the same `setInterval` tick that would have advanced beyond the end. The interval is then cleared.
-
-No visual change. Backwards-compatible — existing callers without the callback continue to work.
-
-**2. Add a "ready gate" pattern in each consumer**
-
-Each of the four files gets the same small pattern:
-
-```tsx
-const [scriptDone, setScriptDone] = useState(false);
-const dataReady = /* existing condition: data present + not loading */;
-const showContent = scriptDone && dataReady;
+```
+duplicate key value violates unique constraint "daily_checkins_user_date_window"
+Key (user_id, checkin_date, time_window)=(google-oauth2|…, 2026-04-22, morning) already exists.
 ```
 
-Render rule:
-- If `!showContent` → render the loader card only, with `onAllStepsComplete={() => setScriptDone(true)}`.
-- If `showContent` → render the actual content (existing JSX), wrapped in `animate-fade-in`.
+Edge function logs show this exact error firing every single time the user taps **Confirm** on a state they've already used today. That's why:
 
-This means the loader card stays mounted (and continues to display its final step) until the data lands, even after the script ends. As soon as data lands, the swap happens.
+1. **"Confirm" stays stuck on "Saving…"** → `saveCheckin()` returns `null` (the edge function throws 500), the catch path in `DailyCheckIn.tsx` runs → `setIsSubmitting(false)` is *missing* from the catch path. The button stays disabled with the "Saving…" label until the page is reloaded.
+2. **State buttons feel "unclickable"** → `canCheckInNow()` runs on mount, sees an existing morning check-in, and sets `alreadyCheckedIn = true`. The component reads that state but **never renders the gate** — the buttons are still mounted but the next save will always fail. Combined with the stuck "Saving…" button, the screen looks frozen.
 
-**3. Per-file specifics**
+The previous "allow multiple check-ins" migration only dropped one of the two duplicate-blocking constraints. The other one (`daily_checkins_user_date_window`) silently survived.
 
-- **`src/components/home/DecisionReadinessBrief.tsx`** (loader at lines ~1493–1514):  
-  `dataReady = !outerBriefLoading && !!outerBrief`. Gate the entire `return (...)` (lines 1516+) behind `showContent`.
+### Fix (3 small changes)
 
-- **`src/components/home/TodayThreePriorities.tsx`** (loader at lines ~613–620):  
-  `dataReady = !loading && horizonModules && horizonModules.length > 0`. Empty/error state (lines 627+) is **not** gated — those still appear immediately if the fetch finishes empty (they are not "content arriving in random order", they are an alternate terminal state).
+**1. Drop the surviving unique constraint (migration)**
 
-- **`src/pages/onboarding/stages/Stage8Results.tsx`** (loader at lines ~196–211):  
-  `dataReady = !loading && !!results && !error`. Error state still bypasses the gate. Five-step script means a min ~7s narration before the report renders — appropriate given onboarding is a one-time moment.
+```sql
+ALTER TABLE public.daily_checkins
+  DROP CONSTRAINT IF EXISTS daily_checkins_user_date_window;
+```
 
-- **`src/pages/Insights.tsx`** (loader at lines ~838–850):  
-  Currently the loader sits **above** the tabs while tabs render below in parallel — that's the "jumbled" reveal you're seeing. Fix: move the gate so the **tab bar + tab content block** (lines ~852 to the close of the tab content area) is hidden until `scriptDone && !patternsLoading && !winsLoading && !semanticLoading`. The page header ("Mental Performance Insights" + subtitle) stays visible above the loader so the user has page context. The two inline card-level loaders (`Loading momentum…`, `Loading mind map…`) stay as-is — they're scoped to their card and won't fire until the parent reveals.
+After this, the existing `idx_daily_checkins_user_date_window_ts` index already covers the "latest in window" lookup — no further DB work needed.
 
-**4. No changes to**
+**2. Stop the client-side block on re-check-in (`src/utils/dailyCheckins.ts` + `DailyCheckIn.tsx`)**
 
-- Edge functions, data flow, fetch logic.
-- Loader visual / SVG / animation.
-- Empty-state and error-state handling (those bypass the gate intentionally).
-- Other pages already using the loader without scripted steps (`/connected-data`, route-level `Suspense`, guards) — they have no script to wait on.
-- React Query `placeholderData` behavior (refetches still keep previous data visible; the script-gate only applies to true cold loads where there's no prior data).
+The intent is now: *users can check in as many times as they want; we only display "M/A/E" once on the dashboard but record every check-in.* So:
+
+- `canCheckInNow()` → always return `{ canCheckIn: true }`. Remove the duplicate-window guard entirely.
+- `DailyCheckIn.tsx` → remove the `alreadyCheckedIn` / `checkedInMessage` state + the `useEffect` that calls `canCheckInNow()`. The Confirm button should never be soft-locked.
+- `saveCheckin()` DEV path → switch from `.upsert(..., { onConflict: 'user_id,checkin_date,time_window' })` to `.insert(...)` for parity with the production edge function (which already uses `.insert()`).
+
+**3. Harden the failure path so the button never gets stuck (`DailyCheckIn.tsx`)**
+
+In `handleConfirm`, wrap in try/finally so `setIsSubmitting(false)` *always* runs — even if `saveCheckin` returns null or throws:
+
+```tsx
+const handleConfirm = async () => {
+  if (!selectedOutcome || isSubmitting) return;
+  setIsSubmitting(true);
+  try {
+    await handleOutcomeSelect(selectedOutcome);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
+
+And in `handleOutcomeSelect`, when `saveCheckin` returns `null`, the existing toast already fires — no further change needed once the constraint is gone.
+
+### Why this is the complete fix
+
+- The DB error stops happening (constraint gone).
+- Even if any *future* save fails for any reason (network, auth), the button always re-enables and shows the toast — no more "Saving…" lock.
+- The "you already checked in" wall is removed, matching the new product rule: multiple briefs per window are intentional.
+- Sidebar "Recent" list (already updated to fetch up to 10) will now show every check-in chronologically.
 
 ### Files touched
 
 | File | Change |
 |---|---|
-| `src/components/ui/engraved-loader.tsx` | Add `onAllStepsComplete` prop; fire once after the final step has held for one interval. |
-| `src/components/home/DecisionReadinessBrief.tsx` | Add `scriptDone` gate; render brief content only when script done AND data ready. |
-| `src/components/home/TodayThreePriorities.tsx` | Same gate around the priorities content (not the empty/error state). |
-| `src/pages/onboarding/stages/Stage8Results.tsx` | Same gate around the results report (not the error state). |
-| `src/pages/Insights.tsx` | Move the loader to gate the tab bar + tab content; keep page header always visible. |
+| `supabase/migrations/<new>.sql` | `DROP CONSTRAINT IF EXISTS daily_checkins_user_date_window` |
+| `src/utils/dailyCheckins.ts` | `canCheckInNow()` always returns `{ canCheckIn: true }`; DEV `saveCheckin` uses `.insert()` not `.upsert()` |
+| `src/pages/DailyCheckIn.tsx` | Remove `alreadyCheckedIn` state + its `useEffect`; wrap `handleConfirm` in try/finally so `isSubmitting` is always reset |
 
 ### Verification
 
-1. **Brief**: Hard-refresh `/executive-home`. Loader narrates all 4 steps in order; even if the edge function returns in 1s, the brief card does not appear until "Drafting your brief…" has been shown. Then the full brief fades in as one piece.
-2. **Plan**: Navigate to `/plan`. All 4 steps narrate in order; the 3 priority cards appear together, never one-by-one mid-script.
-3. **Insights**: Open `/insights`. Header stays visible; loader narrates all 3 steps; the tabs and cards reveal together, not while the loader is still mid-script.
-4. **Onboarding Results**: Complete onboarding stage 7 → land on results. All 5 steps narrate in order; the report appears only after "Drafting your report…".
-5. **Slow data**: Throttle to Slow 3G — loader sits on its final step until data arrives, never loops back to step 1.
-6. **Cached/refetch**: Returning to a page with already-cached data → no loader (existing `placeholderData` behavior preserved).
-7. **Errors**: Force an error response → error state appears immediately (not gated).
-8. **Mobile 375px**: All loaders stay centered; no layout jump when content reveals.
+1. Tap any state → Confirm → toast/navigate succeeds. Edge function logs show no `23505` error.
+2. Immediately tap **another** state on the same morning → Confirm again → second check-in lands; sidebar Recent shows two entries for "morning" today.
+3. Force a network failure → Confirm shows "Saving…" briefly, then toast appears and the button returns to "Confirm" (no longer frozen).
+4. Run `supabase--read_query` against `daily_checkins` for the test user — multiple rows for the same `(user_id, checkin_date, time_window)` exist.
 
 ### Out of scope
 
-- Changing the step copy or order (using exactly what the user specified).
-- Looping animations or progress bars beyond what `EngravedLoader` already does.
-- Adding per-step real backend phase tracking (this is scripted narration, not live phase events — appropriate for the "show the mixture" intent).
-- Other surfaces (route-level Suspense, guards, ConnectedData) — they have no scripted steps to gate against.
+- Sidebar Recent rendering (already shipped in the previous turn).
+- Brief / Plan caching behavior on multi-check-in (already invalidates `energy-state` and clears plan session keys per check-in).
+- Edge function signature changes beyond the constraint drop.
 
