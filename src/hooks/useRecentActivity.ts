@@ -45,7 +45,7 @@ export const useRecentActivity = () => {
       try {
         const { data, error } = await supabase.functions.invoke('daily-checkins', {
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { action: 'GET_RECENT_CHECKINS', limit: 5 },
+          body: { action: 'GET_RECENT_CHECKINS', limit: 10 },
         });
         if (!error && data?.data) {
           data.data.forEach((checkin: any) => {
