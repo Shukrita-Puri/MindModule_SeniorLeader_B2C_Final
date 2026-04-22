@@ -6,7 +6,9 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -53,6 +55,7 @@ const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
   const [searchParams, setSearchParams] = useSearchParams();
   const historicalBriefId = searchParams.get('briefId');
@@ -65,6 +68,7 @@ const ExecutiveHome = () => {
   
   const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
+  const [briefCtaReady, setBriefCtaReady] = useState(false);
 
   // First session guide: show if tour is actively in progress (cross-page from check-in)
   const [showGuide, setShowGuide] = useState(false);
@@ -347,8 +351,18 @@ const ExecutiveHome = () => {
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
               <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <PerformanceReadinessBrief />
+                <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
+              {briefCtaReady && (
+                <Button
+                  type="button"
+                  onClick={() => navigate('/plan')}
+                  className="mt-3 w-full h-11 bg-taupe text-white hover:bg-taupe/90 animate-in fade-in duration-300"
+                >
+                  Activate Today's 3 Priorities
+                  <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
+                </Button>
+              )}
             </div>
 
 
