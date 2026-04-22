@@ -26,12 +26,6 @@ export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
   return 'evening';
 }
 
-function getNextWindowName(currentWindow: string): string {
-  if (currentWindow === 'morning') return 'afternoon (12pm)';
-  if (currentWindow === 'afternoon') return 'evening (6pm)';
-  return 'tomorrow morning';
-}
-
 // ─── Check if user can check in now ────────────────────────────────
 
 export async function canCheckInNow(): Promise<{
