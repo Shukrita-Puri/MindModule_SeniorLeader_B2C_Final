@@ -216,6 +216,10 @@ const Insights = () => {
   const [patternsError, setPatternsError] = useState(false);
   const [winsError, setWinsError] = useState(false);
   const [semanticError, setSemanticError] = useState(false);
+  // Script-gated reveal: hold the tab bar + tab content until the scripted
+  // "mixture" narration has played every step in order. The page header
+  // stays visible above the loader so the user has page context.
+  const [insightsScriptDone, setInsightsScriptDone] = useState(false);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
@@ -835,20 +839,22 @@ const Insights = () => {
               </p>
             </div>
 
-            {(patternsLoading || winsLoading || semanticLoading) && (
+            {(patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
                 <EngravedLoader
                   compact
                   steps={[
-                    "Reading your check-ins…",
-                    "Mapping leadership patterns…",
+                    "Reading your leadership patterns…",
                     "Connecting wins & themes…",
-                    "Synthesizing your insights…",
+                    "Synthesising your insights…",
                   ]}
+                  onAllStepsComplete={() => setInsightsScriptDone(true)}
                 />
               </div>
             )}
 
+            {!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone && (
+            <div className="animate-fade-in">
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
         <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
@@ -1067,6 +1073,8 @@ const Insights = () => {
           </div>
         </div>
         </div>
+            </div>
+            )}
           </div>
         </SidebarInset>
       </div>

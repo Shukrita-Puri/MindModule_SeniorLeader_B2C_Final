@@ -23,6 +23,13 @@ interface EngravedLoaderProps {
   /** Tighter vertical spacing for inline use inside cards. */
   compact?: boolean;
   className?: string;
+  /**
+   * Fires once after the final step has been displayed for one full
+   * `stepDurationMs` interval. Used by consumers to gate page content reveal
+   * until the full scripted "mixture" narration has played in order.
+   * Backwards-compatible — callers without this prop see no behavior change.
+   */
+  onAllStepsComplete?: () => void;
 }
 
 const EngravedLoader = ({
@@ -31,6 +38,7 @@ const EngravedLoader = ({
   stepDurationMs = 1400,
   compact = false,
   className,
+  onAllStepsComplete,
 }: EngravedLoaderProps) => {
   const hasSteps = Array.isArray(steps) && steps.length > 0;
   const [stepIdx, setStepIdx] = useState(0);
@@ -38,12 +46,28 @@ const EngravedLoader = ({
   useEffect(() => {
     if (!hasSteps) return;
     setStepIdx(0);
-    if (steps!.length === 1) return;
+    if (steps!.length === 1) {
+      // Single-step scripts complete after one interval as well.
+      const t = window.setTimeout(() => {
+        onAllStepsComplete?.();
+      }, stepDurationMs);
+      return () => window.clearTimeout(t);
+    }
+    let completed = false;
     const id = window.setInterval(() => {
-      setStepIdx((i) => (i < steps!.length - 1 ? i + 1 : i));
+      setStepIdx((i) => {
+        if (i < steps!.length - 1) return i + 1;
+        // Final step has now held for one full interval — fire once and stop.
+        if (!completed) {
+          completed = true;
+          window.clearInterval(id);
+          onAllStepsComplete?.();
+        }
+        return i;
+      });
     }, stepDurationMs);
     return () => window.clearInterval(id);
-  }, [hasSteps, steps, stepDurationMs]);
+  }, [hasSteps, steps, stepDurationMs, onAllStepsComplete]);
 
   const currentLabel = hasSteps ? steps![Math.min(stepIdx, steps!.length - 1)] : label;
 
