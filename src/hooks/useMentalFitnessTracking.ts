@@ -23,13 +23,6 @@ interface RitualCompletion {
   completion_status: 'full' | 'partial' | 'skipped';
 }
 
-interface DailyCheckIn {
-  checkin_date: Date;
-  outcome: 'pause' | 'power-up' | 'presence' | 'calm' | 'ready';
-  skipped?: boolean;
-  timestamp: Date;
-}
-
 export const useMentalFitnessTracking = () => {
   const { user } = useAuth();
   const getAccessTokenSilently = getAuthToken;
@@ -92,32 +85,6 @@ export const useMentalFitnessTracking = () => {
     }
   }, [user]);
 
-  // Save daily check-in via edge function
-  const saveCheckIn = useCallback(async (checkIn: DailyCheckIn) => {
-    if (!user) return;
-
-    try {
-      const accessToken = await getAccessTokenSilently();
-      const checkinDate = checkIn.checkin_date.toISOString().split('T')[0];
-
-      const { error } = await supabase.functions.invoke('user-events', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: {
-          action: 'SAVE_CHECKIN',
-          checkinDate,
-          outcome: checkIn.outcome,
-          skipped: checkIn.skipped || false
-        }
-      });
-
-      if (error) {
-        console.error('Failed to save check-in:', error);
-      }
-    } catch (error) {
-      console.error('Error saving check-in:', error);
-    }
-  }, [user]);
-
   // Get recent engagements via edge function
   const getRecentEngagements = useCallback(async (days: number = 30) => {
     if (!user) return [];
@@ -166,7 +133,6 @@ export const useMentalFitnessTracking = () => {
   return {
     trackEngagement,
     updateRitualCompletion,
-    saveCheckIn,
     getRecentEngagements,
     getRitualCompletions
   };

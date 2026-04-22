@@ -148,6 +148,8 @@ serve(async (req) => {
           .eq('user_id', userId)
           .eq('checkin_date', checkinDate)
           .eq('time_window', timeWindow)
+          .order('timestamp', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (error) {
@@ -282,18 +284,38 @@ serve(async (req) => {
           console.log('[daily-checkins] Persisting mental_sharpness_level:', mentalSharpness);
         }
 
-        let query = supabase
+        // Resolve the latest matching check-in id so updates target one row
+        // even when duplicates exist for (user, date, [window]).
+        let latestQuery = supabase
           .from('daily_checkins')
-          .update(updatePayload)
+          .select('id')
           .eq('user_id', userId)
           .eq('checkin_date', checkinDate);
-
-        // If timeWindow provided, filter by it; otherwise update most recent for that date
         if (timeWindow) {
-          query = query.eq('time_window', timeWindow);
+          latestQuery = latestQuery.eq('time_window', timeWindow);
+        }
+        const { data: latestRow, error: latestErr } = await latestQuery
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestErr) {
+          console.error('[daily-checkins] UPDATE_CLARITY_CONFIDENCE latest lookup error:', latestErr);
+          throw latestErr;
         }
 
-        const { data, error } = await query.select().maybeSingle();
+        if (!latestRow?.id) {
+          return new Response(JSON.stringify({ data: null }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await supabase
+          .from('daily_checkins')
+          .update(updatePayload)
+          .eq('id', latestRow.id)
+          .select()
+          .maybeSingle();
 
         if (error) {
           console.error('[daily-checkins] UPDATE_CLARITY_CONFIDENCE error:', error);
@@ -315,28 +337,27 @@ serve(async (req) => {
           });
         }
 
-        let resolvedTimeWindow = timeWindow;
+        // Resolve the latest matching row id (scoped by window if provided),
+        // then update by id so duplicates don't fan out.
+        let latestQuery = supabase
+          .from('daily_checkins')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('checkin_date', checkinDate);
+        if (timeWindow) {
+          latestQuery = latestQuery.eq('time_window', timeWindow);
+        }
+        const { data: latestRow, error: latestErr } = await latestQuery
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        // Backward compatibility: legacy clients may omit timeWindow
-        if (!resolvedTimeWindow) {
-          const { data: latestCheckin, error: latestError } = await supabase
-            .from('daily_checkins')
-            .select('time_window')
-            .eq('user_id', userId)
-            .eq('checkin_date', checkinDate)
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (latestError) {
-            console.error('[daily-checkins] UPDATE_ENERGY_BALANCE fallback lookup error:', latestError);
-            throw latestError;
-          }
-
-          resolvedTimeWindow = latestCheckin?.time_window as RequestBody['timeWindow'] | undefined;
+        if (latestErr) {
+          console.error('[daily-checkins] UPDATE_ENERGY_BALANCE latest lookup error:', latestErr);
+          throw latestErr;
         }
 
-        if (!resolvedTimeWindow) {
+        if (!latestRow?.id) {
           return new Response(JSON.stringify({ data: null }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
@@ -345,9 +366,7 @@ serve(async (req) => {
         const { data, error } = await supabase
           .from('daily_checkins')
           .update({ energy_balance: energyBalance })
-          .eq('user_id', userId)
-          .eq('checkin_date', checkinDate)
-          .eq('time_window', resolvedTimeWindow)
+          .eq('id', latestRow.id)
           .select()
           .maybeSingle();
 
