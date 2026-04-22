@@ -158,10 +158,10 @@ export const EngravedFill: React.FC<EngravedFillProps> = ({
       )}
       {drawnOutline && (
         <rect
-          x="1.5"
-          y="1.5"
-          width="calc(100% - 3px)"
-          height="calc(100% - 3px)"
+          x="1"
+          y="1"
+          width="98%"
+          height="96%"
           rx="14"
           ry="14"
           fill="none"
