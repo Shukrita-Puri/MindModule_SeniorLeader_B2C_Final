@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import EngravedLoader from '@/components/ui/engraved-loader';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import {
   DropdownMenu,
@@ -579,9 +580,7 @@ const ConnectedData = () => {
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-4">
         <h1 className="text-[28px] font-headline font-semibold">Connected Data Sources</h1>
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+          <EngravedLoader label="Loading connections…" />
         ) : (
           connections.map((conn) => (
             <Card key={conn.id}>

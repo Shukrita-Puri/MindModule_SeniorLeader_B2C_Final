@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
+import EngravedLoader from "@/components/ui/engraved-loader";
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
 
@@ -104,7 +104,7 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading || auth0Loading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <EngravedLoader label="Verifying session…" />
       </div>
     );
   }
