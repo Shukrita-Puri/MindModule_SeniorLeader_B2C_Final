@@ -353,20 +353,20 @@ const ExecutiveHome = () => {
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
               {briefCtaReady && (
-                <div className="mt-4 pt-1 flex justify-end animate-in fade-in duration-300">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/plan')}
-                    className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] font-body font-medium text-[hsl(var(--saffron))] hover:text-[hsl(var(--saffron))]/80 transition-colors"
-                  >
-                    GENERATE TODAY'S PLAN
-                    <ArrowRight
-                      className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-                      strokeWidth={2.25}
-                    />
-                  </button>
-                </div>
-              )}
+                 <div className="mt-5 pt-1 flex justify-end animate-in fade-in duration-300">
+                   <button
+                     type="button"
+                     onClick={() => navigate('/plan')}
+                     className="group inline-flex items-center gap-2 rounded-full bg-[hsl(var(--taupe-highlight))]/20 hover:bg-[hsl(var(--taupe-highlight))]/30 border border-[hsl(var(--taupe))]/25 px-4 py-2 text-sm uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--taupe-rich))] transition-colors"
+                   >
+                     GENERATE TODAY'S PLAN
+                     <ArrowRight
+                       className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                       strokeWidth={2.25}
+                     />
+                   </button>
+                 </div>
+               )}
             </div>
 
 
