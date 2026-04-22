@@ -1467,29 +1467,6 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const leanOnSource = outerBrief?.leanOnSource ? getSourceLabel(outerBrief.leanOnSource) : '';
   const watchForSource = outerBrief?.watchForSource ? getSourceLabel(outerBrief.watchForSource) : '';
 
-  // ── Brief → Plan handoff CTA reveal ──
-  // Hidden for ~3.5s after the brief renders so the user has time to read it.
-  // Short-circuits to visible immediately when feedback is submitted, OR when
-  // a previous feedback row is already saved for this brief (so refreshes show
-  // it instantly).
-  const briefId = (outerBrief as any)?.briefId ?? null;
-  const feedbackKey = briefId ? `prb-feedback-${briefId}` : null;
-  const [showCta, setShowCta] = useState(false);
-  useEffect(() => {
-    if (!phrase) return;
-    // Already-fed-back briefs: show immediately on mount/refresh
-    if (feedbackKey && typeof window !== 'undefined' && window.localStorage.getItem(feedbackKey)) {
-      setShowCta(true);
-      return;
-    }
-    setShowCta(false);
-    const t = setTimeout(() => setShowCta(true), 3500);
-    return () => clearTimeout(t);
-  }, [phrase, feedbackKey]);
-  useEffect(() => {
-    onCtaReadyChange?.(showCta);
-  }, [showCta, onCtaReadyChange]);
-
   // ── Script-gated first-load loader ──
   // The brief stays hidden until BOTH (a) the data has arrived AND (b) the
   // scripted "mixture" narration has played every step in order. This
@@ -1501,6 +1478,27 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const showLoader =
     (outerBriefLoading && !outerBrief) ||
     (!!outerBrief && !briefScriptDone);
+
+  // ── Brief → Plan handoff CTA reveal ──
+  // The CTA stays hidden until the loader has finished AND the brief has been
+  // visible for 5 seconds, so the user has time to read it before being
+  // invited to the next page. Submitting feedback short-circuits the wait.
+  const [showCta, setShowCta] = useState(false);
+  useEffect(() => {
+    // Always reset on mount or when loader is (re)showing — never carry a
+    // stale "true" from a previous render cycle into a fresh loader run.
+    if (showLoader || !phrase) {
+      setShowCta(false);
+      return;
+    }
+    setShowCta(false);
+    const t = setTimeout(() => setShowCta(true), 5000);
+    return () => clearTimeout(t);
+  }, [showLoader, phrase]);
+  useEffect(() => {
+    onCtaReadyChange?.(showCta);
+  }, [showCta, onCtaReadyChange]);
+
   if (showLoader) {
     return (
       <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
