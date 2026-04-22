@@ -23,13 +23,6 @@ interface RitualCompletion {
   completion_status: 'full' | 'partial' | 'skipped';
 }
 
-interface DailyCheckIn {
-  checkin_date: Date;
-  outcome: 'pause' | 'power-up' | 'presence' | 'calm' | 'ready';
-  skipped?: boolean;
-  timestamp: Date;
-}
-
 export const useMentalFitnessTracking = () => {
   const { user } = useAuth();
   const getAccessTokenSilently = getAuthToken;

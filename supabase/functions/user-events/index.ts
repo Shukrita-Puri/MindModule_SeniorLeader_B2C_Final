@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS' | 'GET_COMPLETION_COUNTS' | 'GET_SANCTUARY_DATA' | 'STORE_PHYSIOLOGICAL_EVENT' | 'GET_PHYSIOLOGICAL_HISTORY' | 'ANALYZE_PHYSIOLOGICAL_PATTERN' | 'IDENTIFY_STRESS_TRIGGERS';
+  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'GET_RECENT_SANCTUARY_EVENTS' | 'GET_COMPLETION_COUNTS' | 'GET_SANCTUARY_DATA' | 'STORE_PHYSIOLOGICAL_EVENT' | 'GET_PHYSIOLOGICAL_HISTORY' | 'ANALYZE_PHYSIOLOGICAL_PATTERN' | 'IDENTIFY_STRESS_TRIGGERS';
   eventType?: string;
   category?: string;
   contentId?: string;
@@ -216,59 +216,18 @@ serve(async (req) => {
         );
       }
 
-      case 'SAVE_CHECKIN': {
-        const { checkinDate, outcome, skipped, stateTags, energyBalance, dataSources } = body;
-        
-        if (!outcome) {
-          return new Response(
-            JSON.stringify({ success: false, error: 'outcome is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const dateToSave = checkinDate || new Date().toISOString().split('T')[0];
-
-        const { data, error } = await supabase
-          .from('daily_checkins')
-          .upsert({
-            user_id: userId,
-            checkin_date: dateToSave,
-            outcome,
-            skipped: skipped || false,
-            timestamp: new Date().toISOString(),
-            state_tags: stateTags || [],
-            energy_balance: energyBalance || null,
-            data_sources: dataSources || {}
-          }, { onConflict: 'user_id,checkin_date' })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('[user-events] Error saving checkin:', error);
-          throw error;
-        }
-
-        console.log('[user-events] Checkin saved for', dateToSave);
-
-        // Await behavior_log insert to prevent silent data loss
-        if (outcome === 'drained' || outcome === 'overwhelmed') {
-          try {
-            const { error: blErr } = await supabase.from('behavior_logs').insert({
-              user_id: userId,
-              behavior_type: 'check_in_depleted',
-              event_title: outcome,
-              energy_after: null,
-              created_at: new Date().toISOString(),
-            });
-            if (blErr) console.error('[user-events] behavior_log depleted insert error:', blErr);
-          } catch (blCatchErr) {
-            console.error('[user-events] behavior_log depleted insert exception:', blCatchErr);
-          }
-        }
-
+      case 'SAVE_CHECKIN' as any: {
+        // Legacy upsert path retired — collapsed multiple check-ins per day
+        // into a single row. Use the canonical `daily-checkins` edge function
+        // (action: 'SAVE_CHECKIN') which performs a plain INSERT and supports
+        // multiple check-ins per window/day.
+        console.warn('[user-events] SAVE_CHECKIN is retired. Use daily-checkins SAVE_CHECKIN.');
         return new Response(
-          JSON.stringify({ success: true, data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({
+            success: false,
+            error: 'Gone: use the daily-checkins function (action: SAVE_CHECKIN) instead.',
+          }),
+          { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
