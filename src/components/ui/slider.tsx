@@ -159,14 +159,18 @@ const Slider = React.forwardRef<
       {variant === "luxury" && (
         <>
           {/* full-rail engraved hatch — always visible */}
-          <EngravedFill density={3} opacity={0.3} />
+          <div className="pointer-events-none absolute inset-0">
+            <EngravedFill density={3} opacity={0.3} />
+          </div>
           {/* discrete 1-5 tick notches */}
           <LuxuryTicks />
         </>
       )}
       <SliderPrimitive.Range className={sliderRangeVariants({ variant })}>
         {variant === "luxury" && (
-          <EngravedFill density={3} opacity={0.18} crossHatch />
+          <div className="pointer-events-none absolute inset-0">
+            <EngravedFill density={3} opacity={0.18} crossHatch />
+          </div>
         )}
       </SliderPrimitive.Range>
     </SliderPrimitive.Track>
