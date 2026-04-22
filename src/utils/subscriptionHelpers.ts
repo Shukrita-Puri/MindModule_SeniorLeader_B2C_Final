@@ -50,6 +50,17 @@ export function hasValidAccess(user: AccessUser | null): boolean {
   return resolveSubscriptionAccess(user) === 'allow';
 }
 
+/**
+ * Canonical beta-access check. Returns true ONLY when the user is an active
+ * beta participant whose beta period has not expired. Use this everywhere
+ * (onboarding results, payment, subscription guard) instead of inline
+ * `user.beta_user && new Date(user.beta_expires_at) > new Date()` checks.
+ */
+export function isValidBeta(user: AccessUser | null): boolean {
+  if (!user?.beta_user || !user.beta_expires_at) return false;
+  return new Date(user.beta_expires_at) > new Date();
+}
+
 export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
   if (!user) return 'pending';
 
