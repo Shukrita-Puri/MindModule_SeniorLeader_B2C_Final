@@ -1,51 +1,82 @@
 
+## Plan: harden the slider thumb so the exact white hatched disc renders everywhere
 
-## Plan: Apply the refined cross-hatch to the slider rail (matches Daily Check-In buttons)
+### Root cause identified
 
-### What's actually happening
+There is only one luxury slider implementation in the codebase:
 
-Both the Daily Check-In state buttons AND the Performance Readiness slider rails currently use the **same** `EngravedFill` overlay — but with **different variants**:
+- `src/components/ui/slider.tsx` contains the only `LuxuryThumb`
+- `src/pages/CheckInDetail.tsx` is the only place using `variant="luxury"`
 
-- **Daily Check-In buttons** → `variant="refined"` → clean diagonal cross-hatch (matches your reference)
-- **Slider rail (`/check-in-detail`)** → default `variant="sketched"` → heavy zig-zag + turbulence-displaced scribble
+So this is not a “wrong page using a different thumb component” problem.
 
-The user wants the slider rail to use the same clean refined hatch as the buttons. Single small change.
+The broken thumb in your newer screenshot matches an older/intermediate thumb shape (small inner hatched circle / extra inner ring look), while the current file already contains the newer full-disc hatched version. That means the inconsistency is most likely one of these two issues:
 
-### What changes
+1. the SVG thumb markup is still too ambiguous and needs to be simplified to the exact reference shape, and/or
+2. a stale built bundle on the live/custom-domain route is still serving an older thumb version even though the source file now shows the newer one.
 
-**File: `src/components/ui/slider.tsx`** — switch the two `EngravedFill` calls inside the luxury slider to `variant="refined"`.
+### What I will change
 
-```text
-- <EngravedFill density={3} opacity={0.3} />
-+ <EngravedFill variant="refined" density={3} opacity={0.3} />
+#### 1) Make the thumb SVG match the reference exactly
+File: `src/components/ui/slider.tsx`
 
-- <EngravedFill density={3} opacity={0.18} crossHatch />
-+ <EngravedFill variant="refined" density={3} opacity={0.22} />
-```
+I will tighten `LuxuryThumb` so it is unambiguously the thumb from your reference:
 
-(The `refined` variant already includes a perpendicular cross-hatch by default, so the `crossHatch` prop is dropped and opacity is nudged from `0.18` → `0.22` so the traversed range still reads as slightly denser than the unfilled tail.)
+- solid off-white circular disc
+- diagonal hatch lines visible across the disc
+- single dark hand-drawn outer ring
+- no inner “dot” look
+- no extra inner ring look
+- same existing size, shadow, and overall rail layout
 
-### What stays exactly the same
+This keeps the current visual language, but removes the shape ambiguity that allowed the thumb to read as “broken”.
 
-- `LuxuryThumb` — white disc with diagonal hatch fill, dark hand-drawn ring, soft drop shadow. **Unchanged.**
-- Coral → amber → ochre → sage → cobalt full-rail gradient. **Unchanged.**
-- Five tick notches at the 1–5 stops. **Unchanged.**
-- Rail height (18px), thumb size (22×22), shadows. **Unchanged.**
-- Daily Check-In buttons (already on `refined`). **Unchanged.**
-- "Continue to Today's Performance" CTA. **Unchanged.**
-- `EngravedFill` API. **Unchanged** — just toggling an existing prop on two call sites.
+#### 2) Remove misleading legacy intent from the component
+File: `src/components/ui/slider.tsx`
 
-### Verification
+The current comment still describes the thumb as having a “small inner cross-hatch dot”, which no longer matches the intended thumb. I will update the component description so the implementation and future edits stay aligned.
 
-1. `/check-in-detail`: each slider's rail shows the **clean diagonal cross-hatch** (same fine pencil hatching as the buttons), not zig-zag scribble. White-disc hatched thumb still moves along the rail. Tick notches still visible.
-2. `/daily-check-in`: state buttons unchanged — still show the clean refined hatch.
-3. "Continue to Today's Performance" CTA visually identical.
-4. No other component uses the luxury slider variant, so no collateral changes.
+#### 3) Confirm there is no duplicate thumb path in-app
+I already verified from the code search that:
 
-### Out of scope
+- there is no second `LuxuryThumb`
+- there is no second luxury slider component
+- `/check-in-detail` uses the shared slider directly
 
-- Thumb design, gradient, ticks, or layout.
-- Daily Check-In buttons.
-- Any CTA, copy, or routing.
-- DB, edge functions, or downstream logic.
+After approval, I’ll re-check the live rendering path as part of verification to confirm the app is not serving a stale thumb bundle.
 
+### What will stay unchanged
+
+- engraved rail texture
+- slider colors / gradient
+- slider spacing and layout
+- `Continue to Today's Performance` CTA
+- Daily Check-In state-button styling
+- overall branding / typography / page composition
+
+### Verification after implementation
+
+#### Code-level verification
+- confirm only one `LuxuryThumb` definition remains
+- confirm `/check-in-detail` still uses the shared `variant="luxury"` slider
+- confirm no inner-circle thumb markup remains
+
+#### UI verification
+Check `/check-in-detail` and verify all 3 sliders show:
+- white circular thumb
+- visible diagonal hatch lines
+- dark outer ring
+- no “broken/prohibited” icon appearance
+- no oversized or distorted thumb
+
+#### Environment verification
+Compare rendering on:
+- preview
+- published/live route if available
+- custom domain route if available
+
+If preview is correct but live/custom still shows the older thumb, I’ll treat that as stale deployment/cache drift and force a fresh frontend rebuild through a real code change, then verify again.
+
+### Expected outcome
+
+The slider thumb on `/check-in-detail` will render as the exact white hatched circular thumb from your reference, with no broken inner-dot appearance, and the implementation will be aligned so the same thumb shows consistently across environments.
