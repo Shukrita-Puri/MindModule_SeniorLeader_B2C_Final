@@ -357,11 +357,11 @@ const ExecutiveHome = () => {
                    <button
                      type="button"
                      onClick={() => navigate('/plan')}
-                     className="group inline-flex items-center gap-2 rounded-full bg-[hsl(var(--taupe-highlight))]/20 hover:bg-[hsl(var(--taupe-highlight))]/30 border border-[hsl(var(--taupe))]/25 px-4 py-2 text-sm uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--taupe-rich))] transition-colors"
+                     className="group inline-flex items-center gap-1.5 bg-[hsl(var(--taupe-highlight))]/35 hover:bg-[hsl(var(--taupe-highlight))]/55 px-1.5 py-0.5 text-base uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--saffron))] transition-colors"
                    >
                      GENERATE TODAY'S PLAN
                      <ArrowRight
-                       className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                       className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[hsl(var(--saffron))]"
                        strokeWidth={2.25}
                      />
                    </button>
