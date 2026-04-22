@@ -216,6 +216,10 @@ const Insights = () => {
   const [patternsError, setPatternsError] = useState(false);
   const [winsError, setWinsError] = useState(false);
   const [semanticError, setSemanticError] = useState(false);
+  // Script-gated reveal: hold the tab bar + tab content until the scripted
+  // "mixture" narration has played every step in order. The page header
+  // stays visible above the loader so the user has page context.
+  const [insightsScriptDone, setInsightsScriptDone] = useState(false);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
