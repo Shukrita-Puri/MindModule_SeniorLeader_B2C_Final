@@ -12,7 +12,7 @@ import { getAuthToken } from "@/services/authTokenService";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
-import { isValidBeta } from "@/utils/subscriptionHelpers";
+import { resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
 import { GradientProgress } from "@/components/ui/gradient-progress";
 import EngravedLoader from "@/components/ui/engraved-loader";
 
@@ -44,8 +44,9 @@ interface ResultsData {
 
 export default function Stage8Results() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const isBetaValid = isValidBeta(user);
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  // Canonical access decision – do NOT inline `user.beta_user && ...` checks.
+  const onboardingAccess = resolveOnboardingAccess(user);
   const { recordStep } = useOnboardingProgress();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);
@@ -376,13 +377,19 @@ export default function Stage8Results() {
         variant="critical"
         size="lg"
         onClick={() => {
-          // Beta users already have access — skip payment entirely.
-          if (isBetaValid) {
-            navigate('/daily-check-in');
-          } else {
+          // Wait until access state is resolved – never route while it's
+          // 'pending', otherwise a valid beta user could be flashed to /payment.
+          if (authLoading || onboardingAccess === 'pending') return;
+
+          // Canonical decision: only 'needs_payment' should land on the
+          // payment page. Beta + active + trialing all resolve to 'allow'.
+          if (onboardingAccess === 'needs_payment') {
             navigate('/onboarding/payment');
+          } else {
+            navigate('/onboarding/app-intro');
           }
         }}
+        disabled={authLoading || onboardingAccess === 'pending'}
         className="w-full group shadow-lg border-0"
       >
         Activate My System
