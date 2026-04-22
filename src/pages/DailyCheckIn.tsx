@@ -40,31 +40,31 @@ const outcomes = [
     value: "overwhelmed" as Outcome,
     icon: AlertTriangle,
     title: "Overloaded",
-    accent: "#b91c1c", // dark red
+    accent: "#d8553f", // warm coral-red
   },
   {
     value: "drained" as Outcome,
     icon: BatteryLow,
     title: "Drained",
-    accent: "#f87171", // light red
+    accent: "#e88a52", // soft amber-orange
   },
   {
     value: "scattered" as Outcome,
     icon: Cloud,
     title: "Scattered",
-    accent: "#a8a29e", // warm grey
+    accent: "#d4b75a", // muted ochre-gold
   },
   {
     value: "steady" as Outcome,
     icon: Minus,
     title: "Steady",
-    accent: "#86efac", // light green
+    accent: "#7ba87a", // sage green
   },
   {
     value: "focused" as Outcome,
     icon: ArrowUp,
     title: "Focused",
-    accent: "#15803d", // dark green
+    accent: "#3d6fa8", // cobalt blue
   },
 ];
 
