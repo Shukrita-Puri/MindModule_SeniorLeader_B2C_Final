@@ -42,11 +42,12 @@ export const EngravedFill: React.FC<EngravedFillProps> = ({
     <svg
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-0 h-full w-full",
+        "pointer-events-none absolute inset-0 h-full w-full [&_*]:pointer-events-none",
         className
       )}
-      style={{ mixBlendMode: "multiply", opacity }}
+      style={{ mixBlendMode: "multiply", opacity, touchAction: "none" }}
       preserveAspectRatio="none"
+      focusable="false"
     >
       <defs>
         {/* Turbulence-displacement filter that breaks geometric regularity */}
