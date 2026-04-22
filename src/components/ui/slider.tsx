@@ -54,12 +54,15 @@ interface SliderProps
 
 /**
  * LuxuryThumb
- * A hand-drawn pencil disc: white fill, wavy black ring (turbulence-displaced),
- * and a small inner cross-hatch dot. Reads as a marker resting on the rail.
+ * A hand-drawn pencil disc: off-white fill, diagonal pencil hatch visible
+ * across the entire disc, bounded by a single wavy hand-drawn outer ring.
+ * Reads as a marker resting on the rail.
  */
 const LuxuryThumb: React.FC = () => {
   const id = React.useId().replace(/:/g, "");
   const filterId = `thumb-roughen-${id}`;
+  const hatchId = `thumb-hatch-${id}`;
+  const clipId = `thumb-clip-${id}`;
   return (
     <svg
       viewBox="0 0 22 22"
@@ -77,44 +80,39 @@ const LuxuryThumb: React.FC = () => {
           <feDisplacementMap in="SourceGraphic" scale="0.9" />
         </filter>
         <pattern
-          id={`thumb-hatch-${id}`}
+          id={hatchId}
           patternUnits="userSpaceOnUse"
-          width="2.4"
-          height="2.4"
+          width="2.6"
+          height="2.6"
           patternTransform="rotate(45)"
         >
           <line
             x1="0"
             y1="0"
             x2="0"
-            y2="2.4"
+            y2="2.6"
             stroke="rgba(0,0,0,0.55)"
-            strokeWidth="0.55"
+            strokeWidth="0.6"
           />
         </pattern>
-        <clipPath id={`thumb-clip-${id}`}>
-          <circle cx="11" cy="11" r="9" />
+        <clipPath id={clipId}>
+          <circle cx="11" cy="11" r="9.2" />
         </clipPath>
       </defs>
-      {/* white disc */}
+      {/* off-white disc base */}
       <circle cx="11" cy="11" r="9.5" fill="#fafaf7" />
-      {/* diagonal hatch fill across the full disc */}
-      <rect
-        x="2"
-        y="2"
-        width="18"
-        height="18"
-        fill={`url(#thumb-hatch-${id})`}
-        clipPath={`url(#thumb-clip-${id})`}
-      />
-      {/* hand-drawn ring */}
+      {/* diagonal pencil hatch across the entire disc */}
+      <g clipPath={`url(#${clipId})`}>
+        <rect x="0" y="0" width="22" height="22" fill={`url(#${hatchId})`} />
+      </g>
+      {/* hand-drawn outer ring */}
       <circle
         cx="11"
         cy="11"
-        r="9"
+        r="9.3"
         fill="none"
         stroke="rgba(0,0,0,0.85)"
-        strokeWidth="1.6"
+        strokeWidth="1.4"
         filter={`url(#${filterId})`}
       />
     </svg>
