@@ -23,6 +23,10 @@ export const TouchOptimized = ({
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const touchMoved = useRef(false);
+  // Tracks whether a touch gesture already triggered onTap so the synthetic
+  // click that iOS fires ~300ms later doesn't double-invoke the handler.
+  const touchHandledRef = useRef(false);
+  const touchHandledTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const MOVE_THRESHOLD = 10; // pixels – beyond this, treat as swipe not tap
 
@@ -79,6 +83,14 @@ export const TouchOptimized = ({
     // Only fire tap if finger didn't move significantly (not a swipe/scroll)
     if (onTap && !touchMoved.current) {
       onTap();
+      // Mark this gesture as handled so the synthetic click that follows
+      // touchend on mobile browsers is swallowed by handleClick.
+      touchHandledRef.current = true;
+      if (touchHandledTimerRef.current) clearTimeout(touchHandledTimerRef.current);
+      touchHandledTimerRef.current = setTimeout(() => {
+        touchHandledRef.current = false;
+        touchHandledTimerRef.current = null;
+      }, 500);
     }
 
     touchStartPos.current = null;
@@ -92,9 +104,10 @@ export const TouchOptimized = ({
     }
   };
 
-  const handleClick = (e: MouseEvent) => {
+  const handleClick = (_e: MouseEvent) => {
     if (disabled) return;
-    e.preventDefault();
+    // Touch already fired onTap – swallow the synthetic click to avoid double-fire.
+    if (touchHandledRef.current) return;
     if (onTap) {
       onTap();
     }
