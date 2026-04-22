@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
+import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
 import { mapCheckInToTags } from "@/utils/checkInToTags";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
@@ -75,22 +75,10 @@ const DailyCheckIn = () => {
   
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
-  const [checkedInMessage, setCheckedInMessage] = useState('');
   const [showGuide, setShowGuide] = useState(false);
 
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
-
-  // Check if user already checked in for this time window
-  useEffect(() => {
-    canCheckInNow().then(result => {
-      if (!result.canCheckIn) {
-        setAlreadyCheckedIn(true);
-        setCheckedInMessage(result.reason || 'Already checked in.');
-      }
-    });
-  }, []);
 
   const { recordStep } = useOnboardingProgress();
 
@@ -202,8 +190,11 @@ const DailyCheckIn = () => {
   const handleConfirm = async () => {
     if (!selectedOutcome || isSubmitting) return;
     setIsSubmitting(true);
-    await handleOutcomeSelect(selectedOutcome);
-    setIsSubmitting(false);
+    try {
+      await handleOutcomeSelect(selectedOutcome);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOutcomeSelect = async (outcome: Outcome) => {
