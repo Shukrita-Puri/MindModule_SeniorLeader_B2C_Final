@@ -355,19 +355,21 @@ const DailyCheckIn = () => {
                     backgroundColor: outcome.accent,
                   }}
                 >
-                  <EngravedFill
-                    density={4}
-                    opacity={isSelected ? 0.45 : 0.32}
-                    crossHatch={isSelected}
-                    drawnOutline
-                  />
-                  <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
+                  <div className="pointer-events-none absolute inset-0">
+                    <EngravedFill
+                      density={4}
+                      opacity={isSelected ? 0.45 : 0.32}
+                      crossHatch={isSelected}
+                      drawnOutline
+                    />
+                  </div>
+                  <div className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0">
                     <IconComponent
                       className="w-6 h-6 text-white"
                       strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
                     />
                   </div>
-                  <div className="relative flex flex-col min-w-0">
+                  <div className="relative z-10 flex flex-col min-w-0">
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
