@@ -1017,9 +1017,19 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     : tier === 'none' ? 'Waiting for wearable data' : undefined;
 
   // Physiology Mode-3 explicit text — never guess from mood
+  // When sleep is missing but heart signals are healthy, communicate that we
+  // read the body via heart signals (older Apple Watches don't track sleep).
+  const sleepMissingHeartCalm = !sleepKnown && (
+    ((rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70))
+    && (hrElevatedRaw.tier === 'green' || hrElevatedRaw.tier === 'neutral')
+  );
   const physEmpty = !physHasAnySignal
     ? (wearableConnected ? 'Body data not synced today' : 'No body data — connect a wearable')
-    : (!sleepKnown ? 'Sleep not captured · partial physiology read' : undefined);
+    : (!sleepKnown
+        ? (sleepMissingHeartCalm
+            ? 'Sleep not tracked · reading body via heart signals'
+            : 'Sleep not captured · partial physiology read')
+        : undefined);
 
   return [
     {
