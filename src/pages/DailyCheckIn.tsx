@@ -345,6 +345,8 @@ const DailyCheckIn = () => {
                     min-h-[58px] flex items-center gap-3.5 px-4 py-2.5
                     cursor-pointer
                     transition-all duration-200
+                    relative overflow-hidden
+                    ring-1 ring-inset ring-black/[0.12]
                     ${isSelected
                       ? 'scale-[1.02] shadow-[0_10px_32px_rgba(0,0,0,0.20)]'
                       : 'shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.10)]'}
@@ -353,13 +355,18 @@ const DailyCheckIn = () => {
                     backgroundColor: outcome.accent,
                   }}
                 >
-                  <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                  <EngravedFill
+                    density={4}
+                    opacity={isSelected ? 0.18 : 0.12}
+                    crossHatch={isSelected}
+                  />
+                  <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                     <IconComponent
                       className="w-6 h-6 text-white"
                       strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
                     />
                   </div>
-                  <div className="flex flex-col min-w-0">
+                  <div className="relative flex flex-col min-w-0">
                     <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
                       {outcome.title}
                     </h3>
