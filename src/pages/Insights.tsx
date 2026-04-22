@@ -1073,6 +1073,8 @@ const Insights = () => {
           </div>
         </div>
         </div>
+            </div>
+            )}
           </div>
         </SidebarInset>
       </div>
