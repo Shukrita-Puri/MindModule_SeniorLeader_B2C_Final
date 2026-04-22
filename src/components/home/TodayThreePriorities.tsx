@@ -581,6 +581,13 @@ const TodayThreePriorities = ({
 
   const horizonModules = plan?.horizonModules;
 
+  // ── Script-gated reveal ──
+  // Hold the priorities content until BOTH the fetch completes AND the
+  // scripted "mixture" narration plays every step in order. Empty/error
+  // states are NOT gated — they're alternate terminal states that render
+  // immediately if the fetch finishes empty.
+  const [planScriptDone, setPlanScriptDone] = useState(false);
+
   // Signal empty/loaded state to parent for fallback rendering
   // Only fire onEmpty when genuinely no data AND not a transient fetch failure
   useEffect(() => {
@@ -593,7 +600,9 @@ const TodayThreePriorities = ({
 
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
-  if (loading) {
+  const dataReady = !loading && horizonModules && horizonModules.length > 0;
+  const showPlanLoader = loading || (dataReady && !planScriptDone);
+  if (showPlanLoader) {
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
@@ -617,6 +626,7 @@ const TodayThreePriorities = ({
               "Matching practices to your state…",
               "Sequencing your 3 priorities…",
             ]}
+            onAllStepsComplete={() => setPlanScriptDone(true)}
           />
         </div>
       </div>
