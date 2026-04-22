@@ -194,7 +194,14 @@ export default function Stage8Results() {
     }
   }, [isAuthenticated, results, error, recordStep]);
 
-  if (loading) {
+  // Gate the report behind the full scripted narration. Loader stays mounted
+  // on its final step until the data lands, then the report fades in as one
+  // block. Errors bypass this gate (see below).
+  const dataReady = !loading && !!results && !error;
+  if (!dataReady || !resultsScriptDone) {
+    if (error) {
+      // Fall through to error block below.
+    } else {
     return (
       <div className="space-y-6 py-16 text-center animate-fade-in flex flex-col items-center">
         <h2 className="text-[20px] font-headline font-bold text-foreground">Analysing Your Pattern</h2>
@@ -206,9 +213,11 @@ export default function Stage8Results() {
             "Calibrating your baseline…",
             "Drafting your report…",
           ]}
+            onAllStepsComplete={() => setResultsScriptDone(true)}
         />
       </div>
     );
+    }
   }
 
   if (error || !results) {
