@@ -24,18 +24,17 @@ const PlanPage = () => {
               <SidebarDiscoveryPulse />
             </header>
 
-            <div className="px-3 md:px-4 pb-2 text-center">
-              <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
-                Today's 3 Mental Performance Priorities
-              </h1>
-              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
-                Your priorities mapped based on your readiness brief & your day
-              </p>
-            </div>
-
             <div className="pb-[100px]">
               <div className="max-w-lg mx-auto px-3 md:px-4">
                 <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
+                  <div className="pb-2 text-center">
+                    <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
+                      Today's 3 Mental Performance Priorities
+                    </h1>
+                    <p className="text-sm text-muted-foreground/70 mt-1 font-body">
+                      Your priorities mapped based on your readiness brief & your day
+                    </p>
+                  </div>
                   <div data-tour="daily-plan">
                     <TodayThreePriorities
                       onEmpty={() => setPrioritiesEmpty(true)}
