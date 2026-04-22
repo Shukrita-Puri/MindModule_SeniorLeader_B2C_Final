@@ -357,8 +357,9 @@ const DailyCheckIn = () => {
                 >
                   <EngravedFill
                     density={4}
-                    opacity={isSelected ? 0.18 : 0.12}
+                    opacity={isSelected ? 0.45 : 0.32}
                     crossHatch={isSelected}
+                    drawnOutline
                   />
                   <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                     <IconComponent
