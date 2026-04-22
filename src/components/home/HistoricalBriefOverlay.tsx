@@ -70,7 +70,7 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
       <button
         onClick={onClose}
         aria-label="Close historical brief"
-        className="fixed top-3 right-3 md:top-4 md:right-4 z-50 w-10 h-10 rounded-full bg-background/70 backdrop-blur-sm border border-border/40 hover:bg-background/90 flex items-center justify-center text-foreground/70 hover:text-foreground transition-colors shadow-sm"
+        className="fixed top-3 right-3 md:top-4 md:right-4 z-50 w-10 h-10 rounded-full bg-taupe hover:bg-taupe/90 border border-taupe/60 flex items-center justify-center text-white transition-colors shadow-sm"
       >
         <X className="w-4 h-4" />
       </button>

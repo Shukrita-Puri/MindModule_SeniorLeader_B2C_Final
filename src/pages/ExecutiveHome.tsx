@@ -8,7 +8,6 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -354,15 +353,18 @@ const ExecutiveHome = () => {
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
               {briefCtaReady && (
-                <div className="mt-3 flex justify-end animate-in fade-in duration-300">
-                  <Button
+                <div className="mt-4 pt-1 flex justify-end animate-in fade-in duration-300">
+                  <button
                     type="button"
                     onClick={() => navigate('/plan')}
-                    className="h-11 px-5 bg-taupe text-white hover:bg-taupe/90 rounded-lg"
+                    className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] font-body font-medium text-[hsl(var(--saffron))] hover:text-[hsl(var(--saffron))]/80 transition-colors"
                   >
                     Generate Today's Plan
-                    <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
-                  </Button>
+                    <ArrowRight
+                      className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
+                      strokeWidth={2.25}
+                    />
+                  </button>
                 </div>
               )}
             </div>
