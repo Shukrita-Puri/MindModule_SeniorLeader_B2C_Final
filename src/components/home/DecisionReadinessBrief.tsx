@@ -819,11 +819,23 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     { ...rhrRaw, weight: 0.25, source: 'hardware', veto: rhrVeto },
     { ...hrElevatedRaw, weight: 0.25, source: 'hardware' },
   ];
-  const physComp = computePillar(physContribs);
+  // When sleep is missing (e.g. older Apple Watches that don't track sleep),
+  // re-weight to RHR 0.6 / HR-elevated 0.4 so we can still produce a confident
+  // read from the heart signals alone instead of always capping at AMBER.
+  const physContribsForScoring: PillarContrib[] = sleepKnown
+    ? physContribs
+    : [
+        { ...rhrRaw, weight: 0.6, source: 'hardware', veto: rhrVeto },
+        { ...hrElevatedRaw, weight: 0.4, source: 'hardware' },
+      ];
+  const physComp = computePillar(physContribsForScoring);
   let physState = physComp.tier;
-  // Completeness ceiling: sleep missing → never green-confident, cap at AMBER
-  if (!sleepKnown && physState === 'green' && physComp.presentSignals > 0) {
-    physState = 'amber';
+  // Sleep-missing fallback gating: only allow GREEN when both heart signals
+  // are clearly calm (RHR within +5% of baseline AND HR-elevated proxy green).
+  if (!sleepKnown && physState === 'green') {
+    const rhrCalm = (rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70);
+    const hrCalm = hrElevatedRaw.tier === 'green' || hrElevatedRaw.tier === 'neutral';
+    if (!(rhrCalm && hrCalm)) physState = 'amber';
   }
   // Mode-3 (no hardware at all) — physiology becomes UNKNOWN
   const physHasAnySignal = physComp.presentSignals > 0;
