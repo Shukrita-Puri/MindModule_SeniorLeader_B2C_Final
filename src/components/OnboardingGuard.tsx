@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { DEV_MODE } from "@/config/devMode";
-import { Loader2 } from "lucide-react";
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
+import EngravedLoader from "@/components/ui/engraved-loader";
 
 // Routes that completed users can still access (e.g. upgrade flow)
 const ONBOARDING_WHITELIST = ['/onboarding/payment'];
@@ -96,7 +96,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
   if (loading || (!resolved && user && !user.onboarding_completed_at)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <EngravedLoader label="Loading…" />
       </div>
     );
   }
@@ -184,7 +184,7 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
   if (loading || (isAuthenticated && !checked && !DEV_MODE)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <EngravedLoader label="Loading…" />
       </div>
     );
   }

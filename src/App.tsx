@@ -13,6 +13,7 @@ import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGu
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
+import EngravedLoader from "./components/ui/engraved-loader";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -59,13 +60,11 @@ const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
-// Loading fallback component
+// Loading fallback — uses the app's hand-drawn engraved-style loader so every
+// page-level wait shares the same visual language as Brief/Plan.
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="text-center">
-      <div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-      <p className="text-muted-foreground">Loading...</p>
-    </div>
+    <EngravedLoader label="Loading…" />
   </div>
 );
 
