@@ -328,9 +328,16 @@ const ConnectedData = () => {
       } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.info('Apple Health is connected. Waiting for new HRV data from Apple Health.');
       } else if (result.connectionState === 'sync_delayed') {
-        // Treat as a soft, neutral "still working" state — sync runs automatically
-        // in the background. Avoid alarming "delayed" wording.
-        toast.info('Apple Health connected. Catching up in the background.');
+        // Distinguish persistence failures from soft "catching up" states.
+        // `persist_failed:*` and `healthkit_read_failed` represent real issues
+        // the user may need to act on; everything else is a normal background
+        // catch-up.
+        const code = (result as { errorCode?: string }).errorCode || '';
+        if (code.startsWith('persist_failed') || code === 'healthkit_read_failed') {
+          toast.warning('Apple Health connected, but server sync needs attention. We\'ll retry automatically.');
+        } else {
+          toast.info('Apple Health connected. Catching up in the background.');
+        }
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission was revoked. Please reconnect in Health settings.');
       } else {
@@ -365,8 +372,12 @@ const ConnectedData = () => {
         toast.info('Apple Health is connected. Waiting for new HRV data.');
         await fetchStatus();
       } else if (result.connectionState === 'sync_delayed') {
-        // Soft, neutral message — background sync continues automatically.
-        toast.info('Apple Health is connected. Catching up in the background.');
+        const code = (result as { errorCode?: string }).errorCode || '';
+        if (code.startsWith('persist_failed') || code === 'healthkit_read_failed') {
+          toast.warning('Sync to server failed. We\'ll retry automatically — pull to refresh if it persists.');
+        } else {
+          toast.info('Apple Health is connected. Catching up in the background.');
+        }
         await fetchStatus();
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission revoked. Please reconnect.');

@@ -111,6 +111,30 @@ export function resolveSubscriptionAccess(user: AccessUser | null): Subscription
   return 'pending';
 }
 
+/**
+ * Canonical onboarding-access decision. Mirrors `resolveSubscriptionAccess` but
+ * is intended for the onboarding flow (results → payment → app-intro). It does
+ * NOT introduce any new business logic – it just delegates to the same source
+ * of truth and adds an explicit "skip payment" verdict for valid beta users so
+ * that callers don't re-implement `isValidBeta(user)` locally.
+ *
+ * Verdicts:
+ * - 'allow'        → access granted (active sub, trialing, or valid beta)
+ * - 'needs_payment'→ user must hit the payment page before continuing
+ * - 'pending'      → access state has not yet resolved (auth still loading or
+ *                    profile fields not yet populated). Callers MUST NOT route
+ *                    away while this is the verdict.
+ */
+export type OnboardingAccessDecision = 'allow' | 'needs_payment' | 'pending';
+
+export function resolveOnboardingAccess(user: AccessUser | null): OnboardingAccessDecision {
+  const sub = resolveSubscriptionAccess(user);
+  if (sub === 'allow') return 'allow';
+  if (sub === 'pending') return 'pending';
+  // sub === 'block' → user has no valid access path → must complete payment
+  return 'needs_payment';
+}
+
 // Backwards-compatible alias – callers that used the old name keep working
 export const hasValidSubscription = hasValidAccess;
 

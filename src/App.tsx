@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGuard";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
@@ -132,7 +133,7 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    errorElement: <ErrorBoundary><div /></ErrorBoundary>,
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         index: true,

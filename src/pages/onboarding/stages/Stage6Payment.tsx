@@ -7,13 +7,17 @@ import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { hasValidAccess, isValidBeta } from "@/utils/subscriptionHelpers";
+import { hasValidAccess, isValidBeta, resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { recordStep } = useOnboardingProgress();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  // Canonical access decision is the single source of truth. Until it resolves
+  // to a definitive verdict we render the loader and DO NOT route the user.
+  const onboardingAccess = resolveOnboardingAccess(user);
+  const accessPending = authLoading || onboardingAccess === 'pending';
   const currentTier = user?.subscription_tier || 'none';
   const hasValidUserAccess = hasValidAccess(user);
   const hasCompletedOnboarding = !!user?.onboarding_completed_at;
@@ -35,15 +39,18 @@ export default function Stage6Payment() {
   const showUpgradeMode = hasExplicitUpgradeSource || (isUpgradeVisit && (isMonthlySubscriber || isExpiredBeta || isExpiredTrial || !hasValidUserAccess));
 
   useEffect(() => {
+    // Never auto-redirect while the access decision is still resolving.
+    if (accessPending) return;
     if (!isBetaValid) return;
     // Honor explicit upgrade clicks even for beta users
     if (hasExplicitUpgradeSource) return;
     console.log('[Stage6Payment] Beta valid + no upgrade source → skipping payment');
     recordStep('payment', { skipped: true, reason: 'beta_user' });
     navigate(hasCompletedOnboarding ? '/daily-check-in' : '/onboarding/app-intro', { replace: true });
-  }, [isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
+  }, [accessPending, isBetaValid, hasExplicitUpgradeSource, hasCompletedOnboarding, navigate, recordStep]);
 
   useEffect(() => {
+    if (accessPending) return;
     if (!user) return;
     // Only auto-redirect if user has no explicit reason to be on this page
     if (isAnnualSubscriber && !hasExplicitUpgradeSource) {
@@ -51,7 +58,7 @@ export default function Stage6Payment() {
     } else if (hasValidUserAccess && !showUpgradeMode && !hasExplicitUpgradeSource) {
       navigate('/daily-check-in', { replace: true });
     }
-  }, [user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, hasExplicitUpgradeSource, navigate]);
+  }, [accessPending, user, isAnnualSubscriber, hasValidUserAccess, showUpgradeMode, hasExplicitUpgradeSource, navigate]);
 
   // Determine which plans are available (hide the one user is already on)
   const availablePlans = useMemo(() => {
@@ -179,9 +186,11 @@ export default function Stage6Payment() {
     );
   }
 
-  // First-paint guard: valid beta users without explicit upgrade source should
-  // never see the pricing UI (the useEffect above will redirect them).
-  if (isBetaValid && !hasExplicitUpgradeSource) {
+  // First-paint guard: while access is still resolving, OR the user is a
+  // valid beta without an explicit upgrade source, render a neutral loader
+  // instead of the pricing UI. Prevents the "payment flash for beta user"
+  // bug while profile is still syncing.
+  if (accessPending || (isBetaValid && !hasExplicitUpgradeSource)) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
