@@ -9,6 +9,13 @@ interface TouchOptimizedProps {
   className?: string;
   disabled?: boolean;
   haptic?: boolean;
+  /**
+   * ARIA role override. Defaults to "button" when onTap is provided.
+   * Pass `false` to suppress the role entirely (decorative wrappers).
+   */
+  role?: string | false;
+  /** Optional accessible label, applied as aria-label when provided. */
+  ariaLabel?: string;
 }
 
 export const TouchOptimized = ({ 
@@ -17,7 +24,9 @@ export const TouchOptimized = ({
   onLongPress, 
   className, 
   disabled = false,
-  haptic = true 
+  haptic = true,
+  role,
+  ariaLabel,
 }: TouchOptimizedProps) => {
   const [isPressed, setIsPressed] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
