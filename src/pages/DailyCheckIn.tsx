@@ -357,10 +357,9 @@ const DailyCheckIn = () => {
                 >
                   <div className="pointer-events-none absolute inset-0">
                     <EngravedFill
+                      variant="refined"
                       density={4}
-                      opacity={isSelected ? 0.45 : 0.32}
-                      crossHatch={isSelected}
-                      drawnOutline
+                      opacity={isSelected ? 0.30 : 0.22}
                     />
                   </div>
                   <div className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0">
