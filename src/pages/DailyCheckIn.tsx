@@ -12,7 +12,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 import FloatingPillNav from "@/components/navigation/FloatingPillNav";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -76,6 +76,57 @@ const DailyCheckIn = () => {
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  // Roving-tabindex focus management for the WAI-ARIA radiogroup pattern.
+  // When no option is selected the *first* option is the tab stop; once an
+  // option is selected, that option becomes the only tab stop. Arrow keys
+  // move selection AND focus between options without tabbing out of the
+  // group.
+  const radioRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusOption = useCallback((index: number) => {
+    const wrapped = (index + outcomes.length) % outcomes.length;
+    const el = radioRefs.current[wrapped];
+    if (el) {
+      el.focus();
+      // Per ARIA APG: arrow keys move selection in a radio group.
+      setSelectedOutcome(outcomes[wrapped].value);
+    }
+  }, []);
+
+  const handleRadioKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'ArrowRight':
+          e.preventDefault();
+          focusOption(index + 1);
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          e.preventDefault();
+          focusOption(index - 1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          focusOption(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          focusOption(outcomes.length - 1);
+          break;
+        case ' ':
+        case 'Enter':
+          // Native button already activates on Space/Enter. Stop the synthetic
+          // scroll-on-Space side effect and rely on the button's own click.
+          e.preventDefault();
+          setSelectedOutcome(outcomes[index].value);
+          break;
+        default:
+          break;
+      }
+    },
+    [focusOption]
+  );
 
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
@@ -329,16 +380,26 @@ const DailyCheckIn = () => {
 
         {/* Vertical state list – compact gaps */}
         <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
-          {outcomes.map((outcome) => {
+          {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
+            // Roving tabindex: only one option is in the tab order at a time.
+            // If nothing is selected yet, the first option is the entry point.
+            const isTabStop = selectedOutcome
+              ? isSelected
+              : index === 0;
             return (
               <button
                 key={outcome.value}
+                ref={(el) => {
+                  radioRefs.current[index] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
                 aria-label={outcome.title}
+                tabIndex={isTabStop ? 0 : -1}
+                onKeyDown={(e) => handleRadioKeyDown(e, index)}
                 onClick={() => setSelectedOutcome(outcome.value)}
                 className={`
                   w-[84%] mx-auto block text-left

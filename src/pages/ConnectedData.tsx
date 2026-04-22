@@ -332,7 +332,7 @@ const ConnectedData = () => {
         // `persist_failed:*` and `healthkit_read_failed` represent real issues
         // the user may need to act on; everything else is a normal background
         // catch-up.
-        const code = (result as { errorCode?: string }).errorCode || '';
+        const code = result.errorCode ?? '';
         if (code.startsWith('persist_failed') || code === 'healthkit_read_failed') {
           toast.warning('Apple Health connected, but server sync needs attention. We\'ll retry automatically.');
         } else {
@@ -372,7 +372,7 @@ const ConnectedData = () => {
         toast.info('Apple Health is connected. Waiting for new HRV data.');
         await fetchStatus();
       } else if (result.connectionState === 'sync_delayed') {
-        const code = (result as { errorCode?: string }).errorCode || '';
+        const code = result.errorCode ?? '';
         if (code.startsWith('persist_failed') || code === 'healthkit_read_failed') {
           toast.warning('Sync to server failed. We\'ll retry automatically — pull to refresh if it persists.');
         } else {

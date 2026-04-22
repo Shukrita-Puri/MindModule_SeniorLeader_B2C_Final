@@ -54,11 +54,14 @@ export default function OnboardingFlow() {
     initOnboarding();
   }, []);
 
-  // Stage gating: validate access on route change
+  // Stage gating: validate access on route change.
+  // /onboarding/payment is no longer special-cased here — `validateStageAccess`
+  // is now the single source of truth and explicitly allows the payment page
+  // for completed users (upgrade flow) and for users who have reached the
+  // results step. This removes the duplicate, route-level bypass that
+  // previously diverged from the canonical decision.
   useEffect(() => {
     if (location.pathname === '/onboarding') return;
-    // Skip gating for payment page (upgrade flow for completed users)
-    if (location.pathname === '/onboarding/payment') return;
     if (gateChecked.current === location.pathname) return;
     gateChecked.current = location.pathname;
 
@@ -69,7 +72,7 @@ export default function OnboardingFlow() {
         navigate(redirect, { replace: true });
       }
     })();
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
   // Match routes from longest to shortest to avoid "/onboarding" matching before "/onboarding/behavioral"
   const currentStageIndex = [...STAGE_ROUTES]

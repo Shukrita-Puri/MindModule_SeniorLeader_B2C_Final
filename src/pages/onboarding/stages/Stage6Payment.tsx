@@ -22,9 +22,12 @@ export default function Stage6Payment() {
   const hasValidUserAccess = hasValidAccess(user);
   const hasCompletedOnboarding = !!user?.onboarding_completed_at;
 
-  // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade
+  // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade.
+  // Beta state is derived from the canonical helper; "expired beta" is the
+  // strict negation of "valid beta" once the user is flagged as a beta user
+  // at all. This avoids re-implementing the date math here.
   const isBetaValid = isValidBeta(user);
-  const isExpiredBeta = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) <= new Date());
+  const isExpiredBeta = !!user?.beta_user && !isBetaValid;
   const isExpiredTrial = !!(user?.trial_ends_at && new Date(user.trial_ends_at) <= new Date() && user?.subscription_status !== 'active');
   const querySource = new URLSearchParams(location.search).get('source');
   const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
