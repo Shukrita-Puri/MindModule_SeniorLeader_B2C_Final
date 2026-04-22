@@ -1479,6 +1479,8 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     (outerBriefLoading && !outerBrief) ||
     (!!outerBrief && !briefScriptDone);
 
+  const briefId = (outerBrief as any)?.briefId ?? null;
+
   // ── Brief → Plan handoff CTA reveal ──
   // The CTA stays hidden until the loader has finished AND the brief has been
   // visible for 5 seconds, so the user has time to read it before being
