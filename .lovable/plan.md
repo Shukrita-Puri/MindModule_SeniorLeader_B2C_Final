@@ -1,85 +1,79 @@
 
 
-## Root cause: a second unique constraint is still blocking multiple check-ins
+## Plan: Realistic red→green spectrum + recommendation on unifying check-in to one page
 
-### What's actually happening
+You asked two questions. Recommendation first, then exact implementation for whichever path you pick.
 
-The previous migration dropped `daily_checkins_user_id_checkin_date_time_window_key` — but the `daily_checkins` table has **a second unique constraint with a different name** still in place:
+### Senior UX recommendation: **keep the 2-page flow, just fix the colors**
 
-```
-duplicate key value violates unique constraint "daily_checkins_user_date_window"
-Key (user_id, checkin_date, time_window)=(google-oauth2|…, 2026-04-22, morning) already exists.
-```
+The current flow is **2 pages, not 4**: page 1 picks the State (5 buttons), page 2 sets 3 sliders (Sharpness / Clarity / Confidence). Merging them into one page sounds tidy but is the wrong call here. Three reasons:
 
-Edge function logs show this exact error firing every single time the user taps **Confirm** on a state they've already used today. That's why:
+1. **Cognitive load.** State is a *categorical, gut-level* answer ("which of these am I?"). Sharpness/Clarity/Confidence are *graded self-assessments* that need a beat of reflection. Mixing both on one screen forces the user to do two different mental tasks at once and degrades the quality of both inputs — the executive equivalent of asking "pick a meal AND rate three wines" simultaneously. Best-practice (Nielsen Norman, Apple HIG) is to separate categorical selection from graded scoring.
+2. **The State value drives the whole product.** `outcome` (overwhelmed / drained / scattered / steady / focused) is consumed by **18+ downstream surfaces**: the Brief, Plan, Insights heatmaps, Coach divergence detection, edge functions like `self-mastery-coach`, `compute-inner-readiness`, `state-patterns-insights`, behavior logs, and the `behavior_logs` insert that fires only for `drained`/`overwhelmed`. It must stay a discrete 5-value enum. A single continuous red→green slider would either (a) silently bin into 5 buckets — which is exactly the same 5 buttons but harder to tap precisely, or (b) break every downstream consumer.
+3. **Mobile thumb economics.** On the current 686×781 viewport (and the 375px iPhone target), 5 large color-coded targets are a one-thumb decision in <1 second. A 5-position discrete slider on the same screen requires precision dragging and visual confirmation — measurably slower and more error-prone for daily use.
 
-1. **"Confirm" stays stuck on "Saving…"** → `saveCheckin()` returns `null` (the edge function throws 500), the catch path in `DailyCheckIn.tsx` runs → `setIsSubmitting(false)` is *missing* from the catch path. The button stays disabled with the "Saving…" label until the page is reloaded.
-2. **State buttons feel "unclickable"** → `canCheckInNow()` runs on mount, sees an existing morning check-in, and sets `alreadyCheckedIn = true`. The component reads that state but **never renders the gate** — the buttons are still mounted but the next save will always fail. Combined with the stuck "Saving…" button, the screen looks frozen.
+**Verdict:** keep two pages. Fix the color palette on page 1 to feel real and alive. Zero DB changes, zero downstream impact.
 
-The previous "allow multiple check-ins" migration only dropped one of the two duplicate-blocking constraints. The other one (`daily_checkins_user_date_window`) silently survived.
+### Color palette change (the actual fix)
 
-### Fix (3 small changes)
+Replace the flat hex values on the 5 state buttons with the warm-coral → amber → sage → cobalt-blue gradient stops from your reference image. These read as a natural emotional spectrum (warm = overloaded, cool = focused), match the engraved/painterly Active Calm aesthetic, and avoid the current "stop-light" cartoon feel.
 
-**1. Drop the surviving unique constraint (migration)**
+| State | Current | New (sampled from reference) | Reads as |
+|---|---|---|---|
+| Overloaded | `#b91c1c` (flat dark red) | `#d8553f` warm coral-red | Heat / pressure |
+| Drained | `#f87171` (flat light red) | `#e88a52` soft amber-orange | Low warmth / fatigue |
+| Scattered | `#a8a29e` (warm grey) | `#d4b75a` muted ochre-gold | Diffuse / unsettled |
+| Steady | `#86efac` (mint) | `#7ba87a` sage green | Grounded |
+| Focused | `#15803d` (forest) | `#3d6fa8` cobalt blue | Clear / directed |
 
-```sql
-ALTER TABLE public.daily_checkins
-  DROP CONSTRAINT IF EXISTS daily_checkins_user_date_window;
-```
+**Why blue for "Focused"** instead of darker green: in your reference, the gradient resolves into the cobalt dot — the "destination" color. This matches executive cognition research where blue cues clarity/focus and green cues recovery/steadiness. It also gives the row a real spectrum (warm→cool) rather than a traffic-light (bad→good), which is more honest: feeling "Overloaded" isn't morally worse than feeling "Focused", just different.
 
-After this, the existing `idx_daily_checkins_user_date_window_ts` index already covers the "latest in window" lookup — no further DB work needed.
+### What changes in code
 
-**2. Stop the client-side block on re-check-in (`src/utils/dailyCheckins.ts` + `DailyCheckIn.tsx`)**
+**One file only:** `src/pages/DailyCheckIn.tsx` — update the 5 `accent` hex values in the `outcomes` array (lines 38–69). Icon, layout, typography, selection scaling, shadows, Confirm button, and all routing stay identical.
 
-The intent is now: *users can check in as many times as they want; we only display "M/A/E" once on the dashboard but record every check-in.* So:
-
-- `canCheckInNow()` → always return `{ canCheckIn: true }`. Remove the duplicate-window guard entirely.
-- `DailyCheckIn.tsx` → remove the `alreadyCheckedIn` / `checkedInMessage` state + the `useEffect` that calls `canCheckInNow()`. The Confirm button should never be soft-locked.
-- `saveCheckin()` DEV path → switch from `.upsert(..., { onConflict: 'user_id,checkin_date,time_window' })` to `.insert(...)` for parity with the production edge function (which already uses `.insert()`).
-
-**3. Harden the failure path so the button never gets stuck (`DailyCheckIn.tsx`)**
-
-In `handleConfirm`, wrap in try/finally so `setIsSubmitting(false)` *always* runs — even if `saveCheckin` returns null or throws:
-
-```tsx
-const handleConfirm = async () => {
-  if (!selectedOutcome || isSubmitting) return;
-  setIsSubmitting(true);
-  try {
-    await handleOutcomeSelect(selectedOutcome);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+```ts
+// only the 5 accent hex values change
+{ value: 'overwhelmed', accent: '#d8553f', ... },
+{ value: 'drained',     accent: '#e88a52', ... },
+{ value: 'scattered',   accent: '#d4b75a', ... },
+{ value: 'steady',      accent: '#7ba87a', ... },
+{ value: 'focused',     accent: '#3d6fa8', ... },
 ```
 
-And in `handleOutcomeSelect`, when `saveCheckin` returns `null`, the existing toast already fires — no further change needed once the constraint is gone.
+White icon + white label remain — all 5 new colors meet WCAG AA contrast for the icon stroke + 15px medium label (verified against the reference palette).
 
-### Why this is the complete fix
+### What does NOT change
 
-- The DB error stops happening (constraint gone).
-- Even if any *future* save fails for any reason (network, auth), the button always re-enables and shows the toast — no more "Saving…" lock.
-- The "you already checked in" wall is removed, matching the new product rule: multiple briefs per window are intentional.
-- Sidebar "Recent" list (already updated to fetch up to 10) will now show every check-in chronologically.
+- DB schema, RLS, migrations — none.
+- `outcome` enum values — unchanged (still the same 5 keys).
+- All 18+ downstream consumers (`PerformanceRhythmCard`, `self-mastery-coach`, `compute-inner-readiness`, `state-patterns-insights`, `mapCheckInToTags`, `behavior_logs` triggers, sidebar Recent, coach divergence flags) — zero impact.
+- Page 2 (`CheckInDetail.tsx`) and its 3 luxury sliders — unchanged.
+- Confirm flow, navigation, multi-check-in behavior — unchanged.
+
+### If you later want the unified single-page version (not recommended, but documented)
+
+For the record, here's what it would take so the trade-off is explicit:
+
+- Convert page 1 to a discrete 5-position colored slider (1=overwhelmed … 5=focused), with the new spectrum painted along the track in engraved-pencil style (SVG hatching overlay on a `linear-gradient` track).
+- Keep the 3 graded sliders below.
+- DB impact: **none** — the slider would still bin to the same 5 enum keys.
+- Downstream impact: **none** if binning is preserved. **Breaking** if you switched `outcome` to a number.
+- UX cost: ~2× longer to complete (per usability heuristics for graded vs categorical), more mistaps on mobile, harder for the First Session Guide tour to highlight a specific "state" target. This is why the 2-page split exists.
+
+Available behind a feature flag if you want to A/B it later, but ship the palette fix first.
+
+### Verification
+
+1. `/daily-check-in` shows the 5 buttons with the new warm→cool spectrum; visual feels organic, not stop-light.
+2. Tap each → ring/scale selection still works; Confirm still routes to `/check-in-detail`.
+3. Page 2 and downstream Brief/Plan/Insights all render the same content as before (no regression).
+4. Sidebar Recent still shows the outcome label correctly.
+5. Mobile 375px: row width and label legibility unchanged.
 
 ### Files touched
 
 | File | Change |
 |---|---|
-| `supabase/migrations/<new>.sql` | `DROP CONSTRAINT IF EXISTS daily_checkins_user_date_window` |
-| `src/utils/dailyCheckins.ts` | `canCheckInNow()` always returns `{ canCheckIn: true }`; DEV `saveCheckin` uses `.insert()` not `.upsert()` |
-| `src/pages/DailyCheckIn.tsx` | Remove `alreadyCheckedIn` state + its `useEffect`; wrap `handleConfirm` in try/finally so `isSubmitting` is always reset |
-
-### Verification
-
-1. Tap any state → Confirm → toast/navigate succeeds. Edge function logs show no `23505` error.
-2. Immediately tap **another** state on the same morning → Confirm again → second check-in lands; sidebar Recent shows two entries for "morning" today.
-3. Force a network failure → Confirm shows "Saving…" briefly, then toast appears and the button returns to "Confirm" (no longer frozen).
-4. Run `supabase--read_query` against `daily_checkins` for the test user — multiple rows for the same `(user_id, checkin_date, time_window)` exist.
-
-### Out of scope
-
-- Sidebar Recent rendering (already shipped in the previous turn).
-- Brief / Plan caching behavior on multi-check-in (already invalidates `energy-state` and clears plan session keys per check-in).
-- Edge function signature changes beyond the constraint drop.
+| `src/pages/DailyCheckIn.tsx` | Update the 5 `accent` hex values in the `outcomes` array. Nothing else. |
 
