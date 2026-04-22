@@ -21,6 +21,7 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
+import EngravedLoader from '@/components/ui/engraved-loader';
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
@@ -834,6 +835,20 @@ const Insights = () => {
               </p>
             </div>
 
+            {(patternsLoading || winsLoading || semanticLoading) && (
+              <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
+                <EngravedLoader
+                  compact
+                  steps={[
+                    "Reading your check-ins…",
+                    "Mapping leadership patterns…",
+                    "Connecting wins & themes…",
+                    "Synthesizing your insights…",
+                  ]}
+                />
+              </div>
+            )}
+
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
         <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
@@ -883,9 +898,7 @@ const Insights = () => {
               </CardHeader>
               <CardContent>
                 {winsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <EngravedLoader compact label="Loading momentum…" />
                 ) : winsError ? (
                   <div className="py-4 text-center">
                     <p className="text-sm text-muted-foreground">Unable to load momentum data right now.</p>
@@ -1019,9 +1032,7 @@ const Insights = () => {
               </CardHeader>
               <CardContent>
                 {semanticLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <EngravedLoader compact label="Loading mind map…" />
                 ) : semanticError ? (
                   <div className="py-4 text-center">
                     <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
