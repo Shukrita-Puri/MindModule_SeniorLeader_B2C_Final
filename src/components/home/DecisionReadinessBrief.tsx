@@ -1486,6 +1486,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     const t = setTimeout(() => setShowCta(true), 3500);
     return () => clearTimeout(t);
   }, [phrase, feedbackKey]);
+  useEffect(() => {
+    onCtaReadyChange?.(showCta);
+  }, [showCta, onCtaReadyChange]);
 
   // ── Script-gated first-load loader ──
   // The brief stays hidden until BOTH (a) the data has arrived AND (b) the
@@ -1699,19 +1702,6 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         score={(outerBrief as any)?.innerReadinessScore ?? null}
         onFeedbackSubmitted={() => setShowCta(true)}
       />
-
-      {/* 12.5 BRIEF → PLAN HANDOFF — full-width saffron CTA, revealed after read window */}
-      {showCta && (
-        <Button
-          type="button"
-          variant="critical"
-          onClick={() => navigate('/plan')}
-          className="mt-4 w-full h-11 animate-in fade-in duration-300"
-        >
-          Activate Today's 3 Priorities
-          <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
-        </Button>
-      )}
     </div>
   );
 };
