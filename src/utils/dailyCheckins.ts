@@ -26,12 +26,6 @@ export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
   return 'evening';
 }
 
-function getNextWindowName(currentWindow: string): string {
-  if (currentWindow === 'morning') return 'afternoon (12pm)';
-  if (currentWindow === 'afternoon') return 'evening (6pm)';
-  return 'tomorrow morning';
-}
-
 // ─── Check if user can check in now ────────────────────────────────
 
 export async function canCheckInNow(): Promise<{
@@ -39,48 +33,8 @@ export async function canCheckInNow(): Promise<{
   reason?: string;
   nextWindow?: string;
 }> {
-  const timeWindow = getCurrentTimeWindow();
-  const today = new Date().toISOString().split('T')[0];
-
-  try {
-    if (DEV_MODE) {
-      const { data } = await supabase
-        .from('daily_checkins')
-        .select('id')
-        .eq('user_id', DEV_USER.id)
-        .eq('checkin_date', today)
-        .eq('time_window', timeWindow)
-        .maybeSingle();
-
-      if (data) {
-        return {
-          canCheckIn: false,
-          reason: `You already checked in this ${timeWindow}.`,
-          nextWindow: getNextWindowName(timeWindow)
-        };
-      }
-      return { canCheckIn: true };
-    }
-
-    const accessToken = await getAuthToken();
-    if (!accessToken) return { canCheckIn: true };
-
-    const { data } = await supabase.functions.invoke('daily-checkins', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_CHECKIN_FOR_WINDOW', checkinDate: today, timeWindow }
-    });
-
-    if (data?.data) {
-      return {
-        canCheckIn: false,
-        reason: `You already checked in this ${timeWindow}.`,
-        nextWindow: getNextWindowName(timeWindow)
-      };
-    }
-    return { canCheckIn: true };
-  } catch {
-    return { canCheckIn: true };
-  }
+  // Users may check in as many times as they want — no per-window block.
+  return { canCheckIn: true };
 }
 
 // ─── Get check-ins ─────────────────────────────────────────────────
@@ -260,7 +214,7 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
     try {
       const { data, error } = await supabase
         .from('daily_checkins')
-        .upsert({
+        .insert({
           user_id: DEV_USER.id,
           checkin_date: checkinData.checkin_date,
           time_window: timeWindow,
@@ -272,7 +226,7 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
           data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json,
           clarity_level: checkinData.clarity_level,
           confidence_level: checkinData.confidence_level,
-        }, { onConflict: 'user_id,checkin_date,time_window' })
+        })
         .select()
         .maybeSingle();
 
