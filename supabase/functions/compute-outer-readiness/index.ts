@@ -629,13 +629,22 @@ function buildWeekdayEveningTheme(
 
   // ── Build todaySummary: acknowledge what the user carried today ──
   const meetingLabel = filteredTotal > 0 ? `${filteredTotal} meeting${filteredTotal !== 1 ? 's' : ''}` : null;
+  // Density guard: never emit "dense calendar" / "tight gaps" copy when
+  // there were fewer than 3 meetings. A single high-pressure summit can mark
+  // the day as "heavy" via pressure, but the literal density phrasing is wrong.
+  const trulyDense = filteredTotal >= 3;
   let todaySummary = '';
   if (hadHeavyDay && bodyStressed && hasTodayStakes) {
     todaySummary = `You carried a demanding day – ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : `'${todayHighStakes![0]}'`} with your heart rate elevated throughout.`;
   } else if (hadHeavyDay && hasTodayStakes) {
     todaySummary = `You navigated '${todayHighStakes![0]}' and a full calendar today.`;
-  } else if (hadHeavyDay && meetingLabel) {
+  } else if (hadHeavyDay && meetingLabel && trulyDense) {
     todaySummary = `You navigated a dense calendar – ${meetingLabel} with tight gaps.`;
+  } else if (hadHeavyDay && meetingLabel) {
+    // Heavy by pressure but only 1–2 meetings — honour the pill, not "density".
+    todaySummary = filteredTotal === 1
+      ? 'You carried one demanding session today.'
+      : `You carried ${meetingLabel} of demanding work today.`;
   } else if (bodyStressed) {
     todaySummary = wearable!.hrElevated
       ? "Your heart rate ran high through today's demands."
