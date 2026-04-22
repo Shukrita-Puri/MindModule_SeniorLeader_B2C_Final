@@ -23,6 +23,7 @@ import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
+import EngravedLoader from '@/components/ui/engraved-loader';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -1425,7 +1426,29 @@ const PerformanceReadinessBrief = () => {
   const [signalsOpen, setSignalsOpen] = useState(false);
 
   // Single canonical payload — no separate computeEnergyState call
-  const { data: outerBrief } = useOuterReadiness();
+  const { data: outerBrief, isLoading: outerBriefLoading } = useOuterReadiness();
+
+  // ── First-load loader ──
+  // While the brief is being computed by the edge function for the first time
+  // (no cached data yet), show an engraved-style loading indicator so the user
+  // knows the system is working and they don't need to act. Once any payload
+  // arrives, the normal brief renders. Refetches keep the previous data via
+  // placeholderData, so this only triggers on a true cold load.
+  if (outerBriefLoading && !outerBrief) {
+    return (
+      <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
+        <div className="flex items-center justify-between">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+            Performance Readiness Brief
+          </span>
+          <span className="text-xs text-muted-foreground/50 font-body">
+            Preparing
+          </span>
+        </div>
+        <EngravedLoader label="Reading your signals…" />
+      </div>
+    );
+  }
 
   // Inner readiness values echoed from the backend
   const score = outerBrief?.innerReadinessScore ?? null;
