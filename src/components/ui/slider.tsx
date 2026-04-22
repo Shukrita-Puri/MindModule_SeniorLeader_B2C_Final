@@ -79,22 +79,34 @@ const LuxuryThumb: React.FC = () => {
         <pattern
           id={`thumb-hatch-${id}`}
           patternUnits="userSpaceOnUse"
-          width="3"
-          height="3"
+          width="2.4"
+          height="2.4"
           patternTransform="rotate(45)"
         >
           <line
             x1="0"
             y1="0"
             x2="0"
-            y2="3"
+            y2="2.4"
             stroke="rgba(0,0,0,0.55)"
-            strokeWidth="0.6"
+            strokeWidth="0.55"
           />
         </pattern>
+        <clipPath id={`thumb-clip-${id}`}>
+          <circle cx="11" cy="11" r="9" />
+        </clipPath>
       </defs>
       {/* white disc */}
       <circle cx="11" cy="11" r="9.5" fill="#fafaf7" />
+      {/* diagonal hatch fill across the full disc */}
+      <rect
+        x="2"
+        y="2"
+        width="18"
+        height="18"
+        fill={`url(#thumb-hatch-${id})`}
+        clipPath={`url(#thumb-clip-${id})`}
+      />
       {/* hand-drawn ring */}
       <circle
         cx="11"
@@ -103,17 +115,6 @@ const LuxuryThumb: React.FC = () => {
         fill="none"
         stroke="rgba(0,0,0,0.85)"
         strokeWidth="1.6"
-        filter={`url(#${filterId})`}
-      />
-      {/* inner hatch dot */}
-      <circle cx="11" cy="11" r="3.2" fill={`url(#thumb-hatch-${id})`} />
-      <circle
-        cx="11"
-        cy="11"
-        r="3.2"
-        fill="none"
-        stroke="rgba(0,0,0,0.7)"
-        strokeWidth="0.6"
         filter={`url(#${filterId})`}
       />
     </svg>
