@@ -870,14 +870,25 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
     if (s === 'red') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : 'DEGRADED';
-    if (s === 'amber') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : cogAuthorityFlag === 'recovery-underway' ? 'RECOVERING' : 'TAXED';
+    if (s === 'amber') {
+      if (cogAuthorityFlag === 'masked-high') return 'MASKED LOAD';
+      if (cogAuthorityFlag === 'recovery-underway') return 'RECOVERING';
+      // Executive nuance: high-functioning strain — body is paying a cost
+      // but cognition is still producing at top quality. 2-word rule preserved.
+      const sharpStrong = sharpness != null && sharpness >= 4;
+      const clarityStrong = clarity != null && clarity >= 4;
+      const energyOk = checkInOutcome !== 'drained' && checkInOutcome !== 'overwhelmed';
+      const realStrain = hrvDev != null && hrvDev <= -5 && hrvDev >= -20;
+      if (sharpStrong && clarityStrong && energyOk && realStrain) return 'PEAK STRAIN';
+      return 'TAXED';
+    }
     if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'CLEAR';
     return 'BUILDING';
   };
   const physWord = (s: PillState): string => {
     if (s === 'neutral') return 'NO BODY DATA';
     if (s === 'red') return 'SYSTEM STRAIN';
-    if (s === 'amber') return sleepKnown ? 'LOAD BUILDING' : 'PARTIAL READ';
+    if (s === 'amber') return 'LOAD BUILDING';
     // green
     const sleepGood = (sleepScore != null && sleepScore >= 70) || (sleepDur != null && sleepDur >= 390);
     const rhrGood = (rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70);
