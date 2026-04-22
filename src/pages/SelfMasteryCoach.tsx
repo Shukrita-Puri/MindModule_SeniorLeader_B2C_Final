@@ -18,6 +18,7 @@ import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import type { EntryContext } from '@/types/coach';
+import { isValidBeta } from '@/utils/subscriptionHelpers';
 
 interface PracticeStep {
   title: string;
@@ -87,13 +88,9 @@ const SelfMasteryCoach = () => {
     return null;
   }, [location.search]);
 
-  // Coach access gate
+  // Coach access gate – beta check uses the canonical helper.
   const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
-  const hasValidBetaAccess = Boolean(
-    user?.beta_user &&
-    user?.beta_expires_at &&
-    new Date(user.beta_expires_at) > new Date()
-  );
+  const hasValidBetaAccess = isValidBeta(user);
 
   // Check access on mount
   useEffect(() => {
