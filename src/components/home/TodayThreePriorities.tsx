@@ -25,6 +25,7 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
+import EngravedLoader from '@/components/ui/engraved-loader';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -596,17 +597,20 @@ const TodayThreePriorities = ({
     return (
       <div className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {/* Faint card scaffold so layout doesn't jump when priorities arrive */}
           {[1, 2, 3].map((n) => (
-            <div key={n} className="flex items-center gap-3 py-2">
-              <div className="w-7 h-7 rounded-full bg-muted/30 animate-pulse flex items-center justify-center text-xs text-muted-foreground/40 font-bold">
+            <div key={n} className="flex items-center gap-3 py-2 opacity-60">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/40 font-bold">
                 {n}
               </div>
               <div className="flex-1 space-y-1.5">
-                <div className="h-3 bg-muted/20 rounded-md w-16 animate-pulse" />
-                <div className="h-3.5 bg-muted/20 rounded-md w-3/4 animate-pulse" />
+                <div className="h-3 bg-muted/15 rounded-md w-16" />
+                <div className="h-3.5 bg-muted/15 rounded-md w-3/4" />
               </div>
             </div>
           ))}
+
+          <EngravedLoader label="Mapping your priorities…" />
         </div>
       </div>
     );
