@@ -160,7 +160,7 @@ const Slider = React.forwardRef<
         <>
           {/* full-rail engraved hatch — always visible */}
           <div className="pointer-events-none absolute inset-0">
-            <EngravedFill density={3} opacity={0.3} />
+            <EngravedFill variant="refined" density={3} opacity={0.3} />
           </div>
           {/* discrete 1-5 tick notches */}
           <LuxuryTicks />
@@ -169,7 +169,7 @@ const Slider = React.forwardRef<
       <SliderPrimitive.Range className={sliderRangeVariants({ variant })}>
         {variant === "luxury" && (
           <div className="pointer-events-none absolute inset-0">
-            <EngravedFill density={3} opacity={0.18} crossHatch />
+            <EngravedFill variant="refined" density={3} opacity={0.22} />
           </div>
         )}
       </SliderPrimitive.Range>
