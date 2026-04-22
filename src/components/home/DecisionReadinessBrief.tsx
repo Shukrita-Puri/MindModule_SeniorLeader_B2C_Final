@@ -1483,14 +1483,23 @@ const PerformanceReadinessBrief = () => {
     return () => clearTimeout(t);
   }, [phrase, feedbackKey]);
 
-  // ── First-load loader ──
-  // While the brief is being computed by the edge function for the first time
-  // (no cached data yet), show an engraved-style loading indicator so the user
-  // knows the system is working and they don't need to act. Once any payload
-  // arrives, the normal brief renders. Refetches keep the previous data via
-  // placeholderData, so this only triggers on a true cold load. Placed after
-  // all hooks to keep hook order stable.
-  if (outerBriefLoading && !outerBrief) {
+  // ── Script-gated first-load loader ──
+  // The brief stays hidden until BOTH (a) the data has arrived AND (b) the
+  // scripted "mixture" narration has played every step in order. This
+  // prevents content from popping in mid-script. The loader card stays
+  // mounted on its final step until data lands.
+  const [briefScriptDone, setBriefScriptDone] = useState(false);
+  const dataReady = !outerBriefLoading && !!outerBrief;
+  if (!briefScriptDone || !dataReady) {
+    // Cold load only — don't show loader if we already have cached data
+    // (placeholderData keeps previous brief visible during refetch).
+    if (outerBrief && !outerBriefLoading) {
+      // Data is here but script hasn't finished — keep loader mounted.
+    } else if (!outerBriefLoading && !outerBrief) {
+      // Not loading and no data → fall through to normal render (handles
+      // empty/error states inside the main return).
+    }
+    // Render the loader card whenever the gate is closed.
     return (
       <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
         <div className="flex items-center justify-between">
@@ -1508,13 +1517,14 @@ const PerformanceReadinessBrief = () => {
             "Mapping patterns & context…",
             "Drafting your brief…",
           ]}
+          onAllStepsComplete={() => setBriefScriptDone(true)}
         />
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
+    <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40 animate-fade-in">
 
       {/* 1. EYEBROW ROW */}
       <div className="flex items-center justify-between">
