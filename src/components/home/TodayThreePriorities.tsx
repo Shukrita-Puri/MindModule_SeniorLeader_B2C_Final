@@ -110,8 +110,27 @@ const TodayThreePriorities = ({
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
 
-  const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Synchronous sessionStorage hydration: if a valid cached plan exists for
+  // today + current period, render it instantly on mount and skip the
+  // scripted loader. Background freshness checks in loadPlan() may still
+  // silently swap the data later.
+  const initialCached = (() => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const period = getCurrentTimeWindow();
+      const sessionKey = `plan-loaded-${today}-${period}`;
+      if (sessionStorage.getItem(sessionKey) !== 'true') return null;
+      const raw = sessionStorage.getItem(`plan-data-${today}-${period}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as MasteryPlanResponse;
+      if (!parsed.horizonModules || parsed.horizonModules.length === 0) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  })();
+  const [plan, setPlan] = useState<MasteryPlanResponse | null>(initialCached);
+  const [loading, setLoading] = useState(!initialCached);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
