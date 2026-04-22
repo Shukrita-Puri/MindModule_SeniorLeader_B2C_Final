@@ -605,7 +605,7 @@ const TodayThreePriorities = ({
   // scripted "mixture" narration plays every step in order. Empty/error
   // states are NOT gated — they're alternate terminal states that render
   // immediately if the fetch finishes empty.
-  const [planScriptDone, setPlanScriptDone] = useState(false);
+  const [planScriptDone, setPlanScriptDone] = useState(!!initialCached);
 
   // Signal empty/loaded state to parent for fallback rendering
   // Only fire onEmpty when genuinely no data AND not a transient fetch failure
