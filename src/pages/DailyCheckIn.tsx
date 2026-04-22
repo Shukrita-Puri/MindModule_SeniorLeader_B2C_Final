@@ -12,13 +12,12 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 import FloatingPillNav from "@/components/navigation/FloatingPillNav";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { EngravedFill } from "@/components/ui/engraved-fill";
-import { useRef } from "react";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
