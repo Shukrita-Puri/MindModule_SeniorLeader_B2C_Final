@@ -354,14 +354,16 @@ const ExecutiveHome = () => {
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
               {briefCtaReady && (
-                <Button
-                  type="button"
-                  onClick={() => navigate('/plan')}
-                  className="mt-3 w-full h-11 bg-taupe text-white hover:bg-taupe/90 animate-in fade-in duration-300"
-                >
-                  Activate Today's 3 Priorities
-                  <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
-                </Button>
+                <div className="mt-3 flex justify-end animate-in fade-in duration-300">
+                  <Button
+                    type="button"
+                    onClick={() => navigate('/plan')}
+                    className="h-11 px-5 bg-taupe text-white hover:bg-taupe/90 rounded-lg"
+                  >
+                    Generate Today's Plan
+                    <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2.25} />
+                  </Button>
+                </div>
               )}
             </div>
 
