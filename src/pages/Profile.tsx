@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStore';
+import { isValidBeta } from '@/utils/subscriptionHelpers';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -43,7 +44,7 @@ const Profile = () => {
   const isCanceled = !!user?.subscription_canceled_at;
   const isPendingCancellation = !!user?.subscription_cancel_at && !isCanceled;
   const hasStripeAccount = !!user?.stripe_customer_id;
-  const isBetaUser = user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date();
+  const isBetaUser = isValidBeta(user);
   const profileUpgradePath = '/onboarding/payment?source=profile-upgrade';
 
   const statusLabel = isBetaUser ? 'Beta' : isCanceled ? 'Canceled' : isPaying ? 'Paid' : isTrialing ? 'Trial' : 'Free';

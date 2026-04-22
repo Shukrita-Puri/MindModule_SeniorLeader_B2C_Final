@@ -14,6 +14,7 @@ import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
 import EngravedLoader from "./components/ui/engraved-loader";
+import RouteSkeleton from "./components/ui/route-skeleton";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -155,7 +156,7 @@ const router = createBrowserRouter([
       },
       {
         path: "executive-home",
-        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ExecutiveHome /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ExecutiveHome /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "coach",
@@ -163,11 +164,11 @@ const router = createBrowserRouter([
       },
       {
         path: "plan",
-        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "insights",
-        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "profile",
@@ -255,7 +256,7 @@ const router = createBrowserRouter([
           { path: "mental-clarity", element: <Suspense fallback={<LoadingFallback />}><Stage6MentalClarity /></Suspense> },
           { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
-          { path: "results", element: <Suspense fallback={null}><Stage8Results /></Suspense> },
+          { path: "results", element: <Suspense fallback={<RouteSkeleton />}><Stage8Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
@@ -269,13 +270,15 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <div className="App">
-          <RouterProvider router={router} />
-        </div>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="App">
+            <RouterProvider router={router} />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

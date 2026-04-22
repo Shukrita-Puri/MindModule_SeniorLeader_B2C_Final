@@ -248,8 +248,8 @@ export default function Stage7ContextConnection() {
         toast.success("Apple Health connected. HRV data will sync once available.");
         setWatchSyncStatus("Connected · No HRV data yet");
       } else if (result.connectionState === 'sync_delayed') {
-        toast.warning("Apple Health is connected, but sync is delayed. The app will retry.");
-        setWatchSyncStatus("Connected · Sync delayed");
+        toast.success("Apple Health connected. Catching up in the background.");
+        setWatchSyncStatus("Connected · Catching up");
       } else if (result.connectionState === 'permission_revoked') {
         toast.error("Apple Health permission was revoked. Please re-enable it in Health settings.");
         setWatchSyncStatus("Permission revoked");

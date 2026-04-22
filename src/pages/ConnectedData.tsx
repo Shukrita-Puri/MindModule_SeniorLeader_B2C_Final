@@ -328,9 +328,9 @@ const ConnectedData = () => {
       } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.info('Apple Health is connected. Waiting for new HRV data from Apple Health.');
       } else if (result.connectionState === 'sync_delayed') {
-        toast.warning(result.hasData && !result.dbPersisted
-          ? 'Data read from Apple Health but server save failed. Will retry automatically.'
-          : 'Apple Health is connected, but sync is delayed. We will retry automatically.');
+        // Treat as a soft, neutral "still working" state — sync runs automatically
+        // in the background. Avoid alarming "delayed" wording.
+        toast.info('Apple Health connected. Catching up in the background.');
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission was revoked. Please reconnect in Health settings.');
       } else {
@@ -365,10 +365,8 @@ const ConnectedData = () => {
         toast.info('Apple Health is connected. Waiting for new HRV data.');
         await fetchStatus();
       } else if (result.connectionState === 'sync_delayed') {
-        const msg = result.hasData && !result.dbPersisted
-          ? 'Data read from Apple Health but could not be saved to the server. Will retry.'
-          : 'Apple Health is still connected, but sync is delayed.';
-        toast.warning(msg);
+        // Soft, neutral message — background sync continues automatically.
+        toast.info('Apple Health is connected. Catching up in the background.');
         await fetchStatus();
       } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission revoked. Please reconnect.');

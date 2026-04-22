@@ -12,6 +12,7 @@ import { getAuthToken } from "@/services/authTokenService";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { isValidBeta } from "@/utils/subscriptionHelpers";
 import { GradientProgress } from "@/components/ui/gradient-progress";
 import EngravedLoader from "@/components/ui/engraved-loader";
 
@@ -44,7 +45,7 @@ interface ResultsData {
 export default function Stage8Results() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
+  const isBetaValid = isValidBeta(user);
   const { recordStep } = useOnboardingProgress();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);

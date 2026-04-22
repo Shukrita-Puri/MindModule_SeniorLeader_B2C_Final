@@ -7,7 +7,7 @@ import { getAuthHeaders } from "@/services/authTokenService";
 import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { hasValidAccess } from "@/utils/subscriptionHelpers";
+import { hasValidAccess, isValidBeta } from "@/utils/subscriptionHelpers";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export default function Stage6Payment() {
   const hasCompletedOnboarding = !!user?.onboarding_completed_at;
 
   // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade
-  const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
+  const isBetaValid = isValidBeta(user);
   const isExpiredBeta = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) <= new Date());
   const isExpiredTrial = !!(user?.trial_ends_at && new Date(user.trial_ends_at) <= new Date() && user?.subscription_status !== 'active');
   const querySource = new URLSearchParams(location.search).get('source');

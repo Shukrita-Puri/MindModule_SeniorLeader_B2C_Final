@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { AlertTriangle, BatteryLow, Cloud, Minus, ArrowUp } from "lucide-react";
-import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
@@ -329,52 +328,56 @@ const DailyCheckIn = () => {
         </p>
 
         {/* Vertical state list – compact gaps */}
-        <div data-tour="check-in-carousel" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
+        <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
           {outcomes.map((outcome) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
             return (
-              <TouchOptimized
+              <button
                 key={outcome.value}
-                onTap={() => setSelectedOutcome(outcome.value)}
-                className="w-[84%] mx-auto"
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={outcome.title}
+                onClick={() => setSelectedOutcome(outcome.value)}
+                className={`
+                  w-[84%] mx-auto block text-left
+                  rounded-2xl
+                  min-h-[58px] flex items-center gap-3.5 px-4 py-2.5
+                  touch-manipulation select-none
+                  transition-all duration-200
+                  relative overflow-hidden
+                  ring-1 ring-inset ring-black/[0.12]
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron focus-visible:ring-offset-2
+                  active:scale-[0.99]
+                  ${isSelected
+                    ? 'scale-[1.02] shadow-[0_10px_32px_rgba(0,0,0,0.20)]'
+                    : 'shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.10)]'}
+                `}
+                style={{
+                  backgroundColor: outcome.accent,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
               >
-                <div
-                  className={`
-                    w-full rounded-2xl
-                    min-h-[58px] flex items-center gap-3.5 px-4 py-2.5
-                    cursor-pointer
-                    transition-all duration-200
-                    relative overflow-hidden
-                    ring-1 ring-inset ring-black/[0.12]
-                    ${isSelected
-                      ? 'scale-[1.02] shadow-[0_10px_32px_rgba(0,0,0,0.20)]'
-                      : 'shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.10)]'}
-                  `}
-                  style={{
-                    backgroundColor: outcome.accent,
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-0">
-                    <EngravedFill
-                      variant="refined"
-                      density={4}
-                      opacity={isSelected ? 0.30 : 0.22}
-                    />
-                  </div>
-                  <div className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0">
-                    <IconComponent
-                      className="w-6 h-6 text-white"
-                      strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
-                    />
-                  </div>
-                  <div className="relative z-10 flex flex-col min-w-0">
-                    <h3 className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
-                      {outcome.title}
-                    </h3>
-                  </div>
-                </div>
-              </TouchOptimized>
+                <span className="pointer-events-none absolute inset-0" aria-hidden="true">
+                  <EngravedFill
+                    variant="refined"
+                    density={4}
+                    opacity={isSelected ? 0.30 : 0.22}
+                  />
+                </span>
+                <span className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0">
+                  <IconComponent
+                    className="w-6 h-6 text-white"
+                    strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
+                  />
+                </span>
+                <span className="relative z-10 flex flex-col min-w-0">
+                  <span className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
+                    {outcome.title}
+                  </span>
+                </span>
+              </button>
             );
           })}
         </div>
