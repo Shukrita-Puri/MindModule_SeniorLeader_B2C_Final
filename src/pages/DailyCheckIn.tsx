@@ -380,16 +380,26 @@ const DailyCheckIn = () => {
 
         {/* Vertical state list – compact gaps */}
         <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
-          {outcomes.map((outcome) => {
+          {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
+            // Roving tabindex: only one option is in the tab order at a time.
+            // If nothing is selected yet, the first option is the entry point.
+            const isTabStop = selectedOutcome
+              ? isSelected
+              : index === 0;
             return (
               <button
                 key={outcome.value}
+                ref={(el) => {
+                  radioRefs.current[index] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
                 aria-label={outcome.title}
+                tabIndex={isTabStop ? 0 : -1}
+                onKeyDown={(e) => handleRadioKeyDown(e, index)}
                 onClick={() => setSelectedOutcome(outcome.value)}
                 className={`
                   w-[84%] mx-auto block text-left
