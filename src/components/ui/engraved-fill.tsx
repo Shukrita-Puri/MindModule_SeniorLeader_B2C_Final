@@ -12,6 +12,12 @@ interface EngravedFillProps {
   crossHatch?: boolean;
   /** Render a wavy hand-drawn outline rect inside the surface. */
   drawnOutline?: boolean;
+  /**
+   * Visual style of the engraving.
+   * - "sketched" (default): heavy zig-zag + turbulence, woodcut feel.
+   * - "refined": clean, regular diagonal cross-hatch (matches slider rail).
+   */
+  variant?: "sketched" | "refined";
   className?: string;
 }
 
@@ -29,6 +35,7 @@ export const EngravedFill: React.FC<EngravedFillProps> = ({
   strokeColor = "rgba(0,0,0,0.85)",
   crossHatch = false,
   drawnOutline = false,
+  variant = "sketched",
   className,
 }) => {
   const id = React.useId().replace(/:/g, "");
@@ -37,6 +44,63 @@ export const EngravedFill: React.FC<EngravedFillProps> = ({
   const crossId = `engraved-cross-${id}`;
   const filterId = `engraved-roughen-${id}`;
   const outlineFilterId = `engraved-outline-${id}`;
+  const refinedId = `engraved-refined-${id}`;
+  const refinedCrossId = `engraved-refined-cross-${id}`;
+  const refinedSpacing = Math.max(3, density - 1); // ~3-4px line spacing
+
+  if (variant === "refined") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full [&_*]:pointer-events-none",
+          className
+        )}
+        style={{ mixBlendMode: "multiply", opacity, touchAction: "none" }}
+        preserveAspectRatio="none"
+        focusable="false"
+      >
+        <defs>
+          <pattern
+            id={refinedId}
+            patternUnits="userSpaceOnUse"
+            width={refinedSpacing}
+            height={refinedSpacing}
+            patternTransform="rotate(45)"
+          >
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2={refinedSpacing}
+              stroke={strokeColor}
+              strokeWidth="0.6"
+              strokeLinecap="round"
+            />
+          </pattern>
+          <pattern
+            id={refinedCrossId}
+            patternUnits="userSpaceOnUse"
+            width={refinedSpacing}
+            height={refinedSpacing}
+            patternTransform="rotate(-45)"
+          >
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2={refinedSpacing}
+              stroke={strokeColor}
+              strokeWidth="0.5"
+              strokeLinecap="round"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#${refinedId})`} />
+        <rect width="100%" height="100%" fill={`url(#${refinedCrossId})`} />
+      </svg>
+    );
+  }
 
   return (
     <svg
