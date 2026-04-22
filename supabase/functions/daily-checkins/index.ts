@@ -221,7 +221,7 @@ serve(async (req) => {
 
         const { data, error } = await supabase
           .from('daily_checkins')
-          .upsert({
+          .insert({
             user_id: userId,
             checkin_date: cd.checkin_date,
             time_window: timeWindow,
@@ -233,7 +233,7 @@ serve(async (req) => {
             skipped: cd.skipped || false,
             timestamp: cd.timestamp,
             data_sources: cd.data_sources || {}
-          }, { onConflict: 'user_id,checkin_date,time_window' })
+          })
           .select()
           .single();
 

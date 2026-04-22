@@ -45,26 +45,24 @@ export const useRecentActivity = () => {
       try {
         const { data, error } = await supabase.functions.invoke('daily-checkins', {
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { action: 'GET_RECENT_CHECKINS', limit: 5 },
+          body: { action: 'GET_RECENT_CHECKINS', limit: 10 },
         });
         if (!error && data?.data) {
           data.data.forEach((checkin: any) => {
-            const outcome = capitalize(checkin.outcome || 'Completed');
+            const outcomeRaw = capitalize(checkin.outcome || 'Completed');
+            // Truncate long outcome words (e.g. "Overwhelmed") so the Sharp/Clear/
+            // Confident pills remain visible inside the fixed-width sidebar row.
+            const outcome = outcomeRaw.length > 8 ? outcomeRaw.slice(0, 7) + '…' : outcomeRaw;
             const cl = levelIcon(checkin.clarity_level);
             const co = levelIcon(checkin.confidence_level);
             const ms = levelIcon(checkin.mental_sharpness_level);
-            // e.g. "Focused, ● Clear, ▲ Confident, ● Sharp" — short labels keep
-            // the row from clipping inside the fixed-width sidebar.
             const parts: string[] = [];
             if (cl) parts.push(`${cl} Clear`);
-            if (co) parts.push(`${co} Confident`);
+            if (co) parts.push(`${co} Conf`);
             if (ms) parts.push(`${ms} Sharp`);
             const suffix = parts.join(', ');
 
-            // Title omits window prefix per UX: ordering already conveys recency,
-            // and a fixed Morning/Afternoon/Evening label collides when users
-            // check in 4+ times in one window.
-            const title = suffix ? `${outcome}, ${suffix}` : outcome;
+            const title = suffix ? `${outcome}, ${suffix}` : outcomeRaw;
 
             allActivities.push({
               id: checkin.id,

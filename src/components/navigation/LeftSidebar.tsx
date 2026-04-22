@@ -4,8 +4,6 @@ import {
   Compass, 
   Brain,
   TrendUp,
-  Heart,
-  Clock,
   FileText,
   ListChecks
 } from '@phosphor-icons/react';
@@ -98,8 +96,8 @@ const LeftSidebar = () => {
         {/* Features Section */}
         <SidebarGroup data-tour="sidebar-suite-group">
           {!hideLabels && (
-            <SidebarGroupLabel className="text-primary font-body">
-              Mental Performance Suite
+            <SidebarGroupLabel className="text-sm tracking-[0.08em] uppercase text-primary font-body">
+              MENTAL PERFORMANCE SUITE
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -143,13 +141,8 @@ const LeftSidebar = () => {
         {/* Starred Section */}
         <SidebarGroup>
           {!hideLabels && (
-            <SidebarGroupLabel className="text-primary font-body">
-              <Heart 
-                size={14} 
-                weight="duotone" 
-                className="mr-1.5 inline icon-duotone-luxury text-primary" 
-              />
-              Favourites
+            <SidebarGroupLabel className="text-sm tracking-[0.08em] uppercase text-primary font-body">
+              FAVOURITES
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -162,13 +155,8 @@ const LeftSidebar = () => {
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
           {!hideLabels && (
-            <SidebarGroupLabel className="text-primary font-body flex items-center gap-1">
-              <Clock 
-                size={14} 
-                weight="duotone" 
-                className="mr-1.5 inline icon-duotone-luxury text-primary" 
-              />
-              Recent
+            <SidebarGroupLabel className="text-sm tracking-[0.08em] uppercase text-primary font-body flex items-center gap-1">
+              RECENT
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-3 w-3 text-muted-foreground/50 cursor-help ml-1" />
