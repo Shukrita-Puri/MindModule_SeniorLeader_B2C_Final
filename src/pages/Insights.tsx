@@ -835,6 +835,20 @@ const Insights = () => {
               </p>
             </div>
 
+            {(patternsLoading || winsLoading || semanticLoading) && (
+              <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
+                <EngravedLoader
+                  compact
+                  steps={[
+                    "Reading your check-ins…",
+                    "Mapping leadership patterns…",
+                    "Connecting wins & themes…",
+                    "Synthesizing your insights…",
+                  ]}
+                />
+              </div>
+            )}
+
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
         <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
