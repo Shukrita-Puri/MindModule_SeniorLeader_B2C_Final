@@ -34,15 +34,19 @@ const PlanPage = () => {
             </div>
 
             <div className="pb-[100px]">
-              <div data-tour="daily-plan">
-                <TodayThreePriorities
-                  onEmpty={() => setPrioritiesEmpty(true)}
-                  onLoaded={() => setPrioritiesEmpty(false)}
-                  expandReflection={expandReflection}
-                  reflectionContext={reflectionContext}
-                  reflectionEvent={reflectionEvent}
-                />
-                {prioritiesEmpty && <DailyRitual />}
+              <div className="max-w-lg mx-auto px-3 md:px-4">
+                <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
+                  <div data-tour="daily-plan">
+                    <TodayThreePriorities
+                      onEmpty={() => setPrioritiesEmpty(true)}
+                      onLoaded={() => setPrioritiesEmpty(false)}
+                      expandReflection={expandReflection}
+                      reflectionContext={reflectionContext}
+                      reflectionEvent={reflectionEvent}
+                    />
+                    {prioritiesEmpty && <DailyRitual />}
+                  </div>
+                </div>
               </div>
               <div className="mt-8">
                 <PrivacyFooter />
