@@ -132,6 +132,28 @@ export const TouchOptimized = ({
     setIsPressed(false);
   };
 
+  // Keyboard activation: a div with role="button" must respond to Enter and
+  // Space the way a native <button> does. Without this the wrapper is a poor
+  // semantic substitute when used by keyboard or screen-reader users.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled || !onTap) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      // Prevent Space from scrolling the page and prevent the synthetic
+      // click that some browsers fire after keyup so we don't double-invoke.
+      e.preventDefault();
+      touchHandledRef.current = true;
+      if (touchHandledTimerRef.current) clearTimeout(touchHandledTimerRef.current);
+      touchHandledTimerRef.current = setTimeout(() => {
+        touchHandledRef.current = false;
+        touchHandledTimerRef.current = null;
+      }, 500);
+      onTap();
+    }
+  };
+
+  const resolvedRole = role === false ? undefined : role ?? (onTap ? 'button' : undefined);
+  const isInteractive = !!onTap;
+
   return (
     <div
       className={cn(
@@ -149,8 +171,11 @@ export const TouchOptimized = ({
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      role={onTap ? "button" : undefined}
-      tabIndex={onTap ? 0 : undefined}
+      onKeyDown={isInteractive ? handleKeyDown : undefined}
+      role={resolvedRole}
+      tabIndex={isInteractive && !disabled ? 0 : undefined}
+      aria-label={ariaLabel}
+      aria-disabled={disabled || undefined}
     >
       {children}
     </div>
