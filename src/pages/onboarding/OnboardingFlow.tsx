@@ -95,9 +95,15 @@ export default function OnboardingFlow() {
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
   const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup');
 
-  // Determine if we should show back button
+  // Determine if we should show back button.
+  // Stages 1–6 (questionnaire) and the payment page always show one.
+  // Stages 7+ (signup, results, payment, app-intro, context-connection) also
+  // get a back button so users aren't trapped at any post-questionnaire step.
+  // The signup stage is the one exception – going back from there would
+  // discard a freshly-created session, which is more confusing than helpful.
   const isPaymentPage = location.pathname === '/onboarding/payment';
-  const showBackButton = (currentStageIndex >= 1 && currentStageIndex <= 6) || isPaymentPage;
+  const isSignupStep = location.pathname === '/onboarding/signup-step';
+  const showBackButton = (currentStageIndex >= 1 && !isSignupStep);
   const getBackPath = () => {
     if (isPaymentPage) {
       // Upgrade visit (completed onboarding or explicit source) → executive home
@@ -115,6 +121,10 @@ export default function OnboardingFlow() {
     if (currentStageIndex === 4) return "/onboarding/stress-response";
     if (currentStageIndex === 5) return "/onboarding/recovery-patterns";
     if (currentStageIndex === 6) return "/onboarding/mental-clarity";
+    // Post-questionnaire stages – one step backwards through the post-signup flow.
+    if (location.pathname === '/onboarding/results') return "/onboarding/growth-intention";
+    if (location.pathname === '/onboarding/app-intro') return "/onboarding/results";
+    if (location.pathname === '/onboarding/context-connection') return "/onboarding/app-intro";
     return "/onboarding";
   };
 
