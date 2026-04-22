@@ -76,6 +76,57 @@ const DailyCheckIn = () => {
   const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  // Roving-tabindex focus management for the WAI-ARIA radiogroup pattern.
+  // When no option is selected the *first* option is the tab stop; once an
+  // option is selected, that option becomes the only tab stop. Arrow keys
+  // move selection AND focus between options without tabbing out of the
+  // group.
+  const radioRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusOption = useCallback((index: number) => {
+    const wrapped = (index + outcomes.length) % outcomes.length;
+    const el = radioRefs.current[wrapped];
+    if (el) {
+      el.focus();
+      // Per ARIA APG: arrow keys move selection in a radio group.
+      setSelectedOutcome(outcomes[wrapped].value);
+    }
+  }, []);
+
+  const handleRadioKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'ArrowRight':
+          e.preventDefault();
+          focusOption(index + 1);
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          e.preventDefault();
+          focusOption(index - 1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          focusOption(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          focusOption(outcomes.length - 1);
+          break;
+        case ' ':
+        case 'Enter':
+          // Native button already activates on Space/Enter. Stop the synthetic
+          // scroll-on-Space side effect and rely on the button's own click.
+          e.preventDefault();
+          setSelectedOutcome(outcomes[index].value);
+          break;
+        default:
+          break;
+      }
+    },
+    [focusOption]
+  );
 
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
