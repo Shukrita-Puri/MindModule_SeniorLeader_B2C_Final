@@ -357,11 +357,11 @@ const ExecutiveHome = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/plan')}
-                    className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] font-body font-medium text-[hsl(var(--saffron))] hover:text-[hsl(var(--saffron))]/80 transition-colors"
+                    className="group inline-flex items-center gap-1.5 text-sm tracking-[0.02em] font-body font-semibold text-[hsl(var(--saffron))] hover:text-[hsl(var(--saffron))]/80 transition-colors"
                   >
                     Generate Today's Plan
                     <ArrowRight
-                      className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
+                      className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
                       strokeWidth={2.25}
                     />
                   </button>

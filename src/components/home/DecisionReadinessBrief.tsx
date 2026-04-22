@@ -14,8 +14,11 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
+import { useAuth } from '@/hooks/useAuth';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -1432,6 +1435,24 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // Single canonical payload — no separate computeEnergyState call
   const { data: outerBrief, isLoading: outerBriefLoading } = useOuterReadiness();
 
+  // Eager cache peek: if React Query already has data for this user/period at
+  // mount time, this is a *revisit* — skip the scripted narration loader and
+  // the 5s CTA delay entirely so the brief renders instantly.
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [hadCacheAtMount] = useState(() => {
+    try {
+      const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+      if (!effectiveUserId) return false;
+      const hour = new Date().getHours();
+      const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+      const cached = queryClient.getQueryData(['outer-readiness', effectiveUserId, period]);
+      return !!cached;
+    } catch {
+      return false;
+    }
+  });
+
   // Inner readiness values echoed from the backend
   const score = outerBrief?.innerReadinessScore ?? null;
   const tier = outerBrief?.innerReadinessTier ?? 'default';
@@ -1474,7 +1495,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // mounted on its final step until data lands. Only applies on a true cold
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
-  const [briefScriptDone, setBriefScriptDone] = useState(false);
+  const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
   const showLoader =
     (outerBriefLoading && !outerBrief) ||
     (!!outerBrief && !briefScriptDone);
@@ -1485,8 +1506,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // The CTA stays hidden until the loader has finished AND the brief has been
   // visible for 5 seconds, so the user has time to read it before being
   // invited to the next page. Submitting feedback short-circuits the wait.
-  const [showCta, setShowCta] = useState(false);
+  const [showCta, setShowCta] = useState(hadCacheAtMount);
   useEffect(() => {
+    // Revisit (cache hit at mount): CTA already revealed, skip the 5s delay.
+    if (hadCacheAtMount) return;
     // Always reset on mount or when loader is (re)showing — never carry a
     // stale "true" from a previous render cycle into a fresh loader run.
     if (showLoader || !phrase) {
@@ -1496,7 +1519,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     setShowCta(false);
     const t = setTimeout(() => setShowCta(true), 5000);
     return () => clearTimeout(t);
-  }, [showLoader, phrase]);
+  }, [showLoader, phrase, hadCacheAtMount]);
   useEffect(() => {
     onCtaReadyChange?.(showCta);
   }, [showCta, onCtaReadyChange]);

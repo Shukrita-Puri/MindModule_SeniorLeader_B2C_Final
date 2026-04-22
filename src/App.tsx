@@ -155,7 +155,7 @@ const router = createBrowserRouter([
       },
       {
         path: "executive-home",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ExecutiveHome /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ExecutiveHome /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "coach",
@@ -163,11 +163,11 @@ const router = createBrowserRouter([
       },
       {
         path: "plan",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><PlanPage /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "insights",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={null}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "profile",
@@ -255,7 +255,7 @@ const router = createBrowserRouter([
           { path: "mental-clarity", element: <Suspense fallback={<LoadingFallback />}><Stage6MentalClarity /></Suspense> },
           { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
-          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage8Results /></Suspense> },
+          { path: "results", element: <Suspense fallback={null}><Stage8Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
