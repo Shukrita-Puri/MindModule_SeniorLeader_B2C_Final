@@ -1487,19 +1487,14 @@ const PerformanceReadinessBrief = () => {
   // The brief stays hidden until BOTH (a) the data has arrived AND (b) the
   // scripted "mixture" narration has played every step in order. This
   // prevents content from popping in mid-script. The loader card stays
-  // mounted on its final step until data lands.
+  // mounted on its final step until data lands. Only applies on a true cold
+  // load (no cached brief yet). Empty/error states (no loading + no data)
+  // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(false);
-  const dataReady = !outerBriefLoading && !!outerBrief;
-  if (!briefScriptDone || !dataReady) {
-    // Cold load only — don't show loader if we already have cached data
-    // (placeholderData keeps previous brief visible during refetch).
-    if (outerBrief && !outerBriefLoading) {
-      // Data is here but script hasn't finished — keep loader mounted.
-    } else if (!outerBriefLoading && !outerBrief) {
-      // Not loading and no data → fall through to normal render (handles
-      // empty/error states inside the main return).
-    }
-    // Render the loader card whenever the gate is closed.
+  const showLoader =
+    (outerBriefLoading && !outerBrief) ||
+    (!!outerBrief && !briefScriptDone);
+  if (showLoader) {
     return (
       <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
         <div className="flex items-center justify-between">
