@@ -1032,9 +1032,7 @@ const Insights = () => {
               </CardHeader>
               <CardContent>
                 {semanticLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <EngravedLoader compact label="Loading mind map…" />
                 ) : semanticError ? (
                   <div className="py-4 text-center">
                     <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
