@@ -144,10 +144,11 @@ const EngravedLoader = ({
       </svg>
 
       <p
+        key={currentLabel}
         className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground/70"
         style={{ fontFamily: "Georgia, serif", letterSpacing: "0.22em" }}
       >
-        {label}
+        <span className="inline-block animate-fade-in">{currentLabel}</span>
       </p>
     </div>
   );
