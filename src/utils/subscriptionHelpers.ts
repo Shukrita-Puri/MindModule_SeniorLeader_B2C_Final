@@ -135,6 +135,52 @@ export function resolveOnboardingAccess(user: AccessUser | null): OnboardingAcce
   return 'needs_payment';
 }
 
+/**
+ * Snapshot-shape variant of {@link resolveOnboardingAccess}. The onboarding
+ * progress snapshot returned by the `onboarding-progress` edge function does
+ * not carry the full subscription record – it only knows whether the user has
+ * (a) reached the payment step (`payment_at`) and (b) valid beta access
+ * (`beta_user` + `beta_expires_at`). This helper maps those two snapshot
+ * fields onto an `AccessUser` shape and delegates to the SAME canonical
+ * `resolveSubscriptionAccess` decision so route-level gating cannot diverge
+ * from page-level gating.
+ *
+ * Why this is safe:
+ * - `payment_at` is only stamped after a successful Stripe checkout return,
+ *   so treating it as `subscription_status: 'active'` for routing purposes is
+ *   strictly more conservative than the page-level check (which inspects the
+ *   real status). It NEVER grants access the page would later block.
+ * - Beta validity flows through `isValidBeta()` so the date comparison lives
+ *   in exactly one place.
+ * - If neither signal is present we return `'needs_payment'`, mirroring the
+ *   profile-shape verdict for an unsubscribed user.
+ *
+ * Returns `'pending'` if the snapshot itself is missing – callers must defer
+ * routing in that case rather than flashing the wrong screen.
+ */
+export interface OnboardingAccessSnapshot {
+  payment_at?: string | null;
+  beta_user?: boolean | null;
+  beta_expires_at?: string | null;
+}
+
+export function resolveOnboardingAccessFromSnapshot(
+  snapshot: OnboardingAccessSnapshot | null | undefined,
+): OnboardingAccessDecision {
+  if (!snapshot) return 'pending';
+
+  const accessUser: AccessUser = {
+    // Payment completion in the onboarding row is treated as an active
+    // subscription for routing purposes only. Page-level gating still
+    // re-validates against the real profile.
+    subscription_status: snapshot.payment_at ? 'active' : undefined,
+    beta_user: snapshot.beta_user ?? undefined,
+    beta_expires_at: snapshot.beta_expires_at ?? undefined,
+  };
+
+  return resolveOnboardingAccess(accessUser);
+}
+
 // Backwards-compatible alias – callers that used the old name keep working
 export const hasValidSubscription = hasValidAccess;
 

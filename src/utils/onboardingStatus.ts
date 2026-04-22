@@ -1,5 +1,6 @@
 import { getSession, getAllResponses } from "./onboardingStorage";
 import { fetchOnboardingProgressSnapshot, hasValidBetaAccess, isOnboardingCompleteSnapshot } from "./onboardingCompletion";
+import { resolveOnboardingAccessFromSnapshot } from "./subscriptionHelpers";
 
 export interface OnboardingStatus {
   isComplete: boolean;
@@ -184,32 +185,47 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       const data = await fetchOnboardingProgressSnapshot();
       if (!data) return await getResumeRoute();
 
-      // SHORT-CIRCUIT: If onboarding is already completed, redirect away
-      // (except /onboarding/payment which is allowed for upgrade flows)
+      // Canonical access decision – single source of truth shared with the
+      // onboarding pages (Stage6Payment, Stage8Results) so route-level gating
+      // cannot diverge from page-level gating.
+      const access = resolveOnboardingAccessFromSnapshot(data);
+
+      // SHORT-CIRCUIT: If onboarding is already completed, redirect away.
+      // The single intentional exception is /onboarding/payment, which must
+      // remain reachable for completed-user UPGRADE flows. We still defer to
+      // the page itself to render upgrade vs initial-purchase UI.
       if (isOnboardingCompleteSnapshot(data)) {
         if (targetPath === '/onboarding/payment') {
-          return null; // Allow upgrade flow
+          return null; // Allow upgrade flow – Stage6Payment renders upgrade UI
         }
         console.log('[validateStageAccess] Onboarding completed, redirecting to /daily-check-in');
         return '/daily-check-in';
       }
 
-      // Gate: results requires signup_step
+      // Progression gates – these are about questionnaire completion, NOT
+      // subscription access, so they stay route-local.
       if (targetPath === '/onboarding/results' && !data?.signup_step_at) {
         return '/onboarding/signup-step';
       }
-      // Gate: payment requires results
       if (targetPath === '/onboarding/payment' && !data?.results_at) {
         return await getResumeRoute();
       }
-      // Gate: app-intro requires payment or beta
-      const isBetaValid = hasValidBetaAccess(data);
-      if (targetPath === '/onboarding/app-intro' && !data?.payment_at && !isBetaValid) {
-        return await getResumeRoute();
-      }
-      // Gate: context-connection requires payment (or beta access)
-      if (targetPath === '/onboarding/context-connection' && !data?.payment_at && !isBetaValid) {
-        return await getResumeRoute();
+
+      // Subscription/beta access gates – delegated to the canonical helper.
+      // /onboarding/app-intro and /onboarding/context-connection are the
+      // post-payment stages and require the same "allow forward" verdict
+      // that the page-level helper produces from the user profile.
+      if (
+        (targetPath === '/onboarding/app-intro' || targetPath === '/onboarding/context-connection')
+      ) {
+        if (access === 'pending') {
+          // Defer routing – do not flash the wrong screen while access state
+          // is still being reconciled. The flow page will retry on next nav.
+          return null;
+        }
+        if (access !== 'allow') {
+          return await getResumeRoute();
+        }
       }
     } catch {
       return await getResumeRoute();
