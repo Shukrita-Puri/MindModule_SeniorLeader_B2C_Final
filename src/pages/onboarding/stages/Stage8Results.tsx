@@ -50,6 +50,7 @@ export default function Stage8Results() {
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [insightOpen, setInsightOpen] = useState(false);
+  const [resultsScriptDone, setResultsScriptDone] = useState(false);
   const completionPersisted = useRef(false);
   const resultsStepPersisted = useRef(false);
 
