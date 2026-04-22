@@ -691,7 +691,7 @@ const TodayThreePriorities = ({
   }).length;
 
   return (
-    <div className="space-y-4 pt-2">
+    <div className="space-y-4 pt-2 animate-fade-in">
       <div className="px-4 max-w-lg mx-auto">
         <PostEventReflection />
       </div>
