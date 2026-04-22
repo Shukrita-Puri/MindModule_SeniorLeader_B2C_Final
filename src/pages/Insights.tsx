@@ -21,6 +21,7 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
+import EngravedLoader from '@/components/ui/engraved-loader';
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
