@@ -269,8 +269,13 @@ const TodayThreePriorities = ({
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
   // ── Load plan ──
-  const loadPlan = useCallback(async () => {
-    setLoading(true);
+  const loadPlan = useCallback(async (opts?: { silent?: boolean }) => {
+    // Silent refreshes (e.g. background revalidation when we already
+    // hydrated from sessionStorage) must not flip `loading` true — that
+    // would re-trigger the scripted EngravedLoader for users who already
+    // have a valid plan rendered. We still fetch in the background and
+    // swap `plan` if anything changed.
+    if (!opts?.silent) setLoading(true);
     setFetchFailed(false);
     try {
       const currentPeriod = getCurrentTimeWindow();
@@ -446,7 +451,9 @@ const TodayThreePriorities = ({
   }, [user]);
 
   useEffect(() => {
-    loadPlan();
+    // If we hydrated from sessionStorage at mount, run the load silently —
+    // the user already sees their plan; any refresh happens in-place.
+    loadPlan({ silent: !!initialCached });
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkCompletion();
     };
