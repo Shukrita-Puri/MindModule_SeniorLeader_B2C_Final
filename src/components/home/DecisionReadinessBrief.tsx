@@ -869,39 +869,52 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
 
   // ── Signal-word maps ──
   const cognitiveWord = (s: PillState): string => {
-    if (s === 'red') return cogAuthorityFlag === 'masked-high' ? 'MASKED LOAD' : 'DEGRADED';
+    // CEO-grade taxonomy — every label names a *pattern*, not a feeling.
+    // Pillar name ("DECISION EDGE") never repeats inside the label.
+    if (s === 'red') {
+      // Body sees strain the mind hasn't registered yet.
+      if (cogAuthorityFlag === 'masked-high') return 'HIDDEN DRAG';
+      return 'RUNNING ON FUMES';
+    }
     if (s === 'amber') {
-      if (cogAuthorityFlag === 'masked-high') return 'MASKED LOAD';
-      if (cogAuthorityFlag === 'recovery-underway') return 'RECOVERING';
-      // Executive nuance: high-functioning strain — body is paying a cost
-      // but cognition is still producing at top quality. 2-word rule preserved.
+      if (cogAuthorityFlag === 'masked-high') return 'HIDDEN DRAG';
+      if (cogAuthorityFlag === 'recovery-underway') return 'TURNING THE CORNER';
+      // High-functioning strain — body is paying a cost but cognition is still top-quality.
       const sharpStrong = sharpness != null && sharpness >= 4;
       const clarityStrong = clarity != null && clarity >= 4;
       const energyOk = checkInOutcome !== 'drained' && checkInOutcome !== 'overwhelmed';
       const realStrain = hrvDev != null && hrvDev <= -5 && hrvDev >= -20;
-      if (sharpStrong && clarityStrong && energyOk && realStrain) return 'PEAK STRAIN';
-      return 'TAXED';
+      if (sharpStrong && clarityStrong && energyOk && realStrain) return 'PEAK DEBT';
+      return 'NARROW BAND';
     }
-    if (s === 'green') return wearableTrend === 'improving' ? 'CALM' : 'CLEAR';
-    return 'BUILDING';
+    if (s === 'green') return wearableTrend === 'improving' ? 'GAINING GROUND' : 'CLEAR HEAD';
+    return 'NO READ';
   };
   const physWord = (s: PillState): string => {
-    if (s === 'neutral') return 'NO BODY DATA';
-    if (s === 'red') return 'SYSTEM STRAIN';
-    if (s === 'amber') return 'LOAD BUILDING';
+    if (s === 'neutral') return 'NO READ';
+    if (s === 'red') {
+      // Sustained 2+ day deficit — pattern across days the user can't feel.
+      if (wearableTrend === 'declining') return 'OVERDRAWN';
+      return 'DRAWING DOWN';
+    }
+    if (s === 'amber') return 'BUFFER THIN';
     // green
     const sleepGood = (sleepScore != null && sleepScore >= 70) || (sleepDur != null && sleepDur >= 390);
     const rhrGood = (rhrDev != null && rhrDev <= 5) || (rhrVal != null && rhrVal <= 70);
     const hrCalm = (rhrDev == null || rhrDev <= 15);
-    if (sleepKnown && sleepGood && rhrGood && hrCalm) return 'BODY READY';
-    if (!sleepKnown && rhrGood) return 'BODY STABLE';
-    return 'PHYSIOLOGY OK';
+    if (sleepKnown && sleepGood && rhrGood && hrCalm) return 'FULLY STOCKED';
+    if (!sleepKnown && rhrGood) return 'BODY STEADY';
+    return 'PARTIAL READ';
   };
   const emoWord = (s: PillState): string => {
-    if (s === 'red') return 'COMPROMISED';
-    if (s === 'amber') return 'UNDER LOAD';
-    if (s === 'green') return 'HOLDING';
-    return 'BUILDING';
+    if (s === 'red') {
+      // Pride masking depletion — drained but self-confidence high.
+      if (resilienceFeltAhead) return 'RUNNING ON GRIT';
+      return 'TANK EMPTY';
+    }
+    if (s === 'amber') return 'PULLING WEIGHT';
+    if (s === 'green') return wearableTrend === 'improving' ? 'FULL THROTTLE' : 'HOLDING UP';
+    return 'NO READ';
   };
 
   // ── COGNITIVE display lines ──
@@ -1034,7 +1047,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   return [
     {
       id: 'cognitive',
-      headline: 'COGNITIVE',
+      headline: 'DECISION EDGE',
       signalWord: cognitiveWord(cogState),
       state: cogState,
       Icon: Brain,
@@ -1045,7 +1058,7 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     },
     {
       id: 'physiological',
-      headline: 'PHYSIOLOGY',
+      headline: 'PHYSICAL CAPITAL',
       signalWord: physWord(physState),
       state: physState,
       Icon: BatteryMedium,
