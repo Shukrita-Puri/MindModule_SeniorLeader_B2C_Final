@@ -4049,6 +4049,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       : (llmBrief ? 'llm' : 'deterministic');
     const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
     const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+
+    // ═══ BRIEF SIGNAL CONTRACT ═══
+    // The brief reflects *this moment* — current immediate signal + recurring
+    // patterns + long-term context. Without an immediate signal (today's
+    // check-in OR a wearable reading from today), the brief becomes stale
+    // historical inference and must NOT generate. Calendar is enriching, not
+    // gating. When the contract is unmet we null out phrase/body/leanOn/
+    // watchFor and surface `awaitingSignals: true` so the client renders a
+    // quiet prompt line; pills, chips, calendar pill, and score `--` continue
+    // to render normally.
+    const hasTodayCheckIn = !!checkInOutcome;
+    const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+    const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
+    const awaitingSignals = !briefSignalContractMet;
+    const awaitingReason: string | null = awaitingSignals ? 'no-checkin-no-wearable' : null;
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
@@ -4085,7 +4100,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         resolvedBriefId = (idRow as any)?.id ?? null;
       } catch { /* ignore — non-fatal for response */ }
     }
-    if (!cachedSnapshot && inputSignature !== 'no-sig') {
+    if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
@@ -4153,10 +4168,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: responsePhrase,
-      context: responseBody,
-      leanOn: formattedLeanOn,
-      watchFor: formattedWatchFor,
+      phrase: awaitingSignals ? null : responsePhrase,
+      context: awaitingSignals ? null : responseBody,
+      leanOn: awaitingSignals ? null : formattedLeanOn,
+      watchFor: awaitingSignals ? null : formattedWatchFor,
+      awaitingSignals,
+      awaitingReason,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
@@ -4166,10 +4183,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateAlreadyUsed,
       compassAlreadyUsed,
       // DecisionReadinessBrief fields — coherent source
-      bodyText: responseBody,
+      bodyText: awaitingSignals ? null : responseBody,
       briefSource,
-      leanOnSource: llmBrief ? 'llm-v4' : leanOnResult.source,
-      watchForSource: llmBrief ? 'llm-v4' : leanOnResult.source,
+      leanOnSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      watchForSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
       hasWearable,
       wearableDaysConnected,
       wearableStatus: {
