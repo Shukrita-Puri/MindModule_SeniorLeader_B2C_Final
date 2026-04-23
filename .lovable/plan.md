@@ -1,93 +1,72 @@
 
 
-## Plan — Eliminate redundant loaders and serve cached content instantly across Brief, Plan, Insights and Onboarding Results
+## Plan — Mobile-native tooltip + accurate pillar glossary copy + cognitive wearable evaluation
 
-### Problem 1 root cause
+### 1. Tooltip presentation — match app-wide native pattern
 
-Already-implemented "skip the script if cache hit" works **only within the same tab session**:
+Replace the `Popover` used in the three expanded signal pills with a centred frosted-glass modal that matches every other tooltip in the app (`MetricInfoModal` pattern: dimmed backdrop + `backdrop-blur-sm`, centred card, tap-outside-to-close).
 
-| Page | Cache store | Survives tab close? |
-|---|---|---|
-| Brief | React Query in-memory only | ❌ No |
-| Plan | sessionStorage | ❌ No |
-| Insights | sessionStorage flag (`insights-script-done`) | ❌ No |
-| Onboarding Results | sessionStorage (`onboarding-results-cache-v1`) | ❌ No |
+- New tiny component `PillarGlossaryModal` (or extend `MetricInfoModal` with a `secondary` prop) so the existing Popover call site in `DecisionReadinessBrief.tsx` (lines 1216–1250) becomes a centred portal modal instead of an anchored popover.
+- Keeps the **taupe `Info` icon** at top-right of the expanded pill (current position), unchanged.
+- Backdrop: `fixed inset-0 bg-black/55 backdrop-blur-md` — darker than the inline tooltip, identical to the modal used elsewhere.
+- Card: centred, `bg-card/95 backdrop-blur-xl border border-border rounded-2xl p-5 max-w-sm`, soft shadow.
+- Two stacked text blocks (short definition, then clinical definition with HRV/RHR/Sleep wearable terms preserved on Physical Reserves), `Got it` close button.
+- Tap-outside or `Got it` closes. iOS-safe (uses `createPortal` to `document.body`, same as `MetricInfoModal`).
 
-So when the user closes the app and reopens it (e.g. opens the iOS app fresh in the same morning window), every page replays its scripted "Reading your signals…" loader even though a brief already exists for that window in the DB.
+### 2. Glossary copy — accurate per-pillar inputs
 
-The Brief case is the most visible: `useState(hadCacheAtMount)` reads only `queryClient.getQueryData(...)` — React Query is rebuilt empty on every fresh app launch, so `hadCacheAtMount = false` and the four-step narration plays again.
+Rewrite the `glossary` map in `DecisionReadinessBrief.tsx` (lines 1148–1167) so it mirrors what the engine actually does:
 
-### Problem 2 status
+**Decision Readiness (cognitive)**
+- **Short:** *Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.*
+- **Clinical:** *Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with HRV from your wearable. HRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.*
 
-The session-verification fix (silent `DelayedFallback`, no visible loader for ≤3s) is already in place across `App.tsx`, `ProtectedRoute.tsx`, and `OnboardingGuard.tsx`. Nothing more to do here.
+**Physical Reserves (physiological)** — keep current copy verbatim (HRV + RHR + Sleep score clinical block is already accurate).
 
-### Fix: persistent per-window cache (works across full app reopen)
+**Resilience Capacity (emotional)**
+- **Short:** *Your capacity to absorb pressure — confidence, mental energy and physiological steadiness combined. Higher = composed under load; lower = depleted or stretched thin.*
+- **Clinical:** *Blends your self-rated **confidence** and **mental energy** (Calm / Steady / Energised / Anxious / Frustrated / Overwhelmed / Drained) with HRV as a stress-tolerance read. Low HRV alongside high confidence often signals running on grit.*
 
-Promote the existing in-tab caches to `localStorage` (survives app close, scoped per user) for the four scripted pages. Same logic, durable storage, namespaced and self-expiring.
+Word substitution rule: every user-facing reference to "mood" in this component (and any sibling resilience copy) → **"mental energy."** I'll grep the file once and replace the single offending instance to keep the vocabulary consistent.
 
-Storage helper: a tiny `src/utils/persistentBriefCache.ts` (new) exposing `read(key) / write(key, value, ttlMs) / clear(key)`. Reads return null if expired or malformed. No new dependencies.
+### 3. Decision Readiness — evaluate a more immediate cognitive wearable signal
 
-#### 1. Brief — `src/components/home/DecisionReadinessBrief.tsx` + `src/hooks/useOuterReadiness.ts`
+**Evaluation only — no behaviour change yet.** Mapping the candidate signals against availability in `wearable_data` and immediacy for *cognitive* readiness:
 
-- In `useOuterReadiness`, on every successful query result, write the payload to `localStorage` under key `prb-cache:${userId}:${period}:${todayDate}` with a TTL until the end of the current window (Morning→12:00, Afternoon→18:00, Evening→05:00 next day, in user's timezone).
-- In `useOuterReadiness`, supply `initialData` from this same `localStorage` read so React Query is hydrated synchronously on mount with the cached brief.
-- In `DecisionReadinessBrief`, change `hadCacheAtMount` to also count a localStorage hit — i.e. if `outerBrief` is non-null at first render (because of `initialData`), treat it as a revisit: skip the scripted loader, skip the 5s CTA wait. Background refetch still runs silently and swaps content if anything changed.
-- Result: returning to the Brief page (or reopening the app) within the same window renders the brief in one frame, no loader, no narration.
+| Signal | Available today | Immediacy for cognition | Fit for Decision Readiness |
+|---|---|---|---|
+| HRV (current) | yes (`hrv`) | overnight read, refreshed each morning | already in pillar as hardware veto |
+| Sleep score / duration / deep sleep | yes (`sleep_score`, `total_sleep_minutes`, `deep_sleep_minutes`) | strongest single predictor of next-day cognitive performance; refreshed each morning | **best candidate to add as secondary cognitive input** — sleep < 6h or score < 70 reliably reduces working-memory and decision quality independent of HRV |
+| Resting HR deviation | yes (`resting_heart_rate`) | tracks systemic load, less specific to cognition | weak fit |
+| Live HR / HR-elevated proxy | yes (`heart_rate`, `hr_elevated`) | sympathetic dominance — narrows attention but is more arousal than cognition | better suited to Resilience |
+| Active calories / steps | yes | activity load, not cognition | not a fit |
 
-#### 2. Plan — `src/components/home/TodayThreePriorities.tsx`
+**Recommendation (for approval before implementing):** keep HRV as the cognitive hardware veto, and **add a secondary cognitive contribution from sleep** in the cognitive pillar — gated to only fire on the same morning's sleep block. Thresholds:
+- sleep duration < 5 h **or** sleep score < 60 → red mild contribution to Decision Readiness
+- sleep duration 5–6 h **or** sleep score 60–69 → amber
+- otherwise neutral (does not lift the pillar)
 
-- Replace the `sessionStorage.getItem('plan-data-…')` reads/writes with `localStorage` (same key shape, same shouldRegenerate guards, same TTL via the date+period key).
-- The synchronous `initialCached` block at the top of the component (lines 117–131) already does the right thing — it just needs to read from `localStorage` so it survives a fresh app launch.
-- Background refresh continues to run with `silent: true` and only flips `loading` true when no cache is present — already implemented, kept.
-- JIT cache check stays as is; only the storage substrate changes.
+Sleep already drives Physical Reserves, so the same column is read twice but with different roles: in Physiology it's about recovery reserves; in Cognition it's about next-day mental bandwidth. The clinical glossary line above will name this dual use explicitly so it doesn't feel like double-counting.
 
-#### 3. Insights ("Learn") — `src/pages/Insights.tsx`
+If approved, the engine change is contained:
+- Add `sleepCognitiveContrib()` next to `hrvCognitiveContrib()` in `buildExecutivePills`.
+- Insert it into `cogContribs` with a 0.2 weight, drop sharpness from 0.3 → 0.25, drop clarity from 0.2 → 0.15 (HRV stays at 0.5, hardware veto unchanged).
+- Add the new line to `cogTop` (wearable side of the box) so the user sees `Sleep: 5h 40m · 12% below your baseline` whenever it materially contributes.
+- Update the glossary clinical text accordingly.
 
-- Replace `sessionStorage.getItem('insights-script-done')` with `localStorage`, scoped per user + UTC date: `insights-script-done:${userId}:${todayDate}`.
-- Same effect: once the narrated mixture has played for this user today, every revisit renders the tabs/content immediately.
-- Same key auto-expires the next day so a fresh day still gets the polished first-run reveal.
-
-#### 4. Onboarding Results — `src/pages/onboarding/stages/Stage8Results.tsx`
-
-- Promote `onboarding-results-cache-v1` from `sessionStorage` to `localStorage`, scoped per user: `onboarding-results-cache:${userId}`.
-- The `cachedAtMount` synchronous read (line 66) already short-circuits the loader — only the storage layer changes.
-- Cache stays valid until the user re-runs onboarding (cleared by the onboarding flow when answers change).
-
-### What stays the same
-
-- Session-verification path (`DelayedFallback`, 3s grace) — already done, no change.
-- Brief Signal Contract (`awaitingSignals`) — untouched.
-- Edge function payloads, scoring math, generation logic.
-- Scripted loaders themselves — they still run for the genuine first generation in any window, just never on revisit/reopen.
-- Per-page loader contracts (Brief → its own loader, Plan → its own, Insights → its own, Onboarding-Results → its own, all others → silent ≤3s then generic).
-
-### Verification matrix
-
-| Scenario | Brief | Plan | Insights | Results |
-|---|---|---|---|---|
-| First visit ever in this window | scripted loader → content | scripted loader → content | narrated mixture → tabs | scripted compute → report |
-| Same tab, navigate away + back | instant render | instant render | instant render | instant render |
-| Close tab, reopen later same window | **instant render** (was: full loader) | **instant render** (was: full loader) | **instant render** (was: narration replay) | **instant render** (was: recompute) |
-| Close app, reopen iOS native, same window | **instant render** | **instant render** | **instant render** | **instant render** |
-| New window starts (e.g. crossed noon) | scripted loader (correct — new brief due) | scripted loader (correct) | n/a (date-scoped) | n/a |
-| New day | scripted (correct) | scripted (correct) | narrated mixture (correct) | unchanged (still cached until re-onboard) |
-| Awaiting signals (no check-in, no wearable) | quiet "Awaiting today's signal" line, no loader | shows DailyRitual / empty state | unchanged | n/a |
+If you'd rather **not** double-count sleep, alternative is to skip this addition — HRV already provides a strong wearable read for cognition via the hardware veto. **Decision needed before I touch the engine.**
 
 ### Files touched
 
-- `src/utils/persistentBriefCache.ts` *(new — shared TTL helper)*
-- `src/hooks/useOuterReadiness.ts` *(initialData + write-through)*
-- `src/components/home/DecisionReadinessBrief.tsx` *(`hadCacheAtMount` honours localStorage)*
-- `src/components/home/TodayThreePriorities.tsx` *(sessionStorage → localStorage for plan-data + plan-loaded keys)*
-- `src/pages/Insights.tsx` *(per-user/per-day localStorage key for script-done)*
-- `src/pages/onboarding/stages/Stage8Results.tsx` *(per-user localStorage cache)*
-- `mem://ux/loading/cached-render-and-silent-verification` *(promote rule from "in-tab" to "across app reopen, per window")*
+- `src/components/home/DecisionReadinessBrief.tsx` — tooltip swapped to centred modal, glossary copy rewritten, "mood" → "mental energy", optional `sleepCognitiveContrib` if sleep addition is approved.
+- `src/components/home/PillarGlossaryModal.tsx` *(new — small portal modal mirroring `MetricInfoModal` styling)* **or** extend `MetricInfoModal` with a `triggerless` mode and reuse it.
+- `mem://ui/performance-readiness/signal-pill-system` — note the centred-modal tooltip pattern and the corrected pillar input list (HRV is included in Decision Readiness; Resilience uses Mental Energy not mood).
 
-### Edge cases handled
+### Open question for you
 
-- **Multi-user device**: every cache key embeds `userId`, so switching accounts can't leak briefs.
-- **TTL boundaries**: window end is computed in user's IANA timezone (matches the standardized morning/afternoon/evening windows already used everywhere else), not UTC.
-- **Sign-out**: `signOut()` (in `useAuth`) already clears app caches; we add a one-line sweep of any `prb-cache:*`, `plan-data-*`, `insights-script-done:*`, and `onboarding-results-cache:*` keys for that user on sign-out.
-- **Stale brief between windows**: TTL guarantees the morning brief never bleeds into the afternoon — when the user opens the app at 12:01, `localStorage.getItem(...morning...)` returns expired/null and the afternoon brief is generated normally.
-- **Awaiting-signals state**: this response also writes to cache so a user who opened the app with no signals doesn't see the loader on every reopen — they just see the quiet prompt instantly. Once they check in, normal invalidation kicks in.
+Confirm one of:
+- **A.** Add sleep as a secondary cognitive input (recommended — strongest immediate cognitive wearable signal we already have).
+- **B.** Leave Decision Readiness wearable input as HRV-only and just fix the glossary copy to reflect that HRV *is* used.
+
+Everything else (tooltip modal swap, copy fixes, "mood" → "mental energy") proceeds either way.
 
