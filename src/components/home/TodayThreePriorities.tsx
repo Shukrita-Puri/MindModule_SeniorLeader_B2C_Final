@@ -26,6 +26,13 @@ import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import {
+  read as readPersistent,
+  write as writePersistent,
+  clear as clearPersistent,
+  msUntilWindowEnd,
+  cacheKeys,
+} from '@/utils/persistentBriefCache';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -118,11 +125,10 @@ const TodayThreePriorities = ({
     try {
       const today = new Date().toISOString().split('T')[0];
       const period = getCurrentTimeWindow();
-      const sessionKey = `plan-loaded-${today}-${period}`;
-      if (sessionStorage.getItem(sessionKey) !== 'true') return null;
-      const raw = sessionStorage.getItem(`plan-data-${today}-${period}`);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as MasteryPlanResponse;
+      const loaded = readPersistent<boolean>(cacheKeys.planLoaded(today, period));
+      if (loaded !== true) return null;
+      const parsed = readPersistent<MasteryPlanResponse>(cacheKeys.planData(today, period));
+      if (!parsed) return null;
       if (!parsed.horizonModules || parsed.horizonModules.length === 0) return null;
       return parsed;
     } catch {
