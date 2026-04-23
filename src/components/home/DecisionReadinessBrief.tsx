@@ -1140,6 +1140,17 @@ function ExecutivePillCapsule({
 }) {
   const c = PILL_COLORS[pill.state];
   const Icon = pill.Icon;
+  // One-line plain-language glossary per pillar — what we measure and what high/low signals.
+  // Keeps acronyms (HRV, RHR) self-explanatory for CEOs unfamiliar with wearable terminology.
+  const glossary: Record<ExecutivePill['id'], string> = {
+    cognitive:
+      'Mental sharpness & clarity — how crisp your thinking is. Higher = sharper decisions; lower = foggier judgement.',
+    physiological:
+      'HRV (heart-rate variability), resting heart rate & sleep — your body’s recovery reserves. Higher HRV = recovered; lower HRV or elevated RHR = strained.',
+    emotional:
+      'Mood, confidence & physiological steadiness — your capacity to absorb pressure. Higher = composed under load; lower = depleted or stretched thin.',
+  };
+  const glossaryText = glossary[pill.id];
   return (
     <div className="flex flex-col w-full">
       <button
@@ -1185,6 +1196,15 @@ function ExecutivePillCapsule({
         )}
       >
         <div className="rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
+          {/* Glossary one-liner — plain-language definition for non-specialists */}
+          {glossaryText && (
+            <div className="flex items-start gap-1.5 mb-2 pb-2 border-b border-white/30">
+              <Info className="w-3 h-3 mt-[3px] shrink-0 text-muted-foreground/60" strokeWidth={2} />
+              <p className="text-[11px] leading-snug text-muted-foreground/75 font-body italic">
+                {glossaryText}
+              </p>
+            </div>
+          )}
           {/* Top: wearable */}
           <div className="space-y-1">
             {pill.topLines.length > 0 ? (
