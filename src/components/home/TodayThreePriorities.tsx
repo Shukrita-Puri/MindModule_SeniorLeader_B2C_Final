@@ -286,8 +286,9 @@ const TodayThreePriorities = ({
     try {
       const currentPeriod = getCurrentTimeWindow();
       const todayDate = new Date().toISOString().split('T')[0];
-      const sessionKey = `plan-loaded-${todayDate}-${currentPeriod}`;
-      const sessionLoaded = sessionStorage.getItem(sessionKey);
+      const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
+      const dataKey = cacheKeys.planData(todayDate, currentPeriod);
+      const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getCheckinForWindow(todayDate, currentPeriod);
 
@@ -297,7 +298,7 @@ const TodayThreePriorities = ({
 
       if (hasStoredPlan && todayRitual?.session_period && todayRitual.session_period !== currentPeriod) {
         shouldRegenerate = true;
-        sessionStorage.removeItem(sessionKey);
+        clearPersistent(loadedKey);
       }
 
       if (hasStoredPlan && !shouldRegenerate && todayCheckin && todayRitual) {
@@ -305,19 +306,19 @@ const TodayThreePriorities = ({
         const planTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
         if (checkinTime.getTime() > planTime.getTime() + 60000) {
           shouldRegenerate = true;
-          sessionStorage.removeItem(sessionKey);
+          clearPersistent(loadedKey);
         }
       }
 
-      // Session cache
-      if (!shouldRegenerate && sessionLoaded === 'true') {
-        const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
+      // Persistent cache (survives full app reopen within the current window)
+      if (!shouldRegenerate && sessionLoaded) {
+        const cachedPlan = readPersistent<MasteryPlanResponse>(dataKey);
         if (cachedPlan) {
-          const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
+          const parsed = cachedPlan;
           // Cache version invalidation: old plans without horizonModules must be regenerated
           if (!parsed.horizonModules || parsed.horizonModules.length === 0) {
-            sessionStorage.removeItem(sessionKey);
-            sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+            clearPersistent(loadedKey);
+            clearPersistent(dataKey);
             shouldRegenerate = true;
           }
           // JIT cache invalidation
@@ -326,8 +327,8 @@ const TodayThreePriorities = ({
           const hasCommittedPlan = hasStoredPlan && todayRitual?.recommended_practice_ids?.length > 0;
           const jitCacheStale = !parsed.preEventPlan && !hasCommittedPlan && (!lastJitCheck || (Date.now() - parseInt(lastJitCheck, 10)) > 10 * 60 * 1000);
           if (jitCacheStale) {
-            sessionStorage.removeItem(sessionKey);
-            sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+            clearPersistent(loadedKey);
+            clearPersistent(dataKey);
             sessionStorage.setItem(jitCacheKey, String(Date.now()));
             shouldRegenerate = true;
           }
@@ -339,8 +340,8 @@ const TodayThreePriorities = ({
             const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
             const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}`;
             if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
-              sessionStorage.removeItem(sessionKey);
-              sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+              clearPersistent(loadedKey);
+              clearPersistent(dataKey);
               shouldRegenerate = true;
             } else {
               setPlan(parsed);
@@ -442,8 +443,11 @@ const TodayThreePriorities = ({
           completion_status: prunedCompleted.length >= allModules.length && prunedCompleted.length > 0 ? 'full' : prunedCompleted.length > 0 ? 'partial' : 'skipped',
           session_period: planResponse.timeOfDayPlan.period,
         });
-        sessionStorage.setItem(sessionKey, 'true');
-        sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
+        {
+          const ttl = msUntilWindowEnd();
+          writePersistent(loadedKey, true, ttl);
+          writePersistent(dataKey, planResponse, ttl);
+        }
         {
           const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
           sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}`);
