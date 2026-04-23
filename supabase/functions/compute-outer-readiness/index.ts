@@ -4049,6 +4049,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       : (llmBrief ? 'llm' : 'deterministic');
     const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
     const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+
+    // ═══ BRIEF SIGNAL CONTRACT ═══
+    // The brief reflects *this moment* — current immediate signal + recurring
+    // patterns + long-term context. Without an immediate signal (today's
+    // check-in OR a wearable reading from today), the brief becomes stale
+    // historical inference and must NOT generate. Calendar is enriching, not
+    // gating. When the contract is unmet we null out phrase/body/leanOn/
+    // watchFor and surface `awaitingSignals: true` so the client renders a
+    // quiet prompt line; pills, chips, calendar pill, and score `--` continue
+    // to render normally.
+    const hasTodayCheckIn = !!checkInOutcome;
+    const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+    const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
+    const awaitingSignals = !briefSignalContractMet;
+    const awaitingReason: string | null = awaitingSignals ? 'no-checkin-no-wearable' : null;
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
