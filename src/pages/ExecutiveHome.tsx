@@ -357,7 +357,7 @@ const ExecutiveHome = () => {
                    <button
                      type="button"
                      onClick={() => navigate('/plan')}
-                     className="group inline-flex items-center gap-1.5 bg-[hsl(var(--taupe-highlight))]/35 hover:bg-[hsl(var(--taupe-highlight))]/55 px-1.5 py-0.5 text-base uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--saffron))] transition-colors"
+                      className="group inline-flex items-center gap-1.5 px-1.5 py-0.5 text-sm uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--saffron))] transition-all [text-shadow:0_0_10px_hsl(var(--taupe-highlight)/0.9),0_0_20px_hsl(var(--taupe-highlight)/0.6)] hover:[text-shadow:0_0_14px_hsl(var(--taupe-highlight)),0_0_24px_hsl(var(--taupe-highlight)/0.8)]"
                    >
                      GENERATE TODAY'S PLAN
                      <ArrowRight
