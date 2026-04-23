@@ -1209,18 +1209,46 @@ function ExecutivePillCapsule({
           expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className="rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
-          {/* Glossary one-liner — plain-language definition for non-specialists */}
-          {glossaryText && (
-            <div className="flex items-start gap-1.5 mb-2 pb-2 border-b border-white/30">
-              <Info className="w-3 h-3 mt-[3px] shrink-0 text-muted-foreground/60" strokeWidth={2} />
-              <p className="text-[11px] leading-snug text-muted-foreground/75 font-body italic">
-                {glossaryText}
-              </p>
-            </div>
+        <div className="relative rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
+          {/* Top-right tap-to-open glossary — taupe icon, click to reveal definition */}
+          {glossaryEntry && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`What does ${pill.headline} measure?`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-2 right-2 inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-[hsl(var(--taupe)/.10)] active:bg-[hsl(var(--taupe)/.18)] transition-colors"
+                >
+                  <Info
+                    className="w-3.5 h-3.5 text-[hsl(var(--taupe))]"
+                    strokeWidth={2}
+                  />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="end"
+                sideOffset={6}
+                className="w-72 p-3"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-[12px] leading-snug font-body text-foreground/85">
+                  {glossaryEntry.short}
+                </p>
+                {glossaryEntry.clinical && (
+                  <>
+                    <div className="my-2 h-px bg-[hsl(var(--taupe)/.25)]" />
+                    <p className="text-[11px] leading-relaxed font-body text-muted-foreground/85 whitespace-pre-line">
+                      {glossaryEntry.clinical}
+                    </p>
+                  </>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
           {/* Top: wearable */}
-          <div className="space-y-1">
+          <div className="space-y-1 pr-7">
             {pill.topLines.length > 0 ? (
               pill.topLines.map((line, i) => (
                 <div key={`t-${i}`} className="flex flex-col">
