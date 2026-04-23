@@ -1571,10 +1571,20 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const chips = buildSignalChips(outerBrief, checkInCountTotal);
 
   // Phrase & body — both come from the same source (LLM or deterministic, never mixed)
-  const phrase = outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in.");
-  const bodyText = outerBrief?.bodyText || (hasCheckIn
+  // Brief Signal Contract: the brief only renders when at least one immediate
+  // signal is fresh today (today's check-in OR today's wearable). Without a
+  // fresh signal the backend returns `awaitingSignals: true` with phrase/body
+  // null — we render a single quiet prompt line in place of the phrase and
+  // skip the body entirely. Pills/chips/calendar/score `--` continue to render.
+  const awaitingSignals = !!(outerBrief as any)?.awaitingSignals;
+  const phrase = awaitingSignals
     ? null
-    : "Check in to activate your personalised intelligence — takes two minutes.");
+    : (outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in."));
+  const bodyText = awaitingSignals
+    ? null
+    : (outerBrief?.bodyText || (hasCheckIn
+        ? null
+        : "Check in to activate your personalised intelligence — takes two minutes."));
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
@@ -1692,9 +1702,25 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
       {/* 4. PHRASE */}
-      <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
-        {phrase}
-      </p>
+      {phrase && (
+        <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+          {phrase}
+        </p>
+      )}
+
+      {/* 4b. AWAITING-SIGNAL PROMPT — sits where the phrase would have been so
+          the card height stays consistent. Shown only when no immediate signal
+          (check-in or today's wearable) is present. */}
+      {awaitingSignals && (
+        <>
+          <p className="mt-4 text-[17px] italic text-muted-foreground/70" style={{ fontFamily: 'Georgia, serif' }}>
+            Awaiting today's signal
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
+            Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief.
+          </p>
+        </>
+      )}
 
       {/* 5. BODY COPY */}
       {bodyText && (
