@@ -15,6 +15,11 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
 import { GradientProgress } from "@/components/ui/gradient-progress";
 import EngravedLoader from "@/components/ui/engraved-loader";
+import {
+  read as readPersistent,
+  write as writePersistent,
+  cacheKeys,
+} from "@/utils/persistentBriefCache";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
@@ -42,18 +47,11 @@ interface ResultsData {
   practicePriorityTag: string;
 }
 
-const RESULTS_CACHE_KEY = 'onboarding-results-cache-v1';
-
-function readCachedResults(): ResultsData | null {
-  try {
-    const raw = sessionStorage.getItem(RESULTS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ResultsData;
-    if (typeof parsed?.baselineScore !== 'number' || !parsed?.archetype) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+function readCachedResults(userId: string | undefined): ResultsData | null {
+  if (!userId) return null;
+  const parsed = readPersistent<ResultsData>(cacheKeys.onboardingResults(userId));
+  if (!parsed || typeof parsed.baselineScore !== 'number' || !parsed.archetype) return null;
+  return parsed;
 }
 
 export default function Stage8Results() {
@@ -63,7 +61,9 @@ export default function Stage8Results() {
   const onboardingAccess = resolveOnboardingAccess(user);
   const { recordStep } = useOnboardingProgress();
   // Cache hit at mount → render instantly, skip the scripted loader.
-  const cachedAtMount = readCachedResults();
+  // Per-user localStorage so revisits across full app reopens are instant.
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+  const cachedAtMount = readCachedResults(effectiveUserId);
   const [loading, setLoading] = useState(!cachedAtMount);
   const [results, setResults] = useState<ResultsData | null>(cachedAtMount);
   const [error, setError] = useState<string | null>(null);
