@@ -42,17 +42,33 @@ interface ResultsData {
   practicePriorityTag: string;
 }
 
+const RESULTS_CACHE_KEY = 'onboarding-results-cache-v1';
+
+function readCachedResults(): ResultsData | null {
+  try {
+    const raw = sessionStorage.getItem(RESULTS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ResultsData;
+    if (typeof parsed?.baselineScore !== 'number' || !parsed?.archetype) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export default function Stage8Results() {
   const navigate = useNavigate();
   const { isAuthenticated, user, loading: authLoading } = useAuth();
   // Canonical access decision – do NOT inline `user.beta_user && ...` checks.
   const onboardingAccess = resolveOnboardingAccess(user);
   const { recordStep } = useOnboardingProgress();
-  const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<ResultsData | null>(null);
+  // Cache hit at mount → render instantly, skip the scripted loader.
+  const cachedAtMount = readCachedResults();
+  const [loading, setLoading] = useState(!cachedAtMount);
+  const [results, setResults] = useState<ResultsData | null>(cachedAtMount);
   const [error, setError] = useState<string | null>(null);
   const [insightOpen, setInsightOpen] = useState(false);
-  const [resultsScriptDone, setResultsScriptDone] = useState(false);
+  const [resultsScriptDone, setResultsScriptDone] = useState(!!cachedAtMount);
   const completionPersisted = useRef(false);
   const resultsStepPersisted = useRef(false);
 
@@ -120,6 +136,8 @@ export default function Stage8Results() {
   };
 
   useEffect(() => {
+    // Already hydrated from sessionStorage — skip the recompute on revisit.
+    if (cachedAtMount) return;
     async function computeResults() {
       const startTime = Date.now();
       try {
@@ -156,7 +174,7 @@ export default function Stage8Results() {
         const elapsed = Date.now() - startTime;
         if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
 
-        setResults({
+        const computed: ResultsData = {
           baselineScore,
           scores: componentScores,
           archetype,
@@ -165,7 +183,9 @@ export default function Stage8Results() {
           insight,
           practiceGoalLabel: goalLabel,
           practicePriorityTag: responses.practice_priority_tag,
-        });
+        };
+        setResults(computed);
+        try { sessionStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify(computed)); } catch {}
 
       } catch (err) {
         console.error('Error computing results:', err);

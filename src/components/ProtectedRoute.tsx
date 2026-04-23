@@ -3,9 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { DEV_MODE } from "@/config/devMode";
-import EngravedLoader from "@/components/ui/engraved-loader";
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
+import DelayedFallback from "@/components/ui/delayed-fallback";
 
 // Grace period before triggering login redirect (ms)
 // Allows auth restoration, native hydration, and profile sync to complete
@@ -101,12 +101,11 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
   }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect, navigate, graceExpired]);
 
+  // Session verification happens silently. We render a transparent placeholder
+  // immediately (so child page-specific loaders own the visible loading UI),
+  // and only fall back to a generic loader if verification stretches past 3s.
   if (loading || auth0Loading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <EngravedLoader label="Verifying session…" />
-      </div>
-    );
+    return <DelayedFallback />;
   }
 
   return <>{children}</>;

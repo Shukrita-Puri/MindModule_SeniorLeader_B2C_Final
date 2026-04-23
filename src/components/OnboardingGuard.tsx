@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DEV_MODE } from "@/config/devMode";
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
-import EngravedLoader from "@/components/ui/engraved-loader";
+import DelayedFallback from "@/components/ui/delayed-fallback";
 
 // Routes that completed users can still access (e.g. upgrade flow)
 const ONBOARDING_WHITELIST = ['/onboarding/payment'];
@@ -92,13 +92,11 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
     })();
   }, [loading, user, navigate, location.pathname, refreshProfile, resolving, resolved]);
 
-  // Show loading while auth is loading OR while we're reconciling completion
+  // Silent during the typical sub-3s reconciliation; only fall back to a
+  // generic loader if it stretches past 3s. This stops session/onboarding
+  // verification from stacking on top of page-specific loaders.
   if (loading || (!resolved && user && !user.onboarding_completed_at)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <EngravedLoader label="Loading…" />
-      </div>
-    );
+    return <DelayedFallback />;
   }
 
   if (!user) return null;
@@ -180,13 +178,9 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
     })();
   }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted, isOnboardingRoot, refreshProfile, checked, checking]);
 
-  // Show loading while checking for authenticated users
+  // Same silent-then-delayed pattern as OnboardingGuard above.
   if (loading || (isAuthenticated && !checked && !DEV_MODE)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <EngravedLoader label="Loading…" />
-      </div>
-    );
+    return <DelayedFallback />;
   }
 
   // Block render while redirect happens for completed users
