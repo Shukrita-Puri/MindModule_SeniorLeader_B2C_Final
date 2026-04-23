@@ -4168,10 +4168,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     }
 
     const result: OuterReadinessResult & Record<string, unknown> = {
-      phrase: responsePhrase,
-      context: responseBody,
-      leanOn: formattedLeanOn,
-      watchFor: formattedWatchFor,
+      phrase: awaitingSignals ? null : responsePhrase,
+      context: awaitingSignals ? null : responseBody,
+      leanOn: awaitingSignals ? null : formattedLeanOn,
+      watchFor: awaitingSignals ? null : formattedWatchFor,
+      awaitingSignals,
+      awaitingReason,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
@@ -4181,10 +4183,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       stateAlreadyUsed,
       compassAlreadyUsed,
       // DecisionReadinessBrief fields — coherent source
-      bodyText: responseBody,
+      bodyText: awaitingSignals ? null : responseBody,
       briefSource,
-      leanOnSource: llmBrief ? 'llm-v4' : leanOnResult.source,
-      watchForSource: llmBrief ? 'llm-v4' : leanOnResult.source,
+      leanOnSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
+      watchForSource: awaitingSignals ? null : (llmBrief ? 'llm-v4' : leanOnResult.source),
       hasWearable,
       wearableDaysConnected,
       wearableStatus: {
