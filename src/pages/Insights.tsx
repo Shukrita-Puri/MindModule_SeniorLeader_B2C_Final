@@ -219,7 +219,19 @@ const Insights = () => {
   // Script-gated reveal: hold the tab bar + tab content until the scripted
   // "mixture" narration has played every step in order. The page header
   // stays visible above the loader so the user has page context.
-  const [insightsScriptDone, setInsightsScriptDone] = useState(false);
+  // Cache-skip: if the user has already seen the Insights page in this
+  // browser session, the scripted loader is skipped on revisit so already
+  // generated content renders instantly. (Revoked by sign-out / new tab.)
+  const insightsAlreadyShown = (() => {
+    try { return sessionStorage.getItem('insights-script-done') === '1'; }
+    catch { return false; }
+  })();
+  const [insightsScriptDone, setInsightsScriptDone] = useState(insightsAlreadyShown);
+  useEffect(() => {
+    if (insightsScriptDone) {
+      try { sessionStorage.setItem('insights-script-done', '1'); } catch {}
+    }
+  }, [insightsScriptDone]);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
