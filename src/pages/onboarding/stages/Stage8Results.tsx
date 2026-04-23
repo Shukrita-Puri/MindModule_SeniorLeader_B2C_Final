@@ -185,7 +185,10 @@ export default function Stage8Results() {
           practicePriorityTag: responses.practice_priority_tag,
         };
         setResults(computed);
-        try { sessionStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify(computed)); } catch {}
+        if (effectiveUserId) {
+          // No TTL — cache stays valid until the user re-runs onboarding.
+          writePersistent(cacheKeys.onboardingResults(effectiveUserId), computed, Number.POSITIVE_INFINITY);
+        }
 
       } catch (err) {
         console.error('Error computing results:', err);
