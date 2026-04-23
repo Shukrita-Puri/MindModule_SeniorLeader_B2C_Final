@@ -14,7 +14,7 @@ import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGu
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
-import EngravedLoader from "./components/ui/engraved-loader";
+import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
@@ -62,13 +62,10 @@ const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
-// Loading fallback — uses the app's hand-drawn engraved-style loader so every
-// page-level wait shares the same visual language as Brief/Plan.
-const LoadingFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <EngravedLoader label="Loading…" />
-  </div>
-);
+// Loading fallback — silent for fast (<3s) lazy-load transitions, then falls
+// back to a single generic loader. Page-specific loaders (Brief, Plan,
+// Insights, Onboarding Results) own their own visible loading UI.
+const LoadingFallback = () => <DelayedFallback />;
 
 // Global scroll-to-top on every route change
 const ScrollToTop = () => {
