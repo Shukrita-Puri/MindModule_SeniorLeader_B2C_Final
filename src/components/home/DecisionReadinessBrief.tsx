@@ -24,7 +24,7 @@ import { read as readPersistent, cacheKeys } from '@/utils/persistentBriefCache'
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, Info, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import PillarGlossaryModal from '@/components/home/PillarGlossaryModal';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
@@ -1148,9 +1148,9 @@ function ExecutivePillCapsule({
   const glossary: Record<ExecutivePill['id'], { short: string; clinical?: string }> = {
     cognitive: {
       short:
-        'Mental sharpness & clarity — how crisp your thinking is. Higher = sharper decisions; lower = foggier judgement.',
+        'Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.',
       clinical:
-        'Drawn from your self-rated sharpness, clarity and any check-in outcome (Focused / Scattered / Drained). No wearable input — this pillar is what you tell us about your mind.',
+        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with HRV from your wearable. HRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.',
     },
     physiological: {
       short:
@@ -1160,9 +1160,9 @@ function ExecutivePillCapsule({
     },
     emotional: {
       short:
-        'Your capacity to absorb pressure — mood, confidence and physiological steadiness combined. Higher = composed under load; lower = depleted or stretched thin.',
+        'Your capacity to absorb pressure — confidence, mental energy and physiological steadiness combined. Higher = composed under load; lower = depleted or stretched thin.',
       clinical:
-        'Blends your self-rated confidence and check-in outcome (Calm / Steady / Overwhelmed) with HRV as a stress-tolerance read. Low HRV alongside high confidence often signals running on grit.',
+        'Blends your self-rated confidence and mental energy (Calm / Steady / Energised / Anxious / Frustrated / Overwhelmed / Drained) with HRV as a stress-tolerance read. Low HRV alongside high confidence often signals running on grit.',
     },
   };
   const glossaryEntry = glossary[pill.id];
@@ -1213,40 +1213,12 @@ function ExecutivePillCapsule({
         <div className="relative rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
           {/* Top-right tap-to-open glossary — taupe icon, click to reveal definition */}
           {glossaryEntry && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`What does ${pill.headline} measure?`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-2 right-2 inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-[hsl(var(--taupe)/.10)] active:bg-[hsl(var(--taupe)/.18)] transition-colors"
-                >
-                  <Info
-                    className="w-3.5 h-3.5 text-[hsl(var(--taupe))]"
-                    strokeWidth={2}
-                  />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="top"
-                align="end"
-                sideOffset={6}
-                className="w-72 p-3"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="text-[12px] leading-snug font-body text-foreground/85">
-                  {glossaryEntry.short}
-                </p>
-                {glossaryEntry.clinical && (
-                  <>
-                    <div className="my-2 h-px bg-[hsl(var(--taupe)/.25)]" />
-                    <p className="text-[11px] leading-relaxed font-body text-muted-foreground/85 whitespace-pre-line">
-                      {glossaryEntry.clinical}
-                    </p>
-                  </>
-                )}
-              </PopoverContent>
-            </Popover>
+            <PillarGlossaryModal
+              title={pill.headline}
+              short={glossaryEntry.short}
+              clinical={glossaryEntry.clinical}
+              className="absolute top-2 right-2"
+            />
           )}
           {/* Top: wearable */}
           <div className="space-y-1 pr-7">
