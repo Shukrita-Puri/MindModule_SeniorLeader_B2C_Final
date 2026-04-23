@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, Info, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
