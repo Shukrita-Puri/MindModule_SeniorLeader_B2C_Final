@@ -4100,7 +4100,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         resolvedBriefId = (idRow as any)?.id ?? null;
       } catch { /* ignore — non-fatal for response */ }
     }
-    if (!cachedSnapshot && inputSignature !== 'no-sig') {
+    if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
