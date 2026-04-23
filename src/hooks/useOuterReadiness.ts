@@ -11,6 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
+import {
+  read as readPersistent,
+  write as writePersistent,
+  msUntilWindowEnd,
+  cacheKeys,
+} from '@/utils/persistentBriefCache';
 
 export interface OuterReadinessData {
   phrase: string;
@@ -192,13 +198,33 @@ export function useOuterReadiness() {
   const snapshotCacheEnabled =
     import.meta.env.VITE_ENABLE_BRIEF_SNAPSHOT_CACHE === 'true';
 
+  // Persistent per-window cache (survives full app reopen). Hydrate React
+  // Query synchronously on mount so the brief renders in the first frame
+  // when a valid cached payload exists for this user + period + date.
+  const todayISO = new Date().toISOString().split('T')[0];
+  const persistentKey = effectiveUserId
+    ? cacheKeys.brief(effectiveUserId, period, todayISO)
+    : null;
+  const initialData = persistentKey
+    ? readPersistent<OuterReadinessData>(persistentKey)
+    : null;
+
   return useQuery({
     queryKey: ['outer-readiness', effectiveUserId, period],
-    queryFn: () => fetchOuterReadiness(effectiveUserId),
+    queryFn: async () => {
+      const data = await fetchOuterReadiness(effectiveUserId);
+      // Write-through: persist every successful payload (including the
+      // "awaiting signals" response) so the next reopen renders instantly.
+      if (data && persistentKey) {
+        writePersistent(persistentKey, data, msUntilWindowEnd());
+      }
+      return data;
+    },
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: true,
     refetchOnWindowFocus: snapshotCacheEnabled ? false : true,
     placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
+    initialData: initialData ?? undefined,
   });
 }

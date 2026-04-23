@@ -20,6 +20,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
+import { read as readPersistent, cacheKeys } from '@/utils/persistentBriefCache';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, Info, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
@@ -1554,8 +1555,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       if (!effectiveUserId) return false;
       const hour = new Date().getHours();
       const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+      // 1) In-memory React Query cache (same tab session)
       const cached = queryClient.getQueryData(['outer-readiness', effectiveUserId, period]);
-      return !!cached;
+      if (cached) return true;
+      // 2) Persistent localStorage cache (survives full app reopen within
+      //    the current time-of-day window).
+      const todayISO = new Date().toISOString().split('T')[0];
+      const persisted = readPersistent(cacheKeys.brief(effectiveUserId, period, todayISO));
+      return !!persisted;
     } catch {
       return false;
     }

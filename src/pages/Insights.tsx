@@ -22,6 +22,12 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import {
+  read as readPersistent,
+  write as writePersistent,
+  msUntilMidnight,
+  cacheKeys,
+} from '@/utils/persistentBriefCache';
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
@@ -219,19 +225,22 @@ const Insights = () => {
   // Script-gated reveal: hold the tab bar + tab content until the scripted
   // "mixture" narration has played every step in order. The page header
   // stays visible above the loader so the user has page context.
-  // Cache-skip: if the user has already seen the Insights page in this
-  // browser session, the scripted loader is skipped on revisit so already
-  // generated content renders instantly. (Revoked by sign-out / new tab.)
-  const insightsAlreadyShown = (() => {
-    try { return sessionStorage.getItem('insights-script-done') === '1'; }
-    catch { return false; }
+  // Cache-skip: if this user has already seen the Insights page today, the
+  // scripted loader is skipped on revisit so already-generated content
+  // renders instantly across full app reopens. Auto-expires at midnight.
+  const insightsScriptKey = (() => {
+    const uid = DEV_MODE ? DEV_USER.id : user?.id;
+    if (!uid) return null;
+    const today = new Date().toISOString().split('T')[0];
+    return cacheKeys.insightsScriptDone(uid, today);
   })();
+  const insightsAlreadyShown = !!(insightsScriptKey && readPersistent<boolean>(insightsScriptKey) === true);
   const [insightsScriptDone, setInsightsScriptDone] = useState(insightsAlreadyShown);
   useEffect(() => {
-    if (insightsScriptDone) {
-      try { sessionStorage.setItem('insights-script-done', '1'); } catch {}
+    if (insightsScriptDone && insightsScriptKey) {
+      writePersistent(insightsScriptKey, true, msUntilMidnight());
     }
-  }, [insightsScriptDone]);
+  }, [insightsScriptDone, insightsScriptKey]);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
