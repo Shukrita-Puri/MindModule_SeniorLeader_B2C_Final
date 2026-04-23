@@ -98,6 +98,15 @@ export interface OuterReadinessData {
   innerReadinessTier?: string | null;
   checkInOutcome?: string | null;
   briefSource?: 'llm' | 'deterministic';
+  /**
+   * True when the brief was not generated because no immediate signal is
+   * fresh today (no check-in submitted today AND no wearable reading from
+   * today). When true, `phrase` / `bodyText` / `leanOn` / `watchFor` are
+   * null and the client renders a quiet prompt line in place of the brief.
+   * Pills, chips, calendar pill, and score `--` continue to render.
+   */
+  awaitingSignals?: boolean;
+  awaitingReason?: 'no-checkin-no-wearable' | null;
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
