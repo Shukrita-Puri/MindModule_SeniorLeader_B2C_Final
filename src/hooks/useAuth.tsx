@@ -4,6 +4,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain, refreshNativeTokens, hasRecoverableNativeSession } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
+import { clearByPrefixes, cacheKeyPrefixes } from '@/utils/persistentBriefCache';
 import { toast } from 'sonner';
 
 declare global {
@@ -458,10 +459,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Sweep persistent per-user caches so a different user signing in on
     // the same device cannot see the previous user's brief, plan,
     // insights script flag, or onboarding results.
-    try {
-      const { clearByPrefixes, cacheKeyPrefixes } = require('@/utils/persistentBriefCache');
-      clearByPrefixes(cacheKeyPrefixes);
-    } catch { /* non-fatal */ }
+    clearByPrefixes(cacheKeyPrefixes);
   };
 
   // Normal sign-out
