@@ -455,6 +455,13 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearNativeLoginInProgress();
     setAppUser(null);
     delete window.__auth0Client;
+    // Sweep persistent per-user caches so a different user signing in on
+    // the same device cannot see the previous user's brief, plan,
+    // insights script flag, or onboarding results.
+    try {
+      const { clearByPrefixes, cacheKeyPrefixes } = require('@/utils/persistentBriefCache');
+      clearByPrefixes(cacheKeyPrefixes);
+    } catch { /* non-fatal */ }
   };
 
   // Normal sign-out
