@@ -300,6 +300,23 @@ const TodayThreePriorities = ({
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getCheckinForWindow(todayDate, currentPeriod);
 
+      // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
+      // If the Brief is awaiting signals (no fresh check-in AND no fresh
+      // wearable today), we MUST NOT generate a plan from defaults. The
+      // Plan card renders the same quiet "Begin with your check-in"
+      // prompt as the Brief. Server-side gate in generate-mastery-plan
+      // enforces the same contract for any direct/edge caller.
+      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
+      if (briefAwaiting && !todayCheckin && !wearableFresh) {
+        setAwaitingSignals(true);
+        setPlan(null);
+        setLoading(false);
+        return;
+      }
+      // Materialised signal — clear stale awaiting flag if signals returned.
+      setAwaitingSignals(false);
+
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
       let shouldRegenerate = !hasStoredPlan;
