@@ -34,17 +34,15 @@ const PlanPage = () => {
                     Your priorities mapped based on your brief and for your day
                   </p>
                 </div>
-                <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
-                  <div data-tour="daily-plan">
-                    <TodayThreePriorities
-                      onEmpty={() => setPrioritiesEmpty(true)}
-                      onLoaded={() => setPrioritiesEmpty(false)}
-                      expandReflection={expandReflection}
-                      reflectionContext={reflectionContext}
-                      reflectionEvent={reflectionEvent}
-                    />
-                    {prioritiesEmpty && <DailyRitual />}
-                  </div>
+                <div data-tour="daily-plan">
+                  <TodayThreePriorities
+                    onEmpty={() => setPrioritiesEmpty(true)}
+                    onLoaded={() => setPrioritiesEmpty(false)}
+                    expandReflection={expandReflection}
+                    reflectionContext={reflectionContext}
+                    reflectionEvent={reflectionEvent}
+                  />
+                  {prioritiesEmpty && <DailyRitual />}
                 </div>
               </div>
               <div className="mt-8">
