@@ -195,6 +195,16 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     }
   }, [plan]);
 
+  // When the Brief contract transitions from awaiting → ready (user just
+  // submitted a check-in or wearable arrived), reload the plan once so the
+  // suppression empty state is replaced with the freshly generated plan.
+  useEffect(() => {
+    if (awaitingSignals && outerReadinessData?.awaitingSignals === false) {
+      loadPlan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outerReadinessData?.awaitingSignals]);
+
   // Detect newly completed practices
   useEffect(() => {
     const prevIds = prevCompletedIdsRef.current;
