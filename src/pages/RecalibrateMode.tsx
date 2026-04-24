@@ -17,7 +17,7 @@ const RecalibrateMode = () => {
     {
       id: "pause",
       title: "Pause Mastery",
-      description: "Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.",
+      description: "Restore composure and clarity in high-pressure moments.",
       illustration: architecturalPause,
       path: "/recalibrate/pause",
       imagePosition: "object-center"
@@ -25,7 +25,7 @@ const RecalibrateMode = () => {
     {
       id: "presence",
       title: "Flow Mastery",
-      description: "Enter deep focus, accelerate productivity, and sustain peak mental performance.",
+      description: "Enter deep focus and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence",
       imagePosition: "object-center"
@@ -33,7 +33,7 @@ const RecalibrateMode = () => {
     {
       id: "power-up", 
       title: "Recharge Mastery",
-      description: "Rebuild energy, resilience, and readiness for high-stakes moments.",
+      description: "Rebuild energy and readiness for high-stakes moments.",
       illustration: architecturalPowerUp,
       path: "/recalibrate/power-up",
       imagePosition: "object-[center_20%]"
@@ -61,7 +61,7 @@ const RecalibrateMode = () => {
             >
               <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-500 flex flex-col">
                 {/* Image */}
-                <div className="relative flex-[2] min-h-0 overflow-hidden bg-card">
+                <div className="relative flex-[3] md:flex-[2] min-h-0 overflow-hidden bg-card">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
@@ -69,11 +69,11 @@ const RecalibrateMode = () => {
                   />
                 </div>
                 {/* Text on opaque background */}
-                <div className="p-3 bg-card">
-                  <h3 className="text-sm font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
+                <div className="p-4 md:p-5 bg-card">
+                  <h3 className="text-[17px] md:text-[18px] font-headline font-semibold text-foreground group-hover:text-saffron group-active:text-saffron transition-colors duration-300">
                     {tool.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-snug font-body mt-0.5 line-clamp-2">
+                  <p className="text-[13px] md:text-sm text-muted-foreground leading-snug font-body mt-1">
                     {tool.description}
                   </p>
                 </div>
@@ -106,10 +106,10 @@ const RecalibrateMode = () => {
 
             <div className="px-3 md:px-4 pb-2 text-center">
               <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
-                Reset Studio
+                Mental Performance Reset
               </h1>
               <p className="text-sm text-muted-foreground/70 mt-1 font-body">
-                Performance protocols drawn from centuries of proven wisdom
+                Mindset and Somatic Protocols drawn from proven wisdom
               </p>
             </div>
 
