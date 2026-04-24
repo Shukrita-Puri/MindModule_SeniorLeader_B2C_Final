@@ -535,7 +535,22 @@ const TodayThreePriorities = ({
       return;
     }
     const allCompleted = ritual.completed_practice_ids || [];
-    const active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
+    let active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
+
+    // Stoic companion bridge: when the ReflectionCorner's "Optional companion"
+    // (stoic-reflection) is completed inside the player, it lands in
+    // completed_practice_ids as 'stoic-reflection'. Map that to the integrate
+    // slot's own contentId so the slot is treated as fulfilled and the
+    // PlanFeedbackModal fires for this priority.
+    if (allCompleted.includes('stoic-reflection')) {
+      const integrateSlot = (plan.horizonModules || []).find(
+        (m: any) => (m.practice?.title === 'Tiny Win and Reflection' || m.practice?.type === 'integrate'),
+      );
+      const integrateId = integrateSlot?.practice?.contentId;
+      if (integrateId && !active.includes(integrateId)) {
+        active = [...active, integrateId];
+      }
+    }
     // Only update state if content actually changed — prevents spurious effect re-runs
     setCompletedPracticeIds(prev => {
       const prevKey = [...prev].sort().join(',');
@@ -996,6 +1011,12 @@ const TodayThreePriorities = ({
                     />
                   )}
 
+                  {/* Integrate slot owns its own actions inside ReflectionCorner
+                      (Save win + Start companion). The redundant coach practice
+                      card and bottom Start button below would just re-expand the
+                      same view, so we suppress them on this slot only. */}
+                  {!(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                  <>
                   {/* Practice cards — horizontal scroll when multiple */}
                   <div className={cn(
                     hasMultiple ? "flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory" : ""
@@ -1078,6 +1099,8 @@ const TodayThreePriorities = ({
                   >
                     {hasMultiple && slotCompletedCount > 0 ? `Continue (${slotCompletedCount}/${slotPractices.length})` : 'Start'}
                   </Button>
+                  </>
+                  )}
                 </div>
               )}
             </div>

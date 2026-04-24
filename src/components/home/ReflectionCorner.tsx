@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getContentById } from '@/data/practicesAndSoundscapes';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface ReflectionCornerProps {
   /** When provided, switches the prompt to a post-event framing. */
@@ -69,7 +70,17 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
     setSaving(true);
     try {
       const source = postEventTitle ? 'post_event_reflection' : 'reflection_corner';
+      // Edge function uses authenticateRequest → needs Auth0 bearer in prod,
+      // x-dev-user-id in DEV. supabase-js does NOT inject Auth0 tokens for us.
+      const headers: Record<string, string> = {};
+      if (DEV_MODE) {
+        headers['x-dev-user-id'] = DEV_USER.id;
+      } else {
+        const token = await getAuthToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      }
       const { error } = await supabase.functions.invoke('store-tiny-win', {
+        headers,
         body: {
           winContent: winContent.trim(),
           source,
@@ -89,6 +100,30 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
   };
 
   const openStoic = () => {
+    // Mirror the per-priority queue contract used by Plan: write the
+    // practiceQueue + ritualMode flags so the MicroPracticePlayer treats this
+    // as a tracked ritual practice. On completion, the player calls
+    // updateRitualCompletion('micro_exercise', 'stoic-reflection', queue),
+    // which adds 'stoic-reflection' to completed_practice_ids — the Plan's
+    // integrate slot then marks itself complete and triggers feedback.
+    try {
+      localStorage.removeItem('jitInterventionData');
+      localStorage.setItem(
+        'practiceQueue',
+        JSON.stringify([
+          {
+            id: 'stoic-reflection',
+            title: stoic?.title || 'Stoic Reflection',
+            contentType: 'micro-exercise',
+            category: 'pause',
+            duration: stoic?.duration ?? 5,
+          },
+        ]),
+      );
+      localStorage.setItem('queueIndex', '0');
+      localStorage.setItem('ritualMode', 'true');
+    } catch { /* localStorage may be unavailable */ }
+
     navigate('/micro-practice/stoic-reflection/cards', {
       state: { entryRoute: '/plan', fromRitual: true, category: 'pause' },
     });
@@ -179,7 +214,10 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
               {stoic.duration} min · {stoic.steps} steps
             </div>
           </div>
-          <ArrowRight size={16} className="text-muted-foreground/40 group-hover:text-foreground/70 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+          <span className="flex items-center gap-1 px-3 h-8 rounded-lg bg-taupe text-white text-[12px] font-medium font-body group-hover:bg-taupe/90 transition-colors flex-shrink-0">
+            Start
+            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+          </span>
         </button>
       )}
     </div>
