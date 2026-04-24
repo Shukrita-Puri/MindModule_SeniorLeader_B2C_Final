@@ -1,72 +1,140 @@
+## Plan — fix root cause + remove offending copy (no UI vocabulary leak)
 
+You're right: applying current-window awareness to the **Brief's** signal contract is the single fix that resolves the screenshot. The Plan side is already window-scoped (`compute-mastery-plan` line 2071: `.eq('time_window', timeOfDay)`), which is why the Plan shell is correctly empty. The Brief is **not** window-scoped, so it generates from the stale afternoon check-in, which then collapses the client's awaiting gate and lets `DailyRitual`'s legacy fallback line render.
 
-## Plan — Mobile-native tooltip + accurate pillar glossary copy + cognitive wearable evaluation
+The word "window" stays internal — never user-facing.
 
-### 1. Tooltip presentation — match app-wide native pattern
+---
 
-Replace the `Popover` used in the three expanded signal pills with a centred frosted-glass modal that matches every other tooltip in the app (`MetricInfoModal` pattern: dimmed backdrop + `backdrop-blur-sm`, centred card, tap-outside-to-close).
+### Root cause (confirmed)
 
-- New tiny component `PillarGlossaryModal` (or extend `MetricInfoModal` with a `secondary` prop) so the existing Popover call site in `DecisionReadinessBrief.tsx` (lines 1216–1250) becomes a centred portal modal instead of an anchored popover.
-- Keeps the **taupe `Info` icon** at top-right of the expanded pill (current position), unchanged.
-- Backdrop: `fixed inset-0 bg-black/55 backdrop-blur-md` — darker than the inline tooltip, identical to the modal used elsewhere.
-- Card: centred, `bg-card/95 backdrop-blur-xl border border-border rounded-2xl p-5 max-w-sm`, soft shadow.
-- Two stacked text blocks (short definition, then clinical definition with HRV/RHR/Sleep wearable terms preserved on Physical Reserves), `Got it` close button.
-- Tap-outside or `Got it` closes. iOS-safe (uses `createPortal` to `document.body`, same as `MetricInfoModal`).
+1. `src/utils/energyStateEngine.ts` (line 261) calls `fetchTodayCheckin` which returns the *latest* check-in row of the calendar day regardless of `time_window`.
+2. That `outcome` is passed to `compute-outer-readiness` as `checkInOutcome`.
+3. `compute-outer-readiness/index.ts:4062` does `const hasTodayCheckIn = !!checkInOutcome;` — **calendar-day scope, not time-window scope**.
+4. Result: in the evening, an afternoon outcome makes `briefSignalContractMet = true`, `awaitingSignals = false`, brief renders narrative content from stale signal.
+5. Client `TodayThreePriorities.tsx:330` gate `(briefAwaiting && !todayCheckin && !wearableFresh)` is false → falls through → fetches plan → plan correctly returns `awaitingSignals: true` + empty modules → component takes the "no horizonModules" branch → fires `onEmpty` → `<DailyRitual />` mounts on `/plan` → renders the legacy `"Your plan is being prepared. Pull down to refresh."` line.
 
-### 2. Glossary copy — accurate per-pillar inputs
+This single contract mismatch produces the entire visible defect.
 
-Rewrite the `glossary` map in `DecisionReadinessBrief.tsx` (lines 1148–1167) so it mirrors what the engine actually does:
+---
 
-**Decision Readiness (cognitive)**
-- **Short:** *Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.*
-- **Clinical:** *Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with HRV from your wearable. HRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.*
+### Change 1 — Server-side window-scoped signal contract (`supabase/functions/compute-outer-readiness/index.ts`)
 
-**Physical Reserves (physiological)** — keep current copy verbatim (HRV + RHR + Sleep score clinical block is already accurate).
+In the `try { ... }` block around line 4046, replace the day-scoped check-in test with a window-scoped DB lookup. Wearable freshness already uses `hasTodayWearableData` (`wearableSourceAgeDays === 0`), which is the correct scope for wearables — no change needed there. The wearable's per-window staleness you described (e.g. wearable dies in afternoon, no evening reading) is naturally captured by `hasTodayWearableData` because evening sync would write a fresh `summary_date = today` row; the absence of that row keeps `hasTodayWearableData = false` so the user gets the prompt. This is exactly the symmetric behavior you want.
 
-**Resilience Capacity (emotional)**
-- **Short:** *Your capacity to absorb pressure — confidence, mental energy and physiological steadiness combined. Higher = composed under load; lower = depleted or stretched thin.*
-- **Clinical:** *Blends your self-rated **confidence** and **mental energy** (Calm / Steady / Energised / Anxious / Frustrated / Overwhelmed / Drained) with HRV as a stress-tolerance read. Low HRV alongside high confidence often signals running on grit.*
+Insert immediately before the existing contract block:
 
-Word substitution rule: every user-facing reference to "mood" in this component (and any sibling resilience copy) → **"mental energy."** I'll grep the file once and replace the single offending instance to keep the vocabulary consistent.
+```ts
+// Window-scoped check-in lookup. Multiple check-ins per day are allowed;
+// each is slotted to the window in which it was submitted. The Brief
+// reflects "this period of the day," so only a check-in tagged to the
+// current period satisfies the contract. A morning check-in does NOT
+// satisfy the afternoon brief; an afternoon check-in does NOT satisfy
+// the evening brief. Any newer check-in within the same period
+// supersedes earlier ones (briefId already keys off input_signature, so
+// the snapshot regenerates automatically on the next request).
+const currentPeriod = getTimeOfDay(hour); // 'morning' | 'afternoon' | 'evening'
+let hasCheckInForCurrentPeriod = false;
+try {
+  const { data: periodCheckin } = await db
+    .from('daily_checkins')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('checkin_date', userLocalDate)
+    .eq('time_window', currentPeriod)
+    .eq('skipped', false)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  hasCheckInForCurrentPeriod = !!periodCheckin;
+} catch (e) {
+  console.warn('[compute-outer-readiness] Period check-in lookup failed:', e);
+  // Fail safe: if the lookup throws, fall back to the prior day-scoped
+  // signal so we never block a legitimate brief on a transient DB error.
+  hasCheckInForCurrentPeriod = !!checkInOutcome;
+}
+```
 
-### 3. Decision Readiness — evaluate a more immediate cognitive wearable signal
+Then update the contract:
 
-**Evaluation only — no behaviour change yet.** Mapping the candidate signals against availability in `wearable_data` and immediacy for *cognitive* readiness:
+```ts
+const hasTodayCheckIn = hasCheckInForCurrentPeriod;             // ← was !!checkInOutcome
+const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
+const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
+const awaitingSignals = !briefSignalContractMet;
+const awaitingReason: string | null = awaitingSignals ? 'no-checkin-no-wearable' : null;
+```
 
-| Signal | Available today | Immediacy for cognition | Fit for Decision Readiness |
-|---|---|---|---|
-| HRV (current) | yes (`hrv`) | overnight read, refreshed each morning | already in pillar as hardware veto |
-| Sleep score / duration / deep sleep | yes (`sleep_score`, `total_sleep_minutes`, `deep_sleep_minutes`) | strongest single predictor of next-day cognitive performance; refreshed each morning | **best candidate to add as secondary cognitive input** — sleep < 6h or score < 70 reliably reduces working-memory and decision quality independent of HRV |
-| Resting HR deviation | yes (`resting_heart_rate`) | tracks systemic load, less specific to cognition | weak fit |
-| Live HR / HR-elevated proxy | yes (`heart_rate`, `hr_elevated`) | sympathetic dominance — narrows attention but is more arousal than cognition | better suited to Resilience |
-| Active calories / steps | yes | activity load, not cognition | not a fit |
+Why this is sufficient and self-correcting:
 
-**Recommendation (for approval before implementing):** keep HRV as the cognitive hardware veto, and **add a secondary cognitive contribution from sleep** in the cognitive pillar — gated to only fire on the same morning's sleep block. Thresholds:
-- sleep duration < 5 h **or** sleep score < 60 → red mild contribution to Decision Readiness
-- sleep duration 5–6 h **or** sleep score 60–69 → amber
-- otherwise neutral (does not lift the pillar)
+- The brief's snapshot cache key already includes `local_date` + `time_window` (line 4096), so when the user submits the evening check-in, `input_signature` flips, the cache misses, the brief regenerates with the new outcome — no extra invalidation needed.
+- Multiple check-ins per period are honored: the `.order('timestamp', desc).limit(1)` picks the most recent, and the snapshot's `input_signature` already incorporates the latest signal so any change forces a new brief.
+- The Plan side already enforces the same window-scoped contract (`generate-mastery-plan` line 2071), so Brief and Plan move in lockstep after this change. No edit to `generate-mastery-plan`.
+- Awaiting reason stays `'no-checkin-no-wearable'` (single internal label; user copy never says "window").
+- Wearable users are unaffected when their wearable is connected and writing per-day rows. If the wearable stops writing for the day (battery dead, removed, sync failure), `hasTodayWearableData` flips false; if no period check-in exists either, the brief enters awaiting — exactly the behavior you described.
 
-Sleep already drives Physical Reserves, so the same column is read twice but with different roles: in Physiology it's about recovery reserves; in Cognition it's about next-day mental bandwidth. The clinical glossary line above will name this dual use explicitly so it doesn't feel like double-counting.
+No other server logic changes. The existing `awaitingSignals ? null : ...` ternaries in the response payload (lines 4171–4189) already nullify phrase/body/leanOn/watchFor and gate LLM persistence at line 4103.
 
-If approved, the engine change is contained:
-- Add `sleepCognitiveContrib()` next to `hrvCognitiveContrib()` in `buildExecutivePills`.
-- Insert it into `cogContribs` with a 0.2 weight, drop sharpness from 0.3 → 0.25, drop clarity from 0.2 → 0.15 (HRV stays at 0.5, hardware veto unchanged).
-- Add the new line to `cogTop` (wearable side of the box) so the user sees `Sleep: 5h 40m · 12% below your baseline` whenever it materially contributes.
-- Update the glossary clinical text accordingly.
+---
 
-If you'd rather **not** double-count sleep, alternative is to skip this addition — HRV already provides a strong wearable read for cognition via the hardware veto. **Decision needed before I touch the engine.**
+### Change 2 — Delete the offending fallback copy (`src/components/home/DailyRitual.tsx`)
+
+Per your direction, "Your plan is being prepared. Pull down to refresh." is removed entirely from the codebase — no replacement copy.
+
+Replace lines 611–619:
+
+```tsx
+if (activeModules.length === 0 && !loading) {
+  return (
+    <div className="px-4 py-5">
+      <p className="text-sm text-muted-foreground">
+        Your plan is being prepared. Pull down to refresh.
+      </p>
+    </div>
+  );
+}
+```
+
+with:
+
+```tsx
+if (activeModules.length === 0 && !loading) {
+  // Empty-state fallback intentionally renders nothing. The unified
+  // "awaiting signals" prompt is owned by TodayThreePriorities; if
+  // DailyRitual ever mounts in this state (parent edge case), it
+  // stays silent rather than echoing a duplicate or stale message.
+  return null;
+}
+```
+
+After Change 1, this branch should also become unreachable on `/plan` because `TodayThreePriorities` will correctly enter `awaitingSignals = true` and render its own prompt without firing `onEmpty` (suppressed by the existing useEffect at lines 686–697). Returning `null` is belt-and-suspenders so the line can never resurface.
+
+---
 
 ### Files touched
 
-- `src/components/home/DecisionReadinessBrief.tsx` — tooltip swapped to centred modal, glossary copy rewritten, "mood" → "mental energy", optional `sleepCognitiveContrib` if sleep addition is approved.
-- `src/components/home/PillarGlossaryModal.tsx` *(new — small portal modal mirroring `MetricInfoModal` styling)* **or** extend `MetricInfoModal` with a `triggerless` mode and reuse it.
-- `mem://ui/performance-readiness/signal-pill-system` — note the centred-modal tooltip pattern and the corrected pillar input list (HRV is included in Decision Readiness; Resilience uses Mental Energy not mood).
+| File | Change |
+|---|---|
+| `supabase/functions/compute-outer-readiness/index.ts` | Insert window-scoped check-in lookup; update `hasTodayCheckIn` to use it. ~15 lines added. |
+| `src/components/home/DailyRitual.tsx` | Replace lines 611–619 empty-state fallback with `return null;` |
 
-### Open question for you
+No client/edge function changes beyond these two. No DB migration. No new memory file (the window-scoping rule is already codified in `mem://features/performance-readiness/data-honesty-standards` and `mem://backend/architecture/standardized-time-windows`; I'll add a short note to the data-honesty memory clarifying that "today's check-in" must mean **current-period** check-in, since this is the lesson learned).
 
-Confirm one of:
-- **A.** Add sleep as a secondary cognitive input (recommended — strongest immediate cognitive wearable signal we already have).
-- **B.** Leave Decision Readiness wearable input as HRV-only and just fix the glossary copy to reflect that HRV *is* used.
+---
 
-Everything else (tooltip modal swap, copy fixes, "mood" → "mental energy") proceeds either way.
+### What's intentionally NOT done (per your direction)
 
+- ❌ No new `awaitingReason: 'window-rolled-over'` variant. Single reason `'no-checkin-no-wearable'` covers all paths; the user-facing copy you already approved ("Update your performance readiness assessment/check in or connect your wearable…") covers both first-time-of-day and rolled-over-period cases without ever using the word "window".
+- ❌ No bypass-through-`checkInOutcome` for content selection. The outcome variable continues to flow through scoring/theme paths as before — only the brief contract gate becomes window-scoped. Nothing about content matching or pillar mode changes.
+- ❌ No edits to the Plan edge function — its window scoping is already correct.
+
+---
+
+### Manual QA after deploy
+
+1. Submit afternoon check-in, then advance system time to evening (or wait): Brief enters awaiting, Plan empty, both show "Update your performance readiness assessment or connect your wearable…", `DailyRitual` does not mount.
+2. With wearable connected and today's HRV row present: Brief and Plan render normally even with no period check-in.
+3. Submit evening check-in: Brief regenerates within ~1s (cache miss on new `input_signature`), Plan regenerates on next mount. Both populate.
+4. Verify the string `Pull down to refresh` is gone from the bundle (`rg "Pull down" src/`).
+
+Reply **"go"** to implement, or tell me to tighten anything before I switch to default mode.
