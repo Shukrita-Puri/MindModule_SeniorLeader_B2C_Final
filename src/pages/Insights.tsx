@@ -587,7 +587,7 @@ const Insights = () => {
 
   const fetchSemanticAnalysis = async () => {
     if (!user?.id) return;
-    setSemanticLoading(true);
+    if (!sectionsHydratedRef.current) setSemanticLoading(true);
     try {
       // DEV_MODE: Extract themes from actual data
       if (DEV_MODE) {
