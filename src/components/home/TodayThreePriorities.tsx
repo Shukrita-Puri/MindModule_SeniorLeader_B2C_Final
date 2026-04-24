@@ -724,8 +724,8 @@ const TodayThreePriorities = ({
               onClick={() => navigate('/daily-check-in')}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
             >
-              <span className="text-xs text-muted-foreground/70 font-body">
-                Begin with your check-in to build today's plan
+              <span className="text-xs text-muted-foreground/70 font-body text-center leading-relaxed">
+                Begin with your check-in. To activate your personalised brief and plan — takes two minutes.
               </span>
               <ChevronRight size={12} className="text-muted-foreground/40" />
             </button>
