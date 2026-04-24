@@ -98,6 +98,25 @@ interface MasteryPlanResponse {
   meta: { generatedAt: string; [key: string]: any };
 }
 
+// Coach feature is suppressed: drop coach-cards from horizonModules client-side,
+// but keep the inline "Tiny Win and Reflection" (integrate) slot which is rendered
+// by ReflectionCorner, not by the coach surface. Pure client-side filter — no
+// edge-function, scoring, or LLM impact.
+const stripCoachFromPlan = (plan: MasteryPlanResponse | null): MasteryPlanResponse | null => {
+  if (!plan?.horizonModules) return plan;
+  const isReflection = (p: PlanModule) =>
+    p.title === 'Tiny Win and Reflection' || p.type === 'integrate';
+  const filtered = plan.horizonModules
+    .map((hm) => {
+      const slot = hm.practices || [hm.practice];
+      const kept = slot.filter((p) => !p.isCoachCard || isReflection(p));
+      if (kept.length === 0) return null;
+      return { ...hm, practice: kept[0], practices: kept };
+    })
+    .filter(Boolean) as HorizonModule[];
+  return { ...plan, horizonModules: filtered };
+};
+
 const TodayThreePriorities = ({
   onEmpty,
   onLoaded,
@@ -369,9 +388,10 @@ const TodayThreePriorities = ({
               clearPersistent(dataKey);
               shouldRegenerate = true;
             } else {
-              setPlan(parsed);
+              const stripped = stripCoachFromPlan(parsed)!;
+              setPlan(stripped);
               const allCompleted = todayRitual?.completed_practice_ids || [];
-              const horizonIds = (parsed.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
+              const horizonIds = (stripped.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
               return;
@@ -447,7 +467,7 @@ const TodayThreePriorities = ({
         return;
       }
 
-      const planResponse = planData as MasteryPlanResponse;
+      const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
       setPlan(planResponse);
 
       // Store plan for stability
@@ -848,7 +868,7 @@ const TodayThreePriorities = ({
               key={`${module.contentId}-${index}`}
               className={cn(
                 "space-y-0 rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-4 py-1 border-l-2 transition-colors",
-                slotCompleted ? "border-l-taupe/40" : isExpanded ? "border-l-saffron/60" : "border-l-taupe/40"
+                "border-l-taupe/40"
               )}
             >
               {/* Slot header row */}

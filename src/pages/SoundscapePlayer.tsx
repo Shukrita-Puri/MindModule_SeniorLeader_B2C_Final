@@ -128,10 +128,17 @@ const SoundscapePlayer = () => {
       try {
         const parsed = JSON.parse(queue);
         setPracticeQueue(parsed);
-        // Find current index
-        const index = parsed.findIndex((p: any) => p.id === id);
-        if (index !== -1) {
-          setCurrentQueueIndex(index);
+        // Prefer the launcher-written queueIndex; fall back to findIndex by id.
+        const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+        const idx =
+          Number.isFinite(storedIdx) &&
+          storedIdx >= 0 &&
+          storedIdx < parsed.length &&
+          parsed[storedIdx]?.id === id
+            ? storedIdx
+            : parsed.findIndex((p: any) => p.id === id);
+        if (idx !== -1) {
+          setCurrentQueueIndex(idx);
           setIsInQueue(true);
         }
       } catch (e) {
@@ -146,7 +153,7 @@ const SoundscapePlayer = () => {
 
   const getCategoryPath = () => {
     // If from daily ritual or JIT intervention, return to executive home
-    if (fromRitual || fromIntervention) return '/executive-home';
+    if (fromRitual || fromIntervention) return '/plan';
     
     // Use the soundscape's actual category to determine back path
     if (!soundscape) return '/recalibrate';
@@ -328,7 +335,7 @@ const SoundscapePlayer = () => {
     // Clear queue and return home
     localStorage.removeItem('practiceQueue');
     toast.success('Ritual paused');
-    navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+    navigate(((location.state as any)?.entryRoute as string) || '/plan');
   };
 
   const handleQueueComplete = () => {
@@ -336,41 +343,26 @@ const SoundscapePlayer = () => {
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
-      // Ritual complete - check for JIT intervention data for coach navigation
+      // Ritual complete — coach hand-off suppressed; return to Plan.
       localStorage.removeItem('practiceQueue');
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle,
-              entryContext: { entryPoint: 'practice_complete', lastAction: 'completed soundscape practice', triggeredBy: null }
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      localStorage.removeItem('jitInterventionData');
       const ritualMode = localStorage.getItem('ritualMode');
       setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     }
   };
 
   const navigateToNext = () => {
-    const next = practiceQueue[currentQueueIndex + 1];
-    if (!next) return;
-    
-    localStorage.setItem('queueIndex', String(currentQueueIndex + 1));
+    const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+    const baseIdx = Number.isFinite(storedIdx) && storedIdx >= 0 ? storedIdx : currentQueueIndex;
+    const next = practiceQueue[baseIdx + 1];
+    if (!next) {
+      console.warn('[SoundscapePlayer] navigateToNext: no next practice', { baseIdx, queueLen: practiceQueue.length });
+      return;
+    }
+    localStorage.setItem('queueIndex', String(baseIdx + 1));
     const entryRoute = (location.state as any)?.entryRoute;
     if (next.contentType === 'soundbath') {
       navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true, entryRoute } });
@@ -379,17 +371,9 @@ const SoundscapePlayer = () => {
     } else if (next.contentType === 'micro-practice') {
       navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true, entryRoute } });
     } else if (next.contentType === 'coach') {
-      // Handle Coach cards - navigate to coach page with context
-      navigate('/coach', { 
-        state: { 
-          flowType: next.id === 'coach-prepare' ? 'prepare' : 'integrate',
-          initialPrompt: next.id === 'coach-prepare' 
-            ? "I have an important moment coming up. Help me mentally prepare and visualize success."
-            : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
-          fromRitual: true,
-          entryRoute,
-        } 
-      });
+      // Coach feature suppressed — return to Plan page instead of /coach.
+      localStorage.removeItem('practiceQueue');
+      navigate(entryRoute || '/plan');
     }
   };
 
@@ -446,51 +430,16 @@ const SoundscapePlayer = () => {
     // If in queue and last item, complete ritual
     if (isInQueue) {
       markPlanCompleteForFeedback();
-      // Check for JIT intervention data for coach navigation
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      // Coach hand-off suppressed — clear JIT data and return to Plan.
+      localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     
     // Standalone practice - check for JIT data
-    const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData) {
-      try {
-        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-        localStorage.removeItem('jitInterventionData');
-        toast.success('Practice complete! Opening Coach...');
-        navigate('/coach', {
-          state: {
-            flowType,
-            initialPrompt: coachPrompt,
-            fromIntervention: true,
-            eventTitle
-          }
-        });
-        return;
-      } catch (e) {
-        console.error('Error parsing JIT data:', e);
-      }
-    }
+    // Coach hand-off suppressed — clear JIT data and return to category path.
+    localStorage.removeItem('jitInterventionData');
     navigate(getCategoryPath());
   };
 
@@ -523,51 +472,16 @@ const SoundscapePlayer = () => {
     // If in queue and last item, complete ritual
     if (isInQueue) {
       markPlanCompleteForFeedback();
-      // Check for JIT intervention data for coach navigation
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      // Coach hand-off suppressed — clear JIT data and return to Plan.
+      localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     
     // Standalone practice - check for JIT data
-    const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData) {
-      try {
-        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-        localStorage.removeItem('jitInterventionData');
-        toast.success('Practice complete! Opening Coach...');
-        navigate('/coach', {
-          state: {
-            flowType,
-            initialPrompt: coachPrompt,
-            fromIntervention: true,
-            eventTitle
-          }
-        });
-        return;
-      } catch (e) {
-        console.error('Error parsing JIT data:', e);
-      }
-    }
+    // Coach hand-off suppressed — clear JIT data and return to category path.
+    localStorage.removeItem('jitInterventionData');
     navigate(getCategoryPath());
   };
 

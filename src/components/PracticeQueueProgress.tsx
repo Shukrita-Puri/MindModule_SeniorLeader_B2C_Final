@@ -55,7 +55,7 @@ const PracticeQueueProgress = ({
       className={cn(
         inline
           ? 'relative w-full'
-          : 'fixed left-0 right-0 z-40 bg-background/70 backdrop-blur-xl border-b border-border/50'
+          : 'fixed left-0 right-0 z-40 bg-white/15 backdrop-blur-md border-b border-white/30'
       )}
       style={!inline ? { top: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' } : undefined}
     >
