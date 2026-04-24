@@ -7,7 +7,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
