@@ -138,6 +138,14 @@ const TodayThreePriorities = ({
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(initialCached);
   const [loading, setLoading] = useState(!initialCached);
   const [fetchFailed, setFetchFailed] = useState(false);
+  // Awaiting-signals state — mirrors the Brief contract. When true, the
+  // Plan card renders the same quiet "Begin with your check-in" prompt
+  // instead of generating a plan from defaults.
+  const [awaitingSignals, setAwaitingSignals] = useState(false);
+  // Ref preserves the "we already had a cached payload at mount" fact for
+  // the lifetime of this component, so a transient `loading=true` from a
+  // silent refresh can never re-trigger the scripted EngravedLoader.
+  const initialCachedRef = useRef<boolean>(!!initialCached);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string; key: string } | null>(null);
