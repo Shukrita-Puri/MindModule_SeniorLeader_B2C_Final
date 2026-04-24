@@ -128,10 +128,17 @@ const SoundscapePlayer = () => {
       try {
         const parsed = JSON.parse(queue);
         setPracticeQueue(parsed);
-        // Find current index
-        const index = parsed.findIndex((p: any) => p.id === id);
-        if (index !== -1) {
-          setCurrentQueueIndex(index);
+        // Prefer the launcher-written queueIndex; fall back to findIndex by id.
+        const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+        const idx =
+          Number.isFinite(storedIdx) &&
+          storedIdx >= 0 &&
+          storedIdx < parsed.length &&
+          parsed[storedIdx]?.id === id
+            ? storedIdx
+            : parsed.findIndex((p: any) => p.id === id);
+        if (idx !== -1) {
+          setCurrentQueueIndex(idx);
           setIsInQueue(true);
         }
       } catch (e) {
@@ -367,10 +374,14 @@ const SoundscapePlayer = () => {
   };
 
   const navigateToNext = () => {
-    const next = practiceQueue[currentQueueIndex + 1];
-    if (!next) return;
-    
-    localStorage.setItem('queueIndex', String(currentQueueIndex + 1));
+    const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+    const baseIdx = Number.isFinite(storedIdx) && storedIdx >= 0 ? storedIdx : currentQueueIndex;
+    const next = practiceQueue[baseIdx + 1];
+    if (!next) {
+      console.warn('[SoundscapePlayer] navigateToNext: no next practice', { baseIdx, queueLen: practiceQueue.length });
+      return;
+    }
+    localStorage.setItem('queueIndex', String(baseIdx + 1));
     const entryRoute = (location.state as any)?.entryRoute;
     if (next.contentType === 'soundbath') {
       navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true, entryRoute } });
@@ -379,17 +390,9 @@ const SoundscapePlayer = () => {
     } else if (next.contentType === 'micro-practice') {
       navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true, entryRoute } });
     } else if (next.contentType === 'coach') {
-      // Handle Coach cards - navigate to coach page with context
-      navigate('/coach', { 
-        state: { 
-          flowType: next.id === 'coach-prepare' ? 'prepare' : 'integrate',
-          initialPrompt: next.id === 'coach-prepare' 
-            ? "I have an important moment coming up. Help me mentally prepare and visualize success."
-            : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
-          fromRitual: true,
-          entryRoute,
-        } 
-      });
+      // Coach feature suppressed — return to Plan page instead of /coach.
+      localStorage.removeItem('practiceQueue');
+      navigate(entryRoute || '/plan');
     }
   };
 
