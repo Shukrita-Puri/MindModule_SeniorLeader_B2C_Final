@@ -374,7 +374,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                           <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
                         </>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">builds after 5 check-ins</span>
+                        <span className="text-xs text-muted-foreground italic">evolves with each Brief</span>
                       )}
                     </div>
                   </div>
