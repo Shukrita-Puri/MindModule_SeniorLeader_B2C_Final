@@ -545,7 +545,7 @@ const TodayThreePriorities = ({
 
     if (active.length >= horizonIds.length && active.length > 0) {
       if (ritual.completion_status !== 'full') {
-        await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
+        await upsertRitual({ ritual_date: localISODate(), completion_status: 'full', session_period: currentPeriod });
       }
     }
   };
@@ -571,7 +571,7 @@ const TodayThreePriorities = ({
     localStorage.setItem('ritualMode', 'true');
 
     if (user) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localISODate();
       const currentPeriod = getCurrentTimeWindow();
       // Daily ritual completion still tracks the FULL day's recommendations
       // (derived from horizonModules in loadPlan). We don't overwrite that here
