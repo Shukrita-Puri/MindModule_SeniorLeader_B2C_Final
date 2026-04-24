@@ -118,6 +118,15 @@ export const cacheKeys = {
     `plan-loaded-${dateISO}-${period}`,
   insightsScriptDone: (userId: string, dateISO: string) =>
     `insights-script-done:${userId}:${dateISO}`,
+  /**
+   * Per-day cache for the three Insights section payloads
+   * (statePatterns, tinyWinsInsights, semanticAnalysis). When present we
+   * hydrate sections synchronously on mount so the scripted loader is
+   * skipped on revisit and the silent refresh updates in place. Auto-
+   * expires at midnight via msUntilMidnight().
+   */
+  insightsData: (userId: string, dateISO: string) =>
+    `insights-data:${userId}:${dateISO}`,
   onboardingResults: (userId: string) =>
     `onboarding-results-cache:${userId}`,
 };
@@ -128,5 +137,6 @@ export const cacheKeyPrefixes = [
   'plan-data-',
   'plan-loaded-',
   'insights-script-done:',
+  'insights-data:',
   'onboarding-results-cache:',
 ];
