@@ -752,20 +752,18 @@ const TodayThreePriorities = ({
               </div>
             </div>
           ))}
-          <div className="pt-2">
-            <button
-              onClick={() => navigate('/daily-check-in')}
-              className="w-full flex flex-col items-center justify-center gap-2 py-3 px-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
-            >
-              <span className="text-[15px] italic text-foreground/80 text-center" style={{ fontFamily: 'Georgia, serif' }}>
-                Awaiting today's signal
-              </span>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground/70 font-body text-center leading-relaxed">
-                Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.
-                <ChevronRight size={12} className="text-muted-foreground/40 shrink-0" />
-              </span>
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/daily-check-in')}
+            className="mt-1 flex flex-col items-start gap-1.5 pl-10 pr-3 py-2 rounded-xl text-left hover:bg-muted/10 transition-colors"
+          >
+            <span className="text-[15px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+              Awaiting today's signal
+            </span>
+            <span className="flex items-start gap-1 text-xs text-muted-foreground/70 font-body leading-relaxed">
+              <span>Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.</span>
+              <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
+            </span>
+          </button>
         </div>
       </div>
     );
