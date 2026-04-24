@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, MessageSquare, Sparkles, ArrowRight } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -101,16 +101,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
         const fourteenDaysAgo = format(subDays(new Date(), 14), 'yyyy-MM-dd');
 
-        const [checkInsRes, themesRes, coachRes, profileRes] = await Promise.all([
+        const [checkInsRes, themesRes, profileRes] = await Promise.all([
           supabase.from('daily_checkins').select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at').eq('user_id', effectiveUserId).gte('checkin_date', thirtyDaysAgo).order('checkin_date', { ascending: true }),
           supabase.from('daily_themes').select('theme_phrase, theme_driver').eq('user_id', effectiveUserId).gte('theme_date', thirtyDaysAgo),
-          supabase.from('user_coach_insights').select('insight_content, created_at, insight_type').eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(10),
           supabase.from('profiles').select('user_archetype, component_scores').eq('id', effectiveUserId).maybeSingle(),
         ]);
 
         const checkIns = checkInsRes.data || [];
         const themes = themesRes.data || [];
-        const coachInsights = coachRes.data || [];
         const totalCheckins = checkIns.length;
 
         // Friction
@@ -134,18 +132,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const themeCounts = new Map<string, number>();
         themes.forEach((t) => { if (t.theme_phrase) themeCounts.set(t.theme_phrase, (themeCounts.get(t.theme_phrase) || 0) + 1); });
         const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
-
-        // Coach insights
-        const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
-        const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
-        let coachStrength: string | null = null;
-        let coachFriction: string | null = null;
-        for (const ins of coachInsights) {
-          const ic = ins.insight_content || '';
-          if (!coachStrength && strengthKw.test(ic)) coachStrength = ic.substring(0, 120);
-          if (!coachFriction && frictionKw.test(ic)) coachFriction = ic.substring(0, 120);
-          if (coachStrength && coachFriction) break;
-        }
 
         // Archetype
         const cs = profileRes.data?.component_scores as any;
@@ -213,8 +199,8 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           trendDirection,
           typicalState,
           recurringThemes,
-          coachStrength,
-          coachFriction,
+          coachStrength: null,
+          coachFriction: null,
           checkInCount: totalCheckins,
           coachSessionCount: 0,
           hasWearable: false,
@@ -232,7 +218,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!error && result?.data) {
-        setData(result.data as LeadershipPatternsData);
+        // Strip coach-derived fields client-side (mem://features/coach/suppression-standard)
+        const raw = result.data as LeadershipPatternsData;
+        setData({
+          ...raw,
+          coachStrength: null,
+          coachFriction: null,
+          coachSessionCount: 0,
+        });
       }
     } catch (err) {
       console.error('[LeadershipPatternsCard] Error:', err);
