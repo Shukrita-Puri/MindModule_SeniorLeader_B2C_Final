@@ -650,6 +650,20 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return { tier: 'green' };
   };
 
+  // ── Sleep contribution — Cognitive (secondary, next-day mental bandwidth) ──
+  // Same column as Physiology's sleepContrib() but evaluated through a
+  // cognitive lens: it never lifts the pillar, only flags red/amber when
+  // restorative sleep is short enough to materially blunt working memory and
+  // decision quality the next day.
+  const sleepCognitiveContrib = (): PillarContrib => {
+    if (sleepDur == null && sleepScore == null) return { tier: 'neutral' };
+    if (sleepDur != null && sleepDur < 300) return { tier: 'red', severity: 'mild' };
+    if (sleepScore != null && sleepScore < 60) return { tier: 'red', severity: 'mild' };
+    if (sleepDur != null && sleepDur < 360) return { tier: 'amber' };
+    if (sleepScore != null && sleepScore < 70) return { tier: 'amber' };
+    return { tier: 'neutral' }; // adequate sleep does NOT lift cognition; HRV + self-report do that
+  };
+
   // ── HRV contribution — Resilience (secondary, stricter thresholds) ──
   const hrvResilienceContrib = (): PillarContrib => {
     if (hrvVal == null) return { tier: 'neutral' };
