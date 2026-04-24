@@ -609,13 +609,11 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   const activeModules = rawModules;
 
   if (activeModules.length === 0 && !loading) {
-    return (
-      <div className="px-4 py-5">
-        <p className="text-sm text-muted-foreground">
-          Your plan is being prepared. Pull down to refresh.
-        </p>
-      </div>
-    );
+    // Empty-state fallback intentionally renders nothing. The unified
+    // "awaiting signals" prompt is owned by TodayThreePriorities; if
+    // DailyRitual ever mounts in this state (parent edge case), it
+    // stays silent rather than echoing a duplicate or stale message.
+    return null;
   }
 
   const getModuleDisplay = (module: PlanModule) => {

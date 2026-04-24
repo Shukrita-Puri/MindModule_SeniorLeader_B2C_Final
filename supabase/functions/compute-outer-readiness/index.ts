@@ -4059,7 +4059,35 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // watchFor and surface `awaitingSignals: true` so the client renders a
     // quiet prompt line; pills, chips, calendar pill, and score `--` continue
     // to render normally.
-    const hasTodayCheckIn = !!checkInOutcome;
+    // Window-scoped check-in lookup. Multiple check-ins per day are allowed;
+    // each is slotted to the window in which it was submitted. The Brief
+    // reflects "this period of the day," so only a check-in tagged to the
+    // current period satisfies the contract. A morning check-in does NOT
+    // satisfy the afternoon brief; an afternoon check-in does NOT satisfy
+    // the evening brief. Any newer check-in within the same period
+    // supersedes earlier ones (briefId already keys off input_signature, so
+    // the snapshot regenerates automatically on the next request).
+    const currentPeriod = getTimeOfDay(hour);
+    let hasCheckInForCurrentPeriod = false;
+    try {
+      const { data: periodCheckin } = await db
+        .from('daily_checkins')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('checkin_date', userLocalDate)
+        .eq('time_window', currentPeriod)
+        .eq('skipped', false)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      hasCheckInForCurrentPeriod = !!periodCheckin;
+    } catch (e) {
+      console.warn('[compute-outer-readiness] Period check-in lookup failed:', e);
+      // Fail safe: if the lookup throws, fall back to the prior day-scoped
+      // signal so we never block a legitimate brief on a transient DB error.
+      hasCheckInForCurrentPeriod = !!checkInOutcome;
+    }
+    const hasTodayCheckIn = hasCheckInForCurrentPeriod;
     const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
     const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
     const awaitingSignals = !briefSignalContractMet;
