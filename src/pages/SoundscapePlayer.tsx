@@ -430,7 +430,7 @@ const SoundscapePlayer = () => {
     
     // If in queue and last item, complete ritual
     if (isInQueue) {
-      markPlanCompleteForFeedback();
+      markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
