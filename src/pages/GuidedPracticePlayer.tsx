@@ -1812,7 +1812,7 @@ const GuidedPracticePlayer = () => {
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();
       } else if (isInQueue) {
-        markPlanCompleteForFeedback();
+        markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
         // Coach hand-off suppressed — clear JIT intervention data and return to Plan.
         localStorage.removeItem('jitInterventionData');
         toast.success('🎉 Plan complete!');
@@ -1846,7 +1846,7 @@ const GuidedPracticePlayer = () => {
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();
       } else if (isInQueue) {
-        markPlanCompleteForFeedback();
+        markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
         // Coach hand-off suppressed — clear JIT intervention data and return to Plan.
         localStorage.removeItem('jitInterventionData');
         toast.success('🎉 Ritual complete!');
