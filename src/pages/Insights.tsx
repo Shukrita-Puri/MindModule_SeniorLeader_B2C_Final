@@ -12,12 +12,11 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 // WeeklyRitualStreak removed – lives on homepage via InsightProgressCard
-import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
-import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
+import CauseEffectPanel from '@/components/insights/CauseEffectPanel';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -175,15 +174,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 const INSIGHT_TABS = [
+  { key: 'progress' as const, label: 'Progress' },
   { key: 'patterns' as const, label: 'Patterns' },
-  { key: 'momentum' as const, label: 'Progress' },
-  { key: 'mindmap' as const, label: 'Presence' },
 ];
 
 const Insights = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightParam = searchParams.get('highlight');
-  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>(highlightParam ? 'patterns' : 'patterns');
+  const [activeTab, setActiveTab] = useState<'progress' | 'patterns'>(highlightParam ? 'patterns' : 'progress');
   const navigate = useNavigate();
   const highlightRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
