@@ -654,14 +654,22 @@ const TodayThreePriorities = ({
   const [planScriptDone, setPlanScriptDone] = useState(!!initialCached);
 
   // Signal empty/loaded state to parent for fallback rendering
-  // Only fire onEmpty when genuinely no data AND not a transient fetch failure
+  // Only fire onEmpty when genuinely no data AND not a transient fetch failure.
+  // Suppress onEmpty in the awaiting-signals state — we already render the
+  // unified prompt here, so the parent must NOT mount DailyRitual (which
+  // would show the same prompt a second time).
   useEffect(() => {
-    if (!loading && !fetchFailed && (!horizonModules || horizonModules.length === 0)) {
+    if (
+      !loading &&
+      !fetchFailed &&
+      !awaitingSignals &&
+      (!horizonModules || horizonModules.length === 0)
+    ) {
       onEmpty?.();
     } else if (!loading && horizonModules && horizonModules.length > 0) {
       onLoaded?.();
     }
-  }, [loading, fetchFailed, horizonModules, onEmpty, onLoaded]);
+  }, [loading, fetchFailed, awaitingSignals, horizonModules, onEmpty, onLoaded]);
 
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
