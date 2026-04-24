@@ -870,28 +870,8 @@ const GuidedPracticePlayer = () => {
       navigateToNext();
     } else {
       localStorage.removeItem('practiceQueue');
-      // Check for JIT intervention data for coach navigation
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const parsed = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          if (parsed.hasCoachStep === true && parsed.coachPrompt) {
-            toast.success('Practices complete! Opening Coach...');
-            navigate('/coach', {
-              state: {
-                flowType: parsed.flowType,
-                initialPrompt: parsed.coachPrompt,
-                fromIntervention: true,
-                eventTitle: parsed.eventTitle
-              }
-            });
-            return;
-          }
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      // Coach hand-off suppressed — clear JIT data and return to Plan.
+      localStorage.removeItem('jitInterventionData');
       // Set plan feedback flag for ExecutiveHome
       const ritualMode = localStorage.getItem('ritualMode');
       localStorage.setItem('showPlanFeedback', JSON.stringify({
