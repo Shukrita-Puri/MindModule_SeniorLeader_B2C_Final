@@ -392,7 +392,7 @@ const SelfMasteryCoach = () => {
     
     if (isLastPractice) {
       const jitData = localStorage.getItem('jitInterventionData');
-      setPlanFeedbackFlag(jitData ? 'jit' : 'tod');
+      setPlanFeedbackFlag(jitData ? 'jit' : 'tod', (location.state as any)?.entryRoute as string | undefined);
       localStorage.removeItem('jitInterventionData');
       localStorage.removeItem('practiceQueue');
       toast.success('🎉 Plan complete!');
