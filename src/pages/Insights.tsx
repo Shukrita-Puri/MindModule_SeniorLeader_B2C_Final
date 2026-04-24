@@ -920,7 +920,7 @@ const Insights = () => {
               </p>
             </div>
 
-            {(patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
+            {!sectionsHydratedRef.current && (patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
                 <EngravedLoader
                   compact
@@ -934,7 +934,7 @@ const Insights = () => {
               </div>
             )}
 
-            {!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone && (
+            {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
