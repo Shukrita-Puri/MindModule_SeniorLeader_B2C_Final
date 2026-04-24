@@ -486,16 +486,20 @@ const TodayThreePriorities = ({
   }, [user]);
 
   useEffect(() => {
+    // Wait for the brief to resolve before kicking off `loadPlan` — without
+    // this the first call races ahead of the awaiting-signals contract and
+    // generates a plan from defaults before the brief tells us to suppress.
+    if (outerReadinessData === undefined) return;
     // If we hydrated from sessionStorage at mount, run the load silently —
     // the user already sees their plan; any refresh happens in-place.
-    loadPlan({ silent: !!initialCached });
+    loadPlan({ silent: initialCachedRef.current });
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkCompletion();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(() => { if (plan) checkCompletion(); }, 60000);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
-  }, [user?.id]);
+  }, [user?.id, outerReadinessData]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
