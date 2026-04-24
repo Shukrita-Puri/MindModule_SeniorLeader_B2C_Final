@@ -1007,7 +1007,7 @@ const TodayThreePriorities = ({
                       return (
                         <div
                           key={practice.contentId}
-                          onClick={() => !isPracticeCompleted && navigateToPractice(practice, allPractices)}
+                          onClick={() => !isPracticeCompleted && navigateToPractice(practice, slotPractices)}
                           className={cn(
                             "relative flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300 snap-start",
                             "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
@@ -1072,7 +1072,7 @@ const TodayThreePriorities = ({
                   <Button
                     onClick={() => {
                       const nextPractice = slotPractices.find(p => !completedPracticeIds.includes(p.contentId)) || slotPractices[0];
-                      navigateToPractice(nextPractice, allPractices);
+                      navigateToPractice(nextPractice, slotPractices);
                     }}
                     className="w-full h-11 text-[14px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
                   >
