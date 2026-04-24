@@ -811,7 +811,10 @@ const TodayThreePriorities = ({
 
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+            Today's 3 Priorities
+          </span>
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xs font-medium font-body whitespace-nowrap",
