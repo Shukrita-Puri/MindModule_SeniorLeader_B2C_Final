@@ -3,6 +3,7 @@ import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-r
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
+import LevelTrendCalendar from '@/components/insights/LevelTrendCalendar';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -1017,7 +1018,31 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               );
             })()}
 
-            {/* 1A – How You Show Up (7+ check-ins) */}
+            {/* Clarity / Sharpness / Confidence trends — same calendar style as Mental Energy Trend */}
+            {data.checkInCount >= 5 && (
+              <>
+                <LevelTrendCalendar
+                  userId={userId}
+                  field="clarity_level"
+                  title="Clarity Trend"
+                  explanation="Each dot is your reported clarity (1–10) at that time of day. Deeper, richer tones mean higher clarity. Empty dots mean no check-in for that slot."
+                />
+                <LevelTrendCalendar
+                  userId={userId}
+                  field="mental_sharpness_level"
+                  title="Mental Sharpness Trend"
+                  explanation="Each dot is your reported mental sharpness (1–10) at that time of day. Deeper, richer tones mean sharper. Empty dots mean no check-in for that slot."
+                />
+                <LevelTrendCalendar
+                  userId={userId}
+                  field="confidence_level"
+                  title="Confidence Trend"
+                  explanation="Each dot is your reported confidence (1–10) at that time of day. Deeper, richer tones mean stronger confidence. Empty dots mean no check-in for that slot."
+                />
+              </>
+            )}
+
+            {/* 1A – How You Show Up (7+ check-ins) — moved below the four trend calendars */}
             {data.checkInCount >= 7 && data.presenceLabel && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
