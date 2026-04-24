@@ -118,11 +118,17 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
+  const { data: outerReadinessData } = useOuterReadiness();
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
   // activeView removed – JIT handled by JitCarousel component
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
+  // Awaiting-signals: mirrors the Brief contract. When neither a fresh
+  // check-in nor a fresh wearable today is present, the Plan is suppressed
+  // and the same prompt as the Brief is rendered. Pure UI suppression — no
+  // logic, calculation, LLM prompt, or deterministic content is changed.
+  const [awaitingSignals, setAwaitingSignals] = useState(false);
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
     completedCount: number;
