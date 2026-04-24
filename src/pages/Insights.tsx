@@ -398,7 +398,8 @@ const Insights = () => {
 
   const fetchTinyWinsInsights = async () => {
     if (!user?.id) return;
-    setWinsLoading(true);
+    // Silent refresh when we already hydrated from per-day cache.
+    if (!sectionsHydratedRef.current) setWinsLoading(true);
     try {
       // DEV_MODE: Direct database query with server-side dimensions (no client extraction)
       if (DEV_MODE) {
