@@ -280,12 +280,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     }
   };
 
-  // Composite Performance Readiness Score = mean of (recalibration + clarity + renewal)
-  const compositeScore = (s?: DimensionScores | null): number | null => {
-    if (!s) return null;
-    return Math.round((s.recalibration + s.clarity + s.renewal) / 3);
-  };
-
   // Color helper: positive=green, negative=red, stable=yellow (text only)
   const deltaTone = (delta: number): string => {
     if (delta > 0) return 'text-emerald-600';
@@ -322,8 +316,9 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           <p className="text-sm text-muted-foreground text-center py-6">Unable to load your trajectory.</p>
         ) : (
           (() => {
-            const baselineComposite = compositeScore(data.baselineScores);
-            const currentComposite = compositeScore(data.currentScores);
+            // Performance Readiness Score sourced from the Brief (inner_readiness_scores.composite_score)
+            const baselineComposite = briefScore.baseline;
+            const currentComposite = briefScore.current;
             const compositeDelta =
               baselineComposite != null && currentComposite != null
                 ? currentComposite - baselineComposite
