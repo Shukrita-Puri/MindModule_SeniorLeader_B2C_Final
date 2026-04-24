@@ -247,9 +247,15 @@ export function isLastPracticeInPlan(practiceId: string | undefined): boolean {
 }
 
 /**
- * Set plan feedback flag with timestamp for staleness detection
+ * Set plan feedback flag with timestamp for staleness detection.
+ *
+ * When `entryRoute === '/plan'`, this is a no-op — the Plan page (TodayThreePriorities)
+ * already shows a per-priority feedback modal as soon as a slot completes. Setting the
+ * global flag would cause ExecutiveHome to surface a duplicate plan-level modal on the
+ * next home visit. Each Today priority owns its own feedback loop.
  */
-export function setPlanFeedbackFlag(planType: 'tod' | 'jit') {
+export function setPlanFeedbackFlag(planType: 'tod' | 'jit', entryRoute?: string) {
+  if (entryRoute === '/plan') return;
   localStorage.setItem('showPlanFeedback', JSON.stringify({
     planType,
     timestamp: Date.now()
@@ -259,13 +265,16 @@ export function setPlanFeedbackFlag(planType: 'tod' | 'jit') {
 /**
  * Mark the active plan complete and queue plan feedback for the next home return.
  * Keeps JIT data intact so callers can still route into Coach before landing home.
+ *
+ * Pass `entryRoute` so that completions originating from `/plan` skip the global
+ * homepage feedback modal — TodayThreePriorities owns per-priority feedback there.
  */
-export function markPlanCompleteForFeedback(): { planType: 'tod' | 'jit' } {
+export function markPlanCompleteForFeedback(entryRoute?: string): { planType: 'tod' | 'jit' } {
   const ritualMode = localStorage.getItem('ritualMode');
   const jitData = localStorage.getItem('jitInterventionData');
   const planType: 'tod' | 'jit' = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
 
-  setPlanFeedbackFlag(planType);
+  setPlanFeedbackFlag(planType, entryRoute);
   localStorage.removeItem('practiceQueue');
   localStorage.removeItem('ritualMode');
 

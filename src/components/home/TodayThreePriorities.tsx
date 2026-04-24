@@ -556,24 +556,29 @@ const TodayThreePriorities = ({
     });
   };
 
-  const navigateToPractice = async (module: PlanModule, allModules: PlanModule[]) => {
+  // Queue is scoped to the CURRENT priority only (per-priority queue contract).
+  // Each Today priority owns its own ritual/feedback loop — finishing priority 1's
+  // practices triggers priority-1 feedback, then the user can independently start
+  // priority 2. This prevents the player tracker from spanning multiple priorities.
+  const navigateToPractice = async (module: PlanModule, slotModules: PlanModule[]) => {
     localStorage.removeItem('jitInterventionData');
-    localStorage.setItem('practiceQueue', JSON.stringify(allModules.map(m => ({
+    localStorage.setItem('practiceQueue', JSON.stringify(slotModules.map(m => ({
       id: m.contentId, title: m.title, contentType: m.contentType, category: m.contentType === 'coach' ? 'coach' : 'pause', duration: m.duration,
     }))));
-    const idx = allModules.findIndex(m => m.contentId === module.contentId);
+    const idx = slotModules.findIndex(m => m.contentId === module.contentId);
     localStorage.setItem('queueIndex', String(idx >= 0 ? idx : 0));
     localStorage.setItem('ritualMode', 'true');
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
       const currentPeriod = getCurrentTimeWindow();
+      // Daily ritual completion still tracks the FULL day's recommendations
+      // (derived from horizonModules in loadPlan). We don't overwrite that here
+      // with the per-slot subset — only when generating the plan initially.
       await upsertRitual({
         ritual_date: today,
         session_period: currentPeriod,
         completion_status: 'partial',
-        recommended_practices_count: allModules.length,
-        recommended_practice_ids: allModules.map(m => m.contentId),
       });
     }
 
@@ -1002,7 +1007,7 @@ const TodayThreePriorities = ({
                       return (
                         <div
                           key={practice.contentId}
-                          onClick={() => !isPracticeCompleted && navigateToPractice(practice, allPractices)}
+                          onClick={() => !isPracticeCompleted && navigateToPractice(practice, slotPractices)}
                           className={cn(
                             "relative flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300 snap-start",
                             "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
@@ -1067,7 +1072,7 @@ const TodayThreePriorities = ({
                   <Button
                     onClick={() => {
                       const nextPractice = slotPractices.find(p => !completedPracticeIds.includes(p.contentId)) || slotPractices[0];
-                      navigateToPractice(nextPractice, allPractices);
+                      navigateToPractice(nextPractice, slotPractices);
                     }}
                     className="w-full h-11 text-[14px] font-medium bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
                   >

@@ -1928,7 +1928,7 @@ const MicroPracticePlayerCards = () => {
     if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else if (isInQueue) {
-      markPlanCompleteForFeedback();
+      markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
@@ -1965,7 +1965,7 @@ const MicroPracticePlayerCards = () => {
     if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else if (isInQueue) {
-      markPlanCompleteForFeedback();
+      markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
@@ -2019,7 +2019,8 @@ const MicroPracticePlayerCards = () => {
       navigateToNext();
     } else {
       const ritualMode = localStorage.getItem('ritualMode');
-      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
+      const entryRoute = (location.state as any)?.entryRoute as string | undefined;
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'), entryRoute);
       localStorage.removeItem('ritualMode');
       localStorage.removeItem('practiceQueue');
       toast.success('🎉 Plan complete!');

@@ -347,7 +347,8 @@ const SoundscapePlayer = () => {
       localStorage.removeItem('practiceQueue');
       localStorage.removeItem('jitInterventionData');
       const ritualMode = localStorage.getItem('ritualMode');
-      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
+      const entryRoute = (location.state as any)?.entryRoute as string | undefined;
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'), entryRoute);
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Plan complete!');
       navigate(((location.state as any)?.entryRoute as string) || '/plan');
@@ -429,7 +430,7 @@ const SoundscapePlayer = () => {
     
     // If in queue and last item, complete ritual
     if (isInQueue) {
-      markPlanCompleteForFeedback();
+      markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
@@ -471,7 +472,7 @@ const SoundscapePlayer = () => {
     
     // If in queue and last item, complete ritual
     if (isInQueue) {
-      markPlanCompleteForFeedback();
+      markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
