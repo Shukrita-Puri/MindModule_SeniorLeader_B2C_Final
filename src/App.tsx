@@ -4,6 +4,7 @@ import {
   RouterProvider,
   Outlet,
   useLocation,
+  useParams,
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -40,6 +41,14 @@ const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
 const JoinPage = lazy(() => import("./pages/JoinPage"));
 const CheckInDetail = lazy(() => import("./pages/CheckInDetail"));
+
+// Force a full remount of player components when the :id param changes so per-practice
+// state (carousel position, audio progress, view stage, etc.) NEVER leaks between
+// practices in a multi-practice queue.
+const KeyByParamId = ({ children }: { children: React.ReactNode }) => {
+  const { id } = useParams<{ id: string }>();
+  return <div key={id || "no-id"} className="contents">{children}</div>;
+};
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
@@ -216,19 +225,19 @@ const router = createBrowserRouter([
       },
       {
         path: "soundscapes/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><SoundscapePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><SoundscapePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><GuidedPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><GuidedPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id/cards",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayerCards /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayerCards /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
