@@ -430,51 +430,16 @@ const SoundscapePlayer = () => {
     // If in queue and last item, complete ritual
     if (isInQueue) {
       markPlanCompleteForFeedback();
-      // Check for JIT intervention data for coach navigation
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      // Coach hand-off suppressed — clear JIT data and return to Plan.
+      localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
       navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     
     // Standalone practice - check for JIT data
-    const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData) {
-      try {
-        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-        localStorage.removeItem('jitInterventionData');
-        toast.success('Practice complete! Opening Coach...');
-        navigate('/coach', {
-          state: {
-            flowType,
-            initialPrompt: coachPrompt,
-            fromIntervention: true,
-            eventTitle
-          }
-        });
-        return;
-      } catch (e) {
-        console.error('Error parsing JIT data:', e);
-      }
-    }
+    // Coach hand-off suppressed — clear JIT data and return to category path.
+    localStorage.removeItem('jitInterventionData');
     navigate(getCategoryPath());
   };
 
@@ -507,51 +472,16 @@ const SoundscapePlayer = () => {
     // If in queue and last item, complete ritual
     if (isInQueue) {
       markPlanCompleteForFeedback();
-      // Check for JIT intervention data for coach navigation
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      // Coach hand-off suppressed — clear JIT data and return to Plan.
+      localStorage.removeItem('jitInterventionData');
       toast.success('🎉 Plan complete!');
       navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     
     // Standalone practice - check for JIT data
-    const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData) {
-      try {
-        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-        localStorage.removeItem('jitInterventionData');
-        toast.success('Practice complete! Opening Coach...');
-        navigate('/coach', {
-          state: {
-            flowType,
-            initialPrompt: coachPrompt,
-            fromIntervention: true,
-            eventTitle
-          }
-        });
-        return;
-      } catch (e) {
-        console.error('Error parsing JIT data:', e);
-      }
-    }
+    // Coach hand-off suppressed — clear JIT data and return to category path.
+    localStorage.removeItem('jitInterventionData');
     navigate(getCategoryPath());
   };
 
