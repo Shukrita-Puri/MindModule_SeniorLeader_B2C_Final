@@ -140,7 +140,7 @@ const MicroPracticePlayer = () => {
     }
 
     if (isLastPracticeInPlan(id)) {
-      const { planType } = markPlanCompleteForFeedback();
+      const { planType } = markPlanCompleteForFeedback((location.state as any)?.entryRoute as string | undefined);
       const jitData = localStorage.getItem('jitInterventionData');
 
       if (jitData) {
