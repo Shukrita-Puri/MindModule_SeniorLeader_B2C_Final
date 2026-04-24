@@ -17,7 +17,7 @@ const RecalibrateMode = () => {
     {
       id: "pause",
       title: "Pause Mastery",
-      description: "Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.",
+      description: "Restore composure and clarity in high-pressure moments.",
       illustration: architecturalPause,
       path: "/recalibrate/pause",
       imagePosition: "object-center"
@@ -25,7 +25,7 @@ const RecalibrateMode = () => {
     {
       id: "presence",
       title: "Flow Mastery",
-      description: "Enter deep focus, accelerate productivity, and sustain peak mental performance.",
+      description: "Enter deep focus and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence",
       imagePosition: "object-center"
@@ -33,7 +33,7 @@ const RecalibrateMode = () => {
     {
       id: "power-up", 
       title: "Recharge Mastery",
-      description: "Rebuild energy, resilience, and readiness for high-stakes moments.",
+      description: "Rebuild energy and readiness for high-stakes moments.",
       illustration: architecturalPowerUp,
       path: "/recalibrate/power-up",
       imagePosition: "object-[center_20%]"
