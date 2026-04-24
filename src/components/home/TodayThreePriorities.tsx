@@ -1011,6 +1011,12 @@ const TodayThreePriorities = ({
                     />
                   )}
 
+                  {/* Integrate slot owns its own actions inside ReflectionCorner
+                      (Save win + Start companion). The redundant coach practice
+                      card and bottom Start button below would just re-expand the
+                      same view, so we suppress them on this slot only. */}
+                  {!(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                  <>
                   {/* Practice cards — horizontal scroll when multiple */}
                   <div className={cn(
                     hasMultiple ? "flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory" : ""
@@ -1093,6 +1099,8 @@ const TodayThreePriorities = ({
                   >
                     {hasMultiple && slotCompletedCount > 0 ? `Continue (${slotCompletedCount}/${slotPractices.length})` : 'Start'}
                   </Button>
+                  </>
+                  )}
                 </div>
               )}
             </div>
