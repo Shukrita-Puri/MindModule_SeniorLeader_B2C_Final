@@ -897,10 +897,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">
-                          Your Week at a Glance
+                          Mental Energy Trend
                         </span>
                         <InsightInfoModal
-                          title="Week at a Glance"
+                          title="Mental Energy Trend"
                           explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
                         />
                       </div>
