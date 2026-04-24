@@ -203,7 +203,7 @@ const PowerUpOutcomePage = () => {
         {/* Mindset Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2 flex items-center gap-2.5"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-saffron/50 text-[13px] font-body text-saffron">1</span>Mindset Protocol</h2>
+            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2 flex items-center gap-2.5"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-saffron text-[13px] font-body text-saffron-foreground">1</span>Mindset Protocol</h2>
             <p className="text-sm text-muted-foreground italic font-body">Reframe perspective. Build resilience. Prime your mind.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -271,7 +271,7 @@ const PowerUpOutcomePage = () => {
         {/* Somatic Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2 flex items-center gap-2.5"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-saffron/50 text-[13px] font-body text-saffron">2</span>Somatic Protocol</h2>
+            <h2 className="text-[20px] sm:text-xl font-headline font-medium text-foreground mb-2 flex items-center gap-2.5"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-saffron text-[13px] font-body text-saffron-foreground">2</span>Somatic Protocol</h2>
             <p className="text-sm text-muted-foreground italic font-body">Regulate the nervous system. Reset the body.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
