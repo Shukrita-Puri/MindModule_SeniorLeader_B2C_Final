@@ -848,7 +848,7 @@ const TodayThreePriorities = ({
               key={`${module.contentId}-${index}`}
               className={cn(
                 "space-y-0 rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-4 py-1 border-l-2 transition-colors",
-                slotCompleted ? "border-l-taupe/40" : isExpanded ? "border-l-saffron/60" : "border-l-taupe/40"
+                "border-l-taupe/40"
               )}
             >
               {/* Slot header row */}
