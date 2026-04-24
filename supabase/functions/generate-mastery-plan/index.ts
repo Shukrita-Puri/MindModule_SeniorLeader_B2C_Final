@@ -2056,6 +2056,47 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const combinedAlreadyUsed = shared.combinedAlreadyUsed;
   const pendingCommitments = shared.pendingCommitments;
 
+  // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
+  // If the user has no fresh check-in for the current window AND no fresh
+  // wearable data today, suppress the time-of-day plan from generating
+  // from defaults. This ensures parity with the Brief, which renders a
+  // quiet "Begin with your check-in" prompt under the same condition.
+  // JIT pre-event plans for known scheduled events still surface.
+  const today = new Date().toISOString().split('T')[0];
+  const { data: todayCheckinRow } = await supabaseClient
+    .from('daily_checkins')
+    .select('id')
+    .eq('user_id', req.userId)
+    .eq('checkin_date', today)
+    .eq('time_window', timeOfDay)
+    .maybeSingle();
+  const hasTodayCheckIn = !!todayCheckinRow;
+  const hasFreshWearable = !!(req.wearableContext?.hasData);
+  const planAwaitingSignals = !hasTodayCheckIn && !hasFreshWearable;
+  if (planAwaitingSignals) {
+    console.log(`[generate-mastery-plan] Awaiting signals (no checkin + no wearable) for user=${req.userId} window=${timeOfDay}. Suppressing time-of-day plan.`);
+    return {
+      timeOfDayPlan: {
+        label: timeOfDay,
+        period: timeOfDay as 'morning' | 'afternoon' | 'evening',
+        modules: [],
+        coachCard: null,
+        totalDuration: 0,
+        progressTracked: false,
+      },
+      preEventPlan: null,
+      jitPriority: false,
+      horizonModules: [],
+      awaitingSignals: true,
+      awaitingReason: 'no-checkin-no-wearable',
+      meta: {
+        generatedAt: new Date().toISOString(),
+        suppressed: true,
+        reason: 'awaiting-signals',
+      },
+    };
+  }
+
   // 2. Fetch content library from DB
   const { data: contentLibrary } = await supabaseClient
     .from('sanctuary_content')

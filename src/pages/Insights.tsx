@@ -206,19 +206,47 @@ const Insights = () => {
     }, 800);
     return () => clearTimeout(timer);
   }, [highlightParam, setSearchParams]);
+  // ── Per-day persistent cache for Insights section payloads ──
+  // Hydrate synchronously at mount so the scripted loader is skipped on
+  // revisit (same standard as the Brief / Plan / Onboarding-Results).
+  // Refresh fetches always run silently (never flip `*Loading` true) and
+  // swap state in place once new data arrives.
+  const insightsDataKey = (() => {
+    const uid = DEV_MODE ? DEV_USER.id : user?.id;
+    if (!uid) return null;
+    const today = new Date().toISOString().split('T')[0];
+    return cacheKeys.insightsData(uid, today);
+  })();
+  interface CachedInsightsSections {
+    statePatterns: StatePatternInsights | null;
+    tinyWinsInsights: TinyWinsInsights | null;
+    tinyWinsContent: Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>;
+    semanticAnalysis: SemanticAnalysis | null;
+    weekData: DayData[];
+    checkInStreak: number;
+    practiceData: PracticeData[];
+    profileBaseline: ProfileBaseline | null;
+    checkInsWithTimestamp: CheckInWithTimestamp[];
+  }
+  const cachedSections = (insightsDataKey
+    ? readPersistent<CachedInsightsSections>(insightsDataKey)
+    : null) as CachedInsightsSections | null;
+  const sectionsHydratedRef = useRef<boolean>(!!cachedSections);
+
   // Removed page-level `loading` gate – each section manages its own loading
-  const [weekData, setWeekData] = useState<DayData[]>([]);
-  const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
-  const [checkInStreak, setCheckInStreak] = useState(0);
-  const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
-  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
-  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>([]);
-  const [winsLoading, setWinsLoading] = useState(true);
-  const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
-  const [patternsLoading, setPatternsLoading] = useState(true);
-  const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
-  const [semanticLoading, setSemanticLoading] = useState(true);
-  const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(null);
+  const [weekData, setWeekData] = useState<DayData[]>(cachedSections?.weekData || []);
+  const [practiceData, setPracticeData] = useState<PracticeData[]>(cachedSections?.practiceData || []);
+  const [checkInStreak, setCheckInStreak] = useState(cachedSections?.checkInStreak || 0);
+  const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>(cachedSections?.checkInsWithTimestamp || []);
+  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(cachedSections?.tinyWinsInsights || null);
+  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>(cachedSections?.tinyWinsContent || []);
+  // When cache hit, *Loading starts FALSE — refresh runs silently.
+  const [winsLoading, setWinsLoading] = useState(!cachedSections?.tinyWinsInsights);
+  const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(cachedSections?.statePatterns || null);
+  const [patternsLoading, setPatternsLoading] = useState(!cachedSections?.statePatterns);
+  const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(cachedSections?.semanticAnalysis || null);
+  const [semanticLoading, setSemanticLoading] = useState(!cachedSections?.semanticAnalysis);
+  const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(cachedSections?.profileBaseline || null);
   const [patternsError, setPatternsError] = useState(false);
   const [winsError, setWinsError] = useState(false);
   const [semanticError, setSemanticError] = useState(false);
@@ -241,6 +269,37 @@ const Insights = () => {
       writePersistent(insightsScriptKey, true, msUntilMidnight());
     }
   }, [insightsScriptDone, insightsScriptKey]);
+
+  // Persist all three section payloads (+ derived arrays) once they've
+  // populated, so a revisit (even after full app reopen) hydrates instantly
+  // and skips the scripted loader. TTL = midnight rollover.
+  useEffect(() => {
+    if (!insightsDataKey) return;
+    if (!statePatterns || !tinyWinsInsights || !semanticAnalysis) return;
+    const payload: CachedInsightsSections = {
+      statePatterns,
+      tinyWinsInsights,
+      tinyWinsContent,
+      semanticAnalysis,
+      weekData,
+      checkInStreak,
+      practiceData,
+      profileBaseline,
+      checkInsWithTimestamp,
+    };
+    writePersistent(insightsDataKey, payload, msUntilMidnight());
+  }, [
+    insightsDataKey,
+    statePatterns,
+    tinyWinsInsights,
+    tinyWinsContent,
+    semanticAnalysis,
+    weekData,
+    checkInStreak,
+    practiceData,
+    profileBaseline,
+    checkInsWithTimestamp,
+  ]);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
@@ -370,7 +429,8 @@ const Insights = () => {
 
   const fetchTinyWinsInsights = async () => {
     if (!user?.id) return;
-    setWinsLoading(true);
+    // Silent refresh when we already hydrated from per-day cache.
+    if (!sectionsHydratedRef.current) setWinsLoading(true);
     try {
       // DEV_MODE: Direct database query with server-side dimensions (no client extraction)
       if (DEV_MODE) {
@@ -474,7 +534,7 @@ const Insights = () => {
 
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
-    setPatternsLoading(true);
+    if (!sectionsHydratedRef.current) setPatternsLoading(true);
     // patternsLoading already set above
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
@@ -558,7 +618,7 @@ const Insights = () => {
 
   const fetchSemanticAnalysis = async () => {
     if (!user?.id) return;
-    setSemanticLoading(true);
+    if (!sectionsHydratedRef.current) setSemanticLoading(true);
     try {
       // DEV_MODE: Extract themes from actual data
       if (DEV_MODE) {
@@ -860,7 +920,7 @@ const Insights = () => {
               </p>
             </div>
 
-            {(patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
+            {!sectionsHydratedRef.current && (patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
                 <EngravedLoader
                   compact
@@ -874,7 +934,7 @@ const Insights = () => {
               </div>
             )}
 
-            {!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone && (
+            {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">

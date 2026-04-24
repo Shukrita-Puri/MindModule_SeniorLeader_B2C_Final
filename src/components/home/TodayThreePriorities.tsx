@@ -138,6 +138,14 @@ const TodayThreePriorities = ({
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(initialCached);
   const [loading, setLoading] = useState(!initialCached);
   const [fetchFailed, setFetchFailed] = useState(false);
+  // Awaiting-signals state — mirrors the Brief contract. When true, the
+  // Plan card renders the same quiet "Begin with your check-in" prompt
+  // instead of generating a plan from defaults.
+  const [awaitingSignals, setAwaitingSignals] = useState(false);
+  // Ref preserves the "we already had a cached payload at mount" fact for
+  // the lifetime of this component, so a transient `loading=true` from a
+  // silent refresh can never re-trigger the scripted EngravedLoader.
+  const initialCachedRef = useRef<boolean>(!!initialCached);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string; key: string } | null>(null);
@@ -291,6 +299,23 @@ const TodayThreePriorities = ({
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getCheckinForWindow(todayDate, currentPeriod);
+
+      // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
+      // If the Brief is awaiting signals (no fresh check-in AND no fresh
+      // wearable today), we MUST NOT generate a plan from defaults. The
+      // Plan card renders the same quiet "Begin with your check-in"
+      // prompt as the Brief. Server-side gate in generate-mastery-plan
+      // enforces the same contract for any direct/edge caller.
+      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
+      if (briefAwaiting && !todayCheckin && !wearableFresh) {
+        setAwaitingSignals(true);
+        setPlan(null);
+        setLoading(false);
+        return;
+      }
+      // Materialised signal — clear stale awaiting flag if signals returned.
+      setAwaitingSignals(false);
 
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
@@ -461,16 +486,20 @@ const TodayThreePriorities = ({
   }, [user]);
 
   useEffect(() => {
+    // Wait for the brief to resolve before kicking off `loadPlan` — without
+    // this the first call races ahead of the awaiting-signals contract and
+    // generates a plan from defaults before the brief tells us to suppress.
+    if (outerReadinessData === undefined) return;
     // If we hydrated from sessionStorage at mount, run the load silently —
     // the user already sees their plan; any refresh happens in-place.
-    loadPlan({ silent: !!initialCached });
+    loadPlan({ silent: initialCachedRef.current });
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkCompletion();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(() => { if (plan) checkCompletion(); }, 60000);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
-  }, [user?.id]);
+  }, [user?.id, outerReadinessData]);
 
   useEffect(() => { if (plan) checkCompletion(); }, [plan]);
 
@@ -637,7 +666,11 @@ const TodayThreePriorities = ({
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
   const dataReady = !loading && horizonModules && horizonModules.length > 0;
-  const showPlanLoader = loading || (dataReady && !planScriptDone);
+  // Cached-render-and-silent-verification: if a valid cached plan was
+  // present at mount, we never re-show the scripted loader during a
+  // background refresh — even if `loading` flips true transiently.
+  const showPlanLoader =
+    !initialCachedRef.current && (loading || (dataReady && !planScriptDone));
   if (showPlanLoader) {
     return (
       <div className="space-y-4 pt-2">
@@ -664,6 +697,39 @@ const TodayThreePriorities = ({
             ]}
             onAllStepsComplete={() => setPlanScriptDone(true)}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Awaiting-signals empty state ──
+  // Mirrors the Brief contract: when neither check-in nor today's wearable
+  // is present, show the same quiet prompt instead of a generated plan.
+  if (awaitingSignals) {
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <div className="pt-2">
+            <button
+              onClick={() => navigate('/daily-check-in')}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
+            >
+              <span className="text-xs text-muted-foreground/70 font-body">
+                Begin with your check-in to build today's plan
+              </span>
+              <ChevronRight size={12} className="text-muted-foreground/40" />
+            </button>
+          </div>
         </div>
       </div>
     );
