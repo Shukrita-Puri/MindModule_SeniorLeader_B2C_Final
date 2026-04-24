@@ -61,7 +61,7 @@ const RecalibrateMode = () => {
             >
               <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-500 flex flex-col">
                 {/* Image */}
-                <div className="relative flex-[3] md:flex-[2] min-h-0 overflow-hidden bg-card">
+                <div className="relative flex-1 md:flex-1 min-h-0 overflow-hidden bg-card">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
@@ -69,7 +69,7 @@ const RecalibrateMode = () => {
                   />
                 </div>
                 {/* Text on opaque background */}
-                <div className="p-4 md:p-5 bg-card">
+                <div className="flex-1 p-4 md:p-5 bg-card flex flex-col justify-center">
                   <h3 className="text-[17px] md:text-[18px] font-headline font-semibold text-foreground group-hover:text-saffron group-active:text-saffron transition-colors duration-300">
                     {tool.title}
                   </h3>
