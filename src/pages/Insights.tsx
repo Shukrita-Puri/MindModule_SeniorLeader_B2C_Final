@@ -1115,13 +1115,6 @@ const Insights = () => {
             <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
-                    />
-                  </>
-                )}
-              </CardContent>
-            </LuxuryInsightCard>
-          </div>
-        </div>
         </div>
             </div>
             )}
