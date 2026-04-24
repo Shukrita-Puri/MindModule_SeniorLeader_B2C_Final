@@ -74,23 +74,69 @@ function devResolveArchetype(er: number, fr: number, en: number) {
 const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Performance Readiness Score from the Brief (inner_readiness_scores.composite_score)
+  const [briefScore, setBriefScore] = useState<{ baseline: number | null; current: number | null }>({
+    baseline: null,
+    current: null,
+  });
 
   useEffect(() => {
     // Use prefetched data if available (avoids duplicate edge function call)
     if (prefetchedData && prefetchedData.baselineArchetypeId) {
       setData(prefetchedData);
       setLoading(false);
+      fetchBriefScore();
       return;
     }
     // If parent is still loading, wait – don't fire our own request
     if (parentLoading) return;
     // Only self-fetch if no parent is providing data (standalone usage)
-    if (userId && prefetchedData === undefined) fetchData();
+    if (userId && prefetchedData === undefined) {
+      fetchData();
+      fetchBriefScore();
+    }
     // If parent finished loading but data is empty/null, stop loading
     if (prefetchedData === null && !parentLoading) {
       setLoading(false);
+      fetchBriefScore();
     }
   }, [userId, prefetchedData, parentLoading]);
+
+  const fetchBriefScore = async () => {
+    try {
+      const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
+      if (!effectiveUserId) return;
+      // Baseline = earliest composite_score, Current = latest composite_score
+      const [earliestRes, latestRes] = await Promise.all([
+        supabase
+          .from('inner_readiness_scores')
+          .select('composite_score, score_date')
+          .eq('user_id', effectiveUserId)
+          .order('score_date', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('inner_readiness_scores')
+          .select('composite_score, score_date')
+          .eq('user_id', effectiveUserId)
+          .order('score_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const baseline = earliestRes.data?.composite_score ?? null;
+      const latest = latestRes.data?.composite_score ?? null;
+      setBriefScore({
+        baseline: baseline != null ? Math.round(baseline) : null,
+        // If only one score exists (baseline === latest by date), don't show "current"
+        current:
+          latest != null && earliestRes.data?.score_date !== latestRes.data?.score_date
+            ? Math.round(latest)
+            : null,
+      });
+    } catch (err) {
+      console.error('[LeadershipPatternsCard] briefScore fetch error:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
