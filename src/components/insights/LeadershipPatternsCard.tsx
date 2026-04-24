@@ -400,8 +400,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
                     {data.coreStrengths && data.coreStrengths.length > 0 ? (
                       <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : data.coachStrength ? (
-                      <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
@@ -415,11 +413,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         </li>
                       ))}
                     </ul>
-                  ) : data.coachStrength ? (
-                    <div className="flex items-start gap-1.5">
-                      <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
-                    </div>
                   ) : (
                     <p className="text-sm text-saffron">{data.archetypeLeanOn}</p>
                   )}
@@ -434,8 +427,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
                     {data.growthEdges && data.growthEdges.length > 0 ? (
                       <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : data.coachFriction ? (
-                      <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
@@ -449,18 +440,8 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         </li>
                       ))}
                     </ul>
-                  ) : data.coachFriction ? (
-                    <div className="flex items-start gap-1.5">
-                      <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
-                    </div>
                   ) : (
-                    <>
-                      <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
-                      {data.coachSessionCount < 3 && (
-                        <p className="text-xs text-muted-foreground/60 mt-1">Will personalize with coach sessions</p>
-                      )}
-                    </>
+                    <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
                   )}
                 </div>
               </div>
