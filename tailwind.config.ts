@@ -194,6 +194,13 @@ export default {
           "0%, 100%": { transform: "translateY(0) rotate(-5deg)" },
           "50%": { transform: "translateY(-7px) rotate(8deg)" },
         },
+        "text-bounce": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "30%": { transform: "translateY(-4px)" },
+          "55%": { transform: "translateY(0)" },
+          "75%": { transform: "translateY(-2px)" },
+          "90%": { transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -210,6 +217,7 @@ export default {
         "float-logo-2": "float-logo-2 3.5s ease-in-out infinite 0.3s",
         "float-logo-3": "float-logo-3 4s ease-in-out infinite 0.6s",
         "float-logo-4": "float-logo-4 3.2s ease-in-out infinite 0.9s",
+        "text-bounce": "text-bounce 1.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1",
       },
     },
   },

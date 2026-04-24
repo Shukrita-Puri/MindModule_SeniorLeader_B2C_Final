@@ -7,7 +7,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +26,7 @@ import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebas
 import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
+import GenerateTodaysPlanLink from "@/components/home/GenerateTodaysPlanLink";
 
 
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
@@ -354,17 +354,7 @@ const ExecutiveHome = () => {
               </section>
               {briefCtaReady && (
                  <div className="mt-5 pt-1 flex justify-end animate-in fade-in duration-300">
-                   <button
-                     type="button"
-                     onClick={() => navigate('/plan')}
-                      className="group inline-flex items-center gap-1.5 px-1.5 py-0.5 text-sm uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--saffron))] transition-all [text-shadow:0_0_10px_hsl(var(--taupe-highlight)/0.9),0_0_20px_hsl(var(--taupe-highlight)/0.6)] hover:[text-shadow:0_0_14px_hsl(var(--taupe-highlight)),0_0_24px_hsl(var(--taupe-highlight)/0.8)]"
-                   >
-                     GENERATE TODAY'S PLAN
-                     <ArrowRight
-                       className="w-4 h-4 transition-transform group-hover:translate-x-0.5 text-[hsl(var(--saffron))]"
-                       strokeWidth={2.25}
-                     />
-                   </button>
+                   <GenerateTodaysPlanLink onClick={() => navigate('/plan')} />
                  </div>
                )}
             </div>
