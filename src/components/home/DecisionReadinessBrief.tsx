@@ -1734,8 +1734,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           (check-in or today's wearable) is present. */}
       {awaitingSignals && (
         <>
-          <p className="mt-4 text-[17px] italic text-muted-foreground/70" style={{ fontFamily: 'Georgia, serif' }}>
-            Begin with your check-in. To activate your personalised brief and plan — takes two minutes.
+          <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+            Awaiting today's signal
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
+            Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief.
           </p>
         </>
       )}
