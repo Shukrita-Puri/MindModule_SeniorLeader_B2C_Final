@@ -225,19 +225,19 @@ const router = createBrowserRouter([
       },
       {
         path: "soundscapes/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><SoundscapePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><SoundscapePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><GuidedPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><GuidedPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id/cards",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayerCards /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayerCards /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
