@@ -503,7 +503,7 @@ const Insights = () => {
 
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
-    setPatternsLoading(true);
+    if (!sectionsHydratedRef.current) setPatternsLoading(true);
     // patternsLoading already set above
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
