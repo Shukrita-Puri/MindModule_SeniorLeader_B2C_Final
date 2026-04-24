@@ -1832,53 +1832,13 @@ const GuidedPracticePlayer = () => {
         navigateToNext();
       } else if (isInQueue) {
         markPlanCompleteForFeedback();
-        // Check for JIT intervention data for coach navigation
-        const jitData = localStorage.getItem('jitInterventionData');
-        if (jitData) {
-          try {
-            const parsed = JSON.parse(jitData);
-            localStorage.removeItem('jitInterventionData');
-            if (parsed.hasCoachStep === true && parsed.coachPrompt) {
-              toast.success('Practices complete! Opening Coach...');
-              navigate('/coach', {
-                state: {
-                  flowType: parsed.flowType,
-                  initialPrompt: parsed.coachPrompt,
-                  fromIntervention: true,
-                  eventTitle: parsed.eventTitle
-                }
-              });
-              return;
-            }
-          } catch (e) {
-            console.error('Error parsing JIT data:', e);
-          }
-        }
+        // Coach hand-off suppressed — clear JIT intervention data and return to Plan.
+        localStorage.removeItem('jitInterventionData');
         toast.success('🎉 Plan complete!');
         navigate(((location.state as any)?.entryRoute as string) || '/plan');
       } else {
-        // Check for JIT intervention data (single practice case)
-        const jitData = localStorage.getItem('jitInterventionData');
-        if (jitData) {
-          try {
-            const parsed = JSON.parse(jitData);
-            localStorage.removeItem('jitInterventionData');
-            if (parsed.hasCoachStep === true && parsed.coachPrompt) {
-              toast.success('Practice complete! Opening Coach...');
-              navigate('/coach', {
-                state: {
-                  flowType: parsed.flowType,
-                  initialPrompt: parsed.coachPrompt,
-                  fromIntervention: true,
-                  eventTitle: parsed.eventTitle
-                }
-              });
-              return;
-            }
-          } catch (e) {
-            console.error('Error parsing JIT data:', e);
-          }
-        }
+        // Coach hand-off suppressed — clear JIT data and return to category path.
+        localStorage.removeItem('jitInterventionData');
         navigate(getCategoryPath());
       }
     };
@@ -1906,28 +1866,8 @@ const GuidedPracticePlayer = () => {
         navigateToNext();
       } else if (isInQueue) {
         markPlanCompleteForFeedback();
-        // Check for JIT intervention data for coach navigation
-        const jitData = localStorage.getItem('jitInterventionData');
-        if (jitData) {
-          try {
-            const parsed = JSON.parse(jitData);
-            localStorage.removeItem('jitInterventionData');
-            if (parsed.hasCoachStep === true && parsed.coachPrompt) {
-              toast.success('Practices complete! Opening Coach...');
-              navigate('/coach', {
-                state: {
-                  flowType: parsed.flowType,
-                  initialPrompt: parsed.coachPrompt,
-                  fromIntervention: true,
-                  eventTitle: parsed.eventTitle
-                }
-              });
-              return;
-            }
-          } catch (e) {
-            console.error('Error parsing JIT data:', e);
-          }
-        }
+        // Coach hand-off suppressed — clear JIT intervention data and return to Plan.
+        localStorage.removeItem('jitInterventionData');
         toast.success('🎉 Ritual complete!');
         navigate(((location.state as any)?.entryRoute as string) || '/plan');
       } else {
