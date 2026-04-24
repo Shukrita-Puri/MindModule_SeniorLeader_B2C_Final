@@ -269,6 +269,37 @@ const Insights = () => {
       writePersistent(insightsScriptKey, true, msUntilMidnight());
     }
   }, [insightsScriptDone, insightsScriptKey]);
+
+  // Persist all three section payloads (+ derived arrays) once they've
+  // populated, so a revisit (even after full app reopen) hydrates instantly
+  // and skips the scripted loader. TTL = midnight rollover.
+  useEffect(() => {
+    if (!insightsDataKey) return;
+    if (!statePatterns || !tinyWinsInsights || !semanticAnalysis) return;
+    const payload: CachedInsightsSections = {
+      statePatterns,
+      tinyWinsInsights,
+      tinyWinsContent,
+      semanticAnalysis,
+      weekData,
+      checkInStreak,
+      practiceData,
+      profileBaseline,
+      checkInsWithTimestamp,
+    };
+    writePersistent(insightsDataKey, payload, msUntilMidnight());
+  }, [
+    insightsDataKey,
+    statePatterns,
+    tinyWinsInsights,
+    tinyWinsContent,
+    semanticAnalysis,
+    weekData,
+    checkInStreak,
+    practiceData,
+    profileBaseline,
+    checkInsWithTimestamp,
+  ]);
   const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
