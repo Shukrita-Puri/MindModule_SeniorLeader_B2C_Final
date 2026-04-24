@@ -678,7 +678,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const coachSessionCount = dialogueMessages.filter(m => m.sender_type === 'coach').length > 0 ? 
           new Set(dialogueMessages.filter(m => m.sender_type === 'coach').map(m => m.session_id)).size : 0;
 
-        if (checkIns.length >= 7 && (highStakesEvents.length >= 1 || coachSessionCount >= 2)) {
+        if (checkIns.length >= 7 && highStakesEvents.length >= 1) {
           // Pre-event sessions
           const preEventSessionsCompleted = rituals.filter(r =>
             r.session_period === 'pre-event' && r.completion_status === 'full' &&
@@ -693,13 +693,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }).length;
           const lowReadinessScore = Math.min(20, lowReadinessHighStakes * 5);
 
-          // Coach presence keywords
-          const positiveKw = /showed up well|brought full presence|held the room|commanded the space|fully there|present and sharp|brought your best/i;
-          const negativeKw = /wasn't fully there|didn't bring it|phoned it in|checked out|not fully present|energy wasn't there/i;
-          const positivePresence = dialogueMessages.filter(m => positiveKw.test(m.content)).length;
-          const negativePresence = dialogueMessages.filter(m => negativeKw.test(m.content)).length;
-          const coachPresenceScore = Math.max(-30, Math.min(30, (positivePresence * 15) - (negativePresence * 15)));
-
           // Energized after high-stakes
           const energizedAfterHighStakes = highStakesEvents.filter(e => {
             const eventDateStr = new Date(e.start_time).toISOString().split('T')[0];
@@ -710,7 +703,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }).length;
           const energizedScore = Math.min(15, energizedAfterHighStakes * 5);
 
-          presenceScore = Math.max(0, Math.min(100, preEventScore + lowReadinessScore + coachPresenceScore + energizedScore));
+          presenceScore = Math.max(0, Math.min(100, preEventScore + lowReadinessScore + energizedScore));
 
           if (presenceScore >= 70) presenceLabel = 'You show up when it matters';
           else if (presenceScore >= 50) presenceLabel = 'Your presence holds under pressure';
@@ -720,7 +713,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           // Dominant signal insight
           const signals = [
             { score: preEventScore, text: `You prepared for ${preEventSessionsCompleted} of ${highStakesEvents.length} high-stakes moments – your presence held even when readiness was low.` },
-            { score: Math.abs(coachPresenceScore), text: coachPresenceScore > 0 ? 'Your coach has noted strong presence in high-stakes contexts – that consistency is a real strength.' : 'Your coach has flagged uneven presence when stakes are high – preparation matters but doesn\'t always close the gap.' },
             { score: lowReadinessScore, text: `You showed up to ${lowReadinessHighStakes} high-stakes moments while depleted – your presence held despite your state.` },
             { score: energizedScore, text: 'High-stakes moments energize you – your readiness often rises the day after, not before.' },
           ];
