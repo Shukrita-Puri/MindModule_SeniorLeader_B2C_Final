@@ -17,6 +17,7 @@ import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/component
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import CauseEffectPanel from '@/components/insights/CauseEffectPanel';
+import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -964,6 +965,8 @@ const Insights = () => {
         <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
           <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
             <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
+
+            <DailyShowUpCalendar userId={user?.id} />
 
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
