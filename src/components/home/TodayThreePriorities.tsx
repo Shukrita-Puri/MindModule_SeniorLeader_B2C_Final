@@ -535,7 +535,22 @@ const TodayThreePriorities = ({
       return;
     }
     const allCompleted = ritual.completed_practice_ids || [];
-    const active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
+    let active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
+
+    // Stoic companion bridge: when the ReflectionCorner's "Optional companion"
+    // (stoic-reflection) is completed inside the player, it lands in
+    // completed_practice_ids as 'stoic-reflection'. Map that to the integrate
+    // slot's own contentId so the slot is treated as fulfilled and the
+    // PlanFeedbackModal fires for this priority.
+    if (allCompleted.includes('stoic-reflection')) {
+      const integrateSlot = (plan.horizonModules || []).find(
+        (m: any) => (m.practice?.title === 'Tiny Win and Reflection' || m.practice?.type === 'integrate'),
+      );
+      const integrateId = integrateSlot?.practice?.contentId;
+      if (integrateId && !active.includes(integrateId)) {
+        active = [...active, integrateId];
+      }
+    }
     // Only update state if content actually changed — prevents spurious effect re-runs
     setCompletedPracticeIds(prev => {
       const prevKey = [...prev].sort().join(',');
