@@ -20,7 +20,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
-import { read as readPersistent, cacheKeys } from '@/utils/persistentBriefCache';
+import { read as readPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
@@ -1567,25 +1567,41 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
     try {
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
       if (!effectiveUserId) return false;
-      const hour = new Date().getHours();
-      const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+      const period = currentPeriodLocal();
+      // A cached payload only counts as "valid for the current period" if it
+      // is NOT an awaiting payload AND has a real phrase + bodyText. This is
+      // what stops a stale cache from skipping the loader and painting an
+      // out-of-period brief while the live request is still in flight.
+      const isRenderable = (v: any) =>
+        !!v && !v.awaitingSignals && !!v.phrase && !!v.bodyText;
       // 1) In-memory React Query cache (same tab session)
-      const cached = queryClient.getQueryData(['outer-readiness', effectiveUserId, period]);
-      if (cached) return true;
+      const cached: any = queryClient.getQueryData(['outer-readiness', effectiveUserId, period]);
+      if (isRenderable(cached)) return true;
       // 2) Persistent localStorage cache (survives full app reopen within
-      //    the current time-of-day window).
-      const todayISO = new Date().toISOString().split('T')[0];
-      const persisted = readPersistent(cacheKeys.brief(effectiveUserId, period, todayISO));
-      return !!persisted;
+      //    the current time-of-day window). Use the user's LOCAL date so we
+      //    don't read yesterday's payload near midnight in non-UTC zones.
+      const todayISO = localISODate();
+      const persisted = readPersistent<any>(cacheKeys.brief(effectiveUserId, period, todayISO));
+      return isRenderable(persisted);
     } catch {
       return false;
     }
   });
 
-  // Inner readiness values echoed from the backend
-  const score = outerBrief?.innerReadinessScore ?? null;
-  const tier = outerBrief?.innerReadinessTier ?? 'default';
-  const hasCheckIn = !!outerBrief?.checkInOutcome;
+  // Inner readiness values echoed from the backend.
+  // The score row must follow the SAME period contract as the phrase/body:
+  // when the current period has no fresh check-in or wearable, the score
+  // shows `--` (not the leftover score from an earlier period). The server
+  // now nulls these fields whenever `awaitingSignals` is true, but we
+  // double-gate on the explicit `hasCurrentPeriodSignal` flag to be safe.
+  const awaitingSignalsRaw = !!(outerBrief as any)?.awaitingSignals;
+  const hasCurrentPeriodSignal =
+    (outerBrief as any)?.hasCurrentPeriodSignal ?? !awaitingSignalsRaw;
+  const score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
+  const tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
+  const hasCheckIn =
+    ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
+    (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
@@ -1597,7 +1613,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // fresh signal the backend returns `awaitingSignals: true` with phrase/body
   // null — we render a single quiet prompt line in place of the phrase and
   // skip the body entirely. Pills/chips/calendar/score `--` continue to render.
-  const awaitingSignals = !!(outerBrief as any)?.awaitingSignals;
+  const awaitingSignals = awaitingSignalsRaw;
   const phrase = awaitingSignals
     ? null
     : (outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in."));
