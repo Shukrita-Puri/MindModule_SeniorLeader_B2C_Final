@@ -2,10 +2,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Heart, ChevronDown } from 'lucide-react';
+import { Check, RotateCcw, Heart, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 // Carousel imports removed – vertical list layout
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -117,11 +118,17 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
+  const { data: outerReadinessData } = useOuterReadiness();
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
   // activeView removed – JIT handled by JitCarousel component
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
+  // Awaiting-signals: mirrors the Brief contract. When neither a fresh
+  // check-in nor a fresh wearable today is present, the Plan is suppressed
+  // and the same prompt as the Brief is rendered. Pure UI suppression — no
+  // logic, calculation, LLM prompt, or deterministic content is changed.
+  const [awaitingSignals, setAwaitingSignals] = useState(false);
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
     completedCount: number;
@@ -188,6 +195,16 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
     }
   }, [plan]);
 
+  // When the Brief contract transitions from awaiting → ready (user just
+  // submitted a check-in or wearable arrived), reload the plan once so the
+  // suppression empty state is replaced with the freshly generated plan.
+  useEffect(() => {
+    if (awaitingSignals && outerReadinessData?.awaitingSignals === false) {
+      loadPlan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outerReadinessData?.awaitingSignals]);
+
   // Detect newly completed practices
   useEffect(() => {
     const prevIds = prevCompletedIdsRef.current;
@@ -251,6 +268,21 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       
       // Check if we have a check-in for this window
       setNoCheckinForWindow(!todayCheckin);
+
+      // ── Awaiting-signals gate (mirrors Brief + TodayThreePriorities) ──
+      // If the Brief is awaiting signals (no fresh check-in AND no fresh
+      // wearable today), suppress plan generation entirely. This is a
+      // pure UI/network suppression — server-side gate in
+      // generate-mastery-plan enforces the same contract for any caller.
+      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
+      if (briefAwaiting && !todayCheckin && !wearableFresh) {
+        setAwaitingSignals(true);
+        setPlan(null);
+        setLoading(false);
+        return;
+      }
+      setAwaitingSignals(false);
 
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
@@ -529,6 +561,41 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
         <div className="space-y-3">
           <div className="h-4 bg-muted/30 rounded-lg" />
           <div className="h-4 bg-muted/30 rounded-lg w-3/4" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Awaiting-signals empty state (mirrors Brief + TodayThreePriorities) ──
+  // Same prompt copy is intentionally repeated across both the Brief and
+  // Plan cards so a user navigating to /plan without first providing a
+  // mind-impact input (check-in or wearable) sees the same instruction as
+  // on the home dashboard. No business logic is affected — content only.
+  if (awaitingSignals) {
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <div className="pt-2">
+            <button
+              onClick={() => navigate('/daily-check-in')}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
+            >
+              <span className="text-xs text-muted-foreground/70 font-body text-center leading-relaxed">
+                Begin with your check-in. To activate your personalised brief and plan — takes two minutes.
+              </span>
+              <ChevronRight size={12} className="text-muted-foreground/40" />
+            </button>
+          </div>
         </div>
       </div>
     );
