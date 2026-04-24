@@ -650,6 +650,20 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return { tier: 'green' };
   };
 
+  // ── Sleep contribution — Cognitive (secondary, next-day mental bandwidth) ──
+  // Same column as Physiology's sleepContrib() but evaluated through a
+  // cognitive lens: it never lifts the pillar, only flags red/amber when
+  // restorative sleep is short enough to materially blunt working memory and
+  // decision quality the next day.
+  const sleepCognitiveContrib = (): PillarContrib => {
+    if (sleepDur == null && sleepScore == null) return { tier: 'neutral' };
+    if (sleepDur != null && sleepDur < 300) return { tier: 'red', severity: 'mild' };
+    if (sleepScore != null && sleepScore < 60) return { tier: 'red', severity: 'mild' };
+    if (sleepDur != null && sleepDur < 360) return { tier: 'amber' };
+    if (sleepScore != null && sleepScore < 70) return { tier: 'amber' };
+    return { tier: 'neutral' }; // adequate sleep does NOT lift cognition; HRV + self-report do that
+  };
+
   // ── HRV contribution — Resilience (secondary, stricter thresholds) ──
   const hrvResilienceContrib = (): PillarContrib => {
     if (hrvVal == null) return { tier: 'neutral' };
@@ -750,34 +764,44 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   };
 
   // ── COGNITIVE PILLAR (v6.2 Hardware Veto) ──
-  // Weights: HRV 0.5 (hardware veto at -20% dev), Sharpness 0.3 (veto AMBER ≤2),
-  // Clarity 0.2 (veto AMBER ≤2). Outcome routed as 'self' but no veto.
+  // v6.3 weights (sleep present): HRV 0.5 (hardware veto at -20% dev),
+  //   Sharpness 0.25 (veto AMBER ≤2), Clarity 0.15 (veto AMBER ≤2),
+  //   Sleep cognitive 0.2 (mild red/amber only — never lifts), Outcome 0.2 (no veto).
+  // Fallback (no sleep tracking — older Apple Watches etc.):
+  //   HRV 0.6 with TIGHTER veto at -15% dev (compensates for missing recovery read),
+  //   Sharpness 0.25, Clarity 0.15, Outcome 0.2.
   const hrvCogRaw = hrvCognitiveContrib();
   const sharpRaw = sharpnessContrib();
   const clarityRaw = clarityContrib();
   const cogOutcomeRaw = cognitiveOutcomeContrib();
-  const cogContribs: PillarContrib[] = [
-    {
-      ...hrvCogRaw,
-      weight: 0.5,
-      source: 'hardware',
-      // Hardware veto: HRV dev ≤ -20% locks pillar RED
-      veto: hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined,
-    },
-    {
-      ...sharpRaw,
-      weight: 0.3,
-      source: 'self',
-      veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined,
-    },
-    {
-      ...clarityRaw,
-      weight: 0.2,
-      source: 'self',
-      veto: (clarity != null && clarity <= 2) ? 'amber' : undefined,
-    },
-    { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
-  ];
+  const sleepCogRaw = sleepCognitiveContrib();
+  const sleepCognitivelyKnown = (sleepDur != null) || (sleepScore != null);
+  // Tightened HRV veto threshold when sleep tracking is absent.
+  const hrvCogVeto: PillState | undefined = sleepCognitivelyKnown
+    ? (hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined)
+    : (hrvDev != null && hrvDev <= -15) ? 'red'
+      : (hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong') ? 'red'
+      : undefined;
+  const cogContribs: PillarContrib[] = sleepCognitivelyKnown
+    ? [
+        { ...hrvCogRaw, weight: 0.5, source: 'hardware', veto: hrvCogVeto },
+        { ...sharpRaw, weight: 0.25, source: 'self',
+          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
+        { ...clarityRaw, weight: 0.15, source: 'self',
+          veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
+        // Sleep cognitive read — secondary wearable input, gated to red/amber only.
+        { ...sleepCogRaw, weight: 0.2, source: 'hardware' },
+        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
+      ]
+    : [
+        // Fallback: no sleep data — HRV carries the full overnight read.
+        { ...hrvCogRaw, weight: 0.6, source: 'hardware', veto: hrvCogVeto },
+        { ...sharpRaw, weight: 0.25, source: 'self',
+          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
+        { ...clarityRaw, weight: 0.15, source: 'self',
+          veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
+        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
+      ];
   const cogComp = computePillar(cogContribs);
   let cogState = cogComp.tier;
 
@@ -928,6 +952,24 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     else if (wearableTrend === 'improving') q = q ? `${q} · trend improving` : 'trend improving';
     if (cogAuthorityFlag === 'masked-high') q = q ? `${q} · system signal ahead of felt state` : 'system signal ahead of felt state';
     cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+  }
+  // Sleep cognitive line — render ONLY when sleep is materially contributing
+  // to the cognitive pillar (red or amber). Adequate sleep stays silent so the
+  // cognitive box keeps its HRV-first focus.
+  {
+    const sleepCogTier = sleepCognitiveContrib().tier;
+    if (sleepCogTier === 'red' || sleepCogTier === 'amber') {
+      const parts: string[] = [];
+      if (sleepDur != null) parts.push(fmtSleepDur(sleepDur));
+      if (sleepScore != null) parts.push(`score ${sleepScore}`);
+      let q = '';
+      if (sleepDev != null && sleepBaseline) q = `${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
+      else if (sleepDur != null && sleepDur < 300) q = 'short sleep — working memory cost';
+      else if (sleepDur != null && sleepDur < 360) q = 'short sleep — narrows decision bandwidth';
+      else if (sleepScore != null && sleepScore < 60) q = 'low restorative sleep';
+      else if (sleepScore != null && sleepScore < 70) q = 'sleep below threshold';
+      cogTop.push({ text: `Sleep: ${parts.join(' · ')}`, qualifier: q || undefined, kind: 'wearable' });
+    }
   }
   const cogBottom: PillLine[] = [];
   if (sharpness != null && sharpness >= 1 && sharpness <= 5) {
@@ -1150,7 +1192,7 @@ function ExecutivePillCapsule({
       short:
         'Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.',
       clinical:
-        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with HRV from your wearable. HRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.',
+        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with two wearable reads: HRV and last night\'s sleep.\nHRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.\nSleep is read here for next-day mental bandwidth (the same column also feeds Physical Reserves, but for recovery): under 5h or score below 60 mildly drops the pillar, 5–6h or score 60–69 is amber, otherwise neutral — adequate sleep doesn\'t lift cognition, it just stops dragging it down.\nIf your wearable doesn\'t track sleep, HRV carries the full overnight read and its veto tightens to ≤ −15%.',
     },
     physiological: {
       short:
