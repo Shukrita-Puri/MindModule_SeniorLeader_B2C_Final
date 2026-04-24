@@ -764,34 +764,44 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   };
 
   // ── COGNITIVE PILLAR (v6.2 Hardware Veto) ──
-  // Weights: HRV 0.5 (hardware veto at -20% dev), Sharpness 0.3 (veto AMBER ≤2),
-  // Clarity 0.2 (veto AMBER ≤2). Outcome routed as 'self' but no veto.
+  // v6.3 weights (sleep present): HRV 0.5 (hardware veto at -20% dev),
+  //   Sharpness 0.25 (veto AMBER ≤2), Clarity 0.15 (veto AMBER ≤2),
+  //   Sleep cognitive 0.2 (mild red/amber only — never lifts), Outcome 0.2 (no veto).
+  // Fallback (no sleep tracking — older Apple Watches etc.):
+  //   HRV 0.6 with TIGHTER veto at -15% dev (compensates for missing recovery read),
+  //   Sharpness 0.25, Clarity 0.15, Outcome 0.2.
   const hrvCogRaw = hrvCognitiveContrib();
   const sharpRaw = sharpnessContrib();
   const clarityRaw = clarityContrib();
   const cogOutcomeRaw = cognitiveOutcomeContrib();
-  const cogContribs: PillarContrib[] = [
-    {
-      ...hrvCogRaw,
-      weight: 0.5,
-      source: 'hardware',
-      // Hardware veto: HRV dev ≤ -20% locks pillar RED
-      veto: hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined,
-    },
-    {
-      ...sharpRaw,
-      weight: 0.3,
-      source: 'self',
-      veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined,
-    },
-    {
-      ...clarityRaw,
-      weight: 0.2,
-      source: 'self',
-      veto: (clarity != null && clarity <= 2) ? 'amber' : undefined,
-    },
-    { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
-  ];
+  const sleepCogRaw = sleepCognitiveContrib();
+  const sleepCognitivelyKnown = (sleepDur != null) || (sleepScore != null);
+  // Tightened HRV veto threshold when sleep tracking is absent.
+  const hrvCogVeto: PillState | undefined = sleepCognitivelyKnown
+    ? (hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined)
+    : (hrvDev != null && hrvDev <= -15) ? 'red'
+      : (hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong') ? 'red'
+      : undefined;
+  const cogContribs: PillarContrib[] = sleepCognitivelyKnown
+    ? [
+        { ...hrvCogRaw, weight: 0.5, source: 'hardware', veto: hrvCogVeto },
+        { ...sharpRaw, weight: 0.25, source: 'self',
+          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
+        { ...clarityRaw, weight: 0.15, source: 'self',
+          veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
+        // Sleep cognitive read — secondary wearable input, gated to red/amber only.
+        { ...sleepCogRaw, weight: 0.2, source: 'hardware' },
+        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
+      ]
+    : [
+        // Fallback: no sleep data — HRV carries the full overnight read.
+        { ...hrvCogRaw, weight: 0.6, source: 'hardware', veto: hrvCogVeto },
+        { ...sharpRaw, weight: 0.25, source: 'self',
+          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
+        { ...clarityRaw, weight: 0.15, source: 'self',
+          veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
+        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
+      ];
   const cogComp = computePillar(cogContribs);
   let cogState = cogComp.tier;
 
