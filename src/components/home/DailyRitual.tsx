@@ -259,6 +259,21 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       // Check if we have a check-in for this window
       setNoCheckinForWindow(!todayCheckin);
 
+      // ── Awaiting-signals gate (mirrors Brief + TodayThreePriorities) ──
+      // If the Brief is awaiting signals (no fresh check-in AND no fresh
+      // wearable today), suppress plan generation entirely. This is a
+      // pure UI/network suppression — server-side gate in
+      // generate-mastery-plan enforces the same contract for any caller.
+      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
+      if (briefAwaiting && !todayCheckin && !wearableFresh) {
+        setAwaitingSignals(true);
+        setPlan(null);
+        setLoading(false);
+        return;
+      }
+      setAwaitingSignals(false);
+
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
       let shouldRegenerate = !hasStoredPlan;
