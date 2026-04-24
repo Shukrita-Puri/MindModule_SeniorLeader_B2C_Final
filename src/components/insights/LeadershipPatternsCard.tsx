@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, MessageSquare, Sparkles, ArrowRight } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -101,16 +101,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
         const fourteenDaysAgo = format(subDays(new Date(), 14), 'yyyy-MM-dd');
 
-        const [checkInsRes, themesRes, coachRes, profileRes] = await Promise.all([
+        const [checkInsRes, themesRes, profileRes] = await Promise.all([
           supabase.from('daily_checkins').select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at').eq('user_id', effectiveUserId).gte('checkin_date', thirtyDaysAgo).order('checkin_date', { ascending: true }),
           supabase.from('daily_themes').select('theme_phrase, theme_driver').eq('user_id', effectiveUserId).gte('theme_date', thirtyDaysAgo),
-          supabase.from('user_coach_insights').select('insight_content, created_at, insight_type').eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(10),
           supabase.from('profiles').select('user_archetype, component_scores').eq('id', effectiveUserId).maybeSingle(),
         ]);
 
         const checkIns = checkInsRes.data || [];
         const themes = themesRes.data || [];
-        const coachInsights = coachRes.data || [];
         const totalCheckins = checkIns.length;
 
         // Friction
@@ -134,18 +132,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const themeCounts = new Map<string, number>();
         themes.forEach((t) => { if (t.theme_phrase) themeCounts.set(t.theme_phrase, (themeCounts.get(t.theme_phrase) || 0) + 1); });
         const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
-
-        // Coach insights
-        const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
-        const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
-        let coachStrength: string | null = null;
-        let coachFriction: string | null = null;
-        for (const ins of coachInsights) {
-          const ic = ins.insight_content || '';
-          if (!coachStrength && strengthKw.test(ic)) coachStrength = ic.substring(0, 120);
-          if (!coachFriction && frictionKw.test(ic)) coachFriction = ic.substring(0, 120);
-          if (coachStrength && coachFriction) break;
-        }
 
         // Archetype
         const cs = profileRes.data?.component_scores as any;
@@ -213,8 +199,8 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           trendDirection,
           typicalState,
           recurringThemes,
-          coachStrength,
-          coachFriction,
+          coachStrength: null,
+          coachFriction: null,
           checkInCount: totalCheckins,
           coachSessionCount: 0,
           hasWearable: false,
@@ -232,7 +218,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!error && result?.data) {
-        setData(result.data as LeadershipPatternsData);
+        // Strip coach-derived fields client-side (mem://features/coach/suppression-standard)
+        const raw = result.data as LeadershipPatternsData;
+        setData({
+          ...raw,
+          coachStrength: null,
+          coachFriction: null,
+          coachSessionCount: 0,
+        });
       }
     } catch (err) {
       console.error('[LeadershipPatternsCard] Error:', err);
@@ -279,7 +272,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           </span>
           <InsightInfoModal
             title="Your Performance Patterns"
-            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring themes, practices, and wearable data over 30 days."
+            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, recurring themes, practices, and wearable data over 30 days."
           />
         </div>
       </CardHeader>
@@ -301,7 +294,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 </p>
                 <InsightInfoModal
                   title="How Scores Are Calculated"
-                  explanation="These three scores reflect how you show up over time – drawn from your check-ins, coach conversations, and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                  explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
                 />
               </div>
 
@@ -375,7 +368,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     </p>
                     <InsightInfoModal
                       title="Recurring Themes"
-                      explanation="Words and phrases that keep surfacing across your check-ins and coach conversations over 30 days. The count shows how often each theme appeared."
+                      explanation="Words and phrases that keep surfacing across your check-ins over 30 days. The count shows how often each theme appeared."
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -407,8 +400,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
                     {data.coreStrengths && data.coreStrengths.length > 0 ? (
                       <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : data.coachStrength ? (
-                      <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
@@ -422,11 +413,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         </li>
                       ))}
                     </ul>
-                  ) : data.coachStrength ? (
-                    <div className="flex items-start gap-1.5">
-                      <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
-                    </div>
                   ) : (
                     <p className="text-sm text-saffron">{data.archetypeLeanOn}</p>
                   )}
@@ -441,8 +427,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
                     {data.growthEdges && data.growthEdges.length > 0 ? (
                       <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : data.coachFriction ? (
-                      <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
@@ -456,18 +440,8 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         </li>
                       ))}
                     </ul>
-                  ) : data.coachFriction ? (
-                    <div className="flex items-start gap-1.5">
-                      <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
-                    </div>
                   ) : (
-                    <>
-                      <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
-                      {data.coachSessionCount < 3 && (
-                        <p className="text-xs text-muted-foreground/60 mt-1">Will personalize with coach sessions</p>
-                      )}
-                    </>
+                    <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
                   )}
                 </div>
               </div>

@@ -12,12 +12,11 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 // WeeklyRitualStreak removed – lives on homepage via InsightProgressCard
-import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
-import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
+import CauseEffectPanel from '@/components/insights/CauseEffectPanel';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -175,15 +174,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 const INSIGHT_TABS = [
+  { key: 'progress' as const, label: 'Progress' },
   { key: 'patterns' as const, label: 'Patterns' },
-  { key: 'momentum' as const, label: 'Progress' },
-  { key: 'mindmap' as const, label: 'Presence' },
 ];
 
 const Insights = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightParam = searchParams.get('highlight');
-  const [activeTab, setActiveTab] = useState<'patterns' | 'momentum' | 'mindmap'>(highlightParam ? 'patterns' : 'patterns');
+  const [activeTab, setActiveTab] = useState<'progress' | 'patterns'>(highlightParam ? 'patterns' : 'progress');
   const navigate = useNavigate();
   const highlightRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -325,10 +323,11 @@ const Insights = () => {
   useEffect(() => {
     if (user?.id && !fetchedRef.current) {
       fetchedRef.current = true;
-      // Fire all three fetches in parallel – each manages its own loading/error state
+      // Fire fetches in parallel – each manages its own loading/error state.
+      // Semantic analysis is suppressed in the UI (Mind Map tab removed) but the
+      // edge function + components remain in the codebase for future reuse.
       fetchStatePatterns();
       fetchTinyWinsInsights();
-      fetchSemanticAnalysis();
     }
   }, [user?.id]);
 
@@ -920,7 +919,7 @@ const Insights = () => {
               </p>
             </div>
 
-            {!sectionsHydratedRef.current && (patternsLoading || winsLoading || semanticLoading || !insightsScriptDone) && (
+            {!sectionsHydratedRef.current && (patternsLoading || winsLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
                 <EngravedLoader
                   compact
@@ -934,11 +933,11 @@ const Insights = () => {
               </div>
             )}
 
-            {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading || semanticLoading) && insightsScriptDone)) && (
+            {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
       {/* Sticky Tab Bar – matches homepage */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="max-w-lg mx-auto grid grid-cols-3 h-12">
+        <div className="max-w-lg mx-auto grid grid-cols-2 h-12">
           {INSIGHT_TABS.map(({ key, label }) => (
             <button
               key={key}
@@ -961,17 +960,25 @@ const Insights = () => {
       {/* Tab Content – all rendered, toggle via display */}
       <div className="flex-1 w-full pb-8">
 
-        {/* PATTERNS tab */}
-        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
+        {/* PROGRESS tab — Trajectory + Practice Effectiveness + Wins Log */}
+        <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
             <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
-          </div>
-        </div>
 
-        {/* MOMENTUM tab */}
-        <div style={{ display: activeTab === 'momentum' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
-            <PerformanceRhythmCard userId={user?.id} />
+            <LuxuryInsightCard>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Practice Effectiveness</span>
+                  <InsightInfoModal
+                    title="Practice Effectiveness"
+                    explanation="Which of your completed practices most often precede an improved state on your next check-in. Tracks practices used 2+ times over the last 30 days."
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <PracticeEffectiveness userId={user?.id} />
+              </CardContent>
+            </LuxuryInsightCard>
 
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
@@ -1092,10 +1099,7 @@ const Insights = () => {
                 ) : (
                   <div className="py-4 space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      {winsProgressMessage || 'Share your wins during evening coach sessions to build your performance log.'}
-                    </p>
-                    <p className="text-xs text-muted-foreground/60">
-                      The coach captures patterns you might miss – speak to them about your daily wins to unlock this feature.
+                      {winsProgressMessage || 'Save wins from your daily Plan – they\'ll appear here.'}
                     </p>
                   </div>
                 )}
@@ -1104,53 +1108,11 @@ const Insights = () => {
           </div>
         </div>
 
-        {/* MIND MAP tab */}
-        <div style={{ display: activeTab === 'mindmap' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4">
-            <LuxuryInsightCard>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
-                  <InsightInfoModal
-                    title="Your Mind Map"
-                    explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day – what keeps coming up. The picture your data is painting of your inner world right now."
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {semanticLoading ? (
-                  <EngravedLoader compact label="Loading mind map…" />
-                ) : semanticError ? (
-                  <div className="py-4 text-center">
-                    <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
-                  </div>
-                ) : !mindMapReady ? (
-                  <div className="py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Your Mind Map builds from coach conversations, practices, and wins.
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 mt-2">
-                      Keep engaging to see unified themes emerge.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {semanticAnalysis?.aiObservation && (
-                      <div className="mb-4 p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                        <p className="text-sm text-foreground leading-relaxed">
-                          {semanticAnalysis.aiObservation}
-                        </p>
-                      </div>
-                    )}
-                    <InnerWorldBubbles
-                      items={semanticAnalysis?.unifiedThemes || []}
-                      relationships={semanticAnalysis?.themeRelationships || []}
-                      onNodeSummary={fetchNodeSummary}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </LuxuryInsightCard>
+        {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
+        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
+            <CauseEffectPanel userId={user?.id} />
+            <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
         </div>
