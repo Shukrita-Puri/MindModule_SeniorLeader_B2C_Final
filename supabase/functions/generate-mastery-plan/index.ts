@@ -2075,6 +2075,26 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const planAwaitingSignals = !hasTodayCheckIn && !hasFreshWearable;
   if (planAwaitingSignals) {
     console.log(`[generate-mastery-plan] Awaiting signals (no checkin + no wearable) for user=${req.userId} window=${timeOfDay}. Suppressing time-of-day plan.`);
+    return {
+      timeOfDayPlan: {
+        label: timeOfDay,
+        period: timeOfDay as 'morning' | 'afternoon' | 'evening',
+        modules: [],
+        coachCard: null,
+        totalDuration: 0,
+        progressTracked: false,
+      },
+      preEventPlan: null,
+      jitPriority: false,
+      horizonModules: [],
+      awaitingSignals: true,
+      awaitingReason: 'no-checkin-no-wearable',
+      meta: {
+        generatedAt: new Date().toISOString(),
+        suppressed: true,
+        reason: 'awaiting-signals',
+      },
+    };
   }
 
   // 2. Fetch content library from DB
