@@ -1192,7 +1192,7 @@ function ExecutivePillCapsule({
       short:
         'Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.',
       clinical:
-        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with HRV from your wearable. HRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.',
+        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with two wearable reads: HRV and last night\'s sleep.\nHRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.\nSleep is read here for next-day mental bandwidth (the same column also feeds Physical Reserves, but for recovery): under 5h or score below 60 mildly drops the pillar, 5–6h or score 60–69 is amber, otherwise neutral — adequate sleep doesn\'t lift cognition, it just stops dragging it down.\nIf your wearable doesn\'t track sleep, HRV carries the full overnight read and its veto tightens to ≤ −15%.',
     },
     physiological: {
       short:
