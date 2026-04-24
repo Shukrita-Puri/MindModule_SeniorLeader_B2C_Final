@@ -666,7 +666,11 @@ const TodayThreePriorities = ({
   // ── Render ──
   // ── Loading skeleton with visible card structure ──
   const dataReady = !loading && horizonModules && horizonModules.length > 0;
-  const showPlanLoader = loading || (dataReady && !planScriptDone);
+  // Cached-render-and-silent-verification: if a valid cached plan was
+  // present at mount, we never re-show the scripted loader during a
+  // background refresh — even if `loading` flips true transiently.
+  const showPlanLoader =
+    !initialCachedRef.current && (loading || (dataReady && !planScriptDone));
   if (showPlanLoader) {
     return (
       <div className="space-y-4 pt-2">
@@ -693,6 +697,39 @@ const TodayThreePriorities = ({
             ]}
             onAllStepsComplete={() => setPlanScriptDone(true)}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Awaiting-signals empty state ──
+  // Mirrors the Brief contract: when neither check-in nor today's wearable
+  // is present, show the same quiet prompt instead of a generated plan.
+  if (awaitingSignals) {
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-3 py-2">
+              <div className="w-7 h-7 rounded-full bg-muted/20 flex items-center justify-center text-xs text-muted-foreground/30 font-bold">
+                {n}
+              </div>
+              <div className="flex-1">
+                <div className="h-3.5 bg-muted/10 rounded-md w-2/3" />
+              </div>
+            </div>
+          ))}
+          <div className="pt-2">
+            <button
+              onClick={() => navigate('/daily-check-in')}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
+            >
+              <span className="text-xs text-muted-foreground/70 font-body">
+                Begin with your check-in to build today's plan
+              </span>
+              <ChevronRight size={12} className="text-muted-foreground/40" />
+            </button>
+          </div>
         </div>
       </div>
     );
