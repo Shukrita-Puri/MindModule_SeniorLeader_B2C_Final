@@ -272,7 +272,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           </span>
           <InsightInfoModal
             title="Your Performance Patterns"
-            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring themes, practices, and wearable data over 30 days."
+            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, recurring themes, practices, and wearable data over 30 days."
           />
         </div>
       </CardHeader>
@@ -294,7 +294,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 </p>
                 <InsightInfoModal
                   title="How Scores Are Calculated"
-                  explanation="These three scores reflect how you show up over time – drawn from your check-ins, coach conversations, and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                  explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
                 />
               </div>
 
@@ -368,7 +368,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     </p>
                     <InsightInfoModal
                       title="Recurring Themes"
-                      explanation="Words and phrases that keep surfacing across your check-ins and coach conversations over 30 days. The count shows how often each theme appeared."
+                      explanation="Words and phrases that keep surfacing across your check-ins over 30 days. The count shows how often each theme appeared."
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
