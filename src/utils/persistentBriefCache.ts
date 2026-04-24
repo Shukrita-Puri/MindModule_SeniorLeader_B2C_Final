@@ -131,6 +131,38 @@ export const cacheKeys = {
     `onboarding-results-cache:${userId}`,
 };
 
+/**
+ * Local-date helper. The Brief and Plan windows (Morning/Afternoon/Evening)
+ * are expressed in the user's local clock. Using `new Date().toISOString()`
+ * yields a UTC date that can disagree with the local date around midnight
+ * (e.g. 23:30 local in UTC+5 returns tomorrow's UTC date), which can cause
+ * the cache to hydrate yesterday's or tomorrow's payload by accident.
+ *
+ * Returns YYYY-MM-DD in the user's local clock.
+ */
+export function localISODate(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Current time-of-day window in the user's local clock. Matches the
+ * standardized windows used everywhere else in the app:
+ *   Morning   05:00 – 11:59
+ *   Afternoon 12:00 – 17:59
+ *   Evening   18:00 – 04:59 (next day)
+ * Pre-dawn (00:00–04:59) is still the previous "evening" window.
+ */
+export function currentPeriod(now: Date = new Date()): 'morning' | 'afternoon' | 'evening' {
+  const h = now.getHours();
+  if (h < 5) return 'evening';
+  if (h < 12) return 'morning';
+  if (h < 18) return 'afternoon';
+  return 'evening';
+}
+
 /** Prefixes used by `clearByPrefixes` on sign-out. */
 export const cacheKeyPrefixes = [
   'prb-cache:',

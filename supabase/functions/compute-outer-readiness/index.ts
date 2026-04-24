@@ -4202,6 +4202,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       watchFor: awaitingSignals ? null : formattedWatchFor,
       awaitingSignals,
       awaitingReason,
+      // Explicit period-scoped flags so the client never has to infer
+      // "is this period live?" from leaked day-scoped fields like
+      // `checkInOutcome` or `innerReadinessScore`.
+      hasCurrentPeriodCheckIn: hasTodayCheckIn,
+      hasFreshWearable,
+      hasCurrentPeriodSignal: briefSignalContractMet,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
@@ -4286,9 +4292,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         sleepUnread: sleepDuration == null && sleepScoreVal == null,
       },
       // Echo inner readiness so client doesn't need a separate computeEnergyState call
-      innerReadinessScore,
-      innerReadinessTier: safeTier,
-      checkInOutcome: checkInOutcome || null,
+      // When the current period is awaiting signals we MUST suppress these
+      // period-sensitive surfaced fields. Otherwise the UI re-uses an older
+      // check-in's score/outcome from earlier in the day and the Brief looks
+      // "live" when it should read awaiting.
+      innerReadinessScore: awaitingSignals ? null : innerReadinessScore,
+      innerReadinessTier: awaitingSignals ? null : safeTier,
+      checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
     };
 

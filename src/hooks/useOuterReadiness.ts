@@ -14,8 +14,12 @@ import { getAuthToken } from '@/services/authTokenService';
 import {
   read as readPersistent,
   write as writePersistent,
+  clear as clearPersistent,
+  clearByPrefixes,
   msUntilWindowEnd,
   cacheKeys,
+  localISODate,
+  currentPeriod as currentPeriodLocal,
 } from '@/utils/persistentBriefCache';
 
 export interface OuterReadinessData {
@@ -113,6 +117,15 @@ export interface OuterReadinessData {
    */
   awaitingSignals?: boolean;
   awaitingReason?: 'no-checkin-no-wearable' | null;
+  /**
+   * Period-scoped flags (mirrors compute-outer-readiness contract). The UI
+   * MUST drive period-sensitive decisions (e.g. "is the score live?") off
+   * these instead of inferring from `checkInOutcome`, which can leak day-
+   * scoped state from an earlier window.
+   */
+  hasCurrentPeriodCheckIn?: boolean;
+  hasFreshWearable?: boolean;
+  hasCurrentPeriodSignal?: boolean;
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
@@ -179,10 +192,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
 }
 
 function getCurrentPeriod(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
+  return currentPeriodLocal();
 }
 
 export function useOuterReadiness() {
@@ -201,13 +211,53 @@ export function useOuterReadiness() {
   // Persistent per-window cache (survives full app reopen). Hydrate React
   // Query synchronously on mount so the brief renders in the first frame
   // when a valid cached payload exists for this user + period + date.
-  const todayISO = new Date().toISOString().split('T')[0];
+  //
+  // CRITICAL: keys must use the user's LOCAL date, not the UTC ISO date.
+  // Otherwise around midnight the cache reads/writes the wrong day and we
+  // can hydrate yesterday's payload into today's mount.
+  const todayISO = localISODate();
   const persistentKey = effectiveUserId
     ? cacheKeys.brief(effectiveUserId, period, todayISO)
     : null;
-  const initialData = persistentKey
+
+  // ── Period-crossover sweep ──────────────────────────────────────────────
+  // The Brief is a *current-period* artifact. When the user crosses from
+  // afternoon → evening, no afternoon (or morning) cache must be allowed to
+  // paint. We detect crossovers via a `prb-last-period` marker and clear
+  // any other-period brief keys for today before reading initialData.
+  if (typeof window !== 'undefined' && effectiveUserId) {
+    try {
+      const lastPeriodKey = `prb-last-period:${effectiveUserId}`;
+      const lastPeriod = window.localStorage.getItem(lastPeriodKey);
+      if (lastPeriod !== period) {
+        // Drop any per-period cache rows for this user that are NOT the
+        // current period. We scope by user prefix so we don't disturb other
+        // users on a shared device.
+        const userPrefix = `prb-cache:${effectiveUserId}:`;
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (!k || !k.startsWith(userPrefix)) continue;
+          // Only the current key is preserved; everything else is stale.
+          if (k !== persistentKey) {
+            try { window.localStorage.removeItem(k); } catch { /* ignore */ }
+          }
+        }
+        window.localStorage.setItem(lastPeriodKey, period);
+      }
+    } catch { /* ignore storage errors */ }
+  }
+
+  // Read AFTER the crossover sweep so we never see a stale other-period row.
+  const cached = persistentKey
     ? readPersistent<OuterReadinessData>(persistentKey)
     : null;
+  // Defensive validation: an awaiting payload must NEVER hydrate as initial
+  // data — we don't persist it, but if a legacy entry exists, ignore it.
+  // A real brief must have phrase + bodyText to be considered renderable.
+  const initialData =
+    cached && !cached.awaitingSignals && cached.phrase && cached.bodyText
+      ? cached
+      : null;
 
   return useQuery({
     queryKey: ['outer-readiness', effectiveUserId, period],
@@ -215,12 +265,21 @@ export function useOuterReadiness() {
       const data = await fetchOuterReadiness(effectiveUserId);
       // Write-through: persist real brief payloads so the next reopen renders
       // instantly. NEVER persist the "awaiting signals" empty state — that is
-      // a transient gating decision, not a brief. Persisting it would cause
-      // the awaiting view to outlive the signal: after a check-in/wearable
-      // arrives, the synchronous initialData hydrate would replay the stale
-      // awaiting payload before the refetch could correct it.
-      if (data && persistentKey && !data.awaitingSignals) {
+      // a transient gating decision, not a brief. Belt-and-suspenders: also
+      // require phrase + bodyText, so a half-built payload (e.g. transient
+      // LLM failure) cannot poison the cache.
+      if (
+        data &&
+        persistentKey &&
+        !data.awaitingSignals &&
+        data.phrase &&
+        data.bodyText
+      ) {
         writePersistent(persistentKey, data, msUntilWindowEnd());
+      } else if (data?.awaitingSignals && persistentKey) {
+        // Awaiting state must never persist. Clear any leftover entry so a
+        // subsequent mount cannot replay a previously-valid brief.
+        clearPersistent(persistentKey);
       }
       return data;
     },
@@ -228,7 +287,12 @@ export function useOuterReadiness() {
     staleTime: 5 * 60 * 1000,
     refetchOnMount: true,
     refetchOnWindowFocus: snapshotCacheEnabled ? false : true,
-    placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
+    // IMPORTANT: do NOT use placeholderData here. Keeping the previous
+    // payload alive across refetches is the root cause of the Brief
+    // flickering between "live" and "awaiting" — a previous-period brief
+    // would paint while the next request was in flight. The synchronous
+    // `initialData` hydrate above already prevents skeleton flash for the
+    // current period; that is the only carry-over we want.
     initialData: initialData ?? undefined,
   });
 }
