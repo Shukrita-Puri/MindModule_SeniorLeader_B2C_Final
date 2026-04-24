@@ -331,9 +331,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 {/* ── ROW 1: ARCHETYPE (with tooltip on right) ── */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground shrink-0">
+                    <span className="text-xs font-medium uppercase tracking-wider text-taupe shrink-0">
                       Archetype
                     </span>
+                    <InsightInfoModal
+                      title="How Scores Are Calculated"
+                      explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                    />
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
                     {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
@@ -347,43 +351,43 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         {data.currentArchetypeTitle || data.baselineArchetypeTitle}
                       </span>
                     )}
-                    <InsightInfoModal
-                      title="How Scores Are Calculated"
-                      explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
-                    />
                   </div>
                 </div>
 
                 {/* ── ROW 2: PERFORMANCE READINESS SCORE ── */}
-                {baselineComposite != null && (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground shrink-0">
-                      Performance Readiness Score
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground tabular-nums">{baselineComposite}</span>
-                      {currentComposite != null ? (
-                        <>
-                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm font-semibold text-foreground tabular-nums">{currentComposite}</span>
-                          {compositeDelta != null && (
-                            <span className={cn('text-sm font-semibold tabular-nums', deltaTone(compositeDelta))}>
-                              ({compositeDelta > 0 ? '+' : ''}{compositeDelta})
-                            </span>
-                          )}
-                          <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">evolves with each Brief</span>
-                      )}
-                    </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium uppercase tracking-wider text-taupe shrink-0">
+                    Performance Readiness Score
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {baselineComposite != null ? (
+                      <>
+                        <span className="text-sm text-muted-foreground tabular-nums">{baselineComposite}</span>
+                        {currentComposite != null ? (
+                          <>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm font-semibold text-foreground tabular-nums">{currentComposite}</span>
+                            {compositeDelta != null && (
+                              <span className={cn('text-sm font-semibold tabular-nums', deltaTone(compositeDelta))}>
+                                ({compositeDelta > 0 ? '+' : ''}{compositeDelta})
+                              </span>
+                            )}
+                            <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">evolves with each Brief</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">builds with your daily Brief</span>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* ── ROW 3: FRICTION ── */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wider text-taupe">
                       Friction
                     </span>
                     <InsightInfoModal
@@ -392,9 +396,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={cn('text-sm font-semibold tabular-nums', frictionTone(data.frictionPct ?? 0))}>
-                      {data.frictionPct}% <span className="font-normal text-muted-foreground">({data.frictionLabel})</span>
+                    <span className="text-sm font-semibold tabular-nums text-foreground">
+                      {data.frictionPct}%
                     </span>
+                    {data.frictionLabel && (
+                      <span className={cn('text-sm', frictionTone(data.frictionPct ?? 0))}>
+                        ({data.frictionLabel})
+                      </span>
+                    )}
                     <FrictionTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
                   </div>
                 </div>
