@@ -953,6 +953,24 @@ function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     if (cogAuthorityFlag === 'masked-high') q = q ? `${q} · system signal ahead of felt state` : 'system signal ahead of felt state';
     cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
+  // Sleep cognitive line — render ONLY when sleep is materially contributing
+  // to the cognitive pillar (red or amber). Adequate sleep stays silent so the
+  // cognitive box keeps its HRV-first focus.
+  {
+    const sleepCogTier = sleepCognitiveContrib().tier;
+    if (sleepCogTier === 'red' || sleepCogTier === 'amber') {
+      const parts: string[] = [];
+      if (sleepDur != null) parts.push(fmtSleepDur(sleepDur));
+      if (sleepScore != null) parts.push(`score ${sleepScore}`);
+      let q = '';
+      if (sleepDev != null && sleepBaseline) q = `${devSign(sleepDev)} vs ${fmtSleepDur(sleepBaseline)} baseline`;
+      else if (sleepDur != null && sleepDur < 300) q = 'short sleep — working memory cost';
+      else if (sleepDur != null && sleepDur < 360) q = 'short sleep — narrows decision bandwidth';
+      else if (sleepScore != null && sleepScore < 60) q = 'low restorative sleep';
+      else if (sleepScore != null && sleepScore < 70) q = 'sleep below threshold';
+      cogTop.push({ text: `Sleep: ${parts.join(' · ')}`, qualifier: q || undefined, kind: 'wearable' });
+    }
+  }
   const cogBottom: PillLine[] = [];
   if (sharpness != null && sharpness >= 1 && sharpness <= 5) {
     // v6.2: only apply trend qualifier when sharpness itself is low (≤2). The overall
