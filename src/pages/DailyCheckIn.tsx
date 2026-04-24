@@ -18,6 +18,7 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { EngravedFill } from "@/components/ui/engraved-fill";
+import { clear as clearPersistent, cacheKeys } from "@/utils/persistentBriefCache";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -297,12 +298,27 @@ const DailyCheckIn = () => {
 
       console.log('[Check-In] Saved to database');
 
-      // Invalidate energy-state and outer-readiness queries to force refetch
-      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
-      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-      
-      // Clear mastery plan session cache to force fresh plan generation
+      // Clear any persisted "awaiting signals" brief payload across all three
+      // windows for today — otherwise the synchronous initialData hydrate
+      // would replay the stale awaiting view on the next mount/navigation,
+      // even though we're about to refetch.
       const todayDate2 = new Date().toISOString().split('T')[0];
+      const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+      if (effectiveUserId) {
+        for (const p of ['morning', 'afternoon', 'evening']) {
+          clearPersistent(cacheKeys.brief(effectiveUserId, p, todayDate2));
+        }
+      }
+
+      // Force a fresh refetch so the next route render sees the corrected
+      // (non-awaiting) brief. Using refetchQueries (vs. invalidateQueries)
+      // guarantees the new fetch is awaited inline before navigation.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
+        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
+      ]);
+
+      // Clear mastery plan session cache to force fresh plan generation
       const currentPeriod = getCurrentTimeWindow();
       sessionStorage.removeItem(`plan-loaded-${todayDate2}-${currentPeriod}`);
       sessionStorage.removeItem(`plan-data-${todayDate2}-${currentPeriod}`);

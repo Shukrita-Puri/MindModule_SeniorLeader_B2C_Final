@@ -213,9 +213,13 @@ export function useOuterReadiness() {
     queryKey: ['outer-readiness', effectiveUserId, period],
     queryFn: async () => {
       const data = await fetchOuterReadiness(effectiveUserId);
-      // Write-through: persist every successful payload (including the
-      // "awaiting signals" response) so the next reopen renders instantly.
-      if (data && persistentKey) {
+      // Write-through: persist real brief payloads so the next reopen renders
+      // instantly. NEVER persist the "awaiting signals" empty state — that is
+      // a transient gating decision, not a brief. Persisting it would cause
+      // the awaiting view to outlive the signal: after a check-in/wearable
+      // arrives, the synchronous initialData hydrate would replay the stale
+      // awaiting payload before the refetch could correct it.
+      if (data && persistentKey && !data.awaitingSignals) {
         writePersistent(persistentKey, data, msUntilWindowEnd());
       }
       return data;
