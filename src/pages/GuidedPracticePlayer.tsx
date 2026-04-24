@@ -872,12 +872,11 @@ const GuidedPracticePlayer = () => {
       localStorage.removeItem('practiceQueue');
       // Coach hand-off suppressed — clear JIT data and return to Plan.
       localStorage.removeItem('jitInterventionData');
-      // Set plan feedback flag for ExecutiveHome
+      // Set plan feedback flag for ExecutiveHome (skipped when entryRoute is /plan —
+      // TodayThreePriorities owns per-priority feedback there).
       const ritualMode = localStorage.getItem('ritualMode');
-      localStorage.setItem('showPlanFeedback', JSON.stringify({
-        planType: ritualMode === 'jit' ? 'jit' : 'tod',
-        timestamp: Date.now()
-      }));
+      const entryRoute = (location.state as any)?.entryRoute as string | undefined;
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'), entryRoute);
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Ritual complete!');
       navigate(((location.state as any)?.entryRoute as string) || '/plan');
