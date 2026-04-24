@@ -950,14 +950,35 @@ const TodayThreePriorities = ({
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {/* Type label — context first, then reflection, then practice cards.
+                      Client-side strip of "Mind Performance Coach" branding from
+                      integrate/prepare slot labels (Coach is fully suppressed in Plan). */}
+                  <span className={cn(
+                    "text-xs uppercase tracking-wider font-body",
+                    hm.isJit ? "text-saffron" : "text-saffron/80"
+                  )}>
+                    {hm.typeLabel.replace(/\s*·\s*Mind Performance Coach\s*$/i, '').trim()}
+                  </span>
+
+                  {/* Sequence reasoning (if multi-practice) */}
+                  {hm.sequenceReasoning && hasMultiple && (
+                    <p className="text-xs text-foreground/70 font-body font-medium leading-relaxed">
+                      {hm.sequenceReasoning}
+                    </p>
+                  )}
+
+                  {/* Why line */}
+                  <p className="text-xs italic text-muted-foreground font-body leading-relaxed">
+                    {hm.whyLine}
+                  </p>
+
                   {/* Reflection Corner — inline replacement for the suppressed /coach surface
-                      on the evening "Tiny Win and Reflection" priority. */}
+                      on the evening "Tiny Win and Reflection" priority. Rendered AFTER the
+                      label/whyLine so context sets up the reflection, before the practice card. */}
                   {(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
                     <ReflectionCorner
                       postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
                       onSaved={async () => {
-                        // Mark the slot complete via the standard ritual update path so the
-                        // Plan progress count advances and the slot flips to ✓.
                         try {
                           const { updateRitualCompletion } = await import('@/utils/dailyRituals');
                           await updateRitualCompletion(
@@ -974,26 +995,6 @@ const TodayThreePriorities = ({
                       }}
                     />
                   )}
-
-                  {/* Type label */}
-                  <span className={cn(
-                    "text-xs uppercase tracking-wider font-body",
-                    hm.isJit ? "text-saffron" : "text-saffron/80"
-                  )}>
-                    {hm.typeLabel}
-                  </span>
-
-                  {/* Sequence reasoning (if multi-practice) */}
-                  {hm.sequenceReasoning && hasMultiple && (
-                    <p className="text-xs text-foreground/70 font-body font-medium leading-relaxed">
-                      {hm.sequenceReasoning}
-                    </p>
-                  )}
-
-                  {/* Why line */}
-                  <p className="text-xs italic text-muted-foreground font-body leading-relaxed">
-                    {hm.whyLine}
-                  </p>
 
                   {/* Practice cards — horizontal scroll when multiple */}
                   <div className={cn(
