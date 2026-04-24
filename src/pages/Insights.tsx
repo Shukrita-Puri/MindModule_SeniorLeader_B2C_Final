@@ -206,19 +206,47 @@ const Insights = () => {
     }, 800);
     return () => clearTimeout(timer);
   }, [highlightParam, setSearchParams]);
+  // ── Per-day persistent cache for Insights section payloads ──
+  // Hydrate synchronously at mount so the scripted loader is skipped on
+  // revisit (same standard as the Brief / Plan / Onboarding-Results).
+  // Refresh fetches always run silently (never flip `*Loading` true) and
+  // swap state in place once new data arrives.
+  const insightsDataKey = (() => {
+    const uid = DEV_MODE ? DEV_USER.id : user?.id;
+    if (!uid) return null;
+    const today = new Date().toISOString().split('T')[0];
+    return cacheKeys.insightsData(uid, today);
+  })();
+  interface CachedInsightsSections {
+    statePatterns: StatePatternInsights | null;
+    tinyWinsInsights: TinyWinsInsights | null;
+    tinyWinsContent: Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>;
+    semanticAnalysis: SemanticAnalysis | null;
+    weekData: DayData[];
+    checkInStreak: number;
+    practiceData: PracticeData[];
+    profileBaseline: ProfileBaseline | null;
+    checkInsWithTimestamp: CheckInWithTimestamp[];
+  }
+  const cachedSections = (insightsDataKey
+    ? readPersistent<CachedInsightsSections>(insightsDataKey)
+    : null) as CachedInsightsSections | null;
+  const sectionsHydratedRef = useRef<boolean>(!!cachedSections);
+
   // Removed page-level `loading` gate – each section manages its own loading
-  const [weekData, setWeekData] = useState<DayData[]>([]);
-  const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
-  const [checkInStreak, setCheckInStreak] = useState(0);
-  const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
-  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
-  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>([]);
-  const [winsLoading, setWinsLoading] = useState(true);
-  const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
-  const [patternsLoading, setPatternsLoading] = useState(true);
-  const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
-  const [semanticLoading, setSemanticLoading] = useState(true);
-  const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(null);
+  const [weekData, setWeekData] = useState<DayData[]>(cachedSections?.weekData || []);
+  const [practiceData, setPracticeData] = useState<PracticeData[]>(cachedSections?.practiceData || []);
+  const [checkInStreak, setCheckInStreak] = useState(cachedSections?.checkInStreak || 0);
+  const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>(cachedSections?.checkInsWithTimestamp || []);
+  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(cachedSections?.tinyWinsInsights || null);
+  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>(cachedSections?.tinyWinsContent || []);
+  // When cache hit, *Loading starts FALSE — refresh runs silently.
+  const [winsLoading, setWinsLoading] = useState(!cachedSections?.tinyWinsInsights);
+  const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(cachedSections?.statePatterns || null);
+  const [patternsLoading, setPatternsLoading] = useState(!cachedSections?.statePatterns);
+  const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(cachedSections?.semanticAnalysis || null);
+  const [semanticLoading, setSemanticLoading] = useState(!cachedSections?.semanticAnalysis);
+  const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(cachedSections?.profileBaseline || null);
   const [patternsError, setPatternsError] = useState(false);
   const [winsError, setWinsError] = useState(false);
   const [semanticError, setSemanticError] = useState(false);
