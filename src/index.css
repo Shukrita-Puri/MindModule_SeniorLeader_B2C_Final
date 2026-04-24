@@ -187,9 +187,9 @@ body {
     mix-blend-mode: multiply;
   }
 
-  /* Subtle warm filter for engraved video backgrounds — light touch to preserve illustration detail */
+  /* Black & white treatment for hero video backgrounds — preserves engraving detail */
   .video-warm-luxury {
-    filter: sepia(10%) saturate(120%) brightness(105%) contrast(105%) hue-rotate(-4deg);
+    filter: grayscale(100%) brightness(102%) contrast(108%);
   }
 
   /* Elevated Taupe Effects */
