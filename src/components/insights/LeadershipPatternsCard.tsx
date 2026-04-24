@@ -106,32 +106,37 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     try {
       const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
       if (!effectiveUserId) return;
-      // Baseline = earliest composite_score, Current = latest composite_score
+      // Source: brief_snapshots.score (the daily Brief composite).
+      // Baseline = mean of first 3 scored Briefs (chronological).
+      // Current  = mean of last 3 scored Briefs.
+      // Rationale: smooths single-day volatility while still reflecting trajectory.
       const [earliestRes, latestRes] = await Promise.all([
         supabase
-          .from('inner_readiness_scores')
-          .select('composite_score, score_date')
+          .from('brief_snapshots')
+          .select('score, local_date')
           .eq('user_id', effectiveUserId)
-          .order('score_date', { ascending: true })
-          .limit(1)
-          .maybeSingle(),
+          .not('score', 'is', null)
+          .order('local_date', { ascending: true })
+          .limit(3),
         supabase
-          .from('inner_readiness_scores')
-          .select('composite_score, score_date')
+          .from('brief_snapshots')
+          .select('score, local_date')
           .eq('user_id', effectiveUserId)
-          .order('score_date', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .not('score', 'is', null)
+          .order('local_date', { ascending: false })
+          .limit(3),
       ]);
-      const baseline = earliestRes.data?.composite_score ?? null;
-      const latest = latestRes.data?.composite_score ?? null;
+      const earliest = (earliestRes.data || []).map((r) => r.score as number);
+      const latest = (latestRes.data || []).map((r) => r.score as number);
+      const mean = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+      const baseline = mean(earliest);
+      const current = mean(latest);
+      // Only show "current" once the user has at least one Brief beyond the baseline window
+      const earliestDates = new Set((earliestRes.data || []).map((r) => r.local_date));
+      const hasNewerBrief = (latestRes.data || []).some((r) => !earliestDates.has(r.local_date));
       setBriefScore({
         baseline: baseline != null ? Math.round(baseline) : null,
-        // If only one score exists (baseline === latest by date), don't show "current"
-        current:
-          latest != null && earliestRes.data?.score_date !== latestRes.data?.score_date
-            ? Math.round(latest)
-            : null,
+        current: current != null && hasNewerBrief ? Math.round(current) : null,
       });
     } catch (err) {
       console.error('[LeadershipPatternsCard] briefScore fetch error:', err);

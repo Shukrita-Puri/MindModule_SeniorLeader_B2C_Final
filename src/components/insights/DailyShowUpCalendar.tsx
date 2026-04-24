@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Check, Star } from 'lucide-react';
+import { useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -109,15 +111,48 @@ const DailyShowUpCalendar = ({ userId }: DailyShowUpCalendarProps) => {
     staleTime: 60 * 1000,
   });
 
+  // Rolling consecutive show-up streak (today backwards) — fires confetti at 3 / 7 day milestones.
+  // A day "counts" when status === 'full' OR 'partial' (check-in OR ≥1 priority any window).
+  useEffect(() => {
+    if (!weekDays || !userId) return;
+    // Walk from today (last index that isn't future) backwards
+    let streak = 0;
+    for (let i = weekDays.length - 1; i >= 0; i--) {
+      const d = weekDays[i];
+      if (d.isFuture) continue;
+      if (d.status === 'full' || d.status === 'partial') streak++;
+      else break;
+    }
+    const milestones = [7, 3];
+    for (const m of milestones) {
+      if (streak >= m) {
+        const key = `showup_celebrated:${userId}:${m}`;
+        if (typeof window !== 'undefined' && !window.localStorage.getItem(key)) {
+          window.localStorage.setItem(key, new Date().toISOString());
+          // Soft, executive-grade burst — center, brief, low particle count
+          confetti({
+            particleCount: m === 7 ? 120 : 70,
+            spread: 70,
+            startVelocity: 38,
+            ticks: 180,
+            origin: { y: 0.4 },
+            colors: ['#D4AF37', '#C9A96E', '#8B7355', '#3a3a3a'],
+          });
+        }
+        break; // only fire highest reached milestone once
+      }
+    }
+  }, [weekDays, userId]);
+
   return (
     <LuxuryInsightCard>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Did You Show Up For Yourself?
+            How You Showed Up For Yourself
           </span>
           <InsightInfoModal
-            title="Did You Show Up For Yourself?"
+            title="How You Showed Up For Yourself"
             explanation="A day counts when you check in OR complete at least one of your daily priorities (any window). It's not about doing everything — it's about showing up."
           />
         </div>
@@ -158,9 +193,6 @@ const DailyShowUpCalendar = ({ userId }: DailyShowUpCalendarProps) => {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground/70 mt-3 text-center">
-              A day counts when you check in or complete any priority.
-            </p>
           </>
         )}
       </CardContent>
