@@ -388,9 +388,10 @@ const TodayThreePriorities = ({
               clearPersistent(dataKey);
               shouldRegenerate = true;
             } else {
-              setPlan(parsed);
+              const stripped = stripCoachFromPlan(parsed)!;
+              setPlan(stripped);
               const allCompleted = todayRitual?.completed_practice_ids || [];
-              const horizonIds = (parsed.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
+              const horizonIds = (stripped.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
               return;
@@ -466,7 +467,7 @@ const TodayThreePriorities = ({
         return;
       }
 
-      const planResponse = planData as MasteryPlanResponse;
+      const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
       setPlan(planResponse);
 
       // Store plan for stability
