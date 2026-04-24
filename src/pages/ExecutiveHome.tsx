@@ -332,7 +332,7 @@ const ExecutiveHome = () => {
             </header>
             
             <div className="relative z-10 pt-0 pb-2 max-w-lg mx-auto text-center">
-            <h1 className="text-[28px] sm:text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
+            <h1 className="text-[28px] sm:text-3xl md:text-4xl font-headline font-bold text-white tracking-tight">
                 {getGreeting()}
               </h1>
               {/* TEMP_SUPPRESSED: subheadline phrase hidden to avoid duplication with brief italic line */}
