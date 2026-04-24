@@ -850,7 +850,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         }
       }
       if (!data.presenceLabel) {
-        messages.push({ icon: 'sparkles', text: 'Keep checking in – presence insights appear after more high-stakes moments or coach sessions' });
+        messages.push({ icon: 'sparkles', text: 'Keep checking in – presence insights appear after more high-stakes moments' });
       }
     }
 
@@ -1027,7 +1027,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   <InsightInfoModal
                     title="How You Show Up"
-                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and coach conversations – it reflects how consistently you operate at your best."
+                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and high-stakes moments on your calendar – it reflects how consistently you operate at your best."
                   />
                 </div>
                 <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
