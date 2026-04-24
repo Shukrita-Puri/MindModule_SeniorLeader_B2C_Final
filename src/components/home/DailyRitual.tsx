@@ -588,12 +588,15 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
           <div className="pt-2">
             <button
               onClick={() => navigate('/daily-check-in')}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
+              className="w-full flex flex-col items-center justify-center gap-2 py-3 px-3 rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors"
             >
-              <span className="text-xs text-muted-foreground/70 font-body text-center leading-relaxed">
-                Begin with your check-in. To activate your personalised brief and plan — takes two minutes.
+              <span className="text-[15px] italic text-foreground/80 text-center" style={{ fontFamily: 'Georgia, serif' }}>
+                Awaiting today's signal
               </span>
-              <ChevronRight size={12} className="text-muted-foreground/40" />
+              <span className="flex items-center gap-1 text-xs text-muted-foreground/70 font-body text-center leading-relaxed">
+                Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.
+                <ChevronRight size={12} className="text-muted-foreground/40 shrink-0" />
+              </span>
             </button>
           </div>
         </div>
