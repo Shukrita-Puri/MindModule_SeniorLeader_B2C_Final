@@ -808,7 +808,7 @@ const GuidedPracticePlayer = () => {
 
   const getCategoryPath = () => {
     // If from daily ritual or JIT intervention, return to executive home
-    if (fromRitual || fromIntervention) return '/executive-home';
+    if (fromRitual || fromIntervention) return '/plan';
     
     // Use the practice's actual category to determine back path
     if (!practice) return '/recalibrate';
@@ -859,7 +859,7 @@ const GuidedPracticePlayer = () => {
   const handleQueuePause = () => {
     localStorage.removeItem('practiceQueue');
     toast.success('Ritual paused');
-    navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+    navigate(((location.state as any)?.entryRoute as string) || '/plan');
   };
 
   const handleQueueComplete = () => {
@@ -898,7 +898,7 @@ const GuidedPracticePlayer = () => {
       }));
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Ritual complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     }
   };
 
@@ -1855,7 +1855,7 @@ const GuidedPracticePlayer = () => {
           }
         }
         toast.success('🎉 Plan complete!');
-        navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+        navigate(((location.state as any)?.entryRoute as string) || '/plan');
       } else {
         // Check for JIT intervention data (single practice case)
         const jitData = localStorage.getItem('jitInterventionData');
@@ -1929,7 +1929,7 @@ const GuidedPracticePlayer = () => {
           }
         }
         toast.success('🎉 Ritual complete!');
-        navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+        navigate(((location.state as any)?.entryRoute as string) || '/plan');
       } else {
         // Check for JIT intervention data (single practice case)
         const jitData = localStorage.getItem('jitInterventionData');

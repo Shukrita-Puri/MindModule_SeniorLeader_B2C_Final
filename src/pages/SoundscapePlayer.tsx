@@ -146,7 +146,7 @@ const SoundscapePlayer = () => {
 
   const getCategoryPath = () => {
     // If from daily ritual or JIT intervention, return to executive home
-    if (fromRitual || fromIntervention) return '/executive-home';
+    if (fromRitual || fromIntervention) return '/plan';
     
     // Use the soundscape's actual category to determine back path
     if (!soundscape) return '/recalibrate';
@@ -328,7 +328,7 @@ const SoundscapePlayer = () => {
     // Clear queue and return home
     localStorage.removeItem('practiceQueue');
     toast.success('Ritual paused');
-    navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+    navigate(((location.state as any)?.entryRoute as string) || '/plan');
   };
 
   const handleQueueComplete = () => {
@@ -362,7 +362,7 @@ const SoundscapePlayer = () => {
       setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     }
   };
 
@@ -467,7 +467,7 @@ const SoundscapePlayer = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     
@@ -544,7 +544,7 @@ const SoundscapePlayer = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
       return;
     }
     

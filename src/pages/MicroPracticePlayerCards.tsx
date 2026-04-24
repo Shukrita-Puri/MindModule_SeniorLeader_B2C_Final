@@ -1945,7 +1945,7 @@ const MicroPracticePlayerCards = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     } else {
       // Check for JIT intervention data even if not in queue (single practice case)
       const jitData = localStorage.getItem('jitInterventionData');
@@ -1969,7 +1969,7 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      const returnPath = (fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`;
+      const returnPath = (fromRitual || fromIntervention) ? '/plan' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
   };
@@ -2021,7 +2021,7 @@ const MicroPracticePlayerCards = () => {
         }
       }
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     } else {
       // Check for JIT intervention data
       const jitData = localStorage.getItem('jitInterventionData');
@@ -2045,7 +2045,7 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      const returnPath = (fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`;
+      const returnPath = (fromRitual || fromIntervention) ? '/plan' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
   };
@@ -2087,7 +2087,7 @@ const MicroPracticePlayerCards = () => {
   const handleQueuePause = () => {
     localStorage.removeItem('practiceQueue');
     toast.success('Ritual paused');
-    navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+    navigate(((location.state as any)?.entryRoute as string) || '/plan');
   };
 
   const handleQueueComplete = () => {
@@ -2099,7 +2099,7 @@ const MicroPracticePlayerCards = () => {
       localStorage.removeItem('ritualMode');
       localStorage.removeItem('practiceQueue');
       toast.success('🎉 Plan complete!');
-      navigate(((location.state as any)?.entryRoute as string) || '/executive-home');
+      navigate(((location.state as any)?.entryRoute as string) || '/plan');
     }
   };
 
@@ -2142,7 +2142,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath={(fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`} transparent />
+      <TopNavigation backPath={(fromRitual || fromIntervention) ? '/plan' : `/recalibrate/${category}`} transparent />
 
       {/* Practice Queue Progress - only show when multiple practices in queue */}
       {isInQueue && practice && practiceQueue.length > 1 && (
