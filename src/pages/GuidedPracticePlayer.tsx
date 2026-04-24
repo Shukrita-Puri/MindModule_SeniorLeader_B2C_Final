@@ -1871,26 +1871,8 @@ const GuidedPracticePlayer = () => {
         toast.success('🎉 Ritual complete!');
         navigate(((location.state as any)?.entryRoute as string) || '/plan');
       } else {
-        // Check for JIT intervention data (single practice case)
-        const jitData = localStorage.getItem('jitInterventionData');
-        if (jitData) {
-          try {
-            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-            localStorage.removeItem('jitInterventionData');
-            toast.success('Practice complete! Opening Coach...');
-            navigate('/coach', {
-              state: {
-                flowType,
-                initialPrompt: coachPrompt,
-                fromIntervention: true,
-                eventTitle
-              }
-            });
-            return;
-          } catch (e) {
-            console.error('Error parsing JIT data:', e);
-          }
-        }
+        // Coach hand-off suppressed — clear JIT data and return to category path.
+        localStorage.removeItem('jitInterventionData');
         navigate(getCategoryPath());
       }
     };
