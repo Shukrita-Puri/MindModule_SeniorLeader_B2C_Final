@@ -343,28 +343,9 @@ const SoundscapePlayer = () => {
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
-      // Ritual complete - check for JIT intervention data for coach navigation
+      // Ritual complete — coach hand-off suppressed; return to Plan.
       localStorage.removeItem('practiceQueue');
-      const jitData = localStorage.getItem('jitInterventionData');
-      if (jitData) {
-        try {
-          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
-          localStorage.removeItem('jitInterventionData');
-          toast.success('Practices complete! Opening Coach...');
-          navigate('/coach', {
-            state: {
-              flowType,
-              initialPrompt: coachPrompt,
-              fromIntervention: true,
-              eventTitle,
-              entryContext: { entryPoint: 'practice_complete', lastAction: 'completed soundscape practice', triggeredBy: null }
-            }
-          });
-          return;
-        } catch (e) {
-          console.error('Error parsing JIT data:', e);
-        }
-      }
+      localStorage.removeItem('jitInterventionData');
       const ritualMode = localStorage.getItem('ritualMode');
       setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
