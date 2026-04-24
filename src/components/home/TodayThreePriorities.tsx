@@ -32,6 +32,7 @@ import {
   clear as clearPersistent,
   msUntilWindowEnd,
   cacheKeys,
+  localISODate,
 } from '@/utils/persistentBriefCache';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
@@ -142,7 +143,7 @@ const TodayThreePriorities = ({
   // silently swap the data later.
   const initialCached = (() => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localISODate();
       const period = getCurrentTimeWindow();
       const loaded = readPersistent<boolean>(cacheKeys.planLoaded(today, period));
       if (loaded !== true) return null;
@@ -172,7 +173,7 @@ const TodayThreePriorities = ({
   // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger.
   // Keys are scoped to ritual_date + session_period so a new ritual cycle gets a clean slate
   // but reload/refresh within the same window reuses the same fingerprint.
-  const todayKey = new Date().toISOString().split('T')[0];
+  const todayKey = localISODate();
   const periodKey = getCurrentTimeWindow();
   const scopeKey = `${todayKey}-${periodKey}`;
   const celebratedStorageKey = `celebrated-ids-${scopeKey}`;
@@ -312,7 +313,7 @@ const TodayThreePriorities = ({
     setFetchFailed(false);
     try {
       const currentPeriod = getCurrentTimeWindow();
-      const todayDate = new Date().toISOString().split('T')[0];
+      const todayDate = localISODate();
       const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
