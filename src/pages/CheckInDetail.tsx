@@ -17,6 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
+import { clear as clearPersistent, cacheKeys } from '@/utils/persistentBriefCache';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
@@ -82,13 +83,26 @@ const CheckInDetail = () => {
         }
       }
 
-      // Invalidate all relevant caches so dashboard reflects new state immediately
-      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
-      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-      
+      // Clear any persisted "awaiting signals" brief payload across all three
+      // windows for today so the synchronous initialData hydrate cannot
+      // replay a stale awaiting view on the next mount.
+      const todayDate = new Date().toISOString().split('T')[0];
+      const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
+      if (effectiveUserId) {
+        for (const p of ['morning', 'afternoon', 'evening']) {
+          clearPersistent(cacheKeys.brief(effectiveUserId, p, todayDate));
+        }
+      }
+
+      // Force a fresh refetch (awaited) so dashboard reflects new state
+      // immediately and the next render sees the corrected, non-awaiting brief.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
+        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
+      ]);
+
       // Clear ALL mastery plan session caches to force fresh plan generation
       // Wipe every period variant to prevent any stale cache from surviving
-      const todayDate = new Date().toISOString().split('T')[0];
       for (const p of ['morning', 'afternoon', 'evening']) {
         sessionStorage.removeItem(`plan-loaded-${todayDate}-${p}`);
         sessionStorage.removeItem(`plan-data-${todayDate}-${p}`);
