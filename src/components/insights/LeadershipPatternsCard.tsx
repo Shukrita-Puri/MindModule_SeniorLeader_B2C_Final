@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -57,9 +57,9 @@ const trendIcons = {
 };
 
 const trendColors = {
-  improving: 'text-emerald-500',
-  declining: 'text-red-400',
-  stable: 'text-muted-foreground',
+  improving: 'text-emerald-600',
+  declining: 'text-red-500',
+  stable: 'text-amber-500',
 };
 
 // DEV_MODE archetype resolution
@@ -234,33 +234,24 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     }
   };
 
-  const renderDimensionRow = (label: string, baseline: number, current: number | undefined, delta: number | undefined, trend?: 'improving' | 'stable' | 'declining') => {
-    const TrendIcon = trend ? trendIcons[trend] : null;
-    return (
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-xs text-muted-foreground w-28">{label}</span>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground/70 tabular-nums">{baseline}</span>
-          {current !== undefined && (
-            <>
-              <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
-              <span className="font-semibold text-saffron tabular-nums">{current}</span>
-              {delta !== undefined && (
-                <span className={cn(
-                  'text-xs tabular-nums',
-                  delta > 0 ? 'text-saffron' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
-                )}>
-                  ({delta > 0 ? '+' : ''}{delta})
-                </span>
-              )}
-              {TrendIcon && trend && (
-                <TrendIcon className={cn('h-3 w-3', trendColors[trend])} />
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    );
+  // Composite Performance Readiness Score = mean of (recalibration + clarity + renewal)
+  const compositeScore = (s?: DimensionScores | null): number | null => {
+    if (!s) return null;
+    return Math.round((s.recalibration + s.clarity + s.renewal) / 3);
+  };
+
+  // Color helper: positive=green, negative=red, stable=yellow (text only)
+  const deltaTone = (delta: number): string => {
+    if (delta > 0) return 'text-emerald-600';
+    if (delta < 0) return 'text-red-500';
+    return 'text-amber-500';
+  };
+
+  // Friction tone — lower friction is positive (green), higher is negative (red), middle = yellow
+  const frictionTone = (pct: number): string => {
+    if (pct <= 25) return 'text-emerald-600';
+    if (pct <= 50) return 'text-amber-500';
+    return 'text-red-500';
   };
 
   return (
@@ -268,11 +259,11 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Performance Patterns
+            Your Trajectory
           </span>
           <InsightInfoModal
-            title="Your Performance Patterns"
-            explanation="What is consistently true about how you operate – not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, recurring themes, practices, and wearable data over 30 days."
+            title="Your Trajectory"
+            explanation="A scorecard view of how you're evolving — your archetype, your composite Performance Readiness Score, and your friction pattern. Drawn from your check-ins and practice data over 30 days."
           />
         </div>
       </CardHeader>
@@ -282,190 +273,112 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !data ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Unable to load performance patterns.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Unable to load your trajectory.</p>
         ) : (
-          <div className="space-y-5">
+          (() => {
+            const baselineComposite = compositeScore(data.baselineScores);
+            const currentComposite = compositeScore(data.currentScores);
+            const compositeDelta =
+              baselineComposite != null && currentComposite != null
+                ? currentComposite - baselineComposite
+                : null;
+            const ScoreTrendIcon = trendIcons[data.trendDirection];
+            const FrictionTrendIcon = trendIcons[data.trendDirection];
+            return (
+              <div className="space-y-4">
 
-            {/* ── SECTION 1: YOUR DIMENSIONS ── */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-                  Your Dimensions
-                </p>
-                <InsightInfoModal
-                  title="How Scores Are Calculated"
-                  explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
-                />
-              </div>
-
-              {/* Archetype */}
-              {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-muted-foreground/70">{data.baselineArchetypeTitle}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="text-sm font-semibold text-saffron">{data.currentArchetypeTitle}</span>
+                {/* ── ROW 1: ARCHETYPE (with tooltip on right) ── */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground shrink-0">
+                      Archetype
+                    </span>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-saffron">
-                    {data.currentArchetypeTitle || data.baselineArchetypeTitle}
-                  </span>
-                </div>
-              )}
-
-              {/* Three dimensions */}
-              {data.baselineScores && (
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
-                  {renderDimensionRow('Recalibration', data.baselineScores.recalibration, data.currentScores?.recalibration, data.scoreDeltas?.recalibration, data.currentScores ? data.trendDirection : undefined)}
-                  {renderDimensionRow('Clarity', data.baselineScores.clarity, data.currentScores?.clarity, data.scoreDeltas?.clarity, data.currentScores ? data.trendDirection : undefined)}
-                  {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal, data.currentScores ? data.trendDirection : undefined)}
-                  {!data.currentScores && (
-                    <p className="text-xs text-muted-foreground/60 pt-1">
-                      Your current scores build after 5 check-ins
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ── SECTION 3: WHAT YOUR PATTERNS REVEAL ── */}
-            <div className="space-y-3 pt-3">
-              <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-                What Your Patterns Reveal
-              </p>
-
-              {/* Friction frequency with trend */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">Friction</span>
-                  <InsightInfoModal
-                    title="What Is Friction?"
-                    explanation="Friction measures how often you report low-energy states like feeling drained, overwhelmed, or scattered. It's shown as a percentage of your check-ins over 30 days. Labels range from 'Low friction' (≤25%) to 'Sustained friction' (>75%), helping you see whether difficult states are occasional or persistent."
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'text-sm font-semibold',
-                    data.frictionPct <= 25 ? 'text-emerald-500' : data.frictionPct <= 50 ? 'text-amber-500' : 'text-red-400'
-                  )}>
-                    {data.frictionPct}% ({data.frictionLabel})
-                  </span>
-                  {(() => {
-                    const TIcon = trendIcons[data.trendDirection];
-                    return <TIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />;
-                  })()}
-                </div>
-              </div>
-
-              {/* Recurring themes */}
-              {data.recurringThemes.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-                      Recurring Themes
-                    </p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="text-sm text-muted-foreground truncate">{data.baselineArchetypeTitle}</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-semibold text-foreground truncate">{data.currentArchetypeTitle}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-semibold text-foreground truncate text-right">
+                        {data.currentArchetypeTitle || data.baselineArchetypeTitle}
+                      </span>
+                    )}
                     <InsightInfoModal
-                      title="Recurring Themes"
-                      explanation="Words and phrases that keep surfacing across your check-ins over 30 days. The count shows how often each theme appeared."
+                      title="How Scores Are Calculated"
+                      explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
                     />
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {data.recurringThemes.map((theme, i) => (
-                      <span
-                        key={i}
-                        className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                      >
-                        "{theme.phrase}"
-                        {theme.count > 1 && (
-                          <span className="ml-1 opacity-60">({theme.count}×)</span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              )}
 
-              {/* Heading for Lean On / Watch For */}
-              <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground pt-1">
-                Your Inner Edge
-              </p>
+                {/* ── ROW 2: PERFORMANCE READINESS SCORE ── */}
+                {baselineComposite != null && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground shrink-0">
+                      Performance Readiness Score
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground tabular-nums">{baselineComposite}</span>
+                      {currentComposite != null ? (
+                        <>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm font-semibold text-foreground tabular-nums">{currentComposite}</span>
+                          {compositeDelta != null && (
+                            <span className={cn('text-sm font-semibold tabular-nums', deltaTone(compositeDelta))}>
+                              ({compositeDelta > 0 ? '+' : ''}{compositeDelta})
+                            </span>
+                          )}
+                          <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">builds after 5 check-ins</span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              {/* Core Strengths */}
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
-                <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1.5 flex-1">
+                {/* ── ROW 3: FRICTION ── */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Friction
+                    </span>
+                    <InsightInfoModal
+                      title="What Is Friction?"
+                      explanation="Friction measures how often you report low-energy states like feeling drained, overwhelmed, or scattered. It's shown as a percentage of your check-ins over 30 days. Labels range from 'Low friction' (≤25%) to 'Sustained friction' (>75%), helping you see whether difficult states are occasional or persistent."
+                    />
+                  </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
-                    {data.coreStrengths && data.coreStrengths.length > 0 ? (
-                      <span className="text-xs text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
-                    )}
+                    <span className={cn('text-sm font-semibold tabular-nums', frictionTone(data.frictionPct ?? 0))}>
+                      {data.frictionPct}% <span className="font-normal text-muted-foreground">({data.frictionLabel})</span>
+                    </span>
+                    <FrictionTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
                   </div>
-                  {data.coreStrengths && data.coreStrengths.length > 0 ? (
-                    <ul className="space-y-1">
-                      {data.coreStrengths.map((s, i) => (
-                        <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                          <ArrowRight className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-saffron">{data.archetypeLeanOn}</p>
-                  )}
                 </div>
+
+                {/* Progressive messages */}
+                {data.checkInCount === 0 && (
+                  <p className="text-xs text-muted-foreground/70 text-center pt-2">
+                    Complete your first check-in to start mapping your trajectory.
+                  </p>
+                )}
+                {data.checkInCount > 0 && data.checkInCount < 5 && (
+                  <p className="text-xs text-muted-foreground/70 text-center pt-2">
+                    {data.checkInCount} check-in{data.checkInCount > 1 ? 's' : ''} logged. Your trajectory sharpens with each one.
+                  </p>
+                )}
+
+                {/* Data source note */}
+                {data.checkInCount > 0 && (
+                  <p className="text-xs text-muted-foreground/60 text-center">
+                    {data.dataSourceNote}
+                  </p>
+                )}
               </div>
-
-              {/* Growth Edges */}
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
-                    {data.growthEdges && data.growthEdges.length > 0 ? (
-                      <span className="text-xs text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
-                    )}
-                  </div>
-                  {data.growthEdges && data.growthEdges.length > 0 ? (
-                    <ul className="space-y-1">
-                      {data.growthEdges.map((e, i) => (
-                        <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                          <ArrowRight className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                          <span>{e}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Progressive messages */}
-            {data.checkInCount === 0 && (
-              <p className="text-xs text-muted-foreground/70 text-center">
-                Complete your first check-in to start mapping your patterns.
-              </p>
-            )}
-            {data.checkInCount > 0 && data.checkInCount < 5 && (
-              <p className="text-xs text-muted-foreground/70 text-center">
-                {data.checkInCount} check-in{data.checkInCount > 1 ? 's' : ''} logged. Patterns become clearer with each one.
-              </p>
-            )}
-
-            {/* ── SECTION 4: DATA SOURCE NOTE ── */}
-            {data.checkInCount > 0 && (
-              <p className="text-xs text-muted-foreground/60 text-center">
-                {data.dataSourceNote}
-              </p>
-            )}
-          </div>
+            );
+          })()
         )}
       </CardContent>
     </LuxuryInsightCard>
