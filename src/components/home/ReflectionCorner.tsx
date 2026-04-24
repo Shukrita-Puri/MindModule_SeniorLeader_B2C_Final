@@ -214,7 +214,10 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
               {stoic.duration} min · {stoic.steps} steps
             </div>
           </div>
-          <ArrowRight size={16} className="text-muted-foreground/40 group-hover:text-foreground/70 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+          <span className="flex items-center gap-1 px-3 h-8 rounded-lg bg-taupe text-white text-[12px] font-medium font-body group-hover:bg-taupe/90 transition-colors flex-shrink-0">
+            Start
+            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+          </span>
         </button>
       )}
     </div>
