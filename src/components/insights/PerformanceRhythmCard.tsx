@@ -71,30 +71,33 @@ interface PerformanceRhythmCardProps {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 
-const stateColors: Record<string, { gradient: string; glow: string; label: string }> = {
+// Palette locked to the daily check-in outcome accents so the trend dots,
+// outcome buttons, and Level (Clarity/Sharpness/Confidence) calendars all
+// share one visual language.
+const stateColors: Record<string, { color: string; dark: string; glow: string; label: string }> = {
   overwhelmed: {
-    gradient: 'from-red-900 to-red-700',
-    glow: 'rgba(127, 29, 29, 0.35)',
+    color: '#d8553f', dark: '#b03d2a',
+    glow: 'rgba(216, 85, 63, 0.35)',
     label: 'Overloaded',
   },
   drained: {
-    gradient: 'from-amber-800 to-amber-600',
-    glow: 'rgba(146, 64, 14, 0.35)',
+    color: '#e88a52', dark: '#c76d38',
+    glow: 'rgba(232, 138, 82, 0.35)',
     label: 'Drained',
   },
   scattered: {
-    gradient: 'from-slate-700 to-slate-500',
-    glow: 'rgba(51, 65, 85, 0.35)',
+    color: '#d4b75a', dark: '#b89a3f',
+    glow: 'rgba(212, 183, 90, 0.35)',
     label: 'Scattered',
   },
   steady: {
-    gradient: 'from-blue-900 to-blue-700',
-    glow: 'rgba(30, 58, 138, 0.35)',
+    color: '#7ba87a', dark: '#5f8a5e',
+    glow: 'rgba(123, 168, 122, 0.35)',
     label: 'Steady',
   },
   focused: {
-    gradient: 'from-emerald-800 to-emerald-600',
-    glow: 'rgba(6, 95, 70, 0.35)',
+    color: '#3d6fa8', dark: '#2f5685',
+    glow: 'rgba(61, 111, 168, 0.35)',
     label: 'Focused',
   },
 };
@@ -863,10 +866,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Readiness Rhythm
+            Mind Readiness Rhythm
           </span>
           <InsightInfoModal
-            title="Your Readiness Rhythm"
+            title="Mind Readiness Rhythm"
             explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your decision readiness with outer circumstances – calendar events, time of day, behaviors – to surface patterns you can't see without the aggregation."
           />
         </div>
@@ -898,10 +901,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">
-                          Mental Energy Trend
+                          Energy Trend
                         </span>
                         <InsightInfoModal
-                          title="Mental Energy Trend"
+                          title="Energy Trend"
                           explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
                         />
                       </div>
@@ -989,13 +992,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                                       day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
                                     )}
                                     style={hasOutcome && colors ? {
+                                      background: `linear-gradient(135deg, ${colors.color}, ${colors.dark})`,
                                       boxShadow: `0 2px 6px ${colors.glow}`,
                                     } : undefined}
-                                  >
-                                    {hasOutcome && colors && (
-                                      <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
-                                    )}
-                                  </div>
+                                  />
                                 );
                               })}
                             </div>
@@ -1009,7 +1009,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
                     {Object.entries(stateColors).map(([state, style]) => (
                       <div key={state} className="flex items-center gap-1.5">
-                        <div className={cn('w-2.5 h-2.5 rounded-full shadow-sm bg-gradient-to-br', style.gradient)} />
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shadow-sm"
+                          style={{ background: `linear-gradient(135deg, ${style.color}, ${style.dark})` }}
+                        />
                         <span>{style.label}</span>
                       </div>
                     ))}
@@ -1025,19 +1028,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   userId={userId}
                   field="clarity_level"
                   title="Clarity Trend"
-                  explanation="Each dot is your reported clarity (1–10) at that time of day. Deeper, richer tones mean higher clarity. Empty dots mean no check-in for that slot."
+                  explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
                 />
                 <LevelTrendCalendar
                   userId={userId}
                   field="mental_sharpness_level"
-                  title="Mental Sharpness Trend"
-                  explanation="Each dot is your reported mental sharpness (1–10) at that time of day. Deeper, richer tones mean sharper. Empty dots mean no check-in for that slot."
+                  title="Sharpness Trend"
+                  explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
                 />
                 <LevelTrendCalendar
                   userId={userId}
                   field="confidence_level"
                   title="Confidence Trend"
-                  explanation="Each dot is your reported confidence (1–10) at that time of day. Deeper, richer tones mean stronger confidence. Empty dots mean no check-in for that slot."
+                  explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
                 />
               </>
             )}
