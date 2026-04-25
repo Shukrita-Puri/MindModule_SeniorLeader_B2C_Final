@@ -71,30 +71,33 @@ interface PerformanceRhythmCardProps {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 
-const stateColors: Record<string, { gradient: string; glow: string; label: string }> = {
+// Palette locked to the daily check-in outcome accents so the trend dots,
+// outcome buttons, and Level (Clarity/Sharpness/Confidence) calendars all
+// share one visual language.
+const stateColors: Record<string, { color: string; dark: string; glow: string; label: string }> = {
   overwhelmed: {
-    gradient: 'from-red-900 to-red-700',
-    glow: 'rgba(127, 29, 29, 0.35)',
+    color: '#d8553f', dark: '#b03d2a',
+    glow: 'rgba(216, 85, 63, 0.35)',
     label: 'Overloaded',
   },
   drained: {
-    gradient: 'from-amber-800 to-amber-600',
-    glow: 'rgba(146, 64, 14, 0.35)',
+    color: '#e88a52', dark: '#c76d38',
+    glow: 'rgba(232, 138, 82, 0.35)',
     label: 'Drained',
   },
   scattered: {
-    gradient: 'from-slate-700 to-slate-500',
-    glow: 'rgba(51, 65, 85, 0.35)',
+    color: '#d4b75a', dark: '#b89a3f',
+    glow: 'rgba(212, 183, 90, 0.35)',
     label: 'Scattered',
   },
   steady: {
-    gradient: 'from-blue-900 to-blue-700',
-    glow: 'rgba(30, 58, 138, 0.35)',
+    color: '#7ba87a', dark: '#5f8a5e',
+    glow: 'rgba(123, 168, 122, 0.35)',
     label: 'Steady',
   },
   focused: {
-    gradient: 'from-emerald-800 to-emerald-600',
-    glow: 'rgba(6, 95, 70, 0.35)',
+    color: '#3d6fa8', dark: '#2f5685',
+    glow: 'rgba(61, 111, 168, 0.35)',
     label: 'Focused',
   },
 };
