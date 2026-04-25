@@ -15,30 +15,40 @@ interface LevelTrendCalendarProps {
   explanation: string;
 }
 
-interface DaySlot { value: number | null; }
 interface DayCell {
   date: string;
   dayLabel: string;
   dateNum: string;
   isToday: boolean;
   isFuture: boolean;
-  slots: { morning: DaySlot; midday: DaySlot; evening: DaySlot };
+  slots: {
+    morning: { value: number | null };
+    midday: { value: number | null };
+    evening: { value: number | null };
+  };
 }
 
-// Map a 1–10 level to a graded gradient + glow.
-// We mirror the Mental Energy Trend visual language: deep saturated tones for the
-// "best" end of the scale, muted/dim for the low end, neutral for missing data.
-const LEVEL_TIERS: { min: number; gradient: string; glow: string; label: string }[] = [
-  { min: 9, gradient: 'from-emerald-800 to-emerald-600', glow: 'rgba(6, 95, 70, 0.35)', label: 'Peak' },
-  { min: 7, gradient: 'from-blue-900 to-blue-700', glow: 'rgba(30, 58, 138, 0.35)', label: 'Strong' },
-  { min: 5, gradient: 'from-slate-700 to-slate-500', glow: 'rgba(51, 65, 85, 0.35)', label: 'Steady' },
-  { min: 3, gradient: 'from-amber-800 to-amber-600', glow: 'rgba(146, 64, 14, 0.35)', label: 'Low' },
-  { min: 1, gradient: 'from-red-900 to-red-700', glow: 'rgba(127, 29, 29, 0.35)', label: 'Depleted' },
+// Tier mapping for the 1–5 slider scale used in the detailed Check-in page.
+// Palette is locked to the daily check-in outcome accents so the trend dots,
+// outcome buttons, and Mental Energy Trend all share one visual language.
+//   5 Peak     → Focused-blue   #3d6fa8
+//   4 Strong   → Steady-green   #7ba87a
+//   3 Steady   → Scattered-gold #d4b75a
+//   2 Low      → Drained-amber  #e88a52
+//   1 Depleted → Overloaded-red #d8553f
+const LEVEL_TIERS: { value: number; color: string; dark: string; glow: string; label: string }[] = [
+  { value: 5, color: '#3d6fa8', dark: '#2f5685', glow: 'rgba(61, 111, 168, 0.35)',  label: 'Peak' },
+  { value: 4, color: '#7ba87a', dark: '#5f8a5e', glow: 'rgba(123, 168, 122, 0.35)', label: 'Strong' },
+  { value: 3, color: '#d4b75a', dark: '#b89a3f', glow: 'rgba(212, 183, 90, 0.35)',  label: 'Steady' },
+  { value: 2, color: '#e88a52', dark: '#c76d38', glow: 'rgba(232, 138, 82, 0.35)',  label: 'Low' },
+  { value: 1, color: '#d8553f', dark: '#b03d2a', glow: 'rgba(216, 85, 63, 0.35)',   label: 'Depleted' },
 ];
 
 const tierFor = (v: number | null) => {
   if (v == null) return null;
-  return LEVEL_TIERS.find((t) => v >= t.min) || LEVEL_TIERS[LEVEL_TIERS.length - 1];
+  // Clamp 1–5 (defensive against any legacy 6–10 values: collapse into Peak).
+  const clamped = Math.max(1, Math.min(5, Math.round(v)));
+  return LEVEL_TIERS.find((t) => t.value === clamped) || null;
 };
 
 const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCalendarProps) => {
@@ -53,18 +63,30 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
     (async () => {
       setLoading(true);
       try {
-        // Build current Mon → Sun window (local).
+        // Trailing ~30 days, snapped to whole weeks (Mon→Sun) so the strip
+        // mirrors the Mental Energy Trend layout exactly.
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const todayStr = today.toLocaleDateString('en-CA');
+
         const dow = today.getDay();
         const daysFromMonday = dow === 0 ? 6 : dow - 1;
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - daysFromMonday);
-        monday.setHours(0, 0, 0, 0);
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        const startDate = monday.toLocaleDateString('en-CA');
-        const endDate = sunday.toLocaleDateString('en-CA');
+        const currentMonday = new Date(today);
+        currentMonday.setDate(today.getDate() - daysFromMonday);
+
+        const sundayThisWeek = new Date(currentMonday);
+        sundayThisWeek.setDate(currentMonday.getDate() + 6);
+
+        // Start at the Monday of the week that contains (today − 30 days).
+        const earliest = new Date(today);
+        earliest.setDate(today.getDate() - 30);
+        const earliestDow = earliest.getDay();
+        const earliestOffset = earliestDow === 0 ? 6 : earliestDow - 1;
+        const startMonday = new Date(earliest);
+        startMonday.setDate(earliest.getDate() - earliestOffset);
+
+        const startDate = startMonday.toLocaleDateString('en-CA');
+        const endDate = sundayThisWeek.toLocaleDateString('en-CA');
 
         const accessToken = DEV_MODE ? null : await getAuthToken();
         if (!DEV_MODE && !accessToken) {
@@ -74,35 +96,40 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
 
         let q = supabase
           .from('daily_checkins')
-          .select(`checkin_date, time_window, ${field}`)
+          .select(`checkin_date, time_window, created_at, ${field}`)
           .gte('checkin_date', startDate)
           .lte('checkin_date', endDate);
         if (DEV_MODE) q = q.eq('user_id', DEV_USER.id);
         const { data, error } = await q;
         if (error) throw error;
 
-        // Index latest non-null value per (date, window).
-        const idx: Record<string, Record<string, number>> = {};
+        // Index latest non-null value per (date, slot). 'afternoon' → 'midday'.
+        const idx: Record<string, Record<string, { v: number; t: number }>> = {};
         (data || []).forEach((row: any) => {
           const v = row[field];
           if (v == null) return;
           const tw = (row.time_window || '').toLowerCase();
-          // map standard windows → display slots (morning / midday / evening)
           const slot = tw === 'afternoon' ? 'midday' : tw;
           if (!['morning', 'midday', 'evening'].includes(slot)) return;
-          idx[row.checkin_date] = idx[row.checkin_date] || {};
-          idx[row.checkin_date][slot] = v;
+          const t = row.created_at ? new Date(row.created_at).getTime() : 0;
+          const dayMap = idx[row.checkin_date] || (idx[row.checkin_date] = {});
+          if (!dayMap[slot] || t >= dayMap[slot].t) {
+            dayMap[slot] = { v, t };
+          }
         });
 
+        // Walk Monday → Sunday across the full window.
+        const totalDays =
+          Math.round((sundayThisWeek.getTime() - startMonday.getTime()) / 86400000) + 1;
         const out: DayCell[] = [];
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(monday);
-          d.setDate(monday.getDate() + i);
+        for (let i = 0; i < totalDays; i++) {
+          const d = new Date(startMonday);
+          d.setDate(startMonday.getDate() + i);
           const dateStr = d.toLocaleDateString('en-CA');
           const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
           const dateNum = String(d.getDate());
           const isToday = dateStr === todayStr;
-          const isFuture = d > today && !isToday;
+          const isFuture = d.getTime() > today.getTime();
           out.push({
             date: dateStr,
             dayLabel,
@@ -110,9 +137,9 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
             isToday,
             isFuture,
             slots: {
-              morning: { value: idx[dateStr]?.morning ?? null },
-              midday: { value: idx[dateStr]?.midday ?? null },
-              evening: { value: idx[dateStr]?.evening ?? null },
+              morning: { value: idx[dateStr]?.morning?.v ?? null },
+              midday: { value: idx[dateStr]?.midday?.v ?? null },
+              evening: { value: idx[dateStr]?.evening?.v ?? null },
             },
           });
         }
@@ -127,15 +154,28 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
     return () => { cancelled = true; };
   }, [userId, field]);
 
-  // Equal-width columns on mobile to mirror Mental Energy Trend layout.
+  // Mirror Mental Energy Trend: equal-width columns on mobile + auto-scroll
+  // to current week so the user lands on the latest data.
   useEffect(() => {
-    if (!days || !scrollRef.current || !isMobile) return;
+    if (!days || !scrollRef.current) return;
     const el = scrollRef.current;
-    const colW = Math.floor(el.clientWidth / 7);
-    el.querySelectorAll('[data-day-col]').forEach((c) => {
-      (c as HTMLElement).style.width = `${colW}px`;
-      (c as HTMLElement).style.minWidth = `${colW}px`;
-    });
+    if (isMobile) {
+      const colW = Math.floor(el.clientWidth / 7);
+      el.querySelectorAll('[data-day-col]').forEach((c) => {
+        (c as HTMLElement).style.width = `${colW}px`;
+        (c as HTMLElement).style.minWidth = `${colW}px`;
+      });
+    }
+    const todayIdx = days.findIndex((d) => d.isToday);
+    if (todayIdx >= 0) {
+      const todayDate = new Date(days[todayIdx].date);
+      const dow = todayDate.getDay();
+      const mondayOffset = dow === 0 ? 6 : dow - 1;
+      const mondayIdx = Math.max(0, todayIdx - mondayOffset);
+      const colWidth = isMobile ? Math.floor(el.clientWidth / 7) : 27;
+      const scrollTo = mondayIdx * colWidth;
+      setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
+    }
   }, [days, isMobile]);
 
   if (loading) {
@@ -152,12 +192,13 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
   if (!days || days.length === 0) return null;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
           <InsightInfoModal title={title} explanation={explanation} />
         </div>
+        <span className="text-xs text-muted-foreground/50">← scroll for past weeks</span>
       </div>
 
       <div className="flex">
@@ -212,19 +253,31 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
                             : 'bg-white/90 dark:bg-white/15',
                         day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
                       )}
-                      style={hasValue && tier ? { boxShadow: `0 2px 6px ${tier.glow}` } : undefined}
-                      title={slot.value != null ? `${slot.value}/10` : undefined}
-                    >
-                      {hasValue && tier && (
-                        <div className={cn('absolute inset-0 bg-gradient-to-br', tier.gradient)} />
-                      )}
-                    </div>
+                      style={hasValue && tier ? {
+                        background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})`,
+                        boxShadow: `0 2px 6px ${tier.glow}`,
+                      } : undefined}
+                      title={slot.value != null && tier ? `${tier.label} (${slot.value}/5)` : undefined}
+                    />
                   );
                 })}
               </div>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Legend — same vocabulary + style as Mental Energy Trend */}
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
+        {LEVEL_TIERS.slice().reverse().map((tier) => (
+          <div key={tier.value} className="flex items-center gap-1.5">
+            <div
+              className="w-2.5 h-2.5 rounded-full shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` }}
+            />
+            <span>{tier.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
