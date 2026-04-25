@@ -1,73 +1,83 @@
-## Goal
+## Problem (verified in code + against your screenshot)
 
-Bring the three new trend calendars (Clarity / Sharpness / Confidence) to full parity with **Mental Energy Trend** — full month of scrollable history, correct color mapping for the actual 1–5 data range, palette aligned to the daily check-in outcome accents, per-trend legends, and the requested renames.
+In your screenshot the **Clarity / Sharpness / Confidence Trends** show only the left-hand `Morning · Midday · Evening` labels with a tiny stack of marks — no day headers (Mon 20…Sun 26) and no dots — while the **Energy Trend** above renders correctly. Root causes:
 
-## Findings (verified against code + DB)
+1. **Width-measurement race in `LevelTrendCalendar.tsx`**
+   The component pins each day column to `clientWidth / 7` inside a `useEffect` that runs **once** when `days` first becomes non-null. If `el.clientWidth` is `0` or stale at that moment (very common when the Patterns tab just became visible, or when three of these components mount back-to-back inside the same flex container), every column gets `width: 0px` and the strip visually collapses. There is no resize observer, so it never recovers.
+   By contrast, **Energy Trend** uses a `ref` callback that re-runs on every render, which masks the same race.
 
-1. **Data range bug** — DB stores `clarity_level` / `mental_sharpness_level` / `confidence_level` as **1–5** (confirmed: `MIN=1, MAX=5` across 169 rows). `LevelTrendCalendar`'s tier table assumes **1–10**, so a check-in of `4` ("Lucid"/"Acute"/"Certain") wrongly renders as **amber "Low"**. This is the root cause of the visual mismatch.
-2. **Layout collapsed to one week** — `LevelTrendCalendar` only fetches `Mon→Sun` of the *current* week. Mental Energy Trend uses `weekRows` covering the trailing month and is horizontally scrollable. The three new trends therefore look "compressed" and don't match.
-3. **No legend** under the three new trends.
-4. **Palette drift** — Daily Check-in outcomes use:
-   `#d8553f` Overloaded · `#e88a52` Drained · `#d4b75a` Scattered · `#7ba87a` Steady · `#3d6fa8` Focused.
-   Mental Energy Trend currently uses Tailwind `red-900 / amber-800 / slate-700 / blue-900 / emerald-800` — close but not the same accents.
-5. **Renames requested**:
-   - Card title `"Your Readiness Rhythm"` → **"Mind Readiness Rhythm"**
-   - `"Mental Energy Trend"` → **"Energy Trend"**
-   - `"Mental Sharpness Trend"` → **"Sharpness Trend"**
-   - `"Clarity Trend"` and `"Confidence Trend"` unchanged.
+2. **No `key` reset between sibling calendars**
+   The three `<LevelTrendCalendar>` instances are siblings inside one render. They each schedule their own width-pinning + scroll on mount; whichever resolves before layout settles permanently freezes that calendar at 0-width.
 
-## Implementation
+3. **Wording mismatch with the slider on `/check-in-detail`**
+   The Check-In sliders use **trend-specific vocabulary** (verified in `src/pages/CheckInDetail.tsx:40-42`):
 
-### 1. `src/components/insights/LevelTrendCalendar.tsx` — full rewrite of layout + tiers
+   | Level | Sharpness | Clarity | Confidence |
+   |------:|-----------|---------|------------|
+   | 5 | Peak | Crystal | Unshakable |
+   | 4 | Acute | Lucid | Certain |
+   | 3 | Stable | Neutral | Poised |
+   | 2 | Dull | Obscured | Uncertain |
+   | 1 | Depleted | Clouded | Reactive |
 
-- **Fetch trailing ~30 days** (instead of current Mon→Sun). Compute the Monday of the week containing `today − 30d` as the start, end at the Sunday of the current week. Build a single ordered array of `DayCell`s for that range.
-- **Group into `weekRows`** the same way `PerformanceRhythmCard.weekRows` is built, then render a single horizontally scrollable strip of all days (matching Energy Trend's `inline-flex` + per-day column layout).
-- **Auto-scroll on mount** to the current week (mirror the `mondayIdx * colWidth` logic used in PerformanceRhythmCard, including mobile equal-width column behavior).
-- **Fix the 1–5 tier mapping** to match the slider semantics shown on the detailed Check-in page:
+   The Patterns calendars currently show one generic legend (`Depleted · Low · Steady · Strong · Peak`) for all three. Per your direction, each calendar must use the **same words as its slider**.
 
-  | Value | Slider label (sharpness/clarity/confidence) | Tier label | Palette token |
-  |-------|---------------------------------------------|------------|---------------|
-  | 5 | Peak / Crystal / Unshakable | **Peak** | `#3d6fa8` (Focused-blue) |
-  | 4 | Acute / Lucid / Certain | **Strong** | `#7ba87a` (Steady-green) |
-  | 3 | Stable / Neutral / Poised | **Steady** | `#d4b75a` (Scattered-gold) |
-  | 2 | Dull / Obscured / Uncertain | **Low** | `#e88a52` (Drained-amber) |
-  | 1 | Depleted / Clouded / Reactive | **Depleted** | `#d8553f` (Overloaded-coral) |
+## Fix
 
-  Note: this **inverts the visual mapping correctly** — the higher the value, the "cooler / more confident" the color, in line with the daily check-in outcomes (Focused = blue is the best state).
-- Replace Tailwind `from-* to-*` gradient classes with inline `background: linear-gradient(135deg, color, darken(color))` so we can use the exact hex values from the check-in palette. Glow stays as a subtle `boxShadow` derived from the same color.
-- **Add the same scroll hint** (`← scroll for past weeks`) above the strip.
-- **Add a legend below each calendar** with the 5 swatches + labels (Depleted · Low · Steady · Strong · Peak), styled identically to Energy Trend's legend (`flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20`).
-- Title row keeps the existing `InsightInfoModal` tooltip; tooltip copy updated to reflect the 1–5 scale (not 1–10).
+### 1. `src/components/insights/LevelTrendCalendar.tsx` — make layout match Energy Trend exactly + add per-trend vocabulary
 
-### 2. `src/components/insights/PerformanceRhythmCard.tsx` — palette + renames
+**Layout / scroll parity (kills the compression bug):**
+- Replace the one-shot `useEffect` width pinning with the **same `ref` callback pattern** used by Energy Trend in `PerformanceRhythmCard.tsx` (lines 925–948): the callback fires on every render, recomputes `clientWidth / 7` on mobile, re-applies widths to every `[data-day-col]`, and re-applies the auto-scroll to the current week's Monday. This makes it self-healing against the 0-width race.
+- Add a `ResizeObserver` on the scroll container as a belt-and-braces fallback so future viewport changes (orientation flip, sidebar toggle, etc.) re-pin column widths.
+- Keep the existing trailing-30-day, Mon→Sun, `inline-flex`, `gap: isMobile ? 0 : 4px`, `26px` desktop column, `flex-shrink: 0` styling — they already match Energy Trend.
 
-- **Update `stateColors` gradients** to use the daily check-in accents so Mental Energy Trend matches the Daily Check-in screen exactly:
-  - `overwhelmed` → `#d8553f`
-  - `drained` → `#e88a52`
-  - `scattered` → `#d4b75a`
-  - `steady` → `#7ba87a`
-  - `focused` → `#3d6fa8`
-  Switch the dot fill from `bg-gradient-to-br from-X to-Y` (Tailwind) to inline `linear-gradient(135deg, color, darken(color, ~12%))` and keep the glow consistent. The legend at the bottom of Mental Energy Trend already iterates `stateColors`, so it updates automatically.
-- Change card title `"Your Readiness Rhythm"` → **"Mind Readiness Rhythm"**.
-- Rename `"Mental Energy Trend"` heading + InsightInfoModal title → **"Energy Trend"**.
-- Rename `"Mental Sharpness Trend"` (passed to `LevelTrendCalendar`) → **"Sharpness Trend"**.
-- Leave `"Clarity Trend"` and `"Confidence Trend"` unchanged.
+**Per-trend vocabulary (replaces the generic `Depleted/Low/Steady/Strong/Peak`):**
+- Add a `vocabulary?: { 5: string; 4: string; 3: string; 2: string; 1: string }` prop. When provided, it overrides the generic tier labels for both the legend and the dot tooltip.
+- Colours, glow, gradient remain locked to the canonical 5-tier palette (no change) — only the **labels** change per trend so the same blue dot can read "Crystal" for Clarity, "Acute" for Sharpness, "Certain" for Confidence.
+
+### 2. `src/components/insights/PerformanceRhythmCard.tsx` — pass the slider vocabularies in
+
+At lines 1027–1044, pass the exact arrays from `CheckInDetail.tsx`:
+
+```tsx
+<LevelTrendCalendar
+  field="clarity_level"
+  title="Clarity Trend"
+  explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
+  vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
+/>
+<LevelTrendCalendar
+  field="mental_sharpness_level"
+  title="Sharpness Trend"
+  explanation="Each dot is your reported mental sharpness (1–5) at that time of day."
+  vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
+/>
+<LevelTrendCalendar
+  field="confidence_level"
+  title="Confidence Trend"
+  explanation="Each dot is your reported confidence (1–5) at that time of day."
+  vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
+/>
+```
+
+No other changes to `PerformanceRhythmCard` (Energy Trend, ordering, "How You Show Up" tail block all stay).
 
 ### 3. No backend / DB changes
-All three level fields already exist on `daily_checkins` with a 1–5 range; the calendar will just query a wider date window. No migrations, no edge-function edits.
+All data already comes from `daily_checkins.{clarity_level, mental_sharpness_level, confidence_level}` (1–5). No migrations.
 
-### 4. QA / verification
-- Visually confirm at mobile (719px viewport, current preview) that all four calendars share identical column widths, scroll behavior, day headers, and legend styling.
-- Confirm a recent check-in with `clarity_level = 4` now renders as the **Strong** (sage-green) tier, not amber.
-- Confirm horizontal scroll exposes the prior 3–4 weeks for each of the three new calendars (auto-scrolled to current week).
-- Confirm Daily Check-in outcome buttons and Mental Energy Trend dots show visually identical colors when placed side by side.
+## QA / verification (mobile 719px, the viewport in your screenshot)
 
-### Files touched
-- `src/components/insights/LevelTrendCalendar.tsx` — rewrite (tiers, multi-week fetch, scroll, legend, palette).
-- `src/components/insights/PerformanceRhythmCard.tsx` — `stateColors` palette, dot rendering switched to inline gradient, three renames.
+- All four calendars render with **identical column widths**, day headers (Mon 20 … Sun 26), and three rows of dots.
+- All four are **horizontally scrollable**, auto-scrolled to current week on mount, with the `← scroll for past weeks` hint above each.
+- Clarity legend reads `Clouded · Obscured · Neutral · Lucid · Crystal`; Sharpness legend reads `Depleted · Dull · Stable · Acute · Peak`; Confidence legend reads `Reactive · Uncertain · Poised · Certain · Unshakable`. Energy Trend legend unchanged.
+- Hovering a dot shows the trend-specific label (e.g. "Crystal (5/5)" on a Clarity Peak day).
+- Rotate the device / toggle the sidebar — column widths re-pin, no collapse.
 
-### Memory updates (after implementation)
-- Save `mem://features/insights/level-trend-calendars` capturing: 1–5 tier ↔ check-in-palette mapping, trailing-month scroll layout, per-trend legend, and the canonical palette hex values.
-- Update `mem://index.md` Memories list with the new entry.
+## Files touched
+- `src/components/insights/LevelTrendCalendar.tsx` — switch to ref-callback width pinning + ResizeObserver; add `vocabulary` prop; use it for legend and tooltip.
+- `src/components/insights/PerformanceRhythmCard.tsx` — pass per-trend `vocabulary` to each `<LevelTrendCalendar>`.
+
+## Memory update (after implementation)
+- Update `mem://features/insights/level-trend-calendars.md`: record the per-trend slider vocabulary table (Clarity / Sharpness / Confidence) and the ref-callback + ResizeObserver layout contract that keeps the strip self-healing.
 
 Ready to implement on approval.

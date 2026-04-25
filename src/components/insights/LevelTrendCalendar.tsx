@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
@@ -8,11 +8,24 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 type LevelField = 'clarity_level' | 'mental_sharpness_level' | 'confidence_level';
 
+export type LevelVocabulary = {
+  5: string;
+  4: string;
+  3: string;
+  2: string;
+  1: string;
+};
+
 interface LevelTrendCalendarProps {
   userId?: string;
   field: LevelField;
   title: string;
   explanation: string;
+  /**
+   * Per-trend slider vocabulary (mirrors /check-in-detail). When provided,
+   * overrides the generic tier labels for both the legend and dot tooltip.
+   */
+  vocabulary?: LevelVocabulary;
 }
 
 interface DayCell {
@@ -51,11 +64,66 @@ const tierFor = (v: number | null) => {
   return LEVEL_TIERS.find((t) => t.value === clamped) || null;
 };
 
-const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCalendarProps) => {
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: LevelTrendCalendarProps) => {
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollElRef = useRef<HTMLDivElement | null>(null);
+  const daysRef = useRef<DayCell[] | null>(null);
+  const isMobileRef = useRef(isMobile);
+  isMobileRef.current = isMobile;
+  daysRef.current = days;
+
+  const labelFor = (value: number) =>
+    vocabulary?.[value as 1 | 2 | 3 | 4 | 5] ??
+    LEVEL_TIERS.find((t) => t.value === value)?.label ??
+    '';
+
+  // Self-healing layout: re-pin column widths AND re-apply auto-scroll on
+  // every render / resize. Mirrors the ref-callback pattern used by Energy
+  // Trend in PerformanceRhythmCard so the strip can never collapse to 0px
+  // when clientWidth is briefly stale on mount.
+  const applyLayout = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const days = daysRef.current;
+    if (!days || days.length === 0) return;
+    const mobile = isMobileRef.current;
+    if (mobile) {
+      const colW = Math.floor(el.clientWidth / 7);
+      if (colW > 0) {
+        el.querySelectorAll('[data-day-col]').forEach((c) => {
+          (c as HTMLElement).style.width = `${colW}px`;
+          (c as HTMLElement).style.minWidth = `${colW}px`;
+        });
+      }
+    }
+    const todayIdx = days.findIndex((d) => d.isToday);
+    if (todayIdx >= 0) {
+      const todayDate = new Date(days[todayIdx].date);
+      const dow = todayDate.getDay();
+      const mondayOffset = dow === 0 ? 6 : dow - 1;
+      const mondayIdx = Math.max(0, todayIdx - mondayOffset);
+      const colWidth = mobile ? Math.floor(el.clientWidth / 7) : 27;
+      const scrollTo = mondayIdx * colWidth;
+      if (scrollTo > 0) {
+        setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
+      }
+    }
+  }, []);
+
+  const setScrollRef = useCallback((el: HTMLDivElement | null) => {
+    scrollElRef.current = el;
+    applyLayout(el);
+  }, [applyLayout]);
+
+  // ResizeObserver belt-and-braces: re-pin on viewport / sidebar / orientation changes.
+  useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => applyLayout(el));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [applyLayout, days]);
 
   useEffect(() => {
     if (!userId && !DEV_MODE) return;
@@ -154,29 +222,10 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
     return () => { cancelled = true; };
   }, [userId, field]);
 
-  // Mirror Mental Energy Trend: equal-width columns on mobile + auto-scroll
-  // to current week so the user lands on the latest data.
+  // After data arrives, re-apply layout once we know the strip element exists.
   useEffect(() => {
-    if (!days || !scrollRef.current) return;
-    const el = scrollRef.current;
-    if (isMobile) {
-      const colW = Math.floor(el.clientWidth / 7);
-      el.querySelectorAll('[data-day-col]').forEach((c) => {
-        (c as HTMLElement).style.width = `${colW}px`;
-        (c as HTMLElement).style.minWidth = `${colW}px`;
-      });
-    }
-    const todayIdx = days.findIndex((d) => d.isToday);
-    if (todayIdx >= 0) {
-      const todayDate = new Date(days[todayIdx].date);
-      const dow = todayDate.getDay();
-      const mondayOffset = dow === 0 ? 6 : dow - 1;
-      const mondayIdx = Math.max(0, todayIdx - mondayOffset);
-      const colWidth = isMobile ? Math.floor(el.clientWidth / 7) : 27;
-      const scrollTo = mondayIdx * colWidth;
-      setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
-    }
-  }, [days, isMobile]);
+    applyLayout(scrollElRef.current);
+  }, [days, isMobile, applyLayout]);
 
   if (loading) {
     return (
@@ -212,7 +261,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
         </div>
 
         <div
-          ref={scrollRef}
+          ref={setScrollRef}
           className="overflow-x-auto flex-1 pb-1"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
@@ -257,7 +306,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
                         background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})`,
                         boxShadow: `0 2px 6px ${tier.glow}`,
                       } : undefined}
-                      title={slot.value != null && tier ? `${tier.label} (${slot.value}/5)` : undefined}
+                      title={slot.value != null && tier ? `${labelFor(tier.value)} (${slot.value}/5)` : undefined}
                     />
                   );
                 })}
@@ -267,7 +316,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
         </div>
       </div>
 
-      {/* Legend — same vocabulary + style as Mental Energy Trend */}
+      {/* Legend — uses the slider vocabulary from /check-in-detail when provided */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
         {LEVEL_TIERS.slice().reverse().map((tier) => (
           <div key={tier.value} className="flex items-center gap-1.5">
@@ -275,7 +324,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation }: LevelTrendCal
               className="w-2.5 h-2.5 rounded-full shadow-sm"
               style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.dark})` }}
             />
-            <span>{tier.label}</span>
+            <span>{labelFor(tier.value)}</span>
           </div>
         ))}
       </div>
