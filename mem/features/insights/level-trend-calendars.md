@@ -31,7 +31,7 @@ Clarity / Sharpness / Confidence levels are **1–5** in the DB (slider on `/che
 Dot fill: `linear-gradient(135deg, color, dark)`. Glow: `boxShadow: 0 2px 6px rgba(color, 0.35)`. Same palette is used by Energy Trend (mapped via outcome → level equivalent), DailyCheckIn outcome buttons, and the three Level calendars.
 
 ## Layout (parity with Energy Trend)
-- Trailing ~30 days, snapped to whole weeks (Mon→Sun).
+- **Full current calendar month** (day 1 → last day of month), matching Energy Trend's range exactly. Future days in the month render as dashed-empty cells so the user always sees the "remaining days/weeks" of the month.
 - Single horizontally scrollable strip; auto-scroll to current week's Monday on mount.
 - Mobile: equal-width columns (`clientWidth / 7`); desktop: 26px columns + 4px gap.
 - Fixed left labels: Morning · Midday · Evening (`afternoon` time_window → `midday` slot).
