@@ -131,30 +131,19 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: L
     (async () => {
       setLoading(true);
       try {
-        // Trailing ~30 days, snapped to whole weeks (Mon→Sun) so the strip
-        // mirrors the Mental Energy Trend layout exactly.
+        // Full current calendar month (day 1 → last day of month). This mirrors
+        // the Energy Trend strip exactly so all four calendars share the same
+        // date range and "remaining days/weeks" rendering (future days are
+        // shown as dashed-empty cells).
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toLocaleDateString('en-CA');
-
-        const dow = today.getDay();
-        const daysFromMonday = dow === 0 ? 6 : dow - 1;
-        const currentMonday = new Date(today);
-        currentMonday.setDate(today.getDate() - daysFromMonday);
-
-        const sundayThisWeek = new Date(currentMonday);
-        sundayThisWeek.setDate(currentMonday.getDate() + 6);
-
-        // Start at the Monday of the week that contains (today − 30 days).
-        const earliest = new Date(today);
-        earliest.setDate(today.getDate() - 30);
-        const earliestDow = earliest.getDay();
-        const earliestOffset = earliestDow === 0 ? 6 : earliestDow - 1;
-        const startMonday = new Date(earliest);
-        startMonday.setDate(earliest.getDate() - earliestOffset);
-
-        const startDate = startMonday.toLocaleDateString('en-CA');
-        const endDate = sundayThisWeek.toLocaleDateString('en-CA');
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+        const startDate = monthStart.toLocaleDateString('en-CA');
+        const endDate = monthEnd.toLocaleDateString('en-CA');
 
         const accessToken = DEV_MODE ? null : await getAuthToken();
         if (!DEV_MODE && !accessToken) {
@@ -186,13 +175,11 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: L
           }
         });
 
-        // Walk Monday → Sunday across the full window.
-        const totalDays =
-          Math.round((sundayThisWeek.getTime() - startMonday.getTime()) / 86400000) + 1;
+        // Walk day 1 → last day of the current calendar month.
+        const totalDays = monthEnd.getDate();
         const out: DayCell[] = [];
         for (let i = 0; i < totalDays; i++) {
-          const d = new Date(startMonday);
-          d.setDate(startMonday.getDate() + i);
+          const d = new Date(currentYear, currentMonth, i + 1);
           const dateStr = d.toLocaleDateString('en-CA');
           const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
           const dateNum = String(d.getDate());
