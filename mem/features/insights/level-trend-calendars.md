@@ -35,8 +35,23 @@ Dot fill: `linear-gradient(135deg, color, dark)`. Glow: `boxShadow: 0 2px 6px rg
 - Single horizontally scrollable strip; auto-scroll to current week's Monday on mount.
 - Mobile: equal-width columns (`clientWidth / 7`); desktop: 26px columns + 4px gap.
 - Fixed left labels: Morning · Midday · Evening (`afternoon` time_window → `midday` slot).
-- Legend below each calendar: Depleted · Low · Steady · Strong · Peak (left→right rendered Peak→Depleted).
+- Legend below each calendar uses **per-trend slider vocabulary** (see below), rendered Peak→Depleted left→right.
 - Scroll hint above strip: `← scroll for past weeks`.
+- Width pinning is done via a **ref callback** (`setScrollRef → applyLayout`) that re-runs on every render, plus a `ResizeObserver` on the scroll container — this is **self-healing** against the 0-width race that previously collapsed sibling calendars when the Patterns tab first became visible. Do NOT revert to a one-shot `useEffect` width-pin.
+
+## Per-trend vocabulary (mirrors `/check-in-detail` sliders, `src/pages/CheckInDetail.tsx:40-42`)
+
+Same 5-tier palette across all three; only the labels change.
+
+| Level | Sharpness | Clarity   | Confidence |
+|------:|-----------|-----------|------------|
+| 5     | Peak      | Crystal   | Unshakable |
+| 4     | Acute     | Lucid     | Certain    |
+| 3     | Stable    | Neutral   | Poised     |
+| 2     | Dull      | Obscured  | Uncertain  |
+| 1     | Depleted  | Clouded   | Reactive   |
+
+`<LevelTrendCalendar>` accepts an optional `vocabulary={{5,4,3,2,1}}` prop — used for both the legend and the dot tooltip. Energy Trend keeps its own outcome vocabulary (Overloaded/Drained/Scattered/Steady/Focused).
 
 ## Files
 - `src/components/insights/LevelTrendCalendar.tsx` — generic 1–5 calendar.
