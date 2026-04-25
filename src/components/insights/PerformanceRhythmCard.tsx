@@ -1029,18 +1029,21 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   field="clarity_level"
                   title="Clarity Trend"
                   explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
+                  vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
                 />
                 <LevelTrendCalendar
                   userId={userId}
                   field="mental_sharpness_level"
                   title="Sharpness Trend"
                   explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
+                  vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
                 />
                 <LevelTrendCalendar
                   userId={userId}
                   field="confidence_level"
                   title="Confidence Trend"
                   explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
+                  vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
                 />
               </>
             )}
