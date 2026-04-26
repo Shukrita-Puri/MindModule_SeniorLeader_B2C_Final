@@ -43,12 +43,25 @@ interface BestReadinessWindow {
 }
 
 interface PerformanceRhythmData {
-  // New v2.0 fields
-  presenceScore: number | null;
-  presenceLabel: string | null;
-  presenceInsight: string | null;
+  // Legacy presence fields — fully retired. Kept on the type for back-compat
+  // with any cached server response that still carries them; never rendered.
+  presenceScore?: number | null;
+  presenceLabel?: string | null;
+  presenceInsight?: string | null;
   presenceActions?: string[] | null;
   temporalPatterns?: string[] | null;
+
+  // v3 — Mind Rhythm Patterns: pure rhythm reader over the 4 trend calendars.
+  mindRhythmPatterns?: {
+    energy: RhythmFinding[];
+    clarity: RhythmFinding[];
+    sharpness: RhythmFinding[];
+    confidence: RhythmFinding[];
+  } | null;
+
+  // v3 — positive-rate stat surfaced inline (also exposed by state-patterns).
+  positiveRate?: { pct: number; n: number } | null;
+
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
@@ -62,6 +75,13 @@ interface PerformanceRhythmData {
   heatmap?: Record<string, Record<string, HeatmapCell>>;
   bestWindow?: string | null;
   observations?: string[];
+}
+
+interface RhythmFinding {
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+  text: string;
+  confidence: number;
+  observations: number;
 }
 
 interface PerformanceRhythmCardProps {
