@@ -51,12 +51,13 @@ interface PerformanceRhythmData {
   presenceActions?: string[] | null;
   temporalPatterns?: string[] | null;
 
-  // v3 — Mind Rhythm Patterns: pure rhythm reader over the 4 trend calendars.
+  // v3.1 — Your Rhythm Signals: prioritised top-3 from the 4-series rhythm
+  // miner (Energy / Clarity / Sharpness / Confidence). `all` is the full
+  // ranked set, retained so the weekly insights email can use the long form
+  // without a second fetch.
   mindRhythmPatterns?: {
-    energy: RhythmFinding[];
-    clarity: RhythmFinding[];
-    sharpness: RhythmFinding[];
-    confidence: RhythmFinding[];
+    topThree: RhythmFinding[];
+    all: RhythmFinding[];
   } | null;
 
   // v3 — positive-rate stat surfaced inline (also exposed by state-patterns).
@@ -78,10 +79,15 @@ interface PerformanceRhythmData {
 }
 
 interface RhythmFinding {
-  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
+  dimension: 'energy' | 'clarity' | 'sharpness' | 'confidence';
+  /** Crisp app-facing copy (≤ ~110 chars). */
   text: string;
+  /** Verbose long-form with stats — reserved for the weekly insights email. */
+  longText: string;
   confidence: number;
   observations: number;
+  priorityScore: number;
 }
 
 interface PerformanceRhythmCardProps {
