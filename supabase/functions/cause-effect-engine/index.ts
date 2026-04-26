@@ -216,23 +216,54 @@ serve(async (req) => {
         .eq("user_id", userId)
         .eq("computed_for_date", todayStr)
         .maybeSingle();
-      if (cached?.payload) {
-        return new Response(JSON.stringify({ ...cached.payload, cached: true }), {
-          status: 200,
-          headers: corsHeaders,
-        });
+      const cachedPayload: any = cached?.payload;
+      if (cachedPayload) {
+        // Treat cached row as stale and recompute when:
+        //  - payload predates the current engine version, OR
+        //  - payload is empty (no top + zero findings) and missing the v2
+        //    coverage shape (eventTypesIdentified/lensReasons), which means
+        //    it was written by an older logic version.
+        const isOldVersion =
+          typeof cachedPayload.version !== "number" ||
+          cachedPayload.version < ENGINE_VERSION;
+        const lensCount =
+          (cachedPayload.lensA?.length || 0) +
+          (cachedPayload.lensB?.length || 0) +
+          (cachedPayload.lensC?.length || 0) +
+          (cachedPayload.lensD?.length || 0);
+        const isEmptyAndOldShape =
+          !cachedPayload.top &&
+          lensCount === 0 &&
+          (cachedPayload.coverage == null ||
+            cachedPayload.coverage.eventTypesIdentified == null ||
+            cachedPayload.coverage.lensReasons == null);
+        if (!isOldVersion && !isEmptyAndOldShape) {
+          return new Response(JSON.stringify({ ...cachedPayload, cached: true }), {
+            status: 200,
+            headers: corsHeaders,
+          });
+        }
+        console.log(
+          "[cause-effect-engine] cache invalidated (version=%s, isEmptyOldShape=%s) — recomputing",
+          cachedPayload.version,
+          isEmptyAndOldShape,
+        );
       }
     }
 
     const startStr = ymd(addDays(today, -days));
     const startIso = new Date(startStr + "T00:00:00Z").toISOString();
+    const nowIso = new Date().toISOString();
 
     // Parallel reads ---------------------------------------------------
     const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
       supabase.from("calendar_events")
         .select("title, start_time, end_time, attendees_count, is_organizer")
         .eq("user_id", userId)
-        .gte("start_time", startIso),
+        .gte("start_time", startIso)
+        // Exclude future events — they have no check-ins or wearable data yet
+        // and would distort buckets/baselines.
+        .lte("start_time", nowIso),
       supabase.from("wearable_data")
         .select("summary_date, hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes")
         .eq("user_id", userId)
