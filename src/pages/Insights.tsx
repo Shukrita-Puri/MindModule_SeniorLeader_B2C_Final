@@ -16,7 +16,7 @@ import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
-import CauseEffectPanel from '@/components/insights/CauseEffectPanel';
+import PerformanceCausalityCard from '@/components/insights/PerformanceCausalityCard';
 import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
