@@ -31,6 +31,8 @@ export interface LeadershipPatternsData {
   scoreDeltas?: DimensionScores | null;
   frictionPct?: number;
   frictionLabel?: string;
+  /** % of check-ins in the positive band (focused/steady) over 30d. Mirror of friction at the check-in level. Null until ≥5 check-ins. */
+  positiveRate?: { pct: number; n: number } | null;
   trendDirection?: 'improving' | 'stable' | 'declining';
   typicalState?: string | null;
   recurringThemes?: { phrase: string; count: number }[];
@@ -167,6 +169,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const frictionPct = totalCheckins > 0 ? Math.round((lowStates / totalCheckins) * 100) : 0;
         const frictionLabel = frictionPct <= 25 ? 'Low friction' : frictionPct <= 50 ? 'Moderate friction' : frictionPct <= 75 ? 'High friction pattern' : 'Sustained friction';
 
+        // Consistency = % of check-ins in positive band {focused, steady}. Null until ≥5.
+        const POSITIVE_OUTCOMES = new Set(['focused', 'steady']);
+        const positiveCount = checkIns.filter((c) => POSITIVE_OUTCOMES.has(c.outcome?.toLowerCase() || '')).length;
+        const positiveRate = totalCheckins >= 5
+          ? { pct: Math.round((positiveCount / totalCheckins) * 100), n: totalCheckins }
+          : null;
+
         // Trend
         const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgo);
         const priorCheckins = checkIns.filter((c) => c.checkin_date >= fourteenDaysAgo && c.checkin_date < sevenDaysAgo);
@@ -247,6 +256,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           scoreDeltas,
           frictionPct,
           frictionLabel,
+          positiveRate,
           trendDirection,
           typicalState,
           recurringThemes,
@@ -297,6 +307,20 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     if (pct <= 25) return 'text-emerald-600';
     if (pct <= 50) return 'text-amber-500';
     return 'text-red-500';
+  };
+
+  // Consistency tone — higher is positive (green), lower is negative (red). Inverse of friction.
+  const consistencyTone = (pct: number): string => {
+    if (pct >= 75) return 'text-emerald-600';
+    if (pct >= 50) return 'text-amber-500';
+    return 'text-red-500';
+  };
+
+  const consistencyLabel = (pct: number): string => {
+    if (pct >= 75) return 'Highly consistent';
+    if (pct >= 50) return 'Building consistency';
+    if (pct >= 25) return 'Inconsistent';
+    return 'Low consistency';
   };
 
   return (
@@ -412,6 +436,30 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <FrictionTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
                   </div>
                 </div>
+
+                {/* ── ROW 4: CONSISTENCY (mirror of Friction at check-in level) ── */}
+                {data.positiveRate && (data.checkInCount ?? 0) >= 5 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs font-medium uppercase tracking-wider text-taupe">
+                        Consistency
+                      </span>
+                      <InsightInfoModal
+                        title="What Is Consistency?"
+                        explanation="How often you check in 'focused' or 'steady' over the last 30 days. The mirror of Friction at the check-in level — a higher number means more consistent positive states."
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        {data.positiveRate.pct}%
+                      </span>
+                      <span className={cn('text-sm', consistencyTone(data.positiveRate.pct))}>
+                        ({consistencyLabel(data.positiveRate.pct)})
+                      </span>
+                      <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                    </div>
+                  </div>
+                )}
 
                 {/* Progressive messages */}
                 {data.checkInCount === 0 && (
