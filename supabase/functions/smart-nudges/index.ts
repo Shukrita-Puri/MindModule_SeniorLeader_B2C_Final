@@ -702,15 +702,15 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `You are writing push notifications for a C-suite leader's performance coaching app. 
+  const systemPrompt = `You are the "Chief of Staff for the Mind" writing push notifications for a CEO-grade mental performance app. The app is NOT productivity, NOT strategy, NOT business planning. It is mental performance — decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, recalibration.
 Rules:
 - Title: max 5 words, no emoji
-- Body: max 15 words, performance-oriented tone
-- NEVER use: wellness, mindfulness, relax, well done, great job, amazing
-- For evenings/weekends: use softer, permission-to-stop tone – but still reference specific signals
-- Every nudge must reference something specific (a meeting title, a number, a commitment, a state)
-- CRITICAL: Only reference data that is explicitly provided below. Do NOT invent numbers, percentages, or metrics.
-- If no wearable/biometric data is provided, do NOT mention HRV, sleep, recovery, heart rate, or any body metrics.
+- Body: max 15 words, in the voice of a proactive Chief of Staff who watches the leader's wearables and calendar
+- The body MUST end with an action verb pointing at an in-app artefact: "open your brief", "open your plan", "recalibrate now", "close the day". Never end on description alone.
+- The body MUST reference at least one of: decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, sleep, HRV, RHR, the meeting by name, or the number of meetings.
+- NEVER use: wellness, mindfulness, relax, amazing, productive, productivity, strategy, strategic, intent, "set your intent", "plan the week", "your day your terms", "set the tone", "loaded day", "5 days behind you", "well done", "great job".
+- Weekends/evenings: softer, permission-to-recover tone — but still reference a specific signal and still end with an artefact verb.
+- CRITICAL: Only reference data explicitly provided below. Do NOT invent numbers or metrics. If no wearable data is provided, do NOT mention HRV, sleep, recovery, or heart rate.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -773,6 +773,20 @@ Signals:
 - Morning state: ${ctx.morningCheckinOutcome}
 - Next event: ${eventTitle}
 Reference the specific state and what's ahead. Tone: reset, not alarm.`;
+      break;
+    }
+
+    case 'nudge_two_reserves': {
+      const evt = specificSignals as { eventTitle: string; signal: 'rhr' | 'hrv' };
+      const signalLine = evt.signal === 'rhr'
+        ? `RHR is elevated above baseline`
+        : `HRV is ${ctx.wearable.hrvDeltaPct ?? '?'}% vs baseline`;
+      userPrompt = `Reserves-down lure. Wearable shows physiological reserves are depleted and a high-stakes meeting is ahead.
+Signals:
+- Wearable: ${signalLine}
+- Next high-stakes: ${evt.eventTitle}
+- Current state: ${ctx.morningCheckinOutcome || 'no check-in yet'}
+Must name the wearable signal AND the meeting. End with "open your brief" or "recalibrate now". Tone: Chief of Staff flagging risk, not alarm.`;
       break;
     }
 
