@@ -342,12 +342,30 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
             <span>Couldn’t load cause-effect patterns. Try refreshing.</span>
           </div>
         ) : !data || !hasAnyContent ? (
-          <div className="py-4 space-y-2">
+          <div className="py-3 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Patterns are still forming — keep checking in.
+              Patterns are still forming — here's what each lens is waiting on:
             </p>
+            <ul className="space-y-1.5 text-xs">
+              <li className="flex items-start gap-2">
+                <HeartPulse className="h-3.5 w-3.5 mt-0.5 text-muted-foreground/70 flex-shrink-0" />
+                <span className="text-muted-foreground/90">{lensAEmpty}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Brain className="h-3.5 w-3.5 mt-0.5 text-muted-foreground/70 flex-shrink-0" />
+                <span className="text-muted-foreground/90">{lensBEmpty}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Moon className="h-3.5 w-3.5 mt-0.5 text-muted-foreground/70 flex-shrink-0" />
+                <span className="text-muted-foreground/90">{lensCEmpty}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Layers className="h-3.5 w-3.5 mt-0.5 text-muted-foreground/70 flex-shrink-0" />
+                <span className="text-muted-foreground/90">{lensDEmpty}</span>
+              </li>
+            </ul>
             {cov && (
-              <p className="text-[11px] text-muted-foreground/60">
+              <p className="text-[10px] text-muted-foreground/60 pt-1">
                 {cov.checkinCount} check-ins · {cov.wearableDayCount} wearable days · {cov.briefCount} briefs · {cov.eventCount} events
               </p>
             )}
