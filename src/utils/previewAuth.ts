@@ -30,7 +30,28 @@ export const isInIframeSafe = (): boolean => {
   }
 };
 
+/**
+ * Strict preview detection — used to decide whether to skip auth gating.
+ * Only true when we're confident no real user could be signing in:
+ *   - DEV_MODE flag, OR
+ *   - rendered inside an iframe (Lovable editor sandbox).
+ *
+ * Note: `*.lovable.app` alone is NOT enough — published apps live there
+ * and have real users with real Auth0 sessions.
+ */
 export const isPreviewContext = (): boolean => {
+  if (DEV_MODE) return true;
+  if (typeof window === 'undefined') return false;
+  return isInIframeSafe();
+};
+
+/**
+ * Looser preview detection — used by data components to fall back to mock
+ * data when both: (a) no auth token is available AND (b) the host suggests
+ * a Lovable preview environment. Safe even on `*.lovable.app` because the
+ * `hasToken` guard ensures real signed-in users still see real data.
+ */
+export const isLovablePreviewEnv = (): boolean => {
   if (DEV_MODE) return true;
   if (typeof window === 'undefined') return false;
   return isInIframeSafe() || isLovablePreviewHost();
@@ -43,5 +64,5 @@ export const isPreviewContext = (): boolean => {
  */
 export const shouldUsePreviewMock = (hasToken: boolean): boolean => {
   if (hasToken) return false;
-  return isPreviewContext();
+  return isLovablePreviewEnv();
 };
