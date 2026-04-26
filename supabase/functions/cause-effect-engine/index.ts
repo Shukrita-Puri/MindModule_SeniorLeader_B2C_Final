@@ -351,7 +351,22 @@ serve(async (req) => {
       wearableDayCount: wearable.length,
       eventCount: events.length,
       eventTypesIdentified: eventTypeDays.size,
+      lensReasons: { A: null, B: null, C: null, D: null },
     };
+
+    // Helper: detect overlap between wearable signal days and event days.
+    // If they don't overlap, no event→physiology finding is mathematically
+    // possible. We surface this as the lens-A reason rather than a generic
+    // empty state.
+    const wearableSignalDays = new Set(
+      wearable
+        .filter((w: any) => typeof w.hrv === "number" || typeof w.resting_heart_rate === "number")
+        .map((w: any) => w.summary_date as string),
+    );
+    const eventOnlyDates = new Set<string>();
+    eventTypeDays.forEach((set) => set.forEach((d) => eventOnlyDates.add(d)));
+    let wearableEventOverlap = 0;
+    eventOnlyDates.forEach((d) => { if (wearableSignalDays.has(d)) wearableEventOverlap++; });
 
     // ── Lens A.1 — Per event-type → Physiology ──────────────────────
     const lensA: Finding[] = [];
@@ -690,6 +705,33 @@ serve(async (req) => {
     const lensCTop = dedupAndTrim(lensC);
     const lensDTop = dedupAndTrim(lensD);
 
+    // Populate per-lens reasons whenever a lens has no findings, so the UI
+    // can show a specific data-honest explanation instead of a generic line.
+    if (lensATop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.A = "Connect calendar to unlock";
+      else if (wearable.length === 0) coverage.lensReasons.A = "No wearable HRV/RHR records yet";
+      else if (!wearableHasAnySignal) coverage.lensReasons.A = "Wearable rows have no HRV/RHR yet";
+      else if (eventTypeDays.size === 0) coverage.lensReasons.A = "No events in window";
+      else if (wearableEventOverlap === 0) coverage.lensReasons.A = `No overlap between wearable days and event days (need both on the same date)`;
+      else coverage.lensReasons.A = `Classified ${eventTypeDays.size} event type(s); none cleared the threshold yet`;
+    }
+    if (lensBTop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.B = "Connect calendar to unlock";
+      else if (checkins.length < 7) coverage.lensReasons.B = `Need 7+ check-ins — currently ${checkins.length}`;
+      else if (eventTypeDays.size === 0) coverage.lensReasons.B = "No events in window";
+      else coverage.lensReasons.B = `Classified ${eventTypeDays.size} event type(s); no cognitive cost cleared the threshold yet`;
+    }
+    if (lensCTop.length === 0) {
+      if (sleepRowsAvailable === 0) coverage.lensReasons.C = "Connect Apple Health sleep tracking — no sleep records yet";
+      else if (sleepRowsAvailable < 5) coverage.lensReasons.C = `Need 5+ sleep records — currently ${sleepRowsAvailable}`;
+      else coverage.lensReasons.C = "No clear sleep→next-day pattern yet";
+    }
+    if (lensDTop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.D = "Connect calendar to unlock";
+      else if (loadByDay.size < 6) coverage.lensReasons.D = `Need 6+ days with events — currently ${loadByDay.size}`;
+      else coverage.lensReasons.D = "No back-to-back heavy-day streak detected yet";
+    }
+
     const all = [...lensATop, ...lensBTop, ...lensCTop, ...lensDTop];
     const top = all.length > 0
       ? all.reduce((best, f) => (impactScore(f) > impactScore(best) ? f : best), all[0])
@@ -703,6 +745,7 @@ serve(async (req) => {
       lensD: lensDTop,
       coverage,
       generatedAt: new Date().toISOString(),
+      version: ENGINE_VERSION,
     };
 
     const { error: upsertErr } = await supabase
