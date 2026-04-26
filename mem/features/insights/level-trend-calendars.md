@@ -71,3 +71,55 @@ the Energy Trend pattern in `performance-rhythm-insights`.
 Body contract: `{ field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level', startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD' }`. `field` is whitelisted server-side; `user_id` is **never** read from the client body.
 
 DEV_MODE keeps a direct client query (`.eq('user_id', DEV_USER.id)`) so local dev stays fast. Do NOT remove the DEV_MODE branch and do NOT loosen the RLS policy — the Edge Function is the long-term contract.
+
+## Mind Rhythm Patterns (How You Show Up) contract
+
+The **"How You Show Up"** block under *Mind Readiness Rhythm* is a **pure rhythm-pattern reader** of the four trend calendars above (Energy, Clarity, Sharpness, Confidence). It answers two questions only:
+
+1. **When** is the user most/least energetic, clear, sharp, or confident? (time-of-day × day-of-week)
+2. **Which** of those are real **patterns** (consecutive days/weeks/months)?
+
+### Sole data source
+`daily_checkins` rows for the last ~30 days, mined into four parallel series:
+
+| Series | Source column | Positive band | Negative band |
+|---|---|---|---|
+| Energy | `outcome` | `focused`, `steady` | `drained`, `overwhelmed` |
+| Clarity | `clarity_level` | `4–5` | `1–2` |
+| Sharpness | `mental_sharpness_level` | `4–5` | `1–2` |
+| Confidence | `confidence_level` | `4–5` | `1–2` |
+
+### Forbidden inputs
+The following signals **must never** appear in *How You Show Up* — they belong to other cards:
+- Coach messages, sessions, JIT prep, or any `coach_*` table
+- `behavior_logs`, ritual completions, calendar events, wearable/HRV data
+- Any "X% positive check-in rate" stat (this lives in **Trajectory → Consistency**)
+- `causeEffectInsight` (stays under *Calendar Pattern*, not here)
+
+### Output contract (`performance-rhythm-insights` → `mindRhythmPatterns`)
+```ts
+mindRhythmPatterns: {
+  energy:     RhythmFinding[];   // cap 2
+  clarity:    RhythmFinding[];   // cap 2
+  sharpness:  RhythmFinding[];   // cap 2
+  confidence: RhythmFinding[];   // cap 2
+} | null;                         // total cap across all dimensions: 6
+
+interface RhythmFinding {
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+  text: string;
+  confidence: number;   // 0–1, used for ordering
+  observations: number;
+}
+```
+
+### Honesty gates (no fabrication)
+- ≥7 non-null observations per series before any window/day finding fires
+- ≥3 obs per time-window with ≥20pp gap for `peak-window`/`low-window`
+- ≥2 obs per day with ≥30pp gap for `peak-day`/`low-day`
+- ≥3 consecutive same-DOW occurrences for `consecutive`
+- ≥2 obs per (DOW × window) cell with ≥30pp above user mean for `cell-peak`
+- Empty sub-sections render as **nothing** — no "building pattern data…" filler.
+
+### Consistency stat (Trajectory, not How You Show Up)
+`state-patterns-insights` returns `positiveRate: { pct, n } | null` — % of check-ins in `{focused, steady}` over 30d. Rendered as the **Consistency** row in `LeadershipPatternsCard.tsx`, beneath Friction, gated at ≥5 check-ins. It is the mirror of Friction at the check-in level. Do NOT surface it in *How You Show Up*.
