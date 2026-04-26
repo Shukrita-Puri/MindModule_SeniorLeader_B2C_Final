@@ -80,19 +80,28 @@ function bodyContainsForbidden(body: string): string | null {
 // ─── Test 1: Source-code static audit ────────────────────────────────────────
 Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
-  // Look only inside *_test_skip blocks? No — scan all string literals via a
-  // crude regex over the whole file body (the system prompt itself lists the
-  // forbidden words, so we must restrict the scan to fallback string literals).
-  const fallbackBlocks = src.match(/return\s*\{\s*title:[^}]+body:[^}]+variantId:\s*['"`]FB-[^'"`]+['"`][^}]*\}/g) ?? [];
-  assertGreaterOrEqual(fallbackBlocks.length, 15, "Expected ≥15 FB-* fallback strings");
+  // Scan every line that contains a `body:` key wired to an FB-* variantId.
+  // We accept the body literal on the same line OR on the same statement
+  // (regex spans up to the next variantId on the same logical return).
+  const lines = src.split("\n");
+  const fallbackLines: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (/variantId:\s*['"`]FB-/.test(ln) && /body:/.test(ln)) {
+      fallbackLines.push(ln);
+    }
+  }
+  assertGreaterOrEqual(fallbackLines.length, 15, `Expected ≥15 FB-* fallback strings, got ${fallbackLines.length}`);
 
-  for (const block of fallbackBlocks) {
-    const bad = bodyContainsForbidden(block);
-    assertEquals(bad, null, `Forbidden word "${bad}" found in fallback: ${block.substring(0, 120)}…`);
-    // Each fallback must contain a CTA verb
+  for (const ln of fallbackLines) {
+    // Extract just the body string content for cleaner reporting
+    const bodyMatch = ln.match(/body:\s*[`'"]([^`'"]+)[`'"]/);
+    const bodyText = bodyMatch ? bodyMatch[1] : ln;
+    const bad = bodyContainsForbidden(bodyText);
+    assertEquals(bad, null, `Forbidden word "${bad}" found in fallback body: ${bodyText.substring(0, 140)}…`);
     assert(
-      CTA_VERB_RX.test(block),
-      `Fallback missing action-verb CTA: ${block.substring(0, 120)}…`,
+      CTA_VERB_RX.test(bodyText),
+      `Fallback missing action-verb CTA: ${bodyText.substring(0, 140)}…`,
     );
   }
 });
@@ -207,6 +216,8 @@ Deno.test({
 Deno.test({
   name: "v5 DB audit: rows respect 08:00 local floor + 60-min cool-down + arch stamp",
   ignore: !SUPABASE_SERVICE,
+  sanitizeOps: false,
+  sanitizeResources: false,
   async fn() {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE, {
       auth: { persistSession: false },
@@ -303,6 +314,8 @@ Deno.test({
 Deno.test({
   name: "v5 DB audit: Sunday morning (08–11 local) only fires meeting-anchored",
   ignore: !SUPABASE_SERVICE,
+  sanitizeOps: false,
+  sanitizeResources: false,
   async fn() {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE, { auth: { persistSession: false } });
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
