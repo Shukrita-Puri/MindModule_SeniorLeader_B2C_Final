@@ -16,7 +16,6 @@ import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
-import { DEV_MODE } from '@/config/devMode';
 import { shouldUsePreviewMock, isPreviewContext } from '@/utils/previewAuth';
 import { MOCK_CAUSALITY_PAYLOAD } from '@/components/insights/causalityMockData';
 import { cn } from '@/lib/utils';
