@@ -47,6 +47,12 @@ const MIN_TIER_DELTA_STRONG = 1.0;
 const RECOVERY_TOLERANCE_PCT = 5;
 const RECOVERY_LOOKAHEAD_DAYS = 4;
 
+/**
+ * Bump this when scoring/classification logic changes so that any cached
+ * row missing this version is treated as stale and recomputed automatically.
+ */
+const ENGINE_VERSION = 2;
+
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
 type Direction = "negative" | "positive";
@@ -77,6 +83,13 @@ interface Coverage {
   wearableDayCount: number;
   eventCount: number;
   eventTypesIdentified: number;
+  // Why each lens is empty (short, data-honest reason). Always populated.
+  lensReasons: {
+    A: string | null;
+    B: string | null;
+    C: string | null;
+    D: string | null;
+  };
 }
 
 interface Payload {
@@ -87,6 +100,7 @@ interface Payload {
   lensD: Finding[];
   coverage: Coverage;
   generatedAt: string;
+  version: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -129,6 +143,9 @@ function impactScore(f: Finding): number {
 
 // Calendar event → coarse type label (broadened buckets)
 const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
+  // ── Specific intent buckets first so "School Governor" doesn't fall
+  //    into the broader "governance" or "Networking" matches. Order matters.
+  { label: "School & family",        words: ["school", "parents evening", "open evening", "parents", "governor"] },
   { label: "Board / governance",     words: ["board", "governance"] },
   { label: "Investor calls",         words: ["investor", "vc ", " vc", "fundraise", "raise", "pitch deck"] },
   { label: "Reviews",                words: ["review", "qbr", "quarterly"] },
@@ -138,11 +155,10 @@ const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
   { label: "Interviews",             words: ["interview", "candidate"] },
   { label: "Deep work blocks",       words: ["deep work", "focus block", "writing time"] },
   { label: "Exec / leadership",      words: ["exec", "executive", "leadership", "ceo ", " ceo", "cto ", " cto"] },
-  // ── Broader catch-alls (added in v2) ─────────────────────────────────
+  // ── Broader catch-alls evaluated last ───────────────────────────────
   { label: "Networking & community", words: ["meetup", "summit", "expo", "conference", "info session", "community", "rise ai", "scale", "ai thursday", "connects"] },
   { label: "Intro / discovery calls", words: ["intro", "discovery", "chemistry"] },
   { label: "Catch-ups & syncs",       words: ["catchup", "catch-up", "catch up", "sync", "check-in", "check in", "weekly", "standup", "stand-up"] },
-  { label: "School & family",         words: ["school", "parents evening", "open evening", "parents", "governor"] },
   { label: "Internal builds",         words: ["debug", "dashboard", "engineering", "sprint", "planning", "db ", " db"] },
 ];
 
