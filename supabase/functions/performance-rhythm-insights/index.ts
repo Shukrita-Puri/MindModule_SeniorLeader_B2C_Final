@@ -846,24 +846,27 @@ serve(async (req) => {
         // Walk positive runs
         for (const band of ['positive', 'negative'] as const) {
           let run = 0;
+          let lastDate = '';
           for (const p of sorted) {
             if (p[band]) {
               run++;
+              lastDate = p.dateStr;
             } else {
               if (run >= 3) {
                 findings.push({
                   kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
                   dimension: vocab.dimension,
                   text: band === 'negative'
-                    ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
-                    : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
-                  longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
+                    ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+                    : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
+                  longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
                   confidence: Math.min(1, 0.4 + run / 10),
                   observations: run,
                   priorityScore: 0,
                 });
               }
               run = 0;
+              lastDate = '';
             }
           }
           if (run >= 3) {
@@ -871,9 +874,9 @@ serve(async (req) => {
               kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
               dimension: vocab.dimension,
               text: band === 'negative'
-                ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
-                : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
-              longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
+                ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+                : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
+              longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
               confidence: Math.min(1, 0.4 + run / 10),
               observations: run,
               priorityScore: 0,
