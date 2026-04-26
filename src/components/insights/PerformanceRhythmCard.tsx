@@ -1000,29 +1000,35 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
             {/* Clarity / Sharpness / Confidence trends — same calendar style as Mental Energy Trend */}
             {data.checkInCount >= 5 && (
-              <>
-                <LevelTrendCalendar
-                  userId={userId}
-                  field="clarity_level"
-                  title="Clarity Trend"
-                  explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
-                  vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
-                />
-                <LevelTrendCalendar
-                  userId={userId}
-                  field="mental_sharpness_level"
-                  title="Sharpness Trend"
-                  explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
-                  vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
-                />
-                <LevelTrendCalendar
-                  userId={userId}
-                  field="confidence_level"
-                  title="Confidence Trend"
-                  explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
-                  vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
-                />
-              </>
+              <Collapsible open={levelsOpen} onOpenChange={setLevelsOpen}>
+                <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/60 font-body font-medium hover:text-muted-foreground/80 transition-colors cursor-pointer">
+                  {levelsOpen ? 'Hide' : 'Show'} Clarity, Sharpness & Confidence trends
+                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", levelsOpen && "rotate-180")} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-6 pt-4">
+                  <LevelTrendCalendar
+                    userId={userId}
+                    field="clarity_level"
+                    title="Clarity Trend"
+                    explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
+                    vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
+                  />
+                  <LevelTrendCalendar
+                    userId={userId}
+                    field="mental_sharpness_level"
+                    title="Sharpness Trend"
+                    explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
+                    vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
+                  />
+                  <LevelTrendCalendar
+                    userId={userId}
+                    field="confidence_level"
+                    title="Confidence Trend"
+                    explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
+                    vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
             )}
 
             {/* 1A – Your Rhythm Signals: top-3 Chief-of-Staff prioritized findings */}
@@ -1031,10 +1037,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
                   <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Your Rhythm Signals
+                    Mind Rhythm Patterns
                   </span>
                   <InsightInfoModal
-                    title="Your Rhythm Signals"
+                    title="Mind Rhythm Patterns"
                     explanation="The 3 strongest patterns from your check-in trends — when you're sharpest, where you slip, and what's repeating. The full list arrives in your weekly insights email."
                   />
                 </div>
