@@ -1,128 +1,129 @@
-
 ## Goal
 
-Make **"How You Show Up"** (under *Mind Readiness Rhythm*) a **pure rhythm-pattern reader** of the four trend calendars — Energy, Clarity, Sharpness, Confidence — answering only:
+Fix three issues in the "How You Show Up" / Mind Rhythm Patterns block on `/insights`:
 
-- **When** is the user most/least **energetic / clear / sharp / confident**? (time-of-day × day-of-week)
-- **Which** of those are real **patterns** (consecutive days/weeks/months)?
+1. **Title still reads "How You Show Up"** — the user expected it renamed.
+2. **Copy is verbose and split by dimension sub-headers** (Energy / Clarity / Sharpness / Confidence) — feels like a report, not a brief.
+3. **Up to 6 findings shown** — too much. Show **only the top 3**, picked by a Chief-of-Staff prioritization rule. Long form moves to the Weekly Insights email.
 
-…and move the *"positive check-in rate"* stat to the **Trajectory** scorecard, where archetype + Performance Readiness Score + Friction already live.
+---
 
-## Root cause of the current drift
+## 1. Rename the section
 
-`supabase/functions/performance-rhythm-insights/index.ts` builds *How You Show Up* (`presenceLabel` + `presenceInsight` + `presenceActions` + `temporalPatterns` + `causeEffectInsight`) by mixing **six different signal classes**:
+In `src/components/insights/PerformanceRhythmCard.tsx` (around line 1030 + 1033):
 
-1. Pre-event ritual completion vs high-stakes calendar events (lines 670–675)
-2. Coach-message keyword scans for "presence" language (lines 685–691)
-3. Wearable readiness deltas around high-stakes events (lines 693–702)
-4. **Overall positive check-in rate** (lines 718–721, 743) — *belongs in Trajectory*
-5. JIT prep correlations + behaviour→outcome (`causeEffectInsight`, lines 407–461) — *cross-feature, not rhythm*
-6. Day-of-week / time-of-day temporal patterns (lines 778–904) — *the only rhythm-native logic*
+- Change the rendered label and `InsightInfoModal` title from **"How You Show Up"** → **"Your Rhythm Signals"**.
+- Update the `InsightInfoModal` `explanation` to one tight line:
+  > *"The 3 strongest patterns from your check-in trends — when you're sharpest, where you slip, and what's repeating."*
 
-It also only reads `daily_checkins.outcome`. The three new trends (`clarity_level`, `mental_sharpness_level`, `confidence_level`) are **never fed into the pattern miner**, so they can never produce "Tuesday afternoons are your sharpest window" type insights.
+(If the user prefers a different name e.g. "Rhythm Signals" / "Your Patterns", we can swap the string in one place.)
 
-## Plan
+---
 
-### 1. Edge function: `supabase/functions/performance-rhythm-insights/index.ts`
+## 2. Collapse the per-dimension layout into one unified list
 
-**Drop from rhythm output:**
-- The entire `presenceScore` / pre-event / coach-keyword / energized / depleted-high-stakes scoring block (lines ~652–776).
-- `causeEffectInsight` from the *How You Show Up* payload (it stays computed for *Calendar Pattern*, but we will not echo it under presence — see step 2).
-- The `Your overall positive check-in rate is X%…` signal text.
+Today the block iterates `[energy, clarity, sharpness, confidence]` and prints a sub-header + bullet list per dimension (lines 1037–1054). Replace with **a single flat list of 3 bullets**, no sub-headers. Each bullet:
 
-**Add a unified rhythm miner** that runs over **four parallel series** drawn from `daily_checkins`:
+- Lucide `ArrowRight` icon (kept).
+- One line of crisp text (≤ ~110 chars).
+- A small muted dimension tag at the end (e.g. `· Energy`, `· Clarity`) so the user still knows which axis it came from — but it's an inline tag, not a section break.
 
-| Series | Source column | Positive band | Negative band |
-|---|---|---|---|
-| Energy | `outcome` | `focused`, `steady` | `drained`, `overwhelmed` |
-| Clarity | `clarity_level` | `4–5` | `1–2` |
-| Sharpness | `mental_sharpness_level` | `4–5` | `1–2` |
-| Confidence | `confidence_level` | `4–5` | `1–2` |
+---
 
-For each series, derive (gated at ≥7 data points per series):
+## 3. Tighten the copy templates in the edge function
 
-- **Strongest / weakest time-window** (morning/midday/evening) when ≥3 obs per window and ≥20 pp gap.
-- **Strongest / weakest day-of-week** when ≥2 obs per day and ≥30 pp gap.
-- **Consecutive-run patterns**: ≥3 consecutive same-DOW occurrences in the positive *or* negative band → `"3+ consecutive Tuesday mornings you've checked in 'sharp' (4–5)."`
-- **Best (DOW × time-window) cell** when count ≥2 and ≥30 pp above the user's mean.
+In `supabase/functions/performance-rhythm-insights/index.ts` rewrite the four `text:` strings produced by `mineSeries` so each finding is one short sentence. Current vs. proposed:
 
-Return as a new field on the response:
+| Kind | Current (verbose) | New (crisp) |
+|---|---|---|
+| `peak-window` | "Mornings are your 'focused' / 'steady' window (72% across 14 check-ins) – Evenings sit at 40%." | **"Mornings are your peak Energy window (72%)."** |
+| `peak-day` | "Mondays land 'focused' / 'steady' 80% of the time vs Fridays at 30%." | **"Mondays run sharp; Fridays drop off."** |
+| `cell-peak` | "Tuesday mornings are your sharpest cell (85% 'focused' / 'steady' across 6 check-ins)." | **"Tuesday mornings are your sharpest window."** |
+| `consecutive` | "3+ consecutive Sundays you've checked in 'drained' / 'overwhelmed'." | **"3 Sundays in a row you've shown up drained."** |
+
+Per-dimension vocab (used inline): `Energy` / `Clarity` / `Sharpness` / `Confidence`. Drop the bracketed scale labels ("Crystal/Lucid (4–5)", "Peak/Acute (4–5)", etc.) from user-facing copy — keep them only in internal logs.
+
+The full long-form (with %, n, scale labels) stays in the payload as `longText` so the **Weekly Insights email** can use it later without a second pass.
 
 ```ts
-mindRhythmPatterns: {
-  energy:     RhythmFinding[];
-  clarity:    RhythmFinding[];
-  sharpness:  RhythmFinding[];
-  confidence: RhythmFinding[];
-} | null;
-
 interface RhythmFinding {
-  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
-  text: string;        // e.g. "Afternoons are your sharpest window (78% strong vs 41% mornings)."
-  confidence: number;  // 0–1, used for ordering
+  kind: RhythmKind;
+  text: string;        // crisp, ≤110 chars — for the app
+  longText: string;    // verbose with stats — for the weekly email
+  dimension: 'energy' | 'clarity' | 'sharpness' | 'confidence';
+  confidence: number;
   observations: number;
+  priorityScore: number; // see §4
 }
 ```
 
-Order findings within each dimension by `confidence` desc, dedupe overlapping wording, cap at 2 per dimension and 6 total.
+---
 
-**Add positive-rate stat for Trajectory** (separate field, no longer in presence text):
+## 4. Chief-of-Staff prioritization (which 3 win)
 
+A Chief of Staff surfaces **what changes the executive's next decision**, not the prettiest stat. Rank order — highest first:
+
+1. **Active risk (negative consecutive runs)** — `kind === 'consecutive'` AND negative band. These are *recurring drops* the user can act on this week. **+1.0 priority weight.**
+2. **Strong cell-peak** (`cell-peak`, positive) — concrete day×time the user can protect for high-stakes work. **+0.8.**
+3. **Day-of-week trough** — `peak-day` finding where the *worst* day's pct ≤ 30%. Pull the trough out as its own crisp insight ("Fridays slip on Clarity"). **+0.7.**
+4. **Time-of-day peak** (`peak-window`, positive) — useful but generic. **+0.5.**
+5. **Day-of-week peak** (`peak-day`, positive only) — informational. **+0.4.**
+6. **Positive consecutive runs** — celebratory but non-actionable. **+0.3.**
+
+**Dimension tiebreaker** (Chief-of-Staff hierarchy for an executive): Sharpness > Clarity > Energy > Confidence. Sharpness/Clarity directly govern decision quality; Energy is fuel; Confidence trends slowest.
+
+**Final score** = `priorityWeight + (statisticalConfidence × 0.3) + dimensionBonus`.
+
+**Selection rule:**
+- Take top 3 by score.
+- **Diversity guard:** at most 2 findings per dimension, and at most 2 of the same `kind`, so the user doesn't see "Mondays peak / Fridays peak / Wednesdays peak."
+- If only 1 finding qualifies, render it alone (no padding with weak signals — honesty over volume).
+
+The edge function returns:
 ```ts
-positiveRate: { pct: number; n: number } | null;
+mindRhythmPatterns: {
+  topThree: RhythmFinding[];          // capped at 3, prioritized
+  all: RhythmFinding[];               // full set, retained for the weekly email
+} | null
 ```
 
-Computed as `outcome ∈ {focused, steady}` over the full 30-day window; `null` until ≥5 check-ins.
+---
 
-**Strip from response**: `presenceScore`, `presenceLabel`, `presenceInsight`, `presenceActions`. Keep `temporalPatterns` only as legacy noop (return `null`) so client falls through cleanly.
+## 5. UI changes (PerformanceRhythmCard.tsx)
 
-### 2. Client: `src/components/insights/PerformanceRhythmCard.tsx`
+- Update the `mindRhythmPatterns` interface to the new shape (`topThree`, `all`, `longText`, `dimension`).
+- Replace the per-dimension `.map` block (lines 1037–1054) with one flat `.map` over `data.mindRhythmPatterns.topThree`.
+- Render each item as: `→ {f.text}  · {dimensionLabel(f.dimension)}` with the dimension tag in `text-[10px] uppercase text-muted-foreground/60`.
+- Gate: show the block only if `topThree.length >= 1` and `checkInCount >= 7` (unchanged threshold).
+- Empty state copy (when 0 findings but ≥7 check-ins): *"Patterns will sharpen as your check-ins accumulate across more days and times."*
 
-- Replace the current "How You Show Up" block (lines 1051–1091) with a new **Mind Rhythm Patterns** block, only when `data.mindRhythmPatterns` has at least one finding across any dimension.
-- Render as 4 collapsible-style sub-sections (Energy / Clarity / Sharpness / Confidence), each showing up to 2 findings in muted-foreground bullet form, with the same icon + chip styling as today.
-- Skip a sub-section entirely when its array is empty (honest blanks).
-- Header copy: keep the section heading **"How You Show Up"**, sub-explanation: *"When you're most and least energetic, clear, sharp, and confident — drawn only from your check-in trends above."*
-- Remove the DEV-mode duplicate of the presence-score logic (lines ~666–796) and replace with the same edge-function-driven `mindRhythmPatterns` field; DEV mode keeps its existing direct-query pathway but for the *new* miner.
-- Drop `causeEffectInsight` and `presenceActions` from this block (they remain available elsewhere — Calendar Pattern still renders `calendarInsight`).
+---
 
-### 3. Trajectory scorecard: `src/components/insights/LeadershipPatternsCard.tsx`
+## 6. Weekly Insights email (forward-compatible)
 
-Add a **fourth row** under Friction:
+No code shipped now, but the new `all` array + `longText` field on each finding gives the future weekly email everything it needs (full list, stats, dimension breakdown). Documented in the memory file below.
 
-```
-Consistency        37% positive   ↗︎
-```
+---
 
-- Label: **Consistency** (renamed from "positive check-in rate" per request — neutral, executive-friendly).
-- Source: `positiveRate` from `state-patterns-insights` (cheaper than re-fetching from rhythm function — the same friction calc already runs there). If easier, expose `positiveRate = 100 − frictionPct` directly in `state-patterns-insights` response and read it from `prefetchedData`.
-- Trend arrow: reuse the existing `trendDirection` field (inverse of friction trend).
-- `InsightInfoModal`: *"How often you check in 'focused' or 'steady' over the last 30 days. The mirror of Friction — a higher number means more consistent positive states."*
-- Hidden when `checkInCount < 5` (matches existing progressive-message gate).
+## 7. Memory + docs
 
-### 4. Memory update: `mem/features/insights/level-trend-calendars.md`
+- Update `mem://features/insights/level-trend-calendars.md` to record:
+  - Section is now **"Your Rhythm Signals"** (3 max, single flat list, no sub-headers).
+  - Prioritization order (active risk → cell-peak → trough → ToD peak → DoW peak → positive runs).
+  - Dimension tiebreaker (Sharpness > Clarity > Energy > Confidence).
+  - `longText` reserved for the weekly email; app shows only `text`.
 
-Append a new section **"Mind Rhythm Patterns (How You Show Up) contract"** documenting:
-- The four-series rhythm miner is the *only* source of insight text in this block.
-- Forbidden inputs: coach messages, behavior_logs, calendar events, rituals, wearable data — those belong to other cards.
-- Positive-rate stat lives in Trajectory, never in How You Show Up.
-- Per-dimension cap of 2 findings, total cap of 6.
+---
 
 ## Files to edit
 
-- `supabase/functions/performance-rhythm-insights/index.ts` — replace presence block, add `mindRhythmPatterns` + `positiveRate`.
-- `supabase/functions/state-patterns-insights/index.ts` — expose `positiveRate` (mirrors existing friction calc).
-- `src/components/insights/PerformanceRhythmCard.tsx` — swap presence renderer for rhythm-patterns renderer; drop DEV-mode presence branch.
-- `src/components/insights/LeadershipPatternsCard.tsx` — add Consistency row to scorecard.
-- `mem/features/insights/level-trend-calendars.md` — document the contract.
-
-## Honesty / no-fabrication guarantees
-
-- Every finding is gated by minimum observation counts (≥7 per series for windows/days, ≥3 for consecutive runs, ≥2 per cell).
-- Empty sub-sections render as nothing (no "building pattern data…" filler) — consistent with the existing "blanks are honest" rule for the trend dots.
-- No backfill, no synthesised data: clarity / sharpness / confidence findings only appear once those columns have enough non-null history.
+- `supabase/functions/performance-rhythm-insights/index.ts` — rewrite copy templates, add `longText` + `dimension` + `priorityScore`, build `topThree` with the prioritization + diversity rule, return `{ topThree, all }`.
+- `src/components/insights/PerformanceRhythmCard.tsx` — rename label + modal, swap interface, replace per-dimension render with flat 3-bullet list, update DEV-mode shape stub.
+- `mem/features/insights/level-trend-calendars.md` — document the new contract.
 
 ## Validation after implementation
 
-1. Confirm `state-patterns-insights` returns `positiveRate.pct` matching `100 − frictionPct` for an active user.
-2. Confirm `performance-rhythm-insights` returns `mindRhythmPatterns` with at least an `energy` array for any user with ≥7 outcomes, and that `clarity/sharpness/confidence` arrays only populate once those columns have ≥7 non-null rows.
-3. Verify in the UI that *How You Show Up* no longer mentions coach sessions, JIT, or any "X% positive" language, and that Trajectory now shows a Consistency row beneath Friction.
+- Hit `/insights` as a user with ≥7 check-ins; confirm exactly ≤3 bullets, no sub-headers, label reads "Your Rhythm Signals".
+- Confirm a user with a 3+ Sunday `drained` run sees that surfaced first.
+- Confirm a user with no patterns ≥7 check-ins sees the new empty-state line, not the old block.
+- Spot-check `mindRhythmPatterns.all` in the edge function response so the future weekly email has the long form available.

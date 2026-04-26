@@ -662,8 +662,21 @@ serve(async (req) => {
     // Per-dimension findings cap: 2.   Total findings cap: 6.
     // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
-    type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
-    interface RhythmFinding { kind: RhythmKind; text: string; confidence: number; observations: number; }
+    type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
+    type RhythmDimension = 'energy' | 'clarity' | 'sharpness' | 'confidence';
+    interface RhythmFinding {
+      kind: RhythmKind;
+      dimension: RhythmDimension;
+      /** Crisp app-facing copy (≤ ~110 chars). */
+      text: string;
+      /** Verbose long-form with stats — reserved for the weekly insights email. */
+      longText: string;
+      /** 0–1 statistical strength. */
+      confidence: number;
+      observations: number;
+      /** Chief-of-Staff priority score; higher wins. */
+      priorityScore: number;
+    }
 
     type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean };
 
@@ -705,12 +718,12 @@ serve(async (req) => {
 
     /**
      * Mine a single 4-band series for time-of-day, day-of-week, cell, and
-     * consecutive-run patterns. `vocab` is the per-dimension wording
-     * (matches the slider vocabulary on /check-in-detail).
+     * consecutive-run patterns. Returns crisp app-facing `text` plus a verbose
+     * `longText` (preserved for the weekly insights email).
      */
     const mineSeries = (
       series: SeriesPoint[],
-      vocab: { dimension: string; positiveLabel: string; negativeLabel: string }
+      vocab: { dimension: RhythmDimension; appLabel: string; positivePhrase: string; negativePhrase: string; longPositiveLabel: string; longNegativeLabel: string }
     ): RhythmFinding[] => {
       const findings: RhythmFinding[] = [];
       if (series.length < 7) return findings;
@@ -728,9 +741,12 @@ serve(async (req) => {
         if (best.pct - worst.pct >= 0.20 && best.pct >= 0.5) {
           findings.push({
             kind: 'peak-window',
-            text: `${TIME_LABELS[best.tw]}s are your ${vocab.positiveLabel} window (${Math.round(best.pct * 100)}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${Math.round(worst.pct * 100)}%.`,
+            dimension: vocab.dimension,
+            text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window (${Math.round(best.pct * 100)}%).`,
+            longText: `${TIME_LABELS[best.tw]}s are your ${vocab.longPositiveLabel} window (${Math.round(best.pct * 100)}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${Math.round(worst.pct * 100)}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + best.n / 30),
             observations: best.n + worst.n,
+            priorityScore: 0,
           });
         }
       }
@@ -750,11 +766,27 @@ serve(async (req) => {
         const best = doRates[0];
         const worst = doRates[doRates.length - 1];
         if (best.pct - worst.pct >= 0.30 && best.n >= 2 && worst.n >= 2) {
+          // Pull the trough out as its own finding when the worst day is bad enough.
+          // Otherwise emit a paired peak/trough headline.
+          if (worst.pct <= 0.30) {
+            findings.push({
+              kind: 'low-day',
+              dimension: vocab.dimension,
+              text: `${DAYS[worst.di]}s slip on ${vocab.appLabel}.`,
+              longText: `${DAYS[worst.di]}s land ${vocab.longPositiveLabel} only ${Math.round(worst.pct * 100)}% of the time vs ${DAYS[best.di]}s at ${Math.round(best.pct * 100)}%.`,
+              confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
+              observations: best.n + worst.n,
+              priorityScore: 0,
+            });
+          }
           findings.push({
             kind: 'peak-day',
-            text: `${DAYS[best.di]}s land ${vocab.positiveLabel} ${Math.round(best.pct * 100)}% of the time vs ${DAYS[worst.di]}s at ${Math.round(worst.pct * 100)}%.`,
+            dimension: vocab.dimension,
+            text: `${DAYS[best.di]}s run strong on ${vocab.appLabel}; ${DAYS[worst.di]}s drop off.`,
+            longText: `${DAYS[best.di]}s land ${vocab.longPositiveLabel} ${Math.round(best.pct * 100)}% of the time vs ${DAYS[worst.di]}s at ${Math.round(worst.pct * 100)}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
             observations: best.n + worst.n,
+            priorityScore: 0,
           });
         }
       }
@@ -775,9 +807,12 @@ serve(async (req) => {
       if (topCell && topCell.pos / topCell.n - meanRate >= 0.30) {
         findings.push({
           kind: 'cell-peak',
-          text: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${Math.round((topCell.pos / topCell.n) * 100)}% ${vocab.positiveLabel} across ${topCell.n} check-ins).`,
+          dimension: vocab.dimension,
+          text: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — protect it.`,
+          longText: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${Math.round((topCell.pos / topCell.n) * 100)}% ${vocab.longPositiveLabel} across ${topCell.n} check-ins).`,
           confidence: Math.min(1, (topCell.pos / topCell.n - meanRate) + topCell.n / 10),
           observations: topCell.n,
+          priorityScore: 0,
         });
       }
 
@@ -799,10 +834,15 @@ serve(async (req) => {
             } else {
               if (run >= 3) {
                 findings.push({
-                  kind: 'consecutive',
-                  text: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.positiveLabel : vocab.negativeLabel}.`,
+                  kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
+                  dimension: vocab.dimension,
+                  text: band === 'negative'
+                    ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
+                    : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
+                  longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
                   confidence: Math.min(1, 0.4 + run / 10),
                   observations: run,
+                  priorityScore: 0,
                 });
               }
               run = 0;
@@ -810,10 +850,15 @@ serve(async (req) => {
           }
           if (run >= 3) {
             findings.push({
-              kind: 'consecutive',
-              text: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.positiveLabel : vocab.negativeLabel}.`,
+              kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
+              dimension: vocab.dimension,
+              text: band === 'negative'
+                ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
+                : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
+              longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
               confidence: Math.min(1, 0.4 + run / 10),
               observations: run,
+              priorityScore: 0,
             });
           }
         }
@@ -837,45 +882,73 @@ serve(async (req) => {
     const sharpnessSeries  = buildLevelSeries('mental_sharpness_level');
     const confidenceSeries = buildLevelSeries('confidence_level');
 
-    const energyFindings     = mineSeries(energySeries,     { dimension: 'energy',     positiveLabel: "'focused' / 'steady'", negativeLabel: "'drained' / 'overwhelmed'" });
-    const clarityFindings    = mineSeries(claritySeries,    { dimension: 'clarity',    positiveLabel: 'Crystal/Lucid (4–5)',  negativeLabel: 'Obscured/Clouded (1–2)' });
-    const sharpnessFindings  = mineSeries(sharpnessSeries,  { dimension: 'sharpness',  positiveLabel: 'Peak/Acute (4–5)',     negativeLabel: 'Dull/Depleted (1–2)' });
-    const confidenceFindings = mineSeries(confidenceSeries, { dimension: 'confidence', positiveLabel: 'Unshakable/Certain (4–5)', negativeLabel: 'Uncertain/Reactive (1–2)' });
+    const energyFindings = mineSeries(energySeries, {
+      dimension: 'energy', appLabel: 'Energy',
+      positivePhrase: 'focused', negativePhrase: 'drained',
+      longPositiveLabel: "'focused' / 'steady'", longNegativeLabel: "'drained' / 'overwhelmed'",
+    });
+    const clarityFindings = mineSeries(claritySeries, {
+      dimension: 'clarity', appLabel: 'Clarity',
+      positivePhrase: 'clear', negativePhrase: 'clouded',
+      longPositiveLabel: 'Crystal/Lucid (4–5)', longNegativeLabel: 'Obscured/Clouded (1–2)',
+    });
+    const sharpnessFindings = mineSeries(sharpnessSeries, {
+      dimension: 'sharpness', appLabel: 'Sharpness',
+      positivePhrase: 'sharp', negativePhrase: 'dull',
+      longPositiveLabel: 'Peak/Acute (4–5)', longNegativeLabel: 'Dull/Depleted (1–2)',
+    });
+    const confidenceFindings = mineSeries(confidenceSeries, {
+      dimension: 'confidence', appLabel: 'Confidence',
+      positivePhrase: 'certain', negativePhrase: 'reactive',
+      longPositiveLabel: 'Unshakable/Certain (4–5)', longNegativeLabel: 'Uncertain/Reactive (1–2)',
+    });
 
-    // Total cap at 6: trim weakest dimensions first if needed.
-    const totalFound = energyFindings.length + clarityFindings.length + sharpnessFindings.length + confidenceFindings.length;
-    const dims = [
-      { name: 'energy', arr: energyFindings },
-      { name: 'clarity', arr: clarityFindings },
-      { name: 'sharpness', arr: sharpnessFindings },
-      { name: 'confidence', arr: confidenceFindings },
-    ];
-    let extra = totalFound - 6;
-    while (extra > 0) {
-      // Drop the lowest-confidence finding across all dims with >1 entry
-      let target: RhythmFinding | null = null;
-      let targetArr: RhythmFinding[] | null = null;
-      for (const d of dims) {
-        if (d.arr.length === 0) continue;
-        const last = d.arr[d.arr.length - 1];
-        if (!target || last.confidence < target.confidence) {
-          target = last; targetArr = d.arr;
-        }
-      }
-      if (!targetArr) break;
-      targetArr.pop();
-      extra--;
+    // ── Chief-of-Staff prioritization ──
+    // A Chief of Staff surfaces what changes the executive's NEXT decision —
+    // active risks first, then concrete protect-this windows, then troughs to
+    // avoid scheduling into. Generic peaks and celebratory streaks rank lower.
+    const KIND_WEIGHT: Record<RhythmKind, number> = {
+      'consecutive-neg': 1.0, // active risk — recurring drops
+      'cell-peak'      : 0.8, // concrete day×time to protect
+      'low-day'        : 0.7, // recurring trough — avoid scheduling here
+      'peak-window'    : 0.5, // useful but generic
+      'peak-day'       : 0.4, // informational
+      'consecutive-pos': 0.3, // celebratory, non-actionable
+      'low-window'     : 0.5,
+    };
+    // Decision-quality signals first, then fuel, then slow-mover.
+    const DIMENSION_BONUS: Record<RhythmDimension, number> = {
+      sharpness: 0.20,
+      clarity: 0.15,
+      energy: 0.10,
+      confidence: 0.05,
+    };
+
+    const allFindings: RhythmFinding[] = [
+      ...energyFindings, ...clarityFindings, ...sharpnessFindings, ...confidenceFindings,
+    ].map(f => ({
+      ...f,
+      priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],
+    }));
+
+    // Diversity guard while picking top 3: ≤2 per dimension, ≤2 per kind,
+    // so the user never sees three "Mondays peak / Fridays peak / …" findings.
+    const sortedAll = allFindings.slice().sort((a, b) => b.priorityScore - a.priorityScore);
+    const dimCount: Record<string, number> = {};
+    const kindCount: Record<string, number> = {};
+    const topThree: RhythmFinding[] = [];
+    for (const f of sortedAll) {
+      if (topThree.length >= 3) break;
+      if ((dimCount[f.dimension] || 0) >= 2) continue;
+      if ((kindCount[f.kind] || 0) >= 2) continue;
+      topThree.push(f);
+      dimCount[f.dimension] = (dimCount[f.dimension] || 0) + 1;
+      kindCount[f.kind] = (kindCount[f.kind] || 0) + 1;
     }
 
-    const mindRhythmPatterns =
-      (energyFindings.length + clarityFindings.length + sharpnessFindings.length + confidenceFindings.length) > 0
-        ? {
-            energy: energyFindings,
-            clarity: clarityFindings,
-            sharpness: sharpnessFindings,
-            confidence: confidenceFindings,
-          }
-        : null;
+    const mindRhythmPatterns = allFindings.length > 0
+      ? { topThree, all: sortedAll }
+      : null;
 
     // Top-level positive rate (mirror of friction) for the Trajectory scorecard.
     // Returned even though the same value is also exposed by state-patterns-insights,
