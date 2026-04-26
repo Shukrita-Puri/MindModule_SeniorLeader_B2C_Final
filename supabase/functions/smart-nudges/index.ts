@@ -1241,7 +1241,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   let eveningStart = 18;
   let eveningEnd = 21.5;
 
-  // Sunday: ONLY early evening (17:00-19:30)
+  // Sunday: ONLY early evening (17:00-19:30) — recovery + mental prep tone
   if (ctx.dayOfWeek === 0) {
     eveningStart = 17;
     eveningEnd = 19.5;
@@ -1250,6 +1250,10 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   if (ctx.dayOfWeek === 5) {
     eveningStart = 18.5;
   }
+
+  // v5 hard caps
+  eveningStart = Math.max(eveningStart, GLOBAL_EARLIEST_LOCAL);
+  eveningEnd = Math.min(eveningEnd, GLOBAL_LATEST_LOCAL);
 
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
 
