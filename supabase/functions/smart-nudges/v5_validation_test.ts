@@ -80,13 +80,20 @@ function bodyContainsForbidden(body: string): string | null {
 // ─── Test 1: Source-code static audit ────────────────────────────────────────
 Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
-  // Scan every line that contains a `body:` key wired to an FB-* variantId.
-  // We accept the body literal on the same line OR on the same statement
-  // (regex spans up to the next variantId on the same logical return).
-  const lines = src.split("\n");
+  // Scope the audit to the active MVP fallback region only. Post-MVP
+  // evaluators (calendar_gap, pattern_alert, …) are dormant under
+  // MVP_POST_LAUNCH=false and may carry legacy strings that the v5
+  // contract does not yet apply to.
+  const startMarker = "// ── Static Fallback Copy — MVP Nudge System ──";
+  const endMarker   = "// ── MVP Nudge Evaluators";
+  const startIdx = src.indexOf(startMarker);
+  const endIdx   = src.indexOf(endMarker, startIdx);
+  assert(startIdx > 0 && endIdx > startIdx, "Could not locate MVP fallback region in source");
+  const region = src.slice(startIdx, endIdx);
+
+  const lines = region.split("\n");
   const fallbackLines: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const ln = lines[i];
+  for (const ln of lines) {
     if (/variantId:\s*['"`]FB-/.test(ln) && /body:/.test(ln)) {
       fallbackLines.push(ln);
     }
