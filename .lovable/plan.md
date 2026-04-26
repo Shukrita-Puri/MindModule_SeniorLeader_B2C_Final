@@ -1,65 +1,123 @@
-Root cause found.
+## Root Cause Diagnosis (verified from DB + code)
 
-The card is visible, but it is rendering an old empty backend payload:
+I read `supabase/functions/smart-nudges/index.ts` (1,781 lines) end-to-end and audited the last 7 days of `notification_log`. Each problem maps to a concrete defect:
 
-```text
-causality_findings
-user: google-oauth2|111878424918915566691
-computed_for_date: 2026-04-26
-created/updated: 15:02
-lensA: 0
-lensB: 0
-lensC: 0
-lensD: 0
-top: null
-coverage: 50 check-ins · 6 wearable days · 33 briefs · 11 events
+| # | User-visible problem | Root cause in code/data |
+|---|---|---|
+| 1 | "Doesn't push the user to action / open the app" | Copy ends with passive lines like *"A moment to land"*, *"Set the frame"*, *"Day done"*. No verb that lures into Brief/Plan. AI prompt allows tone but never enforces a CTA reference to the brief/plan/check-in artefact. |
+| 2 | "Feels strategic/productivity, not mental performance" | Fallback copy uses words like *"set your intent for the week"*, *"Loaded day — set the tone"*, *"close the loop"*. AI system prompt forbids "wellness" but doesn't forbid "intent/strategy/productivity" framing. No vocabulary anchored to **decision readiness / physical reserves / resilience capacity**. |
+| 3 | "6am / 6:01am randomly" | `evaluateNudgeOne` floor is `morningStart = 6.5` (06:30 local). When `firstNonNoiseEvent` is null (Sunday, light day), it stays at 06:30. India users (TZ +330) saw 02:30 UTC = **08:00 IST Sunday** = the 6/8am complaint. UK users at 05:30 UTC = **06:30 BST**. **The "anchor 1–2 h before first meeting" rule only narrows the window upward; the 6:30 floor was never raised.** |
+| 4 | "Two notifications back-to-back within 1–2 min" | DB shows no two notifications to the same user inside 30 min over 7 days (the 2-h suppression works). Likely the user perceived two **different** nudges firing on a shared device or saw the cron fire at `XX:00` then `XX:10` on a *different* user's pile. **However**, there is a real race: cron runs every 10 min, and Nudge 1 + Nudge 2 + Nudge 3 are evaluated in the same tick — only the 2-h *suppression* prevents stacking. We should add an **intra-tick cap of 1 push per user** plus a **same-day per-type cap = 1**. |
+| 5 | "Saturday still talks productivity" | `getFallbackNudgeOneMorningCopy` → Saturday returns *"Check in when you are ready — your day, your terms"* (productivity framing). |
+| 6 | "Sunday morning talks about week ahead instead of evening" | Sunday morning Nudge 1 fires at `morningStart = max(8, ...)` = 08:00 local with copy *"A moment to land before the week forms"*. Sunday evening Nudge 3 fires 17:00–19:30 with *"Monday is forming — N events Monday"*. The week-prep framing is wrongly attached to the **morning**, and the evening copy is too productivity-led. |
+| 7 | "No JIT lure that pulls users in for mental prep" | `evaluateNudgeOne` JIT path requires **all** of: high-stakes event, `< 120 min` away, `confidenceBand !== 'none'`, AND `jit_horizons_surfaced != null`. In 7 days of logs across 10 active users, only **2 nudge_two events** ever fired and **0 nudge_one_jit / nudge_two_jit** variants are visible. The gate is too tight and there is no fallback wearable-driven JIT lure (e.g. "RHR elevated → recalibrate before your 3pm"). |
+
+---
+
+## The fix — Smart Nudges v5: "Chief of Staff for the Mind"
+
+Single edge function update (`supabase/functions/smart-nudges/index.ts`). No DB schema changes. Cron stays at `*/10 * * * *`.
+
+### 1. New global timing contract (kills 6am sends)
+
+```
+GLOBAL_EARLIEST_LOCAL = 8.0   // never fire any nudge before 08:00 local
+GLOBAL_LATEST_LOCAL   = 21.0  // unchanged, evening close still ends 21:30 weekday
+INTRA_TICK_MAX        = 1     // only one nudge per user per cron tick
 ```
 
-That exact coverage line is what your screenshot shows. So the UI is not failing to mount; it is faithfully showing a stale cached empty result.
+Apply at the top of the per-user loop, **before** any evaluator runs. This is a hard floor; calendar anchoring can only push **later**, never earlier.
 
-Why it did not update after the last fix:
+### 2. Calendar-anchored morning rule (when first meeting exists)
 
-1. The engine checks the daily cache first.
-2. The UI calls `cause-effect-engine` without `{ force: true }`.
-3. Because today’s cached row already exists, the engine returns the old empty payload for 24 hours and never reaches the newer v2 calculation logic.
-4. The old cached payload also lacks newer coverage fields like `eventTypesIdentified` and `hasWearableSleep`, so the empty state stays generic instead of explaining what failed.
+```
+idealStart = firstMeetingLocalHour - (virtual ? 1.0 : 1.5)   // 60–90 min before
+morningStart = max(8.0, idealStart)        // never before 8am
+morningEnd   = max(morningStart + 1.5, idealStart + 1.0)
+```
 
-There are also two calculation issues that should be corrected so the fresh result is credible:
+If no first meeting today **and** weekday: morning window is **08:00–09:30** with mental-performance copy ("Open your brief — set the day's decision posture"). If no first meeting **and** weekend: **skip morning nudge entirely** (Saturday) or **defer to evening** (Sunday).
 
-- Calendar queries currently include future events because they only filter `start_time >= windowStart`, not `start_time <= now`. Future events like Apr 27-May 1 are being included in event buckets even though no check-ins or physiology can exist yet.
-- Event classification order puts broad networking terms before school/governor terms, so “LSE School Governor Scheme - April Info Session” is likely classified as Networking instead of School & family.
+### 3. Weekend rules (matches user's exact answer)
 
-What the real data says right now:
+| Day | Morning | Evening (17:00–19:30 local) |
+|---|---|---|
+| **Saturday** | **Skipped** unless calendar has a meeting → then anchored 60–90 min before, recovery-framed copy ("Body needs a slower entry — open your brief before [Meeting]"). | Skipped (unchanged). |
+| **Sunday** | **Skipped completely.** | Single nudge framed as **"recovery + mental prep for the week"** — references Monday's high-stakes event by name, never the word *"intent"*, *"plan the week"*, *"productivity"*. |
 
-- Physiology cannot produce a valid calendar→HRV/RHR finding yet because wearable HRV/RHR rows are Apr 7-15, while calendar events are Apr 21 onward. There is no overlap.
-- Sleep cannot produce a valid finding because there are 0 sleep records.
-- Cognition does have a candidate pattern: School/family-type event days show a Confidence drop around 2.25/5 vs 3.16/5 baseline across 4 check-ins, which should qualify as an “Emerging” cause→effect finding once the stale cache and future-event logic are fixed.
+### 4. New copy contract (kills "productivity/strategy" tone)
 
-Implementation plan:
+Update both AI system prompt and all `getFallback*` strings to:
 
-1. In `PerformanceCausalityCard.tsx`, request a fresh calculation when the returned cached payload is empty:
-   - First call normally for speed.
-   - If `cached === true` and `top === null` and all lens arrays are empty, immediately retry with `{ force: true }` once.
-   - This prevents stale empty results from persisting all day after logic changes or new data arrival.
+- **Always reference one of**: decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, recalibration. (Vocabulary lifted from `mem://brand/terminology-standard-v3` and `mem://ui/performance-readiness/signal-pill-system`.)
+- **Always end the body with an action verb pointing at an artefact**: `Open your brief`, `See your plan`, `Recalibrate now`, `Close the day`. Never *"check in when you are ready"*.
+- **Forbidden words added to system prompt**: `intent`, `productive`, `productivity`, `strategy`, `strategic`, `plan the week`, `set the tone`, `your day, your terms`, `loaded day`, `5 days behind you`.
+- **Required for JIT pre-event**: must reference (a) the meeting title, (b) the artefact (brief or plan), and (c) the mental-performance pillar at risk.
 
-2. In `cause-effect-engine`, stop future events contaminating the calculation:
-   - Add `lte('start_time', nowIso)` to `calendar_events`.
-   - Use completed event days only for event-type buckets, calendar-load tertiles, and heavy-day streaks.
+Examples (replacing current fallbacks):
 
-3. Improve event classification priority:
-   - Move “School & family” before broad “Networking & community”.
-   - Keep the attendee-count fallback so events still land in a bucket.
+| Current (bad) | New (Chief-of-Staff-for-the-Mind) |
+|---|---|
+| "Sunday reset — A moment to land before the week forms" | **DELETE** (no Sunday morning nudge) |
+| "No agenda — Check in when you are ready, your day, your terms" (Sat) | **DELETE** unless meeting; if meeting: "Body's slower today — open your brief before [Meeting]" |
+| "Monday is forming — Set your intent for the week before it sets you" (Sun PM) | "Heavy Monday ahead — 4 meetings incl. [Investor Update]. Open your brief tonight to set tomorrow's posture." |
+| "Loaded day — N meetings today, set the tone before it sets you" | "N meetings, sharpness needs anchoring — open your brief to build today's plan." |
+| "Day done — close the loop before switching off" | "5 meetings done. RHR elevated — close the day in 90 sec." |
 
-4. Add engine-side stale-cache protection:
-   - If a cached payload is empty and lacks the new v2 coverage fields, treat it as stale and recompute automatically.
-   - Optionally include a `version: 2` field in payloads so future logic changes can invalidate old cache safely.
+### 5. JIT lures (the missing "pull into app" mechanism)
 
-5. Make the empty state more useful if a fresh compute still has no findings:
-   - Show lens-level reasons even when no top finding exists, instead of only “Patterns are still forming.”
-   - Example: “Cognition has enough data; no completed event type cleared threshold yet. Physiology needs calendar/wearable date overlap. Sleep has 0 records.”
+Loosen the gate and add **two** new JIT triggers (currently absent):
 
-6. Validate end-to-end after implementation:
-   - Force recompute for the signed-in user.
-   - Confirm `causality_findings` updates from the old 15:02 empty payload.
-   - Confirm the Patterns page either shows the emerging cognition finding or a specific, data-honest reason per lens.
-   - Confirm preview/mock behavior still works when unsigned in.
+**A. Pre-event mental-prep lure** (existing, fixed):
+- Trigger: high-stakes event in **30–180 min** (was 0–120). 
+- Drop the `jit_horizons_surfaced` requirement — fire even if the JIT plan hasn't been precomputed; route depends on check-in state:
+  - If check-in **not done** → `/daily-check-in` ("Open your brief — [Meeting] in 90 min, sharpness check first")
+  - If check-in **done** → `/executive-home` ("Your prep plan is queued for [Meeting] — open it now")
+
+**B. Wearable-state lure** (new):
+- Trigger: `wearable.rhrElevated === true` OR `wearable.hrvDeltaPct < -15` AND user has not opened app in last 4 h AND there is at least one upcoming high-stakes event today.
+- Copy: "Reserves down — recalibrate before [Next high-stakes event]". Route: `/daily-check-in`.
+
+**C. Consecutive-low pattern lure** (new):
+- Trigger: `consecutivePattern.count >= 2` AND no afternoon check-in.
+- Copy: "Two days low on resilience capacity — open your brief to reset the trajectory."
+
+Both B and C respect the global 2-h suppression and daily cap.
+
+### 6. Hardened anti-stack rules (kills back-to-back fear)
+
+- **Per-tick cap**: after evaluators run, sort qualified by priority and **emit at most 1**. (Currently we already pick best, but the JIT-override path can stack with priorities — close that.)
+- **Per-type per-day cap = 1** (already enforced via `alreadySentTypes`, verified working).
+- **Cool-down post-app-open**: if `lastAppOpen < 60 min ago`, suppress everything (currently 30 min). User just engaged → don't push.
+
+### 7. Observability
+
+Add a `[v5]` prefix to all logs and a `decision_trace` JSON field appended to `notification_log.payload` capturing: `{ window, anchorEvent, blockedBy, copyCategory }`. Lets us prove on a per-user basis why a nudge fired (or didn't) without re-running cron.
+
+---
+
+## Files to change
+
+1. **`supabase/functions/smart-nudges/index.ts`** — full rewrite of:
+   - `evaluateNudgeOne` (timing, anchor, weekend skip, JIT loosening)
+   - `evaluateNudgeTwo` (add wearable-state + consecutive-low lures)
+   - `evaluateNudgeThree` (Sunday recovery-mental-prep framing, no productivity vocab)
+   - All `getFallback*Copy` (new vocabulary, action-verb endings)
+   - `generateNudgeCopy` system prompt (forbidden words + required artefact reference)
+   - Main loop: add `GLOBAL_EARLIEST_LOCAL` gate + per-tick cap + 60-min app-open cool-down
+2. **`mem/features/notifications/smart-nudges-mvp-framework.md`** — update to v5 contract.
+3. **No DB migrations.** Cron stays as-is. APNs config untouched.
+
+## Validation plan (after deploy)
+
+1. Read fresh `notification_log` rows and verify: zero sends < 08:00 local for any user.
+2. Confirm **no** Sunday-morning sends; Sunday only fires once between 17:00–19:30 with Monday-prep mental-performance copy referencing a real Monday event title.
+3. Confirm Saturday: zero sends unless a meeting exists; if it does, copy mentions the meeting + recovery framing.
+4. Trigger a manual JIT test by inserting a fake high-stakes event 90 min ahead for a test user and re-running the function — verify the JIT lure fires with the correct route based on check-in state.
+5. Inspect `payload->>'decision_trace'` on at least 5 fresh rows to confirm the trace explains the choice.
+
+## Out of scope (intentionally deferred)
+
+- Push-to-Android (function is iOS/APNs only today).
+- Adaptive learning weights beyond the existing 7-day tap-rate model.
+- New notification *types* beyond the 3 MVP categories — we keep `nudge_one`, `nudge_two`, `nudge_three` and add **variants** inside each.

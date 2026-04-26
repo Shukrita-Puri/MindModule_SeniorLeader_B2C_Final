@@ -136,6 +136,16 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
+// ── v5 timing contract ─────────────────────────────────────────────────
+// Hard floor: never deliver any push before this local hour, regardless of
+// calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
+const GLOBAL_EARLIEST_LOCAL = 8.0;     // 08:00
+const GLOBAL_LATEST_LOCAL = 21.5;      // 21:30
+// Cool-down after the user opens the app — they just engaged, don't push.
+const APP_OPEN_COOLDOWN_MS = 60 * 60 * 1000; // 60 min (was 30)
+// Per-user, per-cron-tick: at most one notification regardless of evaluators.
+const INTRA_TICK_MAX = 1;
+
 // Noise filter (aligned with JIT pipeline)
 const NOISE_KEYWORDS = [
   'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
@@ -692,15 +702,15 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `You are writing push notifications for a C-suite leader's performance coaching app. 
+  const systemPrompt = `You are the "Chief of Staff for the Mind" writing push notifications for a CEO-grade mental performance app. The app is NOT productivity, NOT strategy, NOT business planning. It is mental performance — decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, recalibration.
 Rules:
 - Title: max 5 words, no emoji
-- Body: max 15 words, performance-oriented tone
-- NEVER use: wellness, mindfulness, relax, well done, great job, amazing
-- For evenings/weekends: use softer, permission-to-stop tone – but still reference specific signals
-- Every nudge must reference something specific (a meeting title, a number, a commitment, a state)
-- CRITICAL: Only reference data that is explicitly provided below. Do NOT invent numbers, percentages, or metrics.
-- If no wearable/biometric data is provided, do NOT mention HRV, sleep, recovery, heart rate, or any body metrics.
+- Body: max 15 words, in the voice of a proactive Chief of Staff who watches the leader's wearables and calendar
+- The body MUST end with an action verb pointing at an in-app artefact: "open your brief", "open your plan", "recalibrate now", "close the day". Never end on description alone.
+- The body MUST reference at least one of: decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, sleep, HRV, RHR, the meeting by name, or the number of meetings.
+- NEVER use: wellness, mindfulness, relax, amazing, productive, productivity, strategy, strategic, intent, "set your intent", "plan the week", "your day your terms", "set the tone", "loaded day", "5 days behind you", "well done", "great job".
+- Weekends/evenings: softer, permission-to-recover tone — but still reference a specific signal and still end with an artefact verb.
+- CRITICAL: Only reference data explicitly provided below. Do NOT invent numbers or metrics. If no wearable data is provided, do NOT mention HRV, sleep, recovery, or heart rate.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -763,6 +773,20 @@ Signals:
 - Morning state: ${ctx.morningCheckinOutcome}
 - Next event: ${eventTitle}
 Reference the specific state and what's ahead. Tone: reset, not alarm.`;
+      break;
+    }
+
+    case 'nudge_two_reserves': {
+      const evt = specificSignals as { eventTitle: string; signal: 'rhr' | 'hrv' };
+      const signalLine = evt.signal === 'rhr'
+        ? `RHR is elevated above baseline`
+        : `HRV is ${ctx.wearable.hrvDeltaPct ?? '?'}% vs baseline`;
+      userPrompt = `Reserves-down lure. Wearable shows physiological reserves are depleted and a high-stakes meeting is ahead.
+Signals:
+- Wearable: ${signalLine}
+- Next high-stakes: ${evt.eventTitle}
+- Current state: ${ctx.morningCheckinOutcome || 'no check-in yet'}
+Must name the wearable signal AND the meeting. End with "open your brief" or "recalibrate now". Tone: Chief of Staff flagging risk, not alarm.`;
       break;
     }
 
@@ -855,90 +879,103 @@ Tone: permission to stop, close the loop. NEVER say: wellness, mindfulness, rela
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // Only reference sleep if wearable data exists
+  // v5 — Chief-of-Staff-for-the-Mind voice. Always references a mental
+  // performance pillar (decision readiness / reserves / resilience) and
+  // ends with an artefact verb (open your brief).
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-N1-recovery' };
+    return { title: 'Reserves are low', body: 'Sleep score below baseline — open your brief to recalibrate before today', variantId: 'FB-N1-recovery' };
   }
-  if (ctx.highStakesEvents.length > 0 && ctx.eventCount >= 3) {
-    return { title: `${ctx.highStakesEvents[0].title || 'High-stakes'} today`, body: `${ctx.eventCount} events including ${ctx.highStakesEvents[0].title} — check in to sharpen`, variantId: 'FB-N1-loaded-stakes' };
+  if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
+    return { title: 'Recovery debt detected', body: `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline — open your brief to set today's posture`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
-    return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today — set the tone before it sets you`, variantId: 'FB-N1-stakes' };
+    const ev = ctx.highStakesEvents[0].title || 'high-stakes meeting';
+    return { title: 'Sharpen for what matters', body: `${ev} today — open your brief to lock in decision readiness`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: 'Loaded day', body: `${ctx.eventCount} meetings today — set the tone before it sets you`, variantId: 'FB-N1-heavy' };
+    return { title: 'Heavy load ahead', body: `${ctx.eventCount} meetings — open your brief to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
-    return { title: 'No agenda', body: 'Check in when you are ready — your day, your terms', variantId: 'FB-N1-sat' };
-  }
-  if (ctx.dayOfWeek === 0) {
-    return { title: 'Sunday reset', body: 'A moment to land before the week forms', variantId: 'FB-N1-sun-morning' };
+    // Saturday with a meeting (we only fire when one exists)
+    const ev = ctx.firstNonNoiseEvent?.title || 'today\'s meeting';
+    return { title: 'Slower entry', body: `Body needs a softer start — open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
-    return { title: 'Set the frame', body: `${ctx.eventCount} meetings today — check in to set your direction`, variantId: 'FB-N1-calendar' };
+    return { title: 'Set decision posture', body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today — open your brief to anchor the day`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Your day is open', body: 'Light calendar — check in to decide what to own today', variantId: 'FB-N1-light' };
+  return { title: 'Open day, clear mind', body: 'Light calendar — open your brief to decide what mental capacity to spend', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
-  return { title: 'Prep ready', body: `${eventTitle} in ${minutesUntil} min — your prep plan is built`, variantId: 'FB-N1-JIT' };
+  return { title: 'Prep ready', body: `${eventTitle} in ${minutesUntil} min — open your brief, prep plan is queued`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   if (minutesUntil <= 120) {
-    return { title: `${eventTitle} shortly`, body: `${minutesUntil} min window — your prep plan is ready`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${eventTitle} shortly`, body: `${minutesUntil} min window — open your plan, the prep is queued`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: 'Prep window open', body: `${eventTitle} at ${timeStr} — practice sequence queued`, variantId: 'FB-N2-JIT-later' };
+  return { title: 'Prep window open', body: `${eventTitle} at ${timeStr} — open your plan to anchor sharpness`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
-  return { title: 'Your plan is waiting', body: `${remaining} practice${remaining > 1 ? 's' : ''} left — pick up where you left off`, variantId: 'FB-N2-priorities' };
+  return { title: 'Your plan is waiting', body: `${remaining} practice${remaining > 1 ? 's' : ''} left — open your plan to keep readiness on track`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
-  return { title: 'Recalibrate', body: `Started low — reset before ${eventTitle}`, variantId: 'FB-N2-recal' };
+  return { title: 'Recalibrate', body: `Started low — open your brief and recalibrate before ${eventTitle}`, variantId: 'FB-N2-recal' };
+}
+
+// v5 — wearable-state lure: reserves down + high-stakes ahead
+function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
+  const cause = signal === 'rhr' ? 'RHR elevated' : 'HRV below baseline';
+  return { title: 'Reserves down', body: `${cause} — recalibrate before ${nextEventTitle}, open your brief`, variantId: `FB-N2-reserves-${signal}` };
+}
+
+// v5 — consecutive-low pattern lure
+function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
+  return { title: 'Resilience trending down', body: `${daysLow} days low on resilience capacity — open your brief to reset trajectory`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesRemaining = ctx.pendingPracticeIds.length;
   const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
 
-  // Sunday early evening — week-prep
+  // v5 — Sunday early evening: recovery + mental prep, never productivity
   if (ctx.dayOfWeek === 0) {
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
-      return { title: 'Monday is forming', body: `${tomorrowCount} events Monday including ${tomorrowStakes[0].title} — set your intent tonight`, variantId: 'FB-N3-sun-stakes' };
+      return { title: 'Mental prep for Monday', body: `${tomorrowStakes[0].title} tomorrow — open your brief to recover into the week`, variantId: 'FB-N3-sun-stakes' };
     }
-    if (tomorrowCount > 0) {
-      return { title: 'Monday is forming', body: `${tomorrowCount} events Monday — set your intent tonight`, variantId: 'FB-N3-sun' };
+    if (tomorrowCount >= 4) {
+      return { title: 'Heavy week incoming', body: `${tomorrowCount} meetings Monday — open your brief to recover and set readiness`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Monday is forming', body: 'Set your intent for the week before it sets you', variantId: 'FB-N3-sun-default' };
+    return { title: 'Sunday recovery', body: 'Open your brief to land the weekend and protect tomorrow\'s sharpness', variantId: 'FB-N3-sun-default' };
   }
 
-  // Friday — close the week
+  // Friday — close-the-week, recovery framing
   if (ctx.dayOfWeek === 5) {
-    return { title: 'Week complete', body: '5 days behind you — close the week before you switch off', variantId: 'FB-N3-fri' };
+    return { title: 'Close the week', body: 'Open your brief to close the loop — recovery starts when you do', variantId: 'FB-N3-fri' };
   }
 
   // Weekday with priorities context
   if (prioritiesRemaining > 0) {
-    return { title: 'Before you switch off', body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still on your plan — finish or let go`, variantId: 'FB-N3-priorities' };
+    return { title: 'Close before you switch off', body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} left — open your plan to close the day`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: 'Day complete', body: 'All priorities done — close the loop', variantId: 'FB-N3-done' };
+    return { title: 'Day landed', body: 'Open your brief — a 90-second close protects tomorrow\'s readiness', variantId: 'FB-N3-done' };
   }
 
   // Wearable context
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'Body carried load', body: 'A proper close helps you let go of today', variantId: 'FB-N3-rhr' };
+    return { title: 'Body carried load', body: 'RHR elevated through the day — open your brief and recover', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: 'Heavy day done', body: `${ctx.eventCount} meetings done — one check-in to close the loop`, variantId: 'FB-N3-heavy' };
+    return { title: 'Heavy day done', body: `${ctx.eventCount} meetings — open your brief, close the day in 90 sec`, variantId: 'FB-N3-heavy' };
   }
-  return { title: 'Evening close', body: 'Day done — close the loop before switching off', variantId: 'FB-N3-default' };
+  return { title: 'Evening close', body: 'Open your brief to close the day and protect tomorrow\'s reserves', variantId: 'FB-N3-default' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -964,26 +1001,33 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
+  // ── v5 weekend skip ──
+  // Sunday morning: never fire (Sunday only fires in the evening).
+  if (ctx.dayOfWeek === 0) return null;
+  // Saturday morning: only fire if a real meeting exists today; otherwise skip.
+  if (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent) return null;
+
   // ── A) JIT morning event — check first ──
-  // If there's a high-stakes event within 2h and a JIT plan exists, lead with JIT
+  // v5: drop the jit_horizons_surfaced requirement so the lure fires on
+  // any high-stakes event detected by the JIT scoring layer.
   if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
     for (const evt of ctx.jitEvents) {
       if (evt.confidenceBand === 'none') continue;
       if (sentEventRefs.has(evt.externalId)) continue;
 
       const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
-      if (minutesUntil > 120) continue; // Only morning JIT within 2h
+      if (minutesUntil < 30 || minutesUntil > 180) continue; // 30 min – 3 h window
 
-      // Verify JIT plan exists
+      // v5: only require the JIT context row not be dismissed; do NOT
+      // require horizons to be precomputed (that gate killed almost all
+      // JIT lures in production for 7 days running).
       const { data: jitPlan } = await supabase
         .from('jit_event_context')
         .select('id')
         .eq('user_id', ctx.userId)
         .eq('id', evt.eventId)
         .eq('dismissed_by_user', false)
-        .not('jit_horizons_surfaced', 'is', null)
         .limit(1);
-
       if (!jitPlan || jitPlan.length === 0) continue;
 
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_jit', {
@@ -992,10 +1036,14 @@ async function evaluateNudgeOne(
       });
       const copy = aiCopy || getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
 
+      // Route by check-in state — if user hasn't done check-in yet, send
+      // them to the brief; otherwise send them to the queued plan.
+      const route = ctx.morningCheckinOutcome === null ? '/daily-check-in' : '/executive-home';
+
       return {
         type: 'nudge_one',
         copy,
-        deepLinkRoute: '/executive-home',
+        deepLinkRoute: route,
         eventReference: evt.externalId,
         priority: 0,
       };
@@ -1005,8 +1053,10 @@ async function evaluateNudgeOne(
   // ── B & C) Morning check-in (loaded vs light day) ──
   if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
 
-  // Calendar-aware timing
-  let morningStart = 6.5;
+  // v5 — calendar-anchored morning timing
+  // Hard floor: 08:00 local. If a first meeting exists, we anchor 60–90 min
+  // before but never earlier than 08:00. If no first meeting, 08:00–09:30.
+  let morningStart = GLOBAL_EARLIEST_LOCAL;
   let morningEnd = 9.5;
 
   if (ctx.firstNonNoiseEvent) {
@@ -1014,18 +1064,22 @@ async function evaluateNudgeOne(
     const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
     const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
     const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
-    const commuteBuffer = isVirtual ? 0.5 : 1.25;
-    const idealStart = eventHour - commuteBuffer - 0.33;
-    morningStart = Math.max(6.5, Math.min(idealStart, 9.5));
-    morningEnd = Math.max(morningEnd, morningStart + 1.5);
+    // 60 min before virtual, 90 min before in-person
+    const leadHours = isVirtual ? 1.0 : 1.5;
+    const idealStart = eventHour - leadHours;
+    morningStart = Math.max(GLOBAL_EARLIEST_LOCAL, Math.min(idealStart, 10.0));
+    morningEnd = Math.max(morningStart + 1.0, eventHour - 0.25); // close window 15 min before meeting
   }
 
-  if (ctx.dayOfWeek === 6) { morningStart = Math.max(morningStart, 7.5); morningEnd = Math.max(morningEnd, 10); }
-  if (ctx.dayOfWeek === 0) { morningStart = Math.max(morningStart, 8); morningEnd = Math.max(morningEnd, 10.5); }
+  // Saturday: when a meeting exists, push start later (slower entry)
+  if (ctx.dayOfWeek === 6) {
+    morningStart = Math.max(morningStart, 9.0);
+    morningEnd = Math.max(morningEnd, 11.0);
+  }
 
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
 
-  // Don't fire if first event is < 30 min away
+  // Don't fire if first event is < 30 min away (we already missed the window)
   if (ctx.firstNonNoiseEvent) {
     const minutesUntil = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
     if (minutesUntil < 30) return null;
@@ -1060,7 +1114,7 @@ async function evaluateNudgeTwo(
   supabase: ReturnType<typeof createClient>
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
-  if (ctx.localTime < 9.5 || ctx.localTime >= 16) return null;
+  if (ctx.localTime < GLOBAL_EARLIEST_LOCAL || ctx.localTime >= 16) return null;
 
   // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
@@ -1068,17 +1122,17 @@ async function evaluateNudgeTwo(
     if (sentEventRefs.has(evt.externalId)) continue;
 
     const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
+    // v5 — focus on the 30 min – 3 h pre-event window
+    if (minutesUntil < 30 || minutesUntil > 180) continue;
 
-    // Verify JIT plan exists
+    // v5 — drop horizons-surfaced gate (was killing all JIT lures in prod)
     const { data: jitPlan } = await supabase
       .from('jit_event_context')
       .select('id')
       .eq('user_id', ctx.userId)
       .eq('id', evt.eventId)
       .eq('dismissed_by_user', false)
-      .not('jit_horizons_surfaced', 'is', null)
       .limit(1);
-
     if (!jitPlan || jitPlan.length === 0) continue;
 
     const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_jit', {
@@ -1087,13 +1141,42 @@ async function evaluateNudgeTwo(
     });
     const copy = aiCopy || getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
 
+    // v5 smart routing — brief if check-in pending, plan if check-in done
+    const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
+    const route = checkedInToday ? '/executive-home' : '/daily-check-in';
+
     return {
       type: 'nudge_two',
       copy,
-      deepLinkRoute: '/executive-home',
+      deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,
     };
+  }
+
+  // ── A2) Wearable-state lure (v5 NEW) ──
+  // Reserves are down + a high-stakes event remains today + user hasn't
+  // opened the app recently → invite into the brief to recalibrate.
+  if (ctx.hasWearableData) {
+    const reservesDown =
+      ctx.wearable.rhrElevated ||
+      (ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15);
+    const upcomingHighStakes = ctx.highStakesEvents.filter(
+      e => new Date(e.start_time).getTime() > Date.now(),
+    );
+    const recentlyOpened = ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000;
+    if (reservesDown && upcomingHighStakes.length > 0 && !recentlyOpened) {
+      const evTitle = upcomingHighStakes[0].title || 'your next high-stakes meeting';
+      const signal: 'rhr' | 'hrv' = ctx.wearable.rhrElevated ? 'rhr' : 'hrv';
+      const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_reserves', { eventTitle: evTitle, signal });
+      const copy = aiCopy || getFallbackNudgeTwoReservesCopy(evTitle, signal);
+      return {
+        type: 'nudge_two',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 1,
+      };
+    }
   }
 
   // ── B) Priorities incomplete (afternoon, 13:00+) ──
@@ -1172,7 +1255,7 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   let eveningStart = 18;
   let eveningEnd = 21.5;
 
-  // Sunday: ONLY early evening (17:00-19:30)
+  // Sunday: ONLY early evening (17:00-19:30) — recovery + mental prep tone
   if (ctx.dayOfWeek === 0) {
     eveningStart = 17;
     eveningEnd = 19.5;
@@ -1181,6 +1264,10 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   if (ctx.dayOfWeek === 5) {
     eveningStart = 18.5;
   }
+
+  // v5 hard caps
+  eveningStart = Math.max(eveningStart, GLOBAL_EARLIEST_LOCAL);
+  eveningEnd = Math.min(eveningEnd, GLOBAL_LATEST_LOCAL);
 
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
 
@@ -1494,8 +1581,9 @@ serve(async (req) => {
 
       // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
-      if (localTime >= 22 || localTime < 6.5) {
-        console.log(`[smart-nudges] User ${userId} in quiet hours (${localTime.toFixed(1)}). Skipping.`);
+      // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
+      if (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL) {
+        console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
         continue;
       }
 
@@ -1541,10 +1629,11 @@ serve(async (req) => {
 
       // ── In-meeting / app-open suppression ──
       const lastAppOpen = lastAppOpenMap.get(userId) || null;
-      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < 30 * 60 * 1000;
+      // v5: 60-min cool-down after app open (was 30)
+      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < APP_OPEN_COOLDOWN_MS;
 
-      if (appOpenedRecently && suppressed) {
-        console.log(`[smart-nudges] User ${userId} app open recently + suppressed. Skipping.`);
+      if (appOpenedRecently) {
+        console.log(`[smart-nudges][v5] User ${userId} opened app within 60 min. Skipping.`);
         continue;
       }
 
@@ -1708,7 +1797,12 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'mvp-3-nudge-v4',
+        architecture: 'cos-mind-v5',
+        decision_trace: {
+          variant: notif.copy.variantId,
+          route: effectiveRoute,
+          type: notif.type,
+        },
       };
 
       const { data: logRow } = await supabase.from('notification_log').insert({
