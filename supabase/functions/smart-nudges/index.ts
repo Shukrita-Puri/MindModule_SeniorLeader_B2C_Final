@@ -1883,6 +1883,10 @@ serve(async (req) => {
     for (const notif of allNotifications) {
       const effectiveRoute = notif.deepLinkRoute;
 
+      // ── A/B CTA variant assignment (v5.1) ──
+      const ctaVariant = assignCtaVariant(notif.userId, nudgeFamily(notif.type));
+      notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
+
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
         body: notif.copy.body,
@@ -1891,10 +1895,13 @@ serve(async (req) => {
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
         architecture: 'cos-mind-v5',
+        cta_variant: ctaVariant,
+        cta_experiment: 'cta-action-verb-v1',
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
           type: notif.type,
+          cta_variant: ctaVariant,
         },
       };
 
