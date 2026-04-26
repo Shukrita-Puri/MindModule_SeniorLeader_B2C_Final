@@ -31,6 +31,8 @@ export interface LeadershipPatternsData {
   scoreDeltas?: DimensionScores | null;
   frictionPct?: number;
   frictionLabel?: string;
+  /** % of check-ins in the positive band (focused/steady) over 30d. Mirror of friction at the check-in level. Null until ≥5 check-ins. */
+  positiveRate?: { pct: number; n: number } | null;
   trendDirection?: 'improving' | 'stable' | 'declining';
   typicalState?: string | null;
   recurringThemes?: { phrase: string; count: number }[];
@@ -167,6 +169,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const frictionPct = totalCheckins > 0 ? Math.round((lowStates / totalCheckins) * 100) : 0;
         const frictionLabel = frictionPct <= 25 ? 'Low friction' : frictionPct <= 50 ? 'Moderate friction' : frictionPct <= 75 ? 'High friction pattern' : 'Sustained friction';
 
+        // Consistency = % of check-ins in positive band {focused, steady}. Null until ≥5.
+        const POSITIVE_OUTCOMES = new Set(['focused', 'steady']);
+        const positiveCount = checkIns.filter((c) => POSITIVE_OUTCOMES.has(c.outcome?.toLowerCase() || '')).length;
+        const positiveRate = totalCheckins >= 5
+          ? { pct: Math.round((positiveCount / totalCheckins) * 100), n: totalCheckins }
+          : null;
+
         // Trend
         const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgo);
         const priorCheckins = checkIns.filter((c) => c.checkin_date >= fourteenDaysAgo && c.checkin_date < sevenDaysAgo);
@@ -247,6 +256,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           scoreDeltas,
           frictionPct,
           frictionLabel,
+          positiveRate,
           trendDirection,
           typicalState,
           recurringThemes,
