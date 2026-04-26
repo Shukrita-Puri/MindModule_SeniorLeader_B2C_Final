@@ -1023,43 +1023,43 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </>
             )}
 
-            {/* 1A – How You Show Up: Mind Rhythm Patterns (pure rhythm reader) */}
-            {data.checkInCount >= 7 && data.mindRhythmPatterns && (
-              (data.mindRhythmPatterns.energy.length +
-               data.mindRhythmPatterns.clarity.length +
-               data.mindRhythmPatterns.sharpness.length +
-               data.mindRhythmPatterns.confidence.length) > 0 && (
+            {/* 1A – Your Rhythm Signals: top-3 Chief-of-Staff prioritized findings */}
+            {data.checkInCount >= 7 && data.mindRhythmPatterns && data.mindRhythmPatterns.topThree.length > 0 && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
                   <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    How You Show Up
+                    Your Rhythm Signals
                   </span>
                   <InsightInfoModal
-                    title="How You Show Up"
-                    explanation="When you're most and least energetic, clear, sharp, and confident — drawn only from your check-in trends above. Patterns surface once a dimension has at least 7 check-ins and a meaningful gap between time-of-day or day-of-week buckets."
+                    title="Your Rhythm Signals"
+                    explanation="The 3 strongest patterns from your check-in trends — when you're sharpest, where you slip, and what's repeating. The full list arrives in your weekly insights email."
                   />
                 </div>
-                {([
-                  { key: 'energy',     label: 'Energy',     items: data.mindRhythmPatterns.energy },
-                  { key: 'clarity',    label: 'Clarity',    items: data.mindRhythmPatterns.clarity },
-                  { key: 'sharpness',  label: 'Sharpness',  items: data.mindRhythmPatterns.sharpness },
-                  { key: 'confidence', label: 'Confidence', items: data.mindRhythmPatterns.confidence },
-                ] as const).filter(d => d.items.length > 0).map(d => (
-                  <div key={d.key} className="pl-6 space-y-1">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-body">{d.label}</p>
-                    <ul className="space-y-1">
-                      {d.items.map((f, i) => (
-                        <li key={i} className="text-xs text-foreground/80 leading-relaxed flex items-start gap-2">
-                          <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                          <span>{f.text}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                <ul className="pl-6 space-y-1.5">
+                  {data.mindRhythmPatterns.topThree.map((f, i) => {
+                    const dimLabel = f.dimension.charAt(0).toUpperCase() + f.dimension.slice(1);
+                    return (
+                      <li key={i} className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
+                        <span>
+                          {f.text}
+                          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">· {dimLabel}</span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-              )
+            )}
+
+            {/* Empty-state when ≥7 check-ins but no findings yet */}
+            {data.checkInCount >= 7 && data.mindRhythmPatterns !== null && data.mindRhythmPatterns?.topThree.length === 0 && (
+              <div className="p-3 rounded-xl bg-muted/15 border border-border/30">
+                <p className="text-xs text-muted-foreground/80 leading-relaxed text-center">
+                  Patterns will sharpen as your check-ins accumulate across more days and times.
+                </p>
+              </div>
             )}
 
             {/* Elevated: Your Sharpest Window */}
