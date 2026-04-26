@@ -15,7 +15,20 @@ const corsHeaders = {
 
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// Full day names for user-facing copy. `DAYS` (abbreviated) is reserved for
+// internal keys / logs only — pluralising "Sun" → "Suns" reads as nonsense.
+const DAYS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const TIME_LABELS = ["Morning", "Afternoon", "Evening"];
+
+// "2026-04-19" → "Apr 19" — used in consecutive-run findings so the user
+// sees the most recent occurrence inline ("3 Sundays in a row … last on Apr 19").
+function formatShortDate(isoDate: string): string {
+  const [, m, d] = isoDate.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const idx = parseInt(m, 10) - 1;
+  const day = parseInt(d, 10);
+  return `${months[idx] || m} ${day}`;
+}
 
 function getTimeWindow(hour: number): number {
   if (hour >= 5 && hour < 12) return 0;

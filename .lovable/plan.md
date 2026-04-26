@@ -1,129 +1,85 @@
-## Goal
+## Why the current insights read as nonsense
 
-Fix three issues in the "How You Show Up" / Mind Rhythm Patterns block on `/insights`:
+Two bugs in `supabase/functions/performance-rhythm-insights/index.ts`:
 
-1. **Title still reads "How You Show Up"** — the user expected it renamed.
-2. **Copy is verbose and split by dimension sub-headers** (Energy / Clarity / Sharpness / Confidence) — feels like a report, not a brief.
-3. **Up to 6 findings shown** — too much. Show **only the top 3**, picked by a Chief-of-Staff prioritization rule. Long form moves to the Weekly Insights email.
+### Bug 1 — "Suns / Fris / Weds" (broken English)
+
+Line 17: `const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]`
+
+These are **already** the abbreviated forms. The copy templates then pluralise by appending `s`:
+- `${DAYS[worst.di]}s slip on …`  → `"Suns slip on Sharpness."`
+- `${DAYS[best.di]}s run strong on …; ${DAYS[worst.di]}s drop off.` → `"Weds run strong on Sharpness; Suns drop off."`
+- `${run} ${DAYS[di]}s in a row …` → `"3 Suns in a row you've shown up drained."`
+- `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest …` → `"Sun mornings are your sharpest …"`
+
+**Fix:** add a separate `DAYS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]` array and use it in **all user-facing `text` and `longText` strings**. Keep `DAYS` only for internal/log keys.
+
+### Bug 2 — All the substantiating data was stripped from `text`
+
+When we tightened the copy in the last pass, we moved every number / sample size / comparison into `longText` (reserved for the future weekly email) and left `text` as bald assertions:
+
+| Now (broken) | Should be |
+|---|---|
+| `"Suns slip on Sharpness."` | `"Sundays slip on Sharpness — sharp only 28% vs your 68% baseline (last 6 Sundays)."` |
+| `"Weds run strong on Sharpness; Suns drop off."` | `"Wednesdays run sharpest at 82%; Sundays drop to 28% (n=11)."` |
+| `"Mornings are your peak Energy window (72%)."` | ✅ already has the number — keep this shape as the template for all four |
+| `"Sun mornings are your sharpest Sharpness window — protect it."` | `"Sunday mornings are your sharpest window — sharp 85% across 6 check-ins."` |
+| `"3 Suns in a row you've shown up drained."` | `"3 Sundays in a row you've shown up drained — last on {date}."` |
+
+For a Chief-of-Staff brief, every line must carry **% rate + n + comparison** so the user can trust and act on it. No numbers = horoscope.
 
 ---
 
-## 1. Rename the section
+## Changes (one file)
 
-In `src/components/insights/PerformanceRhythmCard.tsx` (around line 1030 + 1033):
+`supabase/functions/performance-rhythm-insights/index.ts`
 
-- Change the rendered label and `InsightInfoModal` title from **"How You Show Up"** → **"Your Rhythm Signals"**.
-- Update the `InsightInfoModal` `explanation` to one tight line:
-  > *"The 3 strongest patterns from your check-in trends — when you're sharpest, where you slip, and what's repeating."*
+1. **Add `DAYS_FULL`** alongside `DAYS` (line 17 area).
+2. **Rewrite the 5 user-facing `text` templates** in `mineSeries` (lines ~745, 775, 785, 811, 840/856) to:
+   - Use `DAYS_FULL[...]` (no more "Suns/Fris/Weds").
+   - Embed the substantiating stat — pct, n, or vs-baseline — inline.
+   - Stay ≤ ~140 chars (slightly looser than the previous 110 cap, which was too tight to carry the data).
+3. **Update the consecutive-run template** to also include the most recent date in the run (we already have `sorted` in scope — pass the last point's `dateStr` into the finding and format it as `Mon DD`).
+4. **Leave `longText` unchanged** — it already carries the verbose stats for the future weekly email.
+5. **No UI changes needed** — `PerformanceRhythmCard.tsx` already renders `f.text` flat, with the dimension tag appended. The fix is purely in the strings the edge function emits.
 
-(If the user prefers a different name e.g. "Rhythm Signals" / "Your Patterns", we can swap the string in one place.)
-
----
-
-## 2. Collapse the per-dimension layout into one unified list
-
-Today the block iterates `[energy, clarity, sharpness, confidence]` and prints a sub-header + bullet list per dimension (lines 1037–1054). Replace with **a single flat list of 3 bullets**, no sub-headers. Each bullet:
-
-- Lucide `ArrowRight` icon (kept).
-- One line of crisp text (≤ ~110 chars).
-- A small muted dimension tag at the end (e.g. `· Energy`, `· Clarity`) so the user still knows which axis it came from — but it's an inline tag, not a section break.
-
----
-
-## 3. Tighten the copy templates in the edge function
-
-In `supabase/functions/performance-rhythm-insights/index.ts` rewrite the four `text:` strings produced by `mineSeries` so each finding is one short sentence. Current vs. proposed:
-
-| Kind | Current (verbose) | New (crisp) |
-|---|---|---|
-| `peak-window` | "Mornings are your 'focused' / 'steady' window (72% across 14 check-ins) – Evenings sit at 40%." | **"Mornings are your peak Energy window (72%)."** |
-| `peak-day` | "Mondays land 'focused' / 'steady' 80% of the time vs Fridays at 30%." | **"Mondays run sharp; Fridays drop off."** |
-| `cell-peak` | "Tuesday mornings are your sharpest cell (85% 'focused' / 'steady' across 6 check-ins)." | **"Tuesday mornings are your sharpest window."** |
-| `consecutive` | "3+ consecutive Sundays you've checked in 'drained' / 'overwhelmed'." | **"3 Sundays in a row you've shown up drained."** |
-
-Per-dimension vocab (used inline): `Energy` / `Clarity` / `Sharpness` / `Confidence`. Drop the bracketed scale labels ("Crystal/Lucid (4–5)", "Peak/Acute (4–5)", etc.) from user-facing copy — keep them only in internal logs.
-
-The full long-form (with %, n, scale labels) stays in the payload as `longText` so the **Weekly Insights email** can use it later without a second pass.
+### Proposed final templates
 
 ```ts
-interface RhythmFinding {
-  kind: RhythmKind;
-  text: string;        // crisp, ≤110 chars — for the app
-  longText: string;    // verbose with stats — for the weekly email
-  dimension: 'energy' | 'clarity' | 'sharpness' | 'confidence';
-  confidence: number;
-  observations: number;
-  priorityScore: number; // see §4
-}
+// peak-window (time of day)
+text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window — ${pctBest}% vs ${pctWorst}% in the ${TIME_LABELS[worst.tw].toLowerCase()} (n=${best.n+worst.n}).`
+
+// low-day (recurring trough)
+text: `${DAYS_FULL[worst.di]}s slip on ${vocab.appLabel} — ${pctWorst}% vs your ${pctBest}% on ${DAYS_FULL[best.di]}s (last ${worst.n} ${DAYS_FULL[worst.di]}s).`
+
+// peak-day (paired headline)
+text: `${DAYS_FULL[best.di]}s run sharpest on ${vocab.appLabel} (${pctBest}%); ${DAYS_FULL[worst.di]}s drop to ${pctWorst}% (n=${best.n+worst.n}).`
+
+// cell-peak (DOW × ToD)
+text: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — ${pctCell}% across ${topCell.n} check-ins. Protect it.`
+
+// consecutive-neg (active risk)
+text: `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+
+// consecutive-pos (streak)
+text: `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`
 ```
 
----
-
-## 4. Chief-of-Staff prioritization (which 3 win)
-
-A Chief of Staff surfaces **what changes the executive's next decision**, not the prettiest stat. Rank order — highest first:
-
-1. **Active risk (negative consecutive runs)** — `kind === 'consecutive'` AND negative band. These are *recurring drops* the user can act on this week. **+1.0 priority weight.**
-2. **Strong cell-peak** (`cell-peak`, positive) — concrete day×time the user can protect for high-stakes work. **+0.8.**
-3. **Day-of-week trough** — `peak-day` finding where the *worst* day's pct ≤ 30%. Pull the trough out as its own crisp insight ("Fridays slip on Clarity"). **+0.7.**
-4. **Time-of-day peak** (`peak-window`, positive) — useful but generic. **+0.5.**
-5. **Day-of-week peak** (`peak-day`, positive only) — informational. **+0.4.**
-6. **Positive consecutive runs** — celebratory but non-actionable. **+0.3.**
-
-**Dimension tiebreaker** (Chief-of-Staff hierarchy for an executive): Sharpness > Clarity > Energy > Confidence. Sharpness/Clarity directly govern decision quality; Energy is fuel; Confidence trends slowest.
-
-**Final score** = `priorityWeight + (statisticalConfidence × 0.3) + dimensionBonus`.
-
-**Selection rule:**
-- Take top 3 by score.
-- **Diversity guard:** at most 2 findings per dimension, and at most 2 of the same `kind`, so the user doesn't see "Mondays peak / Fridays peak / Wednesdays peak."
-- If only 1 finding qualifies, render it alone (no padding with weak signals — honesty over volume).
-
-The edge function returns:
-```ts
-mindRhythmPatterns: {
-  topThree: RhythmFinding[];          // capped at 3, prioritized
-  all: RhythmFinding[];               // full set, retained for the weekly email
-} | null
-```
+Where `formatShortDate('2026-04-19')` → `'Apr 19'` (one tiny helper).
 
 ---
 
-## 5. UI changes (PerformanceRhythmCard.tsx)
+## Validation
 
-- Update the `mindRhythmPatterns` interface to the new shape (`topThree`, `all`, `longText`, `dimension`).
-- Replace the per-dimension `.map` block (lines 1037–1054) with one flat `.map` over `data.mindRhythmPatterns.topThree`.
-- Render each item as: `→ {f.text}  · {dimensionLabel(f.dimension)}` with the dimension tag in `text-[10px] uppercase text-muted-foreground/60`.
-- Gate: show the block only if `topThree.length >= 1` and `checkInCount >= 7` (unchanged threshold).
-- Empty state copy (when 0 findings but ≥7 check-ins): *"Patterns will sharpen as your check-ins accumulate across more days and times."*
-
----
-
-## 6. Weekly Insights email (forward-compatible)
-
-No code shipped now, but the new `all` array + `longText` field on each finding gives the future weekly email everything it needs (full list, stats, dimension breakdown). Documented in the memory file below.
-
----
-
-## 7. Memory + docs
-
-- Update `mem://features/insights/level-trend-calendars.md` to record:
-  - Section is now **"Your Rhythm Signals"** (3 max, single flat list, no sub-headers).
-  - Prioritization order (active risk → cell-peak → trough → ToD peak → DoW peak → positive runs).
-  - Dimension tiebreaker (Sharpness > Clarity > Energy > Confidence).
-  - `longText` reserved for the weekly email; app shows only `text`.
-
----
+1. Deploy `performance-rhythm-insights`.
+2. `supabase--curl_edge_functions` against the function as the logged-in user; confirm `mindRhythmPatterns.topThree[*].text` strings:
+   - Contain a full day name (regex `/\b(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)days?\b/`).
+   - Contain at least one digit (`%` or `n=` or a date).
+3. Reload `/insights` on the preview; confirm the three bullets read like real Chief-of-Staff observations with numbers and full day names.
+4. Spot-check `longText` is unchanged (weekly email contract preserved).
 
 ## Files to edit
 
-- `supabase/functions/performance-rhythm-insights/index.ts` — rewrite copy templates, add `longText` + `dimension` + `priorityScore`, build `topThree` with the prioritization + diversity rule, return `{ topThree, all }`.
-- `src/components/insights/PerformanceRhythmCard.tsx` — rename label + modal, swap interface, replace per-dimension render with flat 3-bullet list, update DEV-mode shape stub.
-- `mem/features/insights/level-trend-calendars.md` — document the new contract.
+- `supabase/functions/performance-rhythm-insights/index.ts` — add `DAYS_FULL`, add `formatShortDate`, thread `lastDate` into consecutive-run findings, rewrite the six `text` templates to embed stats.
 
-## Validation after implementation
-
-- Hit `/insights` as a user with ≥7 check-ins; confirm exactly ≤3 bullets, no sub-headers, label reads "Your Rhythm Signals".
-- Confirm a user with a 3+ Sunday `drained` run sees that surfaced first.
-- Confirm a user with no patterns ≥7 check-ins sees the new empty-state line, not the old block.
-- Spot-check `mindRhythmPatterns.all` in the edge function response so the future weekly email has the long form available.
+No UI, no DB, no memory updates needed (the rendering rule "show `text`, append dimension tag" is unchanged — the contract just gets honoured properly).
