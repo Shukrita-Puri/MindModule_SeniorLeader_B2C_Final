@@ -987,26 +987,33 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
+  // ── v5 weekend skip ──
+  // Sunday morning: never fire (Sunday only fires in the evening).
+  if (ctx.dayOfWeek === 0) return null;
+  // Saturday morning: only fire if a real meeting exists today; otherwise skip.
+  if (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent) return null;
+
   // ── A) JIT morning event — check first ──
-  // If there's a high-stakes event within 2h and a JIT plan exists, lead with JIT
+  // v5: drop the jit_horizons_surfaced requirement so the lure fires on
+  // any high-stakes event detected by the JIT scoring layer.
   if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
     for (const evt of ctx.jitEvents) {
       if (evt.confidenceBand === 'none') continue;
       if (sentEventRefs.has(evt.externalId)) continue;
 
       const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
-      if (minutesUntil > 120) continue; // Only morning JIT within 2h
+      if (minutesUntil < 30 || minutesUntil > 180) continue; // 30 min – 3 h window
 
-      // Verify JIT plan exists
+      // v5: only require the JIT context row not be dismissed; do NOT
+      // require horizons to be precomputed (that gate killed almost all
+      // JIT lures in production for 7 days running).
       const { data: jitPlan } = await supabase
         .from('jit_event_context')
         .select('id')
         .eq('user_id', ctx.userId)
         .eq('id', evt.eventId)
         .eq('dismissed_by_user', false)
-        .not('jit_horizons_surfaced', 'is', null)
         .limit(1);
-
       if (!jitPlan || jitPlan.length === 0) continue;
 
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_jit', {
@@ -1015,10 +1022,14 @@ async function evaluateNudgeOne(
       });
       const copy = aiCopy || getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
 
+      // Route by check-in state — if user hasn't done check-in yet, send
+      // them to the brief; otherwise send them to the queued plan.
+      const route = ctx.morningCheckinOutcome === null ? '/daily-check-in' : '/executive-home';
+
       return {
         type: 'nudge_one',
         copy,
-        deepLinkRoute: '/executive-home',
+        deepLinkRoute: route,
         eventReference: evt.externalId,
         priority: 0,
       };
@@ -1028,8 +1039,10 @@ async function evaluateNudgeOne(
   // ── B & C) Morning check-in (loaded vs light day) ──
   if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
 
-  // Calendar-aware timing
-  let morningStart = 6.5;
+  // v5 — calendar-anchored morning timing
+  // Hard floor: 08:00 local. If a first meeting exists, we anchor 60–90 min
+  // before but never earlier than 08:00. If no first meeting, 08:00–09:30.
+  let morningStart = GLOBAL_EARLIEST_LOCAL;
   let morningEnd = 9.5;
 
   if (ctx.firstNonNoiseEvent) {
@@ -1037,18 +1050,22 @@ async function evaluateNudgeOne(
     const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
     const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
     const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
-    const commuteBuffer = isVirtual ? 0.5 : 1.25;
-    const idealStart = eventHour - commuteBuffer - 0.33;
-    morningStart = Math.max(6.5, Math.min(idealStart, 9.5));
-    morningEnd = Math.max(morningEnd, morningStart + 1.5);
+    // 60 min before virtual, 90 min before in-person
+    const leadHours = isVirtual ? 1.0 : 1.5;
+    const idealStart = eventHour - leadHours;
+    morningStart = Math.max(GLOBAL_EARLIEST_LOCAL, Math.min(idealStart, 10.0));
+    morningEnd = Math.max(morningStart + 1.0, eventHour - 0.25); // close window 15 min before meeting
   }
 
-  if (ctx.dayOfWeek === 6) { morningStart = Math.max(morningStart, 7.5); morningEnd = Math.max(morningEnd, 10); }
-  if (ctx.dayOfWeek === 0) { morningStart = Math.max(morningStart, 8); morningEnd = Math.max(morningEnd, 10.5); }
+  // Saturday: when a meeting exists, push start later (slower entry)
+  if (ctx.dayOfWeek === 6) {
+    morningStart = Math.max(morningStart, 9.0);
+    morningEnd = Math.max(morningEnd, 11.0);
+  }
 
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
 
-  // Don't fire if first event is < 30 min away
+  // Don't fire if first event is < 30 min away (we already missed the window)
   if (ctx.firstNonNoiseEvent) {
     const minutesUntil = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
     if (minutesUntil < 30) return null;
