@@ -1114,7 +1114,7 @@ const Insights = () => {
         {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
         <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
           <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
-            <CauseEffectPanel userId={user?.id} />
+            <PerformanceCausalityCard userId={user?.id} />
             <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
