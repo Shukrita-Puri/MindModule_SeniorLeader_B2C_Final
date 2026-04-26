@@ -956,29 +956,25 @@ serve(async (req) => {
       days: monthDays,
     }];
 
-    // Deduplicate temporal patterns against causeEffectInsight
-    let filteredTemporalPatterns = temporalPatterns;
-    if (causeEffectInsight) {
-      // If cause-effect says weekday/weekend or morning/evening, suppress matching temporal pattern
-      const ceWords = causeEffectInsight.toLowerCase();
-      filteredTemporalPatterns = temporalPatterns.filter(tp => {
-        const tpWords = tp.toLowerCase();
-        if (ceWords.includes('weekday') && tpWords.includes('weekday')) return false;
-        if (ceWords.includes('weekend') && tpWords.includes('weekend')) return false;
-        if (ceWords.includes('morning') && tpWords.includes('morning')) return false;
-        if (ceWords.includes('evening') && tpWords.includes('evening')) return false;
-        return true;
-      });
-    }
-
     const result = {
-      presenceScore,
-      presenceLabel,
-      presenceInsight,
-      presenceActions: presenceActions.length > 0 ? presenceActions : null,
-      temporalPatterns: filteredTemporalPatterns.length > 0 ? filteredTemporalPatterns.slice(0, 2) : null,
+      // Legacy presence fields fully retired — kept null so older client builds
+      // don't crash, but they will no longer surface anything in the UI.
+      presenceScore: null,
+      presenceLabel: null,
+      presenceInsight: null,
+      presenceActions: null,
+      temporalPatterns: null,
+
+      // New: pure rhythm patterns over the four trend calendars.
+      mindRhythmPatterns,
+
+      // New: positive-rate stat for Trajectory scorecard ("Consistency").
+      positiveRate,
+
+      // Calendar Pattern + Cause-Effect remain on their own cards.
       calendarInsight,
       causeEffectInsight,
+
       grid,
       weekRows,
       bestReadinessWindow,
@@ -988,7 +984,10 @@ serve(async (req) => {
       dataSourceNote,
     };
 
-    console.log(`[perf-rhythm] Done: ci=${checkIns.length} presence=${presenceScore} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
+    const totalFindings = mindRhythmPatterns
+      ? mindRhythmPatterns.energy.length + mindRhythmPatterns.clarity.length + mindRhythmPatterns.sharpness.length + mindRhythmPatterns.confidence.length
+      : 0;
+    console.log(`[perf-rhythm] Done: ci=${checkIns.length} rhythm=${totalFindings} posRate=${positiveRate?.pct ?? 'n/a'} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
 
     return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders });
   } catch (e: unknown) {
