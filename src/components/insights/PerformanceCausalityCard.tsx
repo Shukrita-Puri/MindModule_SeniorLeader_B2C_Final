@@ -50,6 +50,12 @@ interface Coverage {
   wearableDayCount: number;
   eventCount: number;
   eventTypesIdentified?: number;
+  lensReasons?: {
+    A: string | null;
+    B: string | null;
+    C: string | null;
+    D: string | null;
+  };
 }
 
 interface CausalityPayload {
@@ -60,6 +66,8 @@ interface CausalityPayload {
   lensD: Finding[];
   coverage: Coverage;
   generatedAt: string;
+  version?: number;
+  cached?: boolean;
 }
 
 interface Props {
@@ -211,9 +219,31 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
         }
         return;
       }
-      const { data: result, error } = await supabase.functions.invoke('cause-effect-engine', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const invoke = (force: boolean) =>
+        supabase.functions.invoke('cause-effect-engine', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: force ? { force: true } : {},
+        });
+      let { data: result, error } = await invoke(false);
+      // If the engine returned a cached row that pre-dates the current
+      // logic version (or is otherwise empty + missing the new coverage
+      // fields), force a one-time recompute so the user doesn't sit on
+      // stale empty findings for 24 hours.
+      if (!error && result) {
+        const r = result as CausalityPayload;
+        const lensTotal =
+          (r.lensA?.length || 0) + (r.lensB?.length || 0) +
+          (r.lensC?.length || 0) + (r.lensD?.length || 0);
+        const looksStale =
+          (r.cached === true) &&
+          ((typeof r.version !== 'number') ||
+           (!r.top && lensTotal === 0 && !r.coverage?.lensReasons));
+        if (looksStale) {
+          console.log('[PerformanceCausalityCard] cached payload looks stale — forcing recompute');
+          const retry = await invoke(true);
+          if (!retry.error && retry.data) result = retry.data;
+        }
+      }
       if (error) {
         console.error('[PerformanceCausalityCard] invoke error:', error);
         // In preview, prefer showing mock data over an error toast so the
@@ -240,26 +270,37 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
     }
   };
 
-  // ── Empty state messaging (data-honest) ────────────────────────────
+  // ── Empty state messaging ──────────────────────────────────────────
+  // Engine v2 ships a per-lens reason in `coverage.lensReasons`. We trust
+  // it as the source of truth and only fall back to client-side defaults
+  // for legacy/preview payloads that don't include it.
   const cov = data?.coverage;
-  const lensAEmpty = !cov?.hasCalendar
-    ? 'Connect calendar to unlock'
-    : !cov.hasWearable
-      ? `Need 5+ wearable days — currently ${cov.wearableDayCount}`
-      : `Classified ${cov.eventTypesIdentified ?? 0} event type(s); none cleared the threshold yet.`;
-  const lensBEmpty = !cov?.hasCalendar
-    ? 'Connect calendar to unlock'
-    : (cov.checkinCount < 7
-      ? `Need 7+ check-ins — currently ${cov.checkinCount}`
-      : 'No cognitive cost cleared the threshold yet.');
-  const lensCEmpty = cov?.hasWearableSleep === false
-    ? 'Connect Apple Health sleep tracking — no sleep records yet.'
-    : !cov?.hasWearable
-      ? `Need 5+ wearable days — currently ${cov?.wearableDayCount ?? 0}`
-      : 'No clear sleep→next-day pattern yet.';
-  const lensDEmpty = !cov?.hasCalendar
-    ? 'Connect calendar to unlock'
-    : 'No back-to-back heavy-day streak detected yet.';
+  const lensAEmpty =
+    cov?.lensReasons?.A ??
+    (!cov?.hasCalendar
+      ? 'Connect calendar to unlock'
+      : !cov.hasWearable
+        ? `Need 5+ wearable days — currently ${cov.wearableDayCount}`
+        : `Classified ${cov.eventTypesIdentified ?? 0} event type(s); none cleared the threshold yet.`);
+  const lensBEmpty =
+    cov?.lensReasons?.B ??
+    (!cov?.hasCalendar
+      ? 'Connect calendar to unlock'
+      : (cov.checkinCount < 7
+        ? `Need 7+ check-ins — currently ${cov.checkinCount}`
+        : 'No cognitive cost cleared the threshold yet.'));
+  const lensCEmpty =
+    cov?.lensReasons?.C ??
+    (cov?.hasWearableSleep === false
+      ? 'Connect Apple Health sleep tracking — no sleep records yet.'
+      : !cov?.hasWearable
+        ? `Need 5+ wearable days — currently ${cov?.wearableDayCount ?? 0}`
+        : 'No clear sleep→next-day pattern yet.');
+  const lensDEmpty =
+    cov?.lensReasons?.D ??
+    (!cov?.hasCalendar
+      ? 'Connect calendar to unlock'
+      : 'No back-to-back heavy-day streak detected yet.');
 
   const totalFindings =
     (data?.lensA.length || 0) +
