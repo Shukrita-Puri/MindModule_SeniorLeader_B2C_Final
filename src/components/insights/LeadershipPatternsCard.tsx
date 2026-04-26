@@ -309,6 +309,20 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     return 'text-red-500';
   };
 
+  // Consistency tone — higher is positive (green), lower is negative (red). Inverse of friction.
+  const consistencyTone = (pct: number): string => {
+    if (pct >= 75) return 'text-emerald-600';
+    if (pct >= 50) return 'text-amber-500';
+    return 'text-red-500';
+  };
+
+  const consistencyLabel = (pct: number): string => {
+    if (pct >= 75) return 'Highly consistent';
+    if (pct >= 50) return 'Building consistency';
+    if (pct >= 25) return 'Inconsistent';
+    return 'Low consistency';
+  };
+
   return (
     <LuxuryInsightCard>
       <CardHeader className="pb-4">
