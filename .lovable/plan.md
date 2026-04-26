@@ -1,96 +1,128 @@
-## Root cause (verified)
 
-The three new trend calendars (Clarity / Sharpness / Confidence) render empty in production for **every authenticated user**, even though the DB has the data.
+## Goal
 
-Verified against the live DB and code:
+Make **"How You Show Up"** (under *Mind Readiness Rhythm*) a **pure rhythm-pattern reader** of the four trend calendars — Energy, Clarity, Sharpness, Confidence — answering only:
 
-1. **`src/components/insights/LevelTrendCalendar.tsx` queries `daily_checkins` directly from the client** (lines 154–160) using the supabase JS client.
-2. **Auth0 is the auth provider, not Supabase Auth.** The supabase JS client therefore has no Supabase session → `auth.uid()` is `NULL` inside Postgres.
-3. **RLS on `daily_checkins`** (verified via `pg_policies`) is deny-by-default with the SELECT policy `((auth.uid())::text = user_id)`. With `auth.uid() = NULL`, this returns **zero rows** for every authenticated user in production.
-4. **Energy Trend works** because `PerformanceRhythmCard.tsx` (line 818) calls the Edge Function `performance-rhythm-insights`, which verifies the Auth0 JWT server-side (`verifyAuth0JWT`) and queries with the **service role** — bypassing RLS. This matches the project memory rule *"All writes are handled by Edge Functions via service role / RLS deny-by-default for user data."*
-5. **DEV_MODE works** because the client query has an explicit `.eq('user_id', DEV_USER.id)` and dev RLS allows it. That's why the trends look populated locally but blank for the user in the screenshot.
+- **When** is the user most/least **energetic / clear / sharp / confident**? (time-of-day × day-of-week)
+- **Which** of those are real **patterns** (consecutive days/weeks/months)?
 
-DB confirms data exists (sample for the last week shown in the screenshot, queried via `supabase--read_query`):
+…and move the *"positive check-in rate"* stat to the **Trajectory** scorecard, where archetype + Performance Readiness Score + Friction already live.
+
+## Root cause of the current drift
+
+`supabase/functions/performance-rhythm-insights/index.ts` builds *How You Show Up* (`presenceLabel` + `presenceInsight` + `presenceActions` + `temporalPatterns` + `causeEffectInsight`) by mixing **six different signal classes**:
+
+1. Pre-event ritual completion vs high-stakes calendar events (lines 670–675)
+2. Coach-message keyword scans for "presence" language (lines 685–691)
+3. Wearable readiness deltas around high-stakes events (lines 693–702)
+4. **Overall positive check-in rate** (lines 718–721, 743) — *belongs in Trajectory*
+5. JIT prep correlations + behaviour→outcome (`causeEffectInsight`, lines 407–461) — *cross-feature, not rhythm*
+6. Day-of-week / time-of-day temporal patterns (lines 778–904) — *the only rhythm-native logic*
+
+It also only reads `daily_checkins.outcome`. The three new trends (`clarity_level`, `mental_sharpness_level`, `confidence_level`) are **never fed into the pattern miner**, so they can never produce "Tuesday afternoons are your sharpest window" type insights.
+
+## Plan
+
+### 1. Edge function: `supabase/functions/performance-rhythm-insights/index.ts`
+
+**Drop from rhythm output:**
+- The entire `presenceScore` / pre-event / coach-keyword / energized / depleted-high-stakes scoring block (lines ~652–776).
+- `causeEffectInsight` from the *How You Show Up* payload (it stays computed for *Calendar Pattern*, but we will not echo it under presence — see step 2).
+- The `Your overall positive check-in rate is X%…` signal text.
+
+**Add a unified rhythm miner** that runs over **four parallel series** drawn from `daily_checkins`:
+
+| Series | Source column | Positive band | Negative band |
+|---|---|---|---|
+| Energy | `outcome` | `focused`, `steady` | `drained`, `overwhelmed` |
+| Clarity | `clarity_level` | `4–5` | `1–2` |
+| Sharpness | `mental_sharpness_level` | `4–5` | `1–2` |
+| Confidence | `confidence_level` | `4–5` | `1–2` |
+
+For each series, derive (gated at ≥7 data points per series):
+
+- **Strongest / weakest time-window** (morning/midday/evening) when ≥3 obs per window and ≥20 pp gap.
+- **Strongest / weakest day-of-week** when ≥2 obs per day and ≥30 pp gap.
+- **Consecutive-run patterns**: ≥3 consecutive same-DOW occurrences in the positive *or* negative band → `"3+ consecutive Tuesday mornings you've checked in 'sharp' (4–5)."`
+- **Best (DOW × time-window) cell** when count ≥2 and ≥30 pp above the user's mean.
+
+Return as a new field on the response:
+
+```ts
+mindRhythmPatterns: {
+  energy:     RhythmFinding[];
+  clarity:    RhythmFinding[];
+  sharpness:  RhythmFinding[];
+  confidence: RhythmFinding[];
+} | null;
+
+interface RhythmFinding {
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+  text: string;        // e.g. "Afternoons are your sharpest window (78% strong vs 41% mornings)."
+  confidence: number;  // 0–1, used for ordering
+  observations: number;
+}
+```
+
+Order findings within each dimension by `confidence` desc, dedupe overlapping wording, cap at 2 per dimension and 6 total.
+
+**Add positive-rate stat for Trajectory** (separate field, no longer in presence text):
+
+```ts
+positiveRate: { pct: number; n: number } | null;
+```
+
+Computed as `outcome ∈ {focused, steady}` over the full 30-day window; `null` until ≥5 check-ins.
+
+**Strip from response**: `presenceScore`, `presenceLabel`, `presenceInsight`, `presenceActions`. Keep `temporalPatterns` only as legacy noop (return `null`) so client falls through cleanly.
+
+### 2. Client: `src/components/insights/PerformanceRhythmCard.tsx`
+
+- Replace the current "How You Show Up" block (lines 1051–1091) with a new **Mind Rhythm Patterns** block, only when `data.mindRhythmPatterns` has at least one finding across any dimension.
+- Render as 4 collapsible-style sub-sections (Energy / Clarity / Sharpness / Confidence), each showing up to 2 findings in muted-foreground bullet form, with the same icon + chip styling as today.
+- Skip a sub-section entirely when its array is empty (honest blanks).
+- Header copy: keep the section heading **"How You Show Up"**, sub-explanation: *"When you're most and least energetic, clear, sharp, and confident — drawn only from your check-in trends above."*
+- Remove the DEV-mode duplicate of the presence-score logic (lines ~666–796) and replace with the same edge-function-driven `mindRhythmPatterns` field; DEV mode keeps its existing direct-query pathway but for the *new* miner.
+- Drop `causeEffectInsight` and `presenceActions` from this block (they remain available elsewhere — Calendar Pattern still renders `calendarInsight`).
+
+### 3. Trajectory scorecard: `src/components/insights/LeadershipPatternsCard.tsx`
+
+Add a **fourth row** under Friction:
 
 ```
-2026-04-24 afternoon  clarity=4 confidence=1 sharpness=2
-2026-04-24 evening    clarity=4 confidence=2 sharpness=4
-2026-04-23 morning    clarity=4 confidence=3 sharpness=2
-2026-04-22 morning    clarity=2 confidence=2 sharpness=3
-2026-04-22 afternoon  clarity=4 confidence=4 sharpness=4
-2026-04-22 evening    clarity=4 confidence=4 sharpness=4
-2026-04-21 morning    clarity=2 confidence=2 sharpness=4
-2026-04-21 afternoon  clarity=4 confidence=4 sharpness=4
-2026-04-21 evening    clarity=2 confidence=2 sharpness=2
-... (full month populated for clarity & confidence; sharpness from Apr 16 onward)
+Consistency        37% positive   ↗︎
 ```
 
-So the colours are gated only by RLS, not by missing data or by the colour-mapping logic. Once we route through the service role, every past dot lights up immediately, and every future check-in will populate the same cell as soon as it lands in `daily_checkins` (no extra collection step needed — the data is already being written).
+- Label: **Consistency** (renamed from "positive check-in rate" per request — neutral, executive-friendly).
+- Source: `positiveRate` from `state-patterns-insights` (cheaper than re-fetching from rhythm function — the same friction calc already runs there). If easier, expose `positiveRate = 100 − frictionPct` directly in `state-patterns-insights` response and read it from `prefetchedData`.
+- Trend arrow: reuse the existing `trendDirection` field (inverse of friction trend).
+- `InsightInfoModal`: *"How often you check in 'focused' or 'steady' over the last 30 days. The mirror of Friction — a higher number means more consistent positive states."*
+- Hidden when `checkInCount < 5` (matches existing progressive-message gate).
 
-## Fix
+### 4. Memory update: `mem/features/insights/level-trend-calendars.md`
 
-### 1. New Edge Function: `supabase/functions/level-trend-calendar/index.ts`
+Append a new section **"Mind Rhythm Patterns (How You Show Up) contract"** documenting:
+- The four-series rhythm miner is the *only* source of insight text in this block.
+- Forbidden inputs: coach messages, behavior_logs, calendar events, rituals, wearable data — those belong to other cards.
+- Positive-rate stat lives in Trajectory, never in How You Show Up.
+- Per-dimension cap of 2 findings, total cap of 6.
 
-A small, focused, read-only function that returns the per-slot 1–5 levels for a given field over a date range, for the authenticated Auth0 user. Mirrors the auth + service-role pattern used by `performance-rhythm-insights`.
+## Files to edit
 
-Contract:
-- **Auth**: `verifyAuth0JWT` from `_shared/auth.ts` (same as every other Edge Function in the project).
-- **Body**: `{ field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level', startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD' }`. Field is whitelisted server-side to prevent column injection.
-- **Query**: service-role client →
-  ```sql
-  select checkin_date, time_window, created_at, <field>
-  from daily_checkins
-  where user_id = $authUserId
-    and checkin_date >= $startDate
-    and checkin_date <= $endDate
-    and <field> is not null
-  ```
-- **Response**: `{ rows: Array<{ checkin_date: string; time_window: string; created_at: string; value: number }> }`. Unknown fields → 400. Unknown action / errors logged via the standard Fatal Error wrapper.
-- **CORS**: standard headers; OPTIONS short-circuit.
-- **Config**: deploys with default `verify_jwt = false` (we verify Auth0 ourselves), no `config.toml` block needed.
+- `supabase/functions/performance-rhythm-insights/index.ts` — replace presence block, add `mindRhythmPatterns` + `positiveRate`.
+- `supabase/functions/state-patterns-insights/index.ts` — expose `positiveRate` (mirrors existing friction calc).
+- `src/components/insights/PerformanceRhythmCard.tsx` — swap presence renderer for rhythm-patterns renderer; drop DEV-mode presence branch.
+- `src/components/insights/LeadershipPatternsCard.tsx` — add Consistency row to scorecard.
+- `mem/features/insights/level-trend-calendars.md` — document the contract.
 
-### 2. `src/components/insights/LevelTrendCalendar.tsx` — switch the production data path
+## Honesty / no-fabrication guarantees
 
-Replace the direct `supabase.from('daily_checkins').select(...)` block (lines 154–160) with:
+- Every finding is gated by minimum observation counts (≥7 per series for windows/days, ≥3 for consecutive runs, ≥2 per cell).
+- Empty sub-sections render as nothing (no "building pattern data…" filler) — consistent with the existing "blanks are honest" rule for the trend dots.
+- No backfill, no synthesised data: clarity / sharpness / confidence findings only appear once those columns have enough non-null history.
 
-- **DEV_MODE** branch unchanged (direct DB query with `DEV_USER.id`) — keeps local dev fast and untouched.
-- **Production** branch: `supabase.functions.invoke('level-trend-calendar', { headers: { Authorization: \`Bearer ${accessToken}\` }, body: { field, startDate, endDate } })`. Use the returned `rows` array exactly the same way the existing indexer at lines 164–176 already does (it only reads `row[field]`, `row.time_window`, `row.created_at`, `row.checkin_date` — the edge function returns `value` instead of `row[field]`, so the indexer reads `row.value`).
+## Validation after implementation
 
-Everything else stays:
-- Full current calendar month range (day 1 → last day) — unchanged.
-- 1–5 → `LEVEL_TIERS` colour mapping — unchanged (already shared with Energy Trend's daily-check-in palette).
-- `applyLayout` ref-callback + `ResizeObserver` self-healing layout — unchanged.
-- Per-trend slider vocabulary (`Crystal/Lucid/Neutral/Obscured/Clouded`, `Peak/Acute/Stable/Dull/Depleted`, `Unshakable/Certain/Poised/Uncertain/Reactive`) for legend + tooltip — unchanged.
-- Future days as dashed-empty cells; today gets the primary ring — unchanged.
-- "Blanks are honest" rule — unchanged. We are *not* fabricating data; we are unblocking what was already in the DB.
-
-### 3. Future-proofing (no extra work — already covered)
-
-- New check-ins continue to write `clarity_level`, `mental_sharpness_level`, `confidence_level` via the existing `daily-checkins` Edge Function (`SAVE_CHECKIN` and `UPDATE_CLARITY_CONFIDENCE` actions). Each new row is immediately visible the next time the trend calendar is opened, because the new edge function reads live from `daily_checkins` with the service role.
-- Multi-user safety: the edge function scopes by the verified Auth0 `userId` — never accepts `user_id` from the client body.
-
-## What this does NOT change
-
-- No DB migrations. RLS stays deny-by-default. We do not loosen the SELECT policy on `daily_checkins`.
-- No backfill, no synthesised data, no new columns. Existing data only.
-- No change to Energy Trend, "How You Show Up", or any other Insights card.
-- No change to `daily-checkins` Edge Function (write path) or to `CheckInDetail.tsx`.
-
-## QA checklist (production user, the scenario in the screenshot)
-
-1. Hard-refresh `/insights` → Patterns tab. Energy Trend renders (already works).
-2. Clarity / Sharpness / Confidence calendars now render coloured dots for every past slot present in `daily_checkins`:
-   - Apr 24 morning/afternoon/evening, Apr 23 morning, Apr 22 all three slots, Apr 21 all three slots, etc., all the way back to Apr 1.
-   - Empty slots stay empty (e.g. Apr 25 clarity, Apr 26 clarity) — honest blanks.
-   - Future days (Apr 27 → Apr 30) render dashed-empty.
-3. Tooltip on a dot shows the per-trend slider word: e.g. an Apr 22 morning Clarity=2 dot shows "Obscured (2/5)"; an Apr 21 evening Sharpness=2 dot shows "Dull (2/5)"; an Apr 21 morning Confidence=2 dot shows "Uncertain (2/5)".
-4. After completing a fresh check-in (any window), reopen Patterns → new dots appear in the matching slot for all three trends.
-5. Mobile (719 px) and desktop both auto-scroll to the current week's Monday on mount; ResizeObserver re-pins on rotation.
-
-## Files touched
-
-- **Create** `supabase/functions/level-trend-calendar/index.ts` (new edge function, ~80 lines, mirrors `performance-rhythm-insights` auth pattern).
-- **Edit** `src/components/insights/LevelTrendCalendar.tsx` (swap the production query branch to `supabase.functions.invoke`; ~25 line diff inside the existing `useEffect`).
-- **Update** `mem/features/insights/level-trend-calendars.md` — record that the trend calendars MUST go through the `level-trend-calendar` Edge Function in production (Auth0 → RLS denial), and that DEV_MODE is the only path allowed to query `daily_checkins` directly from the client.
-
-Ready to implement on approval.
+1. Confirm `state-patterns-insights` returns `positiveRate.pct` matching `100 − frictionPct` for an active user.
+2. Confirm `performance-rhythm-insights` returns `mindRhythmPatterns` with at least an `energy` array for any user with ≥7 outcomes, and that `clarity/sharpness/confidence` arrays only populate once those columns have ≥7 non-null rows.
+3. Verify in the UI that *How You Show Up* no longer mentions coach sessions, JIT, or any "X% positive" language, and that Trajectory now shows a Consistency row beneath Friction.
