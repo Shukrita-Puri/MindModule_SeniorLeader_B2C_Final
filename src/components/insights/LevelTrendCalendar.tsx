@@ -151,19 +151,40 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: L
           return;
         }
 
-        let q = supabase
-          .from('daily_checkins')
-          .select(`checkin_date, time_window, created_at, ${field}`)
-          .gte('checkin_date', startDate)
-          .lte('checkin_date', endDate);
-        if (DEV_MODE) q = q.eq('user_id', DEV_USER.id);
-        const { data, error } = await q;
-        if (error) throw error;
+        // Production must go through the `level-trend-calendar` Edge Function:
+        // Auth0 tokens cannot satisfy `auth.uid()` in Postgres, so a direct
+        // client query against `daily_checkins` is denied by RLS and returns
+        // zero rows for every authenticated user. The Edge Function verifies
+        // the Auth0 JWT server-side and reads with the service role.
+        // DEV_MODE keeps the direct query (dev RLS allows it).
+        let data: Array<{ checkin_date: string; time_window: string; created_at: string; value: number }> = [];
+        if (DEV_MODE) {
+          const { data: rows, error } = await supabase
+            .from('daily_checkins')
+            .select(`checkin_date, time_window, created_at, ${field}`)
+            .eq('user_id', DEV_USER.id)
+            .gte('checkin_date', startDate)
+            .lte('checkin_date', endDate);
+          if (error) throw error;
+          data = (rows || []).map((row: any) => ({
+            checkin_date: row.checkin_date,
+            time_window: row.time_window,
+            created_at: row.created_at,
+            value: row[field],
+          }));
+        } else {
+          const { data: result, error } = await supabase.functions.invoke('level-trend-calendar', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: { field, startDate, endDate },
+          });
+          if (error) throw error;
+          data = (result?.rows || []) as typeof data;
+        }
 
         // Index latest non-null value per (date, slot). 'afternoon' → 'midday'.
         const idx: Record<string, Record<string, { v: number; t: number }>> = {};
-        (data || []).forEach((row: any) => {
-          const v = row[field];
+        data.forEach((row) => {
+          const v = row.value;
           if (v == null) return;
           const tw = (row.time_window || '').toLowerCase();
           const slot = tw === 'afternoon' ? 'midday' : tw;
