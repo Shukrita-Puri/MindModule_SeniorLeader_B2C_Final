@@ -1,85 +1,205 @@
-## Why the current insights read as nonsense
+## Cause & Effect — Redesign as "Performance Causality"
 
-Two bugs in `supabase/functions/performance-rhythm-insights/index.ts`:
-
-### Bug 1 — "Suns / Fris / Weds" (broken English)
-
-Line 17: `const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]`
-
-These are **already** the abbreviated forms. The copy templates then pluralise by appending `s`:
-- `${DAYS[worst.di]}s slip on …`  → `"Suns slip on Sharpness."`
-- `${DAYS[best.di]}s run strong on …; ${DAYS[worst.di]}s drop off.` → `"Weds run strong on Sharpness; Suns drop off."`
-- `${run} ${DAYS[di]}s in a row …` → `"3 Suns in a row you've shown up drained."`
-- `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest …` → `"Sun mornings are your sharpest …"`
-
-**Fix:** add a separate `DAYS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]` array and use it in **all user-facing `text` and `longText` strings**. Keep `DAYS` only for internal/log keys.
-
-### Bug 2 — All the substantiating data was stripped from `text`
-
-When we tightened the copy in the last pass, we moved every number / sample size / comparison into `longText` (reserved for the future weekly email) and left `text` as bald assertions:
-
-| Now (broken) | Should be |
-|---|---|
-| `"Suns slip on Sharpness."` | `"Sundays slip on Sharpness — sharp only 28% vs your 68% baseline (last 6 Sundays)."` |
-| `"Weds run strong on Sharpness; Suns drop off."` | `"Wednesdays run sharpest at 82%; Sundays drop to 28% (n=11)."` |
-| `"Mornings are your peak Energy window (72%)."` | ✅ already has the number — keep this shape as the template for all four |
-| `"Sun mornings are your sharpest Sharpness window — protect it."` | `"Sunday mornings are your sharpest window — sharp 85% across 6 check-ins."` |
-| `"3 Suns in a row you've shown up drained."` | `"3 Sundays in a row you've shown up drained — last on {date}."` |
-
-For a Chief-of-Staff brief, every line must carry **% rate + n + comparison** so the user can trust and act on it. No numbers = horoscope.
+One card. Four lenses revealed via chevrons. Every line passes the **CEO test**: cause → measured effect → magnitude → recovery → "would I change behaviour?"
 
 ---
 
-## Changes (one file)
+### 1. The CEO Contract (locked rules)
 
-`supabase/functions/performance-rhythm-insights/index.ts`
+Every finding rendered MUST contain:
+1. **Cause** — a named, leader-controllable input (event type, sleep tier, consecutive-load streak, behavior).
+2. **Effect** — a *quantified delta* on a measured signal (HRV, RHR, clarity, sharpness, confidence, PRS) vs the user's own 30-day baseline.
+3. **Magnitude** — `% delta` or `absolute Δ` with sample size `n`.
+4. **Recovery window** — how many days/slots until the signal returns to ±5% of baseline.
+5. **Confidence** — `n ≥ 3 occurrences` AND `|delta| ≥ 10% of baseline` (or ≥ 0.5 tier on 1-5 scales).
 
-1. **Add `DAYS_FULL`** alongside `DAYS` (line 17 area).
-2. **Rewrite the 5 user-facing `text` templates** in `mineSeries` (lines ~745, 775, 785, 811, 840/856) to:
-   - Use `DAYS_FULL[...]` (no more "Suns/Fris/Weds").
-   - Embed the substantiating stat — pct, n, or vs-baseline — inline.
-   - Stay ≤ ~140 chars (slightly looser than the previous 110 cap, which was too tight to carry the data).
-3. **Update the consecutive-run template** to also include the most recent date in the run (we already have `sorted` in scope — pass the last point's `dateStr` into the finding and format it as `Mon DD`).
-4. **Leave `longText` unchanged** — it already carries the verbose stats for the future weekly email.
-5. **No UI changes needed** — `PerformanceRhythmCard.tsx` already renders `f.text` flat, with the dimension tag appended. The fix is purely in the strings the edge function emits.
+Findings that don't pass all five gates are **dropped, not shown**. No correlation-only fluff. No coach signals (per `mem://features/coach/suppression-standard`).
 
-### Proposed final templates
+---
 
-```ts
-// peak-window (time of day)
-text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window — ${pctBest}% vs ${pctWorst}% in the ${TIME_LABELS[worst.tw].toLowerCase()} (n=${best.n+worst.n}).`
+### 2. Single Card, 4 Chevron Lenses
 
-// low-day (recurring trough)
-text: `${DAYS_FULL[worst.di]}s slip on ${vocab.appLabel} — ${pctWorst}% vs your ${pctBest}% on ${DAYS_FULL[best.di]}s (last ${worst.n} ${DAYS_FULL[worst.di]}s).`
+Replace `CauseEffectPanel.tsx` and delete `CauseEffectInsights.tsx`. The new component `PerformanceCausalityCard.tsx` renders:
 
-// peak-day (paired headline)
-text: `${DAYS_FULL[best.di]}s run sharpest on ${vocab.appLabel} (${pctBest}%); ${DAYS_FULL[worst.di]}s drop to ${pctWorst}% (n=${best.n+worst.n}).`
+**Always visible (top of card):**
+- Title: **"Cause & Effect"** + info modal
+- **Top 1 finding** (highest-impact across all 4 lenses) rendered as a hero row with an inline sparkline/bar visual.
 
-// cell-peak (DOW × ToD)
-text: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — ${pctCell}% across ${topCell.n} check-ins. Protect it.`
+**Collapsed by default, chevron-toggled (matches existing `Collapsible` pattern from `PerformanceRhythmCard`):**
+- **Lens A — Events That Cost You Physiologically** (icon: heart pulse)
+- **Lens B — Events That Cost You Cognitively** (icon: brain)
+- **Lens C — Sleep → Next-Day Decision Quality** (icon: moon)
+- **Lens D — Recovery After Consecutive High-Load Days** (icon: layers)
 
-// consecutive-neg (active risk)
-text: `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+Each lens shows 1–3 findings max, all visualised (not text walls).
 
-// consecutive-pos (streak)
-text: `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`
+---
+
+### 3. Visual-First Rendering (per finding)
+
+Each finding row is a **horizontal mini-chart**, not a paragraph:
+
+```
+[Event-type label]              ▼ HRV  -14%   (n=4)
+████████████░░░░░░░░░░░░░░       Recovers in ~2 days
+ Baseline 58ms       Event days 50ms
 ```
 
-Where `formatShortDate('2026-04-19')` → `'Apr 19'` (one tiny helper).
+Components used:
+- A **single-bar delta** (red if negative, emerald if positive, amber if mixed) showing % vs baseline.
+- **2 small numerical anchors** (baseline value, event-day value).
+- **Recovery chip** (e.g., `~2d to recover`) when applicable.
+- **n badge** (sample count) so users see this is real data, not noise.
+
+No paragraphs. No sub-headings. One row = one finding. Strict 60-char text budget per finding.
 
 ---
 
-## Validation
+### 4. Data Sources (per lens)
 
-1. Deploy `performance-rhythm-insights`.
-2. `supabase--curl_edge_functions` against the function as the logged-in user; confirm `mindRhythmPatterns.topThree[*].text` strings:
-   - Contain a full day name (regex `/\b(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)days?\b/`).
-   - Contain at least one digit (`%` or `n=` or a date).
-3. Reload `/insights` on the preview; confirm the three bullets read like real Chief-of-Staff observations with numbers and full day names.
-4. Spot-check `longText` is unchanged (weekly email contract preserved).
+#### Lens A — Physiological Cost of Events
+- **Cause source:** `calendar_events` clustered into event-types via heuristics (already implemented logic in `historicalPatternEngine.ts` + new keyword expansion: `board|investor|review|1:1|all-hands|deep-work|interview`).
+- **Effect source:** `wearable_data` daily `hrv`, `resting_heart_rate`, `heart_rate` (avg bpm).
+- **Method:** For each event-type with ≥3 occurrence days, compute mean `hrv` / `rhr` on event-days vs mean on non-event-days within the same 30-day window. Recovery window = number of days post-event for `hrv` to return to ±5% of baseline (using the next 3 days after each occurrence).
+- **Output:** `"Board reviews → HRV −14% (n=4) · recovers in ~2d"`.
 
-## Files to edit
+#### Lens B — Cognitive Cost of Events
+- **Cause source:** Same calendar event clustering.
+- **Effect source:** `daily_checkins.clarity_level`, `mental_sharpness_level`, `confidence_level`, plus `brief_snapshots.score` (PRS).
+- **Method:** Compare check-in slot **immediately after** (same-day later slot OR next-morning) the event's slot vs the user's 30-day mean for that slot. Pick the **most-impacted dimension** per event-type.
+- **Output:** `"Investor calls → Sharpness −1.2 tiers (n=3) · rebounds next morning"`.
 
-- `supabase/functions/performance-rhythm-insights/index.ts` — add `DAYS_FULL`, add `formatShortDate`, thread `lastDate` into consecutive-run findings, rewrite the six `text` templates to embed stats.
+#### Lens C — Sleep → Decision Quality
+- **Cause source:** `wearable_data.sleep_score` and/or `total_sleep_minutes` from prior night, bucketed into **Low / Mid / High** tiers vs the user's 30-day median.
+- **Effect source:** Next-day morning `daily_checkins` (clarity, sharpness, confidence) + `brief_snapshots.score`.
+- **Method:** Bucketed mean comparison. Show only the **largest tier-vs-baseline delta** (e.g., low-sleep nights).
+- **Output:** `"Low-sleep nights (<6h) → PRS −18 pts (n=5)"`.
 
-No UI, no DB, no memory updates needed (the rendering rule "show `text`, append dimension tag" is unchanged — the contract just gets honoured properly).
+#### Lens D — Consecutive High-Load Days
+- **Cause source:** Calendar load = sum(meeting minutes) per day. "High-load" = top-third of user's 30-day daily load.
+- **Effect source:** PRS from `brief_snapshots`, plus `hrv` from `wearable_data`.
+- **Method:** Detect runs of ≥2 consecutive high-load days. Compare PRS / HRV on day N+1 (day after the run) vs baseline. Recovery = days until PRS returns to ±5%.
+- **Output:** `"3+ back-to-back heavy days → PRS −22 pts · 2-day recovery (n=3)"`.
+
+---
+
+### 5. Backend — New Edge Function `cause-effect-engine`
+
+Create `supabase/functions/cause-effect-engine/index.ts`:
+- **Auth:** Auth0 JWT via `verifyAuth0JWT` (mirrors `level-trend-calendar`).
+- **Service-role** Supabase client.
+- **Input:** `{ days?: 30 }` (default 30, max 90).
+- **Reads:** `calendar_events`, `wearable_data`, `daily_checkins`, `brief_snapshots`, `behavior_logs`, `calendar_connections` (to gate Lens A/D when no calendar).
+- **Computes** all 4 lenses with the gating rules above.
+- **Returns:**
+  ```ts
+  {
+    top: Finding | null,
+    lensA: Finding[],
+    lensB: Finding[],
+    lensC: Finding[],
+    lensD: Finding[],
+    coverage: { hasCalendar, hasWearable, checkinCount, briefCount, wearableDayCount },
+    generatedAt: string
+  }
+  ```
+- **`Finding` shape:**
+  ```ts
+  { lens: 'A'|'B'|'C'|'D',
+    cause: string,           // e.g. "Board reviews"
+    effectSignal: string,    // e.g. "HRV"
+    deltaPct: number,        // -14
+    deltaAbs: number,        // -8 (ms / pts / tiers)
+    baseline: number,        // 58
+    observed: number,        // 50
+    n: number,
+    recoveryDays: number|null,
+    direction: 'negative'|'positive',
+    longText: string }       // for weekly email use only
+  ```
+- **DEV_MODE bypass:** mirror existing edge-function pattern; in DEV the client may call Supabase directly via `effectiveUserId = DEV_USER.id`.
+
+---
+
+### 6. Caching Layer — New Table `causality_findings`
+
+Patterns are stable for ~24h, so cache to keep the Insights page snappy and reduce LLM-free compute.
+
+Migration:
+```sql
+CREATE TABLE public.causality_findings (
+  user_id text NOT NULL,
+  computed_for_date date NOT NULL,
+  payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, computed_for_date)
+);
+ALTER TABLE public.causality_findings ENABLE ROW LEVEL SECURITY;
+-- Deny-by-default: only service role writes/reads. Per mem://security/rls-auth0-access-protocol.
+```
+Edge function checks for today's row first; if missing, computes + inserts. Forced refresh via `?force=1`.
+
+---
+
+### 7. Frontend Wiring
+
+- **Delete** `src/components/insights/CauseEffectInsights.tsx` (legacy duplicate).
+- **Replace** `src/components/insights/CauseEffectPanel.tsx` → `PerformanceCausalityCard.tsx` (keep the old export name as a re-export shim so `Insights.tsx` import stays one-line).
+- **New sub-components:**
+  - `CausalityFindingRow.tsx` — the visual delta-bar row.
+  - `CausalityLensSection.tsx` — collapsible lens with chevron, mirrors `Collapsible` usage in `PerformanceRhythmCard.tsx`.
+- **Production fetch:** `supabase.functions.invoke('cause-effect-engine', { headers: { Authorization: \`Bearer ${token}\` } })`.
+- **DEV fetch:** direct Supabase queries replicating the engine logic (same pattern as `PerformanceRhythmCard`'s DEV branch).
+
+---
+
+### 8. Empty / Honesty States
+
+Per `mem://features/performance-readiness/data-honesty-standards`:
+- **No calendar connected:** Lens A and D collapsed and labeled `"Connect calendar to unlock"`.
+- **<5 wearable days:** Lens A and Lens C show `"Need 5+ wearable days — currently X"` instead of fake findings.
+- **<7 check-ins:** Lens B shows `"Need 7+ check-ins — currently X"`.
+- **No findings clear the gates:** the entire card collapses to a single line: `"Patterns are still forming — keep checking in."` (no fake findings, no "everything looks fine" filler).
+
+---
+
+### 9. Memory Updates
+
+Create `mem/features/insights/performance-causality.md` documenting:
+- The 5-gate CEO contract.
+- The 4-lens taxonomy + which DB columns feed each.
+- The `causality_findings` cache contract.
+- The visual-row rendering rule (no paragraph findings).
+- Forbidden inputs: coach signals, manually-typed wins, mood-only patterns without a measured effect.
+
+Update `mem://index.md` to add this entry under **Features: Mastery & Performance**.
+
+---
+
+### 10. Files to Create / Edit / Delete
+
+**Create:**
+- `supabase/functions/cause-effect-engine/index.ts`
+- `supabase/migrations/<timestamp>_causality_findings.sql`
+- `src/components/insights/PerformanceCausalityCard.tsx`
+- `src/components/insights/CausalityFindingRow.tsx`
+- `src/components/insights/CausalityLensSection.tsx`
+- `mem/features/insights/performance-causality.md`
+
+**Edit:**
+- `src/pages/Insights.tsx` — swap `<CauseEffectPanel />` for `<PerformanceCausalityCard />`.
+- `mem/index.md` — register the new memory file.
+
+**Delete:**
+- `src/components/insights/CauseEffectInsights.tsx` (legacy unused duplicate).
+- `src/components/insights/CauseEffectPanel.tsx` (replaced).
+
+---
+
+### 11. Validation Plan
+
+1. Deploy `cause-effect-engine`; verify auth + service-role read paths via `supabase--curl_edge_functions`.
+2. Run engine for the test user — assert at least Lens C (sleep→PRS) returns a finding given current data volume (10 wearable days, 35 briefs).
+3. Confirm gating: temporarily set thresholds high to verify the card renders the honest empty state instead of garbage.
+4. Confirm visual rows render correctly across viewports (target 0×801 mobile + desktop).
+5. Confirm chevron behaviour matches `PerformanceRhythmCard` (Energy visible, others collapsed).
