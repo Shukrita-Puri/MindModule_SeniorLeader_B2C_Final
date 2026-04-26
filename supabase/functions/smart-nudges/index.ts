@@ -1797,7 +1797,12 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'mvp-3-nudge-v4',
+        architecture: 'cos-mind-v5',
+        decision_trace: {
+          variant: notif.copy.variantId,
+          route: effectiveRoute,
+          type: notif.type,
+        },
       };
 
       const { data: logRow } = await supabase.from('notification_log').insert({
