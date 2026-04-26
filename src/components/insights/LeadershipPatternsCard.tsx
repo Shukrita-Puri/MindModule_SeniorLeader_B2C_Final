@@ -437,6 +437,30 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                   </div>
                 </div>
 
+                {/* ── ROW 4: CONSISTENCY (mirror of Friction at check-in level) ── */}
+                {data.positiveRate && (data.checkInCount ?? 0) >= 5 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs font-medium uppercase tracking-wider text-taupe">
+                        Consistency
+                      </span>
+                      <InsightInfoModal
+                        title="What Is Consistency?"
+                        explanation="How often you check in 'focused' or 'steady' over the last 30 days. The mirror of Friction at the check-in level — a higher number means more consistent positive states."
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        {data.positiveRate.pct}%
+                      </span>
+                      <span className={cn('text-sm', consistencyTone(data.positiveRate.pct))}>
+                        ({consistencyLabel(data.positiveRate.pct)})
+                      </span>
+                      <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                    </div>
+                  </div>
+                )}
+
                 {/* Progressive messages */}
                 {data.checkInCount === 0 && (
                   <p className="text-xs text-muted-foreground/70 text-center pt-2">
