@@ -1,99 +1,65 @@
-## Root cause (confirmed against live DB)
+Root cause found.
 
-The Cause & Effect card returns the honest empty state for this real user because **all 4 lenses produce zero findings**:
+The card is visible, but it is rendering an old empty backend payload:
 
-| Lens | Failure |
-|---|---|
-| A (Events → Physiology) | `eventTypeDays` map is **empty** — 0/11 of the user's actual event titles match the hard-coded keyword list (board, investor, 1:1, client, interview, deep work, exec, etc.). Real titles look like "Intro Call > Isabel @ Karyon Partners", "Chief AI Thursday connects", "MEETUP: AI, Data & Analytics", "LSE School Governor Scheme". Even if titles matched, only 2 days have HRV and 5 have RHR — too thin for n≥3 per event type. |
-| B (Events → Cognition) | Same empty `eventTypeDays` → loop never runs. |
-| C (Sleep → Next day) | `sleepRows.length >= 5` requires sleep_score OR total_sleep_minutes; user has **0** of either. Sleep data isn't being synced from HealthKit for this user. |
-| D (Heavy-day streaks) | 11 events / 30 days is too sparse to produce ≥3 consecutive 2-day heavy runs. |
+```text
+causality_findings
+user: google-oauth2|111878424918915566691
+computed_for_date: 2026-04-26
+created/updated: 15:02
+lensA: 0
+lensB: 0
+lensC: 0
+lensD: 0
+top: null
+coverage: 50 check-ins · 6 wearable days · 33 briefs · 11 events
+```
 
-A latent UI bug also exists: the empty-state branch uses `totalFindings === 0` as its gate, so the "highest-impact pattern" hero row would not render even if `top` were populated (it's currently null here, but the bug is real).
+That exact coverage line is what your screenshot shows. So the UI is not failing to mount; it is faithfully showing a stale cached empty result.
 
----
+Why it did not update after the last fix:
 
-## Fix plan
+1. The engine checks the daily cache first.
+2. The UI calls `cause-effect-engine` without `{ force: true }`.
+3. Because today’s cached row already exists, the engine returns the old empty payload for 24 hours and never reaches the newer v2 calculation logic.
+4. The old cached payload also lacks newer coverage fields like `eventTypesIdentified` and `hasWearableSleep`, so the empty state stays generic instead of explaining what failed.
 
-### 1. Widen the event classifier (Lens A & B unblock)
+There are also two calculation issues that should be corrected so the fresh result is credible:
 
-Edit `supabase/functions/cause-effect-engine/index.ts`:
+- Calendar queries currently include future events because they only filter `start_time >= windowStart`, not `start_time <= now`. Future events like Apr 27-May 1 are being included in event buckets even though no check-ins or physiology can exist yet.
+- Event classification order puts broad networking terms before school/governor terms, so “LSE School Governor Scheme - April Info Session” is likely classified as Networking instead of School & family.
 
-- **Add catch-all buckets** so virtually every meeting gets classified:
-  - `"Networking & community"` — `meetup, connect, women on the rise, summit, expo, conference, info session, governor scheme, scale, ai thursday, community`
-  - `"Intro / discovery calls"` — `intro, intro call, discovery, chemistry`
-  - `"Catch-ups & syncs"` — `catchup, catch-up, sync, check-in, check in, weekly, standup`
-  - `"School & family"` — `school, parents evening, open evening, parents`
-  - `"Internal builds"` — `db, debug, dashboard, planning, engineering, build, sprint`
-- Keep existing buckets (board / investor / review / 1:1 / all-hands / client / interview / deep work / exec).
-- **Add `__general__` fallback bucket** keyed by event organizer or solo-block detection (events with no attendees → `"Solo work blocks"`, events with ≥3 attendees → `"Group meetings"`). This guarantees `eventTypeDays.size > 0` whenever the user has events.
-- Adjust copy in lens output so labels read naturally ("On Networking & community days, your HRV…").
+What the real data says right now:
 
-### 2. Soft thresholds with explicit confidence tier (Lens A & C)
+- Physiology cannot produce a valid calendar→HRV/RHR finding yet because wearable HRV/RHR rows are Apr 7-15, while calendar events are Apr 21 onward. There is no overlap.
+- Sleep cannot produce a valid finding because there are 0 sleep records.
+- Cognition does have a candidate pattern: School/family-type event days show a Confidence drop around 2.25/5 vs 3.16/5 baseline across 4 check-ins, which should qualify as an “Emerging” cause→effect finding once the stale cache and future-event logic are fixed.
 
-Currently every gate is binary (`n≥3` AND `|Δ|≥10%`) — anything below is dropped silently. For a real user who has *some* signal but not enough for production-grade confidence, this gives them nothing.
+Implementation plan:
 
-Add a `confidence` field to `Finding`:
-- `"strong"` — current gate (n≥5, |Δ|≥10% / 0.5 tier)
-- `"emerging"` — n≥3, |Δ|≥10% / 0.5 tier (today's gate becomes "emerging")
-- Anything weaker → still dropped.
+1. In `PerformanceCausalityCard.tsx`, request a fresh calculation when the returned cached payload is empty:
+   - First call normally for speed.
+   - If `cached === true` and `top === null` and all lens arrays are empty, immediately retry with `{ force: true }` once.
+   - This prevents stale empty results from persisting all day after logic changes or new data arrival.
 
-UI renders an "Emerging" pill chip on emerging rows so the executive sees the data is preliminary, not falsely authoritative. This stays true to the CEO contract while letting thin-data users actually see something actionable.
+2. In `cause-effect-engine`, stop future events contaminating the calculation:
+   - Add `lte('start_time', nowIso)` to `calendar_events`.
+   - Use completed event days only for event-type buckets, calendar-load tertiles, and heavy-day streaks.
 
-### 3. Add a fifth source for Lens A: calendar load → physiology
+3. Improve event classification priority:
+   - Move “School & family” before broad “Networking & community”.
+   - Keep the attendee-count fallback so events still land in a bucket.
 
-Even with bad title classification, **calendar minutes/day is a clean numeric input**. Compute:
-- High-load days (top tertile of `loadByDay`) vs the rest
-- Compare HRV / RHR averages
-- Same gating as event-type findings
+4. Add engine-side stale-cache protection:
+   - If a cached payload is empty and lacks the new v2 coverage fields, treat it as stale and recompute automatically.
+   - Optionally include a `version: 2` field in payloads so future logic changes can invalidate old cache safely.
 
-This unlocks Lens A for any user with wearable data and any calendar at all — independent of title keywords. Surface as cause `"High-load calendar days"`.
+5. Make the empty state more useful if a fresh compute still has no findings:
+   - Show lens-level reasons even when no top finding exists, instead of only “Patterns are still forming.”
+   - Example: “Cognition has enough data; no completed event type cleared threshold yet. Physiology needs calendar/wearable date overlap. Sleep has 0 records.”
 
-### 4. Lens C fallback: total_sleep_minutes → checkins-only when wearable sleep is absent
-
-If the user has zero sleep_score *and* zero total_sleep_minutes (this user's situation), fall back to **morning-checkin "renewal" / "sleep_quality" self-report** if those fields exist on `daily_checkins`. (Will check the actual columns; if not present, keep Lens C empty and update the empty-state copy to "Connect Apple Health sleep tracking to unlock".) This keeps data honesty intact.
-
-### 5. Lower Lens D occurrence floor with confidence tier
-
-Drop `runEndPlusOne.length >= MIN_OCCURRENCES` (3) to `>= 2` for `confidence: "emerging"`. Keep `>= 3` for `"strong"`.
-
-### 6. Fix the hero-finding UI gate
-
-Edit `src/components/insights/PerformanceCausalityCard.tsx`:
-
-- Change the empty-state condition from `!data || totalFindings === 0` to `!data || (totalFindings === 0 && !data.top)`.
-- When `top` exists but all lenses are empty, render the hero card + a soft note: "More patterns will surface as your signals build."
-- Render an "Emerging" pill on rows where `confidence === "emerging"`.
-
-### 7. Improve the lens empty-state copy to be specific
-
-Each lens already has tailored empty-state messages. Update them to reference the *actual* missing inputs:
-- Lens A empty → "We've classified N event types but none cleared the threshold yet. {wearableDayCount} wearable days available."
-- Lens C empty → "Connect Apple Health sleep tracking — currently 0 sleep records."
-
-### 8. Force-refresh + redeploy
-
-After the engine update, invalidate today's cache row for the affected user (`DELETE FROM causality_findings WHERE computed_for_date = current_date`) so the next page load runs the new engine. Add a small `?force=1` button affordance is **not** in scope — the cache will naturally roll over tomorrow, and the manual delete handles today.
-
-### 9. Validation steps
-
-1. Deploy `cause-effect-engine`.
-2. Delete the cached row for the test user.
-3. Curl the function with the user's auth token.
-4. Verify the response now has at least 1–2 findings (likely Lens A "High-load calendar days → RHR" or "Networking & community → RHR" given the actual data shape) and a non-null `top`.
-5. Reload `/insights` → Patterns tab and confirm the hero row + at least one chevron lens shows content.
-6. Confirm the "Emerging" pill renders correctly on lower-confidence findings.
-
----
-
-## Files to edit
-
-- `supabase/functions/cause-effect-engine/index.ts` — wider classifier, confidence tier, calendar-load lens, sleep fallback, lower Lens D floor, updated copy.
-- `src/components/insights/PerformanceCausalityCard.tsx` — fix hero gate, render confidence pill, refresh empty-state copy.
-- `mem/features/insights/performance-causality.md` — document confidence tiers and the calendar-load fifth source.
-
-## Files NOT touched
-
-- `causality_findings` schema — unchanged; payload shape is purely additive (`confidence` field is optional on the type).
-- Mock data / preview auth — unchanged; this user is fully authenticated.
-- `Insights.tsx` — unchanged.
+6. Validate end-to-end after implementation:
+   - Force recompute for the signed-in user.
+   - Confirm `causality_findings` updates from the old 15:02 empty payload.
+   - Confirm the Patterns page either shows the emerging cognition finding or a specific, data-honest reason per lens.
+   - Confirm preview/mock behavior still works when unsigned in.

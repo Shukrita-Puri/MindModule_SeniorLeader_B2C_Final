@@ -47,6 +47,12 @@ const MIN_TIER_DELTA_STRONG = 1.0;
 const RECOVERY_TOLERANCE_PCT = 5;
 const RECOVERY_LOOKAHEAD_DAYS = 4;
 
+/**
+ * Bump this when scoring/classification logic changes so that any cached
+ * row missing this version is treated as stale and recomputed automatically.
+ */
+const ENGINE_VERSION = 2;
+
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
 type Direction = "negative" | "positive";
@@ -77,6 +83,13 @@ interface Coverage {
   wearableDayCount: number;
   eventCount: number;
   eventTypesIdentified: number;
+  // Why each lens is empty (short, data-honest reason). Always populated.
+  lensReasons: {
+    A: string | null;
+    B: string | null;
+    C: string | null;
+    D: string | null;
+  };
 }
 
 interface Payload {
@@ -87,6 +100,7 @@ interface Payload {
   lensD: Finding[];
   coverage: Coverage;
   generatedAt: string;
+  version: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -129,6 +143,9 @@ function impactScore(f: Finding): number {
 
 // Calendar event → coarse type label (broadened buckets)
 const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
+  // ── Specific intent buckets first so "School Governor" doesn't fall
+  //    into the broader "governance" or "Networking" matches. Order matters.
+  { label: "School & family",        words: ["school", "parents evening", "open evening", "parents", "governor"] },
   { label: "Board / governance",     words: ["board", "governance"] },
   { label: "Investor calls",         words: ["investor", "vc ", " vc", "fundraise", "raise", "pitch deck"] },
   { label: "Reviews",                words: ["review", "qbr", "quarterly"] },
@@ -138,11 +155,10 @@ const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
   { label: "Interviews",             words: ["interview", "candidate"] },
   { label: "Deep work blocks",       words: ["deep work", "focus block", "writing time"] },
   { label: "Exec / leadership",      words: ["exec", "executive", "leadership", "ceo ", " ceo", "cto ", " cto"] },
-  // ── Broader catch-alls (added in v2) ─────────────────────────────────
+  // ── Broader catch-alls evaluated last ───────────────────────────────
   { label: "Networking & community", words: ["meetup", "summit", "expo", "conference", "info session", "community", "rise ai", "scale", "ai thursday", "connects"] },
   { label: "Intro / discovery calls", words: ["intro", "discovery", "chemistry"] },
   { label: "Catch-ups & syncs",       words: ["catchup", "catch-up", "catch up", "sync", "check-in", "check in", "weekly", "standup", "stand-up"] },
-  { label: "School & family",         words: ["school", "parents evening", "open evening", "parents", "governor"] },
   { label: "Internal builds",         words: ["debug", "dashboard", "engineering", "sprint", "planning", "db ", " db"] },
 ];
 
@@ -200,23 +216,54 @@ serve(async (req) => {
         .eq("user_id", userId)
         .eq("computed_for_date", todayStr)
         .maybeSingle();
-      if (cached?.payload) {
-        return new Response(JSON.stringify({ ...cached.payload, cached: true }), {
-          status: 200,
-          headers: corsHeaders,
-        });
+      const cachedPayload: any = cached?.payload;
+      if (cachedPayload) {
+        // Treat cached row as stale and recompute when:
+        //  - payload predates the current engine version, OR
+        //  - payload is empty (no top + zero findings) and missing the v2
+        //    coverage shape (eventTypesIdentified/lensReasons), which means
+        //    it was written by an older logic version.
+        const isOldVersion =
+          typeof cachedPayload.version !== "number" ||
+          cachedPayload.version < ENGINE_VERSION;
+        const lensCount =
+          (cachedPayload.lensA?.length || 0) +
+          (cachedPayload.lensB?.length || 0) +
+          (cachedPayload.lensC?.length || 0) +
+          (cachedPayload.lensD?.length || 0);
+        const isEmptyAndOldShape =
+          !cachedPayload.top &&
+          lensCount === 0 &&
+          (cachedPayload.coverage == null ||
+            cachedPayload.coverage.eventTypesIdentified == null ||
+            cachedPayload.coverage.lensReasons == null);
+        if (!isOldVersion && !isEmptyAndOldShape) {
+          return new Response(JSON.stringify({ ...cachedPayload, cached: true }), {
+            status: 200,
+            headers: corsHeaders,
+          });
+        }
+        console.log(
+          "[cause-effect-engine] cache invalidated (version=%s, isEmptyOldShape=%s) — recomputing",
+          cachedPayload.version,
+          isEmptyAndOldShape,
+        );
       }
     }
 
     const startStr = ymd(addDays(today, -days));
     const startIso = new Date(startStr + "T00:00:00Z").toISOString();
+    const nowIso = new Date().toISOString();
 
     // Parallel reads ---------------------------------------------------
     const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
       supabase.from("calendar_events")
         .select("title, start_time, end_time, attendees_count, is_organizer")
         .eq("user_id", userId)
-        .gte("start_time", startIso),
+        .gte("start_time", startIso)
+        // Exclude future events — they have no check-ins or wearable data yet
+        // and would distort buckets/baselines.
+        .lte("start_time", nowIso),
       supabase.from("wearable_data")
         .select("summary_date, hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes")
         .eq("user_id", userId)
@@ -304,7 +351,22 @@ serve(async (req) => {
       wearableDayCount: wearable.length,
       eventCount: events.length,
       eventTypesIdentified: eventTypeDays.size,
+      lensReasons: { A: null, B: null, C: null, D: null },
     };
+
+    // Helper: detect overlap between wearable signal days and event days.
+    // If they don't overlap, no event→physiology finding is mathematically
+    // possible. We surface this as the lens-A reason rather than a generic
+    // empty state.
+    const wearableSignalDays = new Set(
+      wearable
+        .filter((w: any) => typeof w.hrv === "number" || typeof w.resting_heart_rate === "number")
+        .map((w: any) => w.summary_date as string),
+    );
+    const eventOnlyDates = new Set<string>();
+    eventTypeDays.forEach((set) => set.forEach((d) => eventOnlyDates.add(d)));
+    let wearableEventOverlap = 0;
+    eventOnlyDates.forEach((d) => { if (wearableSignalDays.has(d)) wearableEventOverlap++; });
 
     // ── Lens A.1 — Per event-type → Physiology ──────────────────────
     const lensA: Finding[] = [];
@@ -643,6 +705,33 @@ serve(async (req) => {
     const lensCTop = dedupAndTrim(lensC);
     const lensDTop = dedupAndTrim(lensD);
 
+    // Populate per-lens reasons whenever a lens has no findings, so the UI
+    // can show a specific data-honest explanation instead of a generic line.
+    if (lensATop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.A = "Connect calendar to unlock";
+      else if (wearable.length === 0) coverage.lensReasons.A = "No wearable HRV/RHR records yet";
+      else if (!wearableHasAnySignal) coverage.lensReasons.A = "Wearable rows have no HRV/RHR yet";
+      else if (eventTypeDays.size === 0) coverage.lensReasons.A = "No events in window";
+      else if (wearableEventOverlap === 0) coverage.lensReasons.A = `No overlap between wearable days and event days (need both on the same date)`;
+      else coverage.lensReasons.A = `Classified ${eventTypeDays.size} event type(s); none cleared the threshold yet`;
+    }
+    if (lensBTop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.B = "Connect calendar to unlock";
+      else if (checkins.length < 7) coverage.lensReasons.B = `Need 7+ check-ins — currently ${checkins.length}`;
+      else if (eventTypeDays.size === 0) coverage.lensReasons.B = "No events in window";
+      else coverage.lensReasons.B = `Classified ${eventTypeDays.size} event type(s); no cognitive cost cleared the threshold yet`;
+    }
+    if (lensCTop.length === 0) {
+      if (sleepRowsAvailable === 0) coverage.lensReasons.C = "Connect Apple Health sleep tracking — no sleep records yet";
+      else if (sleepRowsAvailable < 5) coverage.lensReasons.C = `Need 5+ sleep records — currently ${sleepRowsAvailable}`;
+      else coverage.lensReasons.C = "No clear sleep→next-day pattern yet";
+    }
+    if (lensDTop.length === 0) {
+      if (!hasCalendar) coverage.lensReasons.D = "Connect calendar to unlock";
+      else if (loadByDay.size < 6) coverage.lensReasons.D = `Need 6+ days with events — currently ${loadByDay.size}`;
+      else coverage.lensReasons.D = "No back-to-back heavy-day streak detected yet";
+    }
+
     const all = [...lensATop, ...lensBTop, ...lensCTop, ...lensDTop];
     const top = all.length > 0
       ? all.reduce((best, f) => (impactScore(f) > impactScore(best) ? f : best), all[0])
@@ -656,6 +745,7 @@ serve(async (req) => {
       lensD: lensDTop,
       coverage,
       generatedAt: new Date().toISOString(),
+      version: ENGINE_VERSION,
     };
 
     const { error: upsertErr } = await supabase
