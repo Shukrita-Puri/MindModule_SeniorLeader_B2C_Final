@@ -74,7 +74,7 @@ DEV_MODE keeps a direct client query (`.eq('user_id', DEV_USER.id)`) so local de
 
 ## Mind Rhythm Patterns (How You Show Up) contract
 
-The **"How You Show Up"** block under *Mind Readiness Rhythm* is a **pure rhythm-pattern reader** of the four trend calendars above (Energy, Clarity, Sharpness, Confidence). It answers two questions only:
+The **"Your Rhythm Signals"** block (formerly *How You Show Up*) under *Mind Readiness Rhythm* is a **pure rhythm-pattern reader** of the four trend calendars above (Energy, Clarity, Sharpness, Confidence). It answers two questions only:
 
 1. **When** is the user most/least energetic, clear, sharp, or confident? (time-of-day × day-of-week)
 2. **Which** of those are real **patterns** (consecutive days/weeks/months)?
@@ -99,19 +99,48 @@ The following signals **must never** appear in *How You Show Up* — they belong
 ### Output contract (`performance-rhythm-insights` → `mindRhythmPatterns`)
 ```ts
 mindRhythmPatterns: {
-  energy:     RhythmFinding[];   // cap 2
-  clarity:    RhythmFinding[];   // cap 2
-  sharpness:  RhythmFinding[];   // cap 2
-  confidence: RhythmFinding[];   // cap 2
-} | null;                         // total cap across all dimensions: 6
+  topThree: RhythmFinding[];   // exactly what the app shows (≤3, prioritised)
+  all:      RhythmFinding[];   // full ranked set — reserved for the weekly insights email
+} | null;
 
 interface RhythmFinding {
-  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
-  text: string;
-  confidence: number;   // 0–1, used for ordering
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' |
+        'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
+  dimension: 'energy' | 'clarity' | 'sharpness' | 'confidence';
+  text: string;        // crisp, ≤110 chars — for the app
+  longText: string;    // verbose with stats — for the weekly email
+  confidence: number;  // 0–1, statistical strength
   observations: number;
+  priorityScore: number; // chief-of-staff rank (higher wins)
 }
 ```
+
+### App rendering rules
+- Render **`topThree` only** as a single flat list — **no per-dimension sub-headers**.
+- Section title: **"Your Rhythm Signals"**. Never revert to "How You Show Up".
+- Each bullet ends with an inline dimension tag (`· Energy` / `· Clarity` / `· Sharpness` / `· Confidence`) in 10px uppercase muted text — never a section break.
+- Empty state at ≥7 check-ins but 0 findings: *"Patterns will sharpen as your check-ins accumulate across more days and times."* No filler bullets.
+
+### Chief-of-Staff prioritisation (which 3 win)
+`priorityScore = KIND_WEIGHT + (confidence × 0.3) + DIMENSION_BONUS`
+
+| Kind | Weight | Why |
+|---|---|---|
+| `consecutive-neg` | 1.0 | Active risk — recurring drop the user can act on this week |
+| `cell-peak`       | 0.8 | Concrete day×time to protect for high-stakes work |
+| `low-day`         | 0.7 | Recurring trough — avoid scheduling here |
+| `peak-window`     | 0.5 | Useful but generic |
+| `low-window`      | 0.5 | Same |
+| `peak-day`        | 0.4 | Informational |
+| `consecutive-pos` | 0.3 | Celebratory, non-actionable |
+
+Dimension tiebreaker (decision quality first, then fuel, then slow-mover):
+`sharpness +0.20 → clarity +0.15 → energy +0.10 → confidence +0.05`.
+
+**Diversity guard while picking the top 3**: at most 2 findings per dimension, at most 2 of the same kind. This stops the user seeing three near-identical "X day peaks". When fewer than 3 strong signals exist, the app shows fewer — never pads with weak ones.
+
+### Long-form vs short-form
+The crisp `text` is the only thing the app should render. The verbose `longText` (with %, n, scale labels like `Crystal/Lucid (4–5)`) is reserved for the future **Weekly Insights email**. Do not surface `longText` in-app.
 
 ### Honesty gates (no fabrication)
 - ≥7 non-null observations per series before any window/day finding fires
