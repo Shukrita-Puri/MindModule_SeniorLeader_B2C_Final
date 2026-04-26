@@ -1100,7 +1100,7 @@ async function evaluateNudgeTwo(
   supabase: ReturnType<typeof createClient>
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
-  if (ctx.localTime < 9.5 || ctx.localTime >= 16) return null;
+  if (ctx.localTime < GLOBAL_EARLIEST_LOCAL || ctx.localTime >= 16) return null;
 
   // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
@@ -1108,17 +1108,17 @@ async function evaluateNudgeTwo(
     if (sentEventRefs.has(evt.externalId)) continue;
 
     const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
+    // v5 — focus on the 30 min – 3 h pre-event window
+    if (minutesUntil < 30 || minutesUntil > 180) continue;
 
-    // Verify JIT plan exists
+    // v5 — drop horizons-surfaced gate (was killing all JIT lures in prod)
     const { data: jitPlan } = await supabase
       .from('jit_event_context')
       .select('id')
       .eq('user_id', ctx.userId)
       .eq('id', evt.eventId)
       .eq('dismissed_by_user', false)
-      .not('jit_horizons_surfaced', 'is', null)
       .limit(1);
-
     if (!jitPlan || jitPlan.length === 0) continue;
 
     const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_jit', {
@@ -1127,13 +1127,42 @@ async function evaluateNudgeTwo(
     });
     const copy = aiCopy || getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
 
+    // v5 smart routing — brief if check-in pending, plan if check-in done
+    const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
+    const route = checkedInToday ? '/executive-home' : '/daily-check-in';
+
     return {
       type: 'nudge_two',
       copy,
-      deepLinkRoute: '/executive-home',
+      deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,
     };
+  }
+
+  // ── A2) Wearable-state lure (v5 NEW) ──
+  // Reserves are down + a high-stakes event remains today + user hasn't
+  // opened the app recently → invite into the brief to recalibrate.
+  if (ctx.hasWearableData) {
+    const reservesDown =
+      ctx.wearable.rhrElevated ||
+      (ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15);
+    const upcomingHighStakes = ctx.highStakesEvents.filter(
+      e => new Date(e.start_time).getTime() > Date.now(),
+    );
+    const recentlyOpened = ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000;
+    if (reservesDown && upcomingHighStakes.length > 0 && !recentlyOpened) {
+      const evTitle = upcomingHighStakes[0].title || 'your next high-stakes meeting';
+      const signal: 'rhr' | 'hrv' = ctx.wearable.rhrElevated ? 'rhr' : 'hrv';
+      const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_reserves', { eventTitle: evTitle, signal });
+      const copy = aiCopy || getFallbackNudgeTwoReservesCopy(evTitle, signal);
+      return {
+        type: 'nudge_two',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 1,
+      };
+    }
   }
 
   // ── B) Priorities incomplete (afternoon, 13:00+) ──
