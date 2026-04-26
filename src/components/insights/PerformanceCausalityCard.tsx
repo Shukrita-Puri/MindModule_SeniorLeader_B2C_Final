@@ -17,6 +17,8 @@ import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE } from '@/config/devMode';
+import { shouldUsePreviewMock, isPreviewContext } from '@/utils/previewAuth';
+import { MOCK_CAUSALITY_PAYLOAD } from '@/components/insights/causalityMockData';
 import { cn } from '@/lib/utils';
 
 // ── Types (mirror engine output) ─────────────────────────────────────
@@ -174,21 +176,31 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
   const [data, setData] = useState<CausalityPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
+  const [isMock, setIsMock] = useState(false);
 
   useEffect(() => {
-    if (userId || DEV_MODE) fetchPayload();
+    // Always attempt to fetch — the function itself decides between real
+    // data, preview mock, or honest empty state.
+    fetchPayload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchPayload = async () => {
     setLoading(true);
     setErrored(false);
+    setIsMock(false);
     try {
       const accessToken = await getAuthToken();
       if (!accessToken) {
-        // No auth token (e.g. pure DEV without Auth0 session) — render
-        // honest empty state rather than guessing.
-        setData(null);
+        // No auth token. In a preview context (Lovable iframe / *.lovable.app
+        // / DEV_MODE) we render mock causality data so reviewers see the
+        // intended UI. Outside preview, fall back to honest empty state.
+        if (shouldUsePreviewMock(false)) {
+          setData(MOCK_CAUSALITY_PAYLOAD as unknown as CausalityPayload);
+          setIsMock(true);
+        } else {
+          setData(null);
+        }
         return;
       }
       const { data: result, error } = await supabase.functions.invoke('cause-effect-engine', {
@@ -196,13 +208,25 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
       });
       if (error) {
         console.error('[PerformanceCausalityCard] invoke error:', error);
-        setErrored(true);
+        // In preview, prefer showing mock data over an error toast so the
+        // page still demos correctly when the edge function isn't reachable.
+        if (isPreviewContext()) {
+          setData(MOCK_CAUSALITY_PAYLOAD as unknown as CausalityPayload);
+          setIsMock(true);
+        } else {
+          setErrored(true);
+        }
         return;
       }
       setData(result as CausalityPayload);
     } catch (err) {
       console.error('[PerformanceCausalityCard] fetch error:', err);
-      setErrored(true);
+      if (isPreviewContext()) {
+        setData(MOCK_CAUSALITY_PAYLOAD as unknown as CausalityPayload);
+        setIsMock(true);
+      } else {
+        setErrored(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -240,10 +264,17 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
             Cause &amp; Effect
           </span>
-          <InsightInfoModal
-            title="Cause & Effect"
-            explanation="Patterns where a leader-controllable input (event type, sleep, consecutive heavy days) produces a measured shift in your physiology, cognition, or Performance Readiness Score vs your own 30-day baseline. Only patterns with at least 3 occurrences and a meaningful magnitude are shown — everything else is dropped, not softened."
-          />
+          <div className="flex items-center gap-2">
+            {isMock && (
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 px-1.5 py-0.5 rounded bg-muted/40">
+                Preview
+              </span>
+            )}
+            <InsightInfoModal
+              title="Cause & Effect"
+              explanation="Patterns where a leader-controllable input (event type, sleep, consecutive heavy days) produces a measured shift in your physiology, cognition, or Performance Readiness Score vs your own 30-day baseline. Only patterns with at least 3 occurrences and a meaningful magnitude are shown — everything else is dropped, not softened."
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-1">
