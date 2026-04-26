@@ -1581,8 +1581,9 @@ serve(async (req) => {
 
       // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
-      if (localTime >= 22 || localTime < 6.5) {
-        console.log(`[smart-nudges] User ${userId} in quiet hours (${localTime.toFixed(1)}). Skipping.`);
+      // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
+      if (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL) {
+        console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
         continue;
       }
 
@@ -1628,10 +1629,11 @@ serve(async (req) => {
 
       // ── In-meeting / app-open suppression ──
       const lastAppOpen = lastAppOpenMap.get(userId) || null;
-      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < 30 * 60 * 1000;
+      // v5: 60-min cool-down after app open (was 30)
+      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < APP_OPEN_COOLDOWN_MS;
 
-      if (appOpenedRecently && suppressed) {
-        console.log(`[smart-nudges] User ${userId} app open recently + suppressed. Skipping.`);
+      if (appOpenedRecently) {
+        console.log(`[smart-nudges][v5] User ${userId} opened app within 60 min. Skipping.`);
         continue;
       }
 
