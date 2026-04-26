@@ -1057,10 +1057,9 @@ serve(async (req) => {
       dataSourceNote,
     };
 
-    const totalFindings = mindRhythmPatterns
-      ? mindRhythmPatterns.energy.length + mindRhythmPatterns.clarity.length + mindRhythmPatterns.sharpness.length + mindRhythmPatterns.confidence.length
-      : 0;
-    console.log(`[perf-rhythm] Done: ci=${checkIns.length} rhythm=${totalFindings} posRate=${positiveRate?.pct ?? 'n/a'} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
+    const totalFindings = mindRhythmPatterns?.all.length ?? 0;
+    const topThreeCount = mindRhythmPatterns?.topThree.length ?? 0;
+    console.log(`[perf-rhythm] Done: ci=${checkIns.length} rhythm=${totalFindings}(top3=${topThreeCount}) posRate=${positiveRate?.pct ?? 'n/a'} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
 
     return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders });
   } catch (e: unknown) {
