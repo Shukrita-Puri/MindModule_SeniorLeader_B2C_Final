@@ -133,7 +133,13 @@ serve(async (req) => {
   }
 
   try {
-    const userId = await verifyAuth0JWT(req);
+    let userId: string | null = null;
+    try {
+      userId = await verifyAuth0JWT(req);
+    } catch (authErr: any) {
+      // Auth failures are not fatal — log quietly and 401.
+      console.log("[cause-effect-engine] auth rejected:", authErr?.message || authErr);
+    }
     if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
