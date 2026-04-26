@@ -94,9 +94,11 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   assertGreaterOrEqual(fallbackLines.length, 15, `Expected ≥15 FB-* fallback strings, got ${fallbackLines.length}`);
 
   for (const ln of fallbackLines) {
-    // Extract just the body string content for cleaner reporting
-    const bodyMatch = ln.match(/body:\s*[`'"]([^`'"]+)[`'"]/);
-    const bodyText = bodyMatch ? bodyMatch[1] : ln;
+    // Extract the body literal, which may be a template string with embedded
+    // single-quotes (e.g. `${count} meeting${count > 1 ? 's' : ''}`). We grab
+    // everything between `body:` and `, variantId:` on the same line.
+    const segMatch = ln.match(/body:\s*([\s\S]*?),\s*variantId:/);
+    const bodyText = segMatch ? segMatch[1] : ln;
     const bad = bodyContainsForbidden(bodyText);
     assertEquals(bad, null, `Forbidden word "${bad}" found in fallback body: ${bodyText.substring(0, 140)}…`);
     assert(
