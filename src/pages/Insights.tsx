@@ -16,7 +16,7 @@ import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
-import CauseEffectPanel from '@/components/insights/CauseEffectPanel';
+import PerformanceCausalityCard from '@/components/insights/PerformanceCausalityCard';
 import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
@@ -1114,7 +1114,7 @@ const Insights = () => {
         {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
         <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
           <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
-            <CauseEffectPanel userId={user?.id} />
+            <PerformanceCausalityCard userId={user?.id} />
             <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
