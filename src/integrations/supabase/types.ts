@@ -401,6 +401,30 @@ export type Database = {
         }
         Relationships: []
       }
+      causality_findings: {
+        Row: {
+          computed_for_date: string
+          created_at: string
+          payload: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          computed_for_date: string
+          created_at?: string
+          payload: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          computed_for_date?: string
+          created_at?: string
+          payload?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       certificate_requests: {
         Row: {
           achievement_id: string
