@@ -15,7 +15,20 @@ const corsHeaders = {
 
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// Full day names for user-facing copy. `DAYS` (abbreviated) is reserved for
+// internal keys / logs only — pluralising "Sun" → "Suns" reads as nonsense.
+const DAYS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const TIME_LABELS = ["Morning", "Afternoon", "Evening"];
+
+// "2026-04-19" → "Apr 19" — used in consecutive-run findings so the user
+// sees the most recent occurrence inline ("3 Sundays in a row … last on Apr 19").
+function formatShortDate(isoDate: string): string {
+  const [, m, d] = isoDate.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const idx = parseInt(m, 10) - 1;
+  const day = parseInt(d, 10);
+  return `${months[idx] || m} ${day}`;
+}
 
 function getTimeWindow(hour: number): number {
   if (hour >= 5 && hour < 12) return 0;
@@ -739,11 +752,13 @@ serve(async (req) => {
         const best = twRates[0];
         const worst = twRates[twRates.length - 1];
         if (best.pct - worst.pct >= 0.20 && best.pct >= 0.5) {
+          const pctBest = Math.round(best.pct * 100);
+          const pctWorst = Math.round(worst.pct * 100);
           findings.push({
             kind: 'peak-window',
             dimension: vocab.dimension,
-            text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window (${Math.round(best.pct * 100)}%).`,
-            longText: `${TIME_LABELS[best.tw]}s are your ${vocab.longPositiveLabel} window (${Math.round(best.pct * 100)}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${Math.round(worst.pct * 100)}%.`,
+            text: `${TIME_LABELS[best.tw]}s are your peak ${vocab.appLabel} window — ${pctBest}% vs ${pctWorst}% in the ${TIME_LABELS[worst.tw].toLowerCase()} (n=${best.n + worst.n}).`,
+            longText: `${TIME_LABELS[best.tw]}s are your ${vocab.longPositiveLabel} window (${pctBest}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${pctWorst}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + best.n / 30),
             observations: best.n + worst.n,
             priorityScore: 0,
@@ -766,14 +781,16 @@ serve(async (req) => {
         const best = doRates[0];
         const worst = doRates[doRates.length - 1];
         if (best.pct - worst.pct >= 0.30 && best.n >= 2 && worst.n >= 2) {
+          const pctBest = Math.round(best.pct * 100);
+          const pctWorst = Math.round(worst.pct * 100);
           // Pull the trough out as its own finding when the worst day is bad enough.
           // Otherwise emit a paired peak/trough headline.
           if (worst.pct <= 0.30) {
             findings.push({
               kind: 'low-day',
               dimension: vocab.dimension,
-              text: `${DAYS[worst.di]}s slip on ${vocab.appLabel}.`,
-              longText: `${DAYS[worst.di]}s land ${vocab.longPositiveLabel} only ${Math.round(worst.pct * 100)}% of the time vs ${DAYS[best.di]}s at ${Math.round(best.pct * 100)}%.`,
+              text: `${DAYS_FULL[worst.di]}s slip on ${vocab.appLabel} — ${pctWorst}% vs your ${pctBest}% on ${DAYS_FULL[best.di]}s (last ${worst.n} ${DAYS_FULL[worst.di]}s).`,
+              longText: `${DAYS_FULL[worst.di]}s land ${vocab.longPositiveLabel} only ${pctWorst}% of the time vs ${DAYS_FULL[best.di]}s at ${pctBest}%.`,
               confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
               observations: best.n + worst.n,
               priorityScore: 0,
@@ -782,8 +799,8 @@ serve(async (req) => {
           findings.push({
             kind: 'peak-day',
             dimension: vocab.dimension,
-            text: `${DAYS[best.di]}s run strong on ${vocab.appLabel}; ${DAYS[worst.di]}s drop off.`,
-            longText: `${DAYS[best.di]}s land ${vocab.longPositiveLabel} ${Math.round(best.pct * 100)}% of the time vs ${DAYS[worst.di]}s at ${Math.round(worst.pct * 100)}%.`,
+            text: `${DAYS_FULL[best.di]}s run sharpest on ${vocab.appLabel} (${pctBest}%); ${DAYS_FULL[worst.di]}s drop to ${pctWorst}% (n=${best.n + worst.n}).`,
+            longText: `${DAYS_FULL[best.di]}s land ${vocab.longPositiveLabel} ${pctBest}% of the time vs ${DAYS_FULL[worst.di]}s at ${pctWorst}%.`,
             confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
             observations: best.n + worst.n,
             priorityScore: 0,
@@ -805,11 +822,12 @@ serve(async (req) => {
       cellArr.sort((a, b) => (b.pos / b.n) - (a.pos / a.n));
       const topCell = cellArr[0];
       if (topCell && topCell.pos / topCell.n - meanRate >= 0.30) {
+        const pctCell = Math.round((topCell.pos / topCell.n) * 100);
         findings.push({
           kind: 'cell-peak',
           dimension: vocab.dimension,
-          text: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — protect it.`,
-          longText: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${Math.round((topCell.pos / topCell.n) * 100)}% ${vocab.longPositiveLabel} across ${topCell.n} check-ins).`,
+          text: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest ${vocab.appLabel} window — ${pctCell}% across ${topCell.n} check-ins. Protect it.`,
+          longText: `${DAYS_FULL[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${pctCell}% ${vocab.longPositiveLabel} across ${topCell.n} check-ins).`,
           confidence: Math.min(1, (topCell.pos / topCell.n - meanRate) + topCell.n / 10),
           observations: topCell.n,
           priorityScore: 0,
@@ -828,24 +846,27 @@ serve(async (req) => {
         // Walk positive runs
         for (const band of ['positive', 'negative'] as const) {
           let run = 0;
+          let lastDate = '';
           for (const p of sorted) {
             if (p[band]) {
               run++;
+              lastDate = p.dateStr;
             } else {
               if (run >= 3) {
                 findings.push({
                   kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
                   dimension: vocab.dimension,
                   text: band === 'negative'
-                    ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
-                    : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
-                  longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
+                    ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+                    : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
+                  longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
                   confidence: Math.min(1, 0.4 + run / 10),
                   observations: run,
                   priorityScore: 0,
                 });
               }
               run = 0;
+              lastDate = '';
             }
           }
           if (run >= 3) {
@@ -853,9 +874,9 @@ serve(async (req) => {
               kind: band === 'negative' ? 'consecutive-neg' : 'consecutive-pos',
               dimension: vocab.dimension,
               text: band === 'negative'
-                ? `${run} ${DAYS[di]}s in a row you've shown up ${vocab.negativePhrase}.`
-                : `${run} ${DAYS[di]}s in a row you've shown up ${vocab.positivePhrase}.`,
-              longText: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel}.`,
+                ? `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.negativePhrase} on ${vocab.appLabel} — last on ${formatShortDate(lastDate)}.`
+                : `${run} ${DAYS_FULL[di]}s in a row you've shown up ${vocab.positivePhrase} on ${vocab.appLabel} — through ${formatShortDate(lastDate)}.`,
+              longText: `${run}+ consecutive ${DAYS_FULL[di]}s you've checked in ${band === 'positive' ? vocab.longPositiveLabel : vocab.longNegativeLabel} (most recent ${formatShortDate(lastDate)}).`,
               confidence: Math.min(1, 0.4 + run / 10),
               observations: run,
               priorityScore: 0,
