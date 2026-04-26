@@ -5,6 +5,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
+import { isPreviewContext } from "@/utils/previewAuth";
 import DelayedFallback from "@/components/ui/delayed-fallback";
 
 // Grace period before triggering login redirect (ms)
@@ -13,6 +14,12 @@ const LOGIN_REDIRECT_GRACE_MS = 3000;
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (DEV_MODE) {
+    return <>{children}</>;
+  }
+  // Preview contexts (Lovable iframe / *.lovable.app) render children
+  // without forcing an Auth0 redirect. Components that need real data
+  // already fall back to preview-safe mocks via `shouldUsePreviewMock`.
+  if (isPreviewContext()) {
     return <>{children}</>;
   }
   return <Auth0ProtectedRoute>{children}</Auth0ProtectedRoute>;
