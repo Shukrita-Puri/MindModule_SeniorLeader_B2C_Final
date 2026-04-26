@@ -112,30 +112,52 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       // Baseline = mean of first 3 scored Briefs (chronological).
       // Current  = mean of last 3 scored Briefs.
       // Rationale: smooths single-day volatility while still reflecting trajectory.
+      //
+      // NOTE (RLS): brief_snapshots SELECT policy gates rows by
+      // `user_id = auth.jwt() ->> 'sub'`. The shared `supabase` client only
+      // carries the anon key, so direct .from('brief_snapshots') queries
+      // return 0 rows in production. We therefore call PostgREST directly
+      // with the Auth0 access token to satisfy RLS. (DEV_MODE keeps the
+      // anon-key fallback used elsewhere in this component.)
+      const accessToken = await getAuthToken();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!accessToken || !supabaseUrl || !anonKey) return;
+
+      const baseUrl = `${supabaseUrl}/rest/v1/brief_snapshots`;
+      const commonParams =
+        `select=score,local_date` +
+        `&user_id=eq.${encodeURIComponent(effectiveUserId)}` +
+        `&score=not.is.null`;
+      const headers = {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      };
+
       const [earliestRes, latestRes] = await Promise.all([
-        supabase
-          .from('brief_snapshots')
-          .select('score, local_date')
-          .eq('user_id', effectiveUserId)
-          .not('score', 'is', null)
-          .order('local_date', { ascending: true })
-          .limit(3),
-        supabase
-          .from('brief_snapshots')
-          .select('score, local_date')
-          .eq('user_id', effectiveUserId)
-          .not('score', 'is', null)
-          .order('local_date', { ascending: false })
-          .limit(3),
+        fetch(`${baseUrl}?${commonParams}&order=local_date.asc&limit=3`, { headers }),
+        fetch(`${baseUrl}?${commonParams}&order=local_date.desc&limit=3`, { headers }),
       ]);
-      const earliest = (earliestRes.data || []).map((r) => r.score as number);
-      const latest = (latestRes.data || []).map((r) => r.score as number);
+
+      if (!earliestRes.ok || !latestRes.ok) {
+        console.warn(
+          '[LeadershipPatternsCard] briefScore PostgREST status',
+          earliestRes.status,
+          latestRes.status,
+        );
+        return;
+      }
+
+      const earliestRows = (await earliestRes.json()) as Array<{ score: number; local_date: string }>;
+      const latestRows = (await latestRes.json()) as Array<{ score: number; local_date: string }>;
+      const earliest = earliestRows.map((r) => r.score);
+      const latest = latestRows.map((r) => r.score);
       const mean = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
       const baseline = mean(earliest);
       const current = mean(latest);
       // Only show "current" once the user has at least one Brief beyond the baseline window
-      const earliestDates = new Set((earliestRes.data || []).map((r) => r.local_date));
-      const hasNewerBrief = (latestRes.data || []).some((r) => !earliestDates.has(r.local_date));
+      const earliestDates = new Set(earliestRows.map((r) => r.local_date));
+      const hasNewerBrief = latestRows.some((r) => !earliestDates.has(r.local_date));
       setBriefScore({
         baseline: baseline != null ? Math.round(baseline) : null,
         current: current != null && hasNewerBrief ? Math.round(current) : null,
