@@ -136,6 +136,16 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
+// ── v5 timing contract ─────────────────────────────────────────────────
+// Hard floor: never deliver any push before this local hour, regardless of
+// calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
+const GLOBAL_EARLIEST_LOCAL = 8.0;     // 08:00
+const GLOBAL_LATEST_LOCAL = 21.5;      // 21:30
+// Cool-down after the user opens the app — they just engaged, don't push.
+const APP_OPEN_COOLDOWN_MS = 60 * 60 * 1000; // 60 min (was 30)
+// Per-user, per-cron-tick: at most one notification regardless of evaluators.
+const INTRA_TICK_MAX = 1;
+
 // Noise filter (aligned with JIT pipeline)
 const NOISE_KEYWORDS = [
   'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
