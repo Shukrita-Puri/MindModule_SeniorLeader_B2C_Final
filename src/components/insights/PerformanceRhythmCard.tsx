@@ -43,12 +43,25 @@ interface BestReadinessWindow {
 }
 
 interface PerformanceRhythmData {
-  // New v2.0 fields
-  presenceScore: number | null;
-  presenceLabel: string | null;
-  presenceInsight: string | null;
+  // Legacy presence fields — fully retired. Kept on the type for back-compat
+  // with any cached server response that still carries them; never rendered.
+  presenceScore?: number | null;
+  presenceLabel?: string | null;
+  presenceInsight?: string | null;
   presenceActions?: string[] | null;
   temporalPatterns?: string[] | null;
+
+  // v3 — Mind Rhythm Patterns: pure rhythm reader over the 4 trend calendars.
+  mindRhythmPatterns?: {
+    energy: RhythmFinding[];
+    clarity: RhythmFinding[];
+    sharpness: RhythmFinding[];
+    confidence: RhythmFinding[];
+  } | null;
+
+  // v3 — positive-rate stat surfaced inline (also exposed by state-patterns).
+  positiveRate?: { pct: number; n: number } | null;
+
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
@@ -62,6 +75,13 @@ interface PerformanceRhythmData {
   heatmap?: Record<string, Record<string, HeatmapCell>>;
   bestWindow?: string | null;
   observations?: string[];
+}
+
+interface RhythmFinding {
+  kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+  text: string;
+  confidence: number;
+  observations: number;
 }
 
 interface PerformanceRhythmCardProps {
@@ -663,66 +683,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
         }
 
-        // ── How You Show Up (1A) ──
-        let presenceScore: number | null = null;
-        let presenceLabel: string | null = null;
-        let presenceInsight: string | null = null;
-
-        const HIGH_STAKES_KEYWORDS = [
-          'board', 'board meeting', 'board of directors', 'investor', 'vc', 'funding', 'pitch',
-          'crisis', 'urgent', 'emergency', 'negotiation', 'deal', 'contract',
-          'all hands', 'town hall', 'company meeting', 'interview', 'media', 'press',
-          'performance review', 'annual review', 'termination', 'layoff', 'difficult conversation',
-          'quarterly', 'qbr', 'earnings', 'product launch', 'go live',
-          'keynote', 'conference', 'speaking', 'presentation',
-        ];
-        const highStakesEvents = insightCalendarEvents.filter(e =>
-          e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
-        );
-        const coachSessionCount = dialogueMessages.filter(m => m.sender_type === 'coach').length > 0 ? 
-          new Set(dialogueMessages.filter(m => m.sender_type === 'coach').map(m => m.session_id)).size : 0;
-
-        if (checkIns.length >= 7 && highStakesEvents.length >= 1) {
-          // Pre-event sessions
-          const preEventSessionsCompleted = rituals.filter(r =>
-            r.session_period === 'pre-event' && r.completion_status === 'full' &&
-            highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))
-          ).length;
-          const preEventScore = Math.min(30, preEventSessionsCompleted * 10);
-
-          // High-stakes on depleted days
-          const lowReadinessHighStakes = highStakesEvents.filter(e => {
-            const dayScore = readinessScores.find(s => isSameDay(s.score_date, new Date(e.start_time).toISOString().split('T')[0]));
-            return dayScore && dayScore.energy_tier === 'depleted';
-          }).length;
-          const lowReadinessScore = Math.min(20, lowReadinessHighStakes * 5);
-
-          // Energized after high-stakes
-          const energizedAfterHighStakes = highStakesEvents.filter(e => {
-            const eventDateStr = new Date(e.start_time).toISOString().split('T')[0];
-            const nextDateStr = format(new Date(new Date(e.start_time).getTime() + 86400000), 'yyyy-MM-dd');
-            const eventDayScore = readinessScores.find(s => s.score_date === eventDateStr);
-            const nextDayScore = readinessScores.find(s => s.score_date === nextDateStr);
-            return eventDayScore && nextDayScore && (nextDayScore.composite_score > eventDayScore.composite_score + 10);
-          }).length;
-          const energizedScore = Math.min(15, energizedAfterHighStakes * 5);
-
-          presenceScore = Math.max(0, Math.min(100, preEventScore + lowReadinessScore + energizedScore));
-
-          if (presenceScore >= 70) presenceLabel = 'You show up when it matters';
-          else if (presenceScore >= 50) presenceLabel = 'Your presence holds under pressure';
-          else if (presenceScore >= 30) presenceLabel = 'Your presence varies with your state';
-          else presenceLabel = 'State is affecting your presence';
-
-          // Dominant signal insight
-          const signals = [
-            { score: preEventScore, text: `You prepared for ${preEventSessionsCompleted} of ${highStakesEvents.length} high-stakes moments – your presence held even when readiness was low.` },
-            { score: lowReadinessScore, text: `You showed up to ${lowReadinessHighStakes} high-stakes moments while depleted – your presence held despite your state.` },
-            { score: energizedScore, text: 'High-stakes moments energize you – your readiness often rises the day after, not before.' },
-          ];
-          signals.sort((a, b) => b.score - a.score);
-          presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data – presence insights strengthen after more high-stakes moments.';
-        }
+        // ── How You Show Up (DEV mode) ──
+        // Presence/coach/JIT scoring is fully retired. The new Mind Rhythm
+        // Patterns block is computed only by the edge function in production;
+        // DEV mode renders without rhythm findings to keep this code path tiny.
+        const presenceScore: number | null = null;
+        const presenceLabel: string | null = null;
+        const presenceInsight: string | null = null;
 
         // ── Build Full Month Calendar ──
         const today = new Date();
@@ -794,6 +761,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           presenceScore,
           presenceLabel,
           presenceInsight,
+          mindRhythmPatterns: null,
+          positiveRate: null,
           calendarInsight,
           causeEffectInsight,
           grid,
@@ -1048,9 +1017,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </>
             )}
 
-            {/* 1A – How You Show Up (7+ check-ins) — moved below the four trend calendars */}
-            {data.checkInCount >= 7 && data.presenceLabel && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+            {/* 1A – How You Show Up: Mind Rhythm Patterns (pure rhythm reader) */}
+            {data.checkInCount >= 7 && data.mindRhythmPatterns && (
+              (data.mindRhythmPatterns.energy.length +
+               data.mindRhythmPatterns.clarity.length +
+               data.mindRhythmPatterns.sharpness.length +
+               data.mindRhythmPatterns.confidence.length) > 0 && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
                   <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
@@ -1058,36 +1031,29 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   <InsightInfoModal
                     title="How You Show Up"
-                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and high-stakes moments on your calendar – it reflects how consistently you operate at your best."
+                    explanation="When you're most and least energetic, clear, sharp, and confident — drawn only from your check-in trends above. Patterns surface once a dimension has at least 7 check-ins and a meaningful gap between time-of-day or day-of-week buckets."
                   />
                 </div>
-                <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
-                {data.presenceInsight && (
-                  <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
-                )}
-                {(data.presenceActions?.length || data.temporalPatterns?.length || data.causeEffectInsight) ? (
-                  <ul className="pl-6 space-y-1.5 mt-1">
-                    {data.presenceActions?.map((action, i) => (
-                      <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{action}</span>
-                      </li>
-                    ))}
-                    {data.temporalPatterns?.slice(0, 2).map((pattern, i) => (
-                      <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
-                        <span>{pattern}</span>
-                      </li>
-                    ))}
-                    {data.causeEffectInsight && (
-                      <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{data.causeEffectInsight}</span>
-                      </li>
-                    )}
-                  </ul>
-                ) : null}
+                {([
+                  { key: 'energy',     label: 'Energy',     items: data.mindRhythmPatterns.energy },
+                  { key: 'clarity',    label: 'Clarity',    items: data.mindRhythmPatterns.clarity },
+                  { key: 'sharpness',  label: 'Sharpness',  items: data.mindRhythmPatterns.sharpness },
+                  { key: 'confidence', label: 'Confidence', items: data.mindRhythmPatterns.confidence },
+                ] as const).filter(d => d.items.length > 0).map(d => (
+                  <div key={d.key} className="pl-6 space-y-1">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-body">{d.label}</p>
+                    <ul className="space-y-1">
+                      {d.items.map((f, i) => (
+                        <li key={i} className="text-xs text-foreground/80 leading-relaxed flex items-start gap-2">
+                          <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                          <span>{f.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
+              )
             )}
 
             {/* Elevated: Your Sharpest Window */}

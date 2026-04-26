@@ -236,6 +236,19 @@ Deno.serve(async (req) => {
     const frictionPct = totalDays > 0 ? Math.round((lowStateDates.size / totalDays) * 100) : 0;
     const frictionLabel = frictionPct <= 25 ? "Low friction" : frictionPct <= 50 ? "Moderate friction" : frictionPct <= 75 ? "High friction pattern" : "Sustained friction";
 
+    // ── Consistency / positive rate ──
+    // Mirror of friction at the check-in level (NOT day level): % of all check-ins
+    // that landed in the positive band {focused, steady}. Surfaced in the Trajectory
+    // scorecard as "Consistency" so that *How You Show Up* can stay focused on
+    // pure rhythm patterns. Null until ≥5 check-ins to avoid noisy early signals.
+    const POSITIVE_OUTCOMES = new Set(["focused", "steady"]);
+    const positiveCount = checkIns.filter((c: any) =>
+      POSITIVE_OUTCOMES.has((c.outcome || "").toLowerCase())
+    ).length;
+    const positiveRate = checkIns.length >= 5
+      ? { pct: Math.round((positiveCount / checkIns.length) * 100), n: checkIns.length }
+      : null;
+
     // Friction trend (last 7 vs prior 7)
     const recentCheckins7 = checkIns.filter((c: any) => c.checkin_date >= sevenStr);
     const priorCheckins7 = checkIns.filter((c: any) => c.checkin_date >= fourteenStr && c.checkin_date < sevenStr);
@@ -619,6 +632,7 @@ Deno.serve(async (req) => {
         scoresNote: hasEnoughForCurrent && totalCheckins < 7 ? "Preliminary – baseline from onboarding. Deltas will refine as you check in." : null,
         frictionPct,
         frictionLabel,
+        positiveRate,
         trendDirection,
         typicalState,
         recurringThemes,

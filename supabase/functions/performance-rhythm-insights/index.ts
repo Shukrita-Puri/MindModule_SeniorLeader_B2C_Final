@@ -82,7 +82,7 @@ serve(async (req) => {
     // Fetch all data in parallel
     const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] =
       await Promise.all([
-        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window")
+        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
         sb.from("calendar_connections").select("is_active")
           .eq("user_id", userId).eq("is_active", true).maybeSingle(),
@@ -649,259 +649,245 @@ serve(async (req) => {
       }
     }
 
-    // ── HOW YOU SHOW UP (1A) ──
-    let presenceScore: number | null = null;
-    let presenceLabel: string | null = null;
-    let presenceInsight: string | null = null;
-    let presenceActions: string[] = [];
+    // ══════════════════════════════════════════════════════════════════
+    // ── HOW YOU SHOW UP (1A) — Mind Rhythm Patterns ──
+    // ══════════════════════════════════════════════════════════════════
+    // Pure rhythm reader over the four trend calendars (Energy, Clarity,
+    // Sharpness, Confidence). NO coach signals, NO calendar/JIT/behavior
+    // signals, NO wearable signals — those live in other cards. This block
+    // answers only: when (time-of-day × day-of-week) is the user most/least
+    // energetic / clear / sharp / confident, and which of those are real
+    // patterns (consecutive same-DOW runs).
+    //
+    // Per-dimension findings cap: 2.   Total findings cap: 6.
+    // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
-    const highStakesEvents = insightCalendarEvents.filter(e =>
-      e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
-    );
-    const coachSessionCount = new Set(
-      dialogueMessages.filter(m => m.sender_type === "coach").map(m => m.session_id)
-    ).size;
+    type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive' | 'cell-peak';
+    interface RhythmFinding { kind: RhythmKind; text: string; confidence: number; observations: number; }
 
-    // Lowered gate: show presence section with ≥7 check-ins even without high-stakes/coach
-    if (checkIns.length >= 7) {
-      let pts = 0;
+    type SeriesPoint = { dateStr: string; di: number; tw: number; positive: boolean; negative: boolean };
 
-      // Signal 1: Pre-event rituals before high-stakes
-      const preEventDone = rituals.filter(r =>
-        r.session_period === "pre-event" && r.completion_status === "full" &&
-        highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))
-      ).length;
-      const preEventPts = Math.min(30, preEventDone * 10);
-      pts += preEventPts;
+    const positiveOutcomeSet = new Set(['focused', 'steady']);
+    const negativeOutcomeSet = new Set(['drained', 'overwhelmed']);
 
-      // Signal 2: Depleted during high-stakes (requires readiness scores)
-      const depletedHighStakes = highStakesEvents.filter(e => {
-        const ds = readinessScores.find(s => isSameDay(s.score_date, new Date(e.start_time).toISOString().split("T")[0]));
-        return ds && ds.energy_tier === "depleted";
-      }).length;
-      const depletedPts = Math.min(20, depletedHighStakes * 5);
-      pts += depletedPts;
-
-      // Signal 3: Coach presence keywords
-      const posKw = /showed up well|brought full presence|held the room|commanded the space|fully there|present and sharp|brought your best/i;
-      const negKw = /wasn't fully there|didn't bring it|phoned it in|checked out|not fully present|energy wasn't there/i;
-      const posCount = dialogueMessages.filter(m => posKw.test(m.content)).length;
-      const negCount = dialogueMessages.filter(m => negKw.test(m.content)).length;
-      const coachPts = Math.max(-30, Math.min(30, (posCount * 15) - (negCount * 15)));
-      pts += coachPts;
-
-      // Signal 4: Energized after high-stakes
-      const energizedCount = highStakesEvents.filter(e => {
-        const evDateStr = new Date(e.start_time).toISOString().split("T")[0];
-        const nextDate = new Date(new Date(e.start_time).getTime() + 86400000).toISOString().split("T")[0];
-        const evScore = readinessScores.find(s => s.score_date === evDateStr);
-        const nextScore = readinessScores.find(s => s.score_date === nextDate);
-        return evScore && nextScore && (nextScore.composite_score > evScore.composite_score + 10);
-      }).length;
-      const energizedPts = Math.min(15, energizedCount * 5);
-      pts += energizedPts;
-
-      // Signal 5 (NEW): Check-in consistency on high-stakes days
-      const highStakesDayOutcomes: string[] = [];
-      for (const ev of highStakesEvents) {
-        const evDate = new Date(ev.start_time).toISOString().split("T")[0];
-        const ci = checkIns.find(c => c.checkin_date === evDate);
-        if (ci?.outcome) highStakesDayOutcomes.push(ci.outcome);
-      }
-      const positiveOutcomesSet = new Set(["focused", "steady"]);
-      const hsPositivePct = highStakesDayOutcomes.length > 0
-        ? highStakesDayOutcomes.filter(o => positiveOutcomesSet.has(o)).length / highStakesDayOutcomes.length
-        : 0;
-      const hsDayPts = highStakesDayOutcomes.length >= 2 ? Math.round(hsPositivePct * 25) : 0;
-      pts += hsDayPts;
-
-      // Signal 6 (NEW): Overall positive check-in rate as baseline
-      const overallPosPct = checkIns.filter(c => c.outcome && positiveOutcomesSet.has(c.outcome)).length / checkIns.length;
-      const baselinePts = Math.round(overallPosPct * 15);
-      pts += baselinePts;
-
-      presenceScore = Math.max(0, Math.min(100, pts));
-
-      if (presenceScore >= 70) presenceLabel = "You show up when it matters";
-      else if (presenceScore >= 50) presenceLabel = "Your presence holds under pressure";
-      else if (presenceScore >= 30) presenceLabel = "Your presence varies with your state";
-      else presenceLabel = "Building your presence pattern";
-
-      // Build signals for insight text
-      const signals: { s: number; t: string }[] = [];
-
-      if (preEventPts > 0) signals.push({ s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments – preparation correlates with stronger presence.` });
-      if (Math.abs(coachPts) > 0) signals.push({ s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts – that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high." });
-      if (depletedPts > 0) signals.push({ s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted – your presence held despite your state.` });
-      if (energizedPts > 0) signals.push({ s: energizedPts, t: "High-stakes moments energize you – your readiness often rises the day after, not before." });
-
-      // Check-in-based presence insights (always available)
-      if (hsDayPts > 0 && highStakesDayOutcomes.length >= 2) {
-        signals.push({ s: hsDayPts, t: `On high-stakes days, you checked in positively ${Math.round(hsPositivePct * 100)}% of the time across ${highStakesDayOutcomes.length} events.` });
-      }
-      if (baselinePts > 0) {
-        signals.push({ s: baselinePts, t: `Your overall positive check-in rate is ${Math.round(overallPosPct * 100)}% – ${overallPosPct >= 0.6 ? "a strong foundation for sustained performance." : "there's room to build more consistent positive states."}` });
-      }
-
-      signals.sort((a, b) => b.s - a.s);
-      presenceInsight = signals.length > 0 && signals[0].s > 0
-        ? signals[0].t
-        : "Building pattern data – presence insights strengthen with more check-ins and high-stakes moments.";
-
-      // Build presenceActions from top signals, excluding the one already used as presenceInsight
-      presenceActions = signals
-        .filter(sig => sig.s > 0 && sig.t !== presenceInsight)
-        .slice(0, 2)
-        .map(sig => sig.t);
-
-      // Add JIT-specific action if data available
-      const jitBeforeHighStakes = jitPrefs.filter(j =>
-        (j.action === 'completed' || j.action === 'accepted') && j.event_start_time
-      ).length;
-      if (jitBeforeHighStakes >= 2 && highStakesEvents.length > 0) {
-        presenceActions.push(
-          `You completed JIT prep before ${jitBeforeHighStakes} high-stakes events – this preparation pattern correlates with stronger presence.`
-        );
-      }
-
-      // Add depleted recovery suggestion
-      if (depletedHighStakes > highStakesEvents.length * 0.5 && highStakesEvents.length >= 2) {
-        presenceActions.push(
-          `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments – consider scheduling recovery blocks before these events.`
-        );
-      }
-
-      // Cap at 3 actions
-      presenceActions = presenceActions.slice(0, 3);
-    }
-
-    // ── TEMPORAL PATTERNS (day-of-week, time-of-day, weekday vs weekend, consecutive) ──
-    const temporalPatterns: string[] = [];
-
-    if (checkIns.length >= 7) {
-      // Group check-ins by day-of-week × time-window using stored time_window
-      const dayTimeOutcomes: Map<string, string[]> = new Map();
-      const dayOutcomes: Map<number, string[]> = new Map();
-      const timeOutcomes: Map<number, string[]> = new Map();
-      const weekdayOutcomes: string[] = [];
-      const weekendOutcomes: string[] = [];
-
+    const buildOutcomeSeries = (): SeriesPoint[] => {
+      const out: SeriesPoint[] = [];
       for (const ci of checkIns) {
         if (!ci.checkin_date || !ci.outcome) continue;
         const d = new Date(ci.checkin_date);
-        const di = getDayIndex(d.getDay());
-        const tw = ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2;
-        const isWeekend = di >= 5; // Sat=5, Sun=6
-
-        if (!dayOutcomes.has(di)) dayOutcomes.set(di, []);
-        dayOutcomes.get(di)!.push(ci.outcome);
-
-        if (!timeOutcomes.has(tw)) timeOutcomes.set(tw, []);
-        timeOutcomes.get(tw)!.push(ci.outcome);
-
-        const dtKey = `${di}-${tw}`;
-        if (!dayTimeOutcomes.has(dtKey)) dayTimeOutcomes.set(dtKey, []);
-        dayTimeOutcomes.get(dtKey)!.push(ci.outcome);
-
-        if (isWeekend) weekendOutcomes.push(ci.outcome);
-        else weekdayOutcomes.push(ci.outcome);
+        out.push({
+          dateStr: ci.checkin_date,
+          di: getDayIndex(d.getDay()),
+          tw: ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2,
+          positive: positiveOutcomeSet.has((ci.outcome || '').toLowerCase()),
+          negative: negativeOutcomeSet.has((ci.outcome || '').toLowerCase()),
+        });
       }
+      return out;
+    };
 
-      // 1. Consecutive same-day patterns – using stored time_window
-      const dayDateOutcomes: Map<number, { date: string; outcome: string }[]> = new Map();
-      for (const ci of checkIns) {
-        if (!ci.checkin_date || !ci.outcome) continue;
+    const buildLevelSeries = (field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level'): SeriesPoint[] => {
+      const out: SeriesPoint[] = [];
+      for (const ci of checkIns as any[]) {
+        const v = ci[field];
+        if (!ci.checkin_date || v == null) continue;
         const d = new Date(ci.checkin_date);
-        const di = getDayIndex(d.getDay());
-        if (!dayDateOutcomes.has(di)) dayDateOutcomes.set(di, []);
-        dayDateOutcomes.get(di)!.push({ date: ci.checkin_date, outcome: ci.outcome });
+        out.push({
+          dateStr: ci.checkin_date,
+          di: getDayIndex(d.getDay()),
+          tw: ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2,
+          positive: v >= 4,
+          negative: v <= 2,
+        });
       }
-      // Collect consecutive patterns per outcome, then consolidate days with same outcome
-      const consecutiveByOutcome: Map<string, { days: string[]; minRun: number }> = new Map();
-      for (const [di, entries] of dayDateOutcomes) {
-        const byDate = new Map<string, string>();
-        for (const e of entries) byDate.set(e.date, e.outcome);
-        const sorted = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-        let runOutcome = sorted[0]?.[1];
-        let runLen = 1;
-        for (let i = 1; i < sorted.length; i++) {
-          if (sorted[i][1] === runOutcome) { runLen++; }
-          else { 
-            if (runLen >= 3 && runOutcome) {
-              if (!consecutiveByOutcome.has(runOutcome)) consecutiveByOutcome.set(runOutcome, { days: [], minRun: runLen });
-              const entry = consecutiveByOutcome.get(runOutcome)!;
-              entry.days.push(DAYS[di]);
-              entry.minRun = Math.min(entry.minRun, runLen);
+      return out;
+    };
+
+    /**
+     * Mine a single 4-band series for time-of-day, day-of-week, cell, and
+     * consecutive-run patterns. `vocab` is the per-dimension wording
+     * (matches the slider vocabulary on /check-in-detail).
+     */
+    const mineSeries = (
+      series: SeriesPoint[],
+      vocab: { dimension: string; positiveLabel: string; negativeLabel: string }
+    ): RhythmFinding[] => {
+      const findings: RhythmFinding[] = [];
+      if (series.length < 7) return findings;
+
+      // ── Time-of-day (positive rate) ──
+      const twBuckets: Record<number, { pos: number; n: number }> = { 0: { pos: 0, n: 0 }, 1: { pos: 0, n: 0 }, 2: { pos: 0, n: 0 } };
+      for (const p of series) { twBuckets[p.tw].n++; if (p.positive) twBuckets[p.tw].pos++; }
+      const twRates = Object.entries(twBuckets)
+        .filter(([, v]) => v.n >= 3)
+        .map(([tw, v]) => ({ tw: +tw, pct: v.pos / v.n, n: v.n }));
+      if (twRates.length >= 2) {
+        twRates.sort((a, b) => b.pct - a.pct);
+        const best = twRates[0];
+        const worst = twRates[twRates.length - 1];
+        if (best.pct - worst.pct >= 0.20 && best.pct >= 0.5) {
+          findings.push({
+            kind: 'peak-window',
+            text: `${TIME_LABELS[best.tw]}s are your ${vocab.positiveLabel} window (${Math.round(best.pct * 100)}% across ${best.n} check-ins) – ${TIME_LABELS[worst.tw]}s sit at ${Math.round(worst.pct * 100)}%.`,
+            confidence: Math.min(1, (best.pct - worst.pct) + best.n / 30),
+            observations: best.n + worst.n,
+          });
+        }
+      }
+
+      // ── Day-of-week (positive rate) ──
+      const doBuckets: Record<number, { pos: number; n: number }> = {};
+      for (const p of series) {
+        if (!doBuckets[p.di]) doBuckets[p.di] = { pos: 0, n: 0 };
+        doBuckets[p.di].n++;
+        if (p.positive) doBuckets[p.di].pos++;
+      }
+      const doRates = Object.entries(doBuckets)
+        .filter(([, v]) => v.n >= 2)
+        .map(([di, v]) => ({ di: +di, pct: v.pos / v.n, n: v.n }));
+      if (doRates.length >= 2) {
+        doRates.sort((a, b) => b.pct - a.pct);
+        const best = doRates[0];
+        const worst = doRates[doRates.length - 1];
+        if (best.pct - worst.pct >= 0.30 && best.n >= 2 && worst.n >= 2) {
+          findings.push({
+            kind: 'peak-day',
+            text: `${DAYS[best.di]}s land ${vocab.positiveLabel} ${Math.round(best.pct * 100)}% of the time vs ${DAYS[worst.di]}s at ${Math.round(worst.pct * 100)}%.`,
+            confidence: Math.min(1, (best.pct - worst.pct) + (best.n + worst.n) / 20),
+            observations: best.n + worst.n,
+          });
+        }
+      }
+
+      // ── Cell-level peak (DOW × TW) ──
+      const cellBuckets: Map<string, { pos: number; n: number; di: number; tw: number }> = new Map();
+      for (const p of series) {
+        const key = `${p.di}-${p.tw}`;
+        const cur = cellBuckets.get(key) || { pos: 0, n: 0, di: p.di, tw: p.tw };
+        cur.n++;
+        if (p.positive) cur.pos++;
+        cellBuckets.set(key, cur);
+      }
+      const meanRate = series.filter(p => p.positive).length / series.length;
+      const cellArr = [...cellBuckets.values()].filter(c => c.n >= 2);
+      cellArr.sort((a, b) => (b.pos / b.n) - (a.pos / a.n));
+      const topCell = cellArr[0];
+      if (topCell && topCell.pos / topCell.n - meanRate >= 0.30) {
+        findings.push({
+          kind: 'cell-peak',
+          text: `${DAYS[topCell.di]} ${TIME_LABELS[topCell.tw].toLowerCase()}s are your sharpest cell (${Math.round((topCell.pos / topCell.n) * 100)}% ${vocab.positiveLabel} across ${topCell.n} check-ins).`,
+          confidence: Math.min(1, (topCell.pos / topCell.n - meanRate) + topCell.n / 10),
+          observations: topCell.n,
+        });
+      }
+
+      // ── Consecutive same-DOW runs in the positive OR negative band ──
+      // Group by DOW, sort by date, walk runs of length ≥3.
+      const byDOW: Map<number, SeriesPoint[]> = new Map();
+      for (const p of series) {
+        if (!byDOW.has(p.di)) byDOW.set(p.di, []);
+        byDOW.get(p.di)!.push(p);
+      }
+      for (const [di, pts] of byDOW) {
+        const sorted = pts.slice().sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+        // Walk positive runs
+        for (const band of ['positive', 'negative'] as const) {
+          let run = 0;
+          for (const p of sorted) {
+            if (p[band]) {
+              run++;
+            } else {
+              if (run >= 3) {
+                findings.push({
+                  kind: 'consecutive',
+                  text: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.positiveLabel : vocab.negativeLabel}.`,
+                  confidence: Math.min(1, 0.4 + run / 10),
+                  observations: run,
+                });
+              }
+              run = 0;
             }
-            runOutcome = sorted[i][1]; runLen = 1;
+          }
+          if (run >= 3) {
+            findings.push({
+              kind: 'consecutive',
+              text: `${run}+ consecutive ${DAYS[di]}s you've checked in ${band === 'positive' ? vocab.positiveLabel : vocab.negativeLabel}.`,
+              confidence: Math.min(1, 0.4 + run / 10),
+              observations: run,
+            });
           }
         }
-        if (runLen >= 3 && runOutcome) {
-          if (!consecutiveByOutcome.has(runOutcome)) consecutiveByOutcome.set(runOutcome, { days: [], minRun: runLen });
-          const entry = consecutiveByOutcome.get(runOutcome)!;
-          entry.days.push(DAYS[di]);
-          entry.minRun = Math.min(entry.minRun, runLen);
-        }
-      }
-      // Consolidate: "You consistently check in 'steady' on Wed and Thu (3+ consecutive weeks each)"
-      for (const [outcome, data] of consecutiveByOutcome) {
-        if (data.days.length === 1) {
-          temporalPatterns.push(`${data.minRun}+ consecutive ${data.days[0]}s you've checked in '${outcome}'.`);
-        } else {
-          temporalPatterns.push(`You consistently check in '${outcome}' on ${data.days.join(' and ')} (${data.minRun}+ consecutive weeks each).`);
-        }
       }
 
-      // 2. Day-of-week × time-of-day comparison (e.g., "Friday evening more focused than Monday morning")
-      const dtScores: Map<string, { focusedPct: number; label: string; count: number }> = new Map();
-      const positiveOutcomes = new Set(["focused", "steady"]);
-      dayTimeOutcomes.forEach((outcomes, key) => {
-        if (outcomes.length < 2) return;
-        const [diStr, twStr] = key.split("-");
-        const posPct = outcomes.filter(o => positiveOutcomes.has(o)).length / outcomes.length;
-        dtScores.set(key, { focusedPct: posPct, label: `${TIME_LABELS[+twStr]} ${DAYS[+diStr]}`, count: outcomes.length });
-      });
-      if (dtScores.size >= 2) {
-        const sorted = [...dtScores.entries()].sort((a, b) => b[1].focusedPct - a[1].focusedPct);
-        const best = sorted[0][1];
-        const worst = sorted[sorted.length - 1][1];
-        if (best.focusedPct - worst.focusedPct >= 0.3 && best.count >= 2 && worst.count >= 2) {
-          temporalPatterns.push(
-            `${best.label} you're positive ${Math.round(best.focusedPct * 100)}% of the time vs ${worst.label} at ${Math.round(worst.focusedPct * 100)}%.`
-          );
-        }
+      // Order, dedupe by text, cap at 2.
+      findings.sort((a, b) => b.confidence - a.confidence);
+      const seenTexts = new Set<string>();
+      const deduped: RhythmFinding[] = [];
+      for (const f of findings) {
+        if (seenTexts.has(f.text)) continue;
+        seenTexts.add(f.text);
+        deduped.push(f);
+        if (deduped.length >= 2) break;
       }
+      return deduped;
+    };
 
-      // 3. Weekday vs weekend
-      if (weekdayOutcomes.length >= 3 && weekendOutcomes.length >= 2) {
-        const wdPos = weekdayOutcomes.filter(o => positiveOutcomes.has(o)).length / weekdayOutcomes.length;
-        const wePos = weekendOutcomes.filter(o => positiveOutcomes.has(o)).length / weekendOutcomes.length;
-        const diff = Math.abs(wdPos - wePos);
-        if (diff >= 0.2) {
-          const better = wdPos > wePos ? "weekdays" : "weekends";
-          const pct = Math.round(Math.max(wdPos, wePos) * 100);
-          temporalPatterns.push(`You tend to check in more positively on ${better} (${pct}% focused/steady).`);
-        }
-      }
+    const energySeries     = buildOutcomeSeries();
+    const claritySeries    = buildLevelSeries('clarity_level');
+    const sharpnessSeries  = buildLevelSeries('mental_sharpness_level');
+    const confidenceSeries = buildLevelSeries('confidence_level');
 
-      // 4. Time-of-day pattern
-      const timeScores: { tw: number; posPct: number; count: number }[] = [];
-      timeOutcomes.forEach((outcomes, tw) => {
-        if (outcomes.length >= 3) {
-          timeScores.push({ tw, posPct: outcomes.filter(o => positiveOutcomes.has(o)).length / outcomes.length, count: outcomes.length });
-        }
-      });
-      if (timeScores.length >= 2) {
-        timeScores.sort((a, b) => b.posPct - a.posPct);
-        const best = timeScores[0];
-        const worst = timeScores[timeScores.length - 1];
-        if (best.posPct - worst.posPct >= 0.2) {
-          temporalPatterns.push(
-            `${TIME_LABELS[best.tw]}s are your strongest window (${Math.round(best.posPct * 100)}% positive) – ${TIME_LABELS[worst.tw]}s your most challenging (${Math.round(worst.posPct * 100)}%).`
-          );
+    const energyFindings     = mineSeries(energySeries,     { dimension: 'energy',     positiveLabel: "'focused' / 'steady'", negativeLabel: "'drained' / 'overwhelmed'" });
+    const clarityFindings    = mineSeries(claritySeries,    { dimension: 'clarity',    positiveLabel: 'Crystal/Lucid (4–5)',  negativeLabel: 'Obscured/Clouded (1–2)' });
+    const sharpnessFindings  = mineSeries(sharpnessSeries,  { dimension: 'sharpness',  positiveLabel: 'Peak/Acute (4–5)',     negativeLabel: 'Dull/Depleted (1–2)' });
+    const confidenceFindings = mineSeries(confidenceSeries, { dimension: 'confidence', positiveLabel: 'Unshakable/Certain (4–5)', negativeLabel: 'Uncertain/Reactive (1–2)' });
+
+    // Total cap at 6: trim weakest dimensions first if needed.
+    const totalFound = energyFindings.length + clarityFindings.length + sharpnessFindings.length + confidenceFindings.length;
+    const dims = [
+      { name: 'energy', arr: energyFindings },
+      { name: 'clarity', arr: clarityFindings },
+      { name: 'sharpness', arr: sharpnessFindings },
+      { name: 'confidence', arr: confidenceFindings },
+    ];
+    let extra = totalFound - 6;
+    while (extra > 0) {
+      // Drop the lowest-confidence finding across all dims with >1 entry
+      let target: RhythmFinding | null = null;
+      let targetArr: RhythmFinding[] | null = null;
+      for (const d of dims) {
+        if (d.arr.length === 0) continue;
+        const last = d.arr[d.arr.length - 1];
+        if (!target || last.confidence < target.confidence) {
+          target = last; targetArr = d.arr;
         }
       }
+      if (!targetArr) break;
+      targetArr.pop();
+      extra--;
     }
+
+    const mindRhythmPatterns =
+      (energyFindings.length + clarityFindings.length + sharpnessFindings.length + confidenceFindings.length) > 0
+        ? {
+            energy: energyFindings,
+            clarity: clarityFindings,
+            sharpness: sharpnessFindings,
+            confidence: confidenceFindings,
+          }
+        : null;
+
+    // Top-level positive rate (mirror of friction) for the Trajectory scorecard.
+    // Returned even though the same value is also exposed by state-patterns-insights,
+    // so any caller of this endpoint can render it inline without a second fetch.
+    const positiveRate = checkIns.length >= 5
+      ? {
+          pct: Math.round(
+            (checkIns.filter(c => c.outcome && positiveOutcomeSet.has((c.outcome || '').toLowerCase())).length / checkIns.length) * 100
+          ),
+          n: checkIns.length,
+        }
+      : null;
 
     // ── DATA SOURCE NOTE ──
     const daySpan = checkIns.length > 0
@@ -970,29 +956,25 @@ serve(async (req) => {
       days: monthDays,
     }];
 
-    // Deduplicate temporal patterns against causeEffectInsight
-    let filteredTemporalPatterns = temporalPatterns;
-    if (causeEffectInsight) {
-      // If cause-effect says weekday/weekend or morning/evening, suppress matching temporal pattern
-      const ceWords = causeEffectInsight.toLowerCase();
-      filteredTemporalPatterns = temporalPatterns.filter(tp => {
-        const tpWords = tp.toLowerCase();
-        if (ceWords.includes('weekday') && tpWords.includes('weekday')) return false;
-        if (ceWords.includes('weekend') && tpWords.includes('weekend')) return false;
-        if (ceWords.includes('morning') && tpWords.includes('morning')) return false;
-        if (ceWords.includes('evening') && tpWords.includes('evening')) return false;
-        return true;
-      });
-    }
-
     const result = {
-      presenceScore,
-      presenceLabel,
-      presenceInsight,
-      presenceActions: presenceActions.length > 0 ? presenceActions : null,
-      temporalPatterns: filteredTemporalPatterns.length > 0 ? filteredTemporalPatterns.slice(0, 2) : null,
+      // Legacy presence fields fully retired — kept null so older client builds
+      // don't crash, but they will no longer surface anything in the UI.
+      presenceScore: null,
+      presenceLabel: null,
+      presenceInsight: null,
+      presenceActions: null,
+      temporalPatterns: null,
+
+      // New: pure rhythm patterns over the four trend calendars.
+      mindRhythmPatterns,
+
+      // New: positive-rate stat for Trajectory scorecard ("Consistency").
+      positiveRate,
+
+      // Calendar Pattern + Cause-Effect remain on their own cards.
       calendarInsight,
       causeEffectInsight,
+
       grid,
       weekRows,
       bestReadinessWindow,
@@ -1002,7 +984,10 @@ serve(async (req) => {
       dataSourceNote,
     };
 
-    console.log(`[perf-rhythm] Done: ci=${checkIns.length} presence=${presenceScore} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
+    const totalFindings = mindRhythmPatterns
+      ? mindRhythmPatterns.energy.length + mindRhythmPatterns.clarity.length + mindRhythmPatterns.sharpness.length + mindRhythmPatterns.confidence.length
+      : 0;
+    console.log(`[perf-rhythm] Done: ci=${checkIns.length} rhythm=${totalFindings} posRate=${positiveRate?.pct ?? 'n/a'} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
 
     return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders });
   } catch (e: unknown) {
