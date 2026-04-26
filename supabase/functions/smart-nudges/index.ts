@@ -284,6 +284,99 @@ interface NudgeCopy {
   variantId: string;
 }
 
+// ══════════════════════════════════════════════════════════════
+// ── A/B CTA Variant System (v5.1) ──
+// Goal: measure which action-verb CTA drives the highest
+// Brief/Plan opens. Each user is deterministically assigned to
+// one of 4 variants per nudge_type (stable across days, so groups
+// are clean). The variant rewrites the trailing CTA phrase of the
+// body so we A/B test the lure, not the substance.
+// ══════════════════════════════════════════════════════════════
+
+export type CtaVariant = 'A' | 'B' | 'C' | 'D';
+
+const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
+
+// Variant → CTA phrases. Keyed by deepLinkRoute family so we never
+// say "open your plan" while routing to /daily-check-in.
+const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
+  // A = control (current voice)
+  A: { brief: 'open your brief', plan: 'open your plan' },
+  // B = outcome-led
+  B: { brief: 'see your readiness', plan: 'see your prep' },
+  // C = urgency / direct action
+  C: { brief: 'recalibrate now',   plan: 'lock in your prep' },
+  // D = curiosity lure
+  D: { brief: 'tap to prep',       plan: 'tap to prep' },
+};
+
+// Stable hash so the same user lands in the same bucket per nudge_type
+function hashString(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function assignCtaVariant(userId: string, nudgeTypeFamily: string): CtaVariant {
+  // Family = 'nudge_one' | 'nudge_two' | 'nudge_three' so JIT and
+  // morning variants share a bucket per family per user.
+  const idx = hashString(`${userId}::${nudgeTypeFamily}`) % CTA_VARIANTS.length;
+  return CTA_VARIANTS[idx];
+}
+
+function nudgeFamily(nudgeType: string): string {
+  if (nudgeType.startsWith('nudge_one'))   return 'nudge_one';
+  if (nudgeType.startsWith('nudge_two'))   return 'nudge_two';
+  if (nudgeType.startsWith('nudge_three')) return 'nudge_three';
+  return nudgeType;
+}
+
+// Recognise the canonical control phrases the fallbacks/AI emit.
+const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
+  { rx: /open your brief/gi, kind: 'brief' },
+  { rx: /open the brief/gi,  kind: 'brief' },
+  { rx: /open your plan/gi,  kind: 'plan'  },
+  { rx: /open the plan/gi,   kind: 'plan'  },
+];
+
+function applyCtaVariant(
+  copy: NudgeCopy,
+  variant: CtaVariant,
+  deepLinkRoute: string,
+): NudgeCopy {
+  // Variant A is the control — leave body untouched but tag it.
+  if (variant === 'A') {
+    return { ...copy, variantId: `${copy.variantId}::A` };
+  }
+
+  let body = copy.body;
+  let rewrote = false;
+  for (const p of CTA_REWRITE_PATTERNS) {
+    if (p.rx.test(body)) {
+      const phrase = CTA_PHRASES[variant][p.kind];
+      body = body.replace(p.rx, phrase);
+      rewrote = true;
+    }
+  }
+
+  // No canonical phrase found — append a CTA so the experiment still runs.
+  if (!rewrote) {
+    const kind: 'brief' | 'plan' = deepLinkRoute === '/executive-home' ? 'plan' : 'brief';
+    const phrase = CTA_PHRASES[variant][kind];
+    body = body.replace(/[.\s]+$/, '');
+    body = `${body} — ${phrase}`;
+  }
+
+  return {
+    ...copy,
+    body: body.substring(0, 160),
+    variantId: `${copy.variantId}::${variant}`,
+  };
+}
+
 interface QualifiedNudge {
   type: string;
   copy: NudgeCopy;
