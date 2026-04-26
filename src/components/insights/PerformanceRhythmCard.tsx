@@ -1017,9 +1017,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </>
             )}
 
-            {/* 1A – How You Show Up (7+ check-ins) — moved below the four trend calendars */}
-            {data.checkInCount >= 7 && data.presenceLabel && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+            {/* 1A – How You Show Up: Mind Rhythm Patterns (pure rhythm reader) */}
+            {data.checkInCount >= 7 && data.mindRhythmPatterns && (
+              (data.mindRhythmPatterns.energy.length +
+               data.mindRhythmPatterns.clarity.length +
+               data.mindRhythmPatterns.sharpness.length +
+               data.mindRhythmPatterns.confidence.length) > 0 && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
                   <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
@@ -1027,36 +1031,29 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   <InsightInfoModal
                     title="How You Show Up"
-                    explanation="A snapshot of your presence and readiness under pressure. Drawn from your check-in patterns and high-stakes moments on your calendar – it reflects how consistently you operate at your best."
+                    explanation="When you're most and least energetic, clear, sharp, and confident — drawn only from your check-in trends above. Patterns surface once a dimension has at least 7 check-ins and a meaningful gap between time-of-day or day-of-week buckets."
                   />
                 </div>
-                <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
-                {data.presenceInsight && (
-                  <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
-                )}
-                {(data.presenceActions?.length || data.temporalPatterns?.length || data.causeEffectInsight) ? (
-                  <ul className="pl-6 space-y-1.5 mt-1">
-                    {data.presenceActions?.map((action, i) => (
-                      <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{action}</span>
-                      </li>
-                    ))}
-                    {data.temporalPatterns?.slice(0, 2).map((pattern, i) => (
-                      <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
-                        <span>{pattern}</span>
-                      </li>
-                    ))}
-                    {data.causeEffectInsight && (
-                      <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
-                        <span>{data.causeEffectInsight}</span>
-                      </li>
-                    )}
-                  </ul>
-                ) : null}
+                {([
+                  { key: 'energy',     label: 'Energy',     items: data.mindRhythmPatterns.energy },
+                  { key: 'clarity',    label: 'Clarity',    items: data.mindRhythmPatterns.clarity },
+                  { key: 'sharpness',  label: 'Sharpness',  items: data.mindRhythmPatterns.sharpness },
+                  { key: 'confidence', label: 'Confidence', items: data.mindRhythmPatterns.confidence },
+                ] as const).filter(d => d.items.length > 0).map(d => (
+                  <div key={d.key} className="pl-6 space-y-1">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-body">{d.label}</p>
+                    <ul className="space-y-1">
+                      {d.items.map((f, i) => (
+                        <li key={i} className="text-xs text-foreground/80 leading-relaxed flex items-start gap-2">
+                          <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                          <span>{f.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
+              )
             )}
 
             {/* Elevated: Your Sharpest Window */}
