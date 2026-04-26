@@ -1,0 +1,681 @@
+/**
+ * cause-effect-engine (v2)
+ *
+ * Powers the unified "Performance Causality" card on the Insights page.
+ * Produces 5 sources of cause→effect findings with two-tier confidence:
+ *
+ *   Lens A — Events / calendar load → Physiology
+ *     • Per event-type (HRV / RHR delta vs non-event days)
+ *     • Calendar-load tertile (high-load days vs rest) — NEW, doesn't depend
+ *       on event-title keywords so every wearable-equipped user gets coverage
+ *   Lens B — Events → Cognition (most-impacted dim per event-type)
+ *   Lens C — Sleep → Next-day decision quality (PRS / morning sharpness / clarity)
+ *   Lens D — Consecutive heavy-day streaks → PRS / HRV
+ *
+ * Confidence tiers (sent to UI as a pill):
+ *   strong   — n ≥ 5 AND |Δ| ≥ MIN_DELTA_PCT_STRONG / 1.0 tier
+ *   emerging — n ≥ 3 AND |Δ| ≥ MIN_DELTA_PCT_EMERGING / 0.5 tier
+ * Anything below "emerging" is dropped (CEO contract preserved).
+ *
+ * Auth: Auth0 JWT via verifyAuth0JWT.
+ * Storage: cached daily in `causality_findings` (service-role only).
+ */
+
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+
+// ── Tunables ───────────────────────────────────────────────────────────
+const WINDOW_DAYS = 30;
+const MIN_OCCURRENCES_EMERGING = 3;
+const MIN_OCCURRENCES_STRONG = 5;
+const MIN_DELTA_PCT_EMERGING = 10;
+const MIN_DELTA_PCT_STRONG = 15;
+const MIN_TIER_DELTA_EMERGING = 0.5;
+const MIN_TIER_DELTA_STRONG = 1.0;
+const RECOVERY_TOLERANCE_PCT = 5;
+const RECOVERY_LOOKAHEAD_DAYS = 4;
+
+// ── Types ──────────────────────────────────────────────────────────────
+type Lens = "A" | "B" | "C" | "D";
+type Direction = "negative" | "positive";
+type Confidence = "strong" | "emerging";
+
+interface Finding {
+  lens: Lens;
+  cause: string;
+  effectSignal: string;
+  unit: string;
+  baseline: number;
+  observed: number;
+  deltaAbs: number;
+  deltaPct: number;
+  n: number;
+  recoveryDays: number | null;
+  direction: Direction;
+  confidence: Confidence;
+  longText: string;
+}
+
+interface Coverage {
+  hasCalendar: boolean;
+  hasWearable: boolean;
+  hasWearableSleep: boolean;
+  checkinCount: number;
+  briefCount: number;
+  wearableDayCount: number;
+  eventCount: number;
+  eventTypesIdentified: number;
+}
+
+interface Payload {
+  top: Finding | null;
+  lensA: Finding[];
+  lensB: Finding[];
+  lensC: Finding[];
+  lensD: Finding[];
+  coverage: Coverage;
+  generatedAt: string;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + n);
+  return x;
+}
+function mean(xs: number[]): number {
+  if (xs.length === 0) return 0;
+  return xs.reduce((a, b) => a + b, 0) / xs.length;
+}
+function pctDelta(observed: number, baseline: number): number {
+  if (!baseline) return 0;
+  return ((observed - baseline) / Math.abs(baseline)) * 100;
+}
+
+/** Returns 'strong' | 'emerging' | null based on n + |Δ|. Numeric units (%). */
+function classifyNumeric(deltaPct: number, n: number): Confidence | null {
+  const absD = Math.abs(deltaPct);
+  if (n >= MIN_OCCURRENCES_STRONG && absD >= MIN_DELTA_PCT_STRONG) return "strong";
+  if (n >= MIN_OCCURRENCES_EMERGING && absD >= MIN_DELTA_PCT_EMERGING) return "emerging";
+  return null;
+}
+/** Returns 'strong' | 'emerging' | null based on n + |Δ| in tier units (1-5). */
+function classifyTier(deltaAbs: number, n: number): Confidence | null {
+  const absD = Math.abs(deltaAbs);
+  if (n >= MIN_OCCURRENCES_STRONG && absD >= MIN_TIER_DELTA_STRONG) return "strong";
+  if (n >= MIN_OCCURRENCES_EMERGING && absD >= MIN_TIER_DELTA_EMERGING) return "emerging";
+  return null;
+}
+function impactScore(f: Finding): number {
+  // Cross-lens ranking. Strong findings outrank emerging at equal magnitude.
+  const tierBoost = f.confidence === "strong" ? 1.4 : 1.0;
+  return Math.abs(f.deltaPct) * Math.log2(1 + f.n) * tierBoost;
+}
+
+// Calendar event → coarse type label (broadened buckets)
+const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
+  { label: "Board / governance",     words: ["board", "governance"] },
+  { label: "Investor calls",         words: ["investor", "vc ", " vc", "fundraise", "raise", "pitch deck"] },
+  { label: "Reviews",                words: ["review", "qbr", "quarterly"] },
+  { label: "1:1s",                   words: ["1:1", "1-1", "one on one", "1on1"] },
+  { label: "All-hands",              words: ["all-hands", "all hands", "town hall", "townhall"] },
+  { label: "Client meetings",        words: ["client", "customer", "stakeholder"] },
+  { label: "Interviews",             words: ["interview", "candidate"] },
+  { label: "Deep work blocks",       words: ["deep work", "focus block", "writing time"] },
+  { label: "Exec / leadership",      words: ["exec", "executive", "leadership", "ceo ", " ceo", "cto ", " cto"] },
+  // ── Broader catch-alls (added in v2) ─────────────────────────────────
+  { label: "Networking & community", words: ["meetup", "summit", "expo", "conference", "info session", "community", "rise ai", "scale", "ai thursday", "connects"] },
+  { label: "Intro / discovery calls", words: ["intro", "discovery", "chemistry"] },
+  { label: "Catch-ups & syncs",       words: ["catchup", "catch-up", "catch up", "sync", "check-in", "check in", "weekly", "standup", "stand-up"] },
+  { label: "School & family",         words: ["school", "parents evening", "open evening", "parents", "governor"] },
+  { label: "Internal builds",         words: ["debug", "dashboard", "engineering", "sprint", "planning", "db ", " db"] },
+];
+
+function classifyEvent(title: string | null | undefined): string | null {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  for (const ec of EVENT_TYPE_KEYWORDS) {
+    if (ec.words.some((w) => t.includes(w))) return ec.label;
+  }
+  return null;
+}
+
+/** Final fallback: classify by attendee count so every event lands in a bucket. */
+function classifyByAttendees(attendees: number | null | undefined): string {
+  const a = typeof attendees === "number" ? attendees : 0;
+  if (a === 0) return "Solo work blocks";
+  if (a >= 4) return "Group meetings";
+  return "Small-group meetings";
+}
+
+// ── Main handler ───────────────────────────────────────────────────────
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    let userId: string | null = null;
+    try {
+      userId = await verifyAuth0JWT(req);
+    } catch (authErr: any) {
+      console.log("[cause-effect-engine] auth rejected:", authErr?.message || authErr);
+    }
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+
+    let body: any = {};
+    try { body = await req.json(); } catch { /* empty body ok */ }
+    const force = body?.force === true || body?.force === 1;
+    const days = Math.min(Math.max(Number(body?.days) || WINDOW_DAYS, 14), 90);
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const today = new Date();
+    const todayStr = ymd(today);
+
+    // Cache check (24h) ------------------------------------------------
+    if (!force) {
+      const { data: cached } = await supabase
+        .from("causality_findings")
+        .select("payload")
+        .eq("user_id", userId)
+        .eq("computed_for_date", todayStr)
+        .maybeSingle();
+      if (cached?.payload) {
+        return new Response(JSON.stringify({ ...cached.payload, cached: true }), {
+          status: 200,
+          headers: corsHeaders,
+        });
+      }
+    }
+
+    const startStr = ymd(addDays(today, -days));
+    const startIso = new Date(startStr + "T00:00:00Z").toISOString();
+
+    // Parallel reads ---------------------------------------------------
+    const [eventsRes, wearableRes, checkinsRes, briefsRes, calConnRes] = await Promise.all([
+      supabase.from("calendar_events")
+        .select("title, start_time, end_time, attendees_count, is_organizer")
+        .eq("user_id", userId)
+        .gte("start_time", startIso),
+      supabase.from("wearable_data")
+        .select("summary_date, hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes")
+        .eq("user_id", userId)
+        .gte("summary_date", startStr),
+      supabase.from("daily_checkins")
+        .select("checkin_date, time_window, clarity_level, mental_sharpness_level, confidence_level, outcome, timestamp")
+        .eq("user_id", userId)
+        .gte("checkin_date", startStr),
+      supabase.from("brief_snapshots")
+        .select("local_date, time_window, score")
+        .eq("user_id", userId)
+        .gte("local_date", startStr),
+      supabase.from("calendar_connections")
+        .select("is_active")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
+
+    const events = eventsRes.data || [];
+    const wearable = wearableRes.data || [];
+    const checkins = checkinsRes.data || [];
+    const briefs = briefsRes.data || [];
+    const hasCalendar = !!calConnRes.data?.is_active;
+
+    const sleepRowsAvailable = wearable.filter(
+      (w: any) => typeof w.sleep_score === "number" || typeof w.total_sleep_minutes === "number",
+    ).length;
+
+    // Index helpers ----------------------------------------------------
+    const wearableByDay = new Map<string, typeof wearable[number]>();
+    wearable.forEach((w) => wearableByDay.set(w.summary_date as string, w));
+
+    const briefsByDay = new Map<string, number[]>();
+    briefs.forEach((b: any) => {
+      if (typeof b.score !== "number") return;
+      const d = b.local_date as string;
+      if (!briefsByDay.has(d)) briefsByDay.set(d, []);
+      briefsByDay.get(d)!.push(b.score);
+    });
+    const prsByDay = new Map<string, number>();
+    briefsByDay.forEach((arr, d) => prsByDay.set(d, mean(arr)));
+
+    const morningCheckinsByDay = new Map<string, typeof checkins[number]>();
+    const allCheckinsByDay = new Map<string, typeof checkins>();
+    checkins.forEach((c) => {
+      const d = c.checkin_date as string;
+      if (!allCheckinsByDay.has(d)) allCheckinsByDay.set(d, []);
+      allCheckinsByDay.get(d)!.push(c);
+      if (c.time_window === "morning") morningCheckinsByDay.set(d, c);
+    });
+
+    // Group events by date (with fallback bucket so every event is classified)
+    const eventsByDay = new Map<string, typeof events>();
+    const eventTypeDays = new Map<string, Set<string>>(); // label -> Set<date>
+    events.forEach((e: any) => {
+      const d = ymd(new Date(e.start_time));
+      if (!eventsByDay.has(d)) eventsByDay.set(d, []);
+      eventsByDay.get(d)!.push(e);
+      const label = classifyEvent(e.title) ?? classifyByAttendees(e.attendees_count);
+      if (!eventTypeDays.has(label)) eventTypeDays.set(label, new Set());
+      eventTypeDays.get(label)!.add(d);
+    });
+
+    // Daily calendar load (minutes)
+    const loadByDay = new Map<string, number>();
+    events.forEach((e: any) => {
+      if (!e.start_time || !e.end_time) return;
+      const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
+      if (dur <= 0) return;
+      const d = ymd(new Date(e.start_time));
+      loadByDay.set(d, (loadByDay.get(d) || 0) + dur);
+    });
+
+    // Universe of dates in window (for non-event baselines)
+    const allDates: string[] = [];
+    for (let i = 0; i < days; i++) allDates.push(ymd(addDays(today, -i)));
+
+    const coverage: Coverage = {
+      hasCalendar,
+      hasWearable: wearable.length >= 5,
+      hasWearableSleep: sleepRowsAvailable >= 5,
+      checkinCount: checkins.length,
+      briefCount: briefs.length,
+      wearableDayCount: wearable.length,
+      eventCount: events.length,
+      eventTypesIdentified: eventTypeDays.size,
+    };
+
+    // ── Lens A.1 — Per event-type → Physiology ──────────────────────
+    const lensA: Finding[] = [];
+    const wearableHasAnySignal = wearable.some(
+      (w: any) => typeof w.hrv === "number" || typeof w.resting_heart_rate === "number",
+    );
+    if (hasCalendar && wearableHasAnySignal && eventTypeDays.size > 0) {
+      for (const sig of ["hrv", "resting_heart_rate"] as const) {
+        const sigUnit = sig === "hrv" ? "ms" : "bpm";
+        const sigLabel = sig === "hrv" ? "HRV" : "RHR";
+
+        for (const [label, daySet] of eventTypeDays) {
+          const eventDayVals: number[] = [];
+          const nonEventVals: number[] = [];
+          allDates.forEach((d) => {
+            const w = wearableByDay.get(d);
+            const v = w?.[sig];
+            if (typeof v !== "number" || v <= 0) return;
+            if (daySet.has(d)) eventDayVals.push(v);
+            else nonEventVals.push(v);
+          });
+          if (eventDayVals.length < MIN_OCCURRENCES_EMERGING || nonEventVals.length < 3) continue;
+
+          const baseline = mean(nonEventVals);
+          const observed = mean(eventDayVals);
+          const deltaPct = pctDelta(observed, baseline);
+          const conf = classifyNumeric(deltaPct, eventDayVals.length);
+          if (!conf) continue;
+
+          const isHarmful = sig === "hrv" ? deltaPct < 0 : deltaPct > 0;
+          if (!isHarmful) continue;
+
+          // Recovery: days post-event for HRV/RHR to return to ±5%
+          const recoverySamples: number[] = [];
+          for (const ed of daySet) {
+            for (let k = 1; k <= RECOVERY_LOOKAHEAD_DAYS; k++) {
+              const nd = ymd(addDays(new Date(ed + "T00:00:00Z"), k));
+              const wn = wearableByDay.get(nd);
+              const vn = wn?.[sig];
+              if (typeof vn !== "number" || vn <= 0) continue;
+              if (Math.abs(pctDelta(vn, baseline)) <= RECOVERY_TOLERANCE_PCT) {
+                recoverySamples.push(k);
+                break;
+              }
+            }
+          }
+          const recoveryDays = recoverySamples.length >= 2 ? Math.round(mean(recoverySamples)) : null;
+
+          lensA.push({
+            lens: "A",
+            cause: label,
+            effectSignal: sigLabel,
+            unit: sigUnit,
+            baseline: Math.round(baseline * 10) / 10,
+            observed: Math.round(observed * 10) / 10,
+            deltaAbs: Math.round((observed - baseline) * 10) / 10,
+            deltaPct: Math.round(deltaPct * 10) / 10,
+            n: eventDayVals.length,
+            recoveryDays,
+            direction: "negative",
+            confidence: conf,
+            longText: `On days with ${label.toLowerCase()}, your ${sigLabel} averages ${observed.toFixed(0)}${sigUnit} vs your ${baseline.toFixed(0)}${sigUnit} baseline (n=${eventDayVals.length})${recoveryDays ? ` — typically recovers within ${recoveryDays} day${recoveryDays === 1 ? "" : "s"}.` : "."}`,
+          });
+        }
+      }
+    }
+
+    // ── Lens A.2 — Calendar load tertile → Physiology (NEW) ─────────
+    if (hasCalendar && wearableHasAnySignal && loadByDay.size >= 6) {
+      const loads = [...loadByDay.values()].sort((a, b) => a - b);
+      const heavyCut = loads[Math.floor((2 * loads.length) / 3)] || 0;
+      const heavyDays = new Set<string>();
+      loadByDay.forEach((m, d) => { if (m >= heavyCut && m > 0) heavyDays.add(d); });
+
+      for (const sig of ["hrv", "resting_heart_rate"] as const) {
+        const sigUnit = sig === "hrv" ? "ms" : "bpm";
+        const sigLabel = sig === "hrv" ? "HRV" : "RHR";
+        const heavyVals: number[] = [];
+        const lightVals: number[] = [];
+        allDates.forEach((d) => {
+          const w = wearableByDay.get(d);
+          const v = w?.[sig];
+          if (typeof v !== "number" || v <= 0) return;
+          if (heavyDays.has(d)) heavyVals.push(v);
+          else if (loadByDay.has(d)) lightVals.push(v); // only days with some load form the "light" baseline
+          else lightVals.push(v); // no events at all → still part of baseline
+        });
+        if (heavyVals.length < MIN_OCCURRENCES_EMERGING || lightVals.length < 3) continue;
+
+        const baseline = mean(lightVals);
+        const observed = mean(heavyVals);
+        const deltaPct = pctDelta(observed, baseline);
+        const conf = classifyNumeric(deltaPct, heavyVals.length);
+        if (!conf) continue;
+        const isHarmful = sig === "hrv" ? deltaPct < 0 : deltaPct > 0;
+        if (!isHarmful) continue;
+
+        lensA.push({
+          lens: "A",
+          cause: "High-load calendar days",
+          effectSignal: sigLabel,
+          unit: sigUnit,
+          baseline: Math.round(baseline * 10) / 10,
+          observed: Math.round(observed * 10) / 10,
+          deltaAbs: Math.round((observed - baseline) * 10) / 10,
+          deltaPct: Math.round(deltaPct * 10) / 10,
+          n: heavyVals.length,
+          recoveryDays: null,
+          direction: "negative",
+          confidence: conf,
+          longText: `On your top-third calendar-load days, ${sigLabel} averages ${observed.toFixed(0)}${sigUnit} vs your ${baseline.toFixed(0)}${sigUnit} baseline (n=${heavyVals.length}).`,
+        });
+      }
+    }
+
+    // ── Lens B — Events → Cognition ─────────────────────────────────
+    const lensB: Finding[] = [];
+    if (hasCalendar && checkins.length >= 7 && eventTypeDays.size > 0) {
+      const cogDims: Array<{ key: "clarity_level" | "mental_sharpness_level" | "confidence_level"; label: string }> = [
+        { key: "clarity_level", label: "Clarity" },
+        { key: "mental_sharpness_level", label: "Sharpness" },
+        { key: "confidence_level", label: "Confidence" },
+      ];
+
+      for (const [label, daySet] of eventTypeDays) {
+        let best: Finding | null = null;
+        for (const dim of cogDims) {
+          const eventVals: number[] = [];
+          const baseVals: number[] = [];
+          allDates.forEach((d) => {
+            const slots = allCheckinsByDay.get(d) || [];
+            slots.forEach((c: any) => {
+              const v = c[dim.key];
+              if (typeof v !== "number" || v <= 0) return;
+              if (daySet.has(d)) eventVals.push(v);
+              else baseVals.push(v);
+            });
+          });
+          if (eventVals.length < MIN_OCCURRENCES_EMERGING || baseVals.length < 3) continue;
+          const baseline = mean(baseVals);
+          const observed = mean(eventVals);
+          const deltaAbs = observed - baseline;
+          const conf = classifyTier(deltaAbs, eventVals.length);
+          if (!conf) continue;
+          if (deltaAbs >= 0) continue;
+
+          const deltaPct = pctDelta(observed, baseline);
+          const finding: Finding = {
+            lens: "B",
+            cause: label,
+            effectSignal: dim.label,
+            unit: "tier",
+            baseline: Math.round(baseline * 10) / 10,
+            observed: Math.round(observed * 10) / 10,
+            deltaAbs: Math.round(deltaAbs * 10) / 10,
+            deltaPct: Math.round(deltaPct * 10) / 10,
+            n: eventVals.length,
+            recoveryDays: null,
+            direction: "negative",
+            confidence: conf,
+            longText: `On ${label.toLowerCase()} days, your ${dim.label} averages ${observed.toFixed(1)}/5 vs your ${baseline.toFixed(1)}/5 baseline (n=${eventVals.length}).`,
+          };
+          if (!best || Math.abs(finding.deltaAbs) > Math.abs(best.deltaAbs)) best = finding;
+        }
+        if (best) lensB.push(best);
+      }
+    }
+
+    // ── Lens C — Sleep → Next-day Decision Quality ──────────────────
+    const lensC: Finding[] = [];
+    if (sleepRowsAvailable >= 5 && (briefs.length >= 5 || checkins.length >= 7)) {
+      const sleepRows = wearable
+        .filter((w: any) => typeof w.sleep_score === "number" || typeof w.total_sleep_minutes === "number")
+        .map((w: any) => ({
+          date: w.summary_date as string,
+          score: typeof w.sleep_score === "number" ? w.sleep_score : (w.total_sleep_minutes / 60),
+          isMinutes: typeof w.sleep_score !== "number",
+        }));
+      const sorted = [...sleepRows].sort((a, b) => a.score - b.score);
+      const lowCut = sorted[Math.floor(sorted.length / 3)].score;
+      const highCut = sorted[Math.floor((2 * sorted.length) / 3)].score;
+
+      const buckets: Record<"low" | "mid" | "high", string[]> = { low: [], mid: [], high: [] };
+      sleepRows.forEach((r) => {
+        const t = r.score <= lowCut ? "low" : r.score >= highCut ? "high" : "mid";
+        buckets[t].push(r.date);
+      });
+
+      const dimsForC: Array<{ name: "PRS" | "Sharpness" | "Clarity"; unit: string; lookup: (d: string) => number | null }> = [
+        { name: "PRS",       unit: "pts",  lookup: (d) => prsByDay.get(d) ?? null },
+        { name: "Sharpness", unit: "tier", lookup: (d) => morningCheckinsByDay.get(d)?.mental_sharpness_level ?? null },
+        { name: "Clarity",   unit: "tier", lookup: (d) => morningCheckinsByDay.get(d)?.clarity_level ?? null },
+      ];
+
+      for (const dim of dimsForC) {
+        const valuesByBucket: Record<"low" | "mid" | "high", number[]> = { low: [], mid: [], high: [] };
+        (Object.keys(buckets) as Array<"low" | "mid" | "high">).forEach((tier) => {
+          buckets[tier].forEach((sleepDate) => {
+            const next = ymd(addDays(new Date(sleepDate + "T00:00:00Z"), 1));
+            const v = dim.lookup(next);
+            if (typeof v === "number" && v > 0) valuesByBucket[tier].push(v);
+          });
+        });
+
+        const nLow = valuesByBucket.low.length;
+        const nNonLow = valuesByBucket.mid.length + valuesByBucket.high.length;
+        if (nLow < MIN_OCCURRENCES_EMERGING || nNonLow < 3) continue;
+
+        const baseline = mean([...valuesByBucket.mid, ...valuesByBucket.high]);
+        const observed = mean(valuesByBucket.low);
+        const deltaAbs = observed - baseline;
+        const deltaPct = pctDelta(observed, baseline);
+        const conf = dim.unit === "tier"
+          ? classifyTier(deltaAbs, nLow)
+          : classifyNumeric(deltaPct, nLow);
+        if (!conf) continue;
+        if (deltaAbs >= 0) continue;
+
+        const lowSample = sleepRows.find((r) => r.score === lowCut);
+        const causeLabel = lowSample?.isMinutes
+          ? `Low-sleep nights (<${lowCut.toFixed(1)}h)`
+          : `Low-sleep nights (score ≤ ${Math.round(lowCut)})`;
+
+        lensC.push({
+          lens: "C",
+          cause: causeLabel,
+          effectSignal: dim.name,
+          unit: dim.unit,
+          baseline: Math.round(baseline * 10) / 10,
+          observed: Math.round(observed * 10) / 10,
+          deltaAbs: Math.round(deltaAbs * 10) / 10,
+          deltaPct: Math.round(deltaPct * 10) / 10,
+          n: nLow,
+          recoveryDays: null,
+          direction: "negative",
+          confidence: conf,
+          longText: `After ${causeLabel.toLowerCase()}, next-day ${dim.name} averages ${observed.toFixed(dim.unit === "tier" ? 1 : 0)}${dim.unit === "tier" ? "/5" : dim.unit === "pts" ? " pts" : ""} vs your ${baseline.toFixed(dim.unit === "tier" ? 1 : 0)}${dim.unit === "tier" ? "/5" : dim.unit === "pts" ? " pts" : ""} baseline (n=${nLow}).`,
+        });
+      }
+    }
+
+    // ── Lens D — Consecutive heavy days → Recovery (lowered floor) ──
+    const lensD: Finding[] = [];
+    if (hasCalendar && loadByDay.size >= 6) {
+      const loads = [...loadByDay.values()].sort((a, b) => a - b);
+      const heavyCut = loads[Math.floor((2 * loads.length) / 3)] || 0;
+      const heavyDays = new Set<string>();
+      loadByDay.forEach((m, d) => { if (m >= heavyCut && m > 0) heavyDays.add(d); });
+
+      const orderedDates = [...allDates].sort();
+      const runEndPlusOne: string[] = [];
+      let runLen = 0;
+      for (let i = 0; i < orderedDates.length; i++) {
+        const d = orderedDates[i];
+        if (heavyDays.has(d)) runLen++;
+        else {
+          if (runLen >= 2) runEndPlusOne.push(d);
+          runLen = 0;
+        }
+      }
+
+      // Allow emerging at n>=2; classifyNumeric gates final confidence.
+      if (runEndPlusOne.length >= 2) {
+        const runTailSet = new Set(runEndPlusOne);
+        const dimsForD: Array<{ name: "PRS" | "HRV"; unit: string; lookup: (d: string) => number | null }> = [
+          { name: "PRS", unit: "pts", lookup: (d) => prsByDay.get(d) ?? null },
+          { name: "HRV", unit: "ms",  lookup: (d) => (wearableByDay.get(d)?.hrv as number) ?? null },
+        ];
+
+        for (const dim of dimsForD) {
+          const tailVals: number[] = [];
+          const baseVals: number[] = [];
+          allDates.forEach((d) => {
+            const v = dim.lookup(d);
+            if (typeof v !== "number" || v <= 0) return;
+            if (runTailSet.has(d)) tailVals.push(v);
+            else if (!heavyDays.has(d)) baseVals.push(v);
+          });
+          if (tailVals.length < MIN_OCCURRENCES_EMERGING || baseVals.length < 3) continue;
+
+          const baseline = mean(baseVals);
+          const observed = mean(tailVals);
+          const deltaPct = pctDelta(observed, baseline);
+          const conf = classifyNumeric(deltaPct, tailVals.length);
+          if (!conf) continue;
+          if (deltaPct >= 0) continue; // both PRS and HRV: lower = harmful
+
+          const recovery: number[] = [];
+          runEndPlusOne.forEach((tailDay) => {
+            for (let k = 0; k <= RECOVERY_LOOKAHEAD_DAYS; k++) {
+              const probe = ymd(addDays(new Date(tailDay + "T00:00:00Z"), k));
+              const v = dim.lookup(probe);
+              if (typeof v !== "number" || v <= 0) continue;
+              if (Math.abs(pctDelta(v, baseline)) <= RECOVERY_TOLERANCE_PCT) {
+                recovery.push(k + 1);
+                break;
+              }
+            }
+          });
+          const recoveryDays = recovery.length >= 2 ? Math.round(mean(recovery)) : null;
+
+          lensD.push({
+            lens: "D",
+            cause: "Back-to-back heavy days",
+            effectSignal: dim.name,
+            unit: dim.unit,
+            baseline: Math.round(baseline * 10) / 10,
+            observed: Math.round(observed * 10) / 10,
+            deltaAbs: Math.round((observed - baseline) * 10) / 10,
+            deltaPct: Math.round(deltaPct * 10) / 10,
+            n: tailVals.length,
+            recoveryDays,
+            direction: "negative",
+            confidence: conf,
+            longText: `After 2+ consecutive heavy calendar days, your ${dim.name} drops to ${observed.toFixed(0)}${dim.unit === "pts" ? " pts" : dim.unit} vs your ${baseline.toFixed(0)}${dim.unit === "pts" ? " pts" : dim.unit} baseline (n=${tailVals.length})${recoveryDays ? ` — typically takes ${recoveryDays} day${recoveryDays === 1 ? "" : "s"} to recover.` : "."}`,
+          });
+        }
+      }
+    }
+
+    // De-dup & trim each lens to top 3 by impact
+    const dedupAndTrim = (arr: Finding[]) => {
+      const seen = new Set<string>();
+      const unique: Finding[] = [];
+      for (const f of arr.sort((a, b) => impactScore(b) - impactScore(a))) {
+        const key = `${f.cause}|${f.effectSignal}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(f);
+        if (unique.length >= 3) break;
+      }
+      return unique;
+    };
+    const lensATop = dedupAndTrim(lensA);
+    const lensBTop = dedupAndTrim(lensB);
+    const lensCTop = dedupAndTrim(lensC);
+    const lensDTop = dedupAndTrim(lensD);
+
+    const all = [...lensATop, ...lensBTop, ...lensCTop, ...lensDTop];
+    const top = all.length > 0
+      ? all.reduce((best, f) => (impactScore(f) > impactScore(best) ? f : best), all[0])
+      : null;
+
+    const payload: Payload = {
+      top,
+      lensA: lensATop,
+      lensB: lensBTop,
+      lensC: lensCTop,
+      lensD: lensDTop,
+      coverage,
+      generatedAt: new Date().toISOString(),
+    };
+
+    const { error: upsertErr } = await supabase
+      .from("causality_findings")
+      .upsert({
+        user_id: userId,
+        computed_for_date: todayStr,
+        payload: payload as any,
+      }, { onConflict: "user_id,computed_for_date" });
+    if (upsertErr) console.error("[cause-effect-engine] cache upsert failed:", upsertErr);
+
+    return new Response(JSON.stringify({ ...payload, cached: false }), {
+      status: 200,
+      headers: corsHeaders,
+    });
+  } catch (err: any) {
+    console.error("[cause-effect-engine] FATAL:", err?.message || err);
+    return new Response(
+      JSON.stringify({ error: err?.message || "Internal error" }),
+      { status: 500, headers: corsHeaders },
+    );
+  }
+});
