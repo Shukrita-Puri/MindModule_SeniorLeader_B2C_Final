@@ -865,33 +865,35 @@ Tone: permission to stop, close the loop. NEVER say: wellness, mindfulness, rela
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // Only reference sleep if wearable data exists
+  // v5 — Chief-of-Staff-for-the-Mind voice. Always references a mental
+  // performance pillar (decision readiness / reserves / resilience) and
+  // ends with an artefact verb (open your brief).
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-N1-recovery' };
+    return { title: 'Reserves are low', body: 'Sleep score below baseline — open your brief to recalibrate before today', variantId: 'FB-N1-recovery' };
   }
-  if (ctx.highStakesEvents.length > 0 && ctx.eventCount >= 3) {
-    return { title: `${ctx.highStakesEvents[0].title || 'High-stakes'} today`, body: `${ctx.eventCount} events including ${ctx.highStakesEvents[0].title} — check in to sharpen`, variantId: 'FB-N1-loaded-stakes' };
+  if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
+    return { title: 'Recovery debt detected', body: `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline — open your brief to set today's posture`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
-    return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today — set the tone before it sets you`, variantId: 'FB-N1-stakes' };
+    const ev = ctx.highStakesEvents[0].title || 'high-stakes meeting';
+    return { title: 'Sharpen for what matters', body: `${ev} today — open your brief to lock in decision readiness`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: 'Loaded day', body: `${ctx.eventCount} meetings today — set the tone before it sets you`, variantId: 'FB-N1-heavy' };
+    return { title: 'Heavy load ahead', body: `${ctx.eventCount} meetings — open your brief to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
-    return { title: 'No agenda', body: 'Check in when you are ready — your day, your terms', variantId: 'FB-N1-sat' };
-  }
-  if (ctx.dayOfWeek === 0) {
-    return { title: 'Sunday reset', body: 'A moment to land before the week forms', variantId: 'FB-N1-sun-morning' };
+    // Saturday with a meeting (we only fire when one exists)
+    const ev = ctx.firstNonNoiseEvent?.title || 'today\'s meeting';
+    return { title: 'Slower entry', body: `Body needs a softer start — open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
-    return { title: 'Set the frame', body: `${ctx.eventCount} meetings today — check in to set your direction`, variantId: 'FB-N1-calendar' };
+    return { title: 'Set decision posture', body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today — open your brief to anchor the day`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Your day is open', body: 'Light calendar — check in to decide what to own today', variantId: 'FB-N1-light' };
+  return { title: 'Open day, clear mind', body: 'Light calendar — open your brief to decide what mental capacity to spend', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
-  return { title: 'Prep ready', body: `${eventTitle} in ${minutesUntil} min — your prep plan is built`, variantId: 'FB-N1-JIT' };
+  return { title: 'Prep ready', body: `${eventTitle} in ${minutesUntil} min — open your brief, prep plan is queued`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
