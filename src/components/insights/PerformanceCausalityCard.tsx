@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 // ── Types (mirror engine output) ─────────────────────────────────────
 type Lens = 'A' | 'B' | 'C' | 'D';
 type Direction = 'negative' | 'positive';
+type Confidence = 'strong' | 'emerging';
 
 interface Finding {
   lens: Lens;
@@ -36,16 +37,19 @@ interface Finding {
   n: number;
   recoveryDays: number | null;
   direction: Direction;
+  confidence?: Confidence;
   longText: string;
 }
 
 interface Coverage {
   hasCalendar: boolean;
   hasWearable: boolean;
+  hasWearableSleep?: boolean;
   checkinCount: number;
   briefCount: number;
   wearableDayCount: number;
   eventCount: number;
+  eventTypesIdentified?: number;
 }
 
 interface CausalityPayload {
@@ -92,6 +96,11 @@ function FindingRow({ f }: { f: Finding }) {
         >
           {sign}{f.deltaPct.toFixed(0)}%
         </span>
+        {f.confidence === 'emerging' && (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 flex-shrink-0">
+            Emerging
+          </span>
+        )}
       </div>
       {/* Delta bar */}
       <div className="relative h-1.5 rounded-full bg-muted/40 overflow-hidden">
@@ -237,24 +246,29 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
     ? 'Connect calendar to unlock'
     : !cov.hasWearable
       ? `Need 5+ wearable days — currently ${cov.wearableDayCount}`
-      : 'No event-type cost above threshold yet.';
+      : `Classified ${cov.eventTypesIdentified ?? 0} event type(s); none cleared the threshold yet.`;
   const lensBEmpty = !cov?.hasCalendar
     ? 'Connect calendar to unlock'
     : (cov.checkinCount < 7
       ? `Need 7+ check-ins — currently ${cov.checkinCount}`
       : 'No cognitive cost cleared the threshold yet.');
-  const lensCEmpty = !cov?.hasWearable
-    ? `Need 5+ wearable days — currently ${cov?.wearableDayCount ?? 0}`
-    : 'No clear sleep→next-day pattern yet.';
+  const lensCEmpty = cov?.hasWearableSleep === false
+    ? 'Connect Apple Health sleep tracking — no sleep records yet.'
+    : !cov?.hasWearable
+      ? `Need 5+ wearable days — currently ${cov?.wearableDayCount ?? 0}`
+      : 'No clear sleep→next-day pattern yet.';
   const lensDEmpty = !cov?.hasCalendar
     ? 'Connect calendar to unlock'
-    : 'No back-to-back heavy-day pattern detected yet.';
+    : 'No back-to-back heavy-day streak detected yet.';
 
   const totalFindings =
     (data?.lensA.length || 0) +
     (data?.lensB.length || 0) +
     (data?.lensC.length || 0) +
     (data?.lensD.length || 0);
+  // Hero is allowed to render even when all lens arrays are empty,
+  // as long as the engine produced a top finding.
+  const hasAnyContent = !!(data?.top) || totalFindings > 0;
 
   return (
     <LuxuryInsightCard>
@@ -286,7 +300,7 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
             <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <span>Couldn’t load cause-effect patterns. Try refreshing.</span>
           </div>
-        ) : !data || totalFindings === 0 ? (
+        ) : !data || !hasAnyContent ? (
           <div className="py-4 space-y-2">
             <p className="text-sm text-muted-foreground">
               Patterns are still forming — keep checking in.

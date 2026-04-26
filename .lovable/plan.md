@@ -1,205 +1,99 @@
-## Cause & Effect — Redesign as "Performance Causality"
+## Root cause (confirmed against live DB)
 
-One card. Four lenses revealed via chevrons. Every line passes the **CEO test**: cause → measured effect → magnitude → recovery → "would I change behaviour?"
+The Cause & Effect card returns the honest empty state for this real user because **all 4 lenses produce zero findings**:
 
----
+| Lens | Failure |
+|---|---|
+| A (Events → Physiology) | `eventTypeDays` map is **empty** — 0/11 of the user's actual event titles match the hard-coded keyword list (board, investor, 1:1, client, interview, deep work, exec, etc.). Real titles look like "Intro Call > Isabel @ Karyon Partners", "Chief AI Thursday connects", "MEETUP: AI, Data & Analytics", "LSE School Governor Scheme". Even if titles matched, only 2 days have HRV and 5 have RHR — too thin for n≥3 per event type. |
+| B (Events → Cognition) | Same empty `eventTypeDays` → loop never runs. |
+| C (Sleep → Next day) | `sleepRows.length >= 5` requires sleep_score OR total_sleep_minutes; user has **0** of either. Sleep data isn't being synced from HealthKit for this user. |
+| D (Heavy-day streaks) | 11 events / 30 days is too sparse to produce ≥3 consecutive 2-day heavy runs. |
 
-### 1. The CEO Contract (locked rules)
-
-Every finding rendered MUST contain:
-1. **Cause** — a named, leader-controllable input (event type, sleep tier, consecutive-load streak, behavior).
-2. **Effect** — a *quantified delta* on a measured signal (HRV, RHR, clarity, sharpness, confidence, PRS) vs the user's own 30-day baseline.
-3. **Magnitude** — `% delta` or `absolute Δ` with sample size `n`.
-4. **Recovery window** — how many days/slots until the signal returns to ±5% of baseline.
-5. **Confidence** — `n ≥ 3 occurrences` AND `|delta| ≥ 10% of baseline` (or ≥ 0.5 tier on 1-5 scales).
-
-Findings that don't pass all five gates are **dropped, not shown**. No correlation-only fluff. No coach signals (per `mem://features/coach/suppression-standard`).
+A latent UI bug also exists: the empty-state branch uses `totalFindings === 0` as its gate, so the "highest-impact pattern" hero row would not render even if `top` were populated (it's currently null here, but the bug is real).
 
 ---
 
-### 2. Single Card, 4 Chevron Lenses
+## Fix plan
 
-Replace `CauseEffectPanel.tsx` and delete `CauseEffectInsights.tsx`. The new component `PerformanceCausalityCard.tsx` renders:
+### 1. Widen the event classifier (Lens A & B unblock)
 
-**Always visible (top of card):**
-- Title: **"Cause & Effect"** + info modal
-- **Top 1 finding** (highest-impact across all 4 lenses) rendered as a hero row with an inline sparkline/bar visual.
+Edit `supabase/functions/cause-effect-engine/index.ts`:
 
-**Collapsed by default, chevron-toggled (matches existing `Collapsible` pattern from `PerformanceRhythmCard`):**
-- **Lens A — Events That Cost You Physiologically** (icon: heart pulse)
-- **Lens B — Events That Cost You Cognitively** (icon: brain)
-- **Lens C — Sleep → Next-Day Decision Quality** (icon: moon)
-- **Lens D — Recovery After Consecutive High-Load Days** (icon: layers)
+- **Add catch-all buckets** so virtually every meeting gets classified:
+  - `"Networking & community"` — `meetup, connect, women on the rise, summit, expo, conference, info session, governor scheme, scale, ai thursday, community`
+  - `"Intro / discovery calls"` — `intro, intro call, discovery, chemistry`
+  - `"Catch-ups & syncs"` — `catchup, catch-up, sync, check-in, check in, weekly, standup`
+  - `"School & family"` — `school, parents evening, open evening, parents`
+  - `"Internal builds"` — `db, debug, dashboard, planning, engineering, build, sprint`
+- Keep existing buckets (board / investor / review / 1:1 / all-hands / client / interview / deep work / exec).
+- **Add `__general__` fallback bucket** keyed by event organizer or solo-block detection (events with no attendees → `"Solo work blocks"`, events with ≥3 attendees → `"Group meetings"`). This guarantees `eventTypeDays.size > 0` whenever the user has events.
+- Adjust copy in lens output so labels read naturally ("On Networking & community days, your HRV…").
 
-Each lens shows 1–3 findings max, all visualised (not text walls).
+### 2. Soft thresholds with explicit confidence tier (Lens A & C)
 
----
+Currently every gate is binary (`n≥3` AND `|Δ|≥10%`) — anything below is dropped silently. For a real user who has *some* signal but not enough for production-grade confidence, this gives them nothing.
 
-### 3. Visual-First Rendering (per finding)
+Add a `confidence` field to `Finding`:
+- `"strong"` — current gate (n≥5, |Δ|≥10% / 0.5 tier)
+- `"emerging"` — n≥3, |Δ|≥10% / 0.5 tier (today's gate becomes "emerging")
+- Anything weaker → still dropped.
 
-Each finding row is a **horizontal mini-chart**, not a paragraph:
+UI renders an "Emerging" pill chip on emerging rows so the executive sees the data is preliminary, not falsely authoritative. This stays true to the CEO contract while letting thin-data users actually see something actionable.
 
-```
-[Event-type label]              ▼ HRV  -14%   (n=4)
-████████████░░░░░░░░░░░░░░       Recovers in ~2 days
- Baseline 58ms       Event days 50ms
-```
+### 3. Add a fifth source for Lens A: calendar load → physiology
 
-Components used:
-- A **single-bar delta** (red if negative, emerald if positive, amber if mixed) showing % vs baseline.
-- **2 small numerical anchors** (baseline value, event-day value).
-- **Recovery chip** (e.g., `~2d to recover`) when applicable.
-- **n badge** (sample count) so users see this is real data, not noise.
+Even with bad title classification, **calendar minutes/day is a clean numeric input**. Compute:
+- High-load days (top tertile of `loadByDay`) vs the rest
+- Compare HRV / RHR averages
+- Same gating as event-type findings
 
-No paragraphs. No sub-headings. One row = one finding. Strict 60-char text budget per finding.
+This unlocks Lens A for any user with wearable data and any calendar at all — independent of title keywords. Surface as cause `"High-load calendar days"`.
 
----
+### 4. Lens C fallback: total_sleep_minutes → checkins-only when wearable sleep is absent
 
-### 4. Data Sources (per lens)
+If the user has zero sleep_score *and* zero total_sleep_minutes (this user's situation), fall back to **morning-checkin "renewal" / "sleep_quality" self-report** if those fields exist on `daily_checkins`. (Will check the actual columns; if not present, keep Lens C empty and update the empty-state copy to "Connect Apple Health sleep tracking to unlock".) This keeps data honesty intact.
 
-#### Lens A — Physiological Cost of Events
-- **Cause source:** `calendar_events` clustered into event-types via heuristics (already implemented logic in `historicalPatternEngine.ts` + new keyword expansion: `board|investor|review|1:1|all-hands|deep-work|interview`).
-- **Effect source:** `wearable_data` daily `hrv`, `resting_heart_rate`, `heart_rate` (avg bpm).
-- **Method:** For each event-type with ≥3 occurrence days, compute mean `hrv` / `rhr` on event-days vs mean on non-event-days within the same 30-day window. Recovery window = number of days post-event for `hrv` to return to ±5% of baseline (using the next 3 days after each occurrence).
-- **Output:** `"Board reviews → HRV −14% (n=4) · recovers in ~2d"`.
+### 5. Lower Lens D occurrence floor with confidence tier
 
-#### Lens B — Cognitive Cost of Events
-- **Cause source:** Same calendar event clustering.
-- **Effect source:** `daily_checkins.clarity_level`, `mental_sharpness_level`, `confidence_level`, plus `brief_snapshots.score` (PRS).
-- **Method:** Compare check-in slot **immediately after** (same-day later slot OR next-morning) the event's slot vs the user's 30-day mean for that slot. Pick the **most-impacted dimension** per event-type.
-- **Output:** `"Investor calls → Sharpness −1.2 tiers (n=3) · rebounds next morning"`.
+Drop `runEndPlusOne.length >= MIN_OCCURRENCES` (3) to `>= 2` for `confidence: "emerging"`. Keep `>= 3` for `"strong"`.
 
-#### Lens C — Sleep → Decision Quality
-- **Cause source:** `wearable_data.sleep_score` and/or `total_sleep_minutes` from prior night, bucketed into **Low / Mid / High** tiers vs the user's 30-day median.
-- **Effect source:** Next-day morning `daily_checkins` (clarity, sharpness, confidence) + `brief_snapshots.score`.
-- **Method:** Bucketed mean comparison. Show only the **largest tier-vs-baseline delta** (e.g., low-sleep nights).
-- **Output:** `"Low-sleep nights (<6h) → PRS −18 pts (n=5)"`.
+### 6. Fix the hero-finding UI gate
 
-#### Lens D — Consecutive High-Load Days
-- **Cause source:** Calendar load = sum(meeting minutes) per day. "High-load" = top-third of user's 30-day daily load.
-- **Effect source:** PRS from `brief_snapshots`, plus `hrv` from `wearable_data`.
-- **Method:** Detect runs of ≥2 consecutive high-load days. Compare PRS / HRV on day N+1 (day after the run) vs baseline. Recovery = days until PRS returns to ±5%.
-- **Output:** `"3+ back-to-back heavy days → PRS −22 pts · 2-day recovery (n=3)"`.
+Edit `src/components/insights/PerformanceCausalityCard.tsx`:
 
----
+- Change the empty-state condition from `!data || totalFindings === 0` to `!data || (totalFindings === 0 && !data.top)`.
+- When `top` exists but all lenses are empty, render the hero card + a soft note: "More patterns will surface as your signals build."
+- Render an "Emerging" pill on rows where `confidence === "emerging"`.
 
-### 5. Backend — New Edge Function `cause-effect-engine`
+### 7. Improve the lens empty-state copy to be specific
 
-Create `supabase/functions/cause-effect-engine/index.ts`:
-- **Auth:** Auth0 JWT via `verifyAuth0JWT` (mirrors `level-trend-calendar`).
-- **Service-role** Supabase client.
-- **Input:** `{ days?: 30 }` (default 30, max 90).
-- **Reads:** `calendar_events`, `wearable_data`, `daily_checkins`, `brief_snapshots`, `behavior_logs`, `calendar_connections` (to gate Lens A/D when no calendar).
-- **Computes** all 4 lenses with the gating rules above.
-- **Returns:**
-  ```ts
-  {
-    top: Finding | null,
-    lensA: Finding[],
-    lensB: Finding[],
-    lensC: Finding[],
-    lensD: Finding[],
-    coverage: { hasCalendar, hasWearable, checkinCount, briefCount, wearableDayCount },
-    generatedAt: string
-  }
-  ```
-- **`Finding` shape:**
-  ```ts
-  { lens: 'A'|'B'|'C'|'D',
-    cause: string,           // e.g. "Board reviews"
-    effectSignal: string,    // e.g. "HRV"
-    deltaPct: number,        // -14
-    deltaAbs: number,        // -8 (ms / pts / tiers)
-    baseline: number,        // 58
-    observed: number,        // 50
-    n: number,
-    recoveryDays: number|null,
-    direction: 'negative'|'positive',
-    longText: string }       // for weekly email use only
-  ```
-- **DEV_MODE bypass:** mirror existing edge-function pattern; in DEV the client may call Supabase directly via `effectiveUserId = DEV_USER.id`.
+Each lens already has tailored empty-state messages. Update them to reference the *actual* missing inputs:
+- Lens A empty → "We've classified N event types but none cleared the threshold yet. {wearableDayCount} wearable days available."
+- Lens C empty → "Connect Apple Health sleep tracking — currently 0 sleep records."
+
+### 8. Force-refresh + redeploy
+
+After the engine update, invalidate today's cache row for the affected user (`DELETE FROM causality_findings WHERE computed_for_date = current_date`) so the next page load runs the new engine. Add a small `?force=1` button affordance is **not** in scope — the cache will naturally roll over tomorrow, and the manual delete handles today.
+
+### 9. Validation steps
+
+1. Deploy `cause-effect-engine`.
+2. Delete the cached row for the test user.
+3. Curl the function with the user's auth token.
+4. Verify the response now has at least 1–2 findings (likely Lens A "High-load calendar days → RHR" or "Networking & community → RHR" given the actual data shape) and a non-null `top`.
+5. Reload `/insights` → Patterns tab and confirm the hero row + at least one chevron lens shows content.
+6. Confirm the "Emerging" pill renders correctly on lower-confidence findings.
 
 ---
 
-### 6. Caching Layer — New Table `causality_findings`
+## Files to edit
 
-Patterns are stable for ~24h, so cache to keep the Insights page snappy and reduce LLM-free compute.
+- `supabase/functions/cause-effect-engine/index.ts` — wider classifier, confidence tier, calendar-load lens, sleep fallback, lower Lens D floor, updated copy.
+- `src/components/insights/PerformanceCausalityCard.tsx` — fix hero gate, render confidence pill, refresh empty-state copy.
+- `mem/features/insights/performance-causality.md` — document confidence tiers and the calendar-load fifth source.
 
-Migration:
-```sql
-CREATE TABLE public.causality_findings (
-  user_id text NOT NULL,
-  computed_for_date date NOT NULL,
-  payload jsonb NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, computed_for_date)
-);
-ALTER TABLE public.causality_findings ENABLE ROW LEVEL SECURITY;
--- Deny-by-default: only service role writes/reads. Per mem://security/rls-auth0-access-protocol.
-```
-Edge function checks for today's row first; if missing, computes + inserts. Forced refresh via `?force=1`.
+## Files NOT touched
 
----
-
-### 7. Frontend Wiring
-
-- **Delete** `src/components/insights/CauseEffectInsights.tsx` (legacy duplicate).
-- **Replace** `src/components/insights/CauseEffectPanel.tsx` → `PerformanceCausalityCard.tsx` (keep the old export name as a re-export shim so `Insights.tsx` import stays one-line).
-- **New sub-components:**
-  - `CausalityFindingRow.tsx` — the visual delta-bar row.
-  - `CausalityLensSection.tsx` — collapsible lens with chevron, mirrors `Collapsible` usage in `PerformanceRhythmCard.tsx`.
-- **Production fetch:** `supabase.functions.invoke('cause-effect-engine', { headers: { Authorization: \`Bearer ${token}\` } })`.
-- **DEV fetch:** direct Supabase queries replicating the engine logic (same pattern as `PerformanceRhythmCard`'s DEV branch).
-
----
-
-### 8. Empty / Honesty States
-
-Per `mem://features/performance-readiness/data-honesty-standards`:
-- **No calendar connected:** Lens A and D collapsed and labeled `"Connect calendar to unlock"`.
-- **<5 wearable days:** Lens A and Lens C show `"Need 5+ wearable days — currently X"` instead of fake findings.
-- **<7 check-ins:** Lens B shows `"Need 7+ check-ins — currently X"`.
-- **No findings clear the gates:** the entire card collapses to a single line: `"Patterns are still forming — keep checking in."` (no fake findings, no "everything looks fine" filler).
-
----
-
-### 9. Memory Updates
-
-Create `mem/features/insights/performance-causality.md` documenting:
-- The 5-gate CEO contract.
-- The 4-lens taxonomy + which DB columns feed each.
-- The `causality_findings` cache contract.
-- The visual-row rendering rule (no paragraph findings).
-- Forbidden inputs: coach signals, manually-typed wins, mood-only patterns without a measured effect.
-
-Update `mem://index.md` to add this entry under **Features: Mastery & Performance**.
-
----
-
-### 10. Files to Create / Edit / Delete
-
-**Create:**
-- `supabase/functions/cause-effect-engine/index.ts`
-- `supabase/migrations/<timestamp>_causality_findings.sql`
-- `src/components/insights/PerformanceCausalityCard.tsx`
-- `src/components/insights/CausalityFindingRow.tsx`
-- `src/components/insights/CausalityLensSection.tsx`
-- `mem/features/insights/performance-causality.md`
-
-**Edit:**
-- `src/pages/Insights.tsx` — swap `<CauseEffectPanel />` for `<PerformanceCausalityCard />`.
-- `mem/index.md` — register the new memory file.
-
-**Delete:**
-- `src/components/insights/CauseEffectInsights.tsx` (legacy unused duplicate).
-- `src/components/insights/CauseEffectPanel.tsx` (replaced).
-
----
-
-### 11. Validation Plan
-
-1. Deploy `cause-effect-engine`; verify auth + service-role read paths via `supabase--curl_edge_functions`.
-2. Run engine for the test user — assert at least Lens C (sleep→PRS) returns a finding given current data volume (10 wearable days, 35 briefs).
-3. Confirm gating: temporarily set thresholds high to verify the card renders the honest empty state instead of garbage.
-4. Confirm visual rows render correctly across viewports (target 0×801 mobile + desktop).
-5. Confirm chevron behaviour matches `PerformanceRhythmCard` (Energy visible, others collapsed).
+- `causality_findings` schema — unchanged; payload shape is purely additive (`confidence` field is optional on the type).
+- Mock data / preview auth — unchanged; this user is fully authenticated.
+- `Insights.tsx` — unchanged.
