@@ -59,3 +59,15 @@ Same 5-tier palette across all three; only the labels change.
 
 ## No backend changes
 All data comes from existing `daily_checkins` columns. No migrations.
+
+## Production data path (Auth0 + RLS)
+The three Level calendars MUST fetch via the **`level-trend-calendar` Edge
+Function** in production. Direct client queries against `daily_checkins`
+return zero rows under Auth0 because `auth.uid()` is NULL and the SELECT
+RLS policy is `((auth.uid())::text = user_id)`. The Edge Function verifies
+the Auth0 JWT (`verifyAuth0JWT`) and reads with the service role, mirroring
+the Energy Trend pattern in `performance-rhythm-insights`.
+
+Body contract: `{ field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level', startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD' }`. `field` is whitelisted server-side; `user_id` is **never** read from the client body.
+
+DEV_MODE keeps a direct client query (`.eq('user_id', DEV_USER.id)`) so local dev stays fast. Do NOT remove the DEV_MODE branch and do NOT loosen the RLS policy — the Edge Function is the long-term contract.
