@@ -131,10 +131,10 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       
       {/* Content layer */}
-      <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto">
+      <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto">
         
         {/* Top section */}
-          <div className="flex flex-col items-center space-y-4 sm:space-y-6 lg:space-y-8 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
+          <div className="flex flex-col items-center space-y-4 sm:space-y-6 lg:space-y-8">
             {/* Logo */}
             <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
             
@@ -153,7 +153,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col items-center gap-5 w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+          <div className="flex flex-col items-center gap-5 w-full mt-8">
             {/* Gold Divider */}
             <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-4" />
             
@@ -167,7 +167,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </div>
         
         {/* Privacy Trust Badge */}
-        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8 border-t border-white/10 w-full mt-auto pb-4 sm:pb-0">
+        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8 border-t border-white/10 w-full mt-8 pb-4 sm:pb-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
             <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>
