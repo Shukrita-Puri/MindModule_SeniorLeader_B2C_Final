@@ -126,9 +126,13 @@ export default function OnboardingFlow() {
       if (event.defaultPrevented) return;
     }
     // Questionnaire stages – walk back exactly one step.
+    if (location.pathname === '/onboarding/emotional-awareness') {
+      navigate('/onboarding/identity', { state: { returnToQuestion: 2 } });
+      return;
+    }
+
     const backMap: Record<string, string> = {
       '/onboarding/identity': '/onboarding',
-      '/onboarding/emotional-awareness': '/onboarding/identity',
       '/onboarding/stress-response': '/onboarding/emotional-awareness',
       '/onboarding/recovery-patterns': '/onboarding/stress-response',
       '/onboarding/mental-clarity': '/onboarding/recovery-patterns',

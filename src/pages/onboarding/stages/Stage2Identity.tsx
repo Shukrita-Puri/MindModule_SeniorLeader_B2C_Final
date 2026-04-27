@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
 import { Input } from "@/components/ui/input";
 
 export default function Stage2Identity() {
   const navigate = useNavigate();
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const location = useLocation();
+  const savedIdentityType = getResponse("identity_type") || "";
+  const savedBiggestPressure = getResponse("biggest_pressure") || "";
+  const returnToQuestion = (location.state as { returnToQuestion?: number } | null)?.returnToQuestion;
+  const [currentQuestion, setCurrentQuestion] = useState(() => (
+    returnToQuestion === 2 || savedBiggestPressure ? 2 : 1
+  ));
   const [identityType, setIdentityType] = useState<string>(
-    getResponse("identity_type") || ""
+    savedIdentityType
   );
   const [customIdentity, setCustomIdentity] = useState<string>(
     getResponse("custom_identity") || ""
   );
   const [biggestPressure, setBiggestPressure] = useState<string>(
-    getResponse("biggest_pressure") || ""
+    savedBiggestPressure
   );
 
   // Intercept the top-bar Back button when on Q2: step back to Q1 instead of leaving the page.
