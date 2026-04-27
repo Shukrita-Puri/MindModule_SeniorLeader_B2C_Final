@@ -974,7 +974,7 @@ const Insights = () => {
                   <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Practice Effectiveness</span>
                   <InsightInfoModal
                     title="Practice Effectiveness"
-                    explanation="Which of your completed practices most often precede an improved state on your next check-in. Tracks practices used 2+ times over the last 30 days."
+                    explanation="Which practices most often line up with a better next check-in — surfaced once you’ve used them enough for the pattern to be meaningful."
                   />
                 </div>
               </CardHeader>
@@ -989,7 +989,7 @@ const Insights = () => {
                   <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
                   <InsightInfoModal
                     title="Your Momentum"
-                    explanation="The wins you've logged over the past 30 days – reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
+                    explanation="The wins you’ve logged recently — reframed as a performance log. A reflection of what you’ve delivered and where your impact lands."
                   />
                 </div>
               </CardHeader>

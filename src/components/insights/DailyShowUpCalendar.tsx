@@ -153,7 +153,7 @@ const DailyShowUpCalendar = ({ userId }: DailyShowUpCalendarProps) => {
           </span>
           <InsightInfoModal
             title="How You Showed Up For Yourself"
-            explanation="A day counts when you check in OR complete at least one of your daily priorities (any window). It's not about doing everything — it's about showing up."
+            explanation="A day counts when you check in or complete at least one of your priorities. It’s not about doing everything — it’s about showing up."
           />
         </div>
       </CardHeader>

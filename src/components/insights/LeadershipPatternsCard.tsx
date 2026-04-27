@@ -354,7 +354,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           </span>
           <InsightInfoModal
             title="Your Trajectory"
-            explanation="A scorecard view of how you're evolving — your archetype, your composite Performance Readiness Score, and your friction pattern. Drawn from your check-ins and practice data over 30 days."
+            explanation="A scorecard view of how you’re evolving — your archetype, your Performance Readiness Score, and your friction pattern over the past month."
           />
         </div>
       </CardHeader>
@@ -387,7 +387,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     </span>
                     <InsightInfoModal
                       title="How Scores Are Calculated"
-                      explanation="These three scores reflect how you show up over time – drawn from your check-ins and practice data. Each dimension is scored 0–100. Your baseline was set during onboarding; the current score updates as you check in."
+                      explanation="Three dimensions that show how you’re showing up over time. Your baseline is set during onboarding and the current view evolves as you check in."
                     />
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
@@ -443,7 +443,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     </span>
                     <InsightInfoModal
                       title="What Is Friction?"
-                      explanation="Friction measures how often you report low-energy states like feeling drained, overwhelmed, or scattered. It's shown as a percentage of your check-ins over 30 days. Labels range from 'Low friction' (≤25%) to 'Sustained friction' (>75%), helping you see whether difficult states are occasional or persistent."
+                      explanation="How often you report difficult states — drained, overwhelmed, scattered — over the past month. It tells you whether friction is occasional or sustained."
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -468,7 +468,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                       </span>
                       <InsightInfoModal
                         title="What Is Consistency?"
-                        explanation="How often you check in 'focused' or 'steady' over the last 30 days. The mirror of Friction at the check-in level — a higher number means more consistent positive states."
+                        explanation="How often you’re checking in focused or steady over the past month. The other side of Friction — a higher number means more consistent positive states."
                       />
                     </div>
                     <div className="flex items-center gap-2">
