@@ -48,7 +48,7 @@ const UserSettingsPopover = () => {
       sessionStorage.setItem('first_session_guide_retake', user.id);
     }
     sessionStorage.removeItem('first_session_intro_seen');
-    navigate('/daily-check-in');
+    navigate('/daily-check-in?tour=1');
   };
 
   const handleSignOut = async () => {

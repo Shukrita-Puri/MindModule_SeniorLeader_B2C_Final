@@ -170,6 +170,11 @@ const DailyCheckIn = () => {
       return;
     }
 
+    if (!DEV_MODE && (hasTourParam || isRetakeForUser)) {
+      activateGuide();
+      return;
+    }
+
     // In dev mode, don't call backend eligibility checks with a non-JWT token.
     // Start the guide locally for the dev user unless it was explicitly completed in-session.
     if (DEV_MODE) {
@@ -488,7 +493,7 @@ const DailyCheckIn = () => {
         }} />
       )}
     </div>
-    <FloatingPillNav />
+    {!showGuide && <FloatingPillNav />}
     </SidebarInset>
     </div>
     </SidebarProvider>

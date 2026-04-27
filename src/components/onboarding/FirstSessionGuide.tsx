@@ -194,9 +194,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const tooltipEl = tooltipRef.current;
     const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
     const GAP = 16;
-    const vH = window.innerHeight;
+    const vH = window.visualViewport?.height ?? window.innerHeight;
     // Reserve space for bottom safe area (nav hidden during tour, but keep margin)
-    const BOTTOM_SAFE = 80;
+    const BOTTOM_SAFE = 120;
 
     const spaceAbove = sy;
     const spaceBelow = vH - (sy + sh) - BOTTOM_SAFE;
@@ -448,9 +448,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   /* ---- Intro overlay (before tour begins) ---- */
   if (showIntro) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="dialog" aria-modal="true">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]" role="dialog" aria-modal="true">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <div className="relative z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-2xl mx-4 max-w-sm w-full text-center">
+        <div className="relative z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-2xl max-w-sm w-full max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] overflow-y-auto text-center">
           <h2 className="text-2xl font-headline text-white leading-tight mb-3">
             Let's show you around.
           </h2>
@@ -553,7 +553,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       <div
         ref={tooltipRef}
         className={cn(
-          'fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300',
+          'fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300 max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] overflow-y-auto',
           ready ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
         style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: ready ? 'auto' : 'none' }}
@@ -605,7 +605,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
 
       {showTransitionCard && (
         <div
-          className="fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto"
+          className="fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] overflow-y-auto"
           style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 32px)', maxWidth: '360px' }}
         >
           <div className="flex items-center justify-between mb-2">

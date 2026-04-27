@@ -103,6 +103,11 @@ const ExecutiveHome = () => {
       return;
     }
 
+    if (!DEV_MODE && hasTourSignal) {
+      setShowGuide(true);
+      return;
+    }
+
     // effectiveId already defined above
 
     if (DEV_MODE) {
@@ -375,7 +380,7 @@ const ExecutiveHome = () => {
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
               {briefCtaReady && (
-                 <div className="mt-5 pt-1 flex justify-end animate-in fade-in duration-300">
+                 <div data-tour="daily-plan" className="mt-5 pt-1 flex justify-end animate-in fade-in duration-300">
                    <GenerateTodaysPlanLink onClick={() => navigate('/plan')} />
                  </div>
                )}
