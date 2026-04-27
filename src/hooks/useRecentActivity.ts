@@ -105,19 +105,21 @@ export const useRecentActivity = () => {
         });
         if (!error && data?.success && data.data) {
           const briefEvents = data.data.filter((e: any) => e.event_type === 'brief_view');
-          // Dedupe by brief_id (kept first/most-recent since list is timestamp DESC)
-          // so refresh-spam in the same window collapses to a single sidebar row.
+          // Dedupe by brief_id (most-recent kept since list is timestamp DESC)
+          // so refresh-spam in the same window collapses to a single sidebar
+          // row. Rows without a brief_id are dropped — they cannot open the
+          // historical overlay reliably and would create broken navigation.
           const seen = new Set<string>();
           const uniqueBriefEvents = briefEvents.filter((e: any) => {
             const id = e.metadata?.brief_id;
-            if (!id) return true; // keep legacy rows lacking brief_id
+            if (!id) return false; // drop legacy rows without brief_id
             if (seen.has(id)) return false;
             seen.add(id);
             return true;
           });
           uniqueBriefEvents.slice(0, 5).forEach((event: any) => {
             const phrase = event.metadata?.phrase || 'Viewed';
-            const briefId = event.metadata?.brief_id as string | undefined;
+            const briefId = event.metadata?.brief_id as string;
             allActivities.push({
               id: event.id,
               type: 'brief',
