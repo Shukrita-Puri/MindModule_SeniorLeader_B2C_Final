@@ -22,6 +22,8 @@ import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 import {
   read as readPersistent,
   write as writePersistent,
@@ -1023,17 +1025,18 @@ const Insights = () => {
                       
                       const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
                       const [dominantDomain, dominantCount] = sorted[0];
-                      
+                      const winTopicsCount = Object.values(domainCounts).filter(c => c > 0).length;
+
                       return (
                         <>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                             <p className="text-[20px] font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
-                            <p className="text-xs text-muted-foreground tracking-wider uppercase">Wins this month</p>
+                            <p className="text-xs text-muted-foreground tracking-wider uppercase">Total Wins Recorded</p>
                           </div>
                            <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                            <p className="text-[20px] font-headline text-foreground">{dominantCount}</p>
-                            <p className="text-xs text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
+                            <p className="text-[20px] font-headline text-foreground">{winTopicsCount}</p>
+                            <p className="text-xs text-muted-foreground tracking-wider uppercase">Win Topics</p>
                           </div>
                         </div>
 
@@ -1054,8 +1057,14 @@ const Insights = () => {
                       );
                     })()}
 
-                    <div className="space-y-2">
-                      {tinyWinsContent.slice(0, 5).map((win, i) => {
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/20 border border-border/30 text-sm font-medium text-foreground hover:bg-muted/30 transition-colors group">
+                        <span>View your wins</span>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-3 space-y-3 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                        <div className="space-y-2">
+                          {tinyWinsContent.slice(0, 5).map((win, i) => {
                         const content = (win.content || '').toLowerCase();
                         let domain = 'Delivery';
                         let dotColor = 'bg-slate-400';
@@ -1092,12 +1101,14 @@ const Insights = () => {
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
+                          })}
+                        </div>
 
-                    <p className="text-xs text-muted-foreground/60">
-                      Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
-                    </p>
+                        <p className="text-xs text-muted-foreground/60">
+                          Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
+                        </p>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 ) : (
                   <div className="py-4 space-y-2">
