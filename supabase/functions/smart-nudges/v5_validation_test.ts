@@ -227,6 +227,11 @@ Deno.test({
       // Body must not contain v4 forbidden vocabulary
       const bad = bodyContainsForbidden(n.body);
       assertEquals(bad, null, `Notification ${n.type} body contains "${bad}": "${n.body}"`);
+      // v6: reject any placeholder token (`?`, `{x}`, `N`, `--`, `null`)
+      assert(
+        !PLACEHOLDER_RX.test(n.body),
+        `Notification ${n.type} body contains placeholder token: "${n.body}"`,
+      );
       // Variant id must end with ::A|B|C|D (CTA experiment)
       assert(
         /::[ABCD]$/.test(n.variant),
@@ -267,18 +272,22 @@ Deno.test({
       (profs ?? []).map((p) => [p.id as string, (p.timezone_offset as number) ?? 0]),
     );
 
-    // Only audit rows written *after* this test run's deploy — i.e., rows
-    // stamped with the v5 architecture. Older v4 rows are tolerated here.
-    const v5Rows = rows.filter(
-      (r) => (r.payload as Record<string, unknown>)?.architecture === "cos-mind-v5",
-    );
-    console.log(`[validation] v5 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
+    // Audit any row stamped with the current (v6) or previous (v5) Chief-of-Staff
+    // architectures. Older v4 rows are tolerated here.
+    const v5Rows = rows.filter((r) => {
+      const arch = (r.payload as Record<string, unknown>)?.architecture;
+      return arch === "cos-mind-v6-cta" || arch === "cos-mind-v5";
+    });
+    console.log(`[validation] v5/v6 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
 
     for (const r of v5Rows) {
       const payload = r.payload as Record<string, unknown>;
 
       // Stamps must all be present
-      assertEquals(payload.architecture, "cos-mind-v5", `arch missing on row ${r.user_id}@${r.sent_at}`);
+      assert(
+        payload.architecture === "cos-mind-v6-cta" || payload.architecture === "cos-mind-v5",
+        `arch invalid on row ${r.user_id}@${r.sent_at}: ${payload.architecture}`,
+      );
       assertEquals(payload.cta_experiment, "cta-action-verb-v1", `cta_experiment missing on ${r.user_id}@${r.sent_at}`);
       assert(
         ["A", "B", "C", "D"].includes(payload.cta_variant as string),
@@ -294,6 +303,10 @@ Deno.test({
       const bad = bodyContainsForbidden(body);
       assertEquals(bad, null, `Forbidden word "${bad}" in body: ${body}`);
       assert(CTA_VERB_RX.test(body), `Body missing CTA verb: ${body}`);
+      // v6: no placeholder tokens
+      if (payload.architecture === "cos-mind-v6-cta") {
+        assert(!PLACEHOLDER_RX.test(body), `Placeholder in v6 body: ${body}`);
+      }
 
       // 08:00 local floor
       const offset = tz.get(r.user_id) ?? 0;
@@ -354,7 +367,10 @@ Deno.test({
     const { data: profs } = await sb.from("profiles").select("id, timezone_offset").in("id", userIds);
     const tz = new Map<string, number>((profs ?? []).map((p) => [p.id as string, (p.timezone_offset as number) ?? 0]));
 
-    const v5 = rows.filter((r) => (r.payload as Record<string, unknown>)?.architecture === "cos-mind-v5");
+    const v5 = rows.filter((r) => {
+      const arch = (r.payload as Record<string, unknown>)?.architecture;
+      return arch === "cos-mind-v6-cta" || arch === "cos-mind-v5";
+    });
     for (const r of v5) {
       const offset = tz.get(r.user_id) ?? 0;
       const local = new Date(new Date(r.sent_at).getTime() + offset * 60_000);
