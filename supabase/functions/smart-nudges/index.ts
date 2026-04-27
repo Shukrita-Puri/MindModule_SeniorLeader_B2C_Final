@@ -780,6 +780,42 @@ function containsFabricatedWearableData(body: string, hasWearableData: boolean):
   return FABRICATION_PATTERNS.some(pattern => pattern.test(body));
 }
 
+// v6 — title-case word truncation for long event titles to keep CTAs scannable
+function truncateEventTitle(title: string | null | undefined): string {
+  const t = (title || '').trim();
+  if (!t) return 'your meeting';
+  if (t.length <= 20) return t;
+  return t.split(/\s+/).slice(0, 3).join(' ');
+}
+
+// v6 — copy-contract lint shared by AI output and any future fallback editor.
+// Returns null if body passes; returns a string reason if it must be rejected.
+const FORBIDDEN_WORDS_V6 = [
+  'wellness','mindful','mindfulness','relax','breathe','calm','recharge','self-care','self care',
+  'streak','keep it up','well done','great job',
+  'productive','productivity','intent','strategy','strategic',
+  'set the tone','your day your terms','loaded day','5 days behind you','plan the week',
+  'come back','check in when',
+];
+const ALLOWED_CTA_VERBS_V6 = [
+  'open your brief','open your plan','open your prep plan','open your readiness',
+  'build your prep plan','build your plan',
+  'recalibrate now','close the day','close the week','close the loop',
+  'lock in your prep','tap to prep','see your prep','see your plan','see your readiness',
+];
+function violatesCopyContractV6(body: string): string | null {
+  const lower = body.toLowerCase();
+  for (const w of FORBIDDEN_WORDS_V6) {
+    if (lower.includes(w)) return `forbidden word: "${w}"`;
+  }
+  if (!ALLOWED_CTA_VERBS_V6.some(v => lower.includes(v))) {
+    return 'no allowed CTA verb';
+  }
+  // No placeholder tokens
+  if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── AI Copy Generation ──
 // ══════════════════════════════════════════════════════════════
