@@ -157,6 +157,7 @@ export type Database = {
           body_text: string | null
           brief_source: string
           created_at: string
+          daily_checkin_id: string | null
           driver: string | null
           feedback_text: string | null
           id: string
@@ -184,6 +185,7 @@ export type Database = {
           body_text?: string | null
           brief_source: string
           created_at?: string
+          daily_checkin_id?: string | null
           driver?: string | null
           feedback_text?: string | null
           id?: string
@@ -211,6 +213,7 @@ export type Database = {
           body_text?: string | null
           brief_source?: string
           created_at?: string
+          daily_checkin_id?: string | null
           driver?: string | null
           feedback_text?: string | null
           id?: string
@@ -234,7 +237,15 @@ export type Database = {
           watch_for?: string | null
           watch_for_source?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brief_snapshots_daily_checkin_id_fkey"
+            columns: ["daily_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "daily_checkins"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendar_connections: {
         Row: {

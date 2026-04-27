@@ -39,7 +39,7 @@ serve(async (req) => {
 
     const { data, error } = await supabase
       .from('brief_snapshots')
-      .select('id, user_id, local_date, time_window, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, score, tier, brief_source, driver, created_at')
+      .select('id, user_id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, score, tier, brief_source, driver, created_at')
       .eq('id', briefId)
       .maybeSingle();
 

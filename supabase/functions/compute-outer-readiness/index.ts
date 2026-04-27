@@ -4128,6 +4128,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         resolvedBriefId = (idRow as any)?.id ?? null;
       } catch { /* ignore — non-fatal for response */ }
     }
+    // ── Resolve the latest daily_checkins.id for (user_id, local_date, current time_window) ──
+    // Used to link this brief snapshot to the specific check-in row that informed it.
+    // Fail-safe: if no check-in exists or the lookup throws, store null.
+    let linkedDailyCheckinId: string | null = null;
+    try {
+      const { data: linkedCheckin } = await db
+        .from('daily_checkins')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('checkin_date', userLocalDate)
+        .eq('time_window', getTimeOfDay(hour))
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      linkedDailyCheckinId = (linkedCheckin as any)?.id ?? null;
+    } catch (linkErr) {
+      console.warn('[brief-cache] daily_checkin_id lookup failed:', linkErr instanceof Error ? linkErr.message : linkErr);
+      linkedDailyCheckinId = null;
+    }
+
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         const { data: upsertRow, error: upsertError } = await db
@@ -4138,6 +4158,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             time_window: getTimeOfDay(hour),
             input_signature: inputSignature,
             prompt_version: BRIEF_PROMPT_VERSION,
+            daily_checkin_id: linkedDailyCheckinId,
             phrase: responsePhrase,
             body_text: responseBody,
             lean_on: formattedLeanOn,
