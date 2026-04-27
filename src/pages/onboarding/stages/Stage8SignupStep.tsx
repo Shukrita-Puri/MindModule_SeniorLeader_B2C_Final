@@ -1,10 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
-import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
+import {
+  getRedirectUri,
+  nativeLogin,
+  nativeLoginHandled,
+  isNativeAuthBusy,
+  isNativeAuthCompleted,
+  isNativeAuthStale,
+  resetStaleNativeAuth,
+  getSanitisedAuth0Audience,
+} from '@/utils/nativeAuth';
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -16,6 +25,9 @@ function isInIframe(): boolean {
   }
 }
 
+type RedirectStatus = 'preparing' | 'redirecting' | 'error';
+const REDIRECT_TIMEOUT_MS = 8000;
+
 const Stage8SignupStep = () => {
   const { isLoading: auth0Loading, loginWithRedirect } = useAuth0();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -24,6 +36,68 @@ const Stage8SignupStep = () => {
   const completionInitiated = useRef(false);
   const inIframe = isInIframe();
   const { recordStep } = useOnboardingProgress();
+  const [status, setStatus] = useState<RedirectStatus>('preparing');
+  const [errorMessage, setErrorMessage] = useState<string>(
+    "We couldn't open account creation. Please try again."
+  );
+  const [attempt, setAttempt] = useState(0);
+  const timeoutRef = useRef<number | null>(null);
+
+  const clearTimeoutSafe = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const startRedirect = useCallback(async () => {
+    setStatus('redirecting');
+    clearTimeoutSafe();
+    timeoutRef.current = window.setTimeout(() => {
+      console.warn('[Stage8] Redirect timeout reached');
+      setErrorMessage("We couldn't open account creation. Please try again.");
+      setStatus('error');
+    }, REDIRECT_TIMEOUT_MS);
+
+    try {
+      const result = await nativeLogin({ returnTo: '/onboarding/results', screenHint: 'signup' });
+      if (nativeLoginHandled(result)) {
+        // Native took over (opened browser, busy, completed, etc.) — wait for callback.
+        // Timeout is still armed; if iOS browser is closed without completing,
+        // the user will see the error UI and can retry.
+        return;
+      }
+
+      // Web fallback
+      await loginWithRedirect({
+        appState: { returnTo: '/onboarding/results' },
+        authorizationParams: {
+          redirect_uri: `${getRedirectUri()}?from=onboarding`,
+          screen_hint: 'signup',
+          audience: getSanitisedAuth0Audience(),
+          scope: 'openid profile email offline_access',
+        },
+      });
+    } catch (e) {
+      console.error('[Stage8] Auth0 redirect failed:', e);
+      clearTimeoutSafe();
+      redirectInitiated.current = false;
+      setErrorMessage("We couldn't open account creation. Please try again.");
+      setStatus('error');
+    }
+  }, [clearTimeoutSafe, loginWithRedirect]);
+
+  const handleRetry = useCallback(() => {
+    resetStaleNativeAuth();
+    redirectInitiated.current = false;
+    setStatus('preparing');
+    setAttempt((n) => n + 1);
+  }, []);
+
+  const handleBackToAssessment = useCallback(() => {
+    clearTimeoutSafe();
+    navigate('/onboarding/growth-intention');
+  }, [clearTimeoutSafe, navigate]);
 
   useEffect(() => {
     if (DEV_MODE) {
@@ -36,6 +110,7 @@ const Stage8SignupStep = () => {
     if (isAuthenticated) {
       if (completionInitiated.current) return;
       completionInitiated.current = true;
+      clearTimeoutSafe();
 
       (async () => {
         await recordStep('signup_step');
@@ -45,29 +120,29 @@ const Stage8SignupStep = () => {
     }
 
     if (redirectInitiated.current) return;
-    // Don't trigger login if native auth flow is active
+    // If native auth is busy/completed but stale, allow retry; otherwise wait.
     if (isNativeAuthBusy() || isNativeAuthCompleted()) {
-      console.log('[Stage8] Native auth in progress or completed, waiting...');
-      return;
+      if (isNativeAuthStale()) {
+        console.log('[Stage8] Stale native auth detected, clearing for retry');
+        resetStaleNativeAuth();
+      } else {
+        console.log('[Stage8] Native auth in progress or completed, waiting...');
+        // Arm a timeout so we don't sit on the spinner forever
+        clearTimeoutSafe();
+        timeoutRef.current = window.setTimeout(() => {
+          if (!isAuthenticated) {
+            setErrorMessage('Account creation was cancelled. Try again.');
+            setStatus('error');
+          }
+        }, REDIRECT_TIMEOUT_MS);
+        return;
+      }
     }
     redirectInitiated.current = true;
+    void startRedirect();
+  }, [auth0Loading, authLoading, isAuthenticated, navigate, inIframe, recordStep, attempt, startRedirect, clearTimeoutSafe]);
 
-    // On iOS native, open in-app browser
-    (async () => {
-      const handled = await nativeLogin({ returnTo: '/onboarding/results', screenHint: 'signup' });
-      if (handled) return;
-
-      loginWithRedirect({
-        appState: { returnTo: '/onboarding/results' },
-        authorizationParams: {
-          redirect_uri: `${getRedirectUri()}?from=onboarding`,
-          screen_hint: 'signup',
-          audience: getSanitisedAuth0Audience(),
-          scope: 'openid profile email offline_access',
-        },
-      });
-    })();
-  }, [auth0Loading, authLoading, isAuthenticated, navigate, loginWithRedirect, inIframe, recordStep]);
+  useEffect(() => () => clearTimeoutSafe(), [clearTimeoutSafe]);
 
   if (DEV_MODE) {
     return (
@@ -101,11 +176,38 @@ const Stage8SignupStep = () => {
     );
   }
 
+  if (status === 'error') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
+          <p className="text-base font-semibold text-foreground">{errorMessage}</p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition"
+            >
+              Try again
+            </button>
+            <button
+              onClick={handleBackToAssessment}
+              className="px-6 py-3 rounded-xl border border-black/[0.08] text-foreground hover:bg-black/[0.03] transition"
+            >
+              Back to assessment
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground">Redirecting to create your account...</p>
+        <p className="text-muted-foreground">
+          {status === 'redirecting' ? 'Opening account creation...' : 'Preparing account creation...'}
+        </p>
       </div>
     </div>
   );
