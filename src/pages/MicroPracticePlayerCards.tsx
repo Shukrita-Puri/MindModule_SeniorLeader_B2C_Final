@@ -2233,6 +2233,7 @@ const MicroPracticePlayerCards = () => {
           ))}
         </CarouselContent>
       </Carousel>
+      </div>
 
       {/* Bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/10 to-transparent">
