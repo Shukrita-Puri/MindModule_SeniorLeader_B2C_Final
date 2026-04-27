@@ -23,22 +23,18 @@ export default function Stage4StressResponse() {
     { 
       value: "stay_grounded", 
       label: "I can pause, breathe, and respond thoughtfully",
-      description: "I maintain my center even when pressure intensifies"
     },
     { 
       value: "react_quickly", 
       label: "I react quickly, sometimes before I've fully processed",
-      description: "I tend to respond fast–occasionally too fast"
     },
     { 
       value: "freeze_overthink", 
       label: "I freeze or overthink, struggling to act",
-      description: "Analysis paralysis kicks in when stakes are high"
     },
     { 
       value: "power_through", 
       label: "I power through but feel drained afterward",
-      description: "I get through it, but it costs me energy"
     },
   ];
 
@@ -61,7 +57,6 @@ export default function Stage4StressResponse() {
             >
               <div className="flex-1">
                 <div className="font-medium text-sm mb-1 font-body">{option.label}</div>
-                <div className="text-xs text-muted-foreground font-body italic">{option.description}</div>
               </div>
             </button>
           ))}
