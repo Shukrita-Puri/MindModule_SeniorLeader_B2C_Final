@@ -66,6 +66,16 @@ export interface NativeLoginResult {
   error?: string;
 }
 
+/**
+ * Returns true when a NativeLoginResult should stop the caller from falling
+ * through to the web `loginWithRedirect` flow (i.e. native handled it or is
+ * in a state where web fallback would be wrong). Returns false on
+ * `not_native` and `failed` so the caller can decide what to do next.
+ */
+export function nativeLoginHandled(result: NativeLoginResult): boolean {
+  return result.status !== 'not_native' && result.status !== 'failed';
+}
+
 /** Key used in localStorage to signal that native auth just completed (survives reload) */
 export const NATIVE_AUTH_COMPLETED_KEY = 'native_auth_completed';
 const NATIVE_TOKENS_KEY = 'native_auth_tokens';
