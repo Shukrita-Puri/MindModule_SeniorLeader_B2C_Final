@@ -48,6 +48,23 @@ let _loginInProgress = false;
 let _safariPresented = false;
 let _callbackInProgress = false;
 let _listenerRegistered = false;
+let _loginStartedAt: number | null = null;
+let _browserListenerRegistered = false;
+
+/** Outcome returned from nativeLogin so callers can react appropriately. */
+export type NativeLoginStatus =
+  | 'opened'
+  | 'already_busy'
+  | 'completed_pending_hydration'
+  | 'recoverable_session'
+  | 'not_native'
+  | 'failed'
+  | 'cancelled';
+
+export interface NativeLoginResult {
+  status: NativeLoginStatus;
+  error?: string;
+}
 
 /** Key used in localStorage to signal that native auth just completed (survives reload) */
 export const NATIVE_AUTH_COMPLETED_KEY = 'native_auth_completed';
@@ -67,12 +84,49 @@ export function setCallbackInProgress(v: boolean): void {
 export function clearNativeLoginInProgress(): void {
   _loginInProgress = false;
   _safariPresented = false;
+  _loginStartedAt = null;
   console.log('[NativeAuth] loginInProgress + safariPresented cleared');
 }
 
 /** True if ANY native auth operation is active (login, safari, or callback) */
 export function isNativeAuthBusy(): boolean {
   return _loginInProgress || _safariPresented || _callbackInProgress;
+}
+
+/**
+ * Returns true if native login flags have been busy for longer than the given
+ * threshold (ms) without a callback in progress. Used by Stage8/Signup to
+ * detect stale flags and offer a retry.
+ */
+export function isNativeAuthStale(thresholdMs: number = 15000): boolean {
+  if (_callbackInProgress) return false;
+  if (!_loginInProgress && !_safariPresented) return false;
+  if (_loginStartedAt == null) return true;
+  return Date.now() - _loginStartedAt > thresholdMs;
+}
+
+/**
+ * Force-clear stale native auth state for retry. Will NOT clear if a
+ * callback is actively in progress (to avoid interrupting a real exchange).
+ * Returns true if state was cleared.
+ */
+export function resetStaleNativeAuth(): boolean {
+  if (_callbackInProgress) {
+    console.log('[NativeAuth] resetStaleNativeAuth skipped – callback in progress');
+    return false;
+  }
+  _loginInProgress = false;
+  _safariPresented = false;
+  _loginStartedAt = null;
+  // Also clear the completed flag if no tokens actually landed
+  try {
+    const hasTokens = !!localStorage.getItem(NATIVE_TOKENS_KEY);
+    if (!hasTokens) {
+      localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
+    }
+  } catch { /* ignore */ }
+  console.log('[NativeAuth] Stale native auth state reset');
+  return true;
 }
 
 // ─── Native auth completed flag (localStorage, survives reload) ─────
@@ -307,24 +361,24 @@ export async function refreshNativeTokens(): Promise<boolean> {
 export async function nativeLogin(options?: {
   returnTo?: string;
   screenHint?: 'signup' | 'login';
-}): Promise<boolean> {
-  if (!isNativeiOS()) return false;
+}): Promise<NativeLoginResult> {
+  if (!isNativeiOS()) return { status: 'not_native' };
 
   if (_loginInProgress || _safariPresented || _callbackInProgress) {
     console.log('[NativeAuth] Login blocked – loginInProgress:', _loginInProgress,
       'safariPresented:', _safariPresented, 'callbackInProgress:', _callbackInProgress);
-    return true;
+    return { status: 'already_busy' };
   }
 
   if (isNativeAuthCompleted()) {
     console.log('[NativeAuth] Auth already completed (pending hydration), skipping login');
-    return true;
+    return { status: 'completed_pending_hydration' };
   }
 
   // Check if we have recoverable tokens before opening login
   if (hasRecoverableNativeSession()) {
     console.log('[NativeAuth] Recoverable native session exists, skipping login – will attempt refresh');
-    return true;
+    return { status: 'recoverable_session' };
   }
 
   const domain = getSanitisedAuth0Domain();
@@ -333,7 +387,7 @@ export async function nativeLogin(options?: {
 
   if (!domain || !clientId) {
     console.error('[NativeAuth] Missing Auth0 env vars');
-    return false;
+    return { status: 'failed', error: 'missing_env' };
   }
 
   const returnTo = options?.returnTo || '/daily-check-in';
@@ -363,18 +417,44 @@ export async function nativeLogin(options?: {
 
   _loginInProgress = true;
   _safariPresented = true;
+  _loginStartedAt = Date.now();
   console.log('[NativeAuth] 🔐 Opening Safari for login...');
 
   try {
     const { Browser } = await import('@capacitor/browser');
+    await registerBrowserCancelListener();
     await Browser.open({ url: authorizeUrl, presentationStyle: 'popover' });
     console.log('[NativeAuth] ✅ Browser.open succeeded');
-    return true;
+    return { status: 'opened' };
   } catch (e) {
     _loginInProgress = false;
     _safariPresented = false;
+    _loginStartedAt = null;
     console.error('[NativeAuth] ❌ Browser.open failed:', e);
-    return false;
+    return { status: 'failed', error: String(e) };
+  }
+}
+
+/**
+ * Register a one-time listener for Capacitor Browser close/finished events.
+ * When the user dismisses the Auth0 in-app browser without completing signup,
+ * this clears _loginInProgress / _safariPresented so retry is possible.
+ * _callbackInProgress is left untouched so an active token exchange isn't
+ * interrupted.
+ */
+async function registerBrowserCancelListener(): Promise<void> {
+  if (_browserListenerRegistered) return;
+  _browserListenerRegistered = true;
+  try {
+    const { Browser } = await import('@capacitor/browser');
+    Browser.addListener('browserFinished', () => {
+      console.log('[NativeAuth] browserFinished – clearing login flags (callback untouched)');
+      _loginInProgress = false;
+      _safariPresented = false;
+      _loginStartedAt = null;
+    });
+  } catch (e) {
+    console.warn('[NativeAuth] Could not register browser cancel listener:', e);
   }
 }
 
