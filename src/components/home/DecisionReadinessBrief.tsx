@@ -1184,27 +1184,20 @@ function ExecutivePillCapsule({
 }) {
   const c = PILL_COLORS[pill.state];
   const Icon = pill.Icon;
-  // Plain-language glossary per pillar — what we measure and what high/low signals.
-  // Includes clinical definitions of wearable metrics (HRV, RHR, Sleep score) so
-  // CEOs unfamiliar with the acronyms understand exactly what's being read.
+  // Plain-language glossary per pillar — what each pillar tracks, no calculations
+  // or proprietary thresholds. Users see a single short definition.
   const glossary: Record<ExecutivePill['id'], { short: string; clinical?: string }> = {
     cognitive: {
       short:
-        'Mental sharpness & clarity — how crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.',
-      clinical:
-        'Blends your self-rated sharpness, clarity and check-in outcome (Focused / Scattered) with two wearable reads: HRV and last night\'s sleep.\nHRV (Heart-Rate Variability) acts as a hardware veto — when autonomic recovery is suppressed (≤ −20% vs your baseline), it caps the pillar regardless of how sharp you feel, because the nervous system is the substrate of clear thinking.\nSleep is read here for next-day mental bandwidth (the same column also feeds Physical Reserves, but for recovery): under 5h or score below 60 mildly drops the pillar, 5–6h or score 60–69 is amber, otherwise neutral — adequate sleep doesn\'t lift cognition, it just stops dragging it down.\nIf your wearable doesn\'t track sleep, HRV carries the full overnight read and its veto tightens to ≤ −15%.',
+        'How crisp your thinking is right now. Higher = sharper decisions; lower = foggier judgement.',
     },
     physiological: {
       short:
         'Your body’s recovery reserves, read from your wearable. Higher reserves = recovered; lower reserves = strained.',
-      clinical:
-        'HRV (Heart-Rate Variability) — beat-to-beat variation in ms; higher = better autonomic recovery, lower = stress or under-recovery.\nRHR (Resting Heart Rate) — beats per minute at rest; lower trend = recovered, elevated vs. your baseline = strain or illness.\nSleep score — 0–100 composite of duration, depth and continuity from your wearable; higher = more restorative sleep, lower = under-slept or fragmented.',
     },
     emotional: {
       short:
-        'Your capacity to absorb pressure — confidence, mental energy and physiological steadiness combined. Higher = composed under load; lower = depleted or stretched thin.',
-      clinical:
-        'Blends your self-rated confidence and mental energy (Calm / Steady / Energised / Anxious / Frustrated / Overwhelmed / Drained) with HRV as a stress-tolerance read. Low HRV alongside high confidence often signals running on grit.',
+        'Your capacity to absorb pressure right now — how composed and steady you feel under load.',
     },
   };
   const glossaryEntry = glossary[pill.id];
