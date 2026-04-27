@@ -43,7 +43,7 @@ const SUPABASE_SERVICE =
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/smart-nudges`;
 const SOURCE_PATH = new URL("./index.ts", import.meta.url);
 
-// v5 contract — keep in sync with the system prompt in index.ts (~line 800)
+// v6 copy contract — keep in sync with FORBIDDEN_WORDS_V6 + ALLOWED_CTA_VERBS_V6 in index.ts (~line 793)
 const FORBIDDEN_WORDS = [
   "set your intent",
   "set the tone",
@@ -52,17 +52,32 @@ const FORBIDDEN_WORDS = [
   "loaded day",
   "5 days behind you",
   "well done",
+  "great job",
+  "keep it up",
+  "come back",
+  "check in when ready",
   "productivity",
   "productive",
   "strategy",
   "strategic",
   "wellness",
+  "mindful",
   "mindfulness",
+  "relax",
+  "breathe",
+  "calm",
+  "recharge",
+  "self-care",
+  "streak",
+  "intent",
 ];
 
-// CTA verbs the v5 fallback strings + A/B variants are required to use.
+// CTA verbs the v6 fallback strings + A/B variants are required to use.
 const CTA_VERB_RX =
-  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|lock in your prep|tap to prep|recalibrate before|open your brief and|open your plan to)\b/i;
+  /\b(open your brief|open your plan|open your prep plan|build your prep plan|recalibrate now|close the day|close the week|lock in your prep)\b/i;
+
+// v6 also rejects placeholder tokens and orphan metric mentions
+const PLACEHOLDER_RX = /(\{[^}]+\}|\b(?:N|--)\b|\?\?|\bundefined\b|\bnull\b|NaN%)/;
 
 const VALID_DEEP_LINKS = new Set([
   "/daily-check-in",
@@ -115,12 +130,12 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   }
 });
 
-Deno.test("v5 source: global timing constants enforce 08:00 floor + 60-min cool-down", async () => {
+Deno.test("v6 source: global timing constants + arch stamp", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
   assert(/GLOBAL_EARLIEST_LOCAL\s*=\s*8(\.0)?/.test(src), "GLOBAL_EARLIEST_LOCAL must = 8.0");
   assert(/APP_OPEN_COOLDOWN_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/.test(src), "APP_OPEN_COOLDOWN_MS must be 60 min");
   assert(/INTRA_TICK_MAX\s*=\s*1/.test(src), "INTRA_TICK_MAX must be 1");
-  assert(/architecture:\s*['"`]cos-mind-v5['"`]/.test(src), "Payload must stamp architecture='cos-mind-v5'");
+  assert(/architecture:\s*['"`]cos-mind-v6-cta['"`]/.test(src), "Payload must stamp architecture='cos-mind-v6-cta'");
   assert(/cta_experiment:\s*['"`]cta-action-verb-v1['"`]/.test(src), "Payload must stamp cta_experiment");
 });
 
