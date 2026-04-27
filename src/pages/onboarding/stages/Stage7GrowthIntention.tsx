@@ -65,7 +65,7 @@ export default function Stage7GrowthIntention() {
         onClick={handleContinue}
         disabled={!goal}
         size="lg"
-        className="w-full bg-[#ff825a] text-white hover:bg-[#ff825a]/90 disabled:bg-[#ff825a]/50"
+        className="w-full bg-[#ff825a] text-white hover:bg-[#ff825a]/90 disabled:bg-[#ff825a]/50 border-[#ff855c] taupe-gradient-shine hover:shadow-[0_6px_24px_rgba(0,0,0,0.15)] hover:-translate-y-0.5 active:scale-[0.98]"
       >
         See My Results
         <ArrowRight size={20} className="ml-2" />
