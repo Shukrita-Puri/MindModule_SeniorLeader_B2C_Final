@@ -201,6 +201,10 @@ export default {
           "75%": { transform: "translateY(-2px)" },
           "90%": { transform: "translateY(0)" },
         },
+        "breathe-arrow": {
+          "0%, 100%": { transform: "translateX(0)", opacity: "1" },
+          "50%": { transform: "translateX(3px)", opacity: "0.65" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -218,6 +222,7 @@ export default {
         "float-logo-3": "float-logo-3 4s ease-in-out infinite 0.6s",
         "float-logo-4": "float-logo-4 3.2s ease-in-out infinite 0.9s",
         "text-bounce": "text-bounce 1.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1",
+        "breathe-arrow": "breathe-arrow 2.5s ease-in-out infinite",
       },
     },
   },
