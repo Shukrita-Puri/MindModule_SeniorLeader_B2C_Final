@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
@@ -16,6 +16,18 @@ export default function Stage2Identity() {
   const [biggestPressure, setBiggestPressure] = useState<string>(
     getResponse("biggest_pressure") || ""
   );
+
+  // Intercept the top-bar Back button when on Q2: step back to Q1 instead of leaving the page.
+  useEffect(() => {
+    const onBack = (e: Event) => {
+      if (currentQuestion === 2) {
+        e.preventDefault();
+        setCurrentQuestion(1);
+      }
+    };
+    window.addEventListener('onboarding:back', onBack as EventListener);
+    return () => window.removeEventListener('onboarding:back', onBack as EventListener);
+  }, [currentQuestion]);
 
   const identityOptions = [
     { value: "executive", label: "Executive / Organisation Leader" },
