@@ -43,7 +43,7 @@ const SUPABASE_SERVICE =
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/smart-nudges`;
 const SOURCE_PATH = new URL("./index.ts", import.meta.url);
 
-// v5 contract — keep in sync with the system prompt in index.ts (~line 800)
+// v6 copy contract — keep in sync with FORBIDDEN_WORDS_V6 + ALLOWED_CTA_VERBS_V6 in index.ts (~line 793)
 const FORBIDDEN_WORDS = [
   "set your intent",
   "set the tone",
@@ -52,17 +52,36 @@ const FORBIDDEN_WORDS = [
   "loaded day",
   "5 days behind you",
   "well done",
+  "great job",
+  "keep it up",
+  "come back",
+  "check in when ready",
   "productivity",
   "productive",
   "strategy",
   "strategic",
   "wellness",
+  "mindful",
   "mindfulness",
+  "relax",
+  "breathe",
+  "calm",
+  "recharge",
+  "self-care",
+  "streak",
+  "intent",
 ];
 
-// CTA verbs the v5 fallback strings + A/B variants are required to use.
+// CTA verbs the v6 fallback strings + A/B variants are required to use.
 const CTA_VERB_RX =
-  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|lock in your prep|tap to prep|recalibrate before|open your brief and|open your plan to)\b/i;
+  /\b(open your brief|open your plan|open your prep plan|build your prep plan|recalibrate now|close the day|close the week|lock in your prep)\b/i;
+
+// Legacy v5 verbs (still allowed in old rows; v6 no longer emits these)
+const CTA_VERB_RX_V5_LEGACY =
+  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|lock in your prep|tap to prep|recalibrate before)\b/i;
+
+// v6 also rejects placeholder tokens and orphan metric mentions
+const PLACEHOLDER_RX = /(\{[^}]+\}|\b(?:N|--)\b|\?\?|\bundefined\b|\bnull\b|NaN%)/;
 
 const VALID_DEEP_LINKS = new Set([
   "/daily-check-in",
@@ -115,12 +134,12 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   }
 });
 
-Deno.test("v5 source: global timing constants enforce 08:00 floor + 60-min cool-down", async () => {
+Deno.test("v6 source: global timing constants + arch stamp", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
   assert(/GLOBAL_EARLIEST_LOCAL\s*=\s*8(\.0)?/.test(src), "GLOBAL_EARLIEST_LOCAL must = 8.0");
   assert(/APP_OPEN_COOLDOWN_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/.test(src), "APP_OPEN_COOLDOWN_MS must be 60 min");
   assert(/INTRA_TICK_MAX\s*=\s*1/.test(src), "INTRA_TICK_MAX must be 1");
-  assert(/architecture:\s*['"`]cos-mind-v5['"`]/.test(src), "Payload must stamp architecture='cos-mind-v5'");
+  assert(/architecture:\s*['"`]cos-mind-v6-cta['"`]/.test(src), "Payload must stamp architecture='cos-mind-v6-cta'");
   assert(/cta_experiment:\s*['"`]cta-action-verb-v1['"`]/.test(src), "Payload must stamp cta_experiment");
 });
 
@@ -212,6 +231,11 @@ Deno.test({
       // Body must not contain v4 forbidden vocabulary
       const bad = bodyContainsForbidden(n.body);
       assertEquals(bad, null, `Notification ${n.type} body contains "${bad}": "${n.body}"`);
+      // v6: reject any placeholder token (`?`, `{x}`, `N`, `--`, `null`)
+      assert(
+        !PLACEHOLDER_RX.test(n.body),
+        `Notification ${n.type} body contains placeholder token: "${n.body}"`,
+      );
       // Variant id must end with ::A|B|C|D (CTA experiment)
       assert(
         /::[ABCD]$/.test(n.variant),
@@ -252,18 +276,22 @@ Deno.test({
       (profs ?? []).map((p) => [p.id as string, (p.timezone_offset as number) ?? 0]),
     );
 
-    // Only audit rows written *after* this test run's deploy — i.e., rows
-    // stamped with the v5 architecture. Older v4 rows are tolerated here.
-    const v5Rows = rows.filter(
-      (r) => (r.payload as Record<string, unknown>)?.architecture === "cos-mind-v5",
-    );
-    console.log(`[validation] v5 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
+    // Audit any row stamped with the current (v6) or previous (v5) Chief-of-Staff
+    // architectures. Older v4 rows are tolerated here.
+    const v5Rows = rows.filter((r) => {
+      const arch = (r.payload as Record<string, unknown>)?.architecture;
+      return arch === "cos-mind-v6-cta" || arch === "cos-mind-v5";
+    });
+    console.log(`[validation] v5/v6 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
 
     for (const r of v5Rows) {
       const payload = r.payload as Record<string, unknown>;
 
       // Stamps must all be present
-      assertEquals(payload.architecture, "cos-mind-v5", `arch missing on row ${r.user_id}@${r.sent_at}`);
+      assert(
+        payload.architecture === "cos-mind-v6-cta" || payload.architecture === "cos-mind-v5",
+        `arch invalid on row ${r.user_id}@${r.sent_at}: ${payload.architecture}`,
+      );
       assertEquals(payload.cta_experiment, "cta-action-verb-v1", `cta_experiment missing on ${r.user_id}@${r.sent_at}`);
       assert(
         ["A", "B", "C", "D"].includes(payload.cta_variant as string),
@@ -278,7 +306,12 @@ Deno.test({
       const body = String(payload.body ?? "");
       const bad = bodyContainsForbidden(body);
       assertEquals(bad, null, `Forbidden word "${bad}" in body: ${body}`);
-      assert(CTA_VERB_RX.test(body), `Body missing CTA verb: ${body}`);
+      if (payload.architecture === "cos-mind-v6-cta") {
+        assert(CTA_VERB_RX.test(body), `v6 body missing CTA verb: ${body}`);
+        assert(!PLACEHOLDER_RX.test(body), `Placeholder in v6 body: ${body}`);
+      } else {
+        assert(CTA_VERB_RX_V5_LEGACY.test(body), `v5 body missing legacy CTA verb: ${body}`);
+      }
 
       // 08:00 local floor
       const offset = tz.get(r.user_id) ?? 0;
@@ -339,7 +372,10 @@ Deno.test({
     const { data: profs } = await sb.from("profiles").select("id, timezone_offset").in("id", userIds);
     const tz = new Map<string, number>((profs ?? []).map((p) => [p.id as string, (p.timezone_offset as number) ?? 0]));
 
-    const v5 = rows.filter((r) => (r.payload as Record<string, unknown>)?.architecture === "cos-mind-v5");
+    const v5 = rows.filter((r) => {
+      const arch = (r.payload as Record<string, unknown>)?.architecture;
+      return arch === "cos-mind-v6-cta" || arch === "cos-mind-v5";
+    });
     for (const r of v5) {
       const offset = tz.get(r.user_id) ?? 0;
       const local = new Date(new Date(r.sent_at).getTime() + offset * 60_000);
