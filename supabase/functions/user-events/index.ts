@@ -72,30 +72,71 @@ serve(async (req) => {
           );
         }
 
-        // Enrich brief_view events with brief_id when missing — enables historical
-        // overlay navigation from the sidebar without requiring client changes.
+        // brief_view handling
+        // Identity model: client MUST pass `metadata.brief_id` (the actual
+        // brief_snapshots.id). We validate ownership here. Phrase-based
+        // legacy enrichment is kept ONLY as a fallback for old clients and
+        // never overrides a client-provided brief_id.
         let enrichedMetadata: Record<string, any> = metadata || {};
-        if (eventType === 'brief_view' && !enrichedMetadata.brief_id) {
-          try {
-            const { data: latest } = await supabase
-              .from('brief_snapshots')
-              .select('id, phrase, local_date, time_window')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false })
-              .limit(5);
-            // Match by phrase if available, otherwise take most recent.
-            const phrase = enrichedMetadata.phrase as string | undefined;
-            const match = (latest || []).find(s => phrase && s.phrase === phrase) || (latest || [])[0];
-            if (match) {
+        if (eventType === 'brief_view') {
+          const providedBriefId = enrichedMetadata.brief_id as string | undefined;
+          if (providedBriefId) {
+            // Validate the brief_id belongs to this user.
+            try {
+              const { data: ownedRow } = await supabase
+                .from('brief_snapshots')
+                .select('id, phrase, local_date, time_window, user_id')
+                .eq('id', providedBriefId)
+                .maybeSingle();
+              if (!ownedRow || ownedRow.user_id !== userId) {
+                console.warn('[user-events] brief_view rejected — brief_id not owned by user:', providedBriefId);
+                return new Response(
+                  JSON.stringify({ success: false, error: 'invalid_brief_id' }),
+                  { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+              // Enrich missing diagnostic fields from the canonical row.
               enrichedMetadata = {
                 ...enrichedMetadata,
-                brief_id: match.id,
-                local_date: match.local_date,
-                time_window: match.time_window,
+                local_date: enrichedMetadata.local_date ?? ownedRow.local_date,
+                time_window: enrichedMetadata.time_window ?? ownedRow.time_window,
+                phrase: enrichedMetadata.phrase ?? ownedRow.phrase,
               };
+            } catch (e) {
+              console.warn('[user-events] brief_view ownership check failed:', (e as Error)?.message);
+              // Fail-closed on validation errors — better to drop one event
+              // than to write a cross-user/invalid id.
+              return new Response(
+                JSON.stringify({ success: false, error: 'validation_failed' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
             }
-          } catch (e) {
-            console.warn('[user-events] brief_view enrichment failed:', (e as Error)?.message);
+          } else {
+            // LEGACY FALLBACK: older clients did not send brief_id. Try to
+            // recover the most recent snapshot for this user. We do NOT
+            // phrase-match — that is fragile and can link to the wrong
+            // snapshot when the same phrase repeats across days/windows.
+            try {
+              const { data: latest } = await supabase
+                .from('brief_snapshots')
+                .select('id, phrase, local_date, time_window')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (latest) {
+                enrichedMetadata = {
+                  ...enrichedMetadata,
+                  brief_id: latest.id,
+                  local_date: latest.local_date,
+                  time_window: latest.time_window,
+                  phrase: enrichedMetadata.phrase ?? latest.phrase,
+                  legacy_enriched: true,
+                };
+              }
+            } catch (e) {
+              console.warn('[user-events] brief_view legacy enrichment failed:', (e as Error)?.message);
+            }
           }
         }
 
