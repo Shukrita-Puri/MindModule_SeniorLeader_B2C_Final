@@ -10,7 +10,7 @@ import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import { getAuthToken } from "@/services/authTokenService";
+import { getAuthToken, getEdgeFunctionHeaders } from "@/services/authTokenService";
 
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
@@ -125,14 +125,12 @@ const ExecutiveHome = () => {
       if (!token) return;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       try {
+        const headers = await getEdgeFunctionHeaders();
         const res = await fetch(
           `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
           {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({ action: 'GET' }),
           }
         );

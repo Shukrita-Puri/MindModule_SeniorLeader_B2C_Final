@@ -1,4 +1,4 @@
-import { getAuthToken } from "@/services/authTokenService";
+import { getAuthToken, getEdgeFunctionHeaders } from "@/services/authTokenService";
 
 export interface OnboardingProgressSnapshot {
   beta_expires_at?: string | null;
@@ -53,12 +53,10 @@ export async function fetchOnboardingProgressSnapshot(): Promise<OnboardingProgr
       const token = await getAuthToken();
       if (!token) return null;
 
+      const headers = await getEdgeFunctionHeaders();
       const res = await fetch(getOnboardingProgressUrl(), {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ action: "GET" }),
       });
 
