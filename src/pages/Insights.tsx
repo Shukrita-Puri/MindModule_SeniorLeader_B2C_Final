@@ -907,8 +907,19 @@ const Insights = () => {
     <SidebarProvider defaultOpen={false}>
       <div className="h-screen flex w-full bg-background overflow-hidden">
         <LeftSidebar />
-        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-          <div className="pt-[env(safe-area-inset-top,0px)]">
+        <SidebarInset
+          data-sidebar-inset
+          data-scroll-container
+          className="w-full overflow-x-hidden overflow-y-auto"
+          style={{
+            // Make in-page anchors (#highlight) and tab switches account for
+            // iOS safe-area + sticky header at the top, and the floating pill
+            // nav + safe-area at the bottom.
+            scrollPaddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)',
+            scrollPaddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)',
+          }}
+        >
+          <div>
             <header className="flex items-center px-3 md:px-4 py-3">
               <SidebarDiscoveryPulse />
             </header>
@@ -960,8 +971,15 @@ const Insights = () => {
         </div>
       </div>
 
-      {/* Tab Content – all rendered, toggle via display */}
-      <div className="flex-1 w-full pb-[120px]">
+      {/* Tab Content – all rendered, toggle via display.
+          Bottom padding leaves room for the floating pill nav (≈64px) +
+          iOS safe-area-inset-bottom + breathing space so the final card is
+          never hidden behind the nav. Pill nav is sm:hidden, so the larger
+          padding is mobile-only. */}
+      <div
+        className="flex-1 w-full sm:pb-16"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
+      >
 
         {/* PROGRESS tab — Trajectory + Practice Effectiveness + Wins Log */}
         <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
