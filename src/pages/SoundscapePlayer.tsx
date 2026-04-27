@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
+import { safeReadPracticeQueue, safeReadQueueIndex } from "@/utils/safeStorage";
 import { 
   Play, 
   Pause, 
@@ -96,6 +97,21 @@ const SoundscapePlayer = () => {
   const [hasStarted, setHasStarted] = useState(false);
   // actualDurationMinutes removed – now using formatTime(displayDuration) directly
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isNavigatingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      isNavigatingRef.current = true;
+      // Pause + release audio so it doesn't keep playing after route change.
+      const a = audioRef.current;
+      if (a) {
+        try { a.pause(); } catch { /* noop */ }
+      }
+    };
+  }, []);
 
   // Practice Queue State
   const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
@@ -122,27 +138,21 @@ const SoundscapePlayer = () => {
   });
 
   useEffect(() => {
-    // Check if this is part of a practice queue
-    const queue = localStorage.getItem('practiceQueue');
-    if (queue) {
-      try {
-        const parsed = JSON.parse(queue);
-        setPracticeQueue(parsed);
-        // Prefer the launcher-written queueIndex; fall back to findIndex by id.
-        const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
-        const idx =
-          Number.isFinite(storedIdx) &&
-          storedIdx >= 0 &&
-          storedIdx < parsed.length &&
-          parsed[storedIdx]?.id === id
-            ? storedIdx
-            : parsed.findIndex((p: any) => p.id === id);
-        if (idx !== -1) {
-          setCurrentQueueIndex(idx);
-          setIsInQueue(true);
-        }
-      } catch (e) {
-        console.error('Error parsing practice queue:', e);
+    // Check if this is part of a practice queue (safe-parsed)
+    const parsed = safeReadPracticeQueue();
+    if (Array.isArray(parsed)) {
+      setPracticeQueue(parsed);
+      const storedIdx = safeReadQueueIndex();
+      const idx =
+        Number.isFinite(storedIdx) &&
+        storedIdx >= 0 &&
+        storedIdx < parsed.length &&
+        parsed[storedIdx]?.id === id
+          ? storedIdx
+          : parsed.findIndex((p: any) => p.id === id);
+      if (idx !== -1) {
+        setCurrentQueueIndex(idx);
+        setIsInQueue(true);
       }
     }
   }, [id]);
