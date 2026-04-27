@@ -2126,7 +2126,8 @@ const MicroPracticePlayerCards = () => {
         </button>
       )}
 
-      {/* Carousel */}
+      {/* Carousel — swipe gestures are scoped to this wrapper */}
+      <div ref={carouselScopeRef} className="w-full h-full">
       <Carousel
         setApi={setApi}
         className="w-full h-full"
