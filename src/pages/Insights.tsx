@@ -1035,7 +1035,9 @@ const Insights = () => {
                             <p className="text-xs text-muted-foreground tracking-wider uppercase">Total Wins Recorded</p>
                           </div>
                            <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                            <p className="text-[20px] font-headline text-foreground">{winTopicsCount}</p>
+                            <p className="text-[20px] font-headline text-foreground truncate">
+                              {dominantCount > 0 ? dominantDomain : '—'}
+                            </p>
                             <p className="text-xs text-muted-foreground tracking-wider uppercase">Win Topics</p>
                           </div>
                         </div>
@@ -1064,7 +1066,7 @@ const Insights = () => {
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pt-3 space-y-3 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                         <div className="space-y-2">
-                          {tinyWinsContent.slice(0, 5).map((win, i) => {
+                          {tinyWinsContent.slice(0, 10).map((win, i) => {
                         const content = (win.content || '').toLowerCase();
                         let domain = 'Delivery';
                         let dotColor = 'bg-slate-400';
