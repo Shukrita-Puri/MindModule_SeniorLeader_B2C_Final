@@ -4321,6 +4321,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       innerReadinessTier: awaitingSignals ? null : safeTier,
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
+      // Explicit flag: true only when a brief_snapshots row exists for this
+      // request (cache hit OR successful upsert). The client uses this to
+      // decide whether to track a brief_view event for Recent history.
+      briefPersisted: resolvedBriefId !== null,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
