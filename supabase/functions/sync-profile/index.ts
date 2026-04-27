@@ -81,6 +81,15 @@ Deno.serve(async (req) => {
     if (!name && clientHints.name) name = String(clientHints.name);
     if (!picture && clientHints.picture) picture = String(clientHints.picture);
 
+    // Normalize email for downstream matching (beta_invites lookup, etc.).
+    // We trim + lowercase BEFORE any DB writes / lookups so that whitespace
+    // or casing differences from Auth0 / client hints can't cause a beta
+    // invite to be silently missed.
+    if (typeof email === 'string') {
+      email = email.trim().toLowerCase();
+      if (email.length === 0) email = null;
+    }
+
     if (!email) {
       console.error("[sync-profile] No email available for user:", userId);
       return new Response(
@@ -147,22 +156,34 @@ Deno.serve(async (req) => {
     // Beta invite lookup – runs on EVERY sync, not just new profiles.
     // Matches both 'invited' and 'activated' status so that returning
     // users whose profile already exists still get beta fields populated.
-    if (email) {
-      const { data: invite } = await supabaseAdmin
+    // Email was already normalized above (trim + lowercase) so a single
+    // equality match covers casing/whitespace variants.
+    {
+      console.log("[sync-profile] 🔍 Beta invite lookup for normalized email:", email);
+      const { data: invite, error: inviteErr } = await supabaseAdmin
         .from("beta_invites")
         .select("id, beta_expires_at, status")
-        .eq("email", email.toLowerCase())
+        .eq("email", email)
         .in("status", ["invited", "activated"])
         .order("beta_expires_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (inviteErr) {
+        console.warn("[sync-profile] Beta invite lookup error (non-fatal):", inviteErr.message);
+      }
 
       if (invite && new Date(invite.beta_expires_at) > new Date()) {
         upsertData.beta_user = true;
         upsertData.beta_expires_at = invite.beta_expires_at;
-        console.log("[sync-profile] 🎉 Beta invite applied for:", email, "status:", invite.status);
+        console.log(
+          "[sync-profile] 🎉 Beta access applied — email:", email,
+          "status:", invite.status,
+          "expires:", invite.beta_expires_at
+        );
 
-        // Mark invite as activated if it was still in 'invited' state
+        // Mark invite as activated if it was still in 'invited' state.
+        // Already-activated invites are left alone but still grant access.
         if (invite.status === "invited") {
           supabaseAdmin
             .from("beta_invites")
@@ -172,6 +193,10 @@ Deno.serve(async (req) => {
               if (updateErr) console.warn("[sync-profile] Failed to update beta_invites status:", updateErr);
             });
         }
+      } else if (invite) {
+        console.log("[sync-profile] ⏰ Beta invite found but expired for:", email, "expires:", invite.beta_expires_at);
+      } else {
+        console.log("[sync-profile] ℹ️ No beta invite found for:", email);
       }
     }
 

@@ -129,9 +129,22 @@ export type OnboardingAccessDecision = 'allow' | 'needs_payment' | 'pending';
 
 export function resolveOnboardingAccess(user: AccessUser | null): OnboardingAccessDecision {
   const sub = resolveSubscriptionAccess(user);
-  if (sub === 'allow') return 'allow';
-  if (sub === 'pending') return 'pending';
+  if (sub === 'allow') {
+    console.log('[onboardingAccess] ✅ allow — beta_user:', user?.beta_user,
+      'beta_expires_at:', user?.beta_expires_at,
+      'subscription_status:', user?.subscription_status,
+      'subscription_tier:', user?.subscription_tier);
+    return 'allow';
+  }
+  if (sub === 'pending') {
+    console.log('[onboardingAccess] ⏳ pending — waiting on profile sync. user present:', !!user);
+    return 'pending';
+  }
   // sub === 'block' → user has no valid access path → must complete payment
+  console.log('[onboardingAccess] 💳 needs_payment — beta_user:', user?.beta_user,
+    'beta_expires_at:', user?.beta_expires_at,
+    'subscription_status:', user?.subscription_status,
+    'subscription_tier:', user?.subscription_tier);
   return 'needs_payment';
 }
 
