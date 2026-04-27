@@ -31,8 +31,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Event type is passed through directly – DB constraint expects: session_complete, session_start, session_pause, session_skip
-    const mappedEventType = eventData.eventType;
+    // Normalize event types so callers can send either the canonical
+    // `session_complete` or the legacy `completed` form. Downstream Insights
+    // queries also accept both, but writes always use the legacy `completed`
+    // value which the existing DB rows are keyed on.
+    const rawEventType: string = eventData.eventType;
+    const mappedEventType =
+      rawEventType === 'session_complete' ? 'completed' : rawEventType;
+    const isCompletion = mappedEventType === 'completed';
 
     // Insert sanctuary event
     const { data: event, error: insertError } = await supabase
@@ -56,39 +62,60 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // Also write to practice_sessions for completed events (consolidates dual writes)
+    // Also write to practice_sessions for completed events (consolidates dual writes).
+    // Idempotent: if a recent session already exists for this user/content within
+    // the past 10 minutes, reuse it instead of creating a duplicate.
     let practiceSessionId: string | null = null;
-    if (mappedEventType === 'completed') {
+    if (isCompletion) {
       const durationSeconds = eventData.durationSeconds || eventData.duration || null;
       const now = new Date().toISOString();
       const startedAt = durationSeconds
         ? new Date(Date.now() - durationSeconds * 1000).toISOString()
         : now;
+      const normalizedContentType =
+        eventData.contentType === 'guided-practice' ? 'guided'
+        : eventData.contentType === 'micro-practice' ? 'micro'
+        : eventData.contentType;
 
-      const { data: session, error: sessionError } = await supabase
+      // Dedup: check for an existing completed session within the last 10 minutes.
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: existingSession } = await supabase
         .from('practice_sessions')
-        .insert({
-          user_id: userId,
-          content_id: eventData.contentId,
-          content_type: eventData.contentType === 'guided-practice' ? 'guided'
-            : eventData.contentType === 'micro-practice' ? 'micro'
-            : eventData.contentType,
-          category: eventData.category,
-          duration_seconds: durationSeconds,
-          started_at: startedAt,
-          completed_at: now,
-          completed: true,
-          part_of_ritual: eventData.partOfRitual || false,
-          metadata: eventData.metadata || {},
-        })
         .select('id')
-        .single();
+        .eq('user_id', userId)
+        .eq('content_id', eventData.contentId)
+        .eq('completed', true)
+        .gte('completed_at', tenMinutesAgo)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (sessionError) {
-        console.error('[track-sanctuary-event] practice_sessions insert error:', sessionError);
-        // Non-fatal – sanctuary_events is the primary record
+      if (existingSession?.id) {
+        practiceSessionId = existingSession.id;
       } else {
-        practiceSessionId = session?.id || null;
+        const { data: session, error: sessionError } = await supabase
+          .from('practice_sessions')
+          .insert({
+            user_id: userId,
+            content_id: eventData.contentId,
+            content_type: normalizedContentType,
+            category: eventData.category,
+            duration_seconds: durationSeconds,
+            started_at: startedAt,
+            completed_at: now,
+            completed: true,
+            part_of_ritual: eventData.partOfRitual || false,
+            metadata: eventData.metadata || {},
+          })
+          .select('id')
+          .single();
+
+        if (sessionError) {
+          console.error('[track-sanctuary-event] practice_sessions insert error:', sessionError);
+          // Non-fatal – sanctuary_events is the primary record
+        } else {
+          practiceSessionId = session?.id || null;
+        }
       }
     }
 
