@@ -453,7 +453,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-muted-foreground italic">builds with your daily Brief</span>
+                      <span className="text-xs text-muted-foreground italic">building with your daily Briefs</span>
                     )}
                   </div>
                 </div>
