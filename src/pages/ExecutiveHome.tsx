@@ -184,20 +184,44 @@ const ExecutiveHome = () => {
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
 
-  // Track brief view once per phrase (stores full snapshot for historical browsing)
-  const trackedPhraseRef = useRef<string | null>(null);
+  // Track brief view once per persisted brief snapshot (keyed by briefId).
+  // We ONLY track when:
+  //   - The brief was persisted server-side (briefId present)
+  //   - It's a real generated brief (phrase + body present)
+  //   - It's not an awaiting-signals empty state
+  // This guarantees every Recent sidebar row maps to a real brief_snapshots
+  // row that HistoricalBriefOverlay can open.
+  const trackedBriefIdRef = useRef<string | null>(null);
   useEffect(() => {
+    const briefId = outerBrief?.briefId;
     const phrase = outerBrief?.phrase;
-    if (phrase && phrase !== trackedPhraseRef.current) {
-      trackedPhraseRef.current = phrase;
+    const body = outerBrief?.bodyText || outerBrief?.context;
+    const isAwaiting = outerBrief?.awaitingSignals === true;
+    if (
+      !isAwaiting &&
+      briefId &&
+      phrase &&
+      body &&
+      briefId !== trackedBriefIdRef.current
+    ) {
+      trackedBriefIdRef.current = briefId;
       trackBriefView({
+        briefId,
         phrase,
-        body: outerBrief?.bodyText || outerBrief?.context,
+        body,
         leanOn: outerBrief?.leanOn,
         watchFor: outerBrief?.watchFor,
       });
     }
-  }, [outerBrief?.phrase, outerBrief?.bodyText, outerBrief?.context, outerBrief?.leanOn, outerBrief?.watchFor]);
+  }, [
+    outerBrief?.briefId,
+    outerBrief?.phrase,
+    outerBrief?.bodyText,
+    outerBrief?.context,
+    outerBrief?.leanOn,
+    outerBrief?.watchFor,
+    outerBrief?.awaitingSignals,
+  ]);
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];

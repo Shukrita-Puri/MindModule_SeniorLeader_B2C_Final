@@ -62,6 +62,14 @@ export async function trackBriefView(snapshot: BriefSnapshot): Promise<void> {
     const accessToken = await getAuthToken();
     if (!accessToken) return;
 
+    // Hard guard: never track a brief view without a persisted briefId.
+    // The Recent sidebar relies on metadata.brief_id to navigate to the
+    // historical overlay; tracking without it creates broken history rows.
+    if (!snapshot.briefId) {
+      console.warn('[trackBriefView] Skipping — no briefId (not persisted)');
+      return;
+    }
+
     await supabase.functions.invoke('user-events', {
       headers: { Authorization: `Bearer ${accessToken}` },
       body: {
@@ -69,11 +77,11 @@ export async function trackBriefView(snapshot: BriefSnapshot): Promise<void> {
         eventType: 'brief_view',
         timestamp: new Date().toISOString(),
         metadata: {
+          brief_id: snapshot.briefId,
           phrase: snapshot.phrase,
           body: truncate(snapshot.body, 500),
           leanOn: truncate(snapshot.leanOn, 200),
           watchFor: truncate(snapshot.watchFor, 200),
-          brief_id: snapshot.briefId,
         }
       }
     });
