@@ -21,9 +21,9 @@ export default function Stage1Welcome() {
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-5 py-4 max-w-4xl mx-auto">
+      <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 max-w-4xl mx-auto">
         {/* Top section — logo + brand */}
-        <div className="flex flex-col items-center space-y-4 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
+        <div className="flex flex-col items-center space-y-4">
           <img src={mmLogo} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
 
           <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
@@ -49,8 +49,8 @@ export default function Stage1Welcome() {
           </div>
         </div>
 
-        {/* Bottom CTA */}
-        <div className="flex flex-col items-center gap-4 w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+        {/* CTA */}
+        <div className="flex flex-col items-center gap-4 w-full mt-8">
           <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-2" />
 
           <Button
