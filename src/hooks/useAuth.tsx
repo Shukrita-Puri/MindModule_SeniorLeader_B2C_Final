@@ -415,21 +415,31 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (response.ok) {
         const { profile } = await response.json();
         console.log('[useAuth] ✅ Profile refreshed, onboarding_completed_at:', profile.onboarding_completed_at);
+        // Diagnostic: surface beta/subscription state we got back from sync.
+        // Helps debug "valid beta user is being shown pricing" scenarios.
+        console.log('[useAuth] 🔍 Refresh result — beta_user:', profile.beta_user,
+          'beta_expires_at:', profile.beta_expires_at,
+          'subscription_status:', profile.subscription_status,
+          'subscription_tier:', profile.subscription_tier);
         setAppUser(prev => prev ? {
           ...prev,
           name: profile.display_name || profile.auth_name || profile.full_name || prev.name,
-          subscription_status: profile.subscription_status ?? prev.subscription_status,
+          // Subscription + beta fields ALWAYS take the freshly-synced value.
+          // Using `??` here would let a stale `false`/`null` survive a sync
+          // that just upgraded the user (e.g. a beta invite was just applied),
+          // which is exactly the bug that pushed valid beta users to /payment.
+          subscription_status: profile.subscription_status || 'none',
           subscription_plan: profile.subscription_plan ?? prev.subscription_plan,
           onboarding_completed: !!profile.onboarding_completed_at,
           onboarding_completed_at: profile.onboarding_completed_at ?? null,
           user_archetype: profile.user_archetype ?? prev.user_archetype,
-          subscription_tier: profile.subscription_tier ?? prev.subscription_tier,
+          subscription_tier: profile.subscription_tier || 'none',
           trial_ends_at: profile.trial_ends_at ?? prev.trial_ends_at,
           subscription_current_period_end: profile.subscription_current_period_end ?? prev.subscription_current_period_end,
           subscription_canceled_at: profile.subscription_canceled_at ?? prev.subscription_canceled_at,
           subscription_cancel_at: profile.subscription_cancel_at ?? prev.subscription_cancel_at,
-          beta_user: profile.beta_user ?? prev.beta_user,
-          beta_expires_at: profile.beta_expires_at ?? prev.beta_expires_at,
+          beta_user: !!profile.beta_user,
+          beta_expires_at: profile.beta_expires_at ?? null,
           stripe_customer_id: profile.stripe_customer_id ?? prev.stripe_customer_id,
           founding_member: profile.founding_member ?? prev.founding_member,
           referral_code: profile.referral_code ?? prev.referral_code,
