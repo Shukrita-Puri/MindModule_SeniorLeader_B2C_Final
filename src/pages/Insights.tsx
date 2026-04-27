@@ -1066,7 +1066,7 @@ const Insights = () => {
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pt-3 space-y-3 overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                         <div className="space-y-2">
-                          {tinyWinsContent.slice(0, 5).map((win, i) => {
+                          {tinyWinsContent.slice(0, 10).map((win, i) => {
                         const content = (win.content || '').toLowerCase();
                         let domain = 'Delivery';
                         let dotColor = 'bg-slate-400';
