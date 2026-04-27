@@ -293,7 +293,8 @@ serve(async (req) => {
       .from("tiny_wins")
       .select("id, win_content, win_date, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal, source")
       .eq("user_id", userId)
-      .gte("win_date", startDate.toISOString().split("T")[0]);
+      .gte("win_date", startDate.toISOString().split("T")[0])
+      .order("win_date", { ascending: false });
 
     // Aggregate dimensions into counts
     const dimensionCounts: Record<string, Record<string, number>> = {
