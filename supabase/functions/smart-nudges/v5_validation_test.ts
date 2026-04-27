@@ -76,6 +76,10 @@ const FORBIDDEN_WORDS = [
 const CTA_VERB_RX =
   /\b(open your brief|open your plan|open your prep plan|build your prep plan|recalibrate now|close the day|close the week|lock in your prep)\b/i;
 
+// Legacy v5 verbs (still allowed in old rows; v6 no longer emits these)
+const CTA_VERB_RX_V5_LEGACY =
+  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|lock in your prep|tap to prep|recalibrate before)\b/i;
+
 // v6 also rejects placeholder tokens and orphan metric mentions
 const PLACEHOLDER_RX = /(\{[^}]+\}|\b(?:N|--)\b|\?\?|\bundefined\b|\bnull\b|NaN%)/;
 
@@ -302,10 +306,11 @@ Deno.test({
       const body = String(payload.body ?? "");
       const bad = bodyContainsForbidden(body);
       assertEquals(bad, null, `Forbidden word "${bad}" in body: ${body}`);
-      assert(CTA_VERB_RX.test(body), `Body missing CTA verb: ${body}`);
-      // v6: no placeholder tokens
       if (payload.architecture === "cos-mind-v6-cta") {
+        assert(CTA_VERB_RX.test(body), `v6 body missing CTA verb: ${body}`);
         assert(!PLACEHOLDER_RX.test(body), `Placeholder in v6 body: ${body}`);
+      } else {
+        assert(CTA_VERB_RX_V5_LEGACY.test(body), `v5 body missing legacy CTA verb: ${body}`);
       }
 
       // 08:00 local floor
