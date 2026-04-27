@@ -38,8 +38,8 @@ const Auth0Front = () => {
   const handleSignIn = async () => {
     clearLogoutGuard();
 
-    const handled = await nativeLogin({ returnTo: CANONICAL_HOME });
-    if (handled) return;
+    const result = await nativeLogin({ returnTo: CANONICAL_HOME });
+    if (nativeLoginHandled(result)) return;
 
     loginWithRedirect({
       appState: { returnTo: CANONICAL_HOME },
