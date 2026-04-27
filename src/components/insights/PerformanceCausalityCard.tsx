@@ -326,7 +326,7 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
             )}
             <InsightInfoModal
               title="Cause & Effect"
-              explanation="Patterns where a leader-controllable input (event type, sleep, consecutive heavy days) produces a measured shift in your physiology, cognition, or Performance Readiness Score vs your own 30-day baseline. Only patterns with at least 3 occurrences and a meaningful magnitude are shown — everything else is dropped, not softened."
+              explanation="Patterns where something you can influence — an event type, sleep, a heavy stretch — appears to move how you feel or perform. Only meaningful, repeated patterns are shown."
             />
           </div>
         </div>
@@ -410,9 +410,6 @@ const PerformanceCausalityCard = ({ userId }: Props) => {
               />
             </div>
 
-            <p className="text-[10px] text-muted-foreground/50 text-center pt-2">
-              Last 30 days · n≥3 occurrences · |Δ|≥10% (or ≥0.5 tier) vs your baseline
-            </p>
           </>
         )}
       </CardContent>

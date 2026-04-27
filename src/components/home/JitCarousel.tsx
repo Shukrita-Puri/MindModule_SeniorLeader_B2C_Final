@@ -288,7 +288,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           </span>
           <MetricInfoModal
             title="Just-in-Time Preparation"
-            description="A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice – regulation, alignment, and a coaching prompt – designed to bring your best self into the room."
+            description="A short prep sequence for a high-stakes moment ahead — designed to help you bring your best self into the room."
           />
         </div>
       </div>

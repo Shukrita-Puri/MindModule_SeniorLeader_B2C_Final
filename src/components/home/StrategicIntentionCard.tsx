@@ -61,7 +61,7 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
         <h2 className="text-xs tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
         <MetricInfoModal
           title="Your Outer Readiness Brief"
-          description="Your Compass is where your inner world meets the outer demands of the day. It takes your Decision Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
+          description="A short read on how your inner state meets today’s demands. It tells you what to lean on and what to watch for — a direction, not a prescription."
         />
       </div>
 

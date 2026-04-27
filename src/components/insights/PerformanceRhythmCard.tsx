@@ -847,7 +847,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           </span>
           <InsightInfoModal
             title="Mind Readiness Rhythm"
-            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your decision readiness with outer circumstances – calendar events, time of day, behaviors – to surface patterns you can't see without the aggregation."
+            explanation="When you’re at your sharpest, and what your outer world is doing to your inner state — patterns you can’t see without zooming out."
           />
         </div>
       </CardHeader>
@@ -882,7 +882,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                         </span>
                         <InsightInfoModal
                           title="Energy Trend"
-                          explanation="Each dot represents a check-in at that time of day. The colour shows your reported state. Empty dots mean no check-in was logged for that slot."
+                          explanation="Each dot is a check-in at that time of day. The colour shows how you reported feeling. Empty dots mean no check-in was logged."
                         />
                       </div>
                       <span className="text-xs text-muted-foreground/50">← scroll for past weeks</span>
@@ -1041,7 +1041,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   <InsightInfoModal
                     title="Mind Rhythm Patterns"
-                    explanation="The 3 strongest patterns from your check-in trends — when you're sharpest, where you slip, and what's repeating. The full list arrives in your weekly insights email."
+                    explanation="The strongest patterns from your check-ins — when you’re sharpest, where you slip, and what’s repeating. The full list arrives in your weekly email."
                   />
                 </div>
                 <ul className="pl-6 space-y-1.5">
