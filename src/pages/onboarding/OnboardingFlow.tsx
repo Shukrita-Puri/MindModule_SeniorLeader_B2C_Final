@@ -120,11 +120,10 @@ export default function OnboardingFlow() {
     // Stage 2 (Identity) has an internal Q1→Q2 step; let the page handle its
     // own back navigation via a custom event before we leave the route.
     if (location.pathname === '/onboarding/identity') {
-      const handled = window.dispatchEvent(
-        new CustomEvent('onboarding:back', { cancelable: true })
-      );
+      const event = new CustomEvent('onboarding:back', { cancelable: true });
+      window.dispatchEvent(event);
       // If the page called preventDefault, it absorbed the back press.
-      if (!handled) return;
+      if (event.defaultPrevented) return;
     }
     // Questionnaire stages – walk back exactly one step.
     const backMap: Record<string, string> = {
