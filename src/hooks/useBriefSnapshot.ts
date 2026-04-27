@@ -8,6 +8,7 @@ export interface BriefSnapshotRecord {
   user_id: string;
   local_date: string;
   time_window: string;
+  daily_checkin_id: string | null;
   phrase: string | null;
   body_text: string | null;
   lean_on: string | null;
