@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, nativeLoginHandled, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
 import { isPreviewContext } from "@/utils/previewAuth";
 import DelayedFallback from "@/components/ui/delayed-fallback";
@@ -93,8 +93,8 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       console.log('[ProtectedRoute] Auth not recovered after grace period, triggering login for:', location.pathname);
 
       (async () => {
-        const handled = await nativeLogin({ returnTo: location.pathname });
-        if (handled) return;
+        const result = await nativeLogin({ returnTo: location.pathname });
+        if (nativeLoginHandled(result)) return;
 
         loginWithRedirect({
           appState: { returnTo: location.pathname },

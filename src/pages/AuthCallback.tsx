@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   isNativeiOS,
@@ -12,12 +12,52 @@ import {
   parseCallbackParams,
   getSanitisedAuth0Domain,
   AUTH0_NATIVE_REDIRECT_URI,
+  resetStaleNativeAuth,
 } from '@/utils/nativeAuth';
+
+const CALLBACK_TIMEOUT_MS = 10000;
 
 const AuthCallback = () => {
   const { isLoading, error, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
   const nativeHandled = useRef(false);
+  const [hasError, setHasError] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+
+  const clearTimeoutSafe = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    clearTimeoutSafe();
+    resetStaleNativeAuth();
+    setHasError(false);
+    navigate('/signup', { replace: true });
+  }, [clearTimeoutSafe, navigate]);
+
+  const handleHome = useCallback(() => {
+    clearTimeoutSafe();
+    resetStaleNativeAuth();
+    navigate('/', { replace: true });
+  }, [clearTimeoutSafe, navigate]);
+
+  // Global timeout: if neither error nor auth resolves, show retry UI.
+  useEffect(() => {
+    timeoutRef.current = window.setTimeout(() => {
+      if (!isAuthenticated) {
+        console.warn('[AuthCallback] Timeout reached without resolution');
+        setHasError(true);
+      }
+    }, CALLBACK_TIMEOUT_MS);
+    return () => clearTimeoutSafe();
+  }, [clearTimeoutSafe, isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) clearTimeoutSafe();
+  }, [isAuthenticated, clearTimeoutSafe]);
 
   // Native iOS: manually exchange the code
   useEffect(() => {
@@ -147,8 +187,9 @@ const AuthCallback = () => {
 
     if (error) {
       console.error('[AuthCallback] Auth0 callback error:', error);
+      clearTimeoutSafe();
       toast.error('Authentication failed. Please try again.');
-      navigate('/signup?error=auth_failed');
+      setHasError(true);
       return;
     }
 
@@ -162,7 +203,34 @@ const AuthCallback = () => {
 
       navigate(returnTo);
     }
-  }, [isLoading, error, isAuthenticated, navigate, user, getAccessTokenSilently]);
+  }, [isLoading, error, isAuthenticated, navigate, user, getAccessTokenSilently, clearTimeoutSafe]);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
+          <p className="text-base font-semibold text-foreground">
+            We couldn't complete sign in. Please try again.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition"
+            >
+              Try again
+            </button>
+            <button
+              onClick={handleHome}
+              className="px-6 py-3 rounded-xl border border-black/[0.08] text-foreground hover:bg-black/[0.03] transition"
+            >
+              Back to home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

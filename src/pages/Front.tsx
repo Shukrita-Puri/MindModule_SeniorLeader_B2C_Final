@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, nativeLoginHandled, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
@@ -38,8 +38,8 @@ const Auth0Front = () => {
   const handleSignIn = async () => {
     clearLogoutGuard();
 
-    const handled = await nativeLogin({ returnTo: CANONICAL_HOME });
-    if (handled) return;
+    const result = await nativeLogin({ returnTo: CANONICAL_HOME });
+    if (nativeLoginHandled(result)) return;
 
     loginWithRedirect({
       appState: { returnTo: CANONICAL_HOME },
