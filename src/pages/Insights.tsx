@@ -22,6 +22,8 @@ import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 import {
   read as readPersistent,
   write as writePersistent,
