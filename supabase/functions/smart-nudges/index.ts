@@ -1034,6 +1034,28 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
+      // v6 — also reject if specific wearable fields are null but the body cites them
+      const lowerBody = (parsed.body as string).toLowerCase();
+      if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites HRV but field null`);
+        return null;
+      }
+      if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites RHR but no signal`);
+        return null;
+      }
+      if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites sleep but field null`);
+        return null;
+      }
+
+      // v6 — copy-contract lint (forbidden words + required CTA verb + no placeholders)
+      const violation = violatesCopyContractV6(parsed.body);
+      if (violation) {
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — ${violation}: "${parsed.body}"`);
+        return null;
+      }
+
       return {
         title: parsed.title.substring(0, 60),
         body: parsed.body.substring(0, 120),
