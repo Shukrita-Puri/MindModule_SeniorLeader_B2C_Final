@@ -831,15 +831,30 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `You are the "Chief of Staff for the Mind" writing push notifications for a CEO-grade mental performance app. The app is NOT productivity, NOT strategy, NOT business planning. It is mental performance — decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, recalibration.
-Rules:
-- Title: max 5 words, no emoji
-- Body: max 15 words, in the voice of a proactive Chief of Staff who watches the leader's wearables and calendar
-- The body MUST end with an action verb pointing at an in-app artefact: "open your brief", "open your plan", "recalibrate now", "close the day". Never end on description alone.
-- The body MUST reference at least one of: decision readiness, mental sharpness, physical reserves, resilience capacity, recovery, sleep, HRV, RHR, the meeting by name, or the number of meetings.
-- NEVER use: wellness, mindfulness, relax, amazing, productive, productivity, strategy, strategic, intent, "set your intent", "plan the week", "your day your terms", "set the tone", "loaded day", "5 days behind you", "well done", "great job".
-- Weekends/evenings: softer, permission-to-recover tone — but still reference a specific signal and still end with an artefact verb.
-- CRITICAL: Only reference data explicitly provided below. Do NOT invent numbers or metrics. If no wearable data is provided, do NOT mention HRV, sleep, recovery, or heart rate.
+  const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications.
+
+EVERY notification follows ONE formula:
+  [USER CONTEXT — one specific signal from THIS user's data] + [SPECIFIC APP CTA — exact action and screen]
+
+The user context names what you observed. The CTA tells them the exact in-app action and why it addresses the context.
+Generic openings ("Your plan is ready") and data-only reports ("HRV is 40% below baseline") are both failures.
+
+Gold-standard examples (match this tone exactly):
+- "HRV down 18% three days running — open your brief to reset trajectory."
+- "Board Review today — open your prep plan, it's queued."
+- "4 meetings Monday — open your brief tonight to set the week."
+- "RHR elevated, Investor Update at 2pm — recalibrate now before it starts."
+
+Hard rules:
+- Title: max 6 words, no emoji, names the situation.
+- Body: max 18 words, ends with an allowed CTA verb.
+- Allowed CTA verbs (use one verbatim at the END of the body):
+  "open your brief", "open your plan", "open your prep plan", "build your prep plan",
+  "recalibrate now", "close the day", "close the week", "lock in your prep".
+- Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block — never invent a number, a meeting name, or a baseline.
+- If a signal is missing, do not mention it. Pick a different real signal.
+- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "set the tone", "your day your terms", "loaded day", "5 days behind you", "plan the week", "come back to", "check in when ready".
+- Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -848,81 +863,107 @@ Rules:
 
   switch (nudgeType) {
     case 'nudge_one_morning': {
-      const firstEvent = specificSignals.firstEventTitle || ctx.firstNonNoiseEvent?.title;
+      const firstEventRaw = (specificSignals.firstEventTitle as string | undefined) || ctx.firstNonNoiseEvent?.title;
+      const firstEvent = firstEventRaw ? truncateEventTitle(firstEventRaw) : null;
       const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
-      userPrompt = `Morning first-touch nudge. Set the tone for the day — NOT just "check in".
-Signals:
-- First event: ${firstEvent || 'none'} at ${firstEventTime || 'unknown'}
-- Day type: ${ctx.dayType} (${ctx.eventCount} meetings)
-- High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
-${wearableLines ? wearableLines + '\n' : ''}- Day: ${ctx.dayName}
-${wearablePriorityLines ? wearablePriorityLines + '\n' : ''}${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}
-Tone: setting the tone, sharpening for the day ahead. Lead with what matters.`;
+      const stakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title)).filter(Boolean);
+      userPrompt = `Morning nudge (06:30–09:00 local). Prepare the leader for today.
+
+Available signals (use ONLY these):
+${firstEvent ? `- First event: ${firstEvent}${firstEventTime ? ` at ${firstEventTime}` : ''}` : '- First event: none scheduled'}
+- Meetings today: ${ctx.eventCount}
+${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stakes today: none'}
+${wearableLines ? wearableLines : '- Wearable: not available — DO NOT mention HRV, RHR, sleep, baselines'}
+- Day: ${ctx.dayName}
+${wearablePriorityLines ? wearablePriorityLines : ''}
+
+Required CTA verb at end of body: "open your brief" (default) or "build your prep plan" (if HRV<-15% or sleep<60 with a heavy day) or "open your prep plan" (if naming a high-stakes event).`;
       break;
     }
 
     case 'nudge_one_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
+      const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
-      userPrompt = `JIT first-touch nudge. High-stakes event is the first thing — prep plan is ready.
-Signals:
-- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes${hrvLine}
-- Current state: ${ctx.morningCheckinOutcome || 'unknown'}
-- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
-Must reference the event by name and that the prep plan is ready.`;
+      userPrompt = `JIT first-touch. High-stakes event approaching — prep plan is queued.
+
+Available signals:
+- Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
+${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
+- Meetings today: ${ctx.eventCount}
+
+Required: name "${evtTitle}" + minutes-until.
+Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
 
     case 'nudge_two_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
-      userPrompt = `Mid-day JIT nudge. Event approaching — prep plan is ready.
-Signals:
-- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes
-- Current state: ${ctx.morningCheckinOutcome || 'unknown'}
-- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
-Must reference the event by name and prep plan readiness.`;
+      const evtTitle = truncateEventTitle(evt.eventTitle);
+      userPrompt = `Mid-day JIT. Event approaching — prep plan is queued.
+
+Available signals:
+- Event: "${evtTitle}" in ${evt.minutesUntil} minutes
+${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
+- Meetings today: ${ctx.eventCount}
+
+Required: name "${evtTitle}" + minutes-until.
+Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
 
     case 'nudge_two_priorities': {
       const remaining = specificSignals.remainingCount as number;
-      userPrompt = `Mid-day nudge. User has practices remaining on their daily plan.
-Signals:
+      userPrompt = `Mid-day. User has practices remaining on today's plan.
+
+Available signals:
 - Practices remaining: ${remaining}
-- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
-Use warm, inviting language. Say "practices" not "priorities". Never use internal terms like "Priority 1". Tone: encouraging, gentle, like a coach checking in.`;
+- Meetings today: ${ctx.eventCount}
+
+Required: name the count "${remaining} practice${remaining === 1 ? '' : 's'} left".
+Required CTA verb at end of body: "open your plan".
+Say "practices" not "priorities". Never reference "Priority 1".`;
       break;
     }
 
     case 'nudge_two_recalibrate': {
-      const eventTitle = specificSignals.eventTitle as string;
-      userPrompt = `State-aware recalibration nudge. User started low and has heavy afternoon.
-Signals:
-- Morning state: ${ctx.morningCheckinOutcome}
-- Next event: ${eventTitle}
-Reference the specific state and what's ahead. Tone: reset, not alarm.`;
+      const eventTitle = truncateEventTitle(specificSignals.eventTitle as string);
+      userPrompt = `State-aware recalibration. User started low; heavy afternoon ahead.
+
+Available signals:
+- Morning check-in: ${ctx.morningCheckinOutcome}
+- Next event: "${eventTitle}"
+
+Required: name the morning state AND the event.
+Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
       break;
     }
 
     case 'nudge_two_reserves': {
       const evt = specificSignals as { eventTitle: string; signal: 'rhr' | 'hrv' };
+      const evtTitle = truncateEventTitle(evt.eventTitle);
       const signalLine = evt.signal === 'rhr'
-        ? `RHR is elevated above baseline`
-        : `HRV is ${ctx.wearable.hrvDeltaPct ?? '?'}% vs baseline`;
-      userPrompt = `Reserves-down lure. Wearable shows physiological reserves are depleted and a high-stakes meeting is ahead.
-Signals:
+        ? `RHR elevated above baseline`
+        : (ctx.wearable.hrvDeltaPct !== null ? `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline` : null);
+      // If we cannot cite a real number, hand off to fallback
+      if (!signalLine) return null;
+      userPrompt = `Reserves-down lure. Physiology is depleted with a high-stakes event ahead.
+
+Available signals:
 - Wearable: ${signalLine}
-- Next high-stakes: ${evt.eventTitle}
-- Current state: ${ctx.morningCheckinOutcome || 'no check-in yet'}
-Must name the wearable signal AND the meeting. End with "open your brief" or "recalibrate now". Tone: Chief of Staff flagging risk, not alarm.`;
+- Next high-stakes: "${evtTitle}"
+${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
+
+Required: name the wearable signal AND "${evtTitle}".
+Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
       break;
     }
 
     case 'nudge_three': {
       const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
       const isSundayEvening = ctx.dayOfWeek === 0;
-      const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
+      const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title)).map(e => ({ ...e, title: truncateEventTitle(e.title) }));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
 
       const eveningWearableLines: string[] = [];
@@ -934,17 +975,20 @@ Must name the wearable signal AND the meeting. End with "open your brief" or "re
       const prioritiesCompleted = ctx.completedPracticeIds.length;
       const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
       const prioritiesRemaining = ctx.pendingPracticeIds.length;
+      const todayStakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title));
 
-      userPrompt = `Evening close nudge. Reflection + forward-set.
-${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals – ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}. Tone: week-prep, setting intent.` : ''}
-${ctx.dayOfWeek === 5 ? 'FRIDAY: Close-the-week tone. 5 days behind you.' : ''}
-Today's signals:
+      userPrompt = `Evening nudge (18:00–21:00 local). Close today and set up tomorrow.
+
+Available signals (use ONLY these):
 - Meetings today: ${ctx.eventCount}
-- High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
-- Priorities completed: ${prioritiesCompleted}/${prioritiesTotal}${prioritiesRemaining > 0 ? ` (${prioritiesRemaining} still open)` : ''}
-${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') + '\n' : ''}- Check-ins today: ${ctx.checkinCountToday}
-${isWeekendEvening ? 'Use warmer, softer language. The weekend is theirs.' : ''}
-Tone: permission to stop, close the loop. NEVER say: wellness, mindfulness, relax, well done.`;
+${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''}
+- Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
+${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available — DO NOT mention HRV, RHR, sleep'}
+${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
+
+${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "build your prep plan" or "open your brief".` : ''}
+${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes). Required CTA verb at end of body: "close the week".` : ''}
+${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "close the day" (if practices done or wearable signal) or "open your plan" (if practices remaining).` : ''}`;
       break;
     }
 
