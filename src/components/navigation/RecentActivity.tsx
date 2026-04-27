@@ -122,11 +122,12 @@ const RecentActivity = () => {
                     if (activity.type === 'recalibrate') {
                       navigate('/recalibrate');
                     } else if (activity.type === 'brief') {
+                      // Only navigate when we have a real briefId. Without
+                      // it the historical overlay cannot resolve the
+                      // snapshot, so we no-op rather than navigate to live
+                      // home (which would silently lose the user's intent).
                       if (activity.briefId) {
                         navigate(`/executive-home?briefId=${activity.briefId}`);
-                      } else {
-                        // Fallback: open live home if id missing
-                        navigate(`/executive-home`);
                       }
                     }
                   }}
