@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getAuthToken } from '@/services/authTokenService';
+import { getAuthToken, getEdgeFunctionHeaders } from '@/services/authTokenService';
 
 interface StepMetadata {
   selected_plan?: string;
@@ -30,14 +30,12 @@ export function useOnboardingProgress() {
       if (!token) return;
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const headers = await getEdgeFunctionHeaders();
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({ action: 'UPSERT_STEP', step, metadata }),
         }
       );
