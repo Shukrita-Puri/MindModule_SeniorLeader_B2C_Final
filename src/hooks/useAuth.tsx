@@ -314,6 +314,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (response.ok) {
           const { profile } = await response.json();
           console.log('[useAuth] ✅ Profile synced to Supabase:', profile.id);
+          console.log('[useAuth] 🔍 Initial sync — beta_user:', profile.beta_user,
+            'beta_expires_at:', profile.beta_expires_at,
+            'subscription_status:', profile.subscription_status,
+            'subscription_tier:', profile.subscription_tier);
           lastSyncedSub.current = currentSub || profile.id;
 
           const mappedUser: AppUser = {
