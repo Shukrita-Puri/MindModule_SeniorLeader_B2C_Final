@@ -961,7 +961,7 @@ const Insights = () => {
       </div>
 
       {/* Tab Content – all rendered, toggle via display */}
-      <div className="flex-1 w-full pb-8">
+      <div className="flex-1 w-full pb-[120px]">
 
         {/* PROGRESS tab — Trajectory + Practice Effectiveness + Wins Log */}
         <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
@@ -1058,7 +1058,7 @@ const Insights = () => {
                     })()}
 
                     <Collapsible>
-                      <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/20 border border-border/30 text-sm font-medium text-foreground hover:bg-muted/30 transition-colors group">
+                      <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/20 text-sm font-medium text-foreground hover:bg-muted/30 transition-colors group">
                         <span>View your wins</span>
                         <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </CollapsibleTrigger>
