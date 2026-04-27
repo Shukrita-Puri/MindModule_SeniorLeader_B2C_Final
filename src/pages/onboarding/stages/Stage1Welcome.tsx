@@ -8,7 +8,7 @@ export default function Stage1Welcome() {
   const navigate = useNavigate();
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 flex flex-col items-center overflow-hidden animate-fade-in pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
       {/* Full-bleed background */}
       <img
         src={heroBg}

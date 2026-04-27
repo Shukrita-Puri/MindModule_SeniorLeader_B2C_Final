@@ -359,7 +359,7 @@ export default function Stage7ContextConnection() {
       </div>
 
       {/* Scrollable content area */}
-      <div className="relative z-10 flex-1 overflow-y-auto pt-14 px-6">
+      <div className="relative z-10 flex-1 overflow-y-auto pt-[calc(3.5rem+env(safe-area-inset-top,0px))] px-6">
         <div className="w-full max-w-sm mx-auto py-8 space-y-8">
 
           {/* Header */}

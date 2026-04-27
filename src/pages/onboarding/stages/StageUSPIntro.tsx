@@ -103,7 +103,7 @@ export default function StageUSPIntro() {
   /* ── Intro screen ── */
   if (isIntro) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center overflow-hidden">
+      <div className="fixed inset-0 flex flex-col items-center overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
         {topBar}
 
         {/* Full-bleed background matching Stage1Welcome / Front */}
@@ -165,7 +165,7 @@ export default function StageUSPIntro() {
       {topBar}
 
       {/* Contained image window */}
-      <div className="pt-14 px-4">
+      <div className="pt-[calc(3.5rem+env(safe-area-inset-top,0px))] px-4">
         <div className="relative rounded-2xl overflow-hidden" style={{ height: '42vh' }}>
           <img
             src={slide.image}

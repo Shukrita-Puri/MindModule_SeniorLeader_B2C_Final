@@ -146,7 +146,7 @@ export default function OnboardingFlow() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
+    <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto overscroll-contain scroll-pt-[calc(53px+env(safe-area-inset-top,0px))] scroll-pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
 
       
       {/* Fixed Top Bar with Back Arrow */}
@@ -165,7 +165,7 @@ export default function OnboardingFlow() {
           )}
         </div>
 
-        <div className={`max-w-2xl mx-auto px-4 ${isPaymentPage ? 'py-2' : 'pt-2 pb-8'}`}>
+        <div className="max-w-2xl mx-auto px-4 pt-2 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
           <Outlet />
         </div>
       </div>

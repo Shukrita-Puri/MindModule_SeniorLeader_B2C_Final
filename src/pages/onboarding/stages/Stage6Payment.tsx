@@ -202,7 +202,7 @@ export default function Stage6Payment() {
   }
 
   return (
-    <div className="max-w-md mx-auto pt-2 pb-6 px-4 animate-fade-in">
+    <div className="max-w-md mx-auto pt-2 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] px-4 animate-fade-in">
       {/* Toggle + Title row */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-[20px] font-headline font-bold">

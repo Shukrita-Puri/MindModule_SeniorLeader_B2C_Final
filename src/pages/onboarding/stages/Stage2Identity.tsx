@@ -11,7 +11,7 @@ export default function Stage2Identity() {
   const savedBiggestPressure = getResponse("biggest_pressure") || "";
   const returnToQuestion = (location.state as { returnToQuestion?: number } | null)?.returnToQuestion;
   const [currentQuestion, setCurrentQuestion] = useState(() => (
-    returnToQuestion === 2 || savedBiggestPressure ? 2 : 1
+    returnToQuestion === 2 ? 2 : 1
   ));
   const [identityType, setIdentityType] = useState<string>(
     savedIdentityType

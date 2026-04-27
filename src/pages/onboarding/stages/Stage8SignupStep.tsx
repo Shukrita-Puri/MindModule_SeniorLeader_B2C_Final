@@ -27,6 +27,7 @@ function isInIframe(): boolean {
 
 type RedirectStatus = 'preparing' | 'redirecting' | 'error';
 const REDIRECT_TIMEOUT_MS = 8000;
+const CENTERED_SHELL = 'min-h-[100dvh] flex items-center justify-center bg-background px-4 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
 
 const Stage8SignupStep = () => {
   const { isLoading: auth0Loading, loginWithRedirect } = useAuth0();
@@ -146,7 +147,7 @@ const Stage8SignupStep = () => {
 
   if (DEV_MODE) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className={CENTERED_SHELL}>
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Redirecting (dev mode)...</p>
@@ -157,7 +158,7 @@ const Stage8SignupStep = () => {
 
   if (inIframe) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className={CENTERED_SHELL}>
         <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
           <p className="text-lg font-semibold text-foreground">Sign up requires a full browser window</p>
           <p className="text-sm text-muted-foreground">
@@ -178,7 +179,7 @@ const Stage8SignupStep = () => {
 
   if (status === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className={CENTERED_SHELL}>
         <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
           <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
           <p className="text-base font-semibold text-foreground">{errorMessage}</p>
@@ -202,7 +203,7 @@ const Stage8SignupStep = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className={CENTERED_SHELL}>
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
         <p className="text-muted-foreground">
