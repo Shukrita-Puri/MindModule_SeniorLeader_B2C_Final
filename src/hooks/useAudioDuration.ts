@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Global cache so we don't re-fetch metadata for the same audio file
 const durationCache: Record<string, number> = {};
@@ -88,11 +88,22 @@ export const useAudioDurations = (
   items: Array<{ id: string; audioSrc?: string }>
 ): Record<string, number> => {
   const [durations, setDurations] = useState<Record<string, number>>({});
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    const toLoad = items.filter(
-      (item) => item.audioSrc && !durationCache[item.audioSrc]
-    );
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const audios: Array<{
+      audio: HTMLAudioElement;
+      onLoaded: () => void;
+      onError: () => void;
+    }> = [];
 
     // Set any already-cached values immediately
     const cached: Record<string, number> = {};
@@ -101,34 +112,65 @@ export const useAudioDurations = (
         cached[item.id] = durationCache[item.audioSrc];
       }
     });
-    if (Object.keys(cached).length > 0) {
+    if (Object.keys(cached).length > 0 && mountedRef.current) {
       setDurations((prev) => ({ ...prev, ...cached }));
     }
 
-    // Load the rest
+    const toLoad = items.filter(
+      (item) => item.audioSrc && !durationCache[item.audioSrc]
+    );
+
     toLoad.forEach((item) => {
       if (!item.audioSrc) return;
       const audioSrc = item.audioSrc;
       const audio = new Audio();
       audio.preload = "metadata";
 
-      const handleLoaded = () => {
+      const onLoaded = () => {
         const dur = audio.duration;
         if (dur && isFinite(dur)) {
           durationCache[audioSrc] = dur;
-          setDurations((prev) => ({ ...prev, [item.id]: dur }));
+          if (!cancelled && mountedRef.current) {
+            setDurations((prev) => ({ ...prev, [item.id]: dur }));
+          }
         }
-        audio.removeEventListener("loadedmetadata", handleLoaded);
-        audio.src = "";
+        cleanupOne(audio, onLoaded, onError);
       };
 
-      audio.addEventListener("loadedmetadata", handleLoaded);
-      audio.addEventListener("error", () => {
-        audio.src = "";
-      });
+      const onError = () => {
+        cleanupOne(audio, onLoaded, onError);
+      };
+
+      audio.addEventListener("loadedmetadata", onLoaded);
+      audio.addEventListener("error", onError);
       audio.src = audioSrc;
+      audios.push({ audio, onLoaded, onError });
     });
-  }, [items.map((i) => i.id).join(",")]);
+
+    return () => {
+      cancelled = true;
+      audios.forEach(({ audio, onLoaded, onError }) => {
+        cleanupOne(audio, onLoaded, onError);
+      });
+    };
+  }, [items.map((i) => `${i.id}:${i.audioSrc ?? ''}`).join(",")]);
 
   return durations;
 };
+
+function cleanupOne(
+  audio: HTMLAudioElement,
+  onLoaded: () => void,
+  onError: () => void,
+) {
+  try {
+    audio.removeEventListener("loadedmetadata", onLoaded);
+    audio.removeEventListener("error", onError);
+    audio.src = "";
+    audio.removeAttribute("src");
+    // Force the browser to release the network handle.
+    try { audio.load(); } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
+}

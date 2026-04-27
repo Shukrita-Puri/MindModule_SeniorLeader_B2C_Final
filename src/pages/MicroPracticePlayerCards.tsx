@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Clock, CheckCircle2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
+import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.png";
 import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-self.png";
 import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-through-evidence.png";
@@ -1754,37 +1755,46 @@ const MicroPracticePlayerCards = () => {
   const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [isInQueue, setIsInQueue] = useState(false);
+  // Element to scope swipe listeners to (so we don't fight browser swipe-back).
+  const carouselScopeRef = useRef<HTMLDivElement | null>(null);
+  // Navigation lock — prevents double navigate() in a single gesture.
+  const isNavigatingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      isNavigatingRef.current = true; // block any in-flight gestures
+    };
+  }, []);
 
   // Get cards for the current practice
   const cards = getCardsForPractice(id);
 
-  // Check if this is part of a practice queue
+  // Check if this is part of a practice queue (safe-parsed)
   useEffect(() => {
-    const queue = localStorage.getItem('practiceQueue');
-    if (queue) {
-      try {
-        const parsed = JSON.parse(queue);
-        setPracticeQueue(parsed);
-        const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
-        const idx =
-          Number.isFinite(storedIdx) &&
-          storedIdx >= 0 &&
-          storedIdx < parsed.length &&
-          parsed[storedIdx]?.id === id
-            ? storedIdx
-            : parsed.findIndex((p: any) => p.id === id);
-        if (idx !== -1) {
-          setCurrentQueueIndex(idx);
-          setIsInQueue(true);
-        }
-      } catch (e) {
-        console.error('Error parsing practice queue:', e);
+    const parsed = safeReadPracticeQueue();
+    if (Array.isArray(parsed)) {
+      setPracticeQueue(parsed);
+      const storedIdx = safeReadQueueIndex();
+      const idx =
+        Number.isFinite(storedIdx) &&
+        storedIdx >= 0 &&
+        storedIdx < parsed.length &&
+        parsed[storedIdx]?.id === id
+          ? storedIdx
+          : parsed.findIndex((p: any) => p.id === id);
+      if (idx !== -1) {
+        setCurrentQueueIndex(idx);
+        setIsInQueue(true);
       }
     }
   }, [id]);
 
-  // Swipe handlers for navigation
+  // Swipe handlers for in-card navigation (do NOT navigate away from page).
   const handlePrev = useCallback(() => {
+    if (isNavigatingRef.current) return;
     if (api && current > 0) {
       api.scrollPrev();
       triggerHaptic();
@@ -1792,37 +1802,50 @@ const MicroPracticePlayerCards = () => {
   }, [api, current]);
 
   const handleNext = useCallback(() => {
+    if (isNavigatingRef.current) return;
     if (api) {
       api.scrollNext();
       triggerHaptic();
     }
   }, [api]);
 
-  // Enable swipe gestures
+  // Scoped swipe gestures — only fire when the gesture starts inside the
+  // carousel area and away from the screen edges. This stops us from
+  // intercepting iOS Safari / browser back-forward swipes.
   useSwipeHandler({
     onSwipeLeft: handleNext,
     onSwipeRight: handlePrev,
     threshold: 50,
+    targetRef: carouselScopeRef,
+    edgeGuardPx: 24,
   });
 
   useEffect(() => {
     if (!api) return;
-
-    setCurrent(api.selectedScrollSnap());
-    api.on("select", () => {
+    if (mountedRef.current) {
+      setCurrent(api.selectedScrollSnap());
+    }
+    const onSelect = () => {
+      if (!mountedRef.current) return;
       setCurrent(api.selectedScrollSnap());
       triggerHaptic();
-    });
+    };
+    api.on("select", onSelect);
+    return () => {
+      try {
+        api.off("select", onSelect);
+      } catch {
+        /* noop — embla off can throw if api was destroyed */
+      }
+    };
   }, [api]);
 
   // Track engagement on page load
   useEffect(() => {
     if (practice) {
-      const practiceQueue = JSON.parse(
-        localStorage.getItem("practiceQueue") || "null"
-      );
+      const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
 
       if (isPartOfRitual) {
         trackEngagement("daily_ritual_micro");
@@ -1843,11 +1866,9 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
-      const practiceQueue = JSON.parse(
-        localStorage.getItem("practiceQueue") || "null"
-      );
+      const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
       
       // Queue is source of truth for ritual membership
       const shouldTrackRitual = isPartOfRitual;
@@ -1875,7 +1896,7 @@ const MicroPracticePlayerCards = () => {
 
       // Update ritual completion if part of recommended plan or queue
       if (shouldTrackRitual) {
-        const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const queue = safeReadPracticeQueue();
         console.log('[MicroPracticePlayerCards] Calling updateRitualCompletion:', { id, queueLength: queue?.length });
         await updateRitualCompletion('micro_exercise', id, queue || undefined);
         console.log('[MicroPracticePlayerCards] updateRitualCompletion complete');
@@ -1980,13 +2001,15 @@ const MicroPracticePlayerCards = () => {
 
   // Queue Handlers
   const navigateToNext = () => {
-    const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+    if (isNavigatingRef.current) return;
+    const storedIdx = safeReadQueueIndex();
     const baseIdx = Number.isFinite(storedIdx) && storedIdx >= 0 ? storedIdx : currentQueueIndex;
     const next = practiceQueue[baseIdx + 1];
     if (!next) {
       console.warn('[MicroPracticePlayerCards] navigateToNext: no next practice', { baseIdx, queueLen: practiceQueue.length });
       return;
     }
+    isNavigatingRef.current = true;
     localStorage.setItem('queueIndex', String(baseIdx + 1));
     const entryRoute = (location.state as any)?.entryRoute;
     if (next.contentType === 'soundbath') {
@@ -2103,7 +2126,8 @@ const MicroPracticePlayerCards = () => {
         </button>
       )}
 
-      {/* Carousel */}
+      {/* Carousel — swipe gestures are scoped to this wrapper */}
+      <div ref={carouselScopeRef} className="w-full h-full">
       <Carousel
         setApi={setApi}
         className="w-full h-full"
@@ -2209,6 +2233,7 @@ const MicroPracticePlayerCards = () => {
           ))}
         </CarouselContent>
       </Carousel>
+      </div>
 
       {/* Bottom navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/10 to-transparent">

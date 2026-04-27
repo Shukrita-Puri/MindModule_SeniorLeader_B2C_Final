@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import PlayerErrorBoundary from "./components/PlayerErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGuard";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
@@ -225,19 +226,19 @@ const router = createBrowserRouter([
       },
       {
         path: "soundscapes/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><SoundscapePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><PlayerErrorBoundary returnPath="/recalibrate"><SoundscapePlayer /></PlayerErrorBoundary></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><GuidedPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><PlayerErrorBoundary returnPath="/recalibrate"><GuidedPracticePlayer /></PlayerErrorBoundary></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayer /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><PlayerErrorBoundary returnPath="/recalibrate"><MicroPracticePlayer /></PlayerErrorBoundary></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id/cards",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><MicroPracticePlayerCards /></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><KeyByParamId><PlayerErrorBoundary returnPath="/recalibrate"><MicroPracticePlayerCards /></PlayerErrorBoundary></KeyByParamId></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
