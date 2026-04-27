@@ -23,22 +23,18 @@ export default function Stage3EmotionalAwareness() {
     { 
       value: "notice_early", 
       label: "I notice it early and can name what I'm feeling",
-      description: "I'm aware of my internal state as it shifts"
     },
     { 
       value: "physical_signs", 
       label: "I feel it in my body first",
-      description: "Tension, racing heart, or shallow breathing signals me before I recognize the emotion"
     },
     { 
       value: "realize_after", 
       label: "I often realize I was stressed after the moment passes",
-      description: "In the moment, I'm focused on the task, not my state"
     },
     { 
       value: "push_through", 
       label: "I push through and deal with feelings later",
-      description: "I prioritize performance over processing emotions in the moment"
     },
   ];
 
@@ -61,7 +57,6 @@ export default function Stage3EmotionalAwareness() {
             >
               <div className="flex-1">
                 <div className="font-medium text-sm mb-1 font-body">{option.label}</div>
-                <div className="text-xs text-muted-foreground font-body italic">{option.description}</div>
               </div>
             </button>
           ))}

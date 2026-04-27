@@ -23,22 +23,18 @@ export default function Stage6MentalClarity() {
     { 
       value: "crystal_clear", 
       label: "I can cut through noise and prioritize what matters",
-      description: "Even with competing demands, I stay clear-headed"
     },
     { 
       value: "mostly_clear", 
       label: "Mostly clear, but I occasionally lose the thread",
-      description: "I'm usually focused but can get pulled off track"
     },
     { 
       value: "fog_creeps", 
       label: "Brain fog creeps in and I struggle to focus",
-      description: "Concentration becomes harder as cognitive load increases"
     },
     { 
       value: "overwhelmed", 
       label: "I feel overwhelmed and everything feels equally urgent",
-      description: "It's hard to prioritize when everything demands attention"
     },
   ];
 
@@ -61,7 +57,6 @@ export default function Stage6MentalClarity() {
             >
               <div className="flex-1">
                 <div className="font-medium text-sm mb-1 font-body">{option.label}</div>
-                <div className="text-xs text-muted-foreground font-body italic">{option.description}</div>
               </div>
             </button>
           ))}
