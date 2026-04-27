@@ -107,28 +107,39 @@ export default function OnboardingFlow() {
   const isPaymentPage = location.pathname === '/onboarding/payment';
   const isSignupStep = location.pathname === '/onboarding/signup-step';
   const showBackButton = (currentStageIndex >= 1 && !isSignupStep);
-  const getBackPath = () => {
+  const handleBack = () => {
     if (isPaymentPage) {
       // Upgrade visit (completed onboarding or explicit source) → executive home
       const querySource = new URLSearchParams(location.search).get('source');
       const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
         ? (location.state as Record<string, string>).source : null;
       const hasUpgradeSource = [querySource, stateSource].some(s => typeof s === 'string' && s.length > 0);
-      // If user already completed onboarding or arrived via upgrade link, go to home
-      // Otherwise they're in initial onboarding flow → go to results
-      return hasUpgradeSource ? '/executive-home' : '/onboarding/results';
+      navigate(hasUpgradeSource ? '/executive-home' : '/onboarding/results');
+      return;
     }
-    if (currentStageIndex === 1) return "/onboarding";
-    if (currentStageIndex === 2) return "/onboarding/identity";
-    if (currentStageIndex === 3) return "/onboarding/emotional-awareness";
-    if (currentStageIndex === 4) return "/onboarding/stress-response";
-    if (currentStageIndex === 5) return "/onboarding/recovery-patterns";
-    if (currentStageIndex === 6) return "/onboarding/mental-clarity";
-    // Post-questionnaire stages – one step backwards through the post-signup flow.
-    if (location.pathname === '/onboarding/results') return "/onboarding/growth-intention";
-    if (location.pathname === '/onboarding/app-intro') return "/onboarding/results";
-    if (location.pathname === '/onboarding/context-connection') return "/onboarding/app-intro";
-    return "/onboarding";
+    // Stage 2 (Identity) has an internal Q1→Q2 step; let the page handle its
+    // own back navigation via a custom event before we leave the route.
+    if (location.pathname === '/onboarding/identity') {
+      const handled = window.dispatchEvent(
+        new CustomEvent('onboarding:back', { cancelable: true })
+      );
+      // If the page called preventDefault, it absorbed the back press.
+      if (!handled) return;
+    }
+    // Questionnaire stages – walk back exactly one step.
+    const backMap: Record<string, string> = {
+      '/onboarding/identity': '/onboarding',
+      '/onboarding/emotional-awareness': '/onboarding/identity',
+      '/onboarding/stress-response': '/onboarding/emotional-awareness',
+      '/onboarding/recovery-patterns': '/onboarding/stress-response',
+      '/onboarding/mental-clarity': '/onboarding/recovery-patterns',
+      '/onboarding/growth-intention': '/onboarding/mental-clarity',
+      // Post-questionnaire stages
+      '/onboarding/results': '/onboarding/growth-intention',
+      '/onboarding/app-intro': '/onboarding/results',
+      '/onboarding/context-connection': '/onboarding/app-intro',
+    };
+    navigate(backMap[location.pathname] ?? '/onboarding');
   };
 
   return (
@@ -137,7 +148,7 @@ export default function OnboardingFlow() {
       
       {/* Fixed Top Bar with Back Arrow */}
       {showBackButton && (
-        <UnifiedTopBar hideCoach onBack={() => navigate(getBackPath())} />
+        <UnifiedTopBar hideCoach onBack={handleBack} />
       )}
       
       <div className="relative z-10">
@@ -151,7 +162,7 @@ export default function OnboardingFlow() {
           )}
         </div>
 
-        <div className={`max-w-2xl mx-auto px-4 ${isPaymentPage ? 'py-2' : 'py-8'}`}>
+        <div className={`max-w-2xl mx-auto px-4 ${isPaymentPage ? 'py-2' : 'pt-2 pb-8'}`}>
           <Outlet />
         </div>
       </div>
