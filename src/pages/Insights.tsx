@@ -1035,7 +1035,9 @@ const Insights = () => {
                             <p className="text-xs text-muted-foreground tracking-wider uppercase">Total Wins Recorded</p>
                           </div>
                            <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                            <p className="text-[20px] font-headline text-foreground">{winTopicsCount}</p>
+                            <p className="text-[20px] font-headline text-foreground truncate">
+                              {dominantCount > 0 ? dominantDomain : '—'}
+                            </p>
                             <p className="text-xs text-muted-foreground tracking-wider uppercase">Win Topics</p>
                           </div>
                         </div>
