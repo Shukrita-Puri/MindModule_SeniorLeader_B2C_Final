@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Sparkles, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import { format, subDays, addDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 interface PracticeEffect {
   contentId: string;
