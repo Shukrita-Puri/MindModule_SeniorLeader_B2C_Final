@@ -128,6 +128,24 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` };
 }
 
+/**
+ * Returns auth headers including the dev bypass header in DEV_MODE.
+ * Use this for raw fetch() calls to edge functions (supabase.functions.invoke
+ * is already patched by devInterceptor).
+ */
+export async function getEdgeFunctionHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (DEV_MODE) {
+    const { DEV_USER } = await import('@/config/devMode');
+    headers['x-dev-user-id'] = DEV_USER.id;
+  }
+  return headers;
+}
+
 export function clearTokenCache(): void {
   cachedToken = null;
   cachedTokenExpiresAt = 0;
