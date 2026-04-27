@@ -1843,11 +1843,9 @@ const MicroPracticePlayerCards = () => {
   // Track engagement on page load
   useEffect(() => {
     if (practice) {
-      const practiceQueue = JSON.parse(
-        localStorage.getItem("practiceQueue") || "null"
-      );
+      const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
 
       if (isPartOfRitual) {
         trackEngagement("daily_ritual_micro");
@@ -1868,11 +1866,9 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
-      const practiceQueue = JSON.parse(
-        localStorage.getItem("practiceQueue") || "null"
-      );
+      const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
-        practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
       
       // Queue is source of truth for ritual membership
       const shouldTrackRitual = isPartOfRitual;
@@ -1900,7 +1896,7 @@ const MicroPracticePlayerCards = () => {
 
       // Update ritual completion if part of recommended plan or queue
       if (shouldTrackRitual) {
-        const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const queue = safeReadPracticeQueue();
         console.log('[MicroPracticePlayerCards] Calling updateRitualCompletion:', { id, queueLength: queue?.length });
         await updateRitualCompletion('micro_exercise', id, queue || undefined);
         console.log('[MicroPracticePlayerCards] updateRitualCompletion complete');
@@ -2005,13 +2001,15 @@ const MicroPracticePlayerCards = () => {
 
   // Queue Handlers
   const navigateToNext = () => {
-    const storedIdx = parseInt(localStorage.getItem('queueIndex') || '', 10);
+    if (isNavigatingRef.current) return;
+    const storedIdx = safeReadQueueIndex();
     const baseIdx = Number.isFinite(storedIdx) && storedIdx >= 0 ? storedIdx : currentQueueIndex;
     const next = practiceQueue[baseIdx + 1];
     if (!next) {
       console.warn('[MicroPracticePlayerCards] navigateToNext: no next practice', { baseIdx, queueLen: practiceQueue.length });
       return;
     }
+    isNavigatingRef.current = true;
     localStorage.setItem('queueIndex', String(baseIdx + 1));
     const entryRoute = (location.state as any)?.entryRoute;
     if (next.contentType === 'soundbath') {
