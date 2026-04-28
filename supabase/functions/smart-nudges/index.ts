@@ -1237,11 +1237,11 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
-      // v6 — copy-contract lint (V7 contract is being phased in; keep V6 active
-      // until the matching prompts/fallbacks ship in the next patch)
-      const violation = violatesCopyContractV6(parsed.body);
+      // v7 — enforce JIT-or-State + prep-CTA contract on AI output.
+      // V6 lint kept above as a reference; V7 is now authoritative.
+      const violation = violatesCopyContractV7(parsed.body);
       if (violation) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
+        console.warn(`[smart-nudges v7] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
         return null;
       }
 
