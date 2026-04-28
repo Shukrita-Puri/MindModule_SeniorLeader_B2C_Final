@@ -1170,41 +1170,43 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `${ev} tomorrow, use Sunday to build your prep plan now`, variantId: 'FB-N3-sun-stakes' };
+      return { title: `${ev} tomorrow`, body: `${ev} tomorrow. Build your prep plan tonight.`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday, open your brief tonight to set the week`, variantId: 'FB-N3-sun-heavy' };
+      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday. Open your brief tonight.`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead, open your brief to set the week with clarity', variantId: 'FB-N3-sun-default' };
+    return { title: 'Light Monday ahead', body: 'Light Monday ahead. Open your brief tonight.', variantId: 'FB-N3-sun-default' };
   }
 
   // Friday — cite today's load, close the week
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done today`, body: `${ctx.eventCount} meetings today, open your brief to close the week`, variantId: 'FB-N3-fri' };
+      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today. Close the week.`, variantId: 'FB-N3-fri' };
     }
-    return { title: 'Week behind you', body: 'Week behind you, open your brief to close the week', variantId: 'FB-N3-fri-light' };
+    return { title: 'Week behind you', body: 'Week behind you. Close the week.', variantId: 'FB-N3-fri-light' };
   }
 
   // Weekday with practices remaining
   if (prioritiesRemaining > 0) {
-    return { title: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open`, body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open, open your plan to close the day`, variantId: 'FB-N3-priorities' };
+    const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
+    return { title: `${p} still open`, body: `${p} still open. Open your plan to close the day.`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} practices done`, body: `${prioritiesTotal}/${prioritiesTotal} practices done, open your brief to close the day`, variantId: 'FB-N3-done' };
+    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal}/${prioritiesTotal} practices done. Close the day.`, variantId: 'FB-N3-done' };
   }
 
   // Wearable signal
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today, open your brief to close the day and recover', variantId: 'FB-N3-rhr' };
+    return { title: 'RHR ran high today', body: 'RHR ran high today. Close the day.', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done, open your brief to close the day in 90 sec`, variantId: 'FB-N3-heavy' };
+    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done. Close the day in 90 seconds.`, variantId: 'FB-N3-heavy' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done, open your brief to close the day`, variantId: 'FB-N3-default' };
+    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
+    return { title: `${m} done`, body: `${m} done today. Close the day.`, variantId: 'FB-N3-default' };
   }
-  return { title: 'Day landed', body: 'Day landed, open your brief to close the day and protect tomorrow', variantId: 'FB-N3-light' };
+  return { title: 'Day landed', body: 'Day landed. Close the day to protect tomorrow.', variantId: 'FB-N3-light' };
 }
 
 // ══════════════════════════════════════════════════════════════
