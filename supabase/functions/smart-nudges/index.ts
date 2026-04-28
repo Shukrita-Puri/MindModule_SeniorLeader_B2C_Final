@@ -977,7 +977,10 @@ function violatesCopyContractV7(body: string): string | null {
   }
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
   const wordCount = body.trim().split(/\s+/).length;
-  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
+  // v7.1 — JIT prefix ("From your morning Plan:") and the longest cool-down
+  // CTA each cost ~3–4 extra words. Allow up to 16 words but keep the strict
+  // 95-char ceiling so notifications still fit one push line.
+  if (wordCount > 16) return `body too long (${wordCount} words, max 16)`;
   if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
   return null;
 }
