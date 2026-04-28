@@ -201,31 +201,39 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
 
     const tooltipEl = tooltipRef.current;
-    const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
+    const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 260;
     const GAP = 16;
-    const vH = window.visualViewport?.height ?? window.innerHeight;
-    // Reserve space for bottom safe area (nav hidden during tour, but keep margin)
-    const BOTTOM_SAFE = Math.max(24, (window.visualViewport ? window.innerHeight - window.visualViewport.height : 0) + 24);
+    // Use visualViewport so the tooltip stays fully visible on iOS even when
+    // the on-screen keyboard, address bar, or pinch-zoom shifts the viewport.
+    const vv = window.visualViewport;
+    const viewportTop = vv?.offsetTop ?? 0;
+    const vH = vv?.height ?? window.innerHeight;
+    const viewportBottom = viewportTop + vH;
     const TOP_SAFE = 16;
+    const BOTTOM_SAFE = 24;
 
-    const spaceAbove = sy;
-    const spaceBelow = vH - (sy + sh) - BOTTOM_SAFE;
+    const spaceAbove = sy - viewportTop;
+    const spaceBelow = viewportBottom - (sy + sh);
     const pref = s.tooltipPosition || 'below';
 
     let top: number;
-    if (pref === 'above' && spaceAbove >= tooltipH + GAP) {
+    if (pref === 'above' && spaceAbove >= tooltipH + GAP + TOP_SAFE) {
       top = sy - tooltipH - GAP;
-    } else if (pref === 'below' && spaceBelow >= tooltipH + GAP) {
+    } else if (pref === 'below' && spaceBelow >= tooltipH + GAP + BOTTOM_SAFE) {
       top = sy + sh + GAP;
-    } else if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP) {
+    } else if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP + BOTTOM_SAFE) {
       top = sy + sh + GAP;
-    } else if (spaceAbove >= tooltipH + GAP) {
+    } else if (spaceAbove >= tooltipH + GAP + TOP_SAFE) {
       top = sy - tooltipH - GAP;
     } else {
-      top = sy + sh + GAP;
+      // Last resort: pin to viewport so the footer (Back/Next) is always tappable.
+      top = viewportBottom - tooltipH - BOTTOM_SAFE;
     }
 
-    top = Math.max(TOP_SAFE, Math.min(top, vH - tooltipH - BOTTOM_SAFE));
+    // Hard clamp inside the visible viewport so the footer is never below fold.
+    const minTop = viewportTop + TOP_SAFE;
+    const maxTop = viewportBottom - tooltipH - BOTTOM_SAFE;
+    top = Math.max(minTop, Math.min(top, Math.max(minTop, maxTop)));
     setTooltipPos({ top });
     return true;
   }, []);
