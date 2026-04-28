@@ -907,14 +907,16 @@ Required CTA verb at end of body: "open your brief" (default) or "build your pre
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
-      userPrompt = `JIT first-touch. High-stakes event approaching, prep plan is queued.
+      userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
+The proactive job is to pull them back into the app to use that prep before the event starts.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until.
+Required: name "${evtTitle}" + minutes-until. Do NOT add filler phrases.
+Example shape: "${evtTitle} in ${evt.minutesUntil} min. Prep plan is queued — open your prep plan."
 Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
@@ -922,14 +924,15 @@ Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`
     case 'nudge_two_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
-      userPrompt = `Mid-day JIT. Event approaching, prep plan is queued.
+      userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN — the prep plan is already queued.
+Pull them back into the app. Their context may have shifted since morning, but the event hasn't.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until.
+Required: name "${evtTitle}" + minutes-until. No filler.
 Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
