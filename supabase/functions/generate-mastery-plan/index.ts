@@ -1971,7 +1971,26 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   // ── Engagement signals ──
   req.effectiveContent = (feedbackRes.data || []).map((f: any) => f.content_id);
   req.coachInsights = (insightsRes.data || []).map((r: any) => ({ id: r.id, type: r.insight_type, content: r.insight_content, contentReference: r.content_reference || undefined, confidence: r.confidence_score || 0.5 }));
-  req.completedToday = ritualRes.data?.completed_practice_ids || [];
+  // ── Day-scoped completion union (Stateful Plan Evolution) ──
+  // Rather than reading only the current period's row, union all today's
+  // periods so morning completions survive into afternoon brief regenerations.
+  // This is the canonical "what has the user finished today" set used to:
+  //   (a) freeze sticky completed slots in mergeWithLedger
+  //   (b) prevent already-done content from resurfacing as new picks
+  try {
+    const { data: todayCompletionRows } = await supabaseClient
+      .from('daily_ritual_completions')
+      .select('completed_practice_ids, session_period')
+      .eq('user_id', req.userId)
+      .eq('ritual_date', today);
+    const union = new Set<string>();
+    for (const row of (todayCompletionRows || [])) {
+      for (const id of (row?.completed_practice_ids || [])) union.add(id);
+    }
+    req.completedToday = Array.from(union);
+  } catch {
+    req.completedToday = ritualRes.data?.completed_practice_ids || [];
+  }
   req.favorites = (favsRes.data || []).map((f: any) => f.content_id);
   ctx.pendingCommitments = commitmentsRes.data || [];
 
