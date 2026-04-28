@@ -425,21 +425,27 @@ export type Database = {
         Row: {
           computed_for_date: string
           created_at: string
+          pattern_kind: string
           payload: Json
+          signal_summary: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
           computed_for_date: string
           created_at?: string
+          pattern_kind?: string
           payload: Json
+          signal_summary?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
           computed_for_date?: string
           created_at?: string
+          pattern_kind?: string
           payload?: Json
+          signal_summary?: Json | null
           updated_at?: string
           user_id?: string
         }
