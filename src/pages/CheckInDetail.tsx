@@ -99,7 +99,15 @@ const CheckInDetail = () => {
       }
       clearTodayCheckinCache();
       clearEnergyStateCache();
-      clearOuterReadinessCache();
+      clearOuterReadinessCache(effectiveUserId);
+      // Also wipe today's awaiting markers across all periods so the next
+      // brief fetch can promote to a real brief without replaying an
+      // earlier "no signal" decision.
+      if (effectiveUserId) {
+        for (const p of ['morning', 'afternoon', 'evening']) {
+          clearPersistent(cacheKeys.briefAwaiting(effectiveUserId, p, todayDate));
+        }
+      }
 
       // Clear ALL mastery plan session caches to force fresh plan generation
       // Wipe every period variant to prevent any stale cache from surviving
