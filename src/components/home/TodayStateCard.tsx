@@ -27,6 +27,17 @@ const getStateLabel = (tier: string): string => {
   }
 };
 
+// Traffic-light tier color (NOT saffron — saffron is reserved for CTAs)
+const getTierColor = (tier: string): string => {
+  switch (tier) {
+    case 'depleted': return 'text-[hsl(var(--tier-low))]';
+    case 'managing': return 'text-[hsl(var(--tier-moderate))]';
+    case 'strong':
+    case 'peak':     return 'text-[hsl(var(--tier-strong))]';
+    default:         return 'text-[hsl(var(--tier-neutral))]';
+  }
+};
+
 const TodayStateCard = () => {
   const { user } = useAuth();
 
@@ -81,7 +92,7 @@ const TodayStateCard = () => {
       </div>
       {/* Score and Tier */}
       <div className="flex items-baseline gap-3 mb-2">
-        <span className="text-[48px] font-medium text-saffron tabular-nums font-body">
+        <span className="text-[48px] font-medium tabular-nums font-body text-foreground">
           {energyState.overallBalance}
         </span>
         <span className="text-sm text-muted-foreground/60 font-body">
@@ -89,7 +100,10 @@ const TodayStateCard = () => {
         </span>
       </div>
       
-      <p className="text-[15px] font-medium text-foreground mb-3 font-body">
+      <p className={cn(
+        "text-[15px] font-medium mb-3 font-body",
+        getTierColor(energyState.energyTier)
+      )}>
         {tierLabel}
       </p>
 

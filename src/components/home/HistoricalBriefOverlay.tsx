@@ -25,10 +25,10 @@ interface Props {
 }
 
 const TIER_COLOR: Record<string, string> = {
-  depleted: 'text-[hsl(var(--state-depleted))]',
-  managing: 'text-[hsl(var(--saffron))]',
-  strong: 'text-[hsl(var(--kairos))]',
-  peak: 'text-[hsl(var(--kairos))]',
+  depleted: 'text-[hsl(var(--tier-low))]',
+  managing: 'text-[hsl(var(--tier-moderate))]',
+  strong:   'text-[hsl(var(--tier-strong))]',
+  peak:     'text-[hsl(var(--tier-strong))]',
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -257,7 +257,7 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
                 <div className="flex items-baseline gap-2 mt-3">
                   {brief.score != null ? (
                     <>
-                      <span className={cn('text-[40px] font-medium leading-none', tierColor)}>
+                      <span className="text-[40px] font-medium leading-none text-foreground">
                         {brief.score}
                       </span>
                       <span className="text-[16px] text-muted-foreground/40">/100</span>
