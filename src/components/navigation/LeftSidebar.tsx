@@ -48,7 +48,7 @@ const features = [
     description: "Today's priorities",
   },
   {
-    title: 'Learn',
+    title: 'Insight',
     icon: TrendUp,
     path: '/insights',
     description: 'Trends & patterns',
