@@ -103,6 +103,38 @@ interface Payload {
   version: number;
 }
 
+// ── Unified pattern store: flat projection for fast O(1) reads by other
+// edge functions (smart-nudges in particular). Mirrors values already in
+// `payload` but in a shape that does not require parsing the full Insights
+// payload. Stored alongside payload in the same row.
+interface SignalSummary {
+  event_to_hrv: Array<{
+    event_type: string;
+    n: number;
+    hrvDeltaPct: number;
+    rhrElevated: boolean;
+    confidence: Confidence;
+    lastSeen: string;
+  }>;
+  event_to_rhr: Array<{
+    event_type: string;
+    n: number;
+    rhrDeltaPct: number;
+    confidence: Confidence;
+    lastSeen: string;
+  }>;
+  event_to_cognition: Array<{
+    event_type: string;
+    dim: string;
+    tierDelta: number;
+    n: number;
+    confidence: Confidence;
+  }>;
+  sleep_to_prs: { lowSleepPrsDeltaPct: number; n: number; confidence: Confidence } | null;
+  consecutive_load: { tailDeltaPct: number; n: number; confidence: Confidence } | null;
+  generatedAt: string;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
