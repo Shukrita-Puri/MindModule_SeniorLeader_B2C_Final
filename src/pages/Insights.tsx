@@ -949,25 +949,30 @@ const Insights = () => {
 
             {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
-      {/* Sticky Tab Bar – matches homepage */}
+      {/* Sticky Tab Bar – file-folder tabs to signal click-to-switch */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="max-w-lg mx-auto grid grid-cols-2 h-12">
-          {INSIGHT_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`text-sm font-medium font-body transition-all relative ${
-                activeTab === key
-                  ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground/70'
-              }`}
-            >
-              {label}
-              {activeTab === key && (
-                <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          ))}
+        <div className="max-w-lg mx-auto flex items-end gap-1 px-3 pt-2 h-12">
+          {INSIGHT_TABS.map(({ key, label }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                aria-selected={active}
+                role="tab"
+                className={cn(
+                  'relative flex-1 h-10 px-4 rounded-t-lg transition-all',
+                  'text-[10px] uppercase tracking-[0.12em] font-body font-medium',
+                  active
+                    ? 'bg-card text-foreground border border-white/[0.08] border-b-0 shadow-[0_-2px_8px_-4px_rgba(0,0,0,0.15)]'
+                    : 'bg-transparent text-muted-foreground/60 hover:text-foreground/80 border border-transparent border-b-white/[0.06]'
+                )}
+                style={active ? { marginBottom: '-1px' } : undefined}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

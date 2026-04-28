@@ -31,8 +31,12 @@ export interface LeadershipPatternsData {
   scoreDeltas?: DimensionScores | null;
   frictionPct?: number;
   frictionLabel?: string;
+  /** Recent 7d minus prior 7d, in percentage points. Negative = friction decreased (good). Null when windows are empty. */
+  frictionDeltaPct?: number | null;
   /** % of check-ins in the positive band (focused/steady) over 30d. Mirror of friction at the check-in level. Null until ≥5 check-ins. */
   positiveRate?: { pct: number; n: number } | null;
+  /** Recent 7d minus prior 7d, in percentage points. Positive = alignment increased (good). Null when windows are empty. */
+  positiveDeltaPct?: number | null;
   trendDirection?: 'improving' | 'stable' | 'declining';
   typicalState?: string | null;
   recurringThemes?: { phrase: string; count: number }[];
@@ -225,12 +229,18 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgo);
         const priorCheckins = checkIns.filter((c) => c.checkin_date >= fourteenDaysAgo && c.checkin_date < sevenDaysAgo);
         let trendDirection: 'improving' | 'stable' | 'declining' = 'stable';
+        let frictionDeltaPct: number | null = null;
+        let positiveDeltaPctDev: number | null = null;
         if (recentCheckins.length > 0 && priorCheckins.length > 0) {
           const rFriction = recentCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / recentCheckins.length * 100;
           const pFriction = priorCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / priorCheckins.length * 100;
           const diff = pFriction - rFriction;
           if (diff >= 10) trendDirection = 'improving';
           else if (diff <= -10) trendDirection = 'declining';
+          frictionDeltaPct = Math.round(rFriction - pFriction);
+          const rPos = recentCheckins.filter((c) => ['focused', 'steady'].includes(c.outcome?.toLowerCase() || '')).length / recentCheckins.length * 100;
+          const pPos = priorCheckins.filter((c) => ['focused', 'steady'].includes(c.outcome?.toLowerCase() || '')).length / priorCheckins.length * 100;
+          positiveDeltaPctDev = Math.round(rPos - pPos);
         }
 
         // Recurring themes
@@ -301,7 +311,9 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           scoreDeltas,
           frictionPct,
           frictionLabel,
+          frictionDeltaPct,
           positiveRate,
+          positiveDeltaPct: positiveDeltaPctDev,
           trendDirection,
           typicalState,
           recurringThemes,
@@ -340,32 +352,17 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     }
   };
 
-  // Color helper: positive=green, negative=red, stable=yellow (text only)
-  const deltaTone = (delta: number): string => {
-    if (delta > 0) return 'text-emerald-600';
-    if (delta < 0) return 'text-red-500';
-    return 'text-amber-500';
+  // Per-row arrow direction. For metrics where higher = better (PRS, Alignment).
+  const arrowFor = (delta: number | null | undefined) => {
+    if (delta == null || Math.abs(delta) < 1) return { Icon: Minus, color: 'text-amber-500' };
+    if (delta > 0) return { Icon: TrendingUp, color: 'text-emerald-600' };
+    return { Icon: TrendingDown, color: 'text-red-500' };
   };
-
-  // Friction tone — lower friction is positive (green), higher is negative (red), middle = yellow
-  const frictionTone = (pct: number): string => {
-    if (pct <= 25) return 'text-emerald-600';
-    if (pct <= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
-
-  // Consistency tone — higher is positive (green), lower is negative (red). Inverse of friction.
-  const consistencyTone = (pct: number): string => {
-    if (pct >= 75) return 'text-emerald-600';
-    if (pct >= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
-
-  const consistencyLabel = (pct: number): string => {
-    if (pct >= 75) return 'Highly consistent';
-    if (pct >= 50) return 'Building consistency';
-    if (pct >= 25) return 'Inconsistent';
-    return 'Low consistency';
+  // For Friction (lower = better): negative delta is good (down + green).
+  const frictionArrowFor = (delta: number | null | undefined) => {
+    if (delta == null || Math.abs(delta) < 1) return { Icon: Minus, color: 'text-amber-500' };
+    if (delta < 0) return { Icon: TrendingDown, color: 'text-emerald-600' };
+    return { Icon: TrendingUp, color: 'text-red-500' };
   };
 
   return (
@@ -397,12 +394,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
               baselineComposite != null && currentComposite != null
                 ? currentComposite - baselineComposite
                 : null;
-            const ScoreTrendIcon = trendIcons[data.trendDirection];
-            const FrictionTrendIcon = trendIcons[data.trendDirection];
+            const scoreArrow = arrowFor(compositeDelta);
+            const frictionArrow = frictionArrowFor(data.frictionDeltaPct);
+            const alignmentArrow = arrowFor(data.positiveDeltaPct);
             return (
               <div className="space-y-4">
 
-                {/* ── ROW 1: ARCHETYPE (with tooltip on right) ── */}
+                {/* ── ROW 1: ARCHETYPE — only shown when an evolution has occurred ── */}
+                {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle && (
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-medium uppercase tracking-wider text-taupe shrink-0">
@@ -414,19 +413,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     />
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
-                    {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
-                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                        <span className="text-sm text-muted-foreground truncate">{data.baselineArchetypeTitle}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm font-semibold text-foreground truncate">{data.currentArchetypeTitle}</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm font-semibold text-foreground truncate text-right">
-                        {data.currentArchetypeTitle || data.baselineArchetypeTitle}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span className="text-sm text-muted-foreground truncate">{data.baselineArchetypeTitle}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm font-semibold text-foreground truncate">{data.currentArchetypeTitle}</span>
+                    </div>
                   </div>
                 </div>
+                )}
 
                 {/* ── ROW 2: PERFORMANCE READINESS SCORE ── */}
                 <div className="flex items-center justify-between gap-3">
@@ -434,23 +428,20 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     Performance Readiness Score
                   </span>
                   <div className="flex items-center gap-2">
-                    {baselineComposite != null ? (
+                    {currentComposite != null ? (
                       <>
-                        <span className="text-sm text-muted-foreground tabular-nums">{baselineComposite}</span>
-                        {currentComposite != null ? (
-                          <>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-sm font-semibold text-foreground tabular-nums">{currentComposite}</span>
-                            {compositeDelta != null && (
-                              <span className={cn('text-sm font-semibold tabular-nums', deltaTone(compositeDelta))}>
-                                ({compositeDelta > 0 ? '+' : ''}{compositeDelta})
-                              </span>
-                            )}
-                            <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
-                          </>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">evolves with each Brief</span>
+                        <span className="text-sm font-semibold text-foreground tabular-nums">{currentComposite}</span>
+                        {compositeDelta != null && (
+                          <span className={cn('text-sm font-semibold tabular-nums', scoreArrow.color)}>
+                            ({compositeDelta > 0 ? '+' : ''}{compositeDelta})
+                          </span>
                         )}
+                        <scoreArrow.Icon className={cn('h-3.5 w-3.5', scoreArrow.color)} />
+                      </>
+                    ) : baselineComposite != null ? (
+                      <>
+                        <span className="text-sm font-semibold text-foreground tabular-nums">{baselineComposite}</span>
+                        <span className="text-xs text-muted-foreground italic">evolves with each Brief</span>
                       </>
                     ) : (
                       <span className="text-xs text-muted-foreground italic">building with your daily Briefs</span>
@@ -473,35 +464,37 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                     <span className="text-sm font-semibold tabular-nums text-foreground">
                       {data.frictionPct}%
                     </span>
-                    {data.frictionLabel && (
-                      <span className={cn('text-sm', frictionTone(data.frictionPct ?? 0))}>
-                        ({data.frictionLabel})
+                    {data.frictionDeltaPct != null && (
+                      <span className={cn('text-sm font-semibold tabular-nums', frictionArrow.color)}>
+                        ({data.frictionDeltaPct > 0 ? '+' : ''}{data.frictionDeltaPct})
                       </span>
                     )}
-                    <FrictionTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                    <frictionArrow.Icon className={cn('h-3.5 w-3.5', frictionArrow.color)} />
                   </div>
                 </div>
 
-                {/* ── ROW 4: CONSISTENCY (mirror of Friction at check-in level) ── */}
+                {/* ── ROW 4: ALIGNMENT (mirror of Friction at check-in level) ── */}
                 {data.positiveRate && (data.checkInCount ?? 0) >= 5 && (
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-xs font-medium uppercase tracking-wider text-taupe">
-                        Consistency
+                        Alignment
                       </span>
                       <InsightInfoModal
-                        title="What Is Consistency?"
-                        explanation="How often you’re checking in focused or steady over the past month. The other side of Friction — a higher number means more consistent positive states."
+                        title="What Is Alignment?"
+                        explanation="How often you’re checking in focused or steady over the past month — the unimpeded mirror of Friction. Higher means you’re moving through your days with less resistance."
                       />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
                         {data.positiveRate.pct}%
                       </span>
-                      <span className={cn('text-sm', consistencyTone(data.positiveRate.pct))}>
-                        ({consistencyLabel(data.positiveRate.pct)})
-                      </span>
-                      <ScoreTrendIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />
+                      {data.positiveDeltaPct != null && (
+                        <span className={cn('text-sm font-semibold tabular-nums', alignmentArrow.color)}>
+                          ({data.positiveDeltaPct > 0 ? '+' : ''}{data.positiveDeltaPct})
+                        </span>
+                      )}
+                      <alignmentArrow.Icon className={cn('h-3.5 w-3.5', alignmentArrow.color)} />
                     </div>
                   </div>
                 )}
@@ -515,13 +508,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 {data.checkInCount > 0 && data.checkInCount < 5 && (
                   <p className="text-xs text-muted-foreground/70 text-center pt-2">
                     {data.checkInCount} check-in{data.checkInCount > 1 ? 's' : ''} logged. Your trajectory sharpens with each one.
-                  </p>
-                )}
-
-                {/* Data source note */}
-                {data.checkInCount > 0 && (
-                  <p className="text-xs text-muted-foreground/60 text-center">
-                    {data.dataSourceNote}
                   </p>
                 )}
               </div>
