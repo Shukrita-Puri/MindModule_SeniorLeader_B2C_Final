@@ -301,6 +301,8 @@ interface NudgeContext {
   inMeetingNow: boolean;
   // Energy snapshot
   hrvDeltaPctFromSnapshot: number | null;
+  // v7 — Unified pattern store (cross-event historical correlations)
+  pattern: PatternSummary | null;
 }
 
 interface NudgeCopy {
