@@ -196,7 +196,8 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     const GAP = 16;
     const vH = window.visualViewport?.height ?? window.innerHeight;
     // Reserve space for bottom safe area (nav hidden during tour, but keep margin)
-    const BOTTOM_SAFE = 120;
+    const BOTTOM_SAFE = Math.max(24, (window.visualViewport ? window.innerHeight - window.visualViewport.height : 0) + 24);
+    const TOP_SAFE = 16;
 
     const spaceAbove = sy;
     const spaceBelow = vH - (sy + sh) - BOTTOM_SAFE;
@@ -215,7 +216,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       top = sy + sh + GAP;
     }
 
-    top = Math.max(8, Math.min(top, vH - tooltipH - BOTTOM_SAFE));
+    top = Math.max(TOP_SAFE, Math.min(top, vH - tooltipH - BOTTOM_SAFE));
     setTooltipPos({ top });
     return true;
   }, []);
@@ -271,7 +272,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       const tooltipH = tooltipRef.current?.offsetHeight || 220;
       const GAP = 16;
       const rect = el.getBoundingClientRect();
-      const vH = window.innerHeight;
+      const vH = window.visualViewport?.height ?? window.innerHeight;
 
       if (pref === 'above') {
         // Ensure enough space above the feature for the tooltip
@@ -482,6 +483,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen || fallbackMode ? '360px' : '400px';
+  const cardMaxHeight = 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)';
   const showTransitionCard = !ready && !fallbackMode;
   if (typeof document === 'undefined') return null;
 
@@ -553,26 +555,28 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       <div
         ref={tooltipRef}
         className={cn(
-          'fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5 shadow-2xl mx-auto transition-opacity duration-300 max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)] overflow-y-auto',
+          'fixed z-[10010] bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl mx-auto transition-opacity duration-300 flex flex-col overflow-hidden',
           ready ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
-        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, pointerEvents: ready ? 'auto' : 'none' }}
+        style={{ ...tooltipStyle, maxWidth: tooltipMaxW, maxHeight: cardMaxHeight, pointerEvents: ready ? 'auto' : 'none' }}
       >
-        {/* Phase + counter */}
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs tracking-[0.2em] uppercase font-medium text-white/60">
-            {step.phaseLabel}
-          </p>
-          <p className="text-xs text-white/50 font-medium">
-            {currentStep + 1} of {STEPS.length}
-          </p>
+        <div className="min-h-0 overflow-y-auto px-5 pt-5">
+          {/* Phase + counter */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs tracking-[0.2em] uppercase font-medium text-white/60">
+              {step.phaseLabel}
+            </p>
+            <p className="text-xs text-white/50 font-medium">
+              {currentStep + 1} of {STEPS.length}
+            </p>
+          </div>
+
+          <h2 className="text-lg font-headline text-white leading-tight mb-2">{step.title}</h2>
+          <p className="text-sm text-white/70 font-body leading-relaxed pb-4">{step.body}</p>
         </div>
 
-        <h2 className="text-lg font-headline text-white leading-tight mb-2">{step.title}</h2>
-        <p className="text-sm text-white/70 font-body leading-relaxed mb-5">{step.body}</p>
-
         {/* Footer */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-white/10 bg-[#1a1a1a]/98 flex-shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
           <div className="flex gap-1.5">
             {STEPS.map((_, idx) => (
               <div
@@ -584,7 +588,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
               />
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {currentStep > 0 && (
               <button onClick={handleBack} className="flex items-center gap-1 px-3 py-2 rounded-xl text-white/60 hover:text-white text-sm transition-colors" style={{ pointerEvents: 'auto' }}>
                 <ArrowLeft size={14} /> Back
