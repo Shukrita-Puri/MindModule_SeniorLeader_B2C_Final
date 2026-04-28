@@ -246,6 +246,7 @@ serve(async (req) => {
         .from("causality_findings")
         .select("payload")
         .eq("user_id", userId)
+        .eq("pattern_kind", "cause_effect_v2")
         .eq("computed_for_date", todayStr)
         .maybeSingle();
       const cachedPayload: any = cached?.payload;
