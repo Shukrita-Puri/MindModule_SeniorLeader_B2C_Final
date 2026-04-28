@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { isValidBeta } from '@/utils/subscriptionHelpers';
 
 const UserSettingsPopover = () => {
   const navigate = useNavigate();
@@ -35,7 +36,9 @@ const UserSettingsPopover = () => {
     : user?.email?.[0]?.toUpperCase() || 'U';
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment?source=profile-upgrade', source: 'profile_upgrade' },
+    ...(!isValidBeta(user) ? [
+      { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment?source=profile-upgrade', source: 'profile_upgrade' },
+    ] : []),
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },
   ];
 

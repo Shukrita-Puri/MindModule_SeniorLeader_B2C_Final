@@ -33,9 +33,10 @@ export default function Stage6Payment() {
   const stateSource = location.state && typeof location.state === 'object' && 'source' in location.state
     ? location.state.source
     : null;
-  const hasExplicitUpgradeSource = [querySource, stateSource].some((source) =>
-    typeof source === 'string' && (source.includes('upgrade') || source.length > 0)
-  );
+  const upgradeSources = [querySource, stateSource].filter((source): source is string => typeof source === 'string');
+  const hasAnyUpgradeSource = upgradeSources.some((source) => source.includes('upgrade') || source.length > 0);
+  const hasProfileUpgradeSource = upgradeSources.some((source) => source === 'profile-upgrade' || source === 'profile_upgrade');
+  const hasExplicitUpgradeSource = isBetaValid ? hasProfileUpgradeSource : hasAnyUpgradeSource;
   const isMonthlySubscriber = currentTier === 'monthly_pro' && hasValidUserAccess;
   const isAnnualSubscriber = currentTier === 'annual_pro' && hasValidUserAccess;
   const isUpgradeVisit = hasExplicitUpgradeSource || hasCompletedOnboarding;
