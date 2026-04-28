@@ -112,6 +112,14 @@ export function msUntilMidnight(now: Date = new Date()): number {
 export const cacheKeys = {
   brief: (userId: string, period: string, dateISO: string) =>
     `prb-cache:${userId}:${period}:${dateISO}`,
+  /**
+   * Per-window cache for the *awaiting signals* gating decision (no
+   * check-in AND no fresh wearable). We persist this so a no-signal user
+   * doesn't re-hit `compute-outer-readiness` on every mount / focus /
+   * iOS foreground. TTL is bound to the end of the current time window.
+   */
+  briefAwaiting: (userId: string, period: string, dateISO: string) =>
+    `prb-awaiting:${userId}:${period}:${dateISO}`,
   planData: (dateISO: string, period: string) =>
     `plan-data-${dateISO}-${period}`,
   planLoaded: (dateISO: string, period: string) =>
@@ -166,6 +174,7 @@ export function currentPeriod(now: Date = new Date()): 'morning' | 'afternoon' |
 /** Prefixes used by `clearByPrefixes` on sign-out. */
 export const cacheKeyPrefixes = [
   'prb-cache:',
+  'prb-awaiting:',
   'plan-data-',
   'plan-loaded-',
   'insights-script-done:',
