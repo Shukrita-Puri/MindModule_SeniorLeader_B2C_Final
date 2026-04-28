@@ -889,7 +889,7 @@ const TodayThreePriorities = ({
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
           <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Priorities
+            {plan?.ledger?.source === 'bonus-round' ? "Today's 3 · Bonus Round" : "Today's 3 Priorities"}
           </span>
           <div className="flex items-center gap-2">
             <span className={cn(
@@ -905,6 +905,11 @@ const TodayThreePriorities = ({
             />
           </div>
         </div>
+        {plan?.ledger?.source === 'bonus-round' && plan.ledger.victoryLine && (
+          <p className="mt-1.5 text-[11px] text-saffron/90 font-body leading-snug">
+            {plan.ledger.victoryLine}
+          </p>
+        )}
       </div>
 
       {/* 3 Slots — each priority on its own card so users perceive them as
