@@ -4050,48 +4050,54 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
     const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
 
-    // ═══ BRIEF SIGNAL CONTRACT ═══
-    // The brief reflects *this moment* — current immediate signal + recurring
-    // patterns + long-term context. Without an immediate signal (today's
-    // check-in OR a wearable reading from today), the brief becomes stale
-    // historical inference and must NOT generate. Calendar is enriching, not
-    // gating. When the contract is unmet we null out phrase/body/leanOn/
-    // watchFor and surface `awaitingSignals: true` so the client renders a
-    // quiet prompt line; pills, chips, calendar pill, and score `--` continue
-    // to render normally.
-    // Window-scoped check-in lookup. Multiple check-ins per day are allowed;
-    // each is slotted to the window in which it was submitted. The Brief
-    // reflects "this period of the day," so only a check-in tagged to the
-    // current period satisfies the contract. A morning check-in does NOT
-    // satisfy the afternoon brief; an afternoon check-in does NOT satisfy
-    // the evening brief. Any newer check-in within the same period
-    // supersedes earlier ones (briefId already keys off input_signature, so
-    // the snapshot regenerates automatically on the next request).
+    // ═══ BRIEF SIGNAL CONTRACT (day-scoped) ═══
+    // The brief reflects *today*. ANY non-skipped check-in for the user's
+    // local date satisfies the contract — regardless of which time_window
+    // the check-in was tagged to. Period-scoped gating caused false-negative
+    // `awaitingSignals` whenever a user's local time-of-day window drifted
+    // away from the window stamped on their existing check-in (e.g. user
+    // checked in during their local "afternoon" but the server now
+    // computes "morning" or "evening" relative to UTC + offset). The Brief
+    // and the Plan must both proceed if today has a real check-in; the
+    // freshness/recency of state is encoded into the input signature, which
+    // already drives snapshot regeneration when newer rows arrive.
     const currentPeriod = getTimeOfDay(hour);
-    let hasCheckInForCurrentPeriod = false;
+    let hasTodayCheckInDB = false;
+    let latestCheckinId: string | null = null;
+    let latestCheckinWindow: string | null = null;
     try {
-      const { data: periodCheckin } = await db
+      const { data: anyCheckin } = await db
         .from('daily_checkins')
-        .select('id')
+        .select('id, time_window, timestamp')
         .eq('user_id', userId)
         .eq('checkin_date', userLocalDate)
-        .eq('time_window', currentPeriod)
         .eq('skipped', false)
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle();
-      hasCheckInForCurrentPeriod = !!periodCheckin;
+      hasTodayCheckInDB = !!anyCheckin;
+      latestCheckinId = anyCheckin?.id ?? null;
+      latestCheckinWindow = anyCheckin?.time_window ?? null;
     } catch (e) {
-      console.warn('[compute-outer-readiness] Period check-in lookup failed:', e);
-      // Fail safe: if the lookup throws, fall back to the prior day-scoped
-      // signal so we never block a legitimate brief on a transient DB error.
-      hasCheckInForCurrentPeriod = !!checkInOutcome;
+      console.warn('[compute-outer-readiness] Day-scoped check-in lookup failed:', e);
+      // Fail safe: never block a brief on a transient DB error.
+      hasTodayCheckInDB = !!checkInOutcome;
     }
-    const hasTodayCheckIn = hasCheckInForCurrentPeriod;
+    const hasTodayCheckIn = hasTodayCheckInDB;
     const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
     const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
     const awaitingSignals = !briefSignalContractMet;
     const awaitingReason: string | null = awaitingSignals ? 'no-checkin-no-wearable' : null;
+    console.log('[compute-outer-readiness] signal-gate', {
+      userId,
+      userLocalDate,
+      currentPeriod,
+      hasTodayCheckIn,
+      latestCheckinId,
+      latestCheckinWindow,
+      hasFreshWearable,
+      awaitingSignals,
+    });
     // Truncate LLM signals to max 4 words server-side as safety net
     const truncSignal = (s: string) => {
       const w = s.split(/\s+/);
