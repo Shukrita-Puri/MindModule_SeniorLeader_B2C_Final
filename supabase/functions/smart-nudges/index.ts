@@ -1432,12 +1432,19 @@ async function evaluateNudgeOne(
       // them to the brief; otherwise send them to the queued plan.
       const route = ctx.morningCheckinOutcome === null ? '/daily-check-in' : '/executive-home';
 
+      // v7 — pattern-cited JIT outranks plain JIT in the comparator.
+      const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+      const sigStrength = pat ? 3 : 2;
+
       return {
         type: 'nudge_one',
         copy,
         deepLinkRoute: route,
         eventReference: evt.externalId,
         priority: 0,
+        anchorKind: 'jit',
+        slot: 'morning',
+        signalStrength: sigStrength,
       };
     }
   }
@@ -1485,6 +1492,9 @@ async function evaluateNudgeOne(
     copy,
     deepLinkRoute: '/daily-check-in',
     priority: 0,
+    anchorKind: 'state',
+    slot: 'morning',
+    signalStrength: ctx.hasWearableData ? 2 : 1,
   };
 }
 
@@ -1537,12 +1547,18 @@ async function evaluateNudgeTwo(
     const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
     const route = checkedInToday ? '/executive-home' : '/daily-check-in';
 
+    const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+    const sigStrength = pat ? 3 : 2;
+
     return {
       type: 'nudge_two',
       copy,
       deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,
+      anchorKind: 'jit',
+      slot: 'afternoon',
+      signalStrength: sigStrength,
     };
   }
 
@@ -1567,12 +1583,16 @@ async function evaluateNudgeTwo(
         copy,
         deepLinkRoute: '/daily-check-in',
         priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 2,
       };
     }
   }
 
-  // ── B) Priorities incomplete (afternoon, 13:00+) ──
-  if (ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
+  // ── B) Priorities incomplete (afternoon, 13:00+) — v7 LEGACY GENERIC ──
+  // Suppressed by default; framework retained behind LEGACY_GENERIC_NUDGES_ENABLED.
+  if (LEGACY_GENERIC_NUDGES_ENABLED && ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
     const priorityTitle = 'Priority 1'; // Generic, we don't have practice names in context
     const remaining = ctx.pendingPracticeIds.length;
 
@@ -1587,6 +1607,9 @@ async function evaluateNudgeTwo(
       copy,
       deepLinkRoute: '/executive-home',
       priority: 1,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 1,
     };
   }
 
@@ -1607,6 +1630,9 @@ async function evaluateNudgeTwo(
         copy,
         deepLinkRoute: '/daily-check-in',
         priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 2,
       };
     }
   }
@@ -1666,11 +1692,19 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
   const copy = aiCopy || getFallbackNudgeThreeCopy(ctx);
 
+  // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
+  // otherwise to STATE (today's load / wearable / Sunday week prep).
+  const tomorrowFirst = ctx.tomorrowEvents.find(e => !isNoiseEvent(e.title || ''));
+  const anchorKind: 'jit' | 'state' = tomorrowFirst ? 'jit' : 'state';
+
   return {
     type: 'nudge_three',
     copy,
     deepLinkRoute: '/daily-check-in',
     priority: 2,
+    anchorKind,
+    slot: 'evening',
+    signalStrength: anchorKind === 'jit' ? 2 : (ctx.hasWearableData ? 2 : 1),
   };
 }
 
@@ -1698,6 +1732,9 @@ async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<stri
       copy: { title: 'Gap Window', body: `You have ${gap.durationMinutes} minutes. Your next priority is ready.`, variantId: 'FB-GAP-artifact' },
       deepLinkRoute: '/executive-home',
       priority: 3,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 1,
     };
   }
   return null;
@@ -1747,6 +1784,9 @@ async function evaluateCoachMeetingMatch(ctx: NudgeContext, alreadySentTypes: Se
           commitmentText: commitment.text,
           meetingTitle: event.title || 'upcoming meeting',
           priority: 4,
+          anchorKind: 'jit',
+          slot: 'afternoon',
+          signalStrength: 2,
         };
       }
     }
@@ -1771,6 +1811,9 @@ async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: 
       copy: { title: 'Recalibrate', body: `You started low. Recalibrate before ${eventTitle}.`, variantId: 'FB-STATE-recal' },
       deepLinkRoute: '/daily-check-in',
       priority: 5,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 2,
     };
   }
   return null;
