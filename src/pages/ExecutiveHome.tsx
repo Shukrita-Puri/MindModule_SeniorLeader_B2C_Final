@@ -249,33 +249,70 @@ const ExecutiveHome = () => {
     return 'evening';
   };
 
-  // Static B&W woodcut/engraving stills (Active Calm aesthetic).
-  // Time-of-day drives the still; tier + divergence are intentionally collapsed
-  // to the same still per time window. Tier-specific overrides can be added
-  // later by dropping `/all-visuals/images/{tier}-{timeOfDay}.jpg` files and
-  // expanding this map — no other changes required.
-  const heroImageUrl = useMemo(() => {
+  const heroVideoUrl = useMemo(() => {
     const timeOfDay = getTimeOfDay();
-    return `/all-visuals/images/hero-${timeOfDay}.jpg`;
+    const tier = heroEnergyTier;
+    const videoMap: Record<string, Record<string, string>> = {
+      depleted: {
+        morning: '/all-visuals/videos/depleted-morning.mp4',
+        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
+        evening: '/all-visuals/videos/depleted-evening.mp4',
+      },
+      managing: {
+        morning: '/all-visuals/videos/managing-morning.mp4',
+        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
+        evening: '/all-visuals/videos/managing-evening.mp4',
+      },
+      strong: {
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
+      },
+      peak: {
+        morning: '/all-visuals/videos/peak-morning.mp4',
+        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
+        evening: '/all-visuals/videos/peak-evening.mp4',
+      },
+      very_high: {
+        morning: '/all-visuals/videos/veryhigh-morning.mp4',
+        afternoon: '/all-visuals/videos/veryhigh-afternoon.mp4',
+        evening: '/all-visuals/videos/veryhigh-evening.mp4',
+      },
+      default: {
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
+      },
+    };
+
+    // Divergence variant override: when wearable/check-in signals diverge
+    const divergenceMode = String(heroDivergenceMode || '').toLowerCase();
+    if (divergenceMode.includes('recovery')) {
+      return `/all-visuals/videos/recovery-${timeOfDay}.mp4`;
+    }
+    if (divergenceMode.includes('masked')) {
+      return `/all-visuals/videos/masked-${timeOfDay}.mp4`;
+    }
+
+    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
   }, [heroEnergyTier, heroDivergenceMode]);
-
-  const imageFadedIn = useRef(false);
-  const imageRef = useRef<HTMLImageElement>(null);
-
-  const fadeInImage = useCallback((el?: HTMLImageElement | null) => {
-    const target = el || imageRef.current;
-    if (!imageFadedIn.current && target) {
+  
+  const videoFadedIn = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const fadeInVideo = useCallback((el?: HTMLVideoElement | null) => {
+    const target = el || videoRef.current;
+    if (!videoFadedIn.current && target) {
       target.style.opacity = '0.4';
-      imageFadedIn.current = true;
+      videoFadedIn.current = true;
     }
   }, []);
 
   useEffect(() => {
-    imageFadedIn.current = false;
-    // Safety fallback in case onLoad never fires (cached image edge cases)
-    const timer = setTimeout(() => fadeInImage(), 800);
+    videoFadedIn.current = false;
+    const timer = setTimeout(() => fadeInVideo(), 3000);
     return () => clearTimeout(timer);
-  }, [heroImageUrl, fadeInImage]);
+  }, [heroVideoUrl, fadeInVideo]);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -287,16 +324,19 @@ const ExecutiveHome = () => {
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
-              <img
-                ref={imageRef}
-                key={heroImageUrl}
-                src={heroImageUrl}
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                onLoad={(e) => fadeInImage(e.currentTarget)}
-                className="w-full h-full object-cover video-warm-luxury select-none"
-                style={{ opacity: 0, transition: 'opacity 600ms ease-out' }}
+              <video 
+                ref={videoRef}
+                key={heroVideoUrl}
+                src={heroVideoUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                onCanPlay={(e) => fadeInVideo(e.currentTarget)}
+                onLoadedData={(e) => fadeInVideo(e.currentTarget)}
+                className="w-full h-full object-cover video-warm-luxury"
+                style={{ opacity: 0 }}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-background/30 to-background pointer-events-none" />
             </div>
