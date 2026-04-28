@@ -2807,7 +2807,7 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
   // ─── IMMEDIATE ───
   if (ctx.horizon === 'immediate') {
     if (ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 30) {
-      return { situation: `${ctx.eventTitle} is imminent`, whyLine: `${ctx.eventTitle} is almost here — prepare now.` };
+      return { situation: `${ctx.eventTitle} is imminent`, whyLine: `${ctx.eventTitle} is almost here, prepare now.` };
     }
     if (ctx.isJit && ctx.jitMinutesUntil !== null && ctx.jitMinutesUntil < 120) {
       // HRV correlation for JIT event
@@ -2815,61 +2815,61 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
         const pct = Math.abs(Math.round(ctx.hrvEventCorrelation.avgHrvDelta));
         return {
           situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
-          whyLine: `Your HRV drops avg ${pct}% before ${ctx.hrvEventCorrelation.eventType} — ground your nervous system before that pattern takes over.`
+          whyLine: `Your HRV drops avg ${pct}% before ${ctx.hrvEventCorrelation.eventType}, ground your nervous system before that pattern takes over.`
         };
       }
       if (ctx.coachGrowthArea) {
         return {
           situation: `Coach insight + upcoming ${ctx.eventTitle}`,
-          whyLine: `Your coach flagged ${ctx.coachGrowthArea} — address your state before ${ctx.eventTitle} so that pattern doesn't drive your thinking.`
+          whyLine: `Your coach flagged ${ctx.coachGrowthArea}, address your state before ${ctx.eventTitle} so that pattern doesn't drive your thinking.`
         };
       }
-      return { situation: `${ctx.eventTitle} approaching`, whyLine: `${ctx.eventTitle} in ${Math.round(ctx.jitMinutesUntil)} mins — go in prepared.` };
+      return { situation: `${ctx.eventTitle} approaching`, whyLine: `${ctx.eventTitle} in ${Math.round(ctx.jitMinutesUntil)} mins, go in prepared.` };
     }
     if (ctx.divergenceMode === 'MASKED_HIGH') {
       if (hasCalendar) {
         return {
           situation: 'Body under unregistered load',
           whyLine: isEvening
-            ? `Your body is carrying load you haven't registered — settle your system before you close the day.`
-            : `Your body is carrying load you haven't registered — ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} will compound it unless you settle now.`
+            ? `Your body is carrying load you haven't registered, settle your system before you close the day.`
+            : `Your body is carrying load you haven't registered, ${ctx.meetingCount} meeting${ctx.meetingCount > 1 ? 's' : ''} will compound it unless you settle now.`
         };
       }
-      return { situation: 'Body under unregistered load', whyLine: `Your body is carrying load you haven't registered — settle your system ${timeAnchor}.` };
+      return { situation: 'Body under unregistered load', whyLine: `Your body is carrying load you haven't registered, settle your system ${timeAnchor}.` };
     }
     if (ctx.tier === 'depleted') {
       if (ctx.coachGrowthArea) {
-        return { situation: 'Depleted + coach growth area', whyLine: `Your coach flagged ${ctx.coachGrowthArea} — address your state first so that pattern doesn't drive your thinking.` };
+        return { situation: 'Depleted + coach growth area', whyLine: `Your coach flagged ${ctx.coachGrowthArea}, address your state first so that pattern doesn't drive your thinking.` };
       }
       if (isEvening) {
-        return { situation: 'Low reserves + day close', whyLine: `Reserves low — regulate before you close the day.` };
+        return { situation: 'Low reserves + day close', whyLine: `Reserves low, regulate before you close the day.` };
       }
       if (hasRemainingMeetings) {
-        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead — regulate ${timeAnchor}.` };
+        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead, regulate ${timeAnchor}.` };
       }
-      return { situation: 'Low reserves', whyLine: `Reserves low — regulate ${timeAnchor}.` };
+      return { situation: 'Low reserves', whyLine: `Reserves low, regulate ${timeAnchor}.` };
     }
     if (ctx.tier === 'managing' && hasCalendar && ctx.meetingCount > 3) {
       if (isEvening) {
-        return { situation: 'Managing + heavy day close', whyLine: `Heavy day — settle your state before you close it.` };
+        return { situation: 'Managing + heavy day close', whyLine: `Heavy day, settle your state before you close it.` };
       }
-      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead — settle your state ${timeAnchor}.` };
+      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead, settle your state ${timeAnchor}.` };
     }
     if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
       return {
         situation: `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
-        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running — this interrupts the pattern before it becomes your baseline.`
+        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running, this interrupts the pattern before it becomes your baseline.`
       };
     }
     if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel <= 2) {
-      return { situation: 'Clarity deficit', whyLine: `Clarity low — address it ${timeAnchor} so it doesn't compound.` };
+      return { situation: 'Clarity deficit', whyLine: `Clarity low, address it ${timeAnchor} so it doesn't compound.` };
     }
     if (ctx.checkInOutcome && ctx.confidenceLevel !== null && ctx.confidenceLevel <= 2) {
-      return { situation: 'Confidence deficit', whyLine: `Low confidence — ground yourself before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment.` };
+      return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment.` };
     }
-    if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state — everything follows from this.' };
-    if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset — your second half starts here.' };
-    return { situation: 'Evening regulation', whyLine: 'Regulate now — settle before you close the day.' };
+    if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state, everything follows from this.' };
+    if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset, your second half starts here.' };
+    return { situation: 'Evening regulation', whyLine: 'Regulate now, settle before you close the day.' };
   }
 
   // ─── TACTICAL ───
@@ -2878,56 +2878,56 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       const direction = ctx.hrvEventCorrelation.avgHrvDelta > 0 ? 'elevates' : 'drops';
       return {
         situation: `HRV pattern before ${ctx.hrvEventCorrelation.eventType}`,
-        whyLine: `Your HRV typically ${direction} before ${ctx.hrvEventCorrelation.eventType} — this sequence grounds your state then sharpens your focus for it.`
+        whyLine: `Your HRV typically ${direction} before ${ctx.hrvEventCorrelation.eventType}, this sequence grounds your state then sharpens your focus for it.`
       };
     }
     if (ctx.pendingCommitment) {
       return {
         situation: 'Coach commitment active',
-        whyLine: `Your coach commitment: '${ctx.pendingCommitment}' — this practice directly addresses it while your calendar allows.`
+        whyLine: `Your coach commitment: '${ctx.pendingCommitment}', this practice directly addresses it while your calendar allows.`
       };
     }
     if (ctx.isJit && hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
       return {
         situation: `Pattern + upcoming event`,
-        whyLine: `${ctx.eventTitle} approaching — you've been ${ctx.patternInsight.state} ${ctx.patternInsight.count} days running.`
+        whyLine: `${ctx.eventTitle} approaching, you've been ${ctx.patternInsight.state} ${ctx.patternInsight.count} days running.`
       };
     }
     if (ctx.isJit) {
-      return { situation: `${ctx.eventTitle} ahead`, whyLine: `${ctx.eventTitle} is ahead — this prepares your state for it.` };
+      return { situation: `${ctx.eventTitle} ahead`, whyLine: `${ctx.eventTitle} is ahead, this prepares your state for it.` };
     }
     if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
       return {
         situation: `${ctx.patternInsight.count} consecutive ${ctx.patternInsight.state} days`,
-        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running — this interrupts the pattern before it becomes your baseline.`
+        whyLine: `${ctx.patternInsight.count} ${ctx.patternInsight.state} days running, this interrupts the pattern before it becomes your baseline.`
       };
     }
     if (hasWeekData && ctx.frictionTrend === 'declining') {
-      return { situation: 'Focus declining', whyLine: 'Focus has been declining this week — this interrupts it.' };
+      return { situation: 'Focus declining', whyLine: 'Focus has been declining this week, this interrupts it.' };
     }
     if (hasWeekData && ctx.scoreTrend === 'declining') {
-      return { situation: 'State trending down', whyLine: 'Your state has been trending down — this is the reset point.' };
+      return { situation: 'State trending down', whyLine: 'Your state has been trending down, this is the reset point.' };
     }
     if (hasCalendar && ctx.meetingCount >= 4) {
       if (isEvening) {
-        return { situation: 'Heavy day completed', whyLine: 'Heavy day completed — sustain your edge into tomorrow.' };
+        return { situation: 'Heavy day completed', whyLine: 'Heavy day completed, sustain your edge into tomorrow.' };
       }
-      return { situation: 'Heavy calendar', whyLine: `Heavy day — this keeps you sharp through it.` };
+      return { situation: 'Heavy calendar', whyLine: `Heavy day, this keeps you sharp through it.` };
     }
     if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel >= 4) {
       const todAnchor = ctx.timeOfDay === 'morning' ? 'afternoon' : ctx.timeOfDay === 'afternoon' ? 'evening' : 'tomorrow';
-      return { situation: 'Clarity strong', whyLine: `Clarity strong — this maintains it through the ${todAnchor}.` };
+      return { situation: 'Clarity strong', whyLine: `Clarity strong, this maintains it through the ${todAnchor}.` };
     }
     if (ctx.dayOfWeek === 'Monday' && !isEvening) {
-      return { situation: 'Week entry', whyLine: "Monday demands more — this builds the week's foundation." };
+      return { situation: 'Week entry', whyLine: "Monday demands more, this builds the week's foundation." };
     }
     if (ctx.dayOfWeek === 'Friday') {
       return isEvening
-        ? { situation: 'Week close', whyLine: 'Week closing — recover what the week pulled from you.' }
-        : { situation: 'Week close', whyLine: 'End of week — this sustains your quality through the close.' };
+        ? { situation: 'Week close', whyLine: 'Week closing, recover what the week pulled from you.' }
+        : { situation: 'Week close', whyLine: 'End of week, this sustains your quality through the close.' };
     }
     if (isEvening) {
-      return { situation: 'Day close', whyLine: 'For your state — close the day with intention.' };
+      return { situation: 'Day close', whyLine: 'For your state, close the day with intention.' };
     }
     return { situation: 'State maintenance', whyLine: 'For your state and demands today.' };
   }
@@ -2937,13 +2937,13 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
     if (ctx.pendingCommitment) {
       return {
         situation: 'Coach commitment',
-        whyLine: `You committed to '${ctx.pendingCommitment}' — your calendar has space to build that capacity now.`
+        whyLine: `You committed to '${ctx.pendingCommitment}', your calendar has space to build that capacity now.`
       };
     }
     if (ctx.coachGrowthArea) {
       return {
         situation: 'Coach growth area',
-        whyLine: `Your coach identified ${ctx.coachGrowthArea} — this builds it while your system isn't under strain.`
+        whyLine: `Your coach identified ${ctx.coachGrowthArea}, this builds it while your system isn't under strain.`
       };
     }
     if (ctx.practicePriorityTag) {
@@ -2957,7 +2957,7 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       };
       return {
         situation: 'Development focus',
-        whyLine: `Aligned to your ${tagLabels[ctx.practicePriorityTag] || 'development'} focus — building the foundation for long-term change.`
+        whyLine: `Aligned to your ${tagLabels[ctx.practicePriorityTag] || 'development'} focus, building the foundation for long-term change.`
       };
     }
     if (ctx.archetypeWatchFor) {
@@ -2967,12 +2967,12 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       };
     }
     if (ctx.timeOfDay === 'evening' && (ctx.tier === 'strong' || ctx.tier === 'peak')) {
-      return { situation: 'Strong day close', whyLine: "Strong day — close with intention before tomorrow's demands arrive." };
+      return { situation: 'Strong day close', whyLine: "Strong day, close with intention before tomorrow's demands arrive." };
     }
     if (ctx.timeOfDay === 'evening' && ctx.tier === 'depleted') {
-      return { situation: 'Depleted day close', whyLine: 'Depleted day — restore before tomorrow inherits what today carried.' };
+      return { situation: 'Depleted day close', whyLine: 'Depleted day, restore before tomorrow inherits what today carried.' };
     }
-    return { situation: 'Development', whyLine: 'For your development — when your system has capacity.' };
+    return { situation: 'Development', whyLine: 'For your development, when your system has capacity.' };
   }
 
   return { situation: 'Current state', whyLine: 'Based on your state today.' };
