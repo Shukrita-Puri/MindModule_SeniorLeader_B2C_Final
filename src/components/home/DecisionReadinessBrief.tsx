@@ -48,11 +48,11 @@ const fmtScored = (label: string, score: number) => `${label} [score ${score}/5]
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 const getTierColor = (tier: string): string => {
   switch (tier) {
-    case 'depleted': return 'text-[hsl(var(--state-depleted))]';
-    case 'managing': return 'text-[hsl(var(--saffron))]';
+    case 'depleted': return 'text-[hsl(var(--tier-low))]';
+    case 'managing': return 'text-[hsl(var(--tier-moderate))]';
     case 'strong':
-    case 'peak': return 'text-[hsl(var(--kairos))]';
-    default: return 'text-muted-foreground';
+    case 'peak':     return 'text-[hsl(var(--tier-strong))]';
+    default:         return 'text-[hsl(var(--tier-neutral))]';
   }
 };
 
