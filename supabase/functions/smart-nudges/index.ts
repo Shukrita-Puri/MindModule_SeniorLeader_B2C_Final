@@ -136,6 +136,10 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
+// v7 — Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
+// Framework code is preserved for future use; flip this on to re-enable.
+const LEGACY_GENERIC_NUDGES_ENABLED = false;
+
 // ── v5 timing contract ─────────────────────────────────────────────────
 // Hard floor: never deliver any push before this local hour, regardless of
 // calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
