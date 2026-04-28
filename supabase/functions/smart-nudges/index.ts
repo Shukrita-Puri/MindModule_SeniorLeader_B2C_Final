@@ -796,12 +796,19 @@ const FORBIDDEN_WORDS_V6 = [
   'productive','productivity','intent','strategy','strategic',
   'set the tone','your day your terms','loaded day','5 days behind you','plan the week',
   'come back','check in when',
+  // v6.1 — ban mechanical / robotic phrasing flagged by CEO review
+  'decision posture','decision readiness','mental sharpness','anchor sharpness',
+  'anchor mental','lock in decision','set decision','set posture','decision-ready',
+  'optimal performance','peak performance','performance state','cognitive load',
+  'capacity','reserves','baseline','trajectory reset','reset trajectory',
 ];
 const ALLOWED_CTA_VERBS_V6 = [
   'open your brief','open your plan','open your prep plan','open your readiness',
   'build your prep plan','build your plan',
   'recalibrate now','close the day','close the week','close the loop',
   'lock in your prep','tap to prep','see your prep','see your plan','see your readiness',
+  // v6.1 — short, human CTAs
+  'check in now','open the app','prep now','take 2 minutes',
 ];
 function violatesCopyContractV6(body: string): string | null {
   const lower = body.toLowerCase();
@@ -813,6 +820,10 @@ function violatesCopyContractV6(body: string): string | null {
   }
   // No placeholder tokens
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  // v6.1 — hard length ceiling (CEO feedback: notifications too long)
+  const wordCount = body.trim().split(/\s+/).length;
+  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
+  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
   return null;
 }
 
