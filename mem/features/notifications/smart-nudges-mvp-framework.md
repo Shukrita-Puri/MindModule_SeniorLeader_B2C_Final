@@ -13,7 +13,7 @@ Every Smart Nudge MUST be either JIT-anchored (a specific calendar event from th
 
 **Voice:** Trusted human Chief of Staff. CEO-friendly. Never mechanical: `decision posture`, `decision readiness`, `mental sharpness`, `performance state`, `reset trajectory`, `capacity`, `reserves`, `baseline` are forbidden.
 
-**Copy contract V7 (`violatesCopyContractV7`):** body MUST end (modulo trailing punctuation) with one of: `open the app to prep`, `check into the app to prep`, `go to the app to prep`, `prep now`, `open the app to prep tonight`, `open the app to prep with a cool-down`. Hard ceilings: ≤14 words, ≤95 chars, no placeholder tokens, no forbidden words.
+**Copy contract V7 (`violatesCopyContractV7`):** body MUST end (modulo trailing punctuation) with one of: `open the app to prep`, `check into the app to prep`, `go to the app to prep`, `prep now`, `open the app to prep tonight`, `open the app to prep with a cool-down`. Hard ceilings: ≤16 words, ≤95 chars, no placeholder tokens, no forbidden words. (16-word allowance accommodates the JIT prefix and cool-down CTA; 95-char ceiling keeps the push to one line.)
 
 **Proactive prefix:** when the JIT anchor is on the user's morning plan, the body must lead with `From your morning Plan:` or `From your plan:` — that prefix IS the proactive lure.
 
