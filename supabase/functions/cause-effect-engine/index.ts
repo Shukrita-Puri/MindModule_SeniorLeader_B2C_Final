@@ -780,13 +780,78 @@ serve(async (req) => {
       version: ENGINE_VERSION,
     };
 
+    // ── Build flat signal_summary for the unified pattern store ─────
+    // Per-event-type lookups need a "lastSeen" date so smart-nudges can
+    // weight recent patterns higher. We pick the most recent date in
+    // eventTypeDays for each label.
+    const lastSeenByEventType = new Map<string, string>();
+    eventTypeDays.forEach((set, label) => {
+      let max = "";
+      set.forEach((d) => { if (d > max) max = d; });
+      if (max) lastSeenByEventType.set(label, max);
+    });
+
+    const eventToHrv = lensA
+      .filter((f) => f.effectSignal === "HRV" && f.cause !== "High-load calendar days")
+      .map((f) => ({
+        event_type: f.cause,
+        n: f.n,
+        hrvDeltaPct: f.deltaPct,
+        rhrElevated: lensA.some(
+          (g) => g.cause === f.cause && g.effectSignal === "RHR" && g.deltaPct > 0,
+        ),
+        confidence: f.confidence,
+        lastSeen: lastSeenByEventType.get(f.cause) || "",
+      }));
+
+    const eventToRhr = lensA
+      .filter((f) => f.effectSignal === "RHR" && f.cause !== "High-load calendar days")
+      .map((f) => ({
+        event_type: f.cause,
+        n: f.n,
+        rhrDeltaPct: f.deltaPct,
+        confidence: f.confidence,
+        lastSeen: lastSeenByEventType.get(f.cause) || "",
+      }));
+
+    const eventToCognition = lensB.map((f) => ({
+      event_type: f.cause,
+      dim: f.effectSignal,
+      tierDelta: f.deltaAbs,
+      n: f.n,
+      confidence: f.confidence,
+    }));
+
+    // Sleep→PRS: pick the strongest lensC PRS finding (always negative when present)
+    const sleepPrs = lensC.find((f) => f.effectSignal === "PRS") || null;
+    const sleep_to_prs = sleepPrs
+      ? { lowSleepPrsDeltaPct: sleepPrs.deltaPct, n: sleepPrs.n, confidence: sleepPrs.confidence }
+      : null;
+
+    // Consecutive heavy days → tail HRV/PRS delta
+    const consecHrv = lensD.find((f) => f.effectSignal === "HRV") || lensD.find((f) => f.effectSignal === "PRS") || null;
+    const consecutive_load = consecHrv
+      ? { tailDeltaPct: consecHrv.deltaPct, n: consecHrv.n, confidence: consecHrv.confidence }
+      : null;
+
+    const signalSummary: SignalSummary = {
+      event_to_hrv: eventToHrv,
+      event_to_rhr: eventToRhr,
+      event_to_cognition: eventToCognition,
+      sleep_to_prs,
+      consecutive_load,
+      generatedAt: new Date().toISOString(),
+    };
+
     const { error: upsertErr } = await supabase
       .from("causality_findings")
       .upsert({
         user_id: userId,
+        pattern_kind: "cause_effect_v2",
         computed_for_date: todayStr,
         payload: payload as any,
-      }, { onConflict: "user_id,computed_for_date" });
+        signal_summary: signalSummary as any,
+      }, { onConflict: "user_id,pattern_kind,computed_for_date" });
     if (upsertErr) console.error("[cause-effect-engine] cache upsert failed:", upsertErr);
 
     return new Response(JSON.stringify({ ...payload, cached: false }), {
