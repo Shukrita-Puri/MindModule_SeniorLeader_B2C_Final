@@ -31,8 +31,12 @@ export interface LeadershipPatternsData {
   scoreDeltas?: DimensionScores | null;
   frictionPct?: number;
   frictionLabel?: string;
+  /** Recent 7d minus prior 7d, in percentage points. Negative = friction decreased (good). Null when windows are empty. */
+  frictionDeltaPct?: number | null;
   /** % of check-ins in the positive band (focused/steady) over 30d. Mirror of friction at the check-in level. Null until ≥5 check-ins. */
   positiveRate?: { pct: number; n: number } | null;
+  /** Recent 7d minus prior 7d, in percentage points. Positive = alignment increased (good). Null when windows are empty. */
+  positiveDeltaPct?: number | null;
   trendDirection?: 'improving' | 'stable' | 'declining';
   typicalState?: string | null;
   recurringThemes?: { phrase: string; count: number }[];
