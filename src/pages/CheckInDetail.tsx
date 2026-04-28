@@ -180,7 +180,7 @@ const CheckInDetail = () => {
                 onValueChange={(v) => { setMentalSharpness(v[0]); setMentalSharpnessTouched(true); }}
                 min={1}
                 max={5}
-                step={0.01}
+                step={1}
                 variant="luxury"
                 className="w-full py-0.5"
               />
@@ -201,7 +201,7 @@ const CheckInDetail = () => {
                 onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
                 min={1}
                 max={5}
-                step={0.01}
+                step={1}
                 variant="luxury"
                 className="w-full py-0.5"
               />
@@ -222,7 +222,7 @@ const CheckInDetail = () => {
                 onValueChange={(v) => { setConfidence(v[0]); setConfidenceTouched(true); }}
                 min={1}
                 max={5}
-                step={0.01}
+                step={1}
                 variant="luxury"
                 className="w-full py-0.5"
               />
