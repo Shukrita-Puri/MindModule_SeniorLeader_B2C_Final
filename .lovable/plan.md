@@ -1,4 +1,59 @@
-## Goal
+## New Goal — Stateful Plan Evolution ("Continuous Day")
+
+Today, every call to `generate-mastery-plan` re-derives the 3 horizon priorities from the **current** check-in + period. When the user re-checks-in in the afternoon, the morning's progress vanishes:
+
+1. `daily_ritual_completions` is keyed by `(user_id, ritual_date, session_period)`. Switching from `morning` → `afternoon` reads a different row, so completed_practice_ids are not seen.
+2. `buildHorizonModules` rebuilds slot1/slot2/slot3 from scratch — even if the morning's JIT board meeting is still real, slot ordering and contents can shuffle.
+
+The user experiences this as "the app forgot what I did" and "my priorities keep moving."
+
+### Approach
+
+Treat the day's plan as a **persistent ledger** keyed by `(user_id, ritual_date)` — period-agnostic. Each new brief evolves the ledger rather than replacing it.
+
+Rules:
+1. **Completed priorities are sticky.** If a slot's primary practice IDs are all in the day's completed set (across any period), it stays in its slot with its checkmark; only the contextual `whyLine` may refresh. Practice IDs and the slot's anchor do not change.
+2. **JIT anchors are sticky.** Any slot bound to a calendar event (`isJit && jitEventTitle`) keeps its event identity for the rest of the day. Practices inside it may swap when wearable/check-in context materially changes — but `slotIndex`, `jitEventTitle`, `horizon` remain.
+3. **Only uncompleted, non-JIT-anchored slots get recomputed** against the new context.
+4. **Day-scoped completion read.** Completion checks union ALL `daily_ritual_completions` rows for `(user_id, ritual_date)`, not just the current period.
+
+### Implementation
+
+- `generate-mastery-plan/index.ts`:
+  - New `loadTodayPlanLedger(userId, today, supabaseClient)` — reads the most recent same-day `brief_snapshots.payload_json.plan.modules` and the union of `completed_practice_ids` across all today's `daily_ritual_completions` rows.
+  - New `mergeWithLedger(freshModules, ledgerModules, completedIdsToday, calendarEventIds)`:
+    - Completed slot → keep ledger module verbatim, mark completed.
+    - JIT-anchored slot whose event still exists today → keep slot identity (`slotIndex`, `jitEventTitle`, `horizon`); refresh practices/whyLine from matching fresh slot if context changed.
+    - Otherwise → use the fresh slot.
+  - Always emit exactly 3 slots in slot order; never reorder a sticky slot.
+  - Add a `ledger` observability block: `{ source, carriedSlots, anchoredSlots }`.
+- `src/components/home/TodayThreePriorities.tsx`:
+  - `checkCompletion` reads completions across ALL periods for today and unions arrays before checking slot completion, so a morning-completed slot still shows ✓ in the afternoon.
+
+No schema migration — we piggyback on `brief_snapshots.payload_json.plan` for the ledger source.
+
+### Verification
+
+1. Morning plan A/B/C → complete A → afternoon brief: new score/pills, slot A still ✓ in position, board-meeting slot still anchored, only B/C may refresh.
+2. JIT event removed from calendar → its slot released and recomputed.
+3. All 3 done → new brief shows all complete; no reset.
+
+### Files affected
+
+```text
+supabase/functions/generate-mastery-plan/index.ts
+src/components/home/TodayThreePriorities.tsx
+```
+
+### Out of scope
+
+- New `daily_plan_ledger` table.
+- Per-slot feedback / queue / player rewiring.
+- Scoring, pills, or visual changes.
+
+---
+
+## Previous Goal (kept for reference) — DONE
 
 Make `brief_snapshots` the single source of truth for a brief, including the three Signal Pills (Decision Readiness / Physical Reserves / Resilience Capacity), their state words (HIDDEN DRAG, BODY STEADY, RUNNING ON GRIT, etc.), and the wearable values behind them (HRV ms, RHR bpm, HR bpm, sleep duration/score, deviations and baselines).
 
