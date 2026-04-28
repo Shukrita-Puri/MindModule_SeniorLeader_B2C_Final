@@ -510,7 +510,11 @@ const TodayThreePriorities = ({
           : planResponse.timeOfDayPlan.modules.map(m => m.contentId);
 
         const existingRitual = await getTodayRitual(currentPeriod);
-        const existingCompleted = existingRitual?.completed_practice_ids || [];
+        // Day-scoped union so prune logic respects ALL today's completions
+        const unionCompleted = await getTodayCompletedUnion();
+        const existingCompleted = unionCompleted.length > 0
+          ? unionCompleted
+          : (existingRitual?.completed_practice_ids || []);
         const prunedCompleted = existingCompleted.filter((id: string) => allModules.includes(id));
 
         await upsertRitual({
