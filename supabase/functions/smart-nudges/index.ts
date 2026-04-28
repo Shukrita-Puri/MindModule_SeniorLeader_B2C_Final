@@ -363,12 +363,35 @@ function nudgeFamily(nudgeType: string): string {
   return nudgeType;
 }
 
-// Recognise the canonical control phrases the fallbacks/AI emit.
+// v7 — recognise both legacy phrases and the new V7 "prep" CTAs so any
+// generated body can be rewritten to match the assigned variant.
 const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
-  { rx: /open your brief/gi, kind: 'brief' },
-  { rx: /open the brief/gi,  kind: 'brief' },
-  { rx: /open your plan/gi,  kind: 'plan'  },
-  { rx: /open the plan/gi,   kind: 'plan'  },
+  // Legacy
+  { rx: /open your brief/gi,        kind: 'brief' },
+  { rx: /open the brief/gi,         kind: 'brief' },
+  { rx: /open your plan/gi,         kind: 'plan'  },
+  { rx: /open the plan/gi,          kind: 'plan'  },
+  { rx: /open your prep plan/gi,    kind: 'plan'  },
+  { rx: /build your prep plan/gi,   kind: 'plan'  },
+  { rx: /build your plan/gi,        kind: 'plan'  },
+  { rx: /lock in your prep/gi,      kind: 'plan'  },
+  { rx: /tap to prep/gi,            kind: 'plan'  },
+  { rx: /see your prep/gi,          kind: 'plan'  },
+  { rx: /see your readiness/gi,     kind: 'brief' },
+  { rx: /see your plan/gi,          kind: 'plan'  },
+  { rx: /recalibrate now/gi,        kind: 'brief' },
+  { rx: /close the day/gi,          kind: 'brief' },
+  { rx: /close the week/gi,         kind: 'brief' },
+  { rx: /close the loop/gi,         kind: 'brief' },
+  { rx: /check in now/gi,           kind: 'brief' },
+  { rx: /open the app$/gi,          kind: 'brief' },
+  // V7 surface forms (also rewritten when variant differs)
+  { rx: /open the app to prep tonight/gi,         kind: 'brief' },
+  { rx: /open the app to prep with a cool-down/gi, kind: 'plan'  },
+  { rx: /check into the app to prep/gi,           kind: 'brief' },
+  { rx: /go to the app to prep/gi,                kind: 'plan'  },
+  { rx: /open the app to prep/gi,                 kind: 'brief' },
+  { rx: /\bprep now\b/gi,                         kind: 'brief' },
 ];
 
 function applyCtaVariant(
