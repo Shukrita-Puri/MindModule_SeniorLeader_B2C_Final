@@ -10,6 +10,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
+import { localISODate } from '@/utils/persistentBriefCache';
 // getLocalWearableData removed – local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
 
@@ -307,7 +308,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const result = response.data;
 
     // Persist composite score to DB with retry guardrail
-    const todayISO = new Date().toISOString().split('T')[0];
+    const todayISO = localISODate();
     if (hasCheckIn && storedEnergyBalance !== result.score) {
       persistCompositeScore(todayISO, result.score, checkInTimeWindow || undefined);
     }

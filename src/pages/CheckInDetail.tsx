@@ -17,7 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { clearTodayCheckinCache, getCurrentTimeWindow } from '@/utils/dailyCheckins';
-import { clear as clearPersistent, cacheKeys } from '@/utils/persistentBriefCache';
+import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
 import { clearEnergyStateCache } from '@/utils/energyStateEngine';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 
@@ -39,8 +39,9 @@ const CheckInDetail = () => {
   const roundedConfidence = Math.round(confidence);
   const roundedMentalSharpness = Math.round(mentalSharpness);
 
-  const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
+  const checkinDate = (location.state as any)?.checkinDate || localISODate();
   const timeWindow = (location.state as any)?.timeWindow;
+  const checkinId = (location.state as any)?.checkinId;
 
   const sharpnessLabels = ['Depleted', 'Dull', 'Stable', 'Acute', 'Peak'];
   const clarityLabels = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
@@ -50,16 +51,23 @@ const CheckInDetail = () => {
     setSaving(true);
     try {
       if (DEV_MODE) {
-        await supabase
+        let updateQuery = supabase
           .from('daily_checkins')
           .update({
             clarity_level: roundedClarity,
             confidence_level: roundedConfidence,
             mental_sharpness_level: roundedMentalSharpness,
           })
-          .eq('user_id', DEV_USER.id)
-          .eq('checkin_date', checkinDate)
-          .eq('time_window', timeWindow || getCurrentTimeWindow());
+          .eq('user_id', DEV_USER.id);
+
+        updateQuery = checkinId
+          ? updateQuery.eq('id', checkinId)
+          : updateQuery.eq('checkin_date', checkinDate).eq('time_window', timeWindow || getCurrentTimeWindow());
+
+        const { data, error } = await updateQuery.select('id').limit(1);
+
+        if (error) throw error;
+        if (!data?.length) throw new Error('No matching check-in row found to update');
       } else {
         const accessToken = await getAccessToken();
         if (!accessToken) {
@@ -78,6 +86,7 @@ const CheckInDetail = () => {
             confidence: roundedConfidence,
             mentalSharpness: roundedMentalSharpness,
             timeWindow,
+            checkinId,
           },
         });
 
@@ -85,12 +94,16 @@ const CheckInDetail = () => {
           console.error('[CheckInDetail] Edge function error:', error);
           throw error;
         }
+
+        if (!data?.data) {
+          throw new Error('No matching check-in row found to update');
+        }
       }
 
       // Clear any persisted "awaiting signals" brief payload across all three
       // windows for today so the synchronous initialData hydrate cannot
       // replay a stale awaiting view on the next mount.
-      const todayDate = new Date().toISOString().split('T')[0];
+      const todayDate = localISODate();
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
       if (effectiveUserId) {
         for (const p of ['morning', 'afternoon', 'evening']) {

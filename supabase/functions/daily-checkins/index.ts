@@ -30,6 +30,7 @@ interface RequestBody {
   mentalSharpness?: number;
   energyBalance?: number;
   timeWindow?: 'morning' | 'afternoon' | 'evening';
+  checkinId?: string;
   usedFor?: string;
   checkinData?: {
     checkin_date: string;
@@ -266,7 +267,7 @@ serve(async (req) => {
       }
 
       case 'UPDATE_CLARITY_CONFIDENCE': {
-        const { checkinDate, clarity, confidence, mentalSharpness, timeWindow } = body;
+        const { checkinDate, clarity, confidence, mentalSharpness, timeWindow, checkinId } = body;
 
         if (!checkinDate || clarity == null || confidence == null) {
           return new Response(JSON.stringify({ error: 'Missing checkinDate, clarity, or confidence' }), {
@@ -284,27 +285,33 @@ serve(async (req) => {
           console.log('[daily-checkins] Persisting mental_sharpness_level:', mentalSharpness);
         }
 
-        // Resolve the latest matching check-in id so updates target one row
-        // even when duplicates exist for (user, date, [window]).
-        let latestQuery = supabase
-          .from('daily_checkins')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('checkin_date', checkinDate);
-        if (timeWindow) {
-          latestQuery = latestQuery.eq('time_window', timeWindow);
-        }
-        const { data: latestRow, error: latestErr } = await latestQuery
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        let targetId = checkinId;
+        if (!targetId) {
+          // Backward-compatible fallback for older clients: resolve the latest
+          // matching check-in id so updates target one row even when duplicates
+          // exist for (user, date, [window]).
+          let latestQuery = supabase
+            .from('daily_checkins')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('checkin_date', checkinDate);
+          if (timeWindow) {
+            latestQuery = latestQuery.eq('time_window', timeWindow);
+          }
+          const { data: latestRow, error: latestErr } = await latestQuery
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (latestErr) {
-          console.error('[daily-checkins] UPDATE_CLARITY_CONFIDENCE latest lookup error:', latestErr);
-          throw latestErr;
+          if (latestErr) {
+            console.error('[daily-checkins] UPDATE_CLARITY_CONFIDENCE latest lookup error:', latestErr);
+            throw latestErr;
+          }
+
+          targetId = latestRow?.id;
         }
 
-        if (!latestRow?.id) {
+        if (!targetId) {
           return new Response(JSON.stringify({ data: null }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
@@ -313,7 +320,8 @@ serve(async (req) => {
         const { data, error } = await supabase
           .from('daily_checkins')
           .update(updatePayload)
-          .eq('id', latestRow.id)
+          .eq('id', targetId)
+          .eq('user_id', userId)
           .select()
           .maybeSingle();
 

@@ -19,7 +19,7 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS } from "@/utils/firstSessionTour";
 import { EngravedFill } from "@/components/ui/engraved-fill";
-import { clear as clearPersistent, cacheKeys } from "@/utils/persistentBriefCache";
+import { clear as clearPersistent, cacheKeys, localISODate } from "@/utils/persistentBriefCache";
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
 import { clearOuterReadinessCache } from "@/hooks/useOuterReadiness";
 
@@ -309,7 +309,7 @@ const DailyCheckIn = () => {
       // windows for today — otherwise the synchronous initialData hydrate
       // would replay the stale awaiting view on the next mount/navigation,
       // even though we're about to refetch.
-      const todayDate2 = new Date().toISOString().split('T')[0];
+      const todayDate2 = localISODate();
       const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
       if (effectiveUserId) {
         for (const p of ['morning', 'afternoon', 'evening']) {
@@ -331,7 +331,7 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
       // Navigate to optional detail screen for clarity/confidence
-      navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
+      navigate('/check-in-detail', { state: { checkinDate, timeWindow, checkinId: result.id } });
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
