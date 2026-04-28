@@ -17,6 +17,14 @@ import { createPortal } from 'react-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 import { X, ArrowRight, ArrowLeft, Rocket, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  FST_KEYS,
+  clearFirstSessionTour,
+  hasIntroBeenSeen,
+  markIntroSeen,
+  setTourStep,
+  getTourStep,
+} from '@/utils/firstSessionTour';
 
 /* ------------------------------------------------------------------ */
 /*  Step definitions                                                   */
@@ -66,10 +74,7 @@ const STEPS: GuideStep[] = [
   },
 ];
 
-const SESSION_KEY = 'first_session_guide_step';
-const ACTIVE_TOUR_KEY = 'first_session_guide_active';
-const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
-const RETAKE_TOUR_KEY = 'first_session_guide_retake';
+const SESSION_KEY = FST_KEYS.step;
 const TARGET_WAIT_MS = 1800;
 const RETRY_INTERVAL_MS = 150;
 const MAX_RETRIES = 10;
