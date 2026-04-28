@@ -93,8 +93,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const location = useLocation();
   const sidebarCtx = useSidebarSafe();
 
-  const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
-  const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !sessionStorage.getItem('first_session_intro_seen'));
+  const savedStep = getTourStep();
+  // Intro modal must only appear once per tour run. If the user navigated
+  // back to step 0 from step 2, hasIntroBeenSeen() is true and we skip the
+  // intro — otherwise the user would read it as "the tour restarted onboarding".
+  const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !hasIntroBeenSeen());
   const [currentStep, setCurrentStep] = useState(savedStep);
   const [ready, setReady] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
@@ -118,9 +121,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const isFullscreen = step?.targetSelector === 'fullscreen';
   const isLastStep = currentStep === STEPS.length - 1;
 
-  // Persist step
+  // Persist step so cross-page re-mounts (DailyCheckIn ↔ ExecutiveHome) resume
+  // at the same step — never reset to 0 on navigation.
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, String(currentStep));
+    setTourStep(currentStep);
   }, [currentStep]);
 
   /* ---- helpers ---- */
@@ -428,23 +432,19 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const finish = () => {
     cleanupPrevious();
     clearRetry();
-    sessionStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(ACTIVE_TOUR_KEY);
-    sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
-    sessionStorage.removeItem(RETAKE_TOUR_KEY);
-    sessionStorage.setItem('first_session_guide_done', '1');
+    clearFirstSessionTour({ markDone: true });
     setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
   };
 
   const dismissIntroAndStart = () => {
-    sessionStorage.setItem('first_session_intro_seen', '1');
+    markIntroSeen();
     setShowIntro(false);
   };
 
   const skipTourEntirely = () => {
-    sessionStorage.setItem('first_session_intro_seen', '1');
+    markIntroSeen();
     setShowIntro(false);
     finish();
   };
