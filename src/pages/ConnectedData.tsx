@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
+import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { openUrl } from '@/utils/openUrl';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
