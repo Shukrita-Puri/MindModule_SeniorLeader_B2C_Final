@@ -96,6 +96,20 @@ interface MasteryPlanResponse {
   preEventPlan: any;
   jitPriority?: boolean;
   horizonModules?: HorizonModule[];
+  /**
+   * Stateful Plan Evolution metadata (server-emitted).
+   *  - source: 'fresh' (first plan today) | 'ledger-evolution' (carrying
+   *    morning slots forward) | 'bonus-round' (all 3 done — fresh slots
+   *    with a victoryLine).
+   *  - victoryLine: shown under the priorities when source === 'bonus-round'.
+   */
+  ledger?: {
+    source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+    carriedSlots: number;
+    anchoredSlots: number;
+    completedSlots: number;
+    victoryLine?: string;
+  };
   meta: { generatedAt: string; [key: string]: any };
 }
 
