@@ -3698,7 +3698,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           }));
 
           // ── v6.1 Post-Generation Validation ──
-          const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic)\b/i;
+          const WELLNESS_BLACKLIST = /\b(relax|mindful|breathe|calm|wellness|self-care|journey|nourish|recharge|restore|genuine|authentic|hardware|biometric|machine|device)\b/i;
+          // Forbid em dash (—) and en dash (–) used as sentence breaks. We allow numeric ranges like "0–2" / "2-3"
+          // but reject any dash surrounded by letters or whitespace, which is the typographic clause break.
+          const DASH_BREAK = /(?:\s[—–]\s|[A-Za-z]\s*[—–]\s*[A-Za-z])/;
           // Allow compound words like "high-stakes", "high-pressure", "low-energy" — only reject standalone tier words
           const TIER_BLACKLIST = /\b(moderate|high|low|strong)\b(?![-‑])/i;
           const READINESS_WORD = /\breadiness\b/i;
@@ -3709,7 +3712,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // §2.20 Elastic Lexicon clusters — body must contain ≥1 cluster concept
           const LEXICON_COGNITION = /\b(intelligence|cognition|decision power|strategic accuracy|mental bandwidth|processing capacity|solving logic|sharpness|sharp|clarity)\b/i;
-          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|hardware recovery|system output|physical runway|stamina|drive|restoration|restore|recover|recovery|heart rate|pulse|prepare|preparation)\b/i;
+          const LEXICON_PHYSIOLOGY = /\b(physiology|operational drive|leadership stamina|physical recovery|physical runway|stamina|drive|restoration|restore|recover|recovery|heart rate|pulse|prepare|preparation|body)\b/i;
           const LEXICON_RESILIENCE = /\b(resilience|stability|strategic composure|executive presence|diplomatic shield|reactive risk|internal buffer|composure|buffer|release)\b/i;
           // §2.22 Calendar-empty whitelist
           const BASELINE_LEXICON = /\b(base[- ]?level|baseline intelligence|stabili[sz]ing|base for future load|hold the base)\b/i;
