@@ -1842,7 +1842,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
       .eq('user_id', req.userId)
       .gte('start_time', now.toISOString())
-      .lte('start_time', in48h.toISOString());
+      .lte('start_time', in48h.toISOString())
+      .order('start_time', { ascending: true });
     ctx.rawCalendarEvents = events || [];
     req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
