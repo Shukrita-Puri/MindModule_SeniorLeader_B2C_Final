@@ -674,10 +674,23 @@ serve(async (req) => {
       }
 
       // ════════ STAGE 5: Two-Touch Action Model ════════
-      const urgencyHorizon = determineUrgencyHorizon(minutesUntil);
+      let urgencyHorizon = determineUrgencyHorizon(minutesUntil);
+      let morningPromotion = false;
+
+      // Promotion #2: rescue the next local day's first meeting from the silent gap
+      if (
+        urgencyHorizon === null &&
+        event.id === nextDayFirstEventId &&
+        minutesUntil > 360 &&
+        minutesUntil < 1440
+      ) {
+        urgencyHorizon = 'touch_1';
+        morningPromotion = true;
+        if (IS_DEV) console.log(`[JIT:Stage5] PROMOTED title="${title}" reason=next_day_first_meeting (silent_gap → touch_1)`);
+      }
 
       if (IS_DEV) {
-        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon ?? 'null (silent/selection-only)'} minutesUntil=${Math.round(minutesUntil)}`);
+        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon ?? 'null (silent/selection-only)'} minutesUntil=${Math.round(minutesUntil)}${morningPromotion ? ' [promoted]' : ''}`);
       }
 
       // Events in the silent gap (6-24h) or selection-only (>48h) are scored and
