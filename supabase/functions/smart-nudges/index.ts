@@ -2032,7 +2032,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v6-cta',
+        architecture: 'cos-mind-v6-1-human',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v1',
         decision_trace: {
