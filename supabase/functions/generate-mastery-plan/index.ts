@@ -2068,10 +2068,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // from defaults. This ensures parity with the Brief, which renders a
   // quiet "Begin with your check-in" prompt under the same condition.
   // JIT pre-event plans for known scheduled events still surface.
-  const today = req.localDate || getLocalDateISO(req.timezoneOffset);
+  const serverLocalDate = getLocalDateISO(req.timezoneOffset);
+  const today = req.localDate || serverLocalDate;
+  // Day-scoped check-in lookup: ANY non-skipped check-in for today
+  // satisfies the signal contract — independent of time_window. We never
+  // suppress plan generation on awaiting-signals here; the client owns the
+  // visible gate. We still detect the latest check-in so downstream
+  // diagnostics + cache fingerprinting reflect reality.
   let todayCheckinQuery = supabaseClient
     .from('daily_checkins')
-    .select('id, checkin_date, time_window')
+    .select('id, checkin_date, time_window, timestamp, skipped')
     .eq('user_id', req.userId);
 
   if (req.todayCheckinId) {
@@ -2079,6 +2085,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   } else {
     todayCheckinQuery = todayCheckinQuery
       .eq('checkin_date', today)
+      .eq('skipped', false)
       .order('timestamp', { ascending: false })
       .limit(1);
   }
@@ -2087,17 +2094,29 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   if (todayCheckinError) {
     console.error('[generate-mastery-plan] Today check-in lookup failed:', todayCheckinError);
   }
-  const hasTodayCheckIn = !!todayCheckinRow;
+  const hasTodayCheckIn = !!todayCheckinRow && todayCheckinRow.skipped !== true;
   const hasFreshWearable = !!(req.wearableContext?.hasData);
-  const planAwaitingSignals = !hasTodayCheckIn && !hasFreshWearable;
-  if (planAwaitingSignals) {
-    // The client already owns the visible "Awaiting today's signal" gate
-    // using its freshly fetched local check-in/wearable state. Do not hard
-    // suppress here: edge-side date/auth/cache drift can otherwise block a
-    // valid user even when a same-day check-in exists. Continue with defaults
-    // for direct callers; the app UI will not call this path on true empty days.
-    console.log(`[generate-mastery-plan] No server-visible signal for user=${req.userId} date=${today} checkinId=${req.todayCheckinId || 'none'} window=${timeOfDay}; continuing instead of suppressing.`);
-  }
+  const finalDecision = (hasTodayCheckIn || hasFreshWearable) ? 'generate' : 'generate-no-signal';
+  console.log('[generate-mastery-plan] signal-gate', {
+    authenticatedUserId: req.userId,
+    clientLocalDate: req.localDate || null,
+    serverLocalDate,
+    resolvedToday: today,
+    currentPeriod: timeOfDay,
+    todayCheckinIdFromRequest: req.todayCheckinId || null,
+    dbCheckinRow: todayCheckinRow ? {
+      id: (todayCheckinRow as any).id,
+      checkin_date: (todayCheckinRow as any).checkin_date,
+      time_window: (todayCheckinRow as any).time_window,
+      timestamp: (todayCheckinRow as any).timestamp,
+      skipped: (todayCheckinRow as any).skipped,
+    } : null,
+    hasTodayCheckIn,
+    hasFreshWearable,
+    finalDecision,
+  });
+  // NOTE: no awaitingSignals suppression here. The Brief contract owns the
+  // user-visible "awaiting" prompt; the Plan always generates.
 
   // 2. Fetch content library from DB
   const { data: contentLibrary } = await supabaseClient
