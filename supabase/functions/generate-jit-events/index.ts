@@ -802,6 +802,28 @@ serve(async (req) => {
       selectedEvents.push(evt);
     }
 
+    // ─── Promotion #3: Recency tie-breaker fallback ───
+    // If nothing surfaced through normal channels (silent gap suppressed everything),
+    // rescue the soonest silent-gap event (6-24h) so the user is never shown a
+    // distant meeting while a nearer one is hiding. We deliberately do NOT promote
+    // selection-only (>48h) events — those are too far out to act on.
+    if (selectedEvents.length === 0) {
+      const silentGapCandidates = nonSurfaceableEvents
+        .filter(e => e.minutesUntil > 360 && e.minutesUntil < 1440)
+        .sort((a, b) => a.minutesUntil - b.minutesUntil);
+      if (silentGapCandidates.length > 0) {
+        const fallback = silentGapCandidates[0];
+        fallback.jitUrgencyHorizon = 'touch_1';
+        fallback.isSurfaceable = true;
+        fallback.recencyFallback = true;
+        // Move from non-surfaceable to selected
+        const idx = nonSurfaceableEvents.indexOf(fallback);
+        if (idx >= 0) nonSurfaceableEvents.splice(idx, 1);
+        selectedEvents.push(fallback);
+        if (IS_DEV) console.log(`[JIT:Stage5] FALLBACK surfaced soonest silent-gap event title="${fallback.eventTitle}" minutesUntil=${fallback.minutesUntil}`);
+      }
+    }
+
     // Store ALL scored events (surfaceable and non-surfaceable) in jit_event_context
     const allEventsToStore = [...selectedEvents, ...nonSurfaceableEvents];
     for (const evt of allEventsToStore) {
