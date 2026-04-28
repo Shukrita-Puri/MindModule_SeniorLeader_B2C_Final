@@ -406,7 +406,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     };
   }, [cleanupPrevious, clearRetry, setSidebar]);
 
-  // Re-measure on scroll/resize (only when ready)
+  // Re-measure on every event that can change visible viewport geometry.
+  // visualViewport listeners cover iOS Safari's address-bar collapse, on-screen
+  // keyboard, and pinch-zoom — none of which fire `resize` on `window`.
   useEffect(() => {
     if (!ready) return;
     const handler = () => {
@@ -415,9 +417,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     };
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', handler);
+    vv?.addEventListener('scroll', handler);
     return () => {
       window.removeEventListener('scroll', handler, true);
       window.removeEventListener('resize', handler);
+      vv?.removeEventListener('resize', handler);
+      vv?.removeEventListener('scroll', handler);
     };
   }, [ready, computePosition]);
 
