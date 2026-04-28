@@ -2473,7 +2473,11 @@ serve(async (req) => {
     let scoreTrend: string | null = null;
     let hasBackToBack = false;
     let longestBackToBackHrs: number | null = null;
-    let nextEventAny: { title: string; minutesUntil: number } | null = null;
+    let nextEventAny: { title: string; minutesUntil: number; startTimeUTC: string } | null = null;
+    // Per-event local HH:mm strings paired with each TODAY high-stakes title
+    // (same indexes as todayHighStakes). Lets the prompt emit a paired clock
+    // time so the LLM never invents or rounds it.
+    let todayHighStakesEventTimes: string[] = [];
     let practicesCompletedThisWeek = 0;
     let practiceCompletionRate = 0;
     let daysSinceCoachSession: number | null = null;
