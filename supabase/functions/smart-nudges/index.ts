@@ -1935,7 +1935,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting MVP 3-nudge evaluation run (v4)...');
+    console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -2311,7 +2311,7 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'mvp-3-nudge-v4',
+      architecture: 'cos-mind-v7-jit-or-state',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
