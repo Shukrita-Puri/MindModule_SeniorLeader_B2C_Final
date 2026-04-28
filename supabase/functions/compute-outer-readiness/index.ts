@@ -4243,6 +4243,124 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
+        // ── Build structured signal_pills payload (server-side mirror of the
+        // client pillar engine in DecisionReadinessBrief.tsx). We persist the
+        // resolved tier ('green' | 'amber' | 'red' | 'neutral') for each of the
+        // three executive pills along with the contributing raw signals, so
+        // Insights/correlation jobs and the past-brief side panel can read a
+        // single canonical record without re-deriving anything.
+        // Logic intentionally uses the same veto thresholds as the client.
+        type PillTier = 'green' | 'amber' | 'red' | 'neutral';
+        const stateRank: Record<PillTier, number> = { neutral: 0, green: 1, amber: 2, red: 3 };
+        const stateMaxLocal = (a: PillTier, b: PillTier): PillTier =>
+          stateRank[a] >= stateRank[b] ? a : b;
+
+        // Cognitive (Decision Readiness) — HRV + Sharpness + Clarity (+ Sleep cog) + Outcome
+        const cogTiers: PillTier[] = [];
+        if (hrvValue != null) {
+          if (hrvDeviation != null) {
+            cogTiers.push(hrvDeviation <= -20 ? 'red' : hrvDeviation < -8 ? 'amber' : 'green');
+          } else {
+            cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
+          }
+        }
+        if (mentalSharpnessLevel != null) {
+          cogTiers.push(mentalSharpnessLevel <= 2 ? 'red' : mentalSharpnessLevel === 3 ? 'amber' : 'green');
+        }
+        if (clarityLevel != null) {
+          cogTiers.push(clarityLevel <= 2 ? 'red' : clarityLevel === 3 ? 'amber' : 'green');
+        }
+        if (checkInOutcome === 'scattered') cogTiers.push('red');
+        else if (checkInOutcome === 'focused' || checkInOutcome === 'thriving') cogTiers.push('green');
+        const cognitiveTier: PillTier = cogTiers.length === 0
+          ? 'neutral'
+          : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
+
+        // Physical Reserves — Sleep + RHR + HR-elevated proxy (hardware-only)
+        const physTiers: PillTier[] = [];
+        if (sleepDuration != null || sleepScoreVal != null) {
+          if (sleepDuration != null && sleepDuration < 300) physTiers.push('red');
+          else if (sleepDuration != null && sleepDuration < 360) physTiers.push('red');
+          else if (sleepScoreVal != null && sleepScoreVal < 60) physTiers.push('red');
+          else if (sleepDeviation != null && sleepDeviation < -15) physTiers.push('red');
+          else if (sleepDeviation != null && sleepDeviation < -8) physTiers.push('amber');
+          else if (sleepScoreVal != null && sleepScoreVal < 70) physTiers.push('amber');
+          else if (sleepDuration != null && sleepDuration < 420) physTiers.push('amber');
+          else physTiers.push('green');
+        }
+        if (rhrValue != null) {
+          if (rhrDeviation != null) {
+            physTiers.push(rhrDeviation > 20 ? 'red' : rhrDeviation > 10 ? 'amber' : 'green');
+          } else {
+            physTiers.push(rhrValue > 90 ? 'red' : rhrValue > 80 ? 'amber' : 'green');
+          }
+        }
+        if (hrValue != null && hrDeviation != null) {
+          physTiers.push(hrDeviation > 20 ? 'red' : hrDeviation > 10 ? 'amber' : 'green');
+        } else if (rhrDeviation != null) {
+          physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
+        }
+        const physicalTier: PillTier = physTiers.length === 0
+          ? 'neutral'
+          : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
+
+        // Resilience Capacity — Outcome + HRV (strict band) + Confidence
+        const resTiers: PillTier[] = [];
+        if (checkInOutcome === 'overwhelmed') resTiers.push('red');
+        else if (checkInOutcome === 'drained') resTiers.push('red');
+        else if (checkInOutcome === 'anxious' || checkInOutcome === 'frustrated') resTiers.push('amber');
+        else if (
+          checkInOutcome === 'steady' || checkInOutcome === 'calm' ||
+          checkInOutcome === 'energised' || checkInOutcome === 'thriving'
+        ) resTiers.push('green');
+        if (hrvValue != null) {
+          if (hrvDeviation != null) {
+            resTiers.push(hrvDeviation <= -25 ? 'red' : hrvDeviation < -15 ? 'amber' : 'green');
+          } else {
+            resTiers.push(hrvValue < 18 ? 'red' : hrvValue < 35 ? 'amber' : 'green');
+          }
+        }
+        if (confidenceLevel != null) {
+          resTiers.push(confidenceLevel <= 2 ? 'red' : confidenceLevel === 3 ? 'amber' : 'green');
+        }
+        const resilienceTier: PillTier = resTiers.length === 0
+          ? 'neutral'
+          : resTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
+
+        const signalPillsPayload = [
+          {
+            key: 'decision_readiness',
+            label: 'Decision Readiness',
+            tier: cognitiveTier,
+            contributors: {
+              hrvValue, hrvDeviation,
+              clarityLevel, mentalSharpnessLevel,
+              sleepDuration, sleepScore: sleepScoreVal,
+              checkInOutcome: checkInOutcome || null,
+            },
+          },
+          {
+            key: 'physical_reserves',
+            label: 'Physical Reserves',
+            tier: physicalTier,
+            contributors: {
+              sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
+              rhrValue, rhrDeviation,
+              hrValue, hrDeviation,
+            },
+          },
+          {
+            key: 'resilience_capacity',
+            label: 'Resilience Capacity',
+            tier: resilienceTier,
+            contributors: {
+              checkInOutcome: checkInOutcome || null,
+              hrvValue, hrvDeviation,
+              confidenceLevel,
+            },
+          },
+        ];
+
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
           .upsert({
@@ -4270,6 +4388,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             llm_attempts: null,
             validator_rejections: null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
+            signal_pills: signalPillsPayload,
             payload_json: {
               signals: {
                 checkInOutcome: checkInOutcome || null,
