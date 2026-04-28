@@ -827,6 +827,7 @@ async function buildNudgeContext(
     lastAppOpen,
     inMeetingNow,
     hrvDeltaPctFromSnapshot,
+    pattern: null, // Hydrated by main handler before evaluators run
   };
 }
 
