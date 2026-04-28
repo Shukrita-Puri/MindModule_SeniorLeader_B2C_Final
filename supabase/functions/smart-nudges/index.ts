@@ -796,12 +796,19 @@ const FORBIDDEN_WORDS_V6 = [
   'productive','productivity','intent','strategy','strategic',
   'set the tone','your day your terms','loaded day','5 days behind you','plan the week',
   'come back','check in when',
+  // v6.1 — ban mechanical / robotic phrasing flagged by CEO review
+  'decision posture','decision readiness','mental sharpness','anchor sharpness',
+  'anchor mental','lock in decision','set decision','set posture','decision-ready',
+  'optimal performance','peak performance','performance state','cognitive load',
+  'capacity','reserves','baseline','trajectory reset','reset trajectory',
 ];
 const ALLOWED_CTA_VERBS_V6 = [
   'open your brief','open your plan','open your prep plan','open your readiness',
   'build your prep plan','build your plan',
   'recalibrate now','close the day','close the week','close the loop',
   'lock in your prep','tap to prep','see your prep','see your plan','see your readiness',
+  // v6.1 — short, human CTAs
+  'check in now','open the app','prep now','take 2 minutes',
 ];
 function violatesCopyContractV6(body: string): string | null {
   const lower = body.toLowerCase();
@@ -813,6 +820,10 @@ function violatesCopyContractV6(body: string): string | null {
   }
   // No placeholder tokens
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  // v6.1 — hard length ceiling (CEO feedback: notifications too long)
+  const wordCount = body.trim().split(/\s+/).length;
+  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
+  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
   return null;
 }
 
@@ -839,22 +850,32 @@ EVERY notification follows ONE formula:
 The user context names what you observed. The CTA tells them the exact in-app action and why it addresses the context.
 Generic openings ("Your plan is ready") and data-only reports ("HRV is 40% below baseline") are both failures.
 
-Gold-standard examples (match this tone exactly):
-- "HRV down 18% three days running, open your brief to reset trajectory."
-- "Board Review today, open your prep plan, it's queued."
-- "4 meetings Monday, open your brief tonight to set the week."
-- "RHR elevated, Investor Update at 2pm, recalibrate now before it starts."
+VOICE: speak like a trusted human chief of staff, not a wellness app or a dashboard.
+- Use plain English a CEO would say to a peer.
+- Never use mechanical phrases: "decision posture", "decision readiness", "mental sharpness",
+  "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline".
+- Short. Crisp. No filler. No "to anchor / to lock in / to set" padding.
+
+Gold-standard examples (match this tone and length exactly):
+- "HRV down 3 days. Open your brief."
+- "Board Review at 10. Prep plan is queued — open your prep plan."
+- "4 meetings Monday. Open your brief tonight."
+- "RHR up before Investor Update. Recalibrate now."
+- "Last Board Meeting your HR ran high. Open your prep plan."
 
 Hard rules:
-- Title: max 6 words, no emoji, names the situation.
-- Body: max 18 words, ends with an allowed CTA verb.
+- Title: max 6 words, no emoji, names the situation in human language.
+- Body: HARD MAX 14 words AND 95 characters. Aim for 8–12 words. Two short sentences allowed.
+- Body ends with an allowed CTA verb.
 - Allowed CTA verbs (use one verbatim at the END of the body):
   "open your brief", "open your plan", "open your prep plan", "build your prep plan",
-  "recalibrate now", "close the day", "close the week", "lock in your prep".
+  "recalibrate now", "close the day", "close the week", "lock in your prep",
+  "check in now", "open the app", "prep now", "take 2 minutes".
 - Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block, never invent a number, a meeting name, or a baseline.
 - If a signal is missing, do not mention it. Pick a different real signal.
-- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "set the tone", "your day your terms", "loaded day", "5 days behind you", "plan the week", "come back to", "check in when ready".
+- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back".
 - Truncate any event title longer than 20 characters to its first 3 words.
+- When the body references an event already in the user's morning plan or brief, that IS the proactive anchor — that event title alone is enough context, you don't need to also cite HRV.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -886,14 +907,16 @@ Required CTA verb at end of body: "open your brief" (default) or "build your pre
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
-      userPrompt = `JIT first-touch. High-stakes event approaching, prep plan is queued.
+      userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
+The proactive job is to pull them back into the app to use that prep before the event starts.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until.
+Required: name "${evtTitle}" + minutes-until. Do NOT add filler phrases.
+Example shape: "${evtTitle} in ${evt.minutesUntil} min. Prep plan is queued — open your prep plan."
 Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
@@ -901,14 +924,15 @@ Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`
     case 'nudge_two_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
-      userPrompt = `Mid-day JIT. Event approaching, prep plan is queued.
+      userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN — the prep plan is already queued.
+Pull them back into the app. Their context may have shifted since morning, but the event hasn't.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until.
+Required: name "${evtTitle}" + minutes-until. No filler.
 Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
       break;
     }
@@ -1076,65 +1100,67 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v6 — [USER CONTEXT] + [SPECIFIC APP CTA]. Each branch cites a real signal.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Sleep ran short last night', body: `Sleep ${ctx.wearable.sleepScore}/100 last night, open your brief to set today's posture`, variantId: 'FB-N1-recovery' };
+    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100. Open your brief.`, variantId: 'FB-N1-recovery' };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV down vs your baseline', body: `HRV ${ctx.wearable.hrvDeltaPct}% below baseline, build your prep plan before today starts`, variantId: 'FB-N1-hrv' };
+    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today. Build your prep plan.`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today, open your prep plan to lock in decision readiness`, variantId: 'FB-N1-stakes' };
+    return { title: `${ev} today`, body: `${ev} today. Open your prep plan.`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today, open your plan to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
+    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today. Open your plan.`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
     // Saturday with a meeting (we only fire when one exists)
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Body slower today', body: `Body slower today, open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
+    return { title: 'Slower start today', body: `Open your brief before ${ev}.`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today, open your brief to set decision posture`, variantId: 'FB-N1-calendar' };
+    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
+    return { title: `${m} today`, body: `${m} today. Open your brief.`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Light calendar today', body: 'Light calendar today, open your brief to decide where to spend capacity', variantId: 'FB-N1-light' };
+  return { title: 'Light calendar today', body: 'Light day ahead. Open your brief.', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan, it's queued`, variantId: 'FB-N1-JIT' };
+  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Prep plan is queued — open your prep plan.`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan to anchor sharpness`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Open your prep plan.`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}, open your prep plan to lock in your prep`, variantId: 'FB-N2-JIT-later' };
+  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}. Lock in your prep.`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
-  return { title: `${remaining} practice${remaining > 1 ? 's' : ''} left today`, body: `${remaining} practice${remaining > 1 ? 's' : ''} left on today's plan, open your plan to stay on track`, variantId: 'FB-N2-priorities' };
+  const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
+  return { title: `${p} left today`, body: `${p} left on today's plan. Open your plan.`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low, ${ev} ahead, recalibrate now in your brief`, variantId: 'FB-N2-recal' };
+  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead. Recalibrate now.`, variantId: 'FB-N2-recal' };
 }
 
 // v6 — wearable-state lure: reserves down + high-stakes ahead
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR elevated, ${ev} ahead`, body: `RHR elevated, ${ev} ahead, recalibrate now before it starts`, variantId: 'FB-N2-reserves-rhr' };
+    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev}. Recalibrate now.`, variantId: 'FB-N2-reserves-rhr' };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV below baseline, ${ev} ahead, open your brief to recalibrate`, variantId: 'FB-N2-reserves-hrv' };
+  return { title: `HRV down, ${ev} ahead`, body: `HRV is down and ${ev} is ahead. Open your brief.`, variantId: 'FB-N2-reserves-hrv' };
 }
 
 // v6 — consecutive-low pattern lure
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days running`, body: `HRV down ${daysLow} days running, open your brief to reset trajectory`, variantId: 'FB-N2-consec-low' };
+  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running. Open your brief.`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
@@ -1147,41 +1173,43 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `${ev} tomorrow, use Sunday to build your prep plan now`, variantId: 'FB-N3-sun-stakes' };
+      return { title: `${ev} tomorrow`, body: `${ev} tomorrow. Build your prep plan tonight.`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday, open your brief tonight to set the week`, variantId: 'FB-N3-sun-heavy' };
+      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday. Open your brief tonight.`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead, open your brief to set the week with clarity', variantId: 'FB-N3-sun-default' };
+    return { title: 'Light Monday ahead', body: 'Light Monday ahead. Open your brief tonight.', variantId: 'FB-N3-sun-default' };
   }
 
   // Friday — cite today's load, close the week
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done today`, body: `${ctx.eventCount} meetings today, open your brief to close the week`, variantId: 'FB-N3-fri' };
+      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today. Close the week.`, variantId: 'FB-N3-fri' };
     }
-    return { title: 'Week behind you', body: 'Week behind you, open your brief to close the week', variantId: 'FB-N3-fri-light' };
+    return { title: 'Week behind you', body: 'Week behind you. Close the week.', variantId: 'FB-N3-fri-light' };
   }
 
   // Weekday with practices remaining
   if (prioritiesRemaining > 0) {
-    return { title: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open`, body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open, open your plan to close the day`, variantId: 'FB-N3-priorities' };
+    const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
+    return { title: `${p} still open`, body: `${p} still open. Open your plan to close the day.`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} practices done`, body: `${prioritiesTotal}/${prioritiesTotal} practices done, open your brief to close the day`, variantId: 'FB-N3-done' };
+    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal}/${prioritiesTotal} practices done. Close the day.`, variantId: 'FB-N3-done' };
   }
 
   // Wearable signal
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today, open your brief to close the day and recover', variantId: 'FB-N3-rhr' };
+    return { title: 'RHR ran high today', body: 'RHR ran high today. Close the day.', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done, open your brief to close the day in 90 sec`, variantId: 'FB-N3-heavy' };
+    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done. Close the day in 90 seconds.`, variantId: 'FB-N3-heavy' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done, open your brief to close the day`, variantId: 'FB-N3-default' };
+    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
+    return { title: `${m} done`, body: `${m} done today. Close the day.`, variantId: 'FB-N3-default' };
   }
-  return { title: 'Day landed', body: 'Day landed, open your brief to close the day and protect tomorrow', variantId: 'FB-N3-light' };
+  return { title: 'Day landed', body: 'Day landed. Close the day to protect tomorrow.', variantId: 'FB-N3-light' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2007,7 +2035,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v6-cta',
+        architecture: 'cos-mind-v6-1-human',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v1',
         decision_trace: {
