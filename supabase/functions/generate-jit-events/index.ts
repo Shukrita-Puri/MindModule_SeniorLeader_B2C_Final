@@ -266,6 +266,18 @@ function determineUrgencyHorizon(minutesUntil: number): 'touch_1' | 'touch_2' | 
   return null;  // Silent gap (6-24h) or selection-only (>48h) – scored but not surfaced
 }
 
+// Compute the local-day key (YYYY-MM-DD) for an event start, given the user's
+// timezoneOffset in MINUTES from UTC (positive = east of UTC, e.g. +60 for BST).
+// Note: JS Date.getTimezoneOffset() is inverted (positive west). The frontend
+// here passes the offset already aligned with the user's wall clock convention.
+function localDayKey(date: Date, timezoneOffsetMinutes: number): string {
+  const shifted = new Date(date.getTime() + timezoneOffsetMinutes * 60_000);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -470,6 +482,26 @@ serve(async (req) => {
     // Score each event through the six-stage pipeline
     const scoredEvents: any[] = [];
 
+    // ─── Promotion #2: First meeting of next local day ───
+    // Identify the user's earliest event on the next local calendar day so we
+    // can rescue it from the 6-24h silent gap. Without this, an 8am-tomorrow
+    // meeting stays invisible while a 24-48h Thursday event surfaces first.
+    const todayLocalKey = localDayKey(now, timezoneOffset);
+    let nextDayFirstEventId: string | null = null;
+    let nextDayKey: string | null = null;
+    for (const ev of events) {
+      const evKey = localDayKey(new Date(ev.start_time), timezoneOffset);
+      if (evKey === todayLocalKey) continue;
+      if (nextDayKey === null) {
+        nextDayKey = evKey;
+        nextDayFirstEventId = ev.id;
+        break; // events are pre-sorted ascending by start_time
+      }
+    }
+    if (IS_DEV && nextDayFirstEventId) {
+      console.log(`[JIT:Stage5] Next-day morning promotion candidate: eventId=${nextDayFirstEventId} day=${nextDayKey}`);
+    }
+
     for (const event of events) {
       const title = event.title || 'Untitled Event';
       const minutesUntil = Math.max(0, (new Date(event.start_time).getTime() - now.getTime()) / 60000);
@@ -642,10 +674,23 @@ serve(async (req) => {
       }
 
       // ════════ STAGE 5: Two-Touch Action Model ════════
-      const urgencyHorizon = determineUrgencyHorizon(minutesUntil);
+      let urgencyHorizon = determineUrgencyHorizon(minutesUntil);
+      let morningPromotion = false;
+
+      // Promotion #2: rescue the next local day's first meeting from the silent gap
+      if (
+        urgencyHorizon === null &&
+        event.id === nextDayFirstEventId &&
+        minutesUntil > 360 &&
+        minutesUntil < 1440
+      ) {
+        urgencyHorizon = 'touch_1';
+        morningPromotion = true;
+        if (IS_DEV) console.log(`[JIT:Stage5] PROMOTED title="${title}" reason=next_day_first_meeting (silent_gap → touch_1)`);
+      }
 
       if (IS_DEV) {
-        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon ?? 'null (silent/selection-only)'} minutesUntil=${Math.round(minutesUntil)}`);
+        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon ?? 'null (silent/selection-only)'} minutesUntil=${Math.round(minutesUntil)}${morningPromotion ? ' [promoted]' : ''}`);
       }
 
       // Events in the silent gap (6-24h) or selection-only (>48h) are scored and
@@ -755,6 +800,28 @@ serve(async (req) => {
       if (seenEventHorizons.has(key)) continue;
       seenEventHorizons.add(key);
       selectedEvents.push(evt);
+    }
+
+    // ─── Promotion #3: Recency tie-breaker fallback ───
+    // If nothing surfaced through normal channels (silent gap suppressed everything),
+    // rescue the soonest silent-gap event (6-24h) so the user is never shown a
+    // distant meeting while a nearer one is hiding. We deliberately do NOT promote
+    // selection-only (>48h) events — those are too far out to act on.
+    if (selectedEvents.length === 0) {
+      const silentGapCandidates = nonSurfaceableEvents
+        .filter(e => e.minutesUntil > 360 && e.minutesUntil < 1440)
+        .sort((a, b) => a.minutesUntil - b.minutesUntil);
+      if (silentGapCandidates.length > 0) {
+        const fallback = silentGapCandidates[0];
+        fallback.jitUrgencyHorizon = 'touch_1';
+        fallback.isSurfaceable = true;
+        fallback.recencyFallback = true;
+        // Move from non-surfaceable to selected
+        const idx = nonSurfaceableEvents.indexOf(fallback);
+        if (idx >= 0) nonSurfaceableEvents.splice(idx, 1);
+        selectedEvents.push(fallback);
+        if (IS_DEV) console.log(`[JIT:Stage5] FALLBACK surfaced soonest silent-gap event title="${fallback.eventTitle}" minutesUntil=${fallback.minutesUntil}`);
+      }
     }
 
     // Store ALL scored events (surfaceable and non-surfaceable) in jit_event_context
