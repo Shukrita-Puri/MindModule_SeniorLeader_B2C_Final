@@ -518,10 +518,13 @@ function buildSignalChips(
 }
 
 // ─── EXECUTIVE PILLS (3-capsule signal redesign) ───
-type PillState = 'green' | 'amber' | 'red' | 'neutral';
+// Exported so historical/insights surfaces can recompute pills from a stored
+// brief snapshot (wearable_snapshot + checkin_snapshot) and render them with
+// the same code path as the live brief.
+export type PillState = 'green' | 'amber' | 'red' | 'neutral';
 type LineKind = 'wearable' | 'self';
-interface PillLine { text: string; qualifier?: string; kind: LineKind }
-interface ExecutivePill {
+export interface PillLine { text: string; qualifier?: string; kind: LineKind }
+export interface ExecutivePill {
   id: 'cognitive' | 'physiological' | 'emotional';
   headline: string;
   signalWord: string;
@@ -610,7 +613,7 @@ const computePillar = (contribs: PillarContrib[]): PillarComputation => {
 // Legacy alias — kept so any unrelated callers continue to work but routed through new engine.
 const composePillar = (contribs: PillarContrib[]): PillState => computePillar(contribs).tier;
 
-function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
+export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
   if (!checkInOutcome) return null;
 
