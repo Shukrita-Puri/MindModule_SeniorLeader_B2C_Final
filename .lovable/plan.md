@@ -1,159 +1,165 @@
-## DONE — Stateful Plan Evolution ("Continuous Day")
 
-Implemented. Today's 3 Priorities now evolves across morning/afternoon/evening
-check-ins instead of resetting:
+# Smart Nudges v7 — JIT-or-State Only + Unified Pattern Store
 
-- New `daily_ritual_completions.plan_ledger jsonb` column (service-role-write
-  only via INSERT/UPDATE trigger guards).
-- `generate-mastery-plan` now:
-  1. Unions `completed_practice_ids` across ALL today's period rows so
-     `req.completedToday` covers the whole day.
-  2. `loadTodayPlanLedger` reads the EARLIEST same-day ledger as canonical.
-  3. `mergeWithLedger` applies the three rules:
-     • Sticky completion (verbatim ✓ in same slotIndex).
-     • JIT anchor with adaptive practices/whyLine (same Board Meeting; calm
-       morning → grounding afternoon).
-     • Otherwise fresh.
-  4. Bonus Round when all 3 ledger slots complete: fresh plan + `victoryLine`.
-  5. Persists the merged plan back to the current period row's `plan_ledger`.
-  6. Returns `ledger: { source, carriedSlots, anchoredSlots, completedSlots, victoryLine? }`.
-- `TodayThreePriorities`:
-  • `checkCompletion` + all hydration paths use `getTodayCompletedUnion()`.
-  • Header switches to "Today's 3 · Bonus Round" and renders `victoryLine`
-    when `plan.ledger.source === 'bonus-round'`.
-- New util: `src/utils/dailyRituals.ts → getTodayCompletedUnion()`.
-- Memory: `mem/architecture/stateful-plan-evolution.md`.
-
-## Original Goal (kept for reference) — Stateful Plan Evolution ("Continuous Day")
-
-Today, every call to `generate-mastery-plan` re-derives the 3 horizon priorities from the **current** check-in + period. When the user re-checks-in in the afternoon, the morning's progress vanishes:
-
-1. `daily_ritual_completions` is keyed by `(user_id, ritual_date, session_period)`. Switching from `morning` → `afternoon` reads a different row, so completed_practice_ids are not seen.
-2. `buildHorizonModules` rebuilds slot1/slot2/slot3 from scratch — even if the morning's JIT board meeting is still real, slot ordering and contents can shuffle.
-
-The user experiences this as "the app forgot what I did" and "my priorities keep moving."
-
-### Approach
-
-Treat the day's plan as a **persistent ledger** keyed by `(user_id, ritual_date)` — period-agnostic. Each new brief evolves the ledger rather than replacing it.
-
-Rules:
-1. **Completed priorities are sticky.** If a slot's primary practice IDs are all in the day's completed set (across any period), it stays in its slot with its checkmark; only the contextual `whyLine` may refresh. Practice IDs and the slot's anchor do not change.
-2. **JIT anchors are sticky.** Any slot bound to a calendar event (`isJit && jitEventTitle`) keeps its event identity for the rest of the day. Practices inside it may swap when wearable/check-in context materially changes — but `slotIndex`, `jitEventTitle`, `horizon` remain.
-3. **Only uncompleted, non-JIT-anchored slots get recomputed** against the new context.
-4. **Day-scoped completion read.** Completion checks union ALL `daily_ritual_completions` rows for `(user_id, ritual_date)`, not just the current period.
-
-### Implementation
-
-- `generate-mastery-plan/index.ts`:
-  - New `loadTodayPlanLedger(userId, today, supabaseClient)` — reads the most recent same-day `brief_snapshots.payload_json.plan.modules` and the union of `completed_practice_ids` across all today's `daily_ritual_completions` rows.
-  - New `mergeWithLedger(freshModules, ledgerModules, completedIdsToday, calendarEventIds)`:
-    - Completed slot → keep ledger module verbatim, mark completed.
-    - JIT-anchored slot whose event still exists today → keep slot identity (`slotIndex`, `jitEventTitle`, `horizon`); refresh practices/whyLine from matching fresh slot if context changed.
-    - Otherwise → use the fresh slot.
-  - Always emit exactly 3 slots in slot order; never reorder a sticky slot.
-  - Add a `ledger` observability block: `{ source, carriedSlots, anchoredSlots }`.
-- `src/components/home/TodayThreePriorities.tsx`:
-  - `checkCompletion` reads completions across ALL periods for today and unions arrays before checking slot completion, so a morning-completed slot still shows ✓ in the afternoon.
-
-No schema migration — we piggyback on `brief_snapshots.payload_json.plan` for the ledger source.
-
-### Verification
-
-1. Morning plan A/B/C → complete A → afternoon brief: new score/pills, slot A still ✓ in position, board-meeting slot still anchored, only B/C may refresh.
-2. JIT event removed from calendar → its slot released and recomputed.
-3. All 3 done → new brief shows all complete; no reset.
-
-### Files affected
-
-```text
-supabase/functions/generate-mastery-plan/index.ts
-src/components/home/TodayThreePriorities.tsx
-```
-
-### Out of scope
-
-- New `daily_plan_ledger` table.
-- Per-slot feedback / queue / player rewiring.
-- Scoring, pills, or visual changes.
+Two surgical bodies of work, both inside `supabase/functions/`. No UI redesign.
 
 ---
 
-## Previous Goal (kept for reference) — DONE
+## Part 1 — Smart Nudges v7: collapse to JIT-or-State
 
-Make `brief_snapshots` the single source of truth for a brief, including the three Signal Pills (Decision Readiness / Physical Reserves / Resilience Capacity), their state words (HIDDEN DRAG, BODY STEADY, RUNNING ON GRIT, etc.), and the wearable values behind them (HRV ms, RHR bpm, HR bpm, sleep duration/score, deviations and baselines).
+### 1.1 New mental model (replaces the old priority list)
 
-Today these pills are computed live in `DecisionReadinessBrief.tsx` from the freshly-returned `outerBrief`. Nothing is saved. As a result:
-- `HistoricalBriefOverlay` (past brief panel) shows score + phrase + body only – no pills, no wearable evidence.
-- Insights pages only have access to `score`, `tier`, `phrase`, `body_text`.
+Every nudge — Morning, Afternoon reminder, or Evening — must be **either JIT-anchored or State-anchored**. There is no third generic family.
 
-## Approach
+- **JIT-anchored** = anchored to a specific upcoming or just-past calendar event (uses `jit_event_context` + the unified pattern store for cross-event history).
+- **State-anchored** = anchored to today's physiology / check-in / plan-progress signal (HRV %, RHR elevated, sleep score, morning check-in outcome, consecutive-low days, heavy-day load).
 
-Move pill computation server-side (single source of truth), persist a structured `signal_pills` block + raw `wearable_snapshot` block on `brief_snapshots`, and use that block from both the live brief, the historical overlay, and Insights.
+Both add the **context** that justifies the push. Without one of them the nudge is suppressed.
 
-### 1. Database (migration)
+### 1.2 Architecture change in `supabase/functions/smart-nudges/index.ts`
 
-Add nullable columns on `brief_snapshots`:
-- `signal_pills jsonb` – the 3 computed pills with state, label, top/bottom lines.
-- `wearable_snapshot jsonb` – the raw wearable readings at brief generation time.
-- `checkin_snapshot jsonb` – clarity / confidence / sharpness / outcome at the moment the brief was written (already mostly in `payload_json.signals`, but split out for clean reads).
+- Add `anchorKind: 'jit' | 'state'` to `QualifiedNudge`. Every evaluator must set it.
+- Replace the numeric `priority` sort with a deterministic 3-step comparator:
+  1. **Time slot** wins first: Morning → Evening → Afternoon-reminder (matches user request: "JIT and State-based … to drive user to CTA in the morning, evening or a reminder in the afternoon").
+  2. Within a slot, **JIT outranks State**.
+  3. Within JIT/State, prefer the variant with the strongest cited signal (e.g. JIT with a strong pattern beats JIT without; State with HRV deficit beats State with check-in alone).
+- **Suppress (do not delete)** the legacy generic mid-day evaluators: `nudge_two_priorities` and `nudge_two_consecutive_low` are wrapped behind a `LEGACY_GENERIC_NUDGES_ENABLED = false` flag so the framework is preserved for future use but never fires today. Code stays in place — only the call sites are gated.
+- Keep `nudge_two_recalibrate` and `nudge_two_reserves` as the legitimate State-anchored afternoon reminder. If neither qualifies, the afternoon stays silent (no generic fill).
 
-Backfill is intentionally skipped – nulls are rendered as "no read" by the UI.
+Untouched: 2-hour suppression, in-meeting suppression, app-open cool-down, JIT-overrides-suppression, daily-cap of 3, quiet hours, engagement learning, APNs delivery.
 
-### 2. Edge Function: `compute-outer-readiness`
+### 1.3 Voice + CTA rewrites (all 3 slots)
 
-- Extract the existing `buildExecutivePills` logic (currently in `DecisionReadinessBrief.tsx`) into a shared helper module placed inside the function directory (`supabase/functions/compute-outer-readiness/signalPills.ts`). The client will continue to render but server now also computes the same struct so it can be persisted.
-- During the snapshot upsert (around line 4250), compute and write:
-  - `signal_pills`: `[{ id, headline, signalWord, state, topLines, bottomLines, topEmptyText, bottomEmptyText }, ...]`
-  - `wearable_snapshot`: `{ hrv, hrvDeviation, hrvBaseline, rhr, rhrDeviation, rhrBaseline, hr, hrDeviation, hrBaseline, sleepDuration, sleepScore, sleepDeviation, sleepBaseline, wearableConnected, wearableTrend7d, scoreTrajectory7d, capturedAt }`
-  - `checkin_snapshot`: `{ checkInOutcome, clarity, confidence, sharpness, consecutiveLowConfidence, consecutiveLowClarity }`
-- Include these in the response so the live UI can keep rendering instantly without an extra round-trip.
+Rewrite the prompts and static fallbacks for **every** surviving nudge so the body reads as JIT-context or State-context + a "prep" CTA. Reference shapes the user gave:
 
-### 3. Edge Functions: `brief-by-id` and `brief-history`
+- Morning JIT: `From your morning Plan: Board Review in 25 min — open the app to prep.`
+- Morning State: `HRV down 22% vs your baseline — check into the app to prep your day.`
+- Afternoon State (recalibrate): `You started low and Investor Update is next — open the app to prep.`
+- Afternoon State (reserves): `RHR elevated before Board Review — open the app to prep.`
+- Afternoon JIT: `From your plan: Board Review in 40 min — open the app to prep.`
+- Evening State (heavy day + heavy tomorrow): `Heavy day today and tomorrow needs you sharp — open the app to prep with a cool-down.`
+- Evening JIT (tomorrow's first high-stakes): `Tomorrow opens with Board Review — open the app to prep tonight.`
 
-Add `signal_pills`, `wearable_snapshot`, `checkin_snapshot` to the `select(...)` lists so consumers can read them.
+Implementation:
 
-### 4. Hook + types
+- New `ALLOWED_CTA_VERBS_V7` (replaces V6 list) — every verb is a "prep" verb:
+  - `open the app to prep`, `check into the app to prep`, `open the app to prep tonight`, `open the app to prep with a cool-down`, `go to the app to prep`, `prep now`.
+  - Legacy verbs (`open your plan`, `open your brief`, `open your prep plan`, `recalibrate now`, `close the day`, `lock in your prep`) are removed from V7 to stop the lint accepting non-prep CTAs.
+- New `ALLOWED_OPENERS_V7` (informational, not enforced) — `From your morning Plan`, `From your plan`, `Heavy day today`, `HRV down`, `RHR elevated`, `You started low`, `Tomorrow opens with`.
+- `violatesCopyContractV7(body)` extends the V6 lint:
+  - Same 14-word / 95-char ceiling.
+  - Same forbidden-words list (wellness, mindfulness, mechanical phrases, etc.).
+  - Body MUST end with one verb from `ALLOWED_CTA_VERBS_V7`.
+  - Body MUST cite at least one real signal already in `NudgeContext` (event title, HRV/RHR/sleep number, check-in outcome, meeting count, tomorrow's first meeting). If no signal is available the nudge is dropped — no generic copy.
+- Rewrite all `getFallback*` functions for the surviving variants to emit V7-compliant copy. Remove the priorities-count and consecutive-low fallbacks entirely from the live cascade.
+- System prompt rewritten so the gold-standard examples match the seven shapes above. The prompt explicitly says "every body is JIT-anchored or State-anchored" and "every body ends with a 'prep' CTA".
 
-- Extend `BriefSnapshotRecord` in `useBriefSnapshot.ts` (and history hook if any) with the three new jsonb fields, fully typed.
-- Add a thin `renderSignalPills(pills)` helper in `src/components/home/signalPillsView.tsx` that takes the persisted `signal_pills` array and renders the same visual capsule used today. Refactor `DecisionReadinessBrief.tsx` to use this helper for both live and (later) historical paths so visual parity is guaranteed.
+### 1.4 CTA-variant A/B (preserved, narrowed)
 
-### 5. `HistoricalBriefOverlay`
+`CTA_PHRASES` is rewritten so every variant is still a "prep" CTA — only the surface form differs:
 
-Render the persisted `signal_pills` (read-only, no expansion/feedback) right under the score/phrase block, plus a compact "Wearable evidence" footnote (`HRV 18.1ms · RHR 64bpm · Sleep 7h12m`) sourced from `wearable_snapshot`. Falls back gracefully when the snapshot pre-dates the migration (renders nothing for those legacy briefs).
+| Variant | brief-route phrase | plan-route phrase |
+|---------|--------------------|-------------------|
+| A (control) | `open the app to prep` | `open the app to prep` |
+| B | `check into the app to prep` | `go to the app to prep` |
+| C | `prep now` | `prep now` |
+| D | `open the app to prep tonight` *(only used for evening)* | `open the app to prep with a cool-down` *(only used for evening)* |
 
-### 6. Insights page hook-up (read-only this round)
+`CTA_REWRITE_PATTERNS` recognises every legacy phrase (`open your plan`, `open your brief`, `open your prep plan`, `recalibrate now`, `close the day`, `lock in your prep`, `tap to prep`, `see your prep`) and rewrites them to the variant's "prep" CTA. Deep-link routing on the payload is unchanged — the iOS handler keeps routing by `deep_link_route`.
 
-In `src/components/insights/LeadershipPatternsCard.tsx` (already queries `brief_snapshots`), expose the new fields via the existing edge function so the Insights surface can later use them for trend analysis (e.g., "Hidden Drag pattern triggered 4× this week" or HRV trajectory). No new UI in this change – just make the data available end-to-end so the next iteration on Insights can plug in directly.
+Bump payload stamp to `architecture: 'cos-mind-v7-jit-or-state'` and `cta_experiment: 'cta-prep-only-v1'`.
 
-### 7. Backfill (none, by design)
+### 1.5 Memory + docs
 
-Old snapshots stay as-is. The historical overlay shows pills only when the snapshot has them.
+- Update `mem://features/notifications/smart-nudges-mvp-framework` to v7:
+  - Two anchor kinds only: JIT or State.
+  - 3-step comparator (slot → anchor → signal strength).
+  - All CTAs end with a "prep" verb.
+  - Legacy generic mid-day variants suppressed via flag, not deleted.
 
-## Files affected
+---
 
-```text
-supabase/migrations/<new>_brief_snapshots_signal_pills.sql        (new)
-supabase/functions/compute-outer-readiness/signalPills.ts         (new — extracted from DecisionReadinessBrief.tsx)
-supabase/functions/compute-outer-readiness/index.ts               (write new fields on upsert; return them in response)
-supabase/functions/brief-by-id/index.ts                            (add fields to select)
-supabase/functions/brief-history/index.ts                          (add fields to select)
-src/hooks/useBriefSnapshot.ts                                      (extend type)
-src/components/home/signalPillsView.tsx                            (new shared renderer)
-src/components/home/DecisionReadinessBrief.tsx                     (use shared renderer; consume server-computed pills when present, fall back to local compute)
-src/components/home/HistoricalBriefOverlay.tsx                     (render persisted pills + wearable evidence line)
-src/components/insights/LeadershipPatternsCard.tsx                 (select new fields — no UI change yet)
-```
+## Part 2 — Unified Pattern Store
 
-## Out of scope
+### 2.1 Problem
 
-- New Insights visualisations (separate follow-up – this change makes the data available).
-- Backfill of legacy snapshots.
-- Changing the live brief's UI/visual design.
+Patterns live in three disconnected places (`causality_findings`, `checkin_patterns`, `coach_pattern_observations`) and Smart Nudges has no fast path to read "HR ran high during last Board Meeting" when generating a JIT lure.
 
-## Verification
+### 2.2 Approach: extend `causality_findings`, do not replace
 
-1. Trigger a fresh brief → `brief_snapshots` row contains non-null `signal_pills`, `wearable_snapshot`, `checkin_snapshot`.
-2. Open the past-brief overlay on yesterday's brief generated after the deploy → 3 pills render with same labels as live.
-3. Open a brief generated before the deploy → overlay degrades cleanly (no pills, score+phrase still shown).
-4. Live brief still renders identically to today (server pills used; client fallback unused on happy path).
+`causality_findings` already holds correlation/causation deltas for HRV / RHR / sleep / PRS in `payload jsonb`. Extend it:
+
+1. Add `pattern_kind text not null default 'cause_effect_v2'` so the table can hold multiple pattern families over time without losing the daily-snapshot model.
+2. Replace the existing unique key with `(user_id, pattern_kind, computed_for_date)` so each pattern family caches independently per day.
+3. Add `signal_summary jsonb` — a flat shape Smart Nudges can read in one query without parsing the full `payload`:
+
+   ```json
+   {
+     "event_to_hrv": [
+       { "event_type": "Board meetings", "n": 4, "hrvDeltaPct": -22, "rhrElevated": true, "confidence": "strong", "lastSeen": "2026-04-21" }
+     ],
+     "event_to_rhr": [ ... ],
+     "event_to_cognition": [
+       { "event_type": "Investor Updates", "dim": "clarity", "tierDelta": -1.0, "n": 5, "confidence": "strong" }
+     ],
+     "sleep_to_prs":     { "lowSleepPrsDeltaPct": -18, "n": 6, "confidence": "strong" },
+     "consecutive_load": { "tailDeltaPct": -14, "n": 3, "confidence": "emerging" }
+   }
+   ```
+
+4. `cause-effect-engine` writes both `payload` (Insights, unchanged) and `signal_summary` (nudges, new). All numbers already exist in the engine — this is just a flatter projection.
+
+### 2.3 Wire the pattern store into Smart Nudges
+
+In `evaluateNudgeOne` / `evaluateNudgeTwo` JIT branches and `evaluateNudgeThree`:
+
+- New helper `loadPatternSummary(supabase, userId)` reads the latest `causality_findings.signal_summary` for `pattern_kind='cause_effect_v2'` (one row, one query, cached for the loop).
+- For JIT: classify the JIT event using the existing event classifier shared with `cause-effect-engine`, then look up `signal_summary.event_to_hrv` for that bucket. If a `strong` or `emerging` finding with negative HRV (or `rhrElevated`) exists, inject this into the prompt:
+
+  ```
+  - Historical pattern: HRV averaged -22% during your last Board meetings (n=4)
+  ```
+
+  And extend the JIT static fallback so it produces:
+  `From your morning Plan: Board Review in 25 min. HR ran high last time — open the app to prep.`
+
+- For Evening State: read `signal_summary.consecutive_load` and `signal_summary.sleep_to_prs` to drive the "heavy day + tomorrow needs you sharp" copy with a real number, never generic.
+
+If no pattern exists, the nudge falls through to the standard JIT/State path unchanged.
+
+### 2.4 Other consumers
+
+- `PerformanceCausalityCard.tsx` keeps reading `payload` exactly as today — zero UI change, zero UX risk.
+- Future surfaces (Coach intelligence, weekly email) can read `signal_summary` directly.
+
+### 2.5 Migration
+
+One migration adds `pattern_kind` and `signal_summary`, backfills existing rows to `pattern_kind='cause_effect_v2'`, and replaces the unique key. RLS stays deny-by-default; service-role writes only.
+
+---
+
+## Part 3 — End-to-end validation
+
+After deploying `smart-nudges` + `cause-effect-engine`:
+
+1. POST `cause-effect-engine` with `{ force: true }` for a test user → confirm `signal_summary` is populated AND `PerformanceCausalityCard` still renders identically.
+2. POST `smart-nudges` with `{ dry_run: true }`, simulated time = 09:00 local, JIT board-meeting context, known HRV-low Board pattern in `signal_summary`:
+   - JIT Morning nudge wins.
+   - Body starts with `From your morning Plan`, cites the historical pattern, ends with a "prep" CTA.
+   - `architecture: 'cos-mind-v7-jit-or-state'` stamped.
+3. POST same, simulated time = 09:00, no JIT, no check-in done, HRV down 22% → Morning State nudge wins, body cites HRV %, ends with "check into the app to prep".
+4. POST same, simulated time = 14:00, low-morning + heavy PM → Afternoon State recalibrate fires; if no state signal qualifies, **no nudge fires** (legacy generic priorities is suppressed).
+5. POST same, simulated time = 19:00, heavy day + heavy tomorrow → Evening State nudge wins with the cool-down phrasing; if a high-stakes meeting is first thing tomorrow, Evening JIT wins instead.
+6. Read `notification_log` rows: confirm V7 lint never rejects the new openers/CTAs and confirm `nudge_two_priorities` / `nudge_two_consecutive_low` rows do not appear.
+
+## Files
+
+- `supabase/functions/smart-nudges/index.ts` — anchor-kind tagging, 3-step comparator, V7 CTA list, V7 prompt + fallbacks for all 7 shapes, legacy gate flag, pattern-store reader.
+- `supabase/functions/cause-effect-engine/index.ts` — write `signal_summary` projection alongside existing `payload`.
+- `supabase/migrations/<ts>_pattern_store_unification.sql` — `pattern_kind`, `signal_summary`, new unique key.
+- `mem/features/notifications/smart-nudges-mvp-framework.md` — v7 contract.
+- New `mem/architecture/unified-pattern-store.md` — `causality_findings` as canonical store, `pattern_kind` and `signal_summary` contracts.
+
+## Untouched
+
+Triggers, time windows, suppression stack, APNs delivery, deep-link routing, signal-richness gate, daily-cap, all client code, all other Insights cards, Coach prompts, Brief logic, Mastery Plan logic.

@@ -136,6 +136,10 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 // MVP feature flag — set to true post-launch to enable P2/P3/P4/P6/P7
 const MVP_POST_LAUNCH = false;
 
+// v7 — Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
+// Framework code is preserved for future use; flip this on to re-enable.
+const LEGACY_GENERIC_NUDGES_ENABLED = false;
+
 // ── v5 timing contract ─────────────────────────────────────────────────
 // Hard floor: never deliver any push before this local hour, regardless of
 // calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
@@ -232,6 +236,27 @@ interface CoachSignals {
   sessionsIn7d: number;
 }
 
+// v7 — Unified pattern store projection (read from causality_findings.signal_summary)
+interface PatternSummary {
+  event_to_hrv: Array<{
+    event_type: string;
+    n: number;
+    hrvDeltaPct: number;
+    rhrElevated: boolean;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  }>;
+  event_to_rhr: Array<{
+    event_type: string;
+    n: number;
+    rhrDeltaPct: number;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  }>;
+  sleep_to_prs: { lowSleepPrsDeltaPct: number; n: number; confidence: 'strong' | 'emerging' } | null;
+  consecutive_load: { tailDeltaPct: number; n: number; confidence: 'strong' | 'emerging' } | null;
+}
+
 interface NudgeContext {
   userId: string;
   todayStr: string;
@@ -276,6 +301,8 @@ interface NudgeContext {
   inMeetingNow: boolean;
   // Energy snapshot
   hrvDeltaPctFromSnapshot: number | null;
+  // v7 — Unified pattern store (cross-event historical correlations)
+  pattern: PatternSummary | null;
 }
 
 interface NudgeCopy {
@@ -297,17 +324,19 @@ export type CtaVariant = 'A' | 'B' | 'C' | 'D';
 
 const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
 
-// Variant → CTA phrases. Keyed by deepLinkRoute family so we never
-// say "open your plan" while routing to /daily-check-in.
+// v7 — every variant is a "prep" CTA. We keep A/B testing surface forms,
+// but every form ends with the word "prep" so the user always sees a
+// proactive, app-language CTA. Deep-link routing is unchanged on the
+// payload (system's job, not user's vocabulary).
 const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
-  // A = control (current voice)
-  A: { brief: 'open your brief', plan: 'open your plan' },
-  // B = outcome-led
-  B: { brief: 'see your readiness', plan: 'see your prep' },
-  // C = urgency / direct action
-  C: { brief: 'recalibrate now',   plan: 'lock in your prep' },
-  // D = curiosity lure
-  D: { brief: 'tap to prep',       plan: 'tap to prep' },
+  // A = control
+  A: { brief: 'open the app to prep',         plan: 'open the app to prep' },
+  // B = check-in framed
+  B: { brief: 'check into the app to prep',   plan: 'go to the app to prep' },
+  // C = urgent short
+  C: { brief: 'prep now',                     plan: 'prep now' },
+  // D = evening-only variants (overridden in applyCtaVariant when route differs)
+  D: { brief: 'open the app to prep tonight', plan: 'open the app to prep with a cool-down' },
 };
 
 // Stable hash so the same user lands in the same bucket per nudge_type
@@ -334,12 +363,35 @@ function nudgeFamily(nudgeType: string): string {
   return nudgeType;
 }
 
-// Recognise the canonical control phrases the fallbacks/AI emit.
+// v7 — recognise both legacy phrases and the new V7 "prep" CTAs so any
+// generated body can be rewritten to match the assigned variant.
 const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
-  { rx: /open your brief/gi, kind: 'brief' },
-  { rx: /open the brief/gi,  kind: 'brief' },
-  { rx: /open your plan/gi,  kind: 'plan'  },
-  { rx: /open the plan/gi,   kind: 'plan'  },
+  // Legacy
+  { rx: /open your brief/gi,        kind: 'brief' },
+  { rx: /open the brief/gi,         kind: 'brief' },
+  { rx: /open your plan/gi,         kind: 'plan'  },
+  { rx: /open the plan/gi,          kind: 'plan'  },
+  { rx: /open your prep plan/gi,    kind: 'plan'  },
+  { rx: /build your prep plan/gi,   kind: 'plan'  },
+  { rx: /build your plan/gi,        kind: 'plan'  },
+  { rx: /lock in your prep/gi,      kind: 'plan'  },
+  { rx: /tap to prep/gi,            kind: 'plan'  },
+  { rx: /see your prep/gi,          kind: 'plan'  },
+  { rx: /see your readiness/gi,     kind: 'brief' },
+  { rx: /see your plan/gi,          kind: 'plan'  },
+  { rx: /recalibrate now/gi,        kind: 'brief' },
+  { rx: /close the day/gi,          kind: 'brief' },
+  { rx: /close the week/gi,         kind: 'brief' },
+  { rx: /close the loop/gi,         kind: 'brief' },
+  { rx: /check in now/gi,           kind: 'brief' },
+  { rx: /open the app$/gi,          kind: 'brief' },
+  // V7 surface forms (also rewritten when variant differs)
+  { rx: /open the app to prep tonight/gi,         kind: 'brief' },
+  { rx: /open the app to prep with a cool-down/gi, kind: 'plan'  },
+  { rx: /check into the app to prep/gi,           kind: 'brief' },
+  { rx: /go to the app to prep/gi,                kind: 'plan'  },
+  { rx: /open the app to prep/gi,                 kind: 'brief' },
+  { rx: /\bprep now\b/gi,                         kind: 'brief' },
 ];
 
 function applyCtaVariant(
@@ -385,6 +437,80 @@ interface QualifiedNudge {
   commitmentText?: string;
   meetingTitle?: string;
   priority: number;
+  // v7 — JIT-or-State anchoring + slot + signal strength for the comparator
+  anchorKind: 'jit' | 'state';
+  slot: 'morning' | 'afternoon' | 'evening';
+  signalStrength: number; // 0..3 — higher wins ties (e.g., pattern-cited JIT > plain JIT)
+}
+
+// ── v7 helpers: pattern store reader + event classifier ────────────────
+
+// Mirror of the EVENT_TYPE_KEYWORDS table in cause-effect-engine so smart-nudges
+// can look up an event's bucket against the persisted pattern store.
+const NUDGE_EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
+  { label: 'School & family',         words: ['school', 'parents evening', 'open evening', 'parents', 'governor'] },
+  { label: 'Board / governance',      words: ['board', 'governance'] },
+  { label: 'Investor calls',          words: ['investor', 'vc ', ' vc', 'fundraise', 'raise', 'pitch deck'] },
+  { label: 'Reviews',                 words: ['review', 'qbr', 'quarterly'] },
+  { label: '1:1s',                    words: ['1:1', '1-1', 'one on one', '1on1'] },
+  { label: 'All-hands',               words: ['all-hands', 'all hands', 'town hall', 'townhall'] },
+  { label: 'Client meetings',         words: ['client', 'customer', 'stakeholder'] },
+  { label: 'Interviews',              words: ['interview', 'candidate'] },
+  { label: 'Deep work blocks',        words: ['deep work', 'focus block', 'writing time'] },
+  { label: 'Exec / leadership',       words: ['exec', 'executive', 'leadership', 'ceo ', ' ceo', 'cto ', ' cto'] },
+  { label: 'Networking & community',  words: ['meetup', 'summit', 'expo', 'conference', 'info session', 'community'] },
+  { label: 'Intro / discovery calls', words: ['intro', 'discovery', 'chemistry'] },
+  { label: 'Catch-ups & syncs',       words: ['catchup', 'catch-up', 'catch up', 'sync', 'check-in', 'check in', 'weekly', 'standup', 'stand-up'] },
+  { label: 'Internal builds',         words: ['debug', 'dashboard', 'engineering', 'sprint', 'planning'] },
+];
+
+function classifyEventForPattern(title: string | null | undefined): string | null {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  for (const ec of NUDGE_EVENT_TYPE_KEYWORDS) {
+    if (ec.words.some((w) => t.includes(w))) return ec.label;
+  }
+  return null;
+}
+
+async function loadPatternSummary(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<PatternSummary | null> {
+  const { data, error } = await supabase
+    .from('causality_findings')
+    .select('signal_summary')
+    .eq('user_id', userId)
+    .eq('pattern_kind', 'cause_effect_v2')
+    .order('computed_for_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn('[smart-nudges v7] loadPatternSummary error:', error.message);
+    return null;
+  }
+  const sig = (data as any)?.signal_summary;
+  if (!sig) return null;
+  return {
+    event_to_hrv: Array.isArray(sig.event_to_hrv) ? sig.event_to_hrv : [],
+    event_to_rhr: Array.isArray(sig.event_to_rhr) ? sig.event_to_rhr : [],
+    sleep_to_prs: sig.sleep_to_prs ?? null,
+    consecutive_load: sig.consecutive_load ?? null,
+  };
+}
+
+function findEventPattern(
+  pattern: PatternSummary | null,
+  eventTitle: string | null | undefined,
+): { hrvDeltaPct: number; n: number; rhrElevated: boolean; confidence: 'strong' | 'emerging' } | null {
+  if (!pattern) return null;
+  const bucket = classifyEventForPattern(eventTitle);
+  if (!bucket) return null;
+  const hit = pattern.event_to_hrv.find((p) => p.event_type === bucket);
+  if (!hit) return null;
+  if (hit.confidence !== 'strong' && hit.confidence !== 'emerging') return null;
+  if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
+  return hit;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -726,6 +852,7 @@ async function buildNudgeContext(
     lastAppOpen,
     inMeetingNow,
     hrvDeltaPctFromSnapshot,
+    pattern: null, // Hydrated by main handler before evaluators run
   };
 }
 
@@ -827,6 +954,34 @@ function violatesCopyContractV6(body: string): string | null {
   return null;
 }
 
+// ── v7 — JIT-or-State + prep-CTA contract ──────────────────────────────
+// Every body must end with a "prep" verb. Same forbidden-word + length
+// ceilings as V6. The CTA-verb gate is tighter than V6: only V7 verbs.
+const ALLOWED_CTA_VERBS_V7 = [
+  'open the app to prep tonight',
+  'open the app to prep with a cool-down',
+  'check into the app to prep',
+  'go to the app to prep',
+  'open the app to prep',
+  'prep now',
+];
+function violatesCopyContractV7(body: string): string | null {
+  const lower = body.toLowerCase().trim();
+  for (const w of FORBIDDEN_WORDS_V6) {
+    if (lower.includes(w)) return `forbidden word: "${w}"`;
+  }
+  // Must end with a V7 prep verb (allow trailing punctuation).
+  const trailing = lower.replace(/[.!?\s]+$/, '');
+  if (!ALLOWED_CTA_VERBS_V7.some(v => trailing.endsWith(v))) {
+    return 'must end with a V7 prep CTA verb';
+  }
+  if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  const wordCount = body.trim().split(/\s+/).length;
+  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
+  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── AI Copy Generation ──
 // ══════════════════════════════════════════════════════════════
@@ -844,38 +999,47 @@ async function generateNudgeCopy(
 
   const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications.
 
-EVERY notification follows ONE formula:
-  [USER CONTEXT, one specific signal from THIS user's data] + [SPECIFIC APP CTA, exact action and screen]
+EVERY notification is anchored to ONE of two things:
+  • JIT  — a specific upcoming/just-past calendar event from the user's morning plan
+  • STATE — a specific physiological / check-in / plan-progress signal from today
+If neither anchor is present, do not write copy.
 
-The user context names what you observed. The CTA tells them the exact in-app action and why it addresses the context.
-Generic openings ("Your plan is ready") and data-only reports ("HRV is 40% below baseline") are both failures.
+EVERY body ends with a "prep" CTA — the user's job is to open the app and PREP.
 
-VOICE: speak like a trusted human chief of staff, not a wellness app or a dashboard.
-- Use plain English a CEO would say to a peer.
-- Never use mechanical phrases: "decision posture", "decision readiness", "mental sharpness",
-  "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline".
-- Short. Crisp. No filler. No "to anchor / to lock in / to set" padding.
+VOICE: trusted human chief of staff. Plain English a CEO would say to a peer. Never mechanical:
+forbidden phrases include "decision posture", "decision readiness", "mental sharpness",
+"anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline".
 
-Gold-standard examples (match this tone and length exactly):
-- "HRV down 3 days. Open your brief."
-- "Board Review at 10. Prep plan is queued — open your prep plan."
-- "4 meetings Monday. Open your brief tonight."
-- "RHR up before Investor Update. Recalibrate now."
-- "Last Board Meeting your HR ran high. Open your prep plan."
+Gold-standard examples (match these shapes exactly):
+- Morning JIT:        "From your morning Plan: Board Review in 25 min — open the app to prep."
+- Morning State:      "HRV down 22% vs your baseline — check into the app to prep."
+- Afternoon State:    "You started low and Investor Update is next — open the app to prep."
+- Afternoon Reserves: "RHR elevated before Board Review — open the app to prep."
+- Afternoon JIT:      "From your plan: Board Review in 40 min — open the app to prep."
+- Evening State:      "Heavy day today and tomorrow needs you sharp — open the app to prep with a cool-down."
+- Evening JIT:        "Tomorrow opens with Board Review — open the app to prep tonight."
+- With pattern:       "From your morning Plan: Board Review at 10. HR ran high last time — open the app to prep."
 
 Hard rules:
 - Title: max 6 words, no emoji, names the situation in human language.
-- Body: HARD MAX 14 words AND 95 characters. Aim for 8–12 words. Two short sentences allowed.
-- Body ends with an allowed CTA verb.
-- Allowed CTA verbs (use one verbatim at the END of the body):
-  "open your brief", "open your plan", "open your prep plan", "build your prep plan",
-  "recalibrate now", "close the day", "close the week", "lock in your prep",
-  "check in now", "open the app", "prep now", "take 2 minutes".
-- Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block, never invent a number, a meeting name, or a baseline.
-- If a signal is missing, do not mention it. Pick a different real signal.
-- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back".
+- Body: HARD MAX 14 words AND 95 characters. Two short sentences allowed.
+- Body MUST end with one of these "prep" CTA verbs (verbatim, end of body):
+    "open the app to prep", "check into the app to prep", "go to the app to prep",
+    "prep now", "open the app to prep tonight", "open the app to prep with a cool-down".
+- Body MUST cite at least ONE real signal from the data block: an event title from the
+  user's morning plan, a minutes-until, an HRV/RHR/sleep number, a check-in outcome,
+  a meetings count, or tomorrow's first meeting. Never invent a number or a meeting name.
+- When the JIT anchor is an event already in the user's morning plan, prefix the body
+  with "From your morning Plan:" or "From your plan:" — that prefix IS the proactive lure.
+- When a historical pattern is provided (e.g. "HRV averaged -22% during your last Board
+  meetings"), reference it briefly with human language ("HR ran high last time") — never
+  cite the percent or n in the body.
+- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge,
+  self-care, streak, "keep it up", "well done", "great job", productive, productivity,
+  intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness",
+  "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves",
+  "baseline", "set the tone", "loaded day", "come back".
 - Truncate any event title longer than 20 characters to its first 3 words.
-- When the body references an event already in the user's morning plan or brief, that IS the proactive anchor — that event title alone is enough context, you don't need to also cite HRV.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
@@ -1073,7 +1237,8 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
-      // v6 — copy-contract lint (forbidden words + required CTA verb + no placeholders)
+      // v6 — copy-contract lint (V7 contract is being phased in; keep V6 active
+      // until the matching prompts/fallbacks ship in the next patch)
       const violation = violatesCopyContractV6(parsed.body);
       if (violation) {
         console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
