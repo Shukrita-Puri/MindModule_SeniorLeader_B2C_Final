@@ -151,14 +151,26 @@ const TodayThreePriorities = ({
   const { isFavorite } = useFavorites();
   const { data: outerReadinessData } = useOuterReadiness();
 
+  const todayForPlan = localISODate();
+  const periodForPlan = getCurrentTimeWindow();
+  const forceRefreshKey = cacheKeys.planForceRefresh(todayForPlan, periodForPlan);
+  const hasPlanForceRefresh = (() => {
+    try {
+      return sessionStorage.getItem(forceRefreshKey) === '1';
+    } catch {
+      return false;
+    }
+  })();
+
   // Synchronous sessionStorage hydration: if a valid cached plan exists for
   // today + current period, render it instantly on mount and skip the
   // scripted loader. Background freshness checks in loadPlan() may still
   // silently swap the data later.
   const initialCached = (() => {
+    if (hasPlanForceRefresh) return null;
     try {
-      const today = localISODate();
-      const period = getCurrentTimeWindow();
+      const today = todayForPlan;
+      const period = periodForPlan;
       const loaded = readPersistent<boolean>(cacheKeys.planLoaded(today, period));
       if (loaded !== true) return null;
       const parsed = readPersistent<MasteryPlanResponse>(cacheKeys.planData(today, period));
@@ -187,8 +199,8 @@ const TodayThreePriorities = ({
   // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger.
   // Keys are scoped to ritual_date + session_period so a new ritual cycle gets a clean slate
   // but reload/refresh within the same window reuses the same fingerprint.
-  const todayKey = localISODate();
-  const periodKey = getCurrentTimeWindow();
+  const todayKey = todayForPlan;
+  const periodKey = periodForPlan;
   const scopeKey = `${todayKey}-${periodKey}`;
   const celebratedStorageKey = `celebrated-ids-${scopeKey}`;
   // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
@@ -330,6 +342,8 @@ const TodayThreePriorities = ({
       const todayDate = localISODate();
       const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
+      const forceKey = cacheKeys.planForceRefresh(todayDate, currentPeriod);
+      const forceRefresh = sessionStorage.getItem(forceKey) === '1';
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getTodayCheckin();
@@ -353,7 +367,7 @@ const TodayThreePriorities = ({
 
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
-      let shouldRegenerate = !hasStoredPlan;
+      let shouldRegenerate = forceRefresh || !hasStoredPlan;
 
       if (hasStoredPlan && todayRitual?.session_period && todayRitual.session_period !== currentPeriod) {
         shouldRegenerate = true;
@@ -370,7 +384,7 @@ const TodayThreePriorities = ({
       }
 
       // Persistent cache (survives full app reopen within the current window)
-      if (!shouldRegenerate && sessionLoaded) {
+      if (!forceRefresh && !shouldRegenerate && sessionLoaded) {
         const cachedPlan = readPersistent<MasteryPlanResponse>(dataKey);
         if (cachedPlan) {
           const parsed = cachedPlan;
@@ -447,7 +461,7 @@ const TodayThreePriorities = ({
         // Build request body with outer readiness cache to skip ~2.8s server-to-server call
         const requestBody: any = {
           timezoneOffset: new Date().getTimezoneOffset(),
-          forceRefresh: awaitingSignals || !sessionLoaded,
+          forceRefresh: forceRefresh || awaitingSignals || !sessionLoaded,
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
         };
@@ -496,6 +510,7 @@ const TodayThreePriorities = ({
         setPlan(null);
         clearPersistent(loadedKey);
         clearPersistent(dataKey);
+        try { sessionStorage.removeItem(forceKey); } catch { /* ignore */ }
         setLoading(false);
         return;
       }
@@ -530,6 +545,7 @@ const TodayThreePriorities = ({
           writePersistent(loadedKey, true, ttl);
           writePersistent(dataKey, planResponse, ttl);
         }
+        try { sessionStorage.removeItem(forceKey); } catch { /* ignore */ }
         {
           const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
           sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}`);

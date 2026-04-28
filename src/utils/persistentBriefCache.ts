@@ -124,6 +124,8 @@ export const cacheKeys = {
     `plan-data-${dateISO}-${period}`,
   planLoaded: (dateISO: string, period: string) =>
     `plan-loaded-${dateISO}-${period}`,
+  planForceRefresh: (dateISO: string, period: string) =>
+    `plan-force-refresh-${dateISO}-${period}`,
   insightsScriptDone: (userId: string, dateISO: string) =>
     `insights-script-done:${userId}:${dateISO}`,
   /**
@@ -177,6 +179,7 @@ export const cacheKeyPrefixes = [
   'prb-awaiting:',
   'plan-data-',
   'plan-loaded-',
+  'plan-force-refresh-',
   'insights-script-done:',
   'insights-data:',
   'onboarding-results-cache:',

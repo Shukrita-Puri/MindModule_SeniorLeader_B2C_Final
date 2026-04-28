@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
+import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
 import { openUrl } from '@/utils/openUrl';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
@@ -87,13 +88,14 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
 
 /** Invalidate cached mastery plan so next load regenerates with fresh calendar data */
 function invalidatePlanCache() {
-  const todayDate = new Date().toISOString().split('T')[0];
+  const todayDate = localISODate();
   const periods = ['morning', 'afternoon', 'evening'];
   for (const period of periods) {
-    sessionStorage.removeItem(`plan-loaded-${todayDate}-${period}`);
-    sessionStorage.removeItem(`plan-data-${todayDate}-${period}`);
+    clearPersistent(cacheKeys.planLoaded(todayDate, period));
+    clearPersistent(cacheKeys.planData(todayDate, period));
+    sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${period}`);
+    sessionStorage.setItem(cacheKeys.planForceRefresh(todayDate, period), '1');
   }
-  sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
   console.log('[ConnectedData] Plan cache invalidated');
 }
 

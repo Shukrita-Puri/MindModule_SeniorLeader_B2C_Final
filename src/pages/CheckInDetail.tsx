@@ -128,6 +128,7 @@ const CheckInDetail = () => {
         sessionStorage.removeItem(`plan-loaded-${todayDate}-${p}`);
         sessionStorage.removeItem(`plan-data-${todayDate}-${p}`);
         sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${p}`);
+        sessionStorage.setItem(cacheKeys.planForceRefresh(todayDate, p), '1');
       }
 
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
