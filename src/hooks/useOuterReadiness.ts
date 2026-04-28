@@ -32,6 +32,7 @@ const OUTER_READINESS_CACHE_MS = 5 * 60 * 1000;
 const outerReadinessCache = new Map<string, { expiresAt: number; data: OuterReadinessData | null }>();
 const outerReadinessInFlight = new Map<string, Promise<OuterReadinessData | null>>();
 let outerReadinessCacheVersion = 0;
+const OUTER_READINESS_FORCE_REFRESH_PREFIX = 'prb-force-refresh';
 
 const DEBUG_BRIEF =
   typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true;
@@ -42,6 +43,10 @@ function dbg(...args: unknown[]) {
 function getOuterReadinessCacheKey(userId: string | undefined): string {
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId || 'anon';
   return `${effectiveUserId}:${localISODate()}:${currentPeriodLocal()}`;
+}
+
+function getForceRefreshKey(userId: string, period: string, dateISO: string): string {
+  return `${OUTER_READINESS_FORCE_REFRESH_PREFIX}:${userId}:${period}:${dateISO}`;
 }
 
 /**
@@ -68,7 +73,8 @@ export function clearOuterReadinessCache(userId?: string): void {
     const period = currentPeriodLocal();
     clearPersistent(cacheKeys.brief(id, period, today));
     clearPersistent(cacheKeys.briefAwaiting(id, period, today));
-    dbg('clearOuterReadinessCache: cleared in-memory + persistent', { id, period, today });
+    window.sessionStorage.setItem(getForceRefreshKey(id, period, today), '1');
+    dbg('clearOuterReadinessCache: cleared in-memory + persistent, marked force refresh', { id, period, today });
   } catch { /* ignore */ }
 }
 
@@ -303,6 +309,13 @@ export function useOuterReadiness() {
   const awaitingKey = effectiveUserId
     ? cacheKeys.briefAwaiting(effectiveUserId, period, todayISO)
     : null;
+  const forceRefreshKey = effectiveUserId
+    ? getForceRefreshKey(effectiveUserId, period, todayISO)
+    : null;
+  const forceRefresh =
+    typeof window !== 'undefined' &&
+    !!forceRefreshKey &&
+    window.sessionStorage.getItem(forceRefreshKey) === '1';
 
   // ── Period-crossover sweep ──────────────────────────────────────────────
   // The Brief is a *current-period* artifact. When the user crosses from
@@ -345,8 +358,9 @@ export function useOuterReadiness() {
   // Prefer a real brief if we have one; otherwise hydrate the awaiting
   // payload so a no-signal user doesn't trigger a fresh edge call on
   // every mount / iOS foreground.
-  const initialData =
-    (cached && !cached.awaitingSignals && cached.phrase && cached.bodyText)
+  const initialData = forceRefresh
+    ? null
+    : (cached && !cached.awaitingSignals && cached.phrase && cached.bodyText)
       ? cached
       : (cachedAwaiting && cachedAwaiting.awaitingSignals)
         ? cachedAwaiting
@@ -388,23 +402,20 @@ export function useOuterReadiness() {
         if (persistentKey) clearPersistent(persistentKey);
         if (awaitingKey) writePersistent(awaitingKey, data, msUntilWindowEnd());
       }
+      if (forceRefreshKey && typeof window !== 'undefined') {
+        try { window.sessionStorage.removeItem(forceRefreshKey); } catch { /* ignore */ }
+      }
       return data;
     },
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    // The Brief is only allowed to refresh on real data-changing events
-    // (check-in save, check-in detail save, wearable/calendar
-    // connect/disconnect/sync, time-window crossover). We MUST NOT
-    // refetch on every mount, focus, or reconnect — iOS Safari /
-    // Capacitor fires those signals on viewport resize, keyboard open,
-    // tour overlays, and app foregrounding, which made the brief feel
-    // unstable. The four legitimate triggers each call
-    // `queryClient.invalidateQueries(['outer-readiness'])` plus
-    // `clearOuterReadinessCache()`. If a component remounts with an
-    // invalidated React Query row still present, refetch immediately; otherwise
-    // keep cached data stable across ordinary remounts.
-    refetchOnMount: (q) => (q.state.isInvalidated ? 'always' : q.state.data ? false : 'always'),
+    // Executive Home should reconcile with the backend on mount. The server
+    // snapshot cache returns the saved DB brief when inputs are unchanged, and
+    // generates a new one when check-in / wearable / calendar inputs changed.
+    // Focus/reconnect refreshes stay disabled so mobile viewport/app lifecycle
+    // noise does not churn the brief.
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     // IMPORTANT: do NOT use placeholderData here. Keeping the previous

@@ -1568,7 +1568,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const [signalsOpen, setSignalsOpen] = useState(false);
 
   // Single canonical payload — no separate computeEnergyState call
-  const { data: outerBrief, isLoading: outerBriefLoading } = useOuterReadiness();
+  const {
+    data: outerBrief,
+    isLoading: outerBriefLoading,
+    isFetching: outerBriefFetching,
+  } = useOuterReadiness();
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -1663,7 +1667,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
-  const showLoader = false;
+  const showLoader = outerBriefLoading || outerBriefFetching;
 
   const briefId = (outerBrief as any)?.briefId ?? null;
 
