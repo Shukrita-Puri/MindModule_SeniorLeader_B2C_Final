@@ -229,12 +229,18 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgo);
         const priorCheckins = checkIns.filter((c) => c.checkin_date >= fourteenDaysAgo && c.checkin_date < sevenDaysAgo);
         let trendDirection: 'improving' | 'stable' | 'declining' = 'stable';
+        let frictionDeltaPct: number | null = null;
+        let positiveDeltaPctDev: number | null = null;
         if (recentCheckins.length > 0 && priorCheckins.length > 0) {
           const rFriction = recentCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / recentCheckins.length * 100;
           const pFriction = priorCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / priorCheckins.length * 100;
           const diff = pFriction - rFriction;
           if (diff >= 10) trendDirection = 'improving';
           else if (diff <= -10) trendDirection = 'declining';
+          frictionDeltaPct = Math.round(rFriction - pFriction);
+          const rPos = recentCheckins.filter((c) => ['focused', 'steady'].includes(c.outcome?.toLowerCase() || '')).length / recentCheckins.length * 100;
+          const pPos = priorCheckins.filter((c) => ['focused', 'steady'].includes(c.outcome?.toLowerCase() || '')).length / priorCheckins.length * 100;
+          positiveDeltaPctDev = Math.round(rPos - pPos);
         }
 
         // Recurring themes
@@ -305,7 +311,9 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           scoreDeltas,
           frictionPct,
           frictionLabel,
+          frictionDeltaPct,
           positiveRate,
+          positiveDeltaPct: positiveDeltaPctDev,
           trendDirection,
           typicalState,
           recurringThemes,
