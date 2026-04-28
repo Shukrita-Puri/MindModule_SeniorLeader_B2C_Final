@@ -1376,6 +1376,7 @@ export type Database = {
           id: string
           micro_exercise_completed: boolean | null
           micro_exercise_completed_at: string | null
+          plan_ledger: Json | null
           recommended_practice_ids: string[] | null
           recommended_practices_count: number | null
           ritual_date: string
@@ -1394,6 +1395,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          plan_ledger?: Json | null
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date: string
@@ -1412,6 +1414,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          plan_ledger?: Json | null
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date?: string

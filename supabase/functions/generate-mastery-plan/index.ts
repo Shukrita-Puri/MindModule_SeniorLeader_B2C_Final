@@ -1971,7 +1971,26 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   // ── Engagement signals ──
   req.effectiveContent = (feedbackRes.data || []).map((f: any) => f.content_id);
   req.coachInsights = (insightsRes.data || []).map((r: any) => ({ id: r.id, type: r.insight_type, content: r.insight_content, contentReference: r.content_reference || undefined, confidence: r.confidence_score || 0.5 }));
-  req.completedToday = ritualRes.data?.completed_practice_ids || [];
+  // ── Day-scoped completion union (Stateful Plan Evolution) ──
+  // Rather than reading only the current period's row, union all today's
+  // periods so morning completions survive into afternoon brief regenerations.
+  // This is the canonical "what has the user finished today" set used to:
+  //   (a) freeze sticky completed slots in mergeWithLedger
+  //   (b) prevent already-done content from resurfacing as new picks
+  try {
+    const { data: todayCompletionRows } = await supabaseClient
+      .from('daily_ritual_completions')
+      .select('completed_practice_ids, session_period')
+      .eq('user_id', req.userId)
+      .eq('ritual_date', today);
+    const union = new Set<string>();
+    for (const row of (todayCompletionRows || [])) {
+      for (const id of (row?.completed_practice_ids || [])) union.add(id);
+    }
+    req.completedToday = Array.from(union);
+  } catch {
+    req.completedToday = ritualRes.data?.completed_practice_ids || [];
+  }
   req.favorites = (favsRes.data || []).map((f: any) => f.content_id);
   ctx.pendingCommitments = commitmentsRes.data || [];
 
@@ -2561,6 +2580,93 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  // STATEFUL PLAN EVOLUTION — merge with today's persisted ledger
+  // (Refs: refinement memo "Lifecycle of a Daily Plan")
+  //
+  // Rules:
+  //  1. Sticky completion: a slot whose primary practice is in
+  //     completedToday stays VERBATIM in its slotIndex with ✓.
+  //  2. JIT anchor: a slot bound to a calendar event whose event still
+  //     exists today keeps slotIndex/jitEventTitle/horizon/timeLabel —
+  //     practices + whyLine may refresh when context materially changed.
+  //  3. Otherwise the fresh slot wins.
+  //  4. "Unfinished business": as long as ANY slot from the ledger is
+  //     incomplete, the new plan is an evolution of the ledger. Only when
+  //     all 3 ledger slots are completed do we hand off to a fresh
+  //     "Bonus Round" plan with a victoryLine.
+  // ═══════════════════════════════════════════════════════════════
+  let finalHorizonModules = horizonModules;
+  let ledgerMeta: {
+    source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+    carriedSlots: number;
+    anchoredSlots: number;
+    completedSlots: number;
+    victoryLine?: string;
+  } = { source: 'fresh', carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
+
+  try {
+    const ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
+    const calendarEventIds = new Set<string>(
+      (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean)
+    );
+    const calendarEventTitles = new Set<string>(
+      (req.calendarEvents || []).map((e: any) => String(e.title || '').trim()).filter(Boolean)
+    );
+
+    const merged = mergeWithLedger(
+      horizonModules,
+      ledger?.modules || [],
+      new Set<string>(req.completedToday || []),
+      calendarEventIds,
+      calendarEventTitles,
+    );
+    finalHorizonModules = merged.modules;
+    ledgerMeta = {
+      source: merged.source,
+      carriedSlots: merged.carriedSlots,
+      anchoredSlots: merged.anchoredSlots,
+      completedSlots: merged.completedSlots,
+      victoryLine: merged.victoryLine,
+    };
+    console.log('[generate-mastery-plan] ledger', {
+      userId: req.userId,
+      today,
+      currentPeriod: timeOfDay,
+      hasLedger: !!ledger,
+      ledgerGeneratedAt: ledger?.generatedAt || null,
+      ...ledgerMeta,
+    });
+  } catch (ledgerErr) {
+    console.warn('[generate-mastery-plan] ledger merge failed, falling back to fresh modules:',
+      ledgerErr instanceof Error ? ledgerErr.message : ledgerErr);
+  }
+
+  // Persist the (possibly evolved) ledger onto the current period row so the
+  // very next regeneration sees it. Service role bypasses the ledger guard.
+  try {
+    const planLedger = {
+      modules: finalHorizonModules,
+      generatedAt: new Date().toISOString(),
+      generatedPeriod: timeOfDay,
+      source: ledgerMeta.source,
+    };
+    await supabaseClient
+      .from('daily_ritual_completions')
+      .upsert(
+        {
+          user_id: req.userId,
+          ritual_date: today,
+          session_period: timeOfDay,
+          plan_ledger: planLedger,
+        },
+        { onConflict: 'user_id,ritual_date,session_period' }
+      );
+  } catch (persistErr) {
+    console.warn('[generate-mastery-plan] ledger persist failed:',
+      persistErr instanceof Error ? persistErr.message : persistErr);
+  }
+
   return {
     timeOfDayPlan: {
       label: periodLabels[timeOfDay],
@@ -2574,7 +2680,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     calendarPills,
     preEventPlan,
     jitPriority,
-    horizonModules,
+    horizonModules: finalHorizonModules,
+    ledger: ledgerMeta,
     meta: {
       generatedAt: new Date().toISOString(),
       scenarioId: filteredEvents[0]?.scenario?.id || null,
@@ -3344,6 +3451,208 @@ function buildHorizonModules(
   }
 
   return deduped.slice(0, 3);
+}
+
+// ==================== STATEFUL PLAN LEDGER ====================
+
+interface PlanLedger {
+  modules: HorizonModule[];
+  generatedAt: string;
+  generatedPeriod?: string;
+  source?: string;
+}
+
+/**
+ * Load the EARLIEST same-day plan_ledger across all of today's
+ * daily_ritual_completions rows. The earliest row owns the canonical lineage
+ * (morning anchors are protected first); later periods evolve from it.
+ * If no row has a ledger yet, returns null.
+ */
+async function loadTodayPlanLedger(
+  userId: string,
+  ritualDate: string,
+  supabaseClient: any,
+): Promise<PlanLedger | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('daily_ritual_completions')
+      .select('plan_ledger, created_at, session_period')
+      .eq('user_id', userId)
+      .eq('ritual_date', ritualDate)
+      .not('plan_ledger', 'is', null)
+      .order('created_at', { ascending: true });
+    if (error || !data || data.length === 0) return null;
+    const earliest = data[0]?.plan_ledger as PlanLedger | null;
+    if (!earliest || !Array.isArray(earliest.modules)) return null;
+    return earliest;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Determine if a ledger slot is "completed" (all of its primary practice IDs
+ * appear in today's completion union). We consider the slot done if the
+ * primary practice (slot.practice.contentId) is completed — secondary
+ * practices follow the player queue contract and don't gate the slot tick.
+ */
+function isSlotCompleted(slot: HorizonModule, completedIds: Set<string>): boolean {
+  const primary = slot?.practice?.contentId;
+  if (!primary) return false;
+  return completedIds.has(primary);
+}
+
+/**
+ * Stateful merge of fresh-derived horizon modules against today's ledger.
+ *
+ * Returns the 3-slot plan to render PLUS metadata describing how it was built.
+ */
+function mergeWithLedger(
+  freshModules: HorizonModule[],
+  ledgerModules: HorizonModule[],
+  completedIds: Set<string>,
+  calendarEventIds: Set<string>,
+  calendarEventTitles: Set<string>,
+): {
+  modules: HorizonModule[];
+  source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+  carriedSlots: number;
+  anchoredSlots: number;
+  completedSlots: number;
+  victoryLine?: string;
+} {
+  // No ledger yet → today's first build. Plain fresh.
+  if (!ledgerModules || ledgerModules.length === 0) {
+    return {
+      modules: freshModules.slice(0, 3),
+      source: 'fresh',
+      carriedSlots: 0,
+      anchoredSlots: 0,
+      completedSlots: 0,
+    };
+  }
+
+  const ledgerCompleted = ledgerModules.filter(s => isSlotCompleted(s, completedIds)).length;
+
+  // Bonus Round — every ledger slot is done. Hand off to a brand-new plan and
+  // attach a victory line. New JIT events that materialised since the ledger
+  // was written are naturally captured because freshModules already reflects
+  // current calendar state.
+  if (ledgerCompleted >= ledgerModules.length && ledgerModules.length > 0) {
+    return {
+      modules: freshModules.slice(0, 3),
+      source: 'bonus-round',
+      carriedSlots: 0,
+      anchoredSlots: 0,
+      completedSlots: ledgerCompleted,
+      victoryLine: `${ledgerCompleted}/${ledgerModules.length} complete. Bonus priorities to keep momentum.`,
+    };
+  }
+
+  // Otherwise: evolve the ledger.
+  const out: HorizonModule[] = [];
+  let carriedSlots = 0;
+  let anchoredSlots = 0;
+  const usedFreshIndexes = new Set<number>();
+
+  // Index fresh slots by JIT event title for anchor refresh lookups.
+  const freshByJitTitle = new Map<string, { slot: HorizonModule; idx: number }>();
+  freshModules.forEach((m, i) => {
+    if (m.isJit && m.jitEventTitle) {
+      freshByJitTitle.set(String(m.jitEventTitle).trim(), { slot: m, idx: i });
+    }
+  });
+
+  for (let slotIndex = 0; slotIndex < ledgerModules.length && slotIndex < 3; slotIndex++) {
+    const ledgerSlot = ledgerModules[slotIndex];
+
+    // Rule 1: Sticky completion — completed slots stay verbatim.
+    if (isSlotCompleted(ledgerSlot, completedIds)) {
+      out.push({ ...ledgerSlot });
+      carriedSlots++;
+      continue;
+    }
+
+    // Rule 2: JIT anchor — if the calendar event still exists today, keep
+    // slot identity but allow practices/whyLine to refresh from a matching
+    // fresh slot (so morning "Strategic Sharpness" can become afternoon
+    // "Calm & Grounding" for the SAME board meeting).
+    const jitTitle = ledgerSlot.jitEventTitle ? String(ledgerSlot.jitEventTitle).trim() : null;
+    const eventStillExists = !!(jitTitle && (
+      calendarEventTitles.has(jitTitle) ||
+      // Loose match: title may have been truncated/normalised differently
+      Array.from(calendarEventTitles).some(t => t.toLowerCase().includes(jitTitle.toLowerCase()) ||
+                                                 jitTitle.toLowerCase().includes(t.toLowerCase()))
+    ));
+
+    if (ledgerSlot.isJit && eventStillExists && jitTitle) {
+      const matchingFresh = freshByJitTitle.get(jitTitle) ||
+        Array.from(freshByJitTitle.entries()).find(([title]) =>
+          title.toLowerCase().includes(jitTitle.toLowerCase()) ||
+          jitTitle.toLowerCase().includes(title.toLowerCase())
+        )?.[1];
+
+      if (matchingFresh) {
+        usedFreshIndexes.add(matchingFresh.idx);
+        out.push({
+          // Anchor identity from ledger:
+          horizon: ledgerSlot.horizon,
+          isJit: true,
+          jitEventTitle: ledgerSlot.jitEventTitle,
+          jitMinutesUntil: matchingFresh.slot.jitMinutesUntil ?? ledgerSlot.jitMinutesUntil,
+          showPriorityPill: true,
+          showNavyBorder: matchingFresh.slot.showNavyBorder,
+          showPulse: matchingFresh.slot.showPulse,
+          // Adaptive content from fresh slot:
+          timeLabel: matchingFresh.slot.timeLabel,
+          typeLabel: matchingFresh.slot.typeLabel,
+          whyLine: matchingFresh.slot.whyLine,
+          practice: matchingFresh.slot.practice,
+          practices: matchingFresh.slot.practices,
+          sequenceReasoning: matchingFresh.slot.sequenceReasoning,
+        });
+        anchoredSlots++;
+        continue;
+      }
+      // No matching fresh slot but the event still exists — keep ledger as-is.
+      out.push({ ...ledgerSlot });
+      anchoredSlots++;
+      continue;
+    }
+
+    // Rule 3: Recompute — pick the next unused fresh slot (preferring same
+    // horizon for stability), else fall through to ledger if no fresh remains.
+    const sameHorizonFreshIdx = freshModules.findIndex((m, i) =>
+      !usedFreshIndexes.has(i) && m.horizon === ledgerSlot.horizon
+    );
+    const fallbackFreshIdx = freshModules.findIndex((_, i) => !usedFreshIndexes.has(i));
+    const pickIdx = sameHorizonFreshIdx >= 0 ? sameHorizonFreshIdx : fallbackFreshIdx;
+
+    if (pickIdx >= 0) {
+      usedFreshIndexes.add(pickIdx);
+      out.push(freshModules[pickIdx]);
+    } else {
+      // No fresh content available — keep ledger slot.
+      out.push({ ...ledgerSlot });
+      carriedSlots++;
+    }
+  }
+
+  // If ledger had < 3 slots (rare), top up from any unused fresh slot.
+  while (out.length < 3) {
+    const nextIdx = freshModules.findIndex((_, i) => !usedFreshIndexes.has(i));
+    if (nextIdx < 0) break;
+    usedFreshIndexes.add(nextIdx);
+    out.push(freshModules[nextIdx]);
+  }
+
+  return {
+    modules: out.slice(0, 3),
+    source: 'ledger-evolution',
+    carriedSlots,
+    anchoredSlots,
+    completedSlots: ledgerCompleted,
+  };
 }
 
 // ==================== HANDLER ====================

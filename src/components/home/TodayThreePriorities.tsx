@@ -15,7 +15,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
-import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
+import { getTodayRitual, upsertRitual, getTodayCompletedUnion } from '@/utils/dailyRituals';
 import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
@@ -96,6 +96,20 @@ interface MasteryPlanResponse {
   preEventPlan: any;
   jitPriority?: boolean;
   horizonModules?: HorizonModule[];
+  /**
+   * Stateful Plan Evolution metadata (server-emitted).
+   *  - source: 'fresh' (first plan today) | 'ledger-evolution' (carrying
+   *    morning slots forward) | 'bonus-round' (all 3 done — fresh slots
+   *    with a victoryLine).
+   *  - victoryLine: shown under the priorities when source === 'bonus-round'.
+   */
+  ledger?: {
+    source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+    carriedSlots: number;
+    anchoredSlots: number;
+    completedSlots: number;
+    victoryLine?: string;
+  };
   meta: { generatedAt: string; [key: string]: any };
 }
 
@@ -391,7 +405,11 @@ const TodayThreePriorities = ({
             } else {
               const stripped = stripCoachFromPlan(parsed)!;
               setPlan(stripped);
-              const allCompleted = todayRitual?.completed_practice_ids || [];
+              // Day-scoped union so morning completions persist into afternoon ✓
+              const unionCompleted = await getTodayCompletedUnion();
+              const allCompleted = unionCompleted.length > 0
+                ? unionCompleted
+                : (todayRitual?.completed_practice_ids || []);
               const horizonIds = (stripped.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
@@ -492,7 +510,11 @@ const TodayThreePriorities = ({
           : planResponse.timeOfDayPlan.modules.map(m => m.contentId);
 
         const existingRitual = await getTodayRitual(currentPeriod);
-        const existingCompleted = existingRitual?.completed_practice_ids || [];
+        // Day-scoped union so prune logic respects ALL today's completions
+        const unionCompleted = await getTodayCompletedUnion();
+        const existingCompleted = unionCompleted.length > 0
+          ? unionCompleted
+          : (existingRitual?.completed_practice_ids || []);
         const prunedCompleted = existingCompleted.filter((id: string) => allModules.includes(id));
 
         await upsertRitual({
@@ -544,11 +566,12 @@ const TodayThreePriorities = ({
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
     const horizonIds = (plan.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
-    if (!ritual) {
-      setCompletedPracticeIds([]);
-      return;
-    }
-    const allCompleted = ritual.completed_practice_ids || [];
+    // Stateful Plan Evolution: union completion across ALL today's periods,
+    // so a morning-completed slot still shows ✓ in the afternoon's brief.
+    const unionCompleted = await getTodayCompletedUnion();
+    const allCompleted = unionCompleted.length > 0
+      ? unionCompleted
+      : (ritual?.completed_practice_ids || []);
     let active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
 
     // Stoic companion bridge: when the ReflectionCorner's "Optional companion"
@@ -573,7 +596,7 @@ const TodayThreePriorities = ({
     });
 
     if (active.length >= horizonIds.length && active.length > 0) {
-      if (ritual.completion_status !== 'full') {
+      if (ritual && ritual.completion_status !== 'full') {
         await upsertRitual({ ritual_date: localISODate(), completion_status: 'full', session_period: currentPeriod });
       }
     }
@@ -866,7 +889,7 @@ const TodayThreePriorities = ({
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
           <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
-            Today's 3 Priorities
+            {plan?.ledger?.source === 'bonus-round' ? "Today's 3 · Bonus Round" : "Today's 3 Priorities"}
           </span>
           <div className="flex items-center gap-2">
             <span className={cn(
@@ -882,6 +905,11 @@ const TodayThreePriorities = ({
             />
           </div>
         </div>
+        {plan?.ledger?.source === 'bonus-round' && plan.ledger.victoryLine && (
+          <p className="mt-1.5 text-[11px] text-saffron/90 font-body leading-snug">
+            {plan.ledger.victoryLine}
+          </p>
+        )}
       </div>
 
       {/* 3 Slots — each priority on its own card so users perceive them as
