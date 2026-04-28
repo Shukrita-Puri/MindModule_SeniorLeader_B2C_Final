@@ -1,159 +1,58 @@
-## DONE — Stateful Plan Evolution ("Continuous Day")
+# Static B&W Engraving Hero on /executive-home
 
-Implemented. Today's 3 Priorities now evolves across morning/afternoon/evening
-check-ins instead of resetting:
+Visual-only change. No DB, scoring, brief logic, or routing touched.
 
-- New `daily_ritual_completions.plan_ledger jsonb` column (service-role-write
-  only via INSERT/UPDATE trigger guards).
-- `generate-mastery-plan` now:
-  1. Unions `completed_practice_ids` across ALL today's period rows so
-     `req.completedToday` covers the whole day.
-  2. `loadTodayPlanLedger` reads the EARLIEST same-day ledger as canonical.
-  3. `mergeWithLedger` applies the three rules:
-     • Sticky completion (verbatim ✓ in same slotIndex).
-     • JIT anchor with adaptive practices/whyLine (same Board Meeting; calm
-       morning → grounding afternoon).
-     • Otherwise fresh.
-  4. Bonus Round when all 3 ledger slots complete: fresh plan + `victoryLine`.
-  5. Persists the merged plan back to the current period row's `plan_ledger`.
-  6. Returns `ledger: { source, carriedSlots, anchoredSlots, completedSlots, victoryLine? }`.
-- `TodayThreePriorities`:
-  • `checkCompletion` + all hydration paths use `getTodayCompletedUnion()`.
-  • Header switches to "Today's 3 · Bonus Round" and renders `victoryLine`
-    when `plan.ledger.source === 'bonus-round'`.
-- New util: `src/utils/dailyRituals.ts → getTodayCompletedUnion()`.
-- Memory: `mem/architecture/stateful-plan-evolution.md`.
+## What changes
 
-## Original Goal (kept for reference) — Stateful Plan Evolution ("Continuous Day")
+The top hero on `/executive-home` currently loops an MP4 (`/all-visuals/videos/{tier}-{timeOfDay}.mp4`) plus divergence variants (`recovery-*`, `masked-*`). It looks subtly dynamic but isn't — and on iOS it adds load + perceived motion.
 
-Today, every call to `generate-mastery-plan` re-derives the 3 horizon priorities from the **current** check-in + period. When the user re-checks-in in the afternoon, the morning's progress vanishes:
+Replace it with a **static B&W woodcut/engraving image**, in the same Active Calm aesthetic as the onboarding hero and Reset Studio:
+- Pure black & white (no colour wash)
+- Nature-true scenes (mountains, horizon, mist, sky), no human figures
+- 19th-century scientific engraving / woodcut linework
+- One still per tier × time-of-day (same matrix as today's videos), plus the two divergence variants
 
-1. `daily_ritual_completions` is keyed by `(user_id, ritual_date, session_period)`. Switching from `morning` → `afternoon` reads a different row, so completed_practice_ids are not seen.
-2. `buildHorizonModules` rebuilds slot1/slot2/slot3 from scratch — even if the morning's JIT board meeting is still real, slot ordering and contents can shuffle.
-
-The user experiences this as "the app forgot what I did" and "my priorities keep moving."
-
-### Approach
-
-Treat the day's plan as a **persistent ledger** keyed by `(user_id, ritual_date)` — period-agnostic. Each new brief evolves the ledger rather than replacing it.
-
-Rules:
-1. **Completed priorities are sticky.** If a slot's primary practice IDs are all in the day's completed set (across any period), it stays in its slot with its checkmark; only the contextual `whyLine` may refresh. Practice IDs and the slot's anchor do not change.
-2. **JIT anchors are sticky.** Any slot bound to a calendar event (`isJit && jitEventTitle`) keeps its event identity for the rest of the day. Practices inside it may swap when wearable/check-in context materially changes — but `slotIndex`, `jitEventTitle`, `horizon` remain.
-3. **Only uncompleted, non-JIT-anchored slots get recomputed** against the new context.
-4. **Day-scoped completion read.** Completion checks union ALL `daily_ritual_completions` rows for `(user_id, ritual_date)`, not just the current period.
-
-### Implementation
-
-- `generate-mastery-plan/index.ts`:
-  - New `loadTodayPlanLedger(userId, today, supabaseClient)` — reads the most recent same-day `brief_snapshots.payload_json.plan.modules` and the union of `completed_practice_ids` across all today's `daily_ritual_completions` rows.
-  - New `mergeWithLedger(freshModules, ledgerModules, completedIdsToday, calendarEventIds)`:
-    - Completed slot → keep ledger module verbatim, mark completed.
-    - JIT-anchored slot whose event still exists today → keep slot identity (`slotIndex`, `jitEventTitle`, `horizon`); refresh practices/whyLine from matching fresh slot if context changed.
-    - Otherwise → use the fresh slot.
-  - Always emit exactly 3 slots in slot order; never reorder a sticky slot.
-  - Add a `ledger` observability block: `{ source, carriedSlots, anchoredSlots }`.
-- `src/components/home/TodayThreePriorities.tsx`:
-  - `checkCompletion` reads completions across ALL periods for today and unions arrays before checking slot completion, so a morning-completed slot still shows ✓ in the afternoon.
-
-No schema migration — we piggyback on `brief_snapshots.payload_json.plan` for the ledger source.
-
-### Verification
-
-1. Morning plan A/B/C → complete A → afternoon brief: new score/pills, slot A still ✓ in position, board-meeting slot still anchored, only B/C may refresh.
-2. JIT event removed from calendar → its slot released and recomputed.
-3. All 3 done → new brief shows all complete; no reset.
-
-### Files affected
+## Variant matrix (kept identical to today)
 
 ```text
-supabase/functions/generate-mastery-plan/index.ts
-src/components/home/TodayThreePriorities.tsx
+tiers:        depleted | managing | strong | peak | very_high | default
+timeOfDay:    morning  | afternoon | evening
+divergence:   recovery-{morning|afternoon|evening}
+              masked-{morning|afternoon|evening}
 ```
 
-### Out of scope
-
-- New `daily_plan_ledger` table.
-- Per-slot feedback / queue / player rewiring.
-- Scoring, pills, or visual changes.
-
----
-
-## Previous Goal (kept for reference) — DONE
-
-Make `brief_snapshots` the single source of truth for a brief, including the three Signal Pills (Decision Readiness / Physical Reserves / Resilience Capacity), their state words (HIDDEN DRAG, BODY STEADY, RUNNING ON GRIT, etc.), and the wearable values behind them (HRV ms, RHR bpm, HR bpm, sleep duration/score, deviations and baselines).
-
-Today these pills are computed live in `DecisionReadinessBrief.tsx` from the freshly-returned `outerBrief`. Nothing is saved. As a result:
-- `HistoricalBriefOverlay` (past brief panel) shows score + phrase + body only – no pills, no wearable evidence.
-- Insights pages only have access to `score`, `tier`, `phrase`, `body_text`.
-
-## Approach
-
-Move pill computation server-side (single source of truth), persist a structured `signal_pills` block + raw `wearable_snapshot` block on `brief_snapshots`, and use that block from both the live brief, the historical overlay, and Insights.
-
-### 1. Database (migration)
-
-Add nullable columns on `brief_snapshots`:
-- `signal_pills jsonb` – the 3 computed pills with state, label, top/bottom lines.
-- `wearable_snapshot jsonb` – the raw wearable readings at brief generation time.
-- `checkin_snapshot jsonb` – clarity / confidence / sharpness / outcome at the moment the brief was written (already mostly in `payload_json.signals`, but split out for clean reads).
-
-Backfill is intentionally skipped – nulls are rendered as "no read" by the UI.
-
-### 2. Edge Function: `compute-outer-readiness`
-
-- Extract the existing `buildExecutivePills` logic (currently in `DecisionReadinessBrief.tsx`) into a shared helper module placed inside the function directory (`supabase/functions/compute-outer-readiness/signalPills.ts`). The client will continue to render but server now also computes the same struct so it can be persisted.
-- During the snapshot upsert (around line 4250), compute and write:
-  - `signal_pills`: `[{ id, headline, signalWord, state, topLines, bottomLines, topEmptyText, bottomEmptyText }, ...]`
-  - `wearable_snapshot`: `{ hrv, hrvDeviation, hrvBaseline, rhr, rhrDeviation, rhrBaseline, hr, hrDeviation, hrBaseline, sleepDuration, sleepScore, sleepDeviation, sleepBaseline, wearableConnected, wearableTrend7d, scoreTrajectory7d, capturedAt }`
-  - `checkin_snapshot`: `{ checkInOutcome, clarity, confidence, sharpness, consecutiveLowConfidence, consecutiveLowClarity }`
-- Include these in the response so the live UI can keep rendering instantly without an extra round-trip.
-
-### 3. Edge Functions: `brief-by-id` and `brief-history`
-
-Add `signal_pills`, `wearable_snapshot`, `checkin_snapshot` to the `select(...)` lists so consumers can read them.
-
-### 4. Hook + types
-
-- Extend `BriefSnapshotRecord` in `useBriefSnapshot.ts` (and history hook if any) with the three new jsonb fields, fully typed.
-- Add a thin `renderSignalPills(pills)` helper in `src/components/home/signalPillsView.tsx` that takes the persisted `signal_pills` array and renders the same visual capsule used today. Refactor `DecisionReadinessBrief.tsx` to use this helper for both live and (later) historical paths so visual parity is guaranteed.
-
-### 5. `HistoricalBriefOverlay`
-
-Render the persisted `signal_pills` (read-only, no expansion/feedback) right under the score/phrase block, plus a compact "Wearable evidence" footnote (`HRV 18.1ms · RHR 64bpm · Sleep 7h12m`) sourced from `wearable_snapshot`. Falls back gracefully when the snapshot pre-dates the migration (renders nothing for those legacy briefs).
-
-### 6. Insights page hook-up (read-only this round)
-
-In `src/components/insights/LeadershipPatternsCard.tsx` (already queries `brief_snapshots`), expose the new fields via the existing edge function so the Insights surface can later use them for trend analysis (e.g., "Hidden Drag pattern triggered 4× this week" or HRV trajectory). No new UI in this change – just make the data available end-to-end so the next iteration on Insights can plug in directly.
-
-### 7. Backfill (none, by design)
-
-Old snapshots stay as-is. The historical overlay shows pills only when the snapshot has them.
+Mapping rules stay byte-for-byte the same as the current `heroVideoUrl` useMemo — only the file extension/path changes.
 
 ## Files affected
 
-```text
-supabase/migrations/<new>_brief_snapshots_signal_pills.sql        (new)
-supabase/functions/compute-outer-readiness/signalPills.ts         (new — extracted from DecisionReadinessBrief.tsx)
-supabase/functions/compute-outer-readiness/index.ts               (write new fields on upsert; return them in response)
-supabase/functions/brief-by-id/index.ts                            (add fields to select)
-supabase/functions/brief-history/index.ts                          (add fields to select)
-src/hooks/useBriefSnapshot.ts                                      (extend type)
-src/components/home/signalPillsView.tsx                            (new shared renderer)
-src/components/home/DecisionReadinessBrief.tsx                     (use shared renderer; consume server-computed pills when present, fall back to local compute)
-src/components/home/HistoricalBriefOverlay.tsx                     (render persisted pills + wearable evidence line)
-src/components/insights/LeadershipPatternsCard.tsx                 (select new fields — no UI change yet)
-```
+1. **`src/pages/ExecutiveHome.tsx`**
+   - Rename `heroVideoUrl` → `heroImageUrl`. Map to `/all-visuals/images/{tier}-{timeOfDay}.webp` (with `.jpg` fallback handled by browser via single `<img>` tag — we'll ship `.webp` only since we control the assets).
+   - Replace the `<video … autoPlay loop muted playsInline preload="auto">` block with a single `<img>` element using the same fade-in pattern (`onLoad` → opacity 0.4) so the existing tier gradient overlay and bottom fade keep working unchanged.
+   - Delete `videoRef`, `videoFadedIn`, `fadeInVideo`'s video-specific branches; keep an equivalent `fadeInImage` ref to preserve the soft entrance.
+   - Keep `getTierGradient()`, the bottom `bg-gradient-to-b from-background/5 via-background/30 to-background` overlay, header layout, greeting, and everything below untouched.
 
-## Out of scope
+2. **`public/all-visuals/images/`** — new directory. Drop in 24 stills:
+   - `{depleted,managing,strong,peak,very_high,default}-{morning,afternoon,evening}.webp` (18)
+   - `recovery-{morning,afternoon,evening}.webp` (3)
+   - `masked-{morning,afternoon,evening}.webp` (3)
+   - Generated via the existing Remotion / engraving pipeline used for onboarding so the line-art style matches exactly. Each scene is the same composition currently used in the corresponding video, but rendered as a single still frame at the most "settled" moment.
 
-- New Insights visualisations (separate follow-up – this change makes the data available).
-- Backfill of legacy snapshots.
-- Changing the live brief's UI/visual design.
+3. **Memory update** — refresh `mem://style/active-calm-visual-language/hero-visual-system-v3` to reflect static stills instead of loops (single line edit, same scene mapping).
 
-## Verification
+## What is NOT touched
 
-1. Trigger a fresh brief → `brief_snapshots` row contains non-null `signal_pills`, `wearable_snapshot`, `checkin_snapshot`.
-2. Open the past-brief overlay on yesterday's brief generated after the deploy → 3 pills render with same labels as live.
-3. Open a brief generated before the deploy → overlay degrades cleanly (no pills, score+phrase still shown).
-4. Live brief still renders identically to today (server pills used; client fallback unused on happy path).
+- DB / migrations / RLS
+- `compute-outer-readiness`, `generate-mastery-plan`, any edge function
+- Brief, pills, scoring, plan ledger
+- `useOuterReadiness`, `persistentBriefCache`, refetch hardening
+- Bottom navigation, greeting, headline, brief card, priorities
+- The existing MP4s in `public/all-visuals/videos/` stay on disk (unreferenced) so we can revert instantly by swapping the component back
+
+## Acceptance
+
+- Hero shows a still B&W engraving on every load — no playback, no flicker
+- Tier change (e.g. depleted → strong) cross-fades to the matching still using the same opacity transition as today
+- Divergence (`recovery` / `masked`) overrides still apply
+- No `<video>` element in the DOM on `/executive-home`
+- Network tab shows one image request, no `.mp4` fetch
+- iOS Safari / Capacitor: zero motion, no autoplay battery cost
