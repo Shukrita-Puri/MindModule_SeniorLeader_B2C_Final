@@ -1237,11 +1237,11 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
-      // v6 — copy-contract lint (V7 contract is being phased in; keep V6 active
-      // until the matching prompts/fallbacks ship in the next patch)
-      const violation = violatesCopyContractV6(parsed.body);
+      // v7 — enforce JIT-or-State + prep-CTA contract on AI output.
+      // V6 lint kept above as a reference; V7 is now authoritative.
+      const violation = violatesCopyContractV7(parsed.body);
       if (violation) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
+        console.warn(`[smart-nudges v7] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
         return null;
       }
 
@@ -1263,118 +1263,111 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v6 — [USER CONTEXT] + [SPECIFIC APP CTA]. Each branch cites a real signal.
+  // v7 — [USER CONTEXT] + [PREP CTA]. Each branch cites a real signal.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100. Open your brief.`, variantId: 'FB-N1-recovery' };
+    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100 — open the app to prep.`, variantId: 'FB-N1-recovery' };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today. Build your prep plan.`, variantId: 'FB-N1-hrv' };
+    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today — check into the app to prep.`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today. Open your prep plan.`, variantId: 'FB-N1-stakes' };
+    return { title: `${ev} today`, body: `${ev} today — open the app to prep.`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today. Open your plan.`, variantId: 'FB-N1-heavy' };
+    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today — open the app to prep.`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
-    // Saturday with a meeting (we only fire when one exists)
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Slower start today', body: `Open your brief before ${ev}.`, variantId: 'FB-N1-sat-anchored' };
+    return { title: 'Slower start today', body: `${ev} ahead — open the app to prep.`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} today`, body: `${m} today. Open your brief.`, variantId: 'FB-N1-calendar' };
+    return { title: `${m} today`, body: `${m} today — open the app to prep.`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Light calendar today', body: 'Light day ahead. Open your brief.', variantId: 'FB-N1-light' };
+  return { title: 'Light calendar today', body: 'Light day ahead — open the app to prep.', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Prep plan is queued — open your prep plan.`, variantId: 'FB-N1-JIT' };
+  return { title: `${ev} in ${minutesUntil} min`, body: `From your morning Plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Open your prep plan.`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${ev} in ${minutesUntil} min`, body: `From your plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}. Lock in your prep.`, variantId: 'FB-N2-JIT-later' };
+  return { title: `${ev} at ${timeStr}`, body: `From your plan: ${ev} at ${timeStr} — open the app to prep.`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
   const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
-  return { title: `${p} left today`, body: `${p} left on today's plan. Open your plan.`, variantId: 'FB-N2-priorities' };
+  return { title: `${p} left today`, body: `${p} left on today's plan — open the app to prep.`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead. Recalibrate now.`, variantId: 'FB-N2-recal' };
+  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead — check into the app to prep.`, variantId: 'FB-N2-recal' };
 }
 
-// v6 — wearable-state lure: reserves down + high-stakes ahead
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev}. Recalibrate now.`, variantId: 'FB-N2-reserves-rhr' };
+    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev} — open the app to prep.`, variantId: 'FB-N2-reserves-rhr' };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV is down and ${ev} is ahead. Open your brief.`, variantId: 'FB-N2-reserves-hrv' };
+  return { title: `HRV down, ${ev} ahead`, body: `HRV down and ${ev} ahead — open the app to prep.`, variantId: 'FB-N2-reserves-hrv' };
 }
 
-// v6 — consecutive-low pattern lure
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running. Open your brief.`, variantId: 'FB-N2-consec-low' };
+  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running — open the app to prep.`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesRemaining = ctx.pendingPracticeIds.length;
   const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
 
-  // v6 — Sunday evening: cite a Monday signal, route to brief/prep plan
   if (ctx.dayOfWeek === 0) {
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `${ev} tomorrow. Build your prep plan tonight.`, variantId: 'FB-N3-sun-stakes' };
+      return { title: `${ev} tomorrow`, body: `Tomorrow opens with ${ev} — open the app to prep tonight.`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday. Open your brief tonight.`, variantId: 'FB-N3-sun-heavy' };
+      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday — open the app to prep tonight.`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead. Open your brief tonight.', variantId: 'FB-N3-sun-default' };
+    return { title: 'Light Monday ahead', body: 'Light Monday ahead — open the app to prep tonight.', variantId: 'FB-N3-sun-default' };
   }
 
-  // Friday — cite today's load, close the week
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today. Close the week.`, variantId: 'FB-N3-fri' };
+      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today — open the app to prep with a cool-down.`, variantId: 'FB-N3-fri' };
     }
-    return { title: 'Week behind you', body: 'Week behind you. Close the week.', variantId: 'FB-N3-fri-light' };
+    return { title: 'Week behind you', body: 'Week behind you — open the app to prep with a cool-down.', variantId: 'FB-N3-fri-light' };
   }
 
-  // Weekday with practices remaining
   if (prioritiesRemaining > 0) {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
-    return { title: `${p} still open`, body: `${p} still open. Open your plan to close the day.`, variantId: 'FB-N3-priorities' };
+    return { title: `${p} still open`, body: `${p} still open — open the app to prep.`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal}/${prioritiesTotal} practices done. Close the day.`, variantId: 'FB-N3-done' };
+    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal} done — open the app to prep with a cool-down.`, variantId: 'FB-N3-done' };
   }
 
-  // Wearable signal
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today. Close the day.', variantId: 'FB-N3-rhr' };
+    return { title: 'RHR ran high today', body: 'RHR ran high today — open the app to prep with a cool-down.', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done. Close the day in 90 seconds.`, variantId: 'FB-N3-heavy' };
+    return { title: `${ctx.eventCount} meetings done`, body: `Heavy day, tomorrow needs you sharp — open the app to prep with a cool-down.`, variantId: 'FB-N3-heavy' };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} done`, body: `${m} done today. Close the day.`, variantId: 'FB-N3-default' };
+    return { title: `${m} done`, body: `${m} done today — open the app to prep with a cool-down.`, variantId: 'FB-N3-default' };
   }
-  return { title: 'Day landed', body: 'Day landed. Close the day to protect tomorrow.', variantId: 'FB-N3-light' };
+  return { title: 'Day landed', body: 'Tomorrow needs you sharp — open the app to prep with a cool-down.', variantId: 'FB-N3-light' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1439,12 +1432,19 @@ async function evaluateNudgeOne(
       // them to the brief; otherwise send them to the queued plan.
       const route = ctx.morningCheckinOutcome === null ? '/daily-check-in' : '/executive-home';
 
+      // v7 — pattern-cited JIT outranks plain JIT in the comparator.
+      const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+      const sigStrength = pat ? 3 : 2;
+
       return {
         type: 'nudge_one',
         copy,
         deepLinkRoute: route,
         eventReference: evt.externalId,
         priority: 0,
+        anchorKind: 'jit',
+        slot: 'morning',
+        signalStrength: sigStrength,
       };
     }
   }
@@ -1492,6 +1492,9 @@ async function evaluateNudgeOne(
     copy,
     deepLinkRoute: '/daily-check-in',
     priority: 0,
+    anchorKind: 'state',
+    slot: 'morning',
+    signalStrength: ctx.hasWearableData ? 2 : 1,
   };
 }
 
@@ -1544,12 +1547,18 @@ async function evaluateNudgeTwo(
     const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
     const route = checkedInToday ? '/executive-home' : '/daily-check-in';
 
+    const pat = findEventPattern(ctx.pattern, evt.eventTitle);
+    const sigStrength = pat ? 3 : 2;
+
     return {
       type: 'nudge_two',
       copy,
       deepLinkRoute: route,
       eventReference: evt.externalId,
       priority: 1,
+      anchorKind: 'jit',
+      slot: 'afternoon',
+      signalStrength: sigStrength,
     };
   }
 
@@ -1574,12 +1583,16 @@ async function evaluateNudgeTwo(
         copy,
         deepLinkRoute: '/daily-check-in',
         priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 2,
       };
     }
   }
 
-  // ── B) Priorities incomplete (afternoon, 13:00+) ──
-  if (ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
+  // ── B) Priorities incomplete (afternoon, 13:00+) — v7 LEGACY GENERIC ──
+  // Suppressed by default; framework retained behind LEGACY_GENERIC_NUDGES_ENABLED.
+  if (LEGACY_GENERIC_NUDGES_ENABLED && ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
     const priorityTitle = 'Priority 1'; // Generic, we don't have practice names in context
     const remaining = ctx.pendingPracticeIds.length;
 
@@ -1594,6 +1607,9 @@ async function evaluateNudgeTwo(
       copy,
       deepLinkRoute: '/executive-home',
       priority: 1,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 1,
     };
   }
 
@@ -1614,6 +1630,9 @@ async function evaluateNudgeTwo(
         copy,
         deepLinkRoute: '/daily-check-in',
         priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 2,
       };
     }
   }
@@ -1673,11 +1692,19 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
   const copy = aiCopy || getFallbackNudgeThreeCopy(ctx);
 
+  // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
+  // otherwise to STATE (today's load / wearable / Sunday week prep).
+  const tomorrowFirst = ctx.tomorrowEvents.find(e => !isNoiseEvent(e.title || ''));
+  const anchorKind: 'jit' | 'state' = tomorrowFirst ? 'jit' : 'state';
+
   return {
     type: 'nudge_three',
     copy,
     deepLinkRoute: '/daily-check-in',
     priority: 2,
+    anchorKind,
+    slot: 'evening',
+    signalStrength: anchorKind === 'jit' ? 2 : (ctx.hasWearableData ? 2 : 1),
   };
 }
 
@@ -1705,6 +1732,9 @@ async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<stri
       copy: { title: 'Gap Window', body: `You have ${gap.durationMinutes} minutes. Your next priority is ready.`, variantId: 'FB-GAP-artifact' },
       deepLinkRoute: '/executive-home',
       priority: 3,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 1,
     };
   }
   return null;
@@ -1754,6 +1784,9 @@ async function evaluateCoachMeetingMatch(ctx: NudgeContext, alreadySentTypes: Se
           commitmentText: commitment.text,
           meetingTitle: event.title || 'upcoming meeting',
           priority: 4,
+          anchorKind: 'jit',
+          slot: 'afternoon',
+          signalStrength: 2,
         };
       }
     }
@@ -1778,6 +1811,9 @@ async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: 
       copy: { title: 'Recalibrate', body: `You started low. Recalibrate before ${eventTitle}.`, variantId: 'FB-STATE-recal' },
       deepLinkRoute: '/daily-check-in',
       priority: 5,
+      anchorKind: 'state',
+      slot: 'afternoon',
+      signalStrength: 2,
     };
   }
   return null;
@@ -1899,7 +1935,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting MVP 3-nudge evaluation run (v4)...');
+    console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -2055,6 +2091,9 @@ serve(async (req) => {
         lastAppOpen,
       );
 
+      // v7 — hydrate unified pattern store (causality_findings.signal_summary)
+      ctx.pattern = await loadPatternSummary(supabase, userId);
+
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
@@ -2117,8 +2156,23 @@ serve(async (req) => {
         }
       }
 
-      // ── Select best notification (priority order) ──
-      qualified.sort((a, b) => a.priority - b.priority);
+      // ── Select best notification (v7 comparator) ──
+      // 1. Slot rank: morning > evening > afternoon
+      // 2. Anchor:   JIT > STATE
+      // 3. Signal strength (descending)
+      // 4. Priority (ascending) as final tiebreaker
+      const SLOT_RANK: Record<'morning' | 'afternoon' | 'evening', number> = {
+        morning: 0, evening: 1, afternoon: 2,
+      };
+      qualified.sort((a, b) => {
+        const sa = SLOT_RANK[a.slot] - SLOT_RANK[b.slot];
+        if (sa !== 0) return sa;
+        const aa = (a.anchorKind === 'jit' ? 0 : 1) - (b.anchorKind === 'jit' ? 0 : 1);
+        if (aa !== 0) return aa;
+        const ss = b.signalStrength - a.signalStrength;
+        if (ss !== 0) return ss;
+        return a.priority - b.priority;
+      });
 
       // Deduplicate by type (in case JIT override added a duplicate)
       const seen = new Set<string>();
@@ -2200,7 +2254,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v6-1-human',
+        architecture: 'cos-mind-v7-jit-or-state',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v1',
         decision_trace: {
@@ -2257,7 +2311,7 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'mvp-3-nudge-v4',
+      architecture: 'cos-mind-v7-jit-or-state',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
