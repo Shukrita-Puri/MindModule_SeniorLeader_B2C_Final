@@ -503,7 +503,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen || fallbackMode ? '360px' : '400px';
-  const cardMaxHeight = 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)';
+  // Cap the card to the *visible* viewport so the footer (Back/Next/Skip) is
+  // always tappable on iOS, even with the address bar showing or the keyboard
+  // open. dvh on its own is unreliable in iOS WebView.
+  const cardMaxHeight = 'min(calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px), 80vh)';
   const showTransitionCard = !ready && !fallbackMode;
   if (typeof document === 'undefined') return null;
 
