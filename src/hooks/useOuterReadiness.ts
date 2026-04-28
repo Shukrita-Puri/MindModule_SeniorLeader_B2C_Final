@@ -293,6 +293,9 @@ export function useOuterReadiness() {
   const persistentKey = effectiveUserId
     ? cacheKeys.brief(effectiveUserId, period, todayISO)
     : null;
+  const awaitingKey = effectiveUserId
+    ? cacheKeys.briefAwaiting(effectiveUserId, period, todayISO)
+    : null;
 
   // ── Period-crossover sweep ──────────────────────────────────────────────
   // The Brief is a *current-period* artifact. When the user crosses from
@@ -307,12 +310,16 @@ export function useOuterReadiness() {
         // Drop any per-period cache rows for this user that are NOT the
         // current period. We scope by user prefix so we don't disturb other
         // users on a shared device.
-        const userPrefix = `prb-cache:${effectiveUserId}:`;
+        const userPrefixes = [
+          `prb-cache:${effectiveUserId}:`,
+          `prb-awaiting:${effectiveUserId}:`,
+        ];
         for (let i = 0; i < window.localStorage.length; i++) {
           const k = window.localStorage.key(i);
-          if (!k || !k.startsWith(userPrefix)) continue;
-          // Only the current key is preserved; everything else is stale.
-          if (k !== persistentKey) {
+          if (!k) continue;
+          if (!userPrefixes.some(p => k.startsWith(p))) continue;
+          // Preserve only the current period's keys; drop every other-period entry.
+          if (k !== persistentKey && k !== awaitingKey) {
             try { window.localStorage.removeItem(k); } catch { /* ignore */ }
           }
         }
@@ -325,23 +332,38 @@ export function useOuterReadiness() {
   const cached = persistentKey
     ? readPersistent<OuterReadinessData>(persistentKey)
     : null;
-  // Defensive validation: an awaiting payload must NEVER hydrate as initial
-  // data — we don't persist it, but if a legacy entry exists, ignore it.
-  // A real brief must have phrase + bodyText to be considered renderable.
+  const cachedAwaiting = awaitingKey
+    ? readPersistent<OuterReadinessData>(awaitingKey)
+    : null;
+  // Prefer a real brief if we have one; otherwise hydrate the awaiting
+  // payload so a no-signal user doesn't trigger a fresh edge call on
+  // every mount / iOS foreground.
   const initialData =
-    cached && !cached.awaitingSignals && cached.phrase && cached.bodyText
+    (cached && !cached.awaitingSignals && cached.phrase && cached.bodyText)
       ? cached
-      : null;
+      : (cachedAwaiting && cachedAwaiting.awaitingSignals)
+        ? cachedAwaiting
+        : null;
+  if (initialData) {
+    dbg('initialData hydrated from', initialData.awaitingSignals ? 'awaiting-cache' : 'brief-cache', {
+      key: initialData.awaitingSignals ? awaitingKey : persistentKey,
+    });
+  }
 
   return useQuery({
     queryKey: ['outer-readiness', effectiveUserId, period],
     queryFn: async () => {
+      dbg('queryFn invoked → network fetch', {
+        key: ['outer-readiness', effectiveUserId, period],
+        reason: initialData ? 'manual-invalidate-or-stale' : 'no-initialData',
+      });
       const data = await fetchOuterReadiness(effectiveUserId);
       // Write-through: persist real brief payloads so the next reopen renders
-      // instantly. NEVER persist the "awaiting signals" empty state — that is
-      // a transient gating decision, not a brief. Belt-and-suspenders: also
-      // require phrase + bodyText, so a half-built payload (e.g. transient
-      // LLM failure) cannot poison the cache.
+      // instantly. Persist the awaiting-signals state separately, scoped to
+      // the current window, so a no-signal user does not re-hit the edge
+      // function on every mount / focus / iOS foreground. Belt-and-
+      // suspenders: a real brief requires phrase + bodyText so a half-built
+      // payload (e.g. transient LLM failure) cannot poison the cache.
       if (
         data &&
         persistentKey &&
@@ -350,17 +372,33 @@ export function useOuterReadiness() {
         data.bodyText
       ) {
         writePersistent(persistentKey, data, msUntilWindowEnd());
-      } else if (data?.awaitingSignals && persistentKey) {
-        // Awaiting state must never persist. Clear any leftover entry so a
-        // subsequent mount cannot replay a previously-valid brief.
+        // A real brief supersedes any awaiting marker for this window.
+        if (awaitingKey) clearPersistent(awaitingKey);
+      } else if (data?.awaitingSignals) {
+        // No-signal gating decision — persist it for this window so we
+        // don't keep recomputing it. Always wipe any prior real-brief
+        // entry so we don't accidentally replay it next mount.
         clearPersistent(persistentKey);
+        if (awaitingKey) writePersistent(awaitingKey, data, msUntilWindowEnd());
       }
       return data;
     },
     enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: snapshotCacheEnabled ? false : true,
+    gcTime: 30 * 60 * 1000,
+    // The Brief is only allowed to refresh on real data-changing events
+    // (check-in save, check-in detail save, wearable/calendar
+    // connect/disconnect/sync, time-window crossover). We MUST NOT
+    // refetch on every mount, focus, or reconnect — iOS Safari /
+    // Capacitor fires those signals on viewport resize, keyboard open,
+    // tour overlays, and app foregrounding, which made the brief feel
+    // unstable. The four legitimate triggers each call
+    // `queryClient.invalidateQueries(['outer-readiness'])` plus
+    // `clearOuterReadinessCache()`, which forces a single fresh fetch
+    // through the manual path — bypassing these flags.
+    refetchOnMount: (q) => (q.state.data ? false : 'always'),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     // IMPORTANT: do NOT use placeholderData here. Keeping the previous
     // payload alive across refetches is the root cause of the Brief
     // flickering between "live" and "awaiting" — a previous-period brief
