@@ -518,6 +518,10 @@ function getTimeOfDay(timezoneOffset: number): 'morning' | 'afternoon' | 'evenin
   return 'evening';
 }
 
+function getLocalDateISO(timezoneOffset: number): string {
+  return new Date(Date.now() - timezoneOffset * 60_000).toISOString().split('T')[0];
+}
+
 function getModulesFromTheme(themePhrase: string): ThemeModuleMapping {
   if (THEME_MODULE_MAP[themePhrase]) return THEME_MODULE_MAP[themePhrase];
   const normalizedInput = themePhrase.toLowerCase().replace(/[.!?]/g, '').trim();
@@ -1798,7 +1802,7 @@ interface SharedContext {
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateISO(req.timezoneOffset);
   const now = new Date();
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
@@ -2062,7 +2066,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // from defaults. This ensures parity with the Brief, which renders a
   // quiet "Begin with your check-in" prompt under the same condition.
   // JIT pre-event plans for known scheduled events still surface.
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateISO(req.timezoneOffset);
   const { data: todayCheckinRow } = await supabaseClient
     .from('daily_checkins')
     .select('id')
@@ -3369,7 +3373,7 @@ Deno.serve(async (req) => {
 
     let stateFingerprint = `${userId}:${currentPeriod}`;
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateISO(clientTimezoneOffset);
       const [checkinSnap, ritualSnap] = await Promise.all([
         supabaseClient.from('daily_checkins')
           .select('timestamp, outcome, energy_balance, clarity_level, confidence_level')

@@ -468,6 +468,15 @@ const TodayThreePriorities = ({
         return;
       }
 
+      if (planData?.awaitingSignals === true) {
+        setAwaitingSignals(true);
+        setPlan(null);
+        clearPersistent(loadedKey);
+        clearPersistent(dataKey);
+        setLoading(false);
+        return;
+      }
+
       const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
       setPlan(planResponse);
 
@@ -504,7 +513,7 @@ const TodayThreePriorities = ({
       console.error('Error loading plan:', error);
     }
     setLoading(false);
-  }, [user]);
+  }, [user, outerReadinessData]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without

@@ -22,6 +22,20 @@ import {
   currentPeriod as currentPeriodLocal,
 } from '@/utils/persistentBriefCache';
 
+const OUTER_READINESS_CACHE_MS = 30_000;
+const outerReadinessCache = new Map<string, { expiresAt: number; data: OuterReadinessData | null }>();
+const outerReadinessInFlight = new Map<string, Promise<OuterReadinessData | null>>();
+
+function getOuterReadinessCacheKey(userId: string | undefined): string {
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : userId || 'anon';
+  return `${effectiveUserId}:${localISODate()}:${currentPeriodLocal()}`;
+}
+
+export function clearOuterReadinessCache(): void {
+  outerReadinessCache.clear();
+  outerReadinessInFlight.clear();
+}
+
 export interface OuterReadinessData {
   phrase: string;
   context: string;
@@ -128,7 +142,7 @@ export interface OuterReadinessData {
   hasCurrentPeriodSignal?: boolean;
 }
 
-export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
+async function fetchOuterReadinessFresh(userId: string | undefined): Promise<OuterReadinessData | null> {
   if (!userId) return null;
 
   // Get energy state + today's check-in in parallel
@@ -189,6 +203,34 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
   });
 
   return data;
+}
+
+export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
+  if (!userId) return null;
+
+  const cacheKey = getOuterReadinessCacheKey(userId);
+  const cached = outerReadinessCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const inFlight = outerReadinessInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = fetchOuterReadinessFresh(userId)
+    .then((data) => {
+      outerReadinessCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + OUTER_READINESS_CACHE_MS,
+      });
+      return data;
+    })
+    .finally(() => {
+      outerReadinessInFlight.delete(cacheKey);
+    });
+
+  outerReadinessInFlight.set(cacheKey, promise);
+  return promise;
 }
 
 function getCurrentPeriod(): string {

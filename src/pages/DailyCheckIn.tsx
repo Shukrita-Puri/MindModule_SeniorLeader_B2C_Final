@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
+import { clearTodayCheckinCache, saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
 import { mapCheckInToTags } from "@/utils/checkInToTags";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
@@ -19,6 +19,8 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { EngravedFill } from "@/components/ui/engraved-fill";
 import { clear as clearPersistent, cacheKeys } from "@/utils/persistentBriefCache";
+import { clearEnergyStateCache } from "@/utils/energyStateEngine";
+import { clearOuterReadinessCache } from "@/hooks/useOuterReadiness";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
@@ -299,6 +301,9 @@ const DailyCheckIn = () => {
           clearPersistent(cacheKeys.brief(effectiveUserId, p, todayDate2));
         }
       }
+      clearTodayCheckinCache();
+      clearEnergyStateCache();
+      clearOuterReadinessCache();
 
       // Clear mastery plan session cache to force fresh plan generation
       const currentPeriod = getCurrentTimeWindow();
@@ -306,15 +311,11 @@ const DailyCheckIn = () => {
       sessionStorage.removeItem(`plan-data-${todayDate2}-${currentPeriod}`);
       sessionStorage.removeItem(`plan-energy-hash-${todayDate2}-${currentPeriod}`);
 
+      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+
       // Navigate to optional detail screen for clarity/confidence
       navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
-
-      // Refresh dashboard data after the route transition instead of blocking
-      // the Confirm tap on network work the detail page does not need.
-      void Promise.all([
-        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
-        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
-      ]);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({

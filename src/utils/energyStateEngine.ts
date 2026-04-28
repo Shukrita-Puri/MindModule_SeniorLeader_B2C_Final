@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 // NOTE: getLocalWearableData intentionally NOT imported – DB is canonical source for cross-device consistency
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
-import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
+import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
 // getLocalWearableData removed – local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
@@ -131,56 +131,48 @@ export interface CurrentEnergyState {
   layer3Statement?: string | null;
 }
 
-// Fetch today's check-in from DB to get clarity/confidence
-async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null; timeWindow: string | null } | null> {
-  // DEV_MODE: Query DB directly
-  if (DEV_MODE) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('daily_checkins')
-        .select('outcome, clarity_level, confidence_level, skipped, time_window')
-        .eq('user_id', DEV_USER.id)
-        .eq('checkin_date', today)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+const ENERGY_STATE_CACHE_MS = 30_000;
+const energyStateCache = new Map<string, { expiresAt: number; data: CurrentEnergyState }>();
+const energyStateInFlight = new Map<string, Promise<CurrentEnergyState>>();
 
-      if (error || !data) return null;
-      return {
-        outcome: data.skipped ? null : data.outcome,
-        clarity: data.clarity_level,
-        confidence: data.confidence_level,
-        timeWindow: data.time_window,
-      };
-    } catch {
-      return null;
-    }
-  }
+function getEnergyStateCacheKey(userId?: string): string {
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : userId || 'anon';
+  const today = new Date().toLocaleDateString('en-CA');
+  return `${effectiveUserId}:${today}:${getCurrentTimeWindow()}`;
+}
 
-  try {
-    const token = await getAuth0Token();
-    if (!token) return null;
-
-    const response = await supabase.functions.invoke('daily-checkins', {
-      body: { action: 'GET_TODAY_CHECKIN' },
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (response.error || !response.data?.data) return null;
-    const row = response.data.data;
-    return {
-      outcome: row.skipped ? null : row.outcome,
-      clarity: row.clarity_level,
-      confidence: row.confidence_level,
-      timeWindow: row.time_window || null,
-    };
-  } catch {
-    return null;
-  }
+export function clearEnergyStateCache(): void {
+  energyStateCache.clear();
+  energyStateInFlight.clear();
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
+  const cacheKey = getEnergyStateCacheKey(userId);
+  const cached = energyStateCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const inFlight = energyStateInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = computeEnergyStateFresh(userId)
+    .then((data) => {
+      energyStateCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + ENERGY_STATE_CACHE_MS,
+      });
+      return data;
+    })
+    .finally(() => {
+      energyStateInFlight.delete(cacheKey);
+    });
+
+  energyStateInFlight.set(cacheKey, promise);
+  return promise;
+}
+
+async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergyState> {
   // 1. Read wearable data – try DB first, fall back to local storage
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
   let wearableHRV: number | null = null;
@@ -258,13 +250,13 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   let hasCheckIn = false;
 
   if (userId) {
-    const dbCheckin = await fetchTodayCheckin(userId);
+    const dbCheckin = await getTodayCheckin();
     if (dbCheckin) {
-      clarityLevel = dbCheckin.clarity;
-      confidenceLevel = dbCheckin.confidence;
-      checkInTimeWindow = dbCheckin.timeWindow;
+      clarityLevel = dbCheckin.clarity_level ?? null;
+      confidenceLevel = dbCheckin.confidence_level ?? null;
+      checkInTimeWindow = dbCheckin.time_window ?? null;
       // DB is authoritative for outcome if available
-      if (dbCheckin.outcome) {
+      if (!dbCheckin.skipped && dbCheckin.outcome) {
         checkInOutcome = dbCheckin.outcome;
         hasCheckIn = true;
       }

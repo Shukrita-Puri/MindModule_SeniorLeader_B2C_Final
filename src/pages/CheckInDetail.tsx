@@ -16,8 +16,10 @@ import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
+import { clearTodayCheckinCache, getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { clear as clearPersistent, cacheKeys } from '@/utils/persistentBriefCache';
+import { clearEnergyStateCache } from '@/utils/energyStateEngine';
+import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
@@ -48,7 +50,6 @@ const CheckInDetail = () => {
     setSaving(true);
     try {
       if (DEV_MODE) {
-        const { getCurrentTimeWindow } = await import('@/utils/dailyCheckins');
         await supabase
           .from('daily_checkins')
           .update({
@@ -96,13 +97,9 @@ const CheckInDetail = () => {
           clearPersistent(cacheKeys.brief(effectiveUserId, p, todayDate));
         }
       }
-
-      // Force a fresh refetch (awaited) so dashboard reflects new state
-      // immediately and the next render sees the corrected, non-awaiting brief.
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
-        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
-      ]);
+      clearTodayCheckinCache();
+      clearEnergyStateCache();
+      clearOuterReadinessCache();
 
       // Clear ALL mastery plan session caches to force fresh plan generation
       // Wipe every period variant to prevent any stale cache from surviving
@@ -111,6 +108,9 @@ const CheckInDetail = () => {
         sessionStorage.removeItem(`plan-data-${todayDate}-${p}`);
         sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${p}`);
       }
+
+      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
       navigate('/executive-home');
     } catch (e) {

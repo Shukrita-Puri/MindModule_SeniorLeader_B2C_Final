@@ -17,6 +17,21 @@ export interface CheckinData {
   time_window?: string | null;
 }
 
+const TODAY_CHECKIN_CACHE_MS = 30_000;
+const todayCheckinCache = new Map<string, { expiresAt: number; data: CheckinData | null }>();
+const todayCheckinInFlight = new Map<string, Promise<CheckinData | null>>();
+
+function getTodayCheckinCacheKey(): string {
+  const userId = DEV_MODE ? DEV_USER.id : 'auth-user';
+  const today = new Date().toLocaleDateString('en-CA');
+  return `${userId}:${today}:${getCurrentTimeWindow()}`;
+}
+
+export function clearTodayCheckinCache(): void {
+  todayCheckinCache.clear();
+  todayCheckinInFlight.clear();
+}
+
 // ─── Time window detection ─────────────────────────────────────────
 
 export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
@@ -79,7 +94,7 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
 
 // ─── Get today's most recent check-in ──────────────────────────────
 
-export async function getTodayCheckin(): Promise<CheckinData | null> {
+async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
   if (DEV_MODE) {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -116,6 +131,32 @@ export async function getTodayCheckin(): Promise<CheckinData | null> {
     console.error('[dailyCheckins] Failed to fetch today checkin:', error);
     return null;
   }
+}
+
+export async function getTodayCheckin(): Promise<CheckinData | null> {
+  const cacheKey = getTodayCheckinCacheKey();
+  const cached = todayCheckinCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const inFlight = todayCheckinInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = fetchTodayCheckinFresh()
+    .then((data) => {
+      todayCheckinCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + TODAY_CHECKIN_CACHE_MS,
+      });
+      return data;
+    })
+    .finally(() => {
+      todayCheckinInFlight.delete(cacheKey);
+    });
+
+  todayCheckinInFlight.set(cacheKey, promise);
+  return promise;
 }
 
 // ─── Get check-in for specific window ──────────────────────────────
