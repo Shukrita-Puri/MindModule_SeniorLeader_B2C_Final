@@ -129,6 +129,11 @@ const DailyCheckIn = () => {
     [focusOption]
   );
 
+  useEffect(() => {
+    // Warm the next route's lazy chunk so Confirm can feel immediate.
+    void import('./CheckInDetail');
+  }, []);
+
   // Check if user has active or trialing subscription
   const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
 
@@ -315,14 +320,6 @@ const DailyCheckIn = () => {
         }
       }
 
-      // Force a fresh refetch so the next route render sees the corrected
-      // (non-awaiting) brief. Using refetchQueries (vs. invalidateQueries)
-      // guarantees the new fetch is awaited inline before navigation.
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
-        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
-      ]);
-
       // Clear mastery plan session cache to force fresh plan generation
       const currentPeriod = getCurrentTimeWindow();
       sessionStorage.removeItem(`plan-loaded-${todayDate2}-${currentPeriod}`);
@@ -330,9 +327,14 @@ const DailyCheckIn = () => {
       sessionStorage.removeItem(`plan-energy-hash-${todayDate2}-${currentPeriod}`);
 
       // Navigate to optional detail screen for clarity/confidence
-      setTimeout(() => {
-        navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
-      }, 100);
+      navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
+
+      // Refresh dashboard data after the route transition instead of blocking
+      // the Confirm tap on network work the detail page does not need.
+      void Promise.all([
+        queryClient.refetchQueries({ queryKey: ['energy-state'] }),
+        queryClient.refetchQueries({ queryKey: ['outer-readiness'] }),
+      ]);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({

@@ -33,6 +33,9 @@ const CheckInDetail = () => {
   const [saving, setSaving] = useState(false);
 
   const allThreeTouched = clarityTouched && confidenceTouched && mentalSharpnessTouched;
+  const roundedClarity = Math.round(clarity);
+  const roundedConfidence = Math.round(confidence);
+  const roundedMentalSharpness = Math.round(mentalSharpness);
 
   const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
   const timeWindow = (location.state as any)?.timeWindow;
@@ -49,9 +52,9 @@ const CheckInDetail = () => {
         await supabase
           .from('daily_checkins')
           .update({
-            clarity_level: clarity,
-            confidence_level: confidence,
-            mental_sharpness_level: mentalSharpness,
+            clarity_level: roundedClarity,
+            confidence_level: roundedConfidence,
+            mental_sharpness_level: roundedMentalSharpness,
           })
           .eq('user_id', DEV_USER.id)
           .eq('checkin_date', checkinDate)
@@ -70,9 +73,9 @@ const CheckInDetail = () => {
           body: {
             action: 'UPDATE_CLARITY_CONFIDENCE',
             checkinDate,
-            clarity,
-            confidence,
-            mentalSharpness,
+            clarity: roundedClarity,
+            confidence: roundedConfidence,
+            mentalSharpness: roundedMentalSharpness,
             timeWindow,
           },
         });
@@ -149,14 +152,14 @@ const CheckInDetail = () => {
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-foreground font-body">Sharpness</span>
-                <span className="text-[14px] font-medium text-primary font-body">{sharpnessLabels[mentalSharpness - 1]}</span>
+                <span className="text-[14px] font-medium text-primary font-body">{sharpnessLabels[roundedMentalSharpness - 1]}</span>
               </div>
               <Slider
                 value={[mentalSharpness]}
                 onValueChange={(v) => { setMentalSharpness(v[0]); setMentalSharpnessTouched(true); }}
                 min={1}
                 max={5}
-                step={1}
+                step={0.01}
                 variant="luxury"
                 className="w-full py-0.5"
               />
@@ -170,14 +173,14 @@ const CheckInDetail = () => {
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-foreground font-body">Clarity</span>
-                <span className="text-[14px] font-medium text-primary font-body">{clarityLabels[clarity - 1]}</span>
+                <span className="text-[14px] font-medium text-primary font-body">{clarityLabels[roundedClarity - 1]}</span>
               </div>
               <Slider
                 value={[clarity]}
                 onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
                 min={1}
                 max={5}
-                step={1}
+                step={0.01}
                 variant="luxury"
                 className="w-full py-0.5"
               />
@@ -191,14 +194,14 @@ const CheckInDetail = () => {
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-foreground font-body">Confidence</span>
-                <span className="text-[14px] font-medium text-primary font-body">{confidenceLabels[confidence - 1]}</span>
+                <span className="text-[14px] font-medium text-primary font-body">{confidenceLabels[roundedConfidence - 1]}</span>
               </div>
               <Slider
                 value={[confidence]}
                 onValueChange={(v) => { setConfidence(v[0]); setConfidenceTouched(true); }}
                 min={1}
                 max={5}
-                step={1}
+                step={0.01}
                 variant="luxury"
                 className="w-full py-0.5"
               />
