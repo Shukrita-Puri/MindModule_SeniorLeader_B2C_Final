@@ -197,6 +197,7 @@ const ConnectedData = () => {
       } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
@@ -271,6 +272,7 @@ const ConnectedData = () => {
       if (!res.ok) throw new Error('Disconnect failed');
       setStatus(prev => prev ? { ...prev, calendar: { connected: false, provider: null, lastSync: null } } : prev);
       invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       toast.success('Google Calendar disconnected');
     } catch {
@@ -289,6 +291,7 @@ const ConnectedData = () => {
     } else if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       await fetchStatus();
     } else {
