@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
+import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS } from "@/utils/firstSessionTour";
 import { EngravedFill } from "@/components/ui/engraved-fill";
 import { clear as clearPersistent, cacheKeys } from "@/utils/persistentBriefCache";
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
@@ -145,10 +146,24 @@ const DailyCheckIn = () => {
     const hasTourParam = params.get('tour') === '1';
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
     const activateGuide = () => {
-      sessionStorage.setItem('first_session_guide_step', '0');
-      sessionStorage.setItem('first_session_guide_active', '1');
-      if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
-      sessionStorage.removeItem('first_session_intro_seen');
+      // Bind the tour to the active user but DO NOT reset the step or the
+      // intro flag — when the user navigates Back from step 2 → step 1, the
+      // FirstSessionGuide re-mounts here and we must preserve currentStep
+      // (so we don't bounce them back to 0) and must NOT replay the intro
+      // modal (which the user reads as "the tour restarted onboarding").
+      // Step 0 + active flag are set by the shared startFirstSessionTour
+      // helper at the entry points (Stage7 / Profile / sidebar retake).
+      sessionStorage.setItem(ACTIVE_TOUR_KEY, '1');
+      if (effectiveId) ensureTourBoundToUser(effectiveId);
+      // Only initialise step if it isn't already set (fresh entry only).
+      if (sessionStorage.getItem(ACTIVE_TOUR_STEP_KEY) == null) {
+        sessionStorage.setItem(ACTIVE_TOUR_STEP_KEY, '0');
+      }
+      // Only clear introSeen on a fresh tour (no step yet). Preserves the
+      // "intro already shown" flag during Back navigation between steps.
+      if (!hasIntroBeenSeen() && sessionStorage.getItem(ACTIVE_TOUR_STEP_KEY) === '0') {
+        // leave introSeen unset so intro can show on the very first mount
+      }
       setShowGuide(true);
     };
 
