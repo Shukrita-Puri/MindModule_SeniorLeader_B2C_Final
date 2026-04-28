@@ -3724,6 +3724,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Phrase validation
             if (!phraseText) return { valid: false, reason: 'phrase_missing' };
             if (WELLNESS_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_wellness_word' };
+            if (DASH_BREAK.test(phraseText)) return { valid: false, reason: 'phrase_em_dash' };
             if (TIER_BLACKLIST.test(phraseText)) return { valid: false, reason: 'phrase_tier_word' };
             if (READINESS_WORD.test(phraseText)) return { valid: false, reason: 'phrase_readiness_word' };
             if (PHRASE_FORBIDDEN_OPENER.test(phraseText.trim())) return { valid: false, reason: 'phrase_forbidden_opener' };
@@ -3745,6 +3746,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // Body validation
             if (!bodyTextStr) return { valid: false, reason: 'body_missing' };
             if (READINESS_WORD.test(bodyTextStr)) return { valid: false, reason: 'body_readiness_word' };
+            if (WELLNESS_BLACKLIST.test(bodyTextStr)) return { valid: false, reason: 'body_wellness_or_hardware_word' };
+            if (DASH_BREAK.test(bodyTextStr)) return { valid: false, reason: 'body_em_dash' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
             if (wordCount > 50) return { valid: false, reason: `body_too_long_${wordCount}w` };
@@ -3803,6 +3806,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 if (signal.split(/\s+/).length > 10) return { valid: false, reason: `${label}_too_long_${signal.split(/\s+/).length}w` };
                 if (signal.length > 60) return { valid: false, reason: `${label}_too_wide` };
                 if (WELLNESS_BLACKLIST.test(signal)) return { valid: false, reason: `${label}_bad_vocabulary` };
+                if (DASH_BREAK.test(signal)) return { valid: false, reason: `${label}_em_dash` };
 
                 // §2.18.5 Source must be ARCHETYPE | COACH | PATTERN
                 const sourceUpper = source.toUpperCase();
