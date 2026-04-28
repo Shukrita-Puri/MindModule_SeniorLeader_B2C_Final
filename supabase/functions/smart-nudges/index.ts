@@ -412,6 +412,80 @@ interface QualifiedNudge {
   commitmentText?: string;
   meetingTitle?: string;
   priority: number;
+  // v7 — JIT-or-State anchoring + slot + signal strength for the comparator
+  anchorKind: 'jit' | 'state';
+  slot: 'morning' | 'afternoon' | 'evening';
+  signalStrength: number; // 0..3 — higher wins ties (e.g., pattern-cited JIT > plain JIT)
+}
+
+// ── v7 helpers: pattern store reader + event classifier ────────────────
+
+// Mirror of the EVENT_TYPE_KEYWORDS table in cause-effect-engine so smart-nudges
+// can look up an event's bucket against the persisted pattern store.
+const NUDGE_EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
+  { label: 'School & family',         words: ['school', 'parents evening', 'open evening', 'parents', 'governor'] },
+  { label: 'Board / governance',      words: ['board', 'governance'] },
+  { label: 'Investor calls',          words: ['investor', 'vc ', ' vc', 'fundraise', 'raise', 'pitch deck'] },
+  { label: 'Reviews',                 words: ['review', 'qbr', 'quarterly'] },
+  { label: '1:1s',                    words: ['1:1', '1-1', 'one on one', '1on1'] },
+  { label: 'All-hands',               words: ['all-hands', 'all hands', 'town hall', 'townhall'] },
+  { label: 'Client meetings',         words: ['client', 'customer', 'stakeholder'] },
+  { label: 'Interviews',              words: ['interview', 'candidate'] },
+  { label: 'Deep work blocks',        words: ['deep work', 'focus block', 'writing time'] },
+  { label: 'Exec / leadership',       words: ['exec', 'executive', 'leadership', 'ceo ', ' ceo', 'cto ', ' cto'] },
+  { label: 'Networking & community',  words: ['meetup', 'summit', 'expo', 'conference', 'info session', 'community'] },
+  { label: 'Intro / discovery calls', words: ['intro', 'discovery', 'chemistry'] },
+  { label: 'Catch-ups & syncs',       words: ['catchup', 'catch-up', 'catch up', 'sync', 'check-in', 'check in', 'weekly', 'standup', 'stand-up'] },
+  { label: 'Internal builds',         words: ['debug', 'dashboard', 'engineering', 'sprint', 'planning'] },
+];
+
+function classifyEventForPattern(title: string | null | undefined): string | null {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  for (const ec of NUDGE_EVENT_TYPE_KEYWORDS) {
+    if (ec.words.some((w) => t.includes(w))) return ec.label;
+  }
+  return null;
+}
+
+async function loadPatternSummary(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<PatternSummary | null> {
+  const { data, error } = await supabase
+    .from('causality_findings')
+    .select('signal_summary')
+    .eq('user_id', userId)
+    .eq('pattern_kind', 'cause_effect_v2')
+    .order('computed_for_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn('[smart-nudges v7] loadPatternSummary error:', error.message);
+    return null;
+  }
+  const sig = (data as any)?.signal_summary;
+  if (!sig) return null;
+  return {
+    event_to_hrv: Array.isArray(sig.event_to_hrv) ? sig.event_to_hrv : [],
+    event_to_rhr: Array.isArray(sig.event_to_rhr) ? sig.event_to_rhr : [],
+    sleep_to_prs: sig.sleep_to_prs ?? null,
+    consecutive_load: sig.consecutive_load ?? null,
+  };
+}
+
+function findEventPattern(
+  pattern: PatternSummary | null,
+  eventTitle: string | null | undefined,
+): { hrvDeltaPct: number; n: number; rhrElevated: boolean; confidence: 'strong' | 'emerging' } | null {
+  if (!pattern) return null;
+  const bucket = classifyEventForPattern(eventTitle);
+  if (!bucket) return null;
+  const hit = pattern.event_to_hrv.find((p) => p.event_type === bucket);
+  if (!hit) return null;
+  if (hit.confidence !== 'strong' && hit.confidence !== 'emerging') return null;
+  if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
+  return hit;
 }
 
 // ══════════════════════════════════════════════════════════════
