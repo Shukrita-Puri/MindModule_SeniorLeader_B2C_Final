@@ -1730,7 +1730,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       <div className="flex items-baseline gap-2 mt-3">
         {hasCheckIn && score != null ? (
           <>
-            <span className={cn("text-[40px] font-medium leading-none", getTierColor(tier))}>
+            <span className="text-[40px] font-medium leading-none text-foreground">
               {score}
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
