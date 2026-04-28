@@ -4327,11 +4327,37 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           ? 'neutral'
           : resTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
 
+        // Human-readable short label per pill+tier. Mirrors the executive
+        // vocabulary used across the dashboard (Active Calm; no wellness tropes).
+        // These are stored alongside the tier so Insights / past-brief panels
+        // can render a single canonical phrase without re-deriving copy.
+        const PILL_TIER_LABELS: Record<'decision_readiness' | 'physical_reserves' | 'resilience_capacity', Record<PillTier, string>> = {
+          decision_readiness: {
+            green: 'Mind Sharp',
+            amber: 'Mind Mixed',
+            red: 'Mind Foggy',
+            neutral: 'Mind Unread',
+          },
+          physical_reserves: {
+            green: 'Body Steady',
+            amber: 'Body Strained',
+            red: 'Body Depleted',
+            neutral: 'Body Unread',
+          },
+          resilience_capacity: {
+            green: 'Reserve Strong',
+            amber: 'Reserve Thin',
+            red: 'Reserve Spent',
+            neutral: 'Reserve Unread',
+          },
+        };
+
         const signalPillsPayload = [
           {
             key: 'decision_readiness',
             label: 'Decision Readiness',
             tier: cognitiveTier,
+            tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
             contributors: {
               hrvValue, hrvDeviation,
               clarityLevel, mentalSharpnessLevel,
@@ -4343,6 +4369,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             key: 'physical_reserves',
             label: 'Physical Reserves',
             tier: physicalTier,
+            tierLabel: PILL_TIER_LABELS.physical_reserves[physicalTier],
             contributors: {
               sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
               rhrValue, rhrDeviation,
@@ -4353,6 +4380,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             key: 'resilience_capacity',
             label: 'Resilience Capacity',
             tier: resilienceTier,
+            tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             contributors: {
               checkInOutcome: checkInOutcome || null,
               hrvValue, hrvDeviation,
