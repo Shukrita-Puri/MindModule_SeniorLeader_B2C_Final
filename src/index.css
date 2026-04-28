@@ -83,6 +83,15 @@
     --state-scattered: 35 75% 55%;   /* Orange-gold for scattered */
     --state-steady: 25 15% 55%;      /* Warm taupe for steady */
     --state-focused: 180 35% 45%;    /* Teal for focused/strong */
+
+    /* ─── Readiness Tier (Traffic-Light) Palette ───
+       Distinct from Mind Module Saffron CTA. Inspired by the daily
+       check-in palette (sage / muted amber / coral-red). Use ONLY for
+       score-tier labels and pill states — never for buttons. */
+    --tier-strong: 122 22% 41%;      /* #5a8159 — sage green */
+    --tier-moderate: 32 55% 48%;     /* #b8843d — muted amber (non-saffron) */
+    --tier-low: 9 60% 54%;           /* #d8553f — coral-red */
+    --tier-neutral: 25 8% 50%;       /* warm graphite */
     
     /* Subtle Gradients */
     --gradient-subtle: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.03) 100%);
