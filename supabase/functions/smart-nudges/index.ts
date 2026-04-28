@@ -1097,65 +1097,67 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v6 — [USER CONTEXT] + [SPECIFIC APP CTA]. Each branch cites a real signal.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Sleep ran short last night', body: `Sleep ${ctx.wearable.sleepScore}/100 last night, open your brief to set today's posture`, variantId: 'FB-N1-recovery' };
+    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100. Open your brief.`, variantId: 'FB-N1-recovery' };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV down vs your baseline', body: `HRV ${ctx.wearable.hrvDeltaPct}% below baseline, build your prep plan before today starts`, variantId: 'FB-N1-hrv' };
+    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today. Build your prep plan.`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today, open your prep plan to lock in decision readiness`, variantId: 'FB-N1-stakes' };
+    return { title: `${ev} today`, body: `${ev} today. Open your prep plan.`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today, open your plan to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
+    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today. Open your plan.`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
     // Saturday with a meeting (we only fire when one exists)
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Body slower today', body: `Body slower today, open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
+    return { title: 'Slower start today', body: `Open your brief before ${ev}.`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today, open your brief to set decision posture`, variantId: 'FB-N1-calendar' };
+    const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
+    return { title: `${m} today`, body: `${m} today. Open your brief.`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Light calendar today', body: 'Light calendar today, open your brief to decide where to spend capacity', variantId: 'FB-N1-light' };
+  return { title: 'Light calendar today', body: 'Light day ahead. Open your brief.', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan, it's queued`, variantId: 'FB-N1-JIT' };
+  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Prep plan is queued — open your prep plan.`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan to anchor sharpness`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Open your prep plan.`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}, open your prep plan to lock in your prep`, variantId: 'FB-N2-JIT-later' };
+  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}. Lock in your prep.`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
-  return { title: `${remaining} practice${remaining > 1 ? 's' : ''} left today`, body: `${remaining} practice${remaining > 1 ? 's' : ''} left on today's plan, open your plan to stay on track`, variantId: 'FB-N2-priorities' };
+  const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
+  return { title: `${p} left today`, body: `${p} left on today's plan. Open your plan.`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low, ${ev} ahead, recalibrate now in your brief`, variantId: 'FB-N2-recal' };
+  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead. Recalibrate now.`, variantId: 'FB-N2-recal' };
 }
 
 // v6 — wearable-state lure: reserves down + high-stakes ahead
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR elevated, ${ev} ahead`, body: `RHR elevated, ${ev} ahead, recalibrate now before it starts`, variantId: 'FB-N2-reserves-rhr' };
+    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev}. Recalibrate now.`, variantId: 'FB-N2-reserves-rhr' };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV below baseline, ${ev} ahead, open your brief to recalibrate`, variantId: 'FB-N2-reserves-hrv' };
+  return { title: `HRV down, ${ev} ahead`, body: `HRV is down and ${ev} is ahead. Open your brief.`, variantId: 'FB-N2-reserves-hrv' };
 }
 
 // v6 — consecutive-low pattern lure
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days running`, body: `HRV down ${daysLow} days running, open your brief to reset trajectory`, variantId: 'FB-N2-consec-low' };
+  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running. Open your brief.`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
