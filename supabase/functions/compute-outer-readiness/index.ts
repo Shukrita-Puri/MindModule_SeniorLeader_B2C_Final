@@ -2878,6 +2878,59 @@ serve(async (req) => {
           mostEffectivePractice = (effectivePracticeRes.data as any[])[0].content_id ?? null;
         }
 
+        // 8b. Today high-stakes per-title local times. Mirrors the tomorrow
+        // pairing below so the LLM gets paired (title, HH:mm) tuples for
+        // TODAY's events instead of relative "in N mins" — which had no clock
+        // and forced the model to invent or echo a literal time from the
+        // example in the system prompt. Always uses the user's CURRENT IANA
+        // timezone (handles travelers automatically because the client sends
+        // the live Intl.DateTimeFormat().resolvedOptions().timeZone on every
+        // request).
+        try {
+          if (calendarResult.state === 'active' && todayHighStakes.length > 0) {
+            const todayDayStart = new Date(Date.UTC(userTime.getUTCFullYear(), userTime.getUTCMonth(), userTime.getUTCDate(), 0, 0, 0));
+            const todayDayEnd = new Date(Date.UTC(userTime.getUTCFullYear(), userTime.getUTCMonth(), userTime.getUTCDate(), 23, 59, 59));
+            const tStartUTCToday = new Date(todayDayStart.getTime() + timezoneOffset * 60000);
+            const tEndUTCToday = new Date(todayDayEnd.getTime() + timezoneOffset * 60000);
+            const { data: todayEvts } = await db.from('calendar_events')
+              .select('title, start_time, end_time')
+              .eq('user_id', userId)
+              .gte('start_time', tStartUTCToday.toISOString())
+              .lte('start_time', tEndUTCToday.toISOString())
+              .order('start_time', { ascending: true });
+            const fmtLocalHHmmToday = (utcDate: Date): string => {
+              if (effectiveCurrentTz) {
+                try {
+                  return new Intl.DateTimeFormat('en-GB', {
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                    timeZone: effectiveCurrentTz,
+                  }).format(utcDate);
+                } catch { /* fall through */ }
+              }
+              const evTime = new Date(utcDate.getTime() - timezoneOffset * 60000);
+              return `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            };
+            const meetingEventsToday = (todayEvts || []).filter((e: any) => {
+              const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000;
+              return dur < 8;
+            });
+            todayHighStakesEventTimes = todayHighStakes.map(title => {
+              const match = meetingEventsToday.find((e: any) => (e.title || '').trim() === title.trim());
+              if (!match) return '';
+              return fmtLocalHHmmToday(new Date(match.start_time));
+            });
+            // Also re-format nextHighStakesEvent / nextEventAny clock time using
+            // the same IANA-aware formatter so downstream consumers (UI + prompt)
+            // share one source of truth.
+            if (nextHighStakesEvent?.startTimeUTC) {
+              (nextHighStakesEvent as any).localHHmm = fmtLocalHHmmToday(new Date(nextHighStakesEvent.startTimeUTC));
+            }
+            if (nextEventAny?.startTimeUTC) {
+              (nextEventAny as any).localHHmm = fmtLocalHHmmToday(new Date(nextEventAny.startTimeUTC));
+            }
+          }
+        } catch (e) { /* ignore today-pairing failure */ }
+
         // 9. Tomorrow enhanced
         if (tomorrowResult && tomorrowResult.state === 'active') {
           tomorrowHighStakesTitles = tomorrowHighStakes;
