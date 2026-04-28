@@ -3442,7 +3442,7 @@ TONE & LANGUAGE (mandatory, human voice):
   • Write like a trusted Chief of Staff speaking to a CEO, not like a wearables app.
   • Forbidden words anywhere in phrase or body: "hardware", "device", "metrics", "data points", "system output" (as standalone), "machine", "biometric".
   • Forbidden punctuation: the em dash (—) and the en dash (–) used as a sentence break. Use a comma, a period, a colon, or a semicolon instead. Short sentences are preferred over dashed clauses.
-  • Use natural executive language: "the body is recovered, the mind is carrying the strain. Your edge is using physical readiness to protect cognitive load before the 15:14 with Shukrita Puri."
+  • Use natural executive language: "the body is recovered, the mind is carrying the strain. Your edge is using physical readiness to protect cognitive load before your next high-stakes meeting." (Do NOT copy the example clock time or names — use ONLY the HH:mm and titles supplied in the CALENDAR TODAY / TOMORROW sections.)
 
 PHRASE OPACITY RULE: The phrase + the first sentence of the body, read together, MUST contain at least one explicit pillar word from {Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Resilience, Composure, Buffer, Mental Energy}. Standalone metaphors like "Body is loaded.", "Body ahead.", "Body louder." are forbidden as phrases unless the body's first sentence anchors them to a named pillar.
 
