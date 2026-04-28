@@ -2437,7 +2437,7 @@ serve(async (req) => {
     } catch (e) { console.error('[compute-outer-readiness] consec clarity error:', e); }
 
     // Next high-stakes event within 90 mins
-    let nextHighStakesEvent: { title: string; minutesUntil: number; startTimeUTC: string } | null = null;
+    let nextHighStakesEvent: { title: string; minutesUntil: number; startTimeUTC: string; localHHmm?: string } | null = null;
     try {
       const now = new Date();
       const ninetyMinsLater = new Date(now.getTime() + 90 * 60000);
@@ -2473,7 +2473,7 @@ serve(async (req) => {
     let scoreTrend: string | null = null;
     let hasBackToBack = false;
     let longestBackToBackHrs: number | null = null;
-    let nextEventAny: { title: string; minutesUntil: number; startTimeUTC: string } | null = null;
+    let nextEventAny: { title: string; minutesUntil: number; startTimeUTC: string; localHHmm?: string } | null = null;
     // Per-event local HH:mm strings paired with each TODAY high-stakes title
     // (same indexes as todayHighStakes). Lets the prompt emit a paired clock
     // time so the LLM never invents or rounds it.
