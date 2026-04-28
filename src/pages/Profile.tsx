@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStore';
 import { isValidBeta } from '@/utils/subscriptionHelpers';
+import { startFirstSessionTour } from '@/utils/firstSessionTour';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
