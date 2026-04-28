@@ -19,7 +19,53 @@ export interface BriefSnapshotRecord {
   tier: string | null;
   brief_source: string | null;
   driver: string | null;
+  /**
+   * Structured wearable readings captured at brief generation time.
+   * Used to re-render Signal Pills (Decision Readiness, Physical Reserves,
+   * Resilience Capacity) for historical briefs and trend analysis on Insights.
+   */
+  wearable_snapshot: WearableSnapshot | null;
+  /**
+   * Check-in inputs (sliders + outcome) that drove the brief, frozen in time.
+   */
+  checkin_snapshot: CheckinSnapshot | null;
+  /**
+   * Reserved: server-computed Signal Pills payload (currently null;
+   * client derives pills from `wearable_snapshot` + `checkin_snapshot`).
+   */
+  signal_pills: unknown | null;
   created_at: string;
+}
+
+export interface WearableSnapshot {
+  hrv: number | null;
+  hrvDeviation: number | null;
+  hrvBaseline: number | null;
+  rhr: number | null;
+  rhrDeviation: number | null;
+  rhrBaseline: number | null;
+  hr: number | null;
+  hrDeviation: number | null;
+  hrBaseline: number | null;
+  sleepDuration: number | null;
+  sleepScore: number | null;
+  sleepDeviation: number | null;
+  sleepBaseline: number | null;
+  wearableConnected: boolean;
+  wearableTrend7d: string | null;
+  scoreTrajectory7d: string | null;
+  dataSource: string | null;
+  sourceRowDate: string | null;
+  capturedAt: string;
+}
+
+export interface CheckinSnapshot {
+  checkInOutcome: string | null;
+  clarityLevel: number | null;
+  confidenceLevel: number | null;
+  mentalSharpnessLevel: number | null;
+  consecutiveLowConfidence: number | null;
+  consecutiveLowClarity: number | null;
 }
 
 const getAccessTokenOrAnon = async (): Promise<string | null> => {

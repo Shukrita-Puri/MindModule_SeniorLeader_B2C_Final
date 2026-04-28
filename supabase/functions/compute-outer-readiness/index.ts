@@ -4286,6 +4286,41 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 tomorrowLoad, isPublicHoliday,
               },
             },
+            // Structured wearable snapshot — full set of readings + baselines + deviations
+            // captured at brief generation time. Past briefs and Insights read this directly
+            // so the same pills (Decision Readiness / Physical Reserves / Resilience Capacity)
+            // and the same evidence rows (HRV 18.1ms, RHR 64bpm, etc.) can be reproduced
+            // without re-querying wearable_data.
+            wearable_snapshot: {
+              hrv: hrvValue,
+              hrvDeviation,
+              hrvBaseline,
+              rhr: rhrValue,
+              rhrDeviation,
+              rhrBaseline,
+              hr: hrValue,
+              hrDeviation,
+              hrBaseline,
+              sleepDuration,
+              sleepScore: sleepScoreVal,
+              sleepDeviation,
+              sleepBaseline,
+              wearableConnected: hasWearableConnection,
+              wearableTrend7d,
+              scoreTrajectory7d,
+              dataSource: wearableDataSource,
+              sourceRowDate,
+              capturedAt: new Date().toISOString(),
+            },
+            // Check-in snapshot — sliders + outcome that drove the brief, frozen in time.
+            checkin_snapshot: {
+              checkInOutcome: checkInOutcome || null,
+              clarityLevel,
+              confidenceLevel,
+              mentalSharpnessLevel,
+              consecutiveLowConfidence,
+              consecutiveLowClarity,
+            },
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,local_date,time_window,input_signature,prompt_version' })
           .select('id')

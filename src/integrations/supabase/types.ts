@@ -156,6 +156,7 @@ export type Database = {
         Row: {
           body_text: string | null
           brief_source: string
+          checkin_snapshot: Json | null
           created_at: string
           daily_checkin_id: string | null
           driver: string | null
@@ -172,6 +173,7 @@ export type Database = {
           pillar_mode: string | null
           prompt_version: string
           score: number | null
+          signal_pills: Json | null
           tier: string | null
           time_window: string
           updated_at: string
@@ -180,10 +182,12 @@ export type Database = {
           validator_rejections: Json | null
           watch_for: string | null
           watch_for_source: string | null
+          wearable_snapshot: Json | null
         }
         Insert: {
           body_text?: string | null
           brief_source: string
+          checkin_snapshot?: Json | null
           created_at?: string
           daily_checkin_id?: string | null
           driver?: string | null
@@ -200,6 +204,7 @@ export type Database = {
           pillar_mode?: string | null
           prompt_version: string
           score?: number | null
+          signal_pills?: Json | null
           tier?: string | null
           time_window: string
           updated_at?: string
@@ -208,10 +213,12 @@ export type Database = {
           validator_rejections?: Json | null
           watch_for?: string | null
           watch_for_source?: string | null
+          wearable_snapshot?: Json | null
         }
         Update: {
           body_text?: string | null
           brief_source?: string
+          checkin_snapshot?: Json | null
           created_at?: string
           daily_checkin_id?: string | null
           driver?: string | null
@@ -228,6 +235,7 @@ export type Database = {
           pillar_mode?: string | null
           prompt_version?: string
           score?: number | null
+          signal_pills?: Json | null
           tier?: string | null
           time_window?: string
           updated_at?: string
@@ -236,6 +244,7 @@ export type Database = {
           validator_rejections?: Json | null
           watch_for?: string | null
           watch_for_source?: string | null
+          wearable_snapshot?: Json | null
         }
         Relationships: [
           {
