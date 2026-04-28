@@ -350,6 +350,10 @@ const ConnectedData = () => {
 
       // Refresh status from backend
       await fetchStatus();
+      // Wearable connection just changed — wipe brief caches so the next
+      // mount can promote an awaiting state to a real brief.
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
     } catch (err) {
       console.error('[ConnectedData] Apple Health connect error:', err);
       toast.error('Failed to connect Apple Health');
@@ -369,6 +373,8 @@ const ConnectedData = () => {
       if (result.connectionState === 'connected' && result.dbPersisted) {
         toast.success('Apple Health data synced');
         await fetchStatus();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       } else if (result.connectionState === 'connected' && !result.dbPersisted) {
         toast.warning('Data read from Apple Health but could not be saved. Will retry on next sync.');
         await fetchStatus();
@@ -430,6 +436,8 @@ const ConnectedData = () => {
         }
       } : prev);
       toast.success('Apple Health disconnected');
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
     } catch {
       toast.error('Failed to disconnect Apple Health');
     }
