@@ -482,6 +482,26 @@ serve(async (req) => {
     // Score each event through the six-stage pipeline
     const scoredEvents: any[] = [];
 
+    // ─── Promotion #2: First meeting of next local day ───
+    // Identify the user's earliest event on the next local calendar day so we
+    // can rescue it from the 6-24h silent gap. Without this, an 8am-tomorrow
+    // meeting stays invisible while a 24-48h Thursday event surfaces first.
+    const todayLocalKey = localDayKey(now, timezoneOffset);
+    let nextDayFirstEventId: string | null = null;
+    let nextDayKey: string | null = null;
+    for (const ev of events) {
+      const evKey = localDayKey(new Date(ev.start_time), timezoneOffset);
+      if (evKey === todayLocalKey) continue;
+      if (nextDayKey === null) {
+        nextDayKey = evKey;
+        nextDayFirstEventId = ev.id;
+        break; // events are pre-sorted ascending by start_time
+      }
+    }
+    if (IS_DEV && nextDayFirstEventId) {
+      console.log(`[JIT:Stage5] Next-day morning promotion candidate: eventId=${nextDayFirstEventId} day=${nextDayKey}`);
+    }
+
     for (const event of events) {
       const title = event.title || 'Untitled Event';
       const minutesUntil = Math.max(0, (new Date(event.start_time).getTime() - now.getTime()) / 60000);
