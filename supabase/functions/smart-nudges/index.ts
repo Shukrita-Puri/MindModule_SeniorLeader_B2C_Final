@@ -850,22 +850,32 @@ EVERY notification follows ONE formula:
 The user context names what you observed. The CTA tells them the exact in-app action and why it addresses the context.
 Generic openings ("Your plan is ready") and data-only reports ("HRV is 40% below baseline") are both failures.
 
-Gold-standard examples (match this tone exactly):
-- "HRV down 18% three days running, open your brief to reset trajectory."
-- "Board Review today, open your prep plan, it's queued."
-- "4 meetings Monday, open your brief tonight to set the week."
-- "RHR elevated, Investor Update at 2pm, recalibrate now before it starts."
+VOICE: speak like a trusted human chief of staff, not a wellness app or a dashboard.
+- Use plain English a CEO would say to a peer.
+- Never use mechanical phrases: "decision posture", "decision readiness", "mental sharpness",
+  "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline".
+- Short. Crisp. No filler. No "to anchor / to lock in / to set" padding.
+
+Gold-standard examples (match this tone and length exactly):
+- "HRV down 3 days. Open your brief."
+- "Board Review at 10. Prep plan is queued — open your prep plan."
+- "4 meetings Monday. Open your brief tonight."
+- "RHR up before Investor Update. Recalibrate now."
+- "Last Board Meeting your HR ran high. Open your prep plan."
 
 Hard rules:
-- Title: max 6 words, no emoji, names the situation.
-- Body: max 18 words, ends with an allowed CTA verb.
+- Title: max 6 words, no emoji, names the situation in human language.
+- Body: HARD MAX 14 words AND 95 characters. Aim for 8–12 words. Two short sentences allowed.
+- Body ends with an allowed CTA verb.
 - Allowed CTA verbs (use one verbatim at the END of the body):
   "open your brief", "open your plan", "open your prep plan", "build your prep plan",
-  "recalibrate now", "close the day", "close the week", "lock in your prep".
+  "recalibrate now", "close the day", "close the week", "lock in your prep",
+  "check in now", "open the app", "prep now", "take 2 minutes".
 - Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block, never invent a number, a meeting name, or a baseline.
 - If a signal is missing, do not mention it. Pick a different real signal.
-- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "set the tone", "your day your terms", "loaded day", "5 days behind you", "plan the week", "come back to", "check in when ready".
+- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back".
 - Truncate any event title longer than 20 characters to its first 3 words.
+- When the body references an event already in the user's morning plan or brief, that IS the proactive anchor — that event title alone is enough context, you don't need to also cite HRV.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
   let userPrompt = '';
