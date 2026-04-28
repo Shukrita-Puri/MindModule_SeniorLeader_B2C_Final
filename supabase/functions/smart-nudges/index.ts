@@ -1263,118 +1263,111 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v6 — [USER CONTEXT] + [SPECIFIC APP CTA]. Each branch cites a real signal.
+  // v7 — [USER CONTEXT] + [PREP CTA]. Each branch cites a real signal.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100. Open your brief.`, variantId: 'FB-N1-recovery' };
+    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100 — open the app to prep.`, variantId: 'FB-N1-recovery' };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today. Build your prep plan.`, variantId: 'FB-N1-hrv' };
+    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today — check into the app to prep.`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today. Open your prep plan.`, variantId: 'FB-N1-stakes' };
+    return { title: `${ev} today`, body: `${ev} today — open the app to prep.`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today. Open your plan.`, variantId: 'FB-N1-heavy' };
+    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today — open the app to prep.`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
-    // Saturday with a meeting (we only fire when one exists)
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Slower start today', body: `Open your brief before ${ev}.`, variantId: 'FB-N1-sat-anchored' };
+    return { title: 'Slower start today', body: `${ev} ahead — open the app to prep.`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} today`, body: `${m} today. Open your brief.`, variantId: 'FB-N1-calendar' };
+    return { title: `${m} today`, body: `${m} today — open the app to prep.`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Light calendar today', body: 'Light day ahead. Open your brief.', variantId: 'FB-N1-light' };
+  return { title: 'Light calendar today', body: 'Light day ahead — open the app to prep.', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Prep plan is queued — open your prep plan.`, variantId: 'FB-N1-JIT' };
+  return { title: `${ev} in ${minutesUntil} min`, body: `From your morning Plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min. Open your prep plan.`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${ev} in ${minutesUntil} min`, body: `From your plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}. Lock in your prep.`, variantId: 'FB-N2-JIT-later' };
+  return { title: `${ev} at ${timeStr}`, body: `From your plan: ${ev} at ${timeStr} — open the app to prep.`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
   const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
-  return { title: `${p} left today`, body: `${p} left on today's plan. Open your plan.`, variantId: 'FB-N2-priorities' };
+  return { title: `${p} left today`, body: `${p} left on today's plan — open the app to prep.`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead. Recalibrate now.`, variantId: 'FB-N2-recal' };
+  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead — check into the app to prep.`, variantId: 'FB-N2-recal' };
 }
 
-// v6 — wearable-state lure: reserves down + high-stakes ahead
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev}. Recalibrate now.`, variantId: 'FB-N2-reserves-rhr' };
+    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev} — open the app to prep.`, variantId: 'FB-N2-reserves-rhr' };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV is down and ${ev} is ahead. Open your brief.`, variantId: 'FB-N2-reserves-hrv' };
+  return { title: `HRV down, ${ev} ahead`, body: `HRV down and ${ev} ahead — open the app to prep.`, variantId: 'FB-N2-reserves-hrv' };
 }
 
-// v6 — consecutive-low pattern lure
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running. Open your brief.`, variantId: 'FB-N2-consec-low' };
+  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running — open the app to prep.`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesRemaining = ctx.pendingPracticeIds.length;
   const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
 
-  // v6 — Sunday evening: cite a Monday signal, route to brief/prep plan
   if (ctx.dayOfWeek === 0) {
     const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `${ev} tomorrow. Build your prep plan tonight.`, variantId: 'FB-N3-sun-stakes' };
+      return { title: `${ev} tomorrow`, body: `Tomorrow opens with ${ev} — open the app to prep tonight.`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday. Open your brief tonight.`, variantId: 'FB-N3-sun-heavy' };
+      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday — open the app to prep tonight.`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead. Open your brief tonight.', variantId: 'FB-N3-sun-default' };
+    return { title: 'Light Monday ahead', body: 'Light Monday ahead — open the app to prep tonight.', variantId: 'FB-N3-sun-default' };
   }
 
-  // Friday — cite today's load, close the week
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today. Close the week.`, variantId: 'FB-N3-fri' };
+      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today — open the app to prep with a cool-down.`, variantId: 'FB-N3-fri' };
     }
-    return { title: 'Week behind you', body: 'Week behind you. Close the week.', variantId: 'FB-N3-fri-light' };
+    return { title: 'Week behind you', body: 'Week behind you — open the app to prep with a cool-down.', variantId: 'FB-N3-fri-light' };
   }
 
-  // Weekday with practices remaining
   if (prioritiesRemaining > 0) {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
-    return { title: `${p} still open`, body: `${p} still open. Open your plan to close the day.`, variantId: 'FB-N3-priorities' };
+    return { title: `${p} still open`, body: `${p} still open — open the app to prep.`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal}/${prioritiesTotal} practices done. Close the day.`, variantId: 'FB-N3-done' };
+    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal} done — open the app to prep with a cool-down.`, variantId: 'FB-N3-done' };
   }
 
-  // Wearable signal
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today. Close the day.', variantId: 'FB-N3-rhr' };
+    return { title: 'RHR ran high today', body: 'RHR ran high today — open the app to prep with a cool-down.', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done. Close the day in 90 seconds.`, variantId: 'FB-N3-heavy' };
+    return { title: `${ctx.eventCount} meetings done`, body: `Heavy day, tomorrow needs you sharp — open the app to prep with a cool-down.`, variantId: 'FB-N3-heavy' };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} done`, body: `${m} done today. Close the day.`, variantId: 'FB-N3-default' };
+    return { title: `${m} done`, body: `${m} done today — open the app to prep with a cool-down.`, variantId: 'FB-N3-default' };
   }
-  return { title: 'Day landed', body: 'Day landed. Close the day to protect tomorrow.', variantId: 'FB-N3-light' };
+  return { title: 'Day landed', body: 'Tomorrow needs you sharp — open the app to prep with a cool-down.', variantId: 'FB-N3-light' };
 }
 
 // ══════════════════════════════════════════════════════════════
