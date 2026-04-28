@@ -294,6 +294,30 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
                   </p>
                 )}
 
+                {/* 4b. SIGNAL PILLS — recomputed from the stored wearable + check-in
+                    snapshots so historical briefs show the same Decision
+                    Readiness / Physical Reserves / Resilience Capacity
+                    capsules as the live brief. */}
+                {(() => {
+                  if (!brief.wearable_snapshot && !brief.checkin_snapshot) return null;
+                  const adapted = snapshotToOuterBriefShape(
+                    brief.wearable_snapshot,
+                    brief.checkin_snapshot,
+                  );
+                  const pills = buildExecutivePills(adapted);
+                  if (!pills) return null;
+                  return (
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {pills.map((pill) => (
+                        <ReadOnlyPillCapsule key={pill.id} pill={pill} />
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* 4c. WEARABLE EVIDENCE — compact reference line */}
+                <WearableEvidenceLine wearable={brief.wearable_snapshot} />
+
                 {/* 5. LEAN ON */}
                 {brief.lean_on && (
                   <div className="flex items-baseline gap-2 mt-5">
