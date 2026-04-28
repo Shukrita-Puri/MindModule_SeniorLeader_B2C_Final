@@ -48,7 +48,7 @@ const GenerateTodaysPlanLink = ({ onClick }: GenerateTodaysPlanLinkProps) => {
       onPointerCancel={() => setIsPressed(false)}
       aria-label="Generate today's plan"
       className={cn(
-        'group inline-flex flex-col items-end gap-0.5',
+        'group inline-flex items-center gap-2',
         'bg-transparent border-0 p-0 m-0 shadow-none appearance-none cursor-pointer',
         'transition-all duration-200 ease-out',
         'hover:-translate-y-0.5 active:scale-[0.99]',
@@ -58,14 +58,9 @@ const GenerateTodaysPlanLink = ({ onClick }: GenerateTodaysPlanLinkProps) => {
       )}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      {/* Quiet microcopy hint — small caps, muted */}
-      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-body">
-        Tap to open
-      </span>
-
-      {/* Primary saffron link row */}
+      {/* Primary saffron link row — single line */}
       <span className="inline-flex items-center gap-1.5 text-sm uppercase tracking-[0.1em] font-body font-semibold text-[hsl(var(--saffron))]">
-        GENERATE TODAY'S PLAN
+        TAP TO GENERATE TODAY'S PLAN
         <ArrowRight
           className={cn(
             'w-4 h-4 text-[hsl(var(--saffron))] transition-transform duration-200 ease-out',
