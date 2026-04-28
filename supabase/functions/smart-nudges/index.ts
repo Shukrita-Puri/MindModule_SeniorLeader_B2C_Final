@@ -236,6 +236,27 @@ interface CoachSignals {
   sessionsIn7d: number;
 }
 
+// v7 — Unified pattern store projection (read from causality_findings.signal_summary)
+interface PatternSummary {
+  event_to_hrv: Array<{
+    event_type: string;
+    n: number;
+    hrvDeltaPct: number;
+    rhrElevated: boolean;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  }>;
+  event_to_rhr: Array<{
+    event_type: string;
+    n: number;
+    rhrDeltaPct: number;
+    confidence: 'strong' | 'emerging';
+    lastSeen: string;
+  }>;
+  sleep_to_prs: { lowSleepPrsDeltaPct: number; n: number; confidence: 'strong' | 'emerging' } | null;
+  consecutive_load: { tailDeltaPct: number; n: number; confidence: 'strong' | 'emerging' } | null;
+}
+
 interface NudgeContext {
   userId: string;
   todayStr: string;
