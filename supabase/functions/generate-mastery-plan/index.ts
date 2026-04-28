@@ -2580,6 +2580,93 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  // STATEFUL PLAN EVOLUTION — merge with today's persisted ledger
+  // (Refs: refinement memo "Lifecycle of a Daily Plan")
+  //
+  // Rules:
+  //  1. Sticky completion: a slot whose primary practice is in
+  //     completedToday stays VERBATIM in its slotIndex with ✓.
+  //  2. JIT anchor: a slot bound to a calendar event whose event still
+  //     exists today keeps slotIndex/jitEventTitle/horizon/timeLabel —
+  //     practices + whyLine may refresh when context materially changed.
+  //  3. Otherwise the fresh slot wins.
+  //  4. "Unfinished business": as long as ANY slot from the ledger is
+  //     incomplete, the new plan is an evolution of the ledger. Only when
+  //     all 3 ledger slots are completed do we hand off to a fresh
+  //     "Bonus Round" plan with a victoryLine.
+  // ═══════════════════════════════════════════════════════════════
+  let finalHorizonModules = horizonModules;
+  let ledgerMeta: {
+    source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+    carriedSlots: number;
+    anchoredSlots: number;
+    completedSlots: number;
+    victoryLine?: string;
+  } = { source: 'fresh', carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
+
+  try {
+    const ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
+    const calendarEventIds = new Set<string>(
+      (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean)
+    );
+    const calendarEventTitles = new Set<string>(
+      (req.calendarEvents || []).map((e: any) => String(e.title || '').trim()).filter(Boolean)
+    );
+
+    const merged = mergeWithLedger(
+      horizonModules,
+      ledger?.modules || [],
+      new Set<string>(req.completedToday || []),
+      calendarEventIds,
+      calendarEventTitles,
+    );
+    finalHorizonModules = merged.modules;
+    ledgerMeta = {
+      source: merged.source,
+      carriedSlots: merged.carriedSlots,
+      anchoredSlots: merged.anchoredSlots,
+      completedSlots: merged.completedSlots,
+      victoryLine: merged.victoryLine,
+    };
+    console.log('[generate-mastery-plan] ledger', {
+      userId: req.userId,
+      today,
+      currentPeriod: timeOfDay,
+      hasLedger: !!ledger,
+      ledgerGeneratedAt: ledger?.generatedAt || null,
+      ...ledgerMeta,
+    });
+  } catch (ledgerErr) {
+    console.warn('[generate-mastery-plan] ledger merge failed, falling back to fresh modules:',
+      ledgerErr instanceof Error ? ledgerErr.message : ledgerErr);
+  }
+
+  // Persist the (possibly evolved) ledger onto the current period row so the
+  // very next regeneration sees it. Service role bypasses the ledger guard.
+  try {
+    const planLedger = {
+      modules: finalHorizonModules,
+      generatedAt: new Date().toISOString(),
+      generatedPeriod: timeOfDay,
+      source: ledgerMeta.source,
+    };
+    await supabaseClient
+      .from('daily_ritual_completions')
+      .upsert(
+        {
+          user_id: req.userId,
+          ritual_date: today,
+          session_period: timeOfDay,
+          plan_ledger: planLedger,
+        },
+        { onConflict: 'user_id,ritual_date,session_period' }
+      );
+  } catch (persistErr) {
+    console.warn('[generate-mastery-plan] ledger persist failed:',
+      persistErr instanceof Error ? persistErr.message : persistErr);
+  }
+
   return {
     timeOfDayPlan: {
       label: periodLabels[timeOfDay],
@@ -2593,7 +2680,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     calendarPills,
     preEventPlan,
     jitPriority,
-    horizonModules,
+    horizonModules: finalHorizonModules,
+    ledger: ledgerMeta,
     meta: {
       generatedAt: new Date().toISOString(),
       scenarioId: filteredEvents[0]?.scenario?.id || null,
