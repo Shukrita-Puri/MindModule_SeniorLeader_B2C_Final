@@ -15,7 +15,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
-import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
+import { getTodayRitual, upsertRitual, getTodayCompletedUnion } from '@/utils/dailyRituals';
 import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
