@@ -9,7 +9,6 @@ import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
 import { getAuthToken, getEdgeFunctionHeaders } from "@/services/authTokenService";
 
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
@@ -30,7 +29,6 @@ import GenerateTodaysPlanLink from "@/components/home/GenerateTodaysPlanLink";
 
 
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
-import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
@@ -176,16 +174,11 @@ const ExecutiveHome = () => {
     }
   }, []);
 
-  // Fetch energy state for hero visual
-  const { data: energyState } = useQuery({
-    queryKey: ['energy-state', user?.id],
-    queryFn: async () => computeEnergyState(user?.id),
-    enabled: !!user?.id,
-    staleTime: 60000,
-  });
-  
-  // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
+  // Fetch outer readiness brief. This payload already echoes inner readiness,
+  // so the home hero must not start a second computeEnergyState/check-in chain.
   const { data: outerBrief } = useOuterReadiness();
+  const heroEnergyTier = outerBrief?.innerReadinessTier || 'default';
+  const heroDivergenceMode = outerBrief?.divergenceMode || null;
 
   // Track brief view once per persisted brief snapshot (keyed by briefId).
   // We ONLY track when:
@@ -246,8 +239,7 @@ const ExecutiveHome = () => {
   };
   
   const getTierGradient = () => {
-    const tier = energyState?.energyTier || 'default';
-    return TIER_GRADIENTS[tier] || TIER_GRADIENTS.default;
+    return TIER_GRADIENTS[heroEnergyTier] || TIER_GRADIENTS.default;
   };
   
   const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
@@ -259,7 +251,7 @@ const ExecutiveHome = () => {
 
   const heroVideoUrl = useMemo(() => {
     const timeOfDay = getTimeOfDay();
-    const tier = energyState?.energyTier || 'default';
+    const tier = heroEnergyTier;
     const videoMap: Record<string, Record<string, string>> = {
       depleted: {
         morning: '/all-visuals/videos/depleted-morning.mp4',
@@ -294,16 +286,16 @@ const ExecutiveHome = () => {
     };
 
     // Divergence variant override: when wearable/check-in signals diverge
-    const divergenceFlag = energyState?.divergenceFlag;
-    if (divergenceFlag === 'RECOVERY_UNDERWAY') {
+    const divergenceMode = String(heroDivergenceMode || '').toLowerCase();
+    if (divergenceMode.includes('recovery')) {
       return `/all-visuals/videos/recovery-${timeOfDay}.mp4`;
     }
-    if (divergenceFlag === 'MASKED_HIGH') {
+    if (divergenceMode.includes('masked')) {
       return `/all-visuals/videos/masked-${timeOfDay}.mp4`;
     }
 
     return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
-  }, [energyState?.energyTier, energyState?.divergenceFlag]);
+  }, [heroEnergyTier, heroDivergenceMode]);
   
   const videoFadedIn = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -412,14 +404,14 @@ const ExecutiveHome = () => {
           {planFeedback && (
             <PlanFeedbackModal
               planType={planFeedback.planType}
-              energyTier={energyState?.energyTier}
+              energyTier={heroEnergyTier === 'default' ? undefined : heroEnergyTier}
               onSubmit={async (rating, feedback) => {
                 try {
                   await submitPlanFeedback(
                     planFeedback.planType,
                     rating,
                     feedback,
-                    energyState?.energyTier
+                    heroEnergyTier === 'default' ? undefined : heroEnergyTier
                   );
                 } catch (e) {
                   console.error('Failed to save plan feedback:', e);

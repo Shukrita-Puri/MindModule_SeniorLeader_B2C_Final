@@ -16,7 +16,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
-import { getCheckinForWindow, getCurrentTimeWindow } from '@/utils/dailyCheckins';
+import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -318,10 +318,10 @@ const TodayThreePriorities = ({
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
-      const todayCheckin = await getCheckinForWindow(todayDate, currentPeriod);
+      const todayCheckin = await getTodayCheckin();
 
       // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
-      // If the Brief is awaiting signals (no fresh check-in AND no fresh
+      // If the Brief is awaiting signals (no fresh check-in today AND no fresh
       // wearable today), we MUST NOT generate a plan from defaults. The
       // Plan card renders the same quiet "Begin with your check-in"
       // prompt as the Brief. Server-side gate in generate-mastery-plan
@@ -427,7 +427,12 @@ const TodayThreePriorities = ({
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         // Build request body with outer readiness cache to skip ~2.8s server-to-server call
-        const requestBody: any = { timezoneOffset: new Date().getTimezoneOffset() };
+        const requestBody: any = {
+          timezoneOffset: new Date().getTimezoneOffset(),
+          forceRefresh: awaitingSignals || !sessionLoaded,
+          localDate: todayDate,
+          todayCheckinId: todayCheckin?.id ?? null,
+        };
         if (outerReadinessData?.phrase) {
           requestBody.outerReadinessCache = {
             phrase: outerReadinessData.phrase,

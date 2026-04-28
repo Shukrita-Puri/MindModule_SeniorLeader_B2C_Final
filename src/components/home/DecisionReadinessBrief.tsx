@@ -1644,9 +1644,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
-  const showLoader =
-    (outerBriefLoading && !outerBrief) ||
-    (!!outerBrief && !briefScriptDone);
+  const showLoader = false;
 
   const briefId = (outerBrief as any)?.briefId ?? null;
 

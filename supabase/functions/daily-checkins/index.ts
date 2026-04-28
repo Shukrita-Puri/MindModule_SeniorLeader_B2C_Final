@@ -89,7 +89,7 @@ serve(async (req) => {
 
       case 'GET_TODAY_CHECKIN': {
         // Returns most recent check-in today (backward compatible)
-        const today = new Date().toISOString().split('T')[0];
+        const today = body.checkinDate || new Date().toISOString().split('T')[0];
 
         const { data, error } = await supabase
           .from('daily_checkins')
@@ -111,7 +111,7 @@ serve(async (req) => {
       }
 
       case 'GET_MOST_RECENT_CHECKIN_TODAY': {
-        const today = new Date().toISOString().split('T')[0];
+        const today = body.checkinDate || new Date().toISOString().split('T')[0];
 
         const { data, error } = await supabase
           .from('daily_checkins')
@@ -163,7 +163,7 @@ serve(async (req) => {
       }
 
       case 'GET_ALL_CHECKINS_TODAY': {
-        const today = new Date().toISOString().split('T')[0];
+        const today = body.checkinDate || new Date().toISOString().split('T')[0];
 
         const { data, error } = await supabase
           .from('daily_checkins')

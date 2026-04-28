@@ -68,6 +68,8 @@ interface PlanRequest {
   userId: string;
   // Only client-supplied field
   timezoneOffset: number;
+  localDate?: string;
+  todayCheckinId?: string | null;
   // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
@@ -1822,7 +1824,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     practiceSessionsRes,
   ] = await Promise.all([
     supabaseClient.from('calendar_connections').select('is_active').eq('user_id', req.userId).eq('is_active', true).maybeSingle(),
-    supabaseClient.from('daily_checkins').select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window').eq('user_id', req.userId).order('checkin_date', { ascending: false }).limit(10),
+    supabaseClient.from('daily_checkins').select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window').eq('user_id', req.userId).order('checkin_date', { ascending: false }).order('timestamp', { ascending: false }).limit(10),
     supabaseClient.from('wearable_data').select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date').eq('user_id', req.userId).gte('summary_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('summary_date', { ascending: false }).limit(1).maybeSingle(),
     supabaseClient.from('profiles').select('practice_priority_tag, pressure_context_tag, archetype, component_scores').eq('id', req.userId).maybeSingle(),
     supabaseClient.from('user_favorites').select('content_id').eq('user_id', req.userId),
@@ -2061,44 +2063,40 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   const pendingCommitments = shared.pendingCommitments;
 
   // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
-  // If the user has no fresh check-in for the current window AND no fresh
+  // If the user has no fresh check-in today AND no fresh
   // wearable data today, suppress the time-of-day plan from generating
   // from defaults. This ensures parity with the Brief, which renders a
   // quiet "Begin with your check-in" prompt under the same condition.
   // JIT pre-event plans for known scheduled events still surface.
-  const today = getLocalDateISO(req.timezoneOffset);
-  const { data: todayCheckinRow } = await supabaseClient
+  const today = req.localDate || getLocalDateISO(req.timezoneOffset);
+  let todayCheckinQuery = supabaseClient
     .from('daily_checkins')
-    .select('id')
-    .eq('user_id', req.userId)
-    .eq('checkin_date', today)
-    .eq('time_window', timeOfDay)
-    .maybeSingle();
+    .select('id, checkin_date, time_window')
+    .eq('user_id', req.userId);
+
+  if (req.todayCheckinId) {
+    todayCheckinQuery = todayCheckinQuery.eq('id', req.todayCheckinId);
+  } else {
+    todayCheckinQuery = todayCheckinQuery
+      .eq('checkin_date', today)
+      .order('timestamp', { ascending: false })
+      .limit(1);
+  }
+
+  const { data: todayCheckinRow, error: todayCheckinError } = await todayCheckinQuery.maybeSingle();
+  if (todayCheckinError) {
+    console.error('[generate-mastery-plan] Today check-in lookup failed:', todayCheckinError);
+  }
   const hasTodayCheckIn = !!todayCheckinRow;
   const hasFreshWearable = !!(req.wearableContext?.hasData);
   const planAwaitingSignals = !hasTodayCheckIn && !hasFreshWearable;
   if (planAwaitingSignals) {
-    console.log(`[generate-mastery-plan] Awaiting signals (no checkin + no wearable) for user=${req.userId} window=${timeOfDay}. Suppressing time-of-day plan.`);
-    return {
-      timeOfDayPlan: {
-        label: timeOfDay,
-        period: timeOfDay as 'morning' | 'afternoon' | 'evening',
-        modules: [],
-        coachCard: null,
-        totalDuration: 0,
-        progressTracked: false,
-      },
-      preEventPlan: null,
-      jitPriority: false,
-      horizonModules: [],
-      awaitingSignals: true,
-      awaitingReason: 'no-checkin-no-wearable',
-      meta: {
-        generatedAt: new Date().toISOString(),
-        suppressed: true,
-        reason: 'awaiting-signals',
-      },
-    };
+    // The client already owns the visible "Awaiting today's signal" gate
+    // using its freshly fetched local check-in/wearable state. Do not hard
+    // suppress here: edge-side date/auth/cache drift can otherwise block a
+    // valid user even when a same-day check-in exists. Continue with defaults
+    // for direct callers; the app UI will not call this path on true empty days.
+    console.log(`[generate-mastery-plan] No server-visible signal for user=${req.userId} date=${today} checkinId=${req.todayCheckinId || 'none'} window=${timeOfDay}; continuing instead of suppressing.`);
   }
 
   // 2. Fetch content library from DB
@@ -3362,6 +3360,8 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
+    const clientLocalDate = typeof body.localDate === 'string' ? body.localDate : null;
+    const todayCheckinId = typeof body.todayCheckinId === 'string' ? body.todayCheckinId : null;
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
@@ -3373,14 +3373,22 @@ Deno.serve(async (req) => {
 
     let stateFingerprint = `${userId}:${currentPeriod}`;
     try {
-      const today = getLocalDateISO(clientTimezoneOffset);
-      const [checkinSnap, ritualSnap] = await Promise.all([
-        supabaseClient.from('daily_checkins')
+      const today = clientLocalDate || getLocalDateISO(clientTimezoneOffset);
+      let checkinQuery = supabaseClient.from('daily_checkins')
           .select('timestamp, outcome, energy_balance, clarity_level, confidence_level')
-          .eq('user_id', userId)
+          .eq('user_id', userId);
+
+      if (todayCheckinId) {
+        checkinQuery = checkinQuery.eq('id', todayCheckinId);
+      } else {
+        checkinQuery = checkinQuery
           .eq('checkin_date', today)
-          .eq('time_window', currentPeriod)
-          .maybeSingle(),
+          .order('timestamp', { ascending: false })
+          .limit(1);
+      }
+
+      const [checkinSnap, ritualSnap] = await Promise.all([
+        checkinQuery.maybeSingle(),
         supabaseClient.from('daily_ritual_completions')
           .select('updated_at, completed_practice_ids')
           .eq('user_id', userId)
@@ -3415,6 +3423,8 @@ Deno.serve(async (req) => {
     const planReq: PlanRequest = {
       userId,
       timezoneOffset: clientTimezoneOffset,
+      localDate: clientLocalDate || undefined,
+      todayCheckinId,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,

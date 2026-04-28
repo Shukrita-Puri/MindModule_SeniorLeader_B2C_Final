@@ -14,6 +14,7 @@ export interface CheckinData {
   data_sources?: Record<string, unknown> | null;
   clarity_level?: number | null;
   confidence_level?: number | null;
+  mental_sharpness_level?: number | null;
   time_window?: string | null;
 }
 
@@ -95,10 +96,10 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
 // ─── Get today's most recent check-in ──────────────────────────────
 
 async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
+  const today = new Date().toLocaleDateString('en-CA');
+
   if (DEV_MODE) {
     try {
-      const today = new Date().toISOString().split('T')[0];
-
       const { data, error } = await supabase
         .from('daily_checkins')
         .select('*')
@@ -122,7 +123,7 @@ async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_MOST_RECENT_CHECKIN_TODAY' }
+      body: { action: 'GET_MOST_RECENT_CHECKIN_TODAY', checkinDate: today }
     });
 
     if (error) throw error;

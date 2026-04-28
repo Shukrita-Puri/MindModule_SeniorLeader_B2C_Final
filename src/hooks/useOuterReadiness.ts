@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import {
@@ -145,11 +144,9 @@ export interface OuterReadinessData {
 async function fetchOuterReadinessFresh(userId: string | undefined): Promise<OuterReadinessData | null> {
   if (!userId) return null;
 
-  // Get energy state + today's check-in in parallel
-  const [energyState, checkin] = await Promise.all([
-    computeEnergyState(userId),
-    getTodayCheckin(),
-  ]);
+  // Energy state already reads today's check-in. Reuse those echoed fields so
+  // the executive home brief does not make a second daily-checkins request.
+  const energyState = await computeEnergyState(userId);
 
   // Build auth headers – in DEV_MODE, skip Auth0 token and pass userId in body
   const headers: Record<string, string> = {};
@@ -172,9 +169,9 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
     body: {
       innerReadinessTier: energyState.energyTier,
       innerReadinessScore: energyState.overallBalance ?? 50,
-      clarityLevel: checkin?.clarity_level ?? null,
-      confidenceLevel: checkin?.confidence_level ?? null,
-      mentalSharpnessLevel: (checkin as any)?.mental_sharpness_level ?? null,
+      clarityLevel: energyState.clarityLevel ?? null,
+      confidenceLevel: energyState.confidenceLevel ?? null,
+      mentalSharpnessLevel: energyState.mentalSharpnessLevel ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
       timezoneOffset: new Date().getTimezoneOffset(),
       // IANA timezone strings let the edge function format event times via Intl

@@ -124,6 +124,9 @@ export interface CurrentEnergyState {
     contextStatement: string;
   };
   checkInOutcome?: string;
+  clarityLevel?: number | null;
+  confidenceLevel?: number | null;
+  mentalSharpnessLevel?: number | null;
   divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
   hrvDeviation?: number | null;
   tierLabel?: string;
@@ -245,6 +248,8 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   // 2. Fetch check-in data from DB (sole source of truth – no localStorage)
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
+  let mentalSharpnessLevel: number | null = null;
+  let storedEnergyBalance: number | null = null;
   let checkInOutcome: string | null = null;
   let checkInTimeWindow: string | null = null;
   let hasCheckIn = false;
@@ -254,6 +259,8 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     if (dbCheckin) {
       clarityLevel = dbCheckin.clarity_level ?? null;
       confidenceLevel = dbCheckin.confidence_level ?? null;
+      mentalSharpnessLevel = dbCheckin.mental_sharpness_level ?? null;
+      storedEnergyBalance = dbCheckin.energy_balance ?? null;
       checkInTimeWindow = dbCheckin.time_window ?? null;
       // DB is authoritative for outcome if available
       if (!dbCheckin.skipped && dbCheckin.outcome) {
@@ -301,7 +308,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
     // Persist composite score to DB with retry guardrail
     const todayISO = new Date().toISOString().split('T')[0];
-    if (hasCheckIn) {
+    if (hasCheckIn && storedEnergyBalance !== result.score) {
       persistCompositeScore(todayISO, result.score, checkInTimeWindow || undefined);
     }
 
@@ -337,6 +344,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         contextStatement: result.contextStatement,
       },
       checkInOutcome: result.checkInOutcome || undefined,
+      clarityLevel,
+      confidenceLevel,
+      mentalSharpnessLevel,
       divergenceFlag: result.divergenceFlag,
       hrvDeviation: result.hrvDeviation,
       tierLabel: result.tierLabel,
