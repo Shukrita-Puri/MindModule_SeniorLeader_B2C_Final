@@ -253,6 +253,23 @@ Deno.serve(async (req) => {
     const recentCheckins7 = checkIns.filter((c: any) => c.checkin_date >= sevenStr);
     const priorCheckins7 = checkIns.filter((c: any) => c.checkin_date >= fourteenStr && c.checkin_date < sevenStr);
     let trendDirection: "improving" | "stable" | "declining" = "stable";
+    // Per-row deltas (recent 7 vs prior 7) so the Trajectory scorecard can show
+    // direction-specific arrows on Friction and Alignment independently of the
+    // overall trendDirection. Null when either window lacks check-ins.
+    let frictionDeltaPct: number | null = null;
+    let positiveDeltaPct: number | null = null;
+    if (recentCheckins7.length > 0 && priorCheckins7.length > 0) {
+      const rLow = recentCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes((c.outcome || "").toLowerCase())).length;
+      const pLow = priorCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes((c.outcome || "").toLowerCase())).length;
+      const rPos = recentCheckins7.filter((c: any) => POSITIVE_OUTCOMES.has((c.outcome || "").toLowerCase())).length;
+      const pPos = priorCheckins7.filter((c: any) => POSITIVE_OUTCOMES.has((c.outcome || "").toLowerCase())).length;
+      const rFrPct = (rLow / recentCheckins7.length) * 100;
+      const pFrPct = (pLow / priorCheckins7.length) * 100;
+      const rPoPct = (rPos / recentCheckins7.length) * 100;
+      const pPoPct = (pPos / priorCheckins7.length) * 100;
+      frictionDeltaPct = Math.round(rFrPct - pFrPct);
+      positiveDeltaPct = Math.round(rPoPct - pPoPct);
+    }
 
     if (recentCheckins7.length > 0 && priorCheckins7.length > 0) {
       const recentDates = new Set(recentCheckins7.map((c: any) => c.checkin_date));
@@ -632,7 +649,9 @@ Deno.serve(async (req) => {
         scoresNote: hasEnoughForCurrent && totalCheckins < 7 ? "Preliminary – baseline from onboarding. Deltas will refine as you check in." : null,
         frictionPct,
         frictionLabel,
+        frictionDeltaPct,
         positiveRate,
+        positiveDeltaPct,
         trendDirection,
         typicalState,
         recurringThemes,
