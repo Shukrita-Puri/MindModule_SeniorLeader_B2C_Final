@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
+import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { openUrl } from '@/utils/openUrl';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
@@ -196,6 +197,7 @@ const ConnectedData = () => {
       } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
@@ -270,6 +272,7 @@ const ConnectedData = () => {
       if (!res.ok) throw new Error('Disconnect failed');
       setStatus(prev => prev ? { ...prev, calendar: { connected: false, provider: null, lastSync: null } } : prev);
       invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       toast.success('Google Calendar disconnected');
     } catch {
@@ -288,6 +291,7 @@ const ConnectedData = () => {
     } else if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       await fetchStatus();
     } else {
@@ -346,6 +350,10 @@ const ConnectedData = () => {
 
       // Refresh status from backend
       await fetchStatus();
+      // Wearable connection just changed — wipe brief caches so the next
+      // mount can promote an awaiting state to a real brief.
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
     } catch (err) {
       console.error('[ConnectedData] Apple Health connect error:', err);
       toast.error('Failed to connect Apple Health');
@@ -365,6 +373,8 @@ const ConnectedData = () => {
       if (result.connectionState === 'connected' && result.dbPersisted) {
         toast.success('Apple Health data synced');
         await fetchStatus();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       } else if (result.connectionState === 'connected' && !result.dbPersisted) {
         toast.warning('Data read from Apple Health but could not be saved. Will retry on next sync.');
         await fetchStatus();
@@ -426,6 +436,8 @@ const ConnectedData = () => {
         }
       } : prev);
       toast.success('Apple Health disconnected');
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
     } catch {
       toast.error('Failed to disconnect Apple Health');
     }
