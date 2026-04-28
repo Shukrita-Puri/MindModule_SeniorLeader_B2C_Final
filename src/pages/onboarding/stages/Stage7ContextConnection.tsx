@@ -10,6 +10,7 @@ import { syncHealthKitToBackend } from "@/services/wearableSyncService";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
+import { startFirstSessionTour } from "@/utils/firstSessionTour";
 import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@/utils/openUrl";
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
@@ -273,9 +274,8 @@ export default function Stage7ContextConnection() {
     });
 
     if (DEV_MODE) {
-      sessionStorage.setItem('first_session_guide_active', '1');
-      sessionStorage.setItem('first_session_guide_step', '0');
-      navigate("/daily-check-in?tour=1");
+      const target = startFirstSessionTour({ userId: user?.id, source: 'onboarding' });
+      navigate(target);
       return;
     }
 
@@ -327,14 +327,13 @@ export default function Stage7ContextConnection() {
       console.warn("[Stage7] ⚠️ refreshProfile error (non-blocking):", err);
     }
 
-    // Set tour session keys BEFORE navigation so DailyCheckIn sees them immediately
-    const effectiveId = user?.id;
-    sessionStorage.setItem('first_session_guide_active', '1');
-    sessionStorage.setItem('first_session_guide_step', '0');
-    if (effectiveId) sessionStorage.setItem('first_session_guide_user', effectiveId);
-
-    console.log("[Stage7] Navigating to daily check-in with tour");
-    navigate("/daily-check-in?tour=1");
+    // Set tour session keys BEFORE navigation so DailyCheckIn sees them immediately.
+    // Uses the shared helper so the user-id binding and intro flag are reset
+    // identically to the retake path — preventing first-time tours from being
+    // rejected by the user-bound guards in DailyCheckIn / ExecutiveHome.
+    const target = startFirstSessionTour({ userId: user?.id, source: 'onboarding' });
+    console.log("[Stage7] Navigating to daily check-in with tour", { target });
+    navigate(target);
   };
 
   return (

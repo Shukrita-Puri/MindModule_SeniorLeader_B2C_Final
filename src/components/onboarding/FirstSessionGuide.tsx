@@ -17,6 +17,14 @@ import { createPortal } from 'react-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 import { X, ArrowRight, ArrowLeft, Rocket, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  FST_KEYS,
+  clearFirstSessionTour,
+  hasIntroBeenSeen,
+  markIntroSeen,
+  setTourStep,
+  getTourStep,
+} from '@/utils/firstSessionTour';
 
 /* ------------------------------------------------------------------ */
 /*  Step definitions                                                   */
@@ -66,10 +74,7 @@ const STEPS: GuideStep[] = [
   },
 ];
 
-const SESSION_KEY = 'first_session_guide_step';
-const ACTIVE_TOUR_KEY = 'first_session_guide_active';
-const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
-const RETAKE_TOUR_KEY = 'first_session_guide_retake';
+const SESSION_KEY = FST_KEYS.step;
 const TARGET_WAIT_MS = 1800;
 const RETRY_INTERVAL_MS = 150;
 const MAX_RETRIES = 10;
@@ -88,8 +93,11 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const location = useLocation();
   const sidebarCtx = useSidebarSafe();
 
-  const savedStep = parseInt(sessionStorage.getItem(SESSION_KEY) || '0', 10);
-  const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !sessionStorage.getItem('first_session_intro_seen'));
+  const savedStep = getTourStep();
+  // Intro modal must only appear once per tour run. If the user navigated
+  // back to step 0 from step 2, hasIntroBeenSeen() is true and we skip the
+  // intro — otherwise the user would read it as "the tour restarted onboarding".
+  const [showIntro, setShowIntro] = useState(() => savedStep === 0 && !hasIntroBeenSeen());
   const [currentStep, setCurrentStep] = useState(savedStep);
   const [ready, setReady] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
@@ -113,9 +121,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const isFullscreen = step?.targetSelector === 'fullscreen';
   const isLastStep = currentStep === STEPS.length - 1;
 
-  // Persist step
+  // Persist step so cross-page re-mounts (DailyCheckIn ↔ ExecutiveHome) resume
+  // at the same step — never reset to 0 on navigation.
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, String(currentStep));
+    setTourStep(currentStep);
   }, [currentStep]);
 
   /* ---- helpers ---- */
@@ -192,31 +201,39 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     setSpotRect({ x: sx, y: sy, w: sw, h: sh, r: sr });
 
     const tooltipEl = tooltipRef.current;
-    const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 220;
+    const tooltipH = tooltipEl ? tooltipEl.offsetHeight : 260;
     const GAP = 16;
-    const vH = window.visualViewport?.height ?? window.innerHeight;
-    // Reserve space for bottom safe area (nav hidden during tour, but keep margin)
-    const BOTTOM_SAFE = Math.max(24, (window.visualViewport ? window.innerHeight - window.visualViewport.height : 0) + 24);
+    // Use visualViewport so the tooltip stays fully visible on iOS even when
+    // the on-screen keyboard, address bar, or pinch-zoom shifts the viewport.
+    const vv = window.visualViewport;
+    const viewportTop = vv?.offsetTop ?? 0;
+    const vH = vv?.height ?? window.innerHeight;
+    const viewportBottom = viewportTop + vH;
     const TOP_SAFE = 16;
+    const BOTTOM_SAFE = 24;
 
-    const spaceAbove = sy;
-    const spaceBelow = vH - (sy + sh) - BOTTOM_SAFE;
+    const spaceAbove = sy - viewportTop;
+    const spaceBelow = viewportBottom - (sy + sh);
     const pref = s.tooltipPosition || 'below';
 
     let top: number;
-    if (pref === 'above' && spaceAbove >= tooltipH + GAP) {
+    if (pref === 'above' && spaceAbove >= tooltipH + GAP + TOP_SAFE) {
       top = sy - tooltipH - GAP;
-    } else if (pref === 'below' && spaceBelow >= tooltipH + GAP) {
+    } else if (pref === 'below' && spaceBelow >= tooltipH + GAP + BOTTOM_SAFE) {
       top = sy + sh + GAP;
-    } else if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP) {
+    } else if (spaceBelow >= spaceAbove && spaceBelow >= tooltipH + GAP + BOTTOM_SAFE) {
       top = sy + sh + GAP;
-    } else if (spaceAbove >= tooltipH + GAP) {
+    } else if (spaceAbove >= tooltipH + GAP + TOP_SAFE) {
       top = sy - tooltipH - GAP;
     } else {
-      top = sy + sh + GAP;
+      // Last resort: pin to viewport so the footer (Back/Next) is always tappable.
+      top = viewportBottom - tooltipH - BOTTOM_SAFE;
     }
 
-    top = Math.max(TOP_SAFE, Math.min(top, vH - tooltipH - BOTTOM_SAFE));
+    // Hard clamp inside the visible viewport so the footer is never below fold.
+    const minTop = viewportTop + TOP_SAFE;
+    const maxTop = viewportBottom - tooltipH - BOTTOM_SAFE;
+    top = Math.max(minTop, Math.min(top, Math.max(minTop, maxTop)));
     setTooltipPos({ top });
     return true;
   }, []);
@@ -389,7 +406,9 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     };
   }, [cleanupPrevious, clearRetry, setSidebar]);
 
-  // Re-measure on scroll/resize (only when ready)
+  // Re-measure on every event that can change visible viewport geometry.
+  // visualViewport listeners cover iOS Safari's address-bar collapse, on-screen
+  // keyboard, and pinch-zoom — none of which fire `resize` on `window`.
   useEffect(() => {
     if (!ready) return;
     const handler = () => {
@@ -398,9 +417,14 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     };
     window.addEventListener('scroll', handler, true);
     window.addEventListener('resize', handler);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', handler);
+    vv?.addEventListener('scroll', handler);
     return () => {
       window.removeEventListener('scroll', handler, true);
       window.removeEventListener('resize', handler);
+      vv?.removeEventListener('resize', handler);
+      vv?.removeEventListener('scroll', handler);
     };
   }, [ready, computePosition]);
 
@@ -423,23 +447,19 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
   const finish = () => {
     cleanupPrevious();
     clearRetry();
-    sessionStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(ACTIVE_TOUR_KEY);
-    sessionStorage.removeItem(ACTIVE_TOUR_USER_KEY);
-    sessionStorage.removeItem(RETAKE_TOUR_KEY);
-    sessionStorage.setItem('first_session_guide_done', '1');
+    clearFirstSessionTour({ markDone: true });
     setSidebar(false);
     onComplete();
     navigate('/daily-check-in');
   };
 
   const dismissIntroAndStart = () => {
-    sessionStorage.setItem('first_session_intro_seen', '1');
+    markIntroSeen();
     setShowIntro(false);
   };
 
   const skipTourEntirely = () => {
-    sessionStorage.setItem('first_session_intro_seen', '1');
+    markIntroSeen();
     setShowIntro(false);
     finish();
   };
@@ -483,7 +503,10 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       : { top: `${tooltipPos.top}px`, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)' };
 
   const tooltipMaxW = isFullscreen || fallbackMode ? '360px' : '400px';
-  const cardMaxHeight = 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)';
+  // Cap the card to the *visible* viewport so the footer (Back/Next/Skip) is
+  // always tappable on iOS, even with the address bar showing or the keyboard
+  // open. dvh on its own is unreliable in iOS WebView.
+  const cardMaxHeight = 'min(calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px), 80vh)';
   const showTransitionCard = !ready && !fallbackMode;
   if (typeof document === 'undefined') return null;
 
