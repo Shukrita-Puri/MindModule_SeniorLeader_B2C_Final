@@ -2091,6 +2091,9 @@ serve(async (req) => {
         lastAppOpen,
       );
 
+      // v7 — hydrate unified pattern store (causality_findings.signal_summary)
+      ctx.pattern = await loadPatternSummary(supabase, userId);
+
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
@@ -2153,8 +2156,23 @@ serve(async (req) => {
         }
       }
 
-      // ── Select best notification (priority order) ──
-      qualified.sort((a, b) => a.priority - b.priority);
+      // ── Select best notification (v7 comparator) ──
+      // 1. Slot rank: morning > evening > afternoon
+      // 2. Anchor:   JIT > STATE
+      // 3. Signal strength (descending)
+      // 4. Priority (ascending) as final tiebreaker
+      const SLOT_RANK: Record<'morning' | 'afternoon' | 'evening', number> = {
+        morning: 0, evening: 1, afternoon: 2,
+      };
+      qualified.sort((a, b) => {
+        const sa = SLOT_RANK[a.slot] - SLOT_RANK[b.slot];
+        if (sa !== 0) return sa;
+        const aa = (a.anchorKind === 'jit' ? 0 : 1) - (b.anchorKind === 'jit' ? 0 : 1);
+        if (aa !== 0) return aa;
+        const ss = b.signalStrength - a.signalStrength;
+        if (ss !== 0) return ss;
+        return a.priority - b.priority;
+      });
 
       // Deduplicate by type (in case JIT override added a duplicate)
       const seen = new Set<string>();
@@ -2236,7 +2254,7 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v6-1-human',
+        architecture: 'cos-mind-v7-jit-or-state',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v1',
         decision_trace: {
