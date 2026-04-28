@@ -121,6 +121,44 @@ export async function getTodayRitual(sessionPeriod?: 'morning' | 'afternoon' | '
   }
 }
 
+/**
+ * Stateful Plan Evolution: union of completed_practice_ids across ALL of
+ * today's session_period rows. A practice completed in the morning continues
+ * to count as ✓ in the afternoon brief, so the user never feels like the
+ * plan "forgot" what they did.
+ *
+ * Falls back to the current period's row on error.
+ */
+export async function getTodayCompletedUnion(): Promise<string[]> {
+  const today = new Date().toLocaleDateString('en-CA');
+
+  if (DEV_MODE) {
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('completed_practice_ids')
+      .eq('user_id', DEV_USER.id)
+      .eq('ritual_date', today);
+    if (error || !data) return [];
+    const set = new Set<string>();
+    for (const row of data) for (const id of (row?.completed_practice_ids || [])) set.add(id);
+    return Array.from(set);
+  }
+
+  // Production: piggy-back on getRituals(1) which already authorises and
+  // returns today's rows (one per session_period).
+  try {
+    const todays = await getRituals(1);
+    const set = new Set<string>();
+    for (const row of todays) {
+      if (row.ritual_date !== today) continue;
+      for (const id of (row.completed_practice_ids || [])) set.add(id);
+    }
+    return Array.from(set);
+  } catch {
+    return [];
+  }
+}
+
 // Get ritual for a specific time period today
 export async function getRitualForPeriod(period: 'morning' | 'afternoon' | 'evening'): Promise<RitualData | null> {
   return getTodayRitual(period);
