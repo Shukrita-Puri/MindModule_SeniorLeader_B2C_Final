@@ -77,7 +77,7 @@ const CheckInDetail = () => {
           return;
         }
 
-        const { error } = await supabase.functions.invoke('daily-checkins', {
+        const { data: fnResponse, error } = await supabase.functions.invoke('daily-checkins', {
           headers: { Authorization: `Bearer ${accessToken}` },
           body: {
             action: 'UPDATE_CLARITY_CONFIDENCE',
@@ -95,7 +95,7 @@ const CheckInDetail = () => {
           throw error;
         }
 
-        if (!data?.data) {
+        if (!fnResponse?.data) {
           throw new Error('No matching check-in row found to update');
         }
       }
