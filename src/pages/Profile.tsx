@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2 } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass } from 'lucide-react';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
@@ -145,6 +145,17 @@ const Profile = () => {
     clearAllLocalData();
     setShowDeleteLocal(false);
     toast.success('Local data cleared from this device');
+  };
+
+  const handleRetakeTour = () => {
+    sessionStorage.setItem('first_session_guide_step', '0');
+    sessionStorage.setItem('first_session_guide_active', '1');
+    if (user?.id) {
+      sessionStorage.setItem('first_session_guide_user', user.id);
+      sessionStorage.setItem('first_session_guide_retake', user.id);
+    }
+    sessionStorage.removeItem('first_session_intro_seen');
+    navigate('/daily-check-in?tour=1');
   };
 
   return (
@@ -327,6 +338,16 @@ const Profile = () => {
             >
               <Gift className="h-4 w-4" />
               Refer a Friend
+            </Button>
+
+            {/* Retake Tour */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={handleRetakeTour}
+            >
+              <Compass className="h-4 w-4" />
+              Retake Tour
             </Button>
 
             {/* Delete Local Data */}
