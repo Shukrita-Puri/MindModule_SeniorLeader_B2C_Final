@@ -378,7 +378,7 @@ export function useOuterReadiness() {
         // No-signal gating decision — persist it for this window so we
         // don't keep recomputing it. Always wipe any prior real-brief
         // entry so we don't accidentally replay it next mount.
-        clearPersistent(persistentKey);
+        if (persistentKey) clearPersistent(persistentKey);
         if (awaitingKey) writePersistent(awaitingKey, data, msUntilWindowEnd());
       }
       return data;
