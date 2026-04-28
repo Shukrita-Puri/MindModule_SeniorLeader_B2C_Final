@@ -266,6 +266,18 @@ function determineUrgencyHorizon(minutesUntil: number): 'touch_1' | 'touch_2' | 
   return null;  // Silent gap (6-24h) or selection-only (>48h) – scored but not surfaced
 }
 
+// Compute the local-day key (YYYY-MM-DD) for an event start, given the user's
+// timezoneOffset in MINUTES from UTC (positive = east of UTC, e.g. +60 for BST).
+// Note: JS Date.getTimezoneOffset() is inverted (positive west). The frontend
+// here passes the offset already aligned with the user's wall clock convention.
+function localDayKey(date: Date, timezoneOffsetMinutes: number): string {
+  const shifted = new Date(date.getTime() + timezoneOffsetMinutes * 60_000);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
