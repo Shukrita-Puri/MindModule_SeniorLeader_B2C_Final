@@ -1,75 +1,60 @@
-## Smart Nudges — Chief-of-Staff Copy Overhaul
+## Problem
 
-### Scope (one file)
-`supabase/functions/smart-nudges/index.ts` — copy generation only.
+The Brief shows the next high-stakes meeting as `15:14` while the calendar entry is actually `15:15`. The mismatch happens because the time the LLM sees and the time the UI displays are both **derived from "minutes-until"**, not from the event's real `start_time`. Two compounding bugs:
 
-**Untouched**: trigger conditions, timing windows, daily cap (3), suppression stack (2hr gap, quiet hours, DND, in-meeting), engagement learning, APNs delivery, deep-link routing, signal-richness gate, artifact-first gating, all client code, all other edge functions.
+1. **5-minute bucketing.** `nextHighStakesMinutesUntil` is rounded to the nearest 5 minutes before being persisted/exposed (`compute-outer-readiness/index.ts` line 78). A meeting at 15:15 with 11 mins to go becomes "10 mins", which the UI converts back to a fake clock time → `15:14`-style drift.
+2. **No real clock time sent to the LLM for TODAY's events.** The TODAY block of the prompt only contains `Next high-stakes: <title> in <N>mins` (line 3546). The LLM has no `HH:mm`, so it either invents one (often echoing the literal `15:14` example in the system prompt at line 3388) or computes one from the rounded minutes. TOMORROW's block already pairs each title with a real local `HH:mm` via `fmtLocalHHmm` and the user's IANA timezone — TODAY just needs the same treatment.
 
-### The Contract Every Nudge Must Follow
+Timezone resolution itself is already correct: the client sends `currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone`, the function persists `current_timezone` / `home_timezone` on `profiles`, and `effectiveCurrentTz = clientCurrentTz || persistedCurrentTz` is used by `fmtLocalHHmm`. We just need to USE that formatter for TODAY's events and at the UI layer.
 
-```
-[USER CONTEXT — specific signal from this user's data]  +  [SPECIFIC APP CTA — exact action + screen]
-```
+## Fix
 
-Hard rules added to AI system prompt and enforced in fallbacks:
-- Body must reference at least one **real** data point already in `NudgeContext`: `wearable.hrvDeltaPct`, `wearable.rhrElevated`, `wearable.sleepScore`, named meeting title, meeting count, completed/pending priority count, morning check-in outcome, consecutive-low pattern, or tomorrow's meetings.
-- Body must end with a **specific app verb tied to a screen**: "open your brief", "open your plan", "build your prep plan", "recalibrate now", "close the day". Never "open the app", "check in when ready", "come back".
-- If a referenced data field is null → fall through to next template. Never insert placeholder numbers (`?`, `N`, `--`).
-- Truncate event titles to first 3 words if > 20 chars (new helper).
-- Forbidden words (added to prompt + fallback lint): wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, day N, keep it up, well done, great job, productive, productivity, intent, strategy.
-- Title: max 6 words (currently 5 — bump to 6 to fit the spec).
-- Body: max 18 words.
+### 1. Edge function: `supabase/functions/compute-outer-readiness/index.ts`
 
-### Files & Functions Changing
+- Capture the raw `start_time` (ISO UTC) for `nextHighStakesEvent` and `nextEventAny` alongside `minutesUntil`. Type becomes `{ title; minutesUntil; startTimeUTC: string } | null`.
+- Add a top-level `fmtLocalHHmm(utcDate)` helper (the one currently nested at line 2905) that uses `effectiveCurrentTz` via `Intl.DateTimeFormat('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone })`. Reuse for TODAY and TOMORROW.
+- In the LLM prompt's `=== CALENDAR TODAY ===` block, replace the relative-minutes line with paired absolute clock times:
+  - `Next event: <title> at HH:mm (in N mins)`
+  - `Next high-stakes: <title> at HH:mm (in N mins)`
+  - For each entry in `todayHighStakes`, look up its `start_time` (already fetched in `getServerCalendarMetrics`) and emit a `Title — HH:mm` pair, mirroring how TOMORROW does it.
+- Tighten the system prompt (around line 3388):
+  - Replace the `15:14` literal example with a generic placeholder so the LLM cannot copy it verbatim. Use something like `"…before the [HH:mm] with [Name]"` and add an explicit rule: **"Never invent or reformat clock times. Use ONLY the HH:mm strings provided in the CALENDAR TODAY / TOMORROW sections, character-for-character."**
+- Stop bucketing the displayed time: keep the 5-min bucket on `nextHighStakesMinutesUntil` (used elsewhere for triage/horizon) but additionally expose the unrounded `startTimeUTC` (and an unrounded `minutesUntilExact`) on the response for the UI to use. Persist both in `payload_json` / `brief_snapshots` so a re-render uses the same source of truth.
 
-**1. `generateNudgeCopy` system prompt (line 798)**
-Replace with a Chief-of-Staff prompt that explicitly states the `[CONTEXT] + [CTA]` formula, lists the only-allowed CTA verbs, lists forbidden words, and shows 3 gold-standard examples (HRV-3-day, board-meeting HR, Sunday week-prep) drawn directly from the user's brief.
+### 2. Brief snapshot regeneration
 
-**2. Per-type `userPrompt` blocks (lines 813–913)**
-Each branch (`nudge_one_morning`, `nudge_one_jit`, `nudge_two_jit`, `nudge_two_priorities`, `nudge_two_recalibrate`, `nudge_two_reserves`, `nudge_three`) gets:
-- An explicit "Required: name [signal X]. Required CTA: [verb Y → screen Z]" line.
-- A list of context fields actually present in this tick (so the model can't reference a null).
-- The 6:30–9:00 morning and 18:00–21:00 evening framing rules per spec.
+- Add a one-shot DELETE migration to clear `brief_snapshots` rows for today that contain a clock time in the body, so they regenerate against the new prompt and are no longer stuck on the old `15:14`-style strings. Scope: `local_date = current local date` only.
 
-**3. All `getFallback*` functions (lines 974–1071)** — rewritten in priority order:
+### 3. UI: `src/components/home/DecisionReadinessBrief.tsx`
 
-| Function | New body (when signal present) |
-|---|---|
-| `getFallbackNudgeOneMorningCopy` (sleep<60) | "Sleep {N}/100 last night — open your brief to set today's posture" |
-| (HRV ≤ -15%) | "HRV {N}% below baseline — build your prep plan before today starts" |
-| (high-stakes today) | "{Event} today — open your brief to lock in decision readiness" |
-| (heavy day ≥4 mtgs) | "{N} meetings today — open your plan to anchor mental sharpness" |
-| (Saturday + meeting) | "Body slower today — open your brief before {Event}" |
-| (calendar light) | "Light calendar — open your brief to decide where to spend capacity" |
-| `getFallbackNudgeOneJitCopy` | "{Event} in {N} min — open your prep plan, it's queued" |
-| `getFallbackNudgeTwoJitCopy` | "{Event} in {N} min — open your plan to anchor sharpness" |
-| `getFallbackNudgeTwoPrioritiesCopy` | "{N} practices left on today's plan — open your plan to stay on track" |
-| `getFallbackNudgeTwoRecalibrateCopy` | "Started low, {Event} ahead — recalibrate now in your brief" |
-| `getFallbackNudgeTwoReservesCopy` (rhr) | "RHR elevated, {Event} ahead — recalibrate now before it starts" |
-| (hrv) | "HRV {N}% below baseline, {Event} ahead — open your brief to recalibrate" |
-| `getFallbackNudgeTwoConsecutiveLowCopy` | "HRV down {N} days running — open your brief to reset trajectory" |
-| `getFallbackNudgeThreeCopy` Sun + tomorrow stakes | "{Event} tomorrow — use Sunday to build your prep plan now" |
-| Sun + heavy Mon | "{N} meetings Monday — open your brief tonight to set the week" |
-| Friday | "5-day load behind you — open your brief to close the week" |
-| priorities remaining | "{N} practices still open — open your plan to close the day" |
-| RHR elevated through day | "RHR ran high today — open your brief to recover into tomorrow" |
-| heavy day done | "{N} meetings done — open your brief, 90-sec close protects tomorrow" |
-| default close | "Open your brief — a 90-sec close protects tomorrow's reserves" |
+- Replace the time derivation in `formatEventTime` with a formatter that takes `startTimeUTC` (ISO) and uses the user's IANA timezone:
+  ```ts
+  new Intl.DateTimeFormat([], {
+    hour: 'numeric', minute: '2-digit', hour12: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }).format(new Date(startTimeUTC));
+  ```
+  Keep the existing `"now"` / `"in N mins"` short-form for events <30 / <90 minutes away, but switch the long form to read directly off `startTimeUTC` instead of recomputing `Date.now() + minutesUntil*60000` (which silently loses the bucketed minutes).
+- Pull `startTimeUTC` from `outerBrief.nextHighStakesEvent` and `outerBrief.nextEvent`.
 
-**4. New helper `truncateEventTitle(title)`** — first 3 words if `length > 20`. Used in every fallback that interpolates an event title.
+### 4. Calendar event source of truth (traveler safety)
 
-**5. Tighten `containsFabricatedWearableData`** — also reject AI bodies that contain a `%`, `ms`, "baseline", "HRV", "RHR", or "sleep score" when the corresponding field is null (currently only blanket-checks `hasWearableData`). Keeps the data-honesty contract.
+- The `calendar_events.start_time` column is already stored as a `timestamptz` (UTC). Display always goes through `Intl.DateTimeFormat({ timeZone: <IANA> })`, so when the user crosses a timezone the new IANA TZ they send up next request is what's used — no per-event TZ mutation needed.
+- On `useOuterReadiness` request, additionally send `currentTimezoneOffsetMinutes` only as a fallback. Primary key remains the IANA name. (Already done; documenting for reviewers.)
+- Add a small `useEffect` in `App.tsx` (or wherever timezone is currently persisted to `profiles`) to re-send `current_timezone` whenever `Intl.DateTimeFormat().resolvedOptions().timeZone` changes during the session — covers cross-timezone flights without an app restart. Compare against last-seen value in `localStorage`; if different, fire a one-shot Edge Function (existing `update-user-timezone` if present, otherwise add a tiny POST that updates only `profiles.current_timezone`).
 
-**6. Update payload stamp**
-Bump `architecture: 'cos-mind-v5'` → `'cos-mind-v6-cta'` so we can audit post-deploy that all fresh rows use the new copy contract.
+### 5. Verification
 
-**7. Update memory**
-`mem://features/notifications/smart-nudges-mvp-framework.md` → record v6 copy contract: `[CONTEXT] + [CTA]`, allowed CTA verbs, forbidden words, 6-word title / 18-word body, fall-through-on-null rule.
+- Unit-style log assertion in the Edge Function: when building the LLM prompt, log `[brief] today_event_times` containing the paired `[title, HH:mm, startTimeUTC]`. Inspect a fresh request to confirm `15:15` appears (matching the calendar) and `15:14` does not.
+- Manual: change device timezone (or use the OS travel toggle), reload, confirm pill clock and Brief copy both render in the new zone and match the user's calendar app.
+- Regression: confirm Tomorrow's high-stakes line still uses paired times.
 
-### Validation After Deploy
-1. Read latest 30 rows of `notification_log` where `payload->>'architecture' = 'cos-mind-v6-cta'`.
-2. Assert each body: contains an allowed CTA verb, references a real signal, has no forbidden words, no `?`/`N`/`--` placeholders.
-3. Re-run existing `v5_validation_test.ts` (already audits floor / cooldown / deep_link / cta_experiment) and extend it with the v6 forbidden-word + null-placeholder checks.
+## Files to change
 
-### Out of Scope
-Triggers, timing, caps, suppression, engagement model, deep-link routes, APNs config, client UI, other edge functions, DB schema. Pure copy + prompt change.
+- `supabase/functions/compute-outer-readiness/index.ts` — hoist `fmtLocalHHmm`, add `startTimeUTC` to `nextHighStakesEvent` / `nextEventAny`, rewrite TODAY prompt block with paired `HH:mm`, scrub the `15:14` literal from the system prompt, add explicit "do not invent times" rule.
+- `src/components/home/DecisionReadinessBrief.tsx` — format clock time off `startTimeUTC` + IANA TZ instead of `Date.now() + bucketedMinutes`.
+- `src/hooks/useOuterReadiness.ts` — surface `startTimeUTC` on the typed response.
+- `src/App.tsx` (or existing timezone-persist hook) — re-send `current_timezone` when it changes mid-session.
+- New migration: `DELETE FROM public.brief_snapshots WHERE local_date = <today> AND body_text ~ '\d{1,2}:\d{2}'` to force regeneration with the new prompt.
+
+No UI design changes. Only data plumbing, formatting, and prompt wording.

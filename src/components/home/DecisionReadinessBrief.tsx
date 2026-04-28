@@ -1472,16 +1472,32 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
   if (!hasCalendar || meetingCount === 0) return null;
 
-  // Format event time helper (preserved from original)
-  const formatEventTime = (minsUntil: number) => {
+  // Format event time. Prefer the event's real start_time (ISO UTC) formatted
+  // in the user's CURRENT IANA timezone — this stays accurate when the user is
+  // travelling because Intl resolves the live device zone on every render.
+  // Falls back to relative "in N mins" derived from the (5-min bucketed)
+  // minutesUntil only when no startTimeUTC is available.
+  const formatEventTime = (minsUntil: number, startTimeUTC?: string | null) => {
     if (minsUntil < 30) return 'now';
     if (minsUntil < 90) return `in ${minsUntil} mins`;
-    const eventTime = new Date(Date.now() + minsUntil * 60000);
-    const h = eventTime.getHours();
-    const m = eventTime.getMinutes();
-    return m === 0
-      ? `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`
-      : `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`;
+    let eventTime: Date | null = null;
+    if (startTimeUTC) {
+      const parsed = new Date(startTimeUTC);
+      if (!Number.isNaN(parsed.getTime())) eventTime = parsed;
+    }
+    if (!eventTime) eventTime = new Date(Date.now() + minsUntil * 60000);
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return new Intl.DateTimeFormat([], {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz,
+      }).format(eventTime).toLowerCase().replace(/\s/g, '');
+    } catch {
+      const h = eventTime.getHours();
+      const m = eventTime.getMinutes();
+      return m === 0
+        ? `${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`
+        : `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`;
+    }
   };
 
   const pills: JSX.Element[] = [];
@@ -1500,7 +1516,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
 
   // High-stakes event within 90 mins — urgent variant
   if (nextHS?.title && nextHS?.minutesUntil != null && nextHS.minutesUntil <= 90) {
-    const timeLabel = formatEventTime(nextHS.minutesUntil);
+    const timeLabel = formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC);
     pills.push(
       <CalendarPillCapsule
         key="next-up-urgent"
@@ -1512,7 +1528,7 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       />
     );
   } else if (remainingHS.length > 0 && nextHS?.title) {
-    const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil) : 'ahead';
+    const timeLabel = nextHS.minutesUntil != null ? formatEventTime(nextHS.minutesUntil, nextHS?.startTimeUTC) : 'ahead';
     pills.push(
       <CalendarPillCapsule
         key="next-up"

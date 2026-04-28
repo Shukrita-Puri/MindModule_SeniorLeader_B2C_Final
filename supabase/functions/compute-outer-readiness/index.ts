@@ -2437,7 +2437,7 @@ serve(async (req) => {
     } catch (e) { console.error('[compute-outer-readiness] consec clarity error:', e); }
 
     // Next high-stakes event within 90 mins
-    let nextHighStakesEvent: { title: string; minutesUntil: number } | null = null;
+    let nextHighStakesEvent: { title: string; minutesUntil: number; startTimeUTC: string; localHHmm?: string } | null = null;
     try {
       const now = new Date();
       const ninetyMinsLater = new Date(now.getTime() + 90 * 60000);
@@ -2455,7 +2455,7 @@ serve(async (req) => {
           for (const ev of upcoming) {
             if (todayHighStakes.includes(ev.title)) {
               const mins = Math.round((new Date(ev.start_time).getTime() - now.getTime()) / 60000);
-              nextHighStakesEvent = { title: ev.title, minutesUntil: mins };
+              nextHighStakesEvent = { title: ev.title, minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
               break;
             }
           }
@@ -2473,7 +2473,11 @@ serve(async (req) => {
     let scoreTrend: string | null = null;
     let hasBackToBack = false;
     let longestBackToBackHrs: number | null = null;
-    let nextEventAny: { title: string; minutesUntil: number } | null = null;
+    let nextEventAny: { title: string; minutesUntil: number; startTimeUTC: string; localHHmm?: string } | null = null;
+    // Per-event local HH:mm strings paired with each TODAY high-stakes title
+    // (same indexes as todayHighStakes). Lets the prompt emit a paired clock
+    // time so the LLM never invents or rounds it.
+    let todayHighStakesEventTimes: string[] = [];
     let practicesCompletedThisWeek = 0;
     let practiceCompletionRate = 0;
     let daysSinceCoachSession: number | null = null;
@@ -2772,7 +2776,7 @@ serve(async (req) => {
         if (nextEventRes.data) {
           const ev = nextEventRes.data as any;
           const mins = Math.round((new Date(ev.start_time).getTime() - Date.now()) / 60000);
-          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins };
+          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
         }
 
         // 4. Practices this week
@@ -2873,6 +2877,59 @@ serve(async (req) => {
         if (effectivePracticeRes.data && (effectivePracticeRes.data as any[]).length > 0) {
           mostEffectivePractice = (effectivePracticeRes.data as any[])[0].content_id ?? null;
         }
+
+        // 8b. Today high-stakes per-title local times. Mirrors the tomorrow
+        // pairing below so the LLM gets paired (title, HH:mm) tuples for
+        // TODAY's events instead of relative "in N mins" — which had no clock
+        // and forced the model to invent or echo a literal time from the
+        // example in the system prompt. Always uses the user's CURRENT IANA
+        // timezone (handles travelers automatically because the client sends
+        // the live Intl.DateTimeFormat().resolvedOptions().timeZone on every
+        // request).
+        try {
+          if (calendarResult.state === 'active' && todayHighStakes.length > 0) {
+            const todayDayStart = new Date(Date.UTC(userTime.getUTCFullYear(), userTime.getUTCMonth(), userTime.getUTCDate(), 0, 0, 0));
+            const todayDayEnd = new Date(Date.UTC(userTime.getUTCFullYear(), userTime.getUTCMonth(), userTime.getUTCDate(), 23, 59, 59));
+            const tStartUTCToday = new Date(todayDayStart.getTime() + timezoneOffset * 60000);
+            const tEndUTCToday = new Date(todayDayEnd.getTime() + timezoneOffset * 60000);
+            const { data: todayEvts } = await db.from('calendar_events')
+              .select('title, start_time, end_time')
+              .eq('user_id', userId)
+              .gte('start_time', tStartUTCToday.toISOString())
+              .lte('start_time', tEndUTCToday.toISOString())
+              .order('start_time', { ascending: true });
+            const fmtLocalHHmmToday = (utcDate: Date): string => {
+              if (effectiveCurrentTz) {
+                try {
+                  return new Intl.DateTimeFormat('en-GB', {
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                    timeZone: effectiveCurrentTz,
+                  }).format(utcDate);
+                } catch { /* fall through */ }
+              }
+              const evTime = new Date(utcDate.getTime() - timezoneOffset * 60000);
+              return `${String(evTime.getUTCHours()).padStart(2, '0')}:${String(evTime.getUTCMinutes()).padStart(2, '0')}`;
+            };
+            const meetingEventsToday = (todayEvts || []).filter((e: any) => {
+              const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000;
+              return dur < 8;
+            });
+            todayHighStakesEventTimes = todayHighStakes.map(title => {
+              const match = meetingEventsToday.find((e: any) => (e.title || '').trim() === title.trim());
+              if (!match) return '';
+              return fmtLocalHHmmToday(new Date(match.start_time));
+            });
+            // Also re-format nextHighStakesEvent / nextEventAny clock time using
+            // the same IANA-aware formatter so downstream consumers (UI + prompt)
+            // share one source of truth.
+            if (nextHighStakesEvent?.startTimeUTC) {
+              (nextHighStakesEvent as any).localHHmm = fmtLocalHHmmToday(new Date(nextHighStakesEvent.startTimeUTC));
+            }
+            if (nextEventAny?.startTimeUTC) {
+              (nextEventAny as any).localHHmm = fmtLocalHHmmToday(new Date(nextEventAny.startTimeUTC));
+            }
+          }
+        } catch (e) { /* ignore today-pairing failure */ }
 
         // 9. Tomorrow enhanced
         if (tomorrowResult && tomorrowResult.state === 'active') {
@@ -3385,7 +3442,7 @@ TONE & LANGUAGE (mandatory, human voice):
   • Write like a trusted Chief of Staff speaking to a CEO, not like a wearables app.
   • Forbidden words anywhere in phrase or body: "hardware", "device", "metrics", "data points", "system output" (as standalone), "machine", "biometric".
   • Forbidden punctuation: the em dash (—) and the en dash (–) used as a sentence break. Use a comma, a period, a colon, or a semicolon instead. Short sentences are preferred over dashed clauses.
-  • Use natural executive language: "the body is recovered, the mind is carrying the strain. Your edge is using physical readiness to protect cognitive load before the 15:14 with Shukrita Puri."
+  • Use natural executive language: "the body is recovered, the mind is carrying the strain. Your edge is using physical readiness to protect cognitive load before your next high-stakes meeting." (Do NOT copy the example clock time or names — use ONLY the HH:mm and titles supplied in the CALENDAR TODAY / TOMORROW sections.)
 
 PHRASE OPACITY RULE: The phrase + the first sentence of the body, read together, MUST contain at least one explicit pillar word from {Cognition, Cognitive, Mind, Sharpness, Physiology, Body, Sleep, Resilience, Composure, Buffer, Mental Energy}. Standalone metaphors like "Body is loaded.", "Body ahead.", "Body louder." are forbidden as phrases unless the body's first sentence anchors them to a named pillar.
 
@@ -3539,11 +3596,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // === CALENDAR TODAY ===
           if (calendarLoad) {
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
-            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}${todayHighStakes.length > 0 ? ' · Titles: ' + todayHighStakes.join(', ') : ''}`;
+            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
+            // Pair every high-stakes title with its own local HH:mm so the LLM
+            // never invents or rounds the clock. If a title's time is unknown
+            // (no exact match), omit time for that one event.
+            if (todayHighStakes.length > 0) {
+              const pairedToday = todayHighStakes.map((t, i) => {
+                const tm = todayHighStakesEventTimes[i];
+                return tm ? `${tm} ${t}` : t;
+              }).join('; ');
+              userPrompt += `\nHigh-stakes (local time, title): ${pairedToday}`;
+            }
             userPrompt += `\nTotal meetings: ${calendarResult.meetingCount ?? 0}`;
             if (hasBackToBack) userPrompt += `\nBack-to-back: yes · Longest block: ${longestBackToBackHrs}hrs`;
-            if (nextEventAny) userPrompt += `\nNext event: ${nextEventAny.title} in ${nextEventAny.minutesUntil}mins`;
-            if (nextHighStakesEvent) userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil}mins`;
+            if (nextEventAny) {
+              const t = (nextEventAny as any).localHHmm;
+              userPrompt += `\nNext event: ${nextEventAny.title}${t ? ` at ${t}` : ''} (in ${nextEventAny.minutesUntil}mins)`;
+            }
+            if (nextHighStakesEvent) {
+              const t = (nextHighStakesEvent as any).localHHmm;
+              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${t ? ` at ${t}` : ''} (in ${nextHighStakesEvent.minutesUntil}mins)`;
+            }
+            userPrompt += `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
