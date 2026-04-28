@@ -1015,7 +1015,7 @@ forbidden phrases include "decision posture", "decision readiness", "mental shar
 
 Gold-standard examples (match these shapes exactly):
 - Morning JIT:        "From your morning Plan: Board Review in 25 min — open the app to prep."
-- Morning State:      "HRV down 22% vs your baseline — check into the app to prep."
+- Morning State:      "HRV down 22% today — check into the app to prep."
 - Afternoon State:    "You started low and Investor Update is next — open the app to prep."
 - Afternoon Reserves: "RHR elevated before Board Review — open the app to prep."
 - Afternoon JIT:      "From your plan: Board Review in 40 min — open the app to prep."
