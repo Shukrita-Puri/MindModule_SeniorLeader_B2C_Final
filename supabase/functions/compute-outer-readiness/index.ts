@@ -2776,7 +2776,7 @@ serve(async (req) => {
         if (nextEventRes.data) {
           const ev = nextEventRes.data as any;
           const mins = Math.round((new Date(ev.start_time).getTime() - Date.now()) / 60000);
-          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins };
+          if (mins > 0 && mins < 720) nextEventAny = { title: ev.title || 'Untitled', minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
         }
 
         // 4. Practices this week
