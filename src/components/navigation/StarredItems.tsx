@@ -5,9 +5,10 @@ import { useFavorites } from '@/hooks/useFavorites';
 
 const StarredItems = () => {
   const navigate = useNavigate();
-  const { favorites, loading } = useFavorites();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, openMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const shouldFetchFavorites = isMobile ? openMobile : !isCollapsed;
+  const { favorites, loading } = useFavorites({ enabled: shouldFetchFavorites });
 
   // Show content on mobile (sheet is always full width when open)
   // Only hide on desktop when collapsed

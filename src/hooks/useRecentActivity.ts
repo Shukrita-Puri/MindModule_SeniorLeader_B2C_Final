@@ -29,7 +29,7 @@ const levelIcon = (level: number | null | undefined): string => {
   return '●';
 };
 
-export const useRecentActivity = () => {
+export const useRecentActivity = ({ enabled = true }: { enabled?: boolean } = {}) => {
   const { user } = useAuth();
 
   const { data: activities = [], isLoading } = useQuery({
@@ -138,7 +138,7 @@ export const useRecentActivity = () => {
         .sort((a, b) => b.date.getTime() - a.date.getTime())
         .slice(0, 15);
     },
-    enabled: !!user?.id,
+    enabled: enabled && !!user?.id,
     staleTime: 1000 * 60 * 5,
   });
 

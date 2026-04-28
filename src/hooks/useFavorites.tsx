@@ -19,12 +19,18 @@ const getToken = async (): Promise<string | null> => {
   return await getAccessToken();
 };
 
-export const useFavorites = () => {
+export const useFavorites = ({ enabled = true }: { enabled?: boolean } = {}) => {
   const { isAuthenticated, user } = useAuth();
   const [favorites, setFavorites] = useState<Map<string, FavoriteItem>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const fetchFavorites = useCallback(async () => {
+    if (!enabled) {
+      setFavorites(new Map());
+      setLoading(false);
+      return;
+    }
+
     if (!isAuthenticated || !user?.id) {
       setFavorites(new Map());
       setLoading(false);
@@ -94,7 +100,7 @@ export const useFavorites = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [enabled, isAuthenticated, user?.id]);
 
   useEffect(() => {
     fetchFavorites();

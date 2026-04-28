@@ -4,7 +4,7 @@ import { AlertTriangle, BatteryLow, Cloud, Minus, ArrowUp } from "lucide-react";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
 import { mapCheckInToTags } from "@/utils/checkInToTags";
@@ -134,9 +134,6 @@ const DailyCheckIn = () => {
     void import('./CheckInDetail');
   }, []);
 
-  // Check if user has active or trialing subscription
-  const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
-
   const { recordStep } = useOnboardingProgress();
 
   // Show first session guide – DB is the single source of truth for eligibility
@@ -231,23 +228,6 @@ const DailyCheckIn = () => {
       cancelled = true;
     };
   }, [user?.id, user?.onboarding_completed_at]);
-
-  // Fetch connection status
-  const { data: connections } = useQuery({
-    queryKey: ['connections', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return { hasWearable: false, hasCalendar: false };
-      const [wearable, calendar] = await Promise.all([
-        supabase.from('wearable_data').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
-        supabase.from('calendar_connections').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle()
-      ]);
-      return {
-        hasWearable: !!wearable.data,
-        hasCalendar: !!calendar.data
-      };
-    },
-    enabled: !!user?.id
-  });
 
   const handleConfirm = async () => {
     if (!selectedOutcome || isSubmitting) return;
@@ -351,13 +331,17 @@ const DailyCheckIn = () => {
         const now = new Date();
         const skipDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const accessToken = await getAuthToken();
+        const [wearable, calendar] = await Promise.all([
+          supabase.from('wearable_data').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+          supabase.from('calendar_connections').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle()
+        ]);
         await supabase.functions.invoke('user-events', {
           headers: { Authorization: `Bearer ${accessToken}` },
           body: {
             action: 'LOG_CHECKIN_SKIP',
             skipDate,
-            hasWearable: connections?.hasWearable || false,
-            hasCalendar: connections?.hasCalendar || false
+            hasWearable: !!wearable.data,
+            hasCalendar: !!calendar.data
           }
         });
       } catch (error) {

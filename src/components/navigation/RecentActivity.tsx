@@ -22,9 +22,10 @@ interface ActivityGroup {
 
 const RecentActivity = () => {
   const navigate = useNavigate();
-  const { activities, isLoading } = useRecentActivity();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, openMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const shouldFetchActivity = isMobile ? openMobile : !isCollapsed;
+  const { activities, isLoading } = useRecentActivity({ enabled: shouldFetchActivity });
 
   const formatDateLabel = (date: Date): string => {
     if (isToday(date)) return 'Today';
