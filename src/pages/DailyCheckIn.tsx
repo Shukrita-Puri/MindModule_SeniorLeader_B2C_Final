@@ -318,7 +318,7 @@ const DailyCheckIn = () => {
       }
       clearTodayCheckinCache();
       clearEnergyStateCache();
-      clearOuterReadinessCache();
+      clearOuterReadinessCache(effectiveUserId);
 
       // Clear mastery plan session cache to force fresh plan generation
       const currentPeriod = getCurrentTimeWindow();
