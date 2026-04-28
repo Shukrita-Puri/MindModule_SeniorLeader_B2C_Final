@@ -314,6 +314,7 @@ const DailyCheckIn = () => {
       if (effectiveUserId) {
         for (const p of ['morning', 'afternoon', 'evening']) {
           clearPersistent(cacheKeys.brief(effectiveUserId, p, todayDate2));
+          clearPersistent(cacheKeys.briefAwaiting(effectiveUserId, p, todayDate2));
         }
       }
       clearTodayCheckinCache();
