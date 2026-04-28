@@ -12,7 +12,7 @@ interface Tab {
 const TABS: Tab[] = [
   { icon: FileText, label: 'Brief', path: '/executive-home' },
   { icon: ListChecks, label: 'Plan', path: '/plan' },
-  { icon: TrendingUp, label: 'Learn', path: '/insights' },
+  { icon: TrendingUp, label: 'Insight', path: '/insights' },
   { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
 ];
 
