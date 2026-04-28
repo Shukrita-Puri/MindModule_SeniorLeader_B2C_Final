@@ -405,7 +405,11 @@ const TodayThreePriorities = ({
             } else {
               const stripped = stripCoachFromPlan(parsed)!;
               setPlan(stripped);
-              const allCompleted = todayRitual?.completed_practice_ids || [];
+              // Day-scoped union so morning completions persist into afternoon ✓
+              const unionCompleted = await getTodayCompletedUnion();
+              const allCompleted = unionCompleted.length > 0
+                ? unionCompleted
+                : (todayRitual?.completed_practice_ids || []);
               const horizonIds = (stripped.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
