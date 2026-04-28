@@ -321,11 +321,13 @@ const DailyCheckIn = () => {
       clearEnergyStateCache();
       clearOuterReadinessCache(effectiveUserId);
 
-      // Clear mastery plan session cache to force fresh plan generation
-      const currentPeriod = getCurrentTimeWindow();
-      sessionStorage.removeItem(`plan-loaded-${todayDate2}-${currentPeriod}`);
-      sessionStorage.removeItem(`plan-data-${todayDate2}-${currentPeriod}`);
-      sessionStorage.removeItem(`plan-energy-hash-${todayDate2}-${currentPeriod}`);
+      // Clear mastery plan session caches to force fresh plan generation
+      // even if the user crosses a time window while moving through check-in.
+      for (const p of ['morning', 'afternoon', 'evening']) {
+        sessionStorage.removeItem(`plan-loaded-${todayDate2}-${p}`);
+        sessionStorage.removeItem(`plan-data-${todayDate2}-${p}`);
+        sessionStorage.removeItem(`plan-energy-hash-${todayDate2}-${p}`);
+      }
 
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
