@@ -3596,11 +3596,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // === CALENDAR TODAY ===
           if (calendarLoad) {
             userPrompt += `\n\n=== CALENDAR TODAY ===`;
-            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}${todayHighStakes.length > 0 ? ' · Titles: ' + todayHighStakes.join(', ') : ''}`;
+            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
+            // Pair every high-stakes title with its own local HH:mm so the LLM
+            // never invents or rounds the clock. If a title's time is unknown
+            // (no exact match), omit time for that one event.
+            if (todayHighStakes.length > 0) {
+              const pairedToday = todayHighStakes.map((t, i) => {
+                const tm = todayHighStakesEventTimes[i];
+                return tm ? `${tm} ${t}` : t;
+              }).join('; ');
+              userPrompt += `\nHigh-stakes (local time, title): ${pairedToday}`;
+            }
             userPrompt += `\nTotal meetings: ${calendarResult.meetingCount ?? 0}`;
             if (hasBackToBack) userPrompt += `\nBack-to-back: yes · Longest block: ${longestBackToBackHrs}hrs`;
-            if (nextEventAny) userPrompt += `\nNext event: ${nextEventAny.title} in ${nextEventAny.minutesUntil}mins`;
-            if (nextHighStakesEvent) userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title} in ${nextHighStakesEvent.minutesUntil}mins`;
+            if (nextEventAny) {
+              const t = (nextEventAny as any).localHHmm;
+              userPrompt += `\nNext event: ${nextEventAny.title}${t ? ` at ${t}` : ''} (in ${nextEventAny.minutesUntil}mins)`;
+            }
+            if (nextHighStakesEvent) {
+              const t = (nextHighStakesEvent as any).localHHmm;
+              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${t ? ` at ${t}` : ''} (in ${nextHighStakesEvent.minutesUntil}mins)`;
+            }
+            userPrompt += `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
           }
 
           // === TOMORROW === (evenings, Friday, Sunday)
