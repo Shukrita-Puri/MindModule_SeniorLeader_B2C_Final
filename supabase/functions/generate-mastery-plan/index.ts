@@ -3453,6 +3453,208 @@ function buildHorizonModules(
   return deduped.slice(0, 3);
 }
 
+// ==================== STATEFUL PLAN LEDGER ====================
+
+interface PlanLedger {
+  modules: HorizonModule[];
+  generatedAt: string;
+  generatedPeriod?: string;
+  source?: string;
+}
+
+/**
+ * Load the EARLIEST same-day plan_ledger across all of today's
+ * daily_ritual_completions rows. The earliest row owns the canonical lineage
+ * (morning anchors are protected first); later periods evolve from it.
+ * If no row has a ledger yet, returns null.
+ */
+async function loadTodayPlanLedger(
+  userId: string,
+  ritualDate: string,
+  supabaseClient: any,
+): Promise<PlanLedger | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('daily_ritual_completions')
+      .select('plan_ledger, created_at, session_period')
+      .eq('user_id', userId)
+      .eq('ritual_date', ritualDate)
+      .not('plan_ledger', 'is', null)
+      .order('created_at', { ascending: true });
+    if (error || !data || data.length === 0) return null;
+    const earliest = data[0]?.plan_ledger as PlanLedger | null;
+    if (!earliest || !Array.isArray(earliest.modules)) return null;
+    return earliest;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Determine if a ledger slot is "completed" (all of its primary practice IDs
+ * appear in today's completion union). We consider the slot done if the
+ * primary practice (slot.practice.contentId) is completed — secondary
+ * practices follow the player queue contract and don't gate the slot tick.
+ */
+function isSlotCompleted(slot: HorizonModule, completedIds: Set<string>): boolean {
+  const primary = slot?.practice?.contentId;
+  if (!primary) return false;
+  return completedIds.has(primary);
+}
+
+/**
+ * Stateful merge of fresh-derived horizon modules against today's ledger.
+ *
+ * Returns the 3-slot plan to render PLUS metadata describing how it was built.
+ */
+function mergeWithLedger(
+  freshModules: HorizonModule[],
+  ledgerModules: HorizonModule[],
+  completedIds: Set<string>,
+  calendarEventIds: Set<string>,
+  calendarEventTitles: Set<string>,
+): {
+  modules: HorizonModule[];
+  source: 'fresh' | 'ledger-evolution' | 'bonus-round';
+  carriedSlots: number;
+  anchoredSlots: number;
+  completedSlots: number;
+  victoryLine?: string;
+} {
+  // No ledger yet → today's first build. Plain fresh.
+  if (!ledgerModules || ledgerModules.length === 0) {
+    return {
+      modules: freshModules.slice(0, 3),
+      source: 'fresh',
+      carriedSlots: 0,
+      anchoredSlots: 0,
+      completedSlots: 0,
+    };
+  }
+
+  const ledgerCompleted = ledgerModules.filter(s => isSlotCompleted(s, completedIds)).length;
+
+  // Bonus Round — every ledger slot is done. Hand off to a brand-new plan and
+  // attach a victory line. New JIT events that materialised since the ledger
+  // was written are naturally captured because freshModules already reflects
+  // current calendar state.
+  if (ledgerCompleted >= ledgerModules.length && ledgerModules.length > 0) {
+    return {
+      modules: freshModules.slice(0, 3),
+      source: 'bonus-round',
+      carriedSlots: 0,
+      anchoredSlots: 0,
+      completedSlots: ledgerCompleted,
+      victoryLine: `${ledgerCompleted}/${ledgerModules.length} complete. Bonus priorities to keep momentum.`,
+    };
+  }
+
+  // Otherwise: evolve the ledger.
+  const out: HorizonModule[] = [];
+  let carriedSlots = 0;
+  let anchoredSlots = 0;
+  const usedFreshIndexes = new Set<number>();
+
+  // Index fresh slots by JIT event title for anchor refresh lookups.
+  const freshByJitTitle = new Map<string, { slot: HorizonModule; idx: number }>();
+  freshModules.forEach((m, i) => {
+    if (m.isJit && m.jitEventTitle) {
+      freshByJitTitle.set(String(m.jitEventTitle).trim(), { slot: m, idx: i });
+    }
+  });
+
+  for (let slotIndex = 0; slotIndex < ledgerModules.length && slotIndex < 3; slotIndex++) {
+    const ledgerSlot = ledgerModules[slotIndex];
+
+    // Rule 1: Sticky completion — completed slots stay verbatim.
+    if (isSlotCompleted(ledgerSlot, completedIds)) {
+      out.push({ ...ledgerSlot });
+      carriedSlots++;
+      continue;
+    }
+
+    // Rule 2: JIT anchor — if the calendar event still exists today, keep
+    // slot identity but allow practices/whyLine to refresh from a matching
+    // fresh slot (so morning "Strategic Sharpness" can become afternoon
+    // "Calm & Grounding" for the SAME board meeting).
+    const jitTitle = ledgerSlot.jitEventTitle ? String(ledgerSlot.jitEventTitle).trim() : null;
+    const eventStillExists = !!(jitTitle && (
+      calendarEventTitles.has(jitTitle) ||
+      // Loose match: title may have been truncated/normalised differently
+      Array.from(calendarEventTitles).some(t => t.toLowerCase().includes(jitTitle.toLowerCase()) ||
+                                                 jitTitle.toLowerCase().includes(t.toLowerCase()))
+    ));
+
+    if (ledgerSlot.isJit && eventStillExists && jitTitle) {
+      const matchingFresh = freshByJitTitle.get(jitTitle) ||
+        Array.from(freshByJitTitle.entries()).find(([title]) =>
+          title.toLowerCase().includes(jitTitle.toLowerCase()) ||
+          jitTitle.toLowerCase().includes(title.toLowerCase())
+        )?.[1];
+
+      if (matchingFresh) {
+        usedFreshIndexes.add(matchingFresh.idx);
+        out.push({
+          // Anchor identity from ledger:
+          horizon: ledgerSlot.horizon,
+          isJit: true,
+          jitEventTitle: ledgerSlot.jitEventTitle,
+          jitMinutesUntil: matchingFresh.slot.jitMinutesUntil ?? ledgerSlot.jitMinutesUntil,
+          showPriorityPill: true,
+          showNavyBorder: matchingFresh.slot.showNavyBorder,
+          showPulse: matchingFresh.slot.showPulse,
+          // Adaptive content from fresh slot:
+          timeLabel: matchingFresh.slot.timeLabel,
+          typeLabel: matchingFresh.slot.typeLabel,
+          whyLine: matchingFresh.slot.whyLine,
+          practice: matchingFresh.slot.practice,
+          practices: matchingFresh.slot.practices,
+          sequenceReasoning: matchingFresh.slot.sequenceReasoning,
+        });
+        anchoredSlots++;
+        continue;
+      }
+      // No matching fresh slot but the event still exists — keep ledger as-is.
+      out.push({ ...ledgerSlot });
+      anchoredSlots++;
+      continue;
+    }
+
+    // Rule 3: Recompute — pick the next unused fresh slot (preferring same
+    // horizon for stability), else fall through to ledger if no fresh remains.
+    const sameHorizonFreshIdx = freshModules.findIndex((m, i) =>
+      !usedFreshIndexes.has(i) && m.horizon === ledgerSlot.horizon
+    );
+    const fallbackFreshIdx = freshModules.findIndex((_, i) => !usedFreshIndexes.has(i));
+    const pickIdx = sameHorizonFreshIdx >= 0 ? sameHorizonFreshIdx : fallbackFreshIdx;
+
+    if (pickIdx >= 0) {
+      usedFreshIndexes.add(pickIdx);
+      out.push(freshModules[pickIdx]);
+    } else {
+      // No fresh content available — keep ledger slot.
+      out.push({ ...ledgerSlot });
+      carriedSlots++;
+    }
+  }
+
+  // If ledger had < 3 slots (rare), top up from any unused fresh slot.
+  while (out.length < 3) {
+    const nextIdx = freshModules.findIndex((_, i) => !usedFreshIndexes.has(i));
+    if (nextIdx < 0) break;
+    usedFreshIndexes.add(nextIdx);
+    out.push(freshModules[nextIdx]);
+  }
+
+  return {
+    modules: out.slice(0, 3),
+    source: 'ledger-evolution',
+    carriedSlots,
+    anchoredSlots,
+    completedSlots: ledgerCompleted,
+  };
+}
+
 // ==================== HANDLER ====================
 
 Deno.serve(async (req) => {
