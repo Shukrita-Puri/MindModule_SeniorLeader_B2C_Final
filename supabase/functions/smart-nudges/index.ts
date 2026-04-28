@@ -324,17 +324,19 @@ export type CtaVariant = 'A' | 'B' | 'C' | 'D';
 
 const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
 
-// Variant → CTA phrases. Keyed by deepLinkRoute family so we never
-// say "open your plan" while routing to /daily-check-in.
+// v7 — every variant is a "prep" CTA. We keep A/B testing surface forms,
+// but every form ends with the word "prep" so the user always sees a
+// proactive, app-language CTA. Deep-link routing is unchanged on the
+// payload (system's job, not user's vocabulary).
 const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
-  // A = control (current voice)
-  A: { brief: 'open your brief', plan: 'open your plan' },
-  // B = outcome-led
-  B: { brief: 'see your readiness', plan: 'see your prep' },
-  // C = urgency / direct action
-  C: { brief: 'recalibrate now',   plan: 'lock in your prep' },
-  // D = curiosity lure
-  D: { brief: 'tap to prep',       plan: 'tap to prep' },
+  // A = control
+  A: { brief: 'open the app to prep',         plan: 'open the app to prep' },
+  // B = check-in framed
+  B: { brief: 'check into the app to prep',   plan: 'go to the app to prep' },
+  // C = urgent short
+  C: { brief: 'prep now',                     plan: 'prep now' },
+  // D = evening-only variants (overridden in applyCtaVariant when route differs)
+  D: { brief: 'open the app to prep tonight', plan: 'open the app to prep with a cool-down' },
 };
 
 // Stable hash so the same user lands in the same bucket per nudge_type
