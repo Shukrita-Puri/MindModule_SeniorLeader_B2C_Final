@@ -352,34 +352,6 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
     }
   };
 
-  // Color helper: positive=green, negative=red, stable=yellow (text only)
-  const deltaTone = (delta: number): string => {
-    if (delta > 0) return 'text-emerald-600';
-    if (delta < 0) return 'text-red-500';
-    return 'text-amber-500';
-  };
-
-  // Friction tone — lower friction is positive (green), higher is negative (red), middle = yellow
-  const frictionTone = (pct: number): string => {
-    if (pct <= 25) return 'text-emerald-600';
-    if (pct <= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
-
-  // Consistency tone — higher is positive (green), lower is negative (red). Inverse of friction.
-  const consistencyTone = (pct: number): string => {
-    if (pct >= 75) return 'text-emerald-600';
-    if (pct >= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
-
-  const consistencyLabel = (pct: number): string => {
-    if (pct >= 75) return 'Highly consistent';
-    if (pct >= 50) return 'Building consistency';
-    if (pct >= 25) return 'Inconsistent';
-    return 'Low consistency';
-  };
-
   // Per-row arrow direction. For metrics where higher = better (PRS, Alignment).
   const arrowFor = (delta: number | null | undefined) => {
     if (delta == null || Math.abs(delta) < 1) return { Icon: Minus, color: 'text-amber-500' };
