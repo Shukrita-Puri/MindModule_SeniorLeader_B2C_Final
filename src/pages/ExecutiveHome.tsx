@@ -287,19 +287,16 @@ const ExecutiveHome = () => {
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
-              <video 
-                ref={videoRef}
-                key={heroVideoUrl}
-                src={heroVideoUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                onCanPlay={(e) => fadeInVideo(e.currentTarget)}
-                onLoadedData={(e) => fadeInVideo(e.currentTarget)}
-                className="w-full h-full object-cover video-warm-luxury"
-                style={{ opacity: 0 }}
+              <img
+                ref={imageRef}
+                key={heroImageUrl}
+                src={heroImageUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                onLoad={(e) => fadeInImage(e.currentTarget)}
+                className="w-full h-full object-cover video-warm-luxury select-none"
+                style={{ opacity: 0, transition: 'opacity 600ms ease-out' }}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-background/30 to-background pointer-events-none" />
             </div>
