@@ -1,4 +1,30 @@
-## New Goal — Stateful Plan Evolution ("Continuous Day")
+## DONE — Stateful Plan Evolution ("Continuous Day")
+
+Implemented. Today's 3 Priorities now evolves across morning/afternoon/evening
+check-ins instead of resetting:
+
+- New `daily_ritual_completions.plan_ledger jsonb` column (service-role-write
+  only via INSERT/UPDATE trigger guards).
+- `generate-mastery-plan` now:
+  1. Unions `completed_practice_ids` across ALL today's period rows so
+     `req.completedToday` covers the whole day.
+  2. `loadTodayPlanLedger` reads the EARLIEST same-day ledger as canonical.
+  3. `mergeWithLedger` applies the three rules:
+     • Sticky completion (verbatim ✓ in same slotIndex).
+     • JIT anchor with adaptive practices/whyLine (same Board Meeting; calm
+       morning → grounding afternoon).
+     • Otherwise fresh.
+  4. Bonus Round when all 3 ledger slots complete: fresh plan + `victoryLine`.
+  5. Persists the merged plan back to the current period row's `plan_ledger`.
+  6. Returns `ledger: { source, carriedSlots, anchoredSlots, completedSlots, victoryLine? }`.
+- `TodayThreePriorities`:
+  • `checkCompletion` + all hydration paths use `getTodayCompletedUnion()`.
+  • Header switches to "Today's 3 · Bonus Round" and renders `victoryLine`
+    when `plan.ledger.source === 'bonus-round'`.
+- New util: `src/utils/dailyRituals.ts → getTodayCompletedUnion()`.
+- Memory: `mem/architecture/stateful-plan-evolution.md`.
+
+## Original Goal (kept for reference) — Stateful Plan Evolution ("Continuous Day")
 
 Today, every call to `generate-mastery-plan` re-derives the 3 horizon priorities from the **current** check-in + period. When the user re-checks-in in the afternoon, the morning's progress vanishes:
 
