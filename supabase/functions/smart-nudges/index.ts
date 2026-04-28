@@ -954,6 +954,34 @@ function violatesCopyContractV6(body: string): string | null {
   return null;
 }
 
+// ── v7 — JIT-or-State + prep-CTA contract ──────────────────────────────
+// Every body must end with a "prep" verb. Same forbidden-word + length
+// ceilings as V6. The CTA-verb gate is tighter than V6: only V7 verbs.
+const ALLOWED_CTA_VERBS_V7 = [
+  'open the app to prep tonight',
+  'open the app to prep with a cool-down',
+  'check into the app to prep',
+  'go to the app to prep',
+  'open the app to prep',
+  'prep now',
+];
+function violatesCopyContractV7(body: string): string | null {
+  const lower = body.toLowerCase().trim();
+  for (const w of FORBIDDEN_WORDS_V6) {
+    if (lower.includes(w)) return `forbidden word: "${w}"`;
+  }
+  // Must end with a V7 prep verb (allow trailing punctuation).
+  const trailing = lower.replace(/[.!?\s]+$/, '');
+  if (!ALLOWED_CTA_VERBS_V7.some(v => trailing.endsWith(v))) {
+    return 'must end with a V7 prep CTA verb';
+  }
+  if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  const wordCount = body.trim().split(/\s+/).length;
+  if (wordCount > 14) return `body too long (${wordCount} words, max 14)`;
+  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── AI Copy Generation ──
 // ══════════════════════════════════════════════════════════════
