@@ -964,8 +964,8 @@ const Insights = () => {
                   'relative flex-1 h-10 px-4 rounded-t-lg transition-all',
                   'text-[10px] uppercase tracking-[0.12em] font-body font-medium',
                   active
-                    ? 'bg-saffron/15 text-foreground border border-saffron/30 border-b-0 shadow-[0_-2px_8px_-4px_rgba(0,0,0,0.15)]'
-                    : 'bg-saffron/5 text-muted-foreground/70 hover:text-foreground/80 hover:bg-saffron/10 border border-saffron/15 border-b-saffron/30'
+                    ? 'bg-taupe/20 text-foreground border-2 border-taupe/60 border-b-0 shadow-[0_-2px_8px_-4px_rgba(0,0,0,0.18)]'
+                    : 'bg-taupe/5 text-muted-foreground/70 hover:text-foreground/80 hover:bg-taupe/10 border border-taupe/20 border-b-2 border-b-taupe/40'
                 )}
                 style={active ? { marginBottom: '-1px' } : undefined}
               >
