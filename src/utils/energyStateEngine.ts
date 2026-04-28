@@ -138,6 +138,7 @@ export interface CurrentEnergyState {
 const ENERGY_STATE_CACHE_MS = 30_000;
 const energyStateCache = new Map<string, { expiresAt: number; data: CurrentEnergyState }>();
 const energyStateInFlight = new Map<string, Promise<CurrentEnergyState>>();
+let energyStateCacheVersion = 0;
 
 function getEnergyStateCacheKey(userId?: string): string {
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId || 'anon';
@@ -146,6 +147,7 @@ function getEnergyStateCacheKey(userId?: string): string {
 }
 
 export function clearEnergyStateCache(): void {
+  energyStateCacheVersion++;
   energyStateCache.clear();
   energyStateInFlight.clear();
 }
@@ -160,16 +162,21 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   const inFlight = energyStateInFlight.get(cacheKey);
   if (inFlight) return inFlight;
 
+  const version = energyStateCacheVersion;
   const promise = computeEnergyStateFresh(userId)
     .then((data) => {
-      energyStateCache.set(cacheKey, {
-        data,
-        expiresAt: Date.now() + ENERGY_STATE_CACHE_MS,
-      });
+      if (version === energyStateCacheVersion) {
+        energyStateCache.set(cacheKey, {
+          data,
+          expiresAt: Date.now() + ENERGY_STATE_CACHE_MS,
+        });
+      }
       return data;
     })
     .finally(() => {
-      energyStateInFlight.delete(cacheKey);
+      if (version === energyStateCacheVersion) {
+        energyStateInFlight.delete(cacheKey);
+      }
     });
 
   energyStateInFlight.set(cacheKey, promise);

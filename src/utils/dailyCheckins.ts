@@ -21,6 +21,7 @@ export interface CheckinData {
 const TODAY_CHECKIN_CACHE_MS = 30_000;
 const todayCheckinCache = new Map<string, { expiresAt: number; data: CheckinData | null }>();
 const todayCheckinInFlight = new Map<string, Promise<CheckinData | null>>();
+let todayCheckinCacheVersion = 0;
 
 function getTodayCheckinCacheKey(): string {
   const userId = DEV_MODE ? DEV_USER.id : 'auth-user';
@@ -29,6 +30,7 @@ function getTodayCheckinCacheKey(): string {
 }
 
 export function clearTodayCheckinCache(): void {
+  todayCheckinCacheVersion++;
   todayCheckinCache.clear();
   todayCheckinInFlight.clear();
 }
@@ -40,6 +42,17 @@ export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
   if (hour >= 5 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 18) return 'afternoon';
   return 'evening';
+}
+
+async function getAuthTokenWithRetry(attempts = 5, delayMs = 500): Promise<string | null> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const token = await getAuthToken();
+    if (token) return token;
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return null;
 }
 
 // ─── Check if user can check in now ────────────────────────────────
@@ -77,7 +90,7 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
   }
 
   try {
-    const accessToken = await getAuthToken();
+    const accessToken = await getAuthTokenWithRetry();
     if (!accessToken) return [];
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
@@ -118,7 +131,7 @@ async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
   }
 
   try {
-    const accessToken = await getAuthToken();
+    const accessToken = await getAuthTokenWithRetry();
     if (!accessToken) return null;
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
@@ -144,16 +157,21 @@ export async function getTodayCheckin(): Promise<CheckinData | null> {
   const inFlight = todayCheckinInFlight.get(cacheKey);
   if (inFlight) return inFlight;
 
+  const version = todayCheckinCacheVersion;
   const promise = fetchTodayCheckinFresh()
     .then((data) => {
-      todayCheckinCache.set(cacheKey, {
-        data,
-        expiresAt: Date.now() + TODAY_CHECKIN_CACHE_MS,
-      });
+      if (version === todayCheckinCacheVersion) {
+        todayCheckinCache.set(cacheKey, {
+          data,
+          expiresAt: Date.now() + TODAY_CHECKIN_CACHE_MS,
+        });
+      }
       return data;
     })
     .finally(() => {
-      todayCheckinInFlight.delete(cacheKey);
+      if (version === todayCheckinCacheVersion) {
+        todayCheckinInFlight.delete(cacheKey);
+      }
     });
 
   todayCheckinInFlight.set(cacheKey, promise);
@@ -185,7 +203,7 @@ export async function getCheckinForWindow(
   }
 
   try {
-    const accessToken = await getAuthToken();
+    const accessToken = await getAuthTokenWithRetry();
     if (!accessToken) return null;
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
@@ -223,7 +241,7 @@ export async function getCheckinRange(startDate: string, endDate: string): Promi
   }
 
   try {
-    const accessToken = await getAuthToken();
+    const accessToken = await getAuthTokenWithRetry();
     if (!accessToken) return [];
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
@@ -287,8 +305,11 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
   }
 
   try {
-    const accessToken = await getAuthToken();
-    if (!accessToken) return null;
+    const accessToken = await getAuthTokenWithRetry();
+    if (!accessToken) {
+      console.warn('[dailyCheckins] No auth token available after retries; check-in not saved');
+      return null;
+    }
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
       headers: { Authorization: `Bearer ${accessToken}` },

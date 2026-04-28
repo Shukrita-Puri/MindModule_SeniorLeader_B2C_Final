@@ -31,6 +31,7 @@ import {
 const OUTER_READINESS_CACHE_MS = 5 * 60 * 1000;
 const outerReadinessCache = new Map<string, { expiresAt: number; data: OuterReadinessData | null }>();
 const outerReadinessInFlight = new Map<string, Promise<OuterReadinessData | null>>();
+let outerReadinessCacheVersion = 0;
 
 const DEBUG_BRIEF =
   typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true;
@@ -54,6 +55,7 @@ function getOuterReadinessCacheKey(userId: string | undefined): string {
  * Anything else (navigation, focus, viewport, tour) MUST NOT call this.
  */
 export function clearOuterReadinessCache(userId?: string): void {
+  outerReadinessCacheVersion++;
   outerReadinessCache.clear();
   outerReadinessInFlight.clear();
   // Also drop persistent per-window entries so a stale awaiting/brief
@@ -249,16 +251,21 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
   const inFlight = outerReadinessInFlight.get(cacheKey);
   if (inFlight) return inFlight;
 
+  const version = outerReadinessCacheVersion;
   const promise = fetchOuterReadinessFresh(userId)
     .then((data) => {
-      outerReadinessCache.set(cacheKey, {
-        data,
-        expiresAt: Date.now() + OUTER_READINESS_CACHE_MS,
-      });
+      if (version === outerReadinessCacheVersion) {
+        outerReadinessCache.set(cacheKey, {
+          data,
+          expiresAt: Date.now() + OUTER_READINESS_CACHE_MS,
+        });
+      }
       return data;
     })
     .finally(() => {
-      outerReadinessInFlight.delete(cacheKey);
+      if (version === outerReadinessCacheVersion) {
+        outerReadinessInFlight.delete(cacheKey);
+      }
     });
 
   outerReadinessInFlight.set(cacheKey, promise);
@@ -394,9 +401,10 @@ export function useOuterReadiness() {
     // tour overlays, and app foregrounding, which made the brief feel
     // unstable. The four legitimate triggers each call
     // `queryClient.invalidateQueries(['outer-readiness'])` plus
-    // `clearOuterReadinessCache()`, which forces a single fresh fetch
-    // through the manual path — bypassing these flags.
-    refetchOnMount: (q) => (q.state.data ? false : 'always'),
+    // `clearOuterReadinessCache()`. If a component remounts with an
+    // invalidated React Query row still present, refetch immediately; otherwise
+    // keep cached data stable across ordinary remounts.
+    refetchOnMount: (q) => (q.state.isInvalidated ? 'always' : q.state.data ? false : 'always'),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     // IMPORTANT: do NOT use placeholderData here. Keeping the previous
