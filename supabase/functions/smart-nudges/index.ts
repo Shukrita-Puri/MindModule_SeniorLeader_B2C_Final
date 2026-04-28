@@ -367,7 +367,7 @@ function applyCtaVariant(
     const kind: 'brief' | 'plan' = deepLinkRoute === '/executive-home' ? 'plan' : 'brief';
     const phrase = CTA_PHRASES[variant][kind];
     body = body.replace(/[.\s]+$/, '');
-    body = `${body} — ${phrase}`;
+    body = `${body}, ${phrase}`;
   }
 
   return {
@@ -834,16 +834,16 @@ async function generateNudgeCopy(
   const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications.
 
 EVERY notification follows ONE formula:
-  [USER CONTEXT — one specific signal from THIS user's data] + [SPECIFIC APP CTA — exact action and screen]
+  [USER CONTEXT, one specific signal from THIS user's data] + [SPECIFIC APP CTA, exact action and screen]
 
 The user context names what you observed. The CTA tells them the exact in-app action and why it addresses the context.
 Generic openings ("Your plan is ready") and data-only reports ("HRV is 40% below baseline") are both failures.
 
 Gold-standard examples (match this tone exactly):
-- "HRV down 18% three days running — open your brief to reset trajectory."
-- "Board Review today — open your prep plan, it's queued."
-- "4 meetings Monday — open your brief tonight to set the week."
-- "RHR elevated, Investor Update at 2pm — recalibrate now before it starts."
+- "HRV down 18% three days running, open your brief to reset trajectory."
+- "Board Review today, open your prep plan, it's queued."
+- "4 meetings Monday, open your brief tonight to set the week."
+- "RHR elevated, Investor Update at 2pm, recalibrate now before it starts."
 
 Hard rules:
 - Title: max 6 words, no emoji, names the situation.
@@ -851,7 +851,7 @@ Hard rules:
 - Allowed CTA verbs (use one verbatim at the END of the body):
   "open your brief", "open your plan", "open your prep plan", "build your prep plan",
   "recalibrate now", "close the day", "close the week", "lock in your prep".
-- Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block — never invent a number, a meeting name, or a baseline.
+- Body MUST cite at least ONE real signal from the data block below: a number, a meeting title, a count, a check-in outcome, or a sleep/HRV/RHR field. Cite ONLY values that appear in the block, never invent a number, a meeting name, or a baseline.
 - If a signal is missing, do not mention it. Pick a different real signal.
 - Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "set the tone", "your day your terms", "loaded day", "5 days behind you", "plan the week", "come back to", "check in when ready".
 - Truncate any event title longer than 20 characters to its first 3 words.
@@ -873,7 +873,7 @@ Available signals (use ONLY these):
 ${firstEvent ? `- First event: ${firstEvent}${firstEventTime ? ` at ${firstEventTime}` : ''}` : '- First event: none scheduled'}
 - Meetings today: ${ctx.eventCount}
 ${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stakes today: none'}
-${wearableLines ? wearableLines : '- Wearable: not available — DO NOT mention HRV, RHR, sleep, baselines'}
+${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines'}
 - Day: ${ctx.dayName}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
@@ -886,7 +886,7 @@ Required CTA verb at end of body: "open your brief" (default) or "build your pre
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
-      userPrompt = `JIT first-touch. High-stakes event approaching — prep plan is queued.
+      userPrompt = `JIT first-touch. High-stakes event approaching, prep plan is queued.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
@@ -901,7 +901,7 @@ Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`
     case 'nudge_two_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
-      userPrompt = `Mid-day JIT. Event approaching — prep plan is queued.
+      userPrompt = `Mid-day JIT. Event approaching, prep plan is queued.
 
 Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes
@@ -983,7 +983,7 @@ Available signals (use ONLY these):
 - Meetings today: ${ctx.eventCount}
 ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''}
 - Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
-${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available — DO NOT mention HRV, RHR, sleep'}
+${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
 ${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 
 ${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "build your prep plan" or "open your brief".` : ''}
@@ -1030,29 +1030,29 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
     const parsed = JSON.parse(jsonMatch[0]);
     if (parsed.title && parsed.body) {
       if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
-        console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType} — fabricated wearable data detected: "${parsed.body}"`);
+        console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType}, fabricated wearable data detected: "${parsed.body}"`);
         return null;
       }
 
       // v6 — also reject if specific wearable fields are null but the body cites them
       const lowerBody = (parsed.body as string).toLowerCase();
       if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites HRV but field null`);
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites HRV but field null`);
         return null;
       }
       if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites RHR but no signal`);
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites RHR but no signal`);
         return null;
       }
       if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — cites sleep but field null`);
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites sleep but field null`);
         return null;
       }
 
       // v6 — copy-contract lint (forbidden words + required CTA verb + no placeholders)
       const violation = violatesCopyContractV6(parsed.body);
       if (violation) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType} — ${violation}: "${parsed.body}"`);
+        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
         return null;
       }
 
@@ -1076,65 +1076,65 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v6 — [USER CONTEXT] + [SPECIFIC APP CTA]. Each branch cites a real signal.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Sleep ran short last night', body: `Sleep ${ctx.wearable.sleepScore}/100 last night — open your brief to set today's posture`, variantId: 'FB-N1-recovery' };
+    return { title: 'Sleep ran short last night', body: `Sleep ${ctx.wearable.sleepScore}/100 last night, open your brief to set today's posture`, variantId: 'FB-N1-recovery' };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV down vs your baseline', body: `HRV ${ctx.wearable.hrvDeltaPct}% below baseline — build your prep plan before today starts`, variantId: 'FB-N1-hrv' };
+    return { title: 'HRV down vs your baseline', body: `HRV ${ctx.wearable.hrvDeltaPct}% below baseline, build your prep plan before today starts`, variantId: 'FB-N1-hrv' };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today — open your prep plan to lock in decision readiness`, variantId: 'FB-N1-stakes' };
+    return { title: `${ev} today`, body: `${ev} today, open your prep plan to lock in decision readiness`, variantId: 'FB-N1-stakes' };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today — open your plan to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
+    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today, open your plan to anchor mental sharpness`, variantId: 'FB-N1-heavy' };
   }
   if (ctx.dayOfWeek === 6) {
     // Saturday with a meeting (we only fire when one exists)
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Body slower today', body: `Body slower today — open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
+    return { title: 'Body slower today', body: `Body slower today, open your brief before ${ev}`, variantId: 'FB-N1-sat-anchored' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today — open your brief to set decision posture`, variantId: 'FB-N1-calendar' };
+    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} today, open your brief to set decision posture`, variantId: 'FB-N1-calendar' };
   }
-  return { title: 'Light calendar today', body: 'Light calendar today — open your brief to decide where to spend capacity', variantId: 'FB-N1-light' };
+  return { title: 'Light calendar today', body: 'Light calendar today, open your brief to decide where to spend capacity', variantId: 'FB-N1-light' };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min — open your prep plan, it's queued`, variantId: 'FB-N1-JIT' };
+  return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan, it's queued`, variantId: 'FB-N1-JIT' };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min — open your prep plan to anchor sharpness`, variantId: 'FB-N2-JIT-soon' };
+    return { title: `${ev} in ${minutesUntil} min`, body: `${ev} in ${minutesUntil} min, open your prep plan to anchor sharpness`, variantId: 'FB-N2-JIT-soon' };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr} — open your prep plan to lock in your prep`, variantId: 'FB-N2-JIT-later' };
+  return { title: `${ev} at ${timeStr}`, body: `${ev} at ${timeStr}, open your prep plan to lock in your prep`, variantId: 'FB-N2-JIT-later' };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
-  return { title: `${remaining} practice${remaining > 1 ? 's' : ''} left today`, body: `${remaining} practice${remaining > 1 ? 's' : ''} left on today's plan — open your plan to stay on track`, variantId: 'FB-N2-priorities' };
+  return { title: `${remaining} practice${remaining > 1 ? 's' : ''} left today`, body: `${remaining} practice${remaining > 1 ? 's' : ''} left on today's plan, open your plan to stay on track`, variantId: 'FB-N2-priorities' };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low, ${ev} ahead — recalibrate now in your brief`, variantId: 'FB-N2-recal' };
+  return { title: `Started low, ${ev} ahead`, body: `Started low, ${ev} ahead, recalibrate now in your brief`, variantId: 'FB-N2-recal' };
 }
 
 // v6 — wearable-state lure: reserves down + high-stakes ahead
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR elevated, ${ev} ahead`, body: `RHR elevated, ${ev} ahead — recalibrate now before it starts`, variantId: 'FB-N2-reserves-rhr' };
+    return { title: `RHR elevated, ${ev} ahead`, body: `RHR elevated, ${ev} ahead, recalibrate now before it starts`, variantId: 'FB-N2-reserves-rhr' };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV below baseline, ${ev} ahead — open your brief to recalibrate`, variantId: 'FB-N2-reserves-hrv' };
+  return { title: `HRV down, ${ev} ahead`, body: `HRV below baseline, ${ev} ahead, open your brief to recalibrate`, variantId: 'FB-N2-reserves-hrv' };
 }
 
 // v6 — consecutive-low pattern lure
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days running`, body: `HRV down ${daysLow} days running — open your brief to reset trajectory`, variantId: 'FB-N2-consec-low' };
+  return { title: `HRV down ${daysLow} days running`, body: `HRV down ${daysLow} days running, open your brief to reset trajectory`, variantId: 'FB-N2-consec-low' };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
@@ -1147,41 +1147,41 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `${ev} tomorrow — use Sunday to build your prep plan now`, variantId: 'FB-N3-sun-stakes' };
+      return { title: `${ev} tomorrow`, body: `${ev} tomorrow, use Sunday to build your prep plan now`, variantId: 'FB-N3-sun-stakes' };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday — open your brief tonight to set the week`, variantId: 'FB-N3-sun-heavy' };
+      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday, open your brief tonight to set the week`, variantId: 'FB-N3-sun-heavy' };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead — open your brief to set the week with clarity', variantId: 'FB-N3-sun-default' };
+    return { title: 'Light Monday ahead', body: 'Light Monday ahead, open your brief to set the week with clarity', variantId: 'FB-N3-sun-default' };
   }
 
   // Friday — cite today's load, close the week
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done today`, body: `${ctx.eventCount} meetings today — open your brief to close the week`, variantId: 'FB-N3-fri' };
+      return { title: `${ctx.eventCount} meetings done today`, body: `${ctx.eventCount} meetings today, open your brief to close the week`, variantId: 'FB-N3-fri' };
     }
-    return { title: 'Week behind you', body: 'Week behind you — open your brief to close the week', variantId: 'FB-N3-fri-light' };
+    return { title: 'Week behind you', body: 'Week behind you, open your brief to close the week', variantId: 'FB-N3-fri-light' };
   }
 
   // Weekday with practices remaining
   if (prioritiesRemaining > 0) {
-    return { title: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open`, body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open — open your plan to close the day`, variantId: 'FB-N3-priorities' };
+    return { title: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open`, body: `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''} still open, open your plan to close the day`, variantId: 'FB-N3-priorities' };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} practices done`, body: `${prioritiesTotal}/${prioritiesTotal} practices done — open your brief to close the day`, variantId: 'FB-N3-done' };
+    return { title: `${prioritiesTotal}/${prioritiesTotal} practices done`, body: `${prioritiesTotal}/${prioritiesTotal} practices done, open your brief to close the day`, variantId: 'FB-N3-done' };
   }
 
   // Wearable signal
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today — open your brief to close the day and recover', variantId: 'FB-N3-rhr' };
+    return { title: 'RHR ran high today', body: 'RHR ran high today, open your brief to close the day and recover', variantId: 'FB-N3-rhr' };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done — open your brief to close the day in 90 sec`, variantId: 'FB-N3-heavy' };
+    return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings done, open your brief to close the day in 90 sec`, variantId: 'FB-N3-heavy' };
   }
   if (ctx.eventCount > 0) {
-    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done — open your brief to close the day`, variantId: 'FB-N3-default' };
+    return { title: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done`, body: `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''} done, open your brief to close the day`, variantId: 'FB-N3-default' };
   }
-  return { title: 'Day landed', body: 'Day landed — open your brief to close the day and protect tomorrow', variantId: 'FB-N3-light' };
+  return { title: 'Day landed', body: 'Day landed, open your brief to close the day and protect tomorrow', variantId: 'FB-N3-light' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1189,7 +1189,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
 // ══════════════════════════════════════════════════════════════
 
 /**
- * NUDGE 1 — First Touch (earliest relevant moment)
+ * NUDGE 1, First Touch (earliest relevant moment)
  * 
  * Priority order:
  * A) JIT morning event (high-stakes < 2h away) → /executive-home
@@ -1303,7 +1303,7 @@ async function evaluateNudgeOne(
 }
 
 /**
- * NUDGE 2 — Mid-day Action (plan-driven)
+ * NUDGE 2, Mid-day Action (plan-driven)
  * 
  * Priority order:
  * A) JIT event approaching (30-360 min) → /executive-home
@@ -1387,7 +1387,7 @@ async function evaluateNudgeTwo(
 
   // ── B) Priorities incomplete (afternoon, 13:00+) ──
   if (ctx.localTime >= 13 && ctx.pendingPracticeIds.length > 0) {
-    const priorityTitle = 'Priority 1'; // Generic — we don't have practice names in context
+    const priorityTitle = 'Priority 1'; // Generic, we don't have practice names in context
     const remaining = ctx.pendingPracticeIds.length;
 
     const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_priorities', {
@@ -1429,7 +1429,7 @@ async function evaluateNudgeTwo(
 }
 
 /**
- * NUDGE 3 — Evening Close (reflection + forward-set)
+ * NUDGE 3, Evening Close (reflection + forward-set)
  * 
  * Weekday: 18:00-21:30 → /daily-check-in
  * Friday: 18:30-21:30 (close-the-week)
@@ -1444,17 +1444,17 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
 
   // Saturday: NO evening nudge
   if (ctx.dayOfWeek === 6) {
-    console.log(`[smart-nudges] User ${ctx.userId} — Saturday, no evening nudge`);
+    console.log(`[smart-nudges] User ${ctx.userId}, Saturday, no evening nudge`);
     return null;
   }
 
   // Skip if user already reflected today
   if (ctx.checkinCountToday >= 2) {
-    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins — skipping evening close`);
+    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins, skipping evening close`);
     return null;
   }
   if (ctx.afternoonCheckinOutcome !== null) {
-    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in — skipping evening close`);
+    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in, skipping evening close`);
     return null;
   }
 
