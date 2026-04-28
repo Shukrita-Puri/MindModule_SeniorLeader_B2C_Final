@@ -21,18 +21,53 @@ import {
   currentPeriod as currentPeriodLocal,
 } from '@/utils/persistentBriefCache';
 
-const OUTER_READINESS_CACHE_MS = 30_000;
+/**
+ * In-memory de-dup window for `fetchOuterReadiness`. Aligned with the
+ * React Query `staleTime` so the hook and the imperative caller (coach
+ * context builder) agree on what counts as "fresh enough". Material
+ * data-changing events explicitly call `clearOuterReadinessCache()` so a
+ * 5-minute window does not stale-out a real update.
+ */
+const OUTER_READINESS_CACHE_MS = 5 * 60 * 1000;
 const outerReadinessCache = new Map<string, { expiresAt: number; data: OuterReadinessData | null }>();
 const outerReadinessInFlight = new Map<string, Promise<OuterReadinessData | null>>();
+
+const DEBUG_BRIEF =
+  typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV === true;
+function dbg(...args: unknown[]) {
+  if (DEBUG_BRIEF) console.log('[useOuterReadiness:debug]', ...args);
+}
 
 function getOuterReadinessCacheKey(userId: string | undefined): string {
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId || 'anon';
   return `${effectiveUserId}:${localISODate()}:${currentPeriodLocal()}`;
 }
 
-export function clearOuterReadinessCache(): void {
+/**
+ * Drop in-memory de-dup, in-flight promises, and the persistent
+ * per-window caches (real brief + awaiting marker) for the current
+ * user/date/period. Called by the four legitimate data-changing flows:
+ *   • DailyCheckIn save
+ *   • CheckInDetail save
+ *   • ConnectedData connect / disconnect / sync complete
+ *   • Onboarding completion (Stage 7)
+ * Anything else (navigation, focus, viewport, tour) MUST NOT call this.
+ */
+export function clearOuterReadinessCache(userId?: string): void {
   outerReadinessCache.clear();
   outerReadinessInFlight.clear();
+  // Also drop persistent per-window entries so a stale awaiting/brief
+  // payload cannot replay after a real check-in or connection change.
+  if (typeof window === 'undefined') return;
+  try {
+    const id = DEV_MODE ? DEV_USER.id : (userId || null);
+    if (!id) return;
+    const today = localISODate();
+    const period = currentPeriodLocal();
+    clearPersistent(cacheKeys.brief(id, period, today));
+    clearPersistent(cacheKeys.briefAwaiting(id, period, today));
+    dbg('clearOuterReadinessCache: cleared in-memory + persistent', { id, period, today });
+  } catch { /* ignore */ }
 }
 
 export interface OuterReadinessData {
