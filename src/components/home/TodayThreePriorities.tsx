@@ -558,11 +558,12 @@ const TodayThreePriorities = ({
     const currentPeriod = getCurrentTimeWindow();
     const ritual = await getTodayRitual(currentPeriod);
     const horizonIds = (plan.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
-    if (!ritual) {
-      setCompletedPracticeIds([]);
-      return;
-    }
-    const allCompleted = ritual.completed_practice_ids || [];
+    // Stateful Plan Evolution: union completion across ALL today's periods,
+    // so a morning-completed slot still shows ✓ in the afternoon's brief.
+    const unionCompleted = await getTodayCompletedUnion();
+    const allCompleted = unionCompleted.length > 0
+      ? unionCompleted
+      : (ritual?.completed_practice_ids || []);
     let active = horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted;
 
     // Stoic companion bridge: when the ReflectionCorner's "Optional companion"
@@ -587,7 +588,7 @@ const TodayThreePriorities = ({
     });
 
     if (active.length >= horizonIds.length && active.length > 0) {
-      if (ritual.completion_status !== 'full') {
+      if (ritual && ritual.completion_status !== 'full') {
         await upsertRitual({ ritual_date: localISODate(), completion_status: 'full', session_period: currentPeriod });
       }
     }
