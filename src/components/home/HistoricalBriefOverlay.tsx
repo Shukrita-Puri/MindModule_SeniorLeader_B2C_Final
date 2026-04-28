@@ -5,9 +5,19 @@
  * card. Read-only (no feedback, no signal-pill expansion, no CTAs).
  */
 
-import { X } from 'lucide-react';
+import { X, Brain, BatteryMedium, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useBriefSnapshot } from '@/hooks/useBriefSnapshot';
+import {
+  useBriefSnapshot,
+  type BriefSnapshotRecord,
+  type WearableSnapshot,
+  type CheckinSnapshot,
+} from '@/hooks/useBriefSnapshot';
+import {
+  buildExecutivePills,
+  type ExecutivePill,
+  type PillState,
+} from '@/components/home/DecisionReadinessBrief';
 
 interface Props {
   briefId: string;
@@ -27,6 +37,141 @@ const TIER_LABEL: Record<string, string> = {
   strong: 'STRONG',
   peak: 'PEAK',
 };
+
+// ─── Pill rendering tokens (match live brief visual language) ───
+const PILL_BODY = 'bg-white/85';
+const PILL_SHADOW = 'shadow-[0_2px_8px_rgba(0,0,0,0.06)]';
+const PILL_HEADLINE = 'text-muted-foreground';
+const PILL_SIGNAL = 'text-foreground';
+
+const PILL_COLORS: Record<PillState, { icon: string; badge: string; badgeRing: string }> = {
+  green:   { icon: 'text-emerald-600', badge: 'bg-emerald-100/80', badgeRing: 'ring-1 ring-emerald-200/50' },
+  amber:   { icon: 'text-amber-600',   badge: 'bg-amber-100/80',   badgeRing: 'ring-1 ring-amber-200/50' },
+  red:     { icon: 'text-red-600',     badge: 'bg-red-100/80',     badgeRing: 'ring-1 ring-red-200/50' },
+  neutral: { icon: 'text-muted-foreground', badge: 'bg-muted/60',  badgeRing: 'ring-1 ring-border/40' },
+};
+
+/**
+ * Adapt a stored brief snapshot back into the `outerBrief`-shaped object that
+ * `buildExecutivePills` expects. Keeps the live and historical pill renders
+ * driven by the same logic — single source of truth.
+ */
+function snapshotToOuterBriefShape(
+  wearable: WearableSnapshot | null,
+  checkin: CheckinSnapshot | null,
+): Record<string, unknown> {
+  const w = wearable ?? ({} as Partial<WearableSnapshot>);
+  const c = checkin ?? ({} as Partial<CheckinSnapshot>);
+  return {
+    checkInOutcome: c.checkInOutcome ?? null,
+    clarityLevel: c.clarityLevel ?? null,
+    confidenceLevel: c.confidenceLevel ?? null,
+    mentalSharpnessLevel: c.mentalSharpnessLevel ?? null,
+    consecutiveLowConfidence: c.consecutiveLowConfidence ?? 0,
+    consecutiveLowClarity: c.consecutiveLowClarity ?? 0,
+    hrvValue: w.hrv ?? null,
+    hrvDeviation: w.hrvDeviation ?? null,
+    hrvBaseline: w.hrvBaseline ?? null,
+    rhrValue: w.rhr ?? null,
+    rhrDeviation: w.rhrDeviation ?? null,
+    rhrBaseline: w.rhrBaseline ?? null,
+    hrValue: w.hr ?? null,
+    hrDeviation: w.hrDeviation ?? null,
+    hrBaseline: w.hrBaseline ?? null,
+    sleepDuration: w.sleepDuration ?? null,
+    sleepScore: w.sleepScore ?? null,
+    sleepDeviation: w.sleepDeviation ?? null,
+    sleepBaseline: w.sleepBaseline ?? null,
+    wearableTrend7d: w.wearableTrend7d ?? null,
+    scoreTrajectory7d: w.scoreTrajectory7d ?? null,
+    wearableStatus: { isConnected: !!w.wearableConnected },
+  };
+}
+
+const PILL_ICON: Record<ExecutivePill['id'], typeof Brain> = {
+  cognitive: Brain,
+  physiological: BatteryMedium,
+  emotional: ShieldCheck,
+};
+
+function ReadOnlyPillCapsule({ pill }: { pill: ExecutivePill }) {
+  const c = PILL_COLORS[pill.state];
+  const Icon = PILL_ICON[pill.id];
+  return (
+    <div className="flex flex-col w-full">
+      <div className={cn('flex items-center gap-3 w-full pl-2 pr-3 py-2 rounded-full rounded-b-none', PILL_BODY, PILL_SHADOW)}>
+        <span className={cn('shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full', c.badge, c.badgeRing)}>
+          <Icon className={cn('w-[18px] h-[18px]', c.icon)} strokeWidth={2} />
+        </span>
+        <div className="flex-1 min-w-0 flex flex-col items-start leading-tight">
+          <span className={cn('text-[10px] uppercase tracking-[0.12em] font-body', PILL_HEADLINE)}>{pill.headline}</span>
+          <span className={cn('text-sm font-semibold tracking-wide uppercase', PILL_SIGNAL)}>{pill.signalWord}</span>
+        </div>
+      </div>
+      <div className="rounded-b-2xl backdrop-blur-md bg-white/55 px-4 py-3">
+        <div className="space-y-1">
+          {pill.topLines.length > 0 ? (
+            pill.topLines.map((line, i) => (
+              <div key={`t-${i}`} className="flex flex-col">
+                <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
+                {line.qualifier && (
+                  <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                )}
+              </div>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground/55 font-body italic">
+              {pill.topEmptyText || 'No wearable reading'}
+            </span>
+          )}
+        </div>
+        <div className="my-2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="space-y-1">
+          {pill.bottomLines.length > 0 ? (
+            pill.bottomLines.map((line, i) => (
+              <div key={`b-${i}`} className="flex flex-col">
+                <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
+                {line.qualifier && (
+                  <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
+                )}
+              </div>
+            ))
+          ) : (
+            <span className="text-xs text-muted-foreground/55 font-body italic">
+              {pill.bottomEmptyText || 'No self-declared reading'}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Compact "wearable evidence" footnote rendered under the pills (e.g.
+ * `HRV 18.1ms · RHR 64bpm · Sleep 7h12m`). Falls back gracefully when a
+ * historical snapshot is missing parts.
+ */
+function WearableEvidenceLine({ wearable }: { wearable: WearableSnapshot | null }) {
+  if (!wearable) return null;
+  const parts: string[] = [];
+  if (wearable.hrv != null) parts.push(`HRV ${wearable.hrv}ms`);
+  if (wearable.rhr != null) parts.push(`RHR ${wearable.rhr}bpm`);
+  if (wearable.hr != null) parts.push(`HR ${wearable.hr}bpm`);
+  if (wearable.sleepDuration != null) {
+    const h = Math.floor(wearable.sleepDuration / 60);
+    const m = wearable.sleepDuration % 60;
+    parts.push(`Sleep ${h}h${m.toString().padStart(2, '0')}m`);
+  } else if (wearable.sleepScore != null) {
+    parts.push(`Sleep score ${wearable.sleepScore}`);
+  }
+  if (parts.length === 0) return null;
+  return (
+    <p className="mt-2 text-[11px] text-muted-foreground/55 font-body">
+      Evidence · {parts.join(' · ')}
+    </p>
+  );
+}
 
 const titleCaseWindow = (w: string | null | undefined): string => {
   if (!w) return '';
