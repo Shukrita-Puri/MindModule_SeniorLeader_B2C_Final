@@ -92,10 +92,7 @@ const TodayStateCard = () => {
       </div>
       {/* Score and Tier */}
       <div className="flex items-baseline gap-3 mb-2">
-        <span className={cn(
-          "text-[48px] font-medium tabular-nums font-body",
-          getTierColor(energyState.energyTier)
-        )}>
+        <span className="text-[48px] font-medium tabular-nums font-body text-foreground">
           {energyState.overallBalance}
         </span>
         <span className="text-sm text-muted-foreground/60 font-body">
