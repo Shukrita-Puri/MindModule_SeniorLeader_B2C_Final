@@ -190,9 +190,9 @@ const ConnectedData = () => {
         }
       }
 
-      toast.success('Google Calendar connected!');
-
       const providerLabel = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      toast.success(`${providerLabel} connected!`);
+
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
@@ -222,10 +222,24 @@ const ConnectedData = () => {
     }
   };
 
-  /* ─── Google Calendar Handlers ─── */
+  /* ─── Calendar Handlers (provider-aware) ─── */
 
-  const handleConnectCalendar = async () => {
-    setConnecting('google-calendar');
+  const startCalendarConnect = async (
+    targetProvider: 'google' | 'microsoft',
+    cardId: 'google-calendar' | 'microsoft-calendar'
+  ) => {
+    // If a different calendar is already connected, warn the user.
+    // The backend will replace the existing connection (UNIQUE on user_id).
+    if (status?.calendar.connected && status.calendar.provider && status.calendar.provider !== targetProvider) {
+      const currentLabel = status.calendar.provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      const targetLabel = targetProvider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      const confirmed = window.confirm(
+        `${currentLabel} is currently connected.\n\nConnecting ${targetLabel} will replace it. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
+    setConnecting(cardId);
     try {
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -239,7 +253,7 @@ const ConnectedData = () => {
           },
           body: JSON.stringify({
             action: 'connect',
-            provider: 'google',
+            provider: targetProvider,
             redirectPath: '/connected-data',
           }),
         }
@@ -248,17 +262,27 @@ const ConnectedData = () => {
       const data = await res.json();
       if (data?.authUrl) {
         await openUrl(data.authUrl);
+      } else {
+        throw new Error('No auth URL returned');
       }
     } catch (err) {
       console.error('Error connecting calendar:', err);
-      toast.error('Failed to connect calendar');
+      toast.error(
+        targetProvider === 'microsoft'
+          ? 'Failed to connect Microsoft Calendar'
+          : 'Failed to connect Google Calendar'
+      );
     } finally {
       setConnecting(null);
     }
   };
 
+  const handleConnectCalendar = () => startCalendarConnect('google', 'google-calendar');
+  const handleConnectMicrosoftCalendar = () => startCalendarConnect('microsoft', 'microsoft-calendar');
+
   const handleDisconnectCalendar = async () => {
     const provider = status?.calendar.provider || 'google';
+    const label = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
     try {
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -278,7 +302,7 @@ const ConnectedData = () => {
       invalidatePlanCache();
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-      toast.success('Google Calendar disconnected');
+      toast.success(`${label} disconnected`);
     } catch {
       toast.error('Failed to disconnect calendar');
     }
