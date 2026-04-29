@@ -64,7 +64,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { provider } = z.object({ provider: z.enum(['google', 'outlook']) }).parse(body);
+    const { provider } = z.object({ provider: z.enum(['google', 'microsoft']) }).parse(body);
 
     // Auth: support both Auth0 token (frontend) and internal scheduled call with userId+internalSecret
     let userId: string;
@@ -194,6 +194,48 @@ serve(async (req) => {
         }
 
         await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
+      } else if (provider === 'microsoft') {
+        const refreshRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '',
+            client_secret: Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '',
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token',
+            scope: 'offline_access openid profile email Calendars.Read',
+          }),
+        });
+        const refreshData = await refreshRes.json();
+
+        if (refreshData.error) {
+          console.error('[sync-calendar] microsoft token_refresh_failed:', refreshData.error, refreshData.error_description);
+          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
+          return jsonOk({ success: false, reconnectRequired: true, reason: 'refresh_failed', error: 'Calendar session expired. Please reconnect your calendar.' });
+        }
+
+        accessToken = refreshData.access_token;
+        const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
+
+        const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: accessToken }, encKeyB64);
+
+        const updatePayload: Record<string, unknown> = {
+          access_token_enc: newAccessEnc,
+          token_iv: newAccessIv,
+          token_expires_at: newExpiresAt,
+        };
+
+        // Microsoft typically returns a new refresh token on every refresh
+        if (refreshData.refresh_token) {
+          const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
+          updatePayload.refresh_token_enc = newRefreshEnc;
+          updatePayload.refresh_token_iv = newRefreshIv;
+          console.log('[sync-calendar] microsoft token_refresh_success – rotated refresh token');
+        } else {
+          console.log('[sync-calendar] microsoft token_refresh_success – kept existing refresh token');
+        }
+
+        await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
       }
     }
 
@@ -273,7 +315,7 @@ serve(async (req) => {
           };
         });
       }
-    } else if (provider === 'outlook') {
+    } else if (provider === 'microsoft') {
       const response = await fetch(
         `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${syncWindowStart.toISOString()}&endDateTime=${syncWindowEnd.toISOString()}&$orderby=start/dateTime&$top=250`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -281,12 +323,12 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error('[sync-calendar] Outlook API error:', response.status, errText);
+        console.error('[sync-calendar] Microsoft Graph API error:', response.status, errText);
         if (response.status === 401) {
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-          return jsonOk({ success: false, reconnectRequired: true, reason: 'outlook_api_unauthorized', error: 'Calendar session expired. Please reconnect your calendar.' });
+          return jsonOk({ success: false, reconnectRequired: true, reason: 'microsoft_api_unauthorized', error: 'Calendar session expired. Please reconnect your calendar.' });
         }
-        return jsonOk({ success: false, error: 'Failed to fetch calendar events from Outlook' });
+        return jsonOk({ success: false, error: 'Failed to fetch calendar events from Microsoft Calendar' });
       }
 
       const data = await response.json();

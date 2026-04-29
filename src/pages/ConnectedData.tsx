@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
+import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 
 /* ─── Types ─── */
 
@@ -189,7 +190,8 @@ const ConnectedData = () => {
         }
       }
 
-      toast.success('Google Calendar connected!');
+      const providerLabel = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      toast.success(`${providerLabel} connected!`);
 
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
@@ -220,10 +222,24 @@ const ConnectedData = () => {
     }
   };
 
-  /* ─── Google Calendar Handlers ─── */
+  /* ─── Calendar Handlers (provider-aware) ─── */
 
-  const handleConnectCalendar = async () => {
-    setConnecting('google-calendar');
+  const startCalendarConnect = async (
+    targetProvider: 'google' | 'microsoft',
+    cardId: 'google-calendar' | 'microsoft-calendar'
+  ) => {
+    // If a different calendar is already connected, warn the user.
+    // The backend will replace the existing connection (UNIQUE on user_id).
+    if (status?.calendar.connected && status.calendar.provider && status.calendar.provider !== targetProvider) {
+      const currentLabel = status.calendar.provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      const targetLabel = targetProvider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
+      const confirmed = window.confirm(
+        `${currentLabel} is currently connected.\n\nConnecting ${targetLabel} will replace it. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
+    setConnecting(cardId);
     try {
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -237,7 +253,7 @@ const ConnectedData = () => {
           },
           body: JSON.stringify({
             action: 'connect',
-            provider: 'google',
+            provider: targetProvider,
             redirectPath: '/connected-data',
           }),
         }
@@ -246,17 +262,27 @@ const ConnectedData = () => {
       const data = await res.json();
       if (data?.authUrl) {
         await openUrl(data.authUrl);
+      } else {
+        throw new Error('No auth URL returned');
       }
     } catch (err) {
       console.error('Error connecting calendar:', err);
-      toast.error('Failed to connect calendar');
+      toast.error(
+        targetProvider === 'microsoft'
+          ? 'Failed to connect Microsoft Calendar'
+          : 'Failed to connect Google Calendar'
+      );
     } finally {
       setConnecting(null);
     }
   };
 
+  const handleConnectCalendar = () => startCalendarConnect('google', 'google-calendar');
+  const handleConnectMicrosoftCalendar = () => startCalendarConnect('microsoft', 'microsoft-calendar');
+
   const handleDisconnectCalendar = async () => {
     const provider = status?.calendar.provider || 'google';
+    const label = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
     try {
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -276,7 +302,7 @@ const ConnectedData = () => {
       invalidatePlanCache();
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-      toast.success('Google Calendar disconnected');
+      toast.success(`${label} disconnected`);
     } catch {
       toast.error('Failed to disconnect calendar');
     }
@@ -563,18 +589,38 @@ const ConnectedData = () => {
 
   /* ─── Connection Data ─── */
 
+  const calendarProvider = status?.calendar.provider ?? null;
+  const calendarConnected = status?.calendar.connected ?? false;
+  const googleConnected = calendarConnected && calendarProvider === 'google';
+  const microsoftConnected = calendarConnected && calendarProvider === 'microsoft';
+
   const connections = [
     {
       id: 'google-calendar',
       name: 'Google Calendar',
       description: 'Sync your calendar for contextual recommendations',
-      logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
-      connected: status?.calendar.connected ?? false,
-      lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      connected: googleConnected,
+      lastSync: googleConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
       showReconnect: false,
       onConnect: handleConnectCalendar,
+      onDisconnect: handleDisconnectCalendar,
+      onSync: handleSyncNow,
+      canSync: true,
+    },
+    {
+      id: 'microsoft-calendar',
+      name: 'Microsoft Calendar',
+      description: 'Connect your Outlook calendar to help Mind Module understand meetings, decision load, and recovery windows.',
+      logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      connected: microsoftConnected,
+      lastSync: microsoftConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
+      statusLabel: undefined as string | undefined,
+      statusNote: undefined as string | undefined,
+      showReconnect: false,
+      onConnect: handleConnectMicrosoftCalendar,
       onDisconnect: handleDisconnectCalendar,
       onSync: handleSyncNow,
       canSync: true,
@@ -625,7 +671,7 @@ const ConnectedData = () => {
                     {conn.statusNote && (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
                     )}
-                    {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-health') && (
+                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-health') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
                       </p>

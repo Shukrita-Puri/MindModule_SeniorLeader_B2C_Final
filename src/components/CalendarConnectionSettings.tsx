@@ -126,7 +126,7 @@ const CalendarConnectionSettings = ({
 
     runPostConnectSync();
   }, [searchParams]);
-  const handleConnect = async (selectedProvider: 'google' | 'outlook') => {
+  const handleConnect = async (selectedProvider: 'google' | 'microsoft') => {
     setLoading(true);
     try {
       // Get Auth0 token for edge function authentication
@@ -275,7 +275,7 @@ const CalendarConnectionSettings = ({
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
               Google Calendar
             </Button>
-            <Button onClick={() => handleConnect('outlook')} disabled={loading} variant="outline" className="flex-1">
+            <Button onClick={() => handleConnect('microsoft')} disabled={loading} variant="outline" className="flex-1">
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
               Outlook Calendar
             </Button>
