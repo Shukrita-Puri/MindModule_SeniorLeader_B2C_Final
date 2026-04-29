@@ -319,7 +319,7 @@ serve(async (req) => {
 
       const frontendUrl = Deno.env.get('FRONTEND_URL');
       if (!frontendUrl) throw new Error('FRONTEND_URL not configured');
-      const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true`;
+      const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true&provider=${validCallbackProvider}`;
 
       // Fire-and-forget: register the Google push-notification watch channel for this user.
       // Failure is non-fatal — the daily cron will pick it up.
