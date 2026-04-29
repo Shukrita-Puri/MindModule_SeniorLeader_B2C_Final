@@ -1705,12 +1705,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
   if (showLoader) {
     return (
-      <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
+      <div className="rounded-xl card-hero p-4">
         <div className="flex items-center justify-between">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
             Performance Readiness Brief
           </span>
-          <span className="text-xs text-muted-foreground/50 font-body">
+          <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
             Preparing
           </span>
         </div>
@@ -1728,14 +1728,14 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   }
 
   return (
-    <div className="rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40 animate-fade-in">
+    <div className="rounded-xl card-hero p-4 animate-fade-in">
 
       {/* 1. EYEBROW ROW */}
       <div className="flex items-center justify-between">
-        <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+        <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
           Performance Readiness Brief
         </span>
-        <span className="text-xs text-muted-foreground/50 font-body">
+        <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
           {getTimeLabel()} · {getDateLabel()}
         </span>
       </div>
@@ -1764,7 +1764,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 4. PHRASE */}
       {phrase && (
-        <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+        <p className="mt-4 text-quote text-foreground">
           {phrase}
         </p>
       )}
@@ -1774,10 +1774,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           (check-in or today's wearable) is present. */}
       {awaitingSignals && (
         <>
-          <p className="mt-4 text-[17px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+          <p className="mt-4 text-quote text-foreground">
             Awaiting today's signal
           </p>
-          <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
+          <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
             Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief.
           </p>
         </>
@@ -1785,7 +1785,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
       {/* 5. BODY COPY */}
       {bodyText && (
-        <p className="mt-2 text-sm text-muted-foreground/70 font-body leading-relaxed">
+        <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
           {renderBody(bodyText)}
         </p>
       )}

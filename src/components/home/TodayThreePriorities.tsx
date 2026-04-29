@@ -835,10 +835,10 @@ const TodayThreePriorities = ({
             onClick={() => navigate('/daily-check-in')}
             className="mt-1 flex flex-col items-start gap-1.5 pl-10 pr-3 py-2 rounded-xl text-left hover:bg-muted/10 transition-colors"
           >
-            <span className="text-[15px] italic text-foreground/80" style={{ fontFamily: 'Georgia, serif' }}>
+            <span className="text-quote text-foreground">
               Awaiting today's signal
             </span>
-            <span className="flex items-start gap-1 text-xs text-muted-foreground/70 font-body leading-relaxed">
+            <span className="flex items-start gap-1 text-body-sm text-[hsl(var(--muted-foreground-v2))]">
               <span>Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.</span>
               <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
             </span>
@@ -914,7 +914,7 @@ const TodayThreePriorities = ({
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
             {plan?.ledger?.source === 'bonus-round' ? "Today's 3 · Bonus Round" : "Today's 3 Priorities"}
           </span>
           <div className="flex items-center gap-2">
@@ -954,8 +954,8 @@ const TodayThreePriorities = ({
             <div
               key={`${module.contentId}-${index}`}
               className={cn(
-                "space-y-0 rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-4 py-1 border-l-2 transition-colors",
-                "border-l-taupe/40"
+                // Pilot v2 — standard card: tonal bg + hairline border + elev-1 (2 mechanisms)
+                "space-y-0 rounded-xl card-standard px-4 py-1 transition-colors"
               )}
             >
               {/* Slot header row */}
