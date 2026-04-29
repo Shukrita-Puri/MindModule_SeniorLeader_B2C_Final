@@ -311,21 +311,6 @@ serve(async (req) => {
         if (updateError) throw new Error(updateError.message || 'Failed to update connection');
         console.log('[calendar-auth] Updated connection:', existingConn.id);
       } else {
-          updatePayload.refresh_token_enc = refreshTokenEnc;
-          updatePayload.refresh_token_iv = refreshIv;
-          console.log('[calendar-auth] Stored new refresh token for user:', validUserId);
-        } else {
-          console.log('[calendar-auth] Preserved existing refresh token for user:', validUserId);
-        }
-
-        const { error: updateError } = await supabaseAdmin
-          .from('calendar_connections')
-          .update(updatePayload)
-          .eq('id', existingConn.id);
-
-        if (updateError) throw new Error(updateError.message || 'Failed to update connection');
-        console.log('[calendar-auth] Updated connection:', existingConn.id);
-      } else {
         const { error: insertError } = await supabaseAdmin
           .from('calendar_connections')
           .insert({
