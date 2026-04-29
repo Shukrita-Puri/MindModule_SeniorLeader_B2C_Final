@@ -30,7 +30,15 @@ import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 /* ─── Types ─── */
 
 interface ConnectionStatus {
-  calendar: { connected: boolean; provider: string | null; lastSync: string | null };
+  calendar: {
+    connected: boolean;
+    provider: string | null;
+    lastSync: string | null;
+    providers?: {
+      google?: { connected: boolean; lastSync: string | null };
+      microsoft?: { connected: boolean; lastSync: string | null };
+    };
+  };
   appleWatch: {
     connected: boolean;
     connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'permission_revoked' | 'error';
@@ -228,17 +236,6 @@ const ConnectedData = () => {
     targetProvider: 'google' | 'microsoft',
     cardId: 'google-calendar' | 'microsoft-calendar'
   ) => {
-    // If a different calendar is already connected, warn the user.
-    // The backend will replace the existing connection (UNIQUE on user_id).
-    if (status?.calendar.connected && status.calendar.provider && status.calendar.provider !== targetProvider) {
-      const currentLabel = status.calendar.provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
-      const targetLabel = targetProvider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
-      const confirmed = window.confirm(
-        `${currentLabel} is currently connected.\n\nConnecting ${targetLabel} will replace it. Continue?`
-      );
-      if (!confirmed) return;
-    }
-
     setConnecting(cardId);
     try {
       const token = await getAuthToken();
@@ -280,8 +277,7 @@ const ConnectedData = () => {
   const handleConnectCalendar = () => startCalendarConnect('google', 'google-calendar');
   const handleConnectMicrosoftCalendar = () => startCalendarConnect('microsoft', 'microsoft-calendar');
 
-  const handleDisconnectCalendar = async () => {
-    const provider = status?.calendar.provider || 'google';
+  const disconnectCalendarProvider = async (provider: 'google' | 'microsoft') => {
     const label = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
     try {
       const token = await getAuthToken();
@@ -298,7 +294,24 @@ const ConnectedData = () => {
         }
       );
       if (!res.ok) throw new Error('Disconnect failed');
-      setStatus(prev => prev ? { ...prev, calendar: { connected: false, provider: null, lastSync: null } } : prev);
+      setStatus(prev => {
+        if (!prev) return prev;
+        const providers = { ...(prev.calendar.providers ?? {}) };
+        providers[provider] = { connected: false, lastSync: null };
+        const googleStillConnected = providers.google?.connected ?? false;
+        const microsoftStillConnected = providers.microsoft?.connected ?? false;
+        const stillConnected = googleStillConnected || microsoftStillConnected;
+        const remainingProvider = googleStillConnected ? 'google' : microsoftStillConnected ? 'microsoft' : null;
+        return {
+          ...prev,
+          calendar: {
+            connected: stillConnected,
+            provider: remainingProvider,
+            lastSync: stillConnected ? (providers[remainingProvider!]?.lastSync ?? null) : null,
+            providers,
+          },
+        };
+      });
       invalidatePlanCache();
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
@@ -308,8 +321,10 @@ const ConnectedData = () => {
     }
   };
 
-  const handleSyncNow = async () => {
-    const provider = status?.calendar.provider || 'google';
+  const handleDisconnectGoogle = () => disconnectCalendarProvider('google');
+  const handleDisconnectMicrosoft = () => disconnectCalendarProvider('microsoft');
+
+  const syncCalendarProvider = async (provider: 'google' | 'microsoft') => {
     setSyncing(true);
     const result = await triggerCalendarSync(provider);
     if (result.reconnectRequired) {
@@ -327,6 +342,9 @@ const ConnectedData = () => {
     }
     setSyncing(false);
   };
+
+  const handleSyncGoogle = () => syncCalendarProvider('google');
+  const handleSyncMicrosoft = () => syncCalendarProvider('microsoft');
 
   /* ─── Apple Health Handlers ─── */
 
@@ -589,10 +607,16 @@ const ConnectedData = () => {
 
   /* ─── Connection Data ─── */
 
-  const calendarProvider = status?.calendar.provider ?? null;
-  const calendarConnected = status?.calendar.connected ?? false;
-  const googleConnected = calendarConnected && calendarProvider === 'google';
-  const microsoftConnected = calendarConnected && calendarProvider === 'microsoft';
+  const googleConnected = status?.calendar.providers?.google?.connected
+    ?? (status?.calendar.connected && status?.calendar.provider === 'google')
+    ?? false;
+  const microsoftConnected = status?.calendar.providers?.microsoft?.connected
+    ?? (status?.calendar.connected && status?.calendar.provider === 'microsoft')
+    ?? false;
+  const googleLastSync = status?.calendar.providers?.google?.lastSync
+    ?? (googleConnected ? (status?.calendar.lastSync ?? null) : null);
+  const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
+    ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
 
   const connections = [
     {
@@ -601,13 +625,13 @@ const ConnectedData = () => {
       description: 'Sync your calendar for contextual recommendations',
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
-      lastSync: googleConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
+      lastSync: googleConnected ? formatLastSync(googleLastSync) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
       showReconnect: false,
       onConnect: handleConnectCalendar,
-      onDisconnect: handleDisconnectCalendar,
-      onSync: handleSyncNow,
+      onDisconnect: handleDisconnectGoogle,
+      onSync: handleSyncGoogle,
       canSync: true,
     },
     {
@@ -616,13 +640,13 @@ const ConnectedData = () => {
       description: 'Connect your Outlook calendar to help Mind Module understand meetings, decision load, and recovery windows.',
       logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
-      lastSync: microsoftConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
+      lastSync: microsoftConnected ? formatLastSync(microsoftLastSync) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
       showReconnect: false,
       onConnect: handleConnectMicrosoftCalendar,
-      onDisconnect: handleDisconnectCalendar,
-      onSync: handleSyncNow,
+      onDisconnect: handleDisconnectMicrosoft,
+      onSync: handleSyncMicrosoft,
       canSync: true,
     },
     {
