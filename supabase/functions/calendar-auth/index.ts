@@ -263,17 +263,17 @@ serve(async (req) => {
 
       const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-      // The calendar_connections table has UNIQUE(user_id) — one calendar per user.
-      // Look up by user_id only, then update provider if needed (e.g. switching from Google to Microsoft).
+      // calendar_connections is unique on (user_id, provider) — users may connect both Google and Microsoft.
+      // Look up the row for this specific provider; insert if missing, update if present.
       const { data: existingConn } = await supabaseAdmin
         .from('calendar_connections')
-        .select('id, provider, refresh_token_enc, refresh_token_iv')
+        .select('id, refresh_token_enc, refresh_token_iv')
         .eq('user_id', validUserId)
+        .eq('provider', validCallbackProvider)
         .maybeSingle();
 
       if (existingConn) {
         const updatePayload: Record<string, unknown> = {
-          provider: validCallbackProvider,
           access_token_enc: accessTokenEnc,
           token_iv: accessIv,
           token_enc_v: 1,
@@ -282,25 +282,13 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
 
-        const providerChanged = existingConn.provider !== validCallbackProvider;
-
-        // Always rotate refresh token when provider changes (old token is for a different provider).
-        // Otherwise only overwrite if a new refresh token was returned (Google may not return one on re-consent).
+        // Only overwrite refresh token if a new one was returned (Google may not return one on re-consent).
         if (refreshTokenEnc && refreshIv) {
           updatePayload.refresh_token_enc = refreshTokenEnc;
           updatePayload.refresh_token_iv = refreshIv;
           console.log('[calendar-auth] Stored new refresh token for user:', validUserId);
-        } else if (providerChanged) {
-          // Provider switched but no refresh token returned — clear stale token from old provider
-          updatePayload.refresh_token_enc = null;
-          updatePayload.refresh_token_iv = null;
-          console.warn('[calendar-auth] Provider changed without refresh token — cleared stale token');
         } else {
           console.log('[calendar-auth] Preserved existing refresh token for user:', validUserId);
-        }
-
-        if (providerChanged) {
-          console.log('[calendar-auth] Provider switched:', existingConn.provider, '→', validCallbackProvider);
         }
 
         const { error: updateError } = await supabaseAdmin
@@ -331,7 +319,7 @@ serve(async (req) => {
 
       const frontendUrl = Deno.env.get('FRONTEND_URL');
       if (!frontendUrl) throw new Error('FRONTEND_URL not configured');
-      const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true`;
+      const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true&provider=${validCallbackProvider}`;
 
       // Fire-and-forget: register the Google push-notification watch channel for this user.
       // Failure is non-fatal — the daily cron will pick it up.

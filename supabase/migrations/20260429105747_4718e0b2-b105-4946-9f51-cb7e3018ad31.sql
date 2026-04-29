@@ -1,0 +1,2 @@
+ALTER TABLE public.calendar_connections DROP CONSTRAINT IF EXISTS calendar_connections_user_id_key;
+ALTER TABLE public.calendar_connections ADD CONSTRAINT calendar_connections_user_provider_key UNIQUE (user_id, provider);

@@ -70,6 +70,8 @@ serve(async (req) => {
       .select("is_active, provider, updated_at, last_sync")
       .eq("user_id", userId)
       .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {

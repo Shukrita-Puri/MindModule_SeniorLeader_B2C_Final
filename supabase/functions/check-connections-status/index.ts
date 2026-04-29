@@ -24,15 +24,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check calendar connection
-    const { data: calendarConn, error: calError } = await db
+    // Check calendar connections (users may connect both Google and Microsoft)
+    const { data: calendarConns, error: calError } = await db
       .from("calendar_connections")
       .select("id, provider, is_active, last_sync")
       .eq("user_id", userId)
-      .eq("is_active", true)
-      .maybeSingle();
+      .eq("is_active", true);
 
-    console.log("[check-connections-status] Calendar query result:", JSON.stringify({ calendarConn, calError }));
+    console.log("[check-connections-status] Calendar query result:", JSON.stringify({ calendarConns, calError }));
+
+    const googleConn = (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
+    const microsoftConn = (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
+    const primaryConn = googleConn ?? microsoftConn; // backwards-compat single field
 
     // Check Oura connection
     const { data: ouraConn } = await db
@@ -96,9 +99,19 @@ Deno.serve(async (req) => {
 
     const result = {
       calendar: {
-        connected: !!calendarConn,
-        provider: calendarConn?.provider || null,
-        lastSync: calendarConn?.last_sync || null,
+        connected: !!primaryConn,
+        provider: primaryConn?.provider || null,
+        lastSync: primaryConn?.last_sync || null,
+        providers: {
+          google: {
+            connected: !!googleConn,
+            lastSync: googleConn?.last_sync || null,
+          },
+          microsoft: {
+            connected: !!microsoftConn,
+            lastSync: microsoftConn?.last_sync || null,
+          },
+        },
       },
       oura: {
         connected: !!ouraConn,
