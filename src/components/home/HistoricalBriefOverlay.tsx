@@ -215,12 +215,16 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
       <button
         onClick={onClose}
         aria-label="Close historical brief"
-        className="fixed top-3 right-3 md:top-4 md:right-4 z-50 w-10 h-10 rounded-full bg-taupe hover:bg-taupe/90 border border-taupe/60 flex items-center justify-center text-white transition-colors shadow-sm"
+        className="fixed z-50 w-11 h-11 md:w-10 md:h-10 rounded-full bg-taupe hover:bg-taupe/90 border border-taupe/60 flex items-center justify-center text-white transition-colors shadow-sm touch-manipulation"
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+          right: 'calc(env(safe-area-inset-right, 0px) + 0.75rem)',
+        }}
       >
         <X className="w-4 h-4" />
       </button>
 
-      <div className="min-h-full flex items-start justify-center px-4 pt-20 pb-12 md:pt-24">
+      <div className="min-h-full flex items-start justify-center px-4 pb-12 pt-[calc(env(safe-area-inset-top,0px)+5rem)] md:pt-[calc(env(safe-area-inset-top,0px)+6rem)]">
         <div className="w-full max-w-lg">
           <div className="rounded-xl bg-white/85 backdrop-blur-[20px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-4 border-l-2 border-l-taupe/40">
             {isLoading && (
