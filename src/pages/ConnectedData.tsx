@@ -165,7 +165,9 @@ const ConnectedData = () => {
     const calendarCallback = searchParams.get('calendar_connected');
     if (calendarCallback !== 'true') return;
 
+    const callbackProvider = (searchParams.get('provider') as 'google' | 'microsoft' | null) ?? null;
     searchParams.delete('calendar_connected');
+    searchParams.delete('provider');
     setSearchParams(searchParams, { replace: true });
 
     console.log('[ConnectedData] Post-OAuth callback detected, triggering sync...');
@@ -184,13 +186,20 @@ const ConnectedData = () => {
         }
       );
 
-      let provider = 'google';
+      let provider: 'google' | 'microsoft' = callbackProvider ?? 'google';
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         setStatus(statusData);
-        provider = statusData.calendar?.provider || 'google';
+        // Prefer the provider from the OAuth callback URL; fall back to backend.
+        if (!callbackProvider) {
+          provider = (statusData.calendar?.provider as 'google' | 'microsoft') || 'google';
+        }
 
-        if (!statusData.calendar?.connected) {
+        const providerConnected = provider === 'microsoft'
+          ? (statusData.calendar?.providers?.microsoft?.connected ?? statusData.calendar?.connected)
+          : (statusData.calendar?.providers?.google?.connected ?? statusData.calendar?.connected);
+
+        if (!providerConnected) {
           console.warn('[ConnectedData] Calendar not verified as connected after OAuth');
           toast.error('Calendar connection could not be verified');
           setSyncing(false);
