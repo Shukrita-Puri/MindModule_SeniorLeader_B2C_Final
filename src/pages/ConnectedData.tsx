@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
+import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 
 /* ─── Types ─── */
 
@@ -191,6 +192,7 @@ const ConnectedData = () => {
 
       toast.success('Google Calendar connected!');
 
+      const providerLabel = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
