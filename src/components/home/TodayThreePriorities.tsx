@@ -914,7 +914,7 @@ const TodayThreePriorities = ({
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
         <div className="flex items-center justify-between">
-          <span className="text-xs tracking-widest uppercase text-muted-foreground/60 font-body">
+          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
             {plan?.ledger?.source === 'bonus-round' ? "Today's 3 · Bonus Round" : "Today's 3 Priorities"}
           </span>
           <div className="flex items-center gap-2">
@@ -954,8 +954,8 @@ const TodayThreePriorities = ({
             <div
               key={`${module.contentId}-${index}`}
               className={cn(
-                "space-y-0 rounded-xl bg-white/65 backdrop-blur-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.04)] px-4 py-1 border-l-2 transition-colors",
-                "border-l-taupe/40"
+                // Pilot v2 — standard card: tonal bg + hairline border + elev-1 (2 mechanisms)
+                "space-y-0 rounded-xl card-standard px-4 py-1 transition-colors"
               )}
             >
               {/* Slot header row */}
