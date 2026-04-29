@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { read as readPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
+import { getLocalDataSummary } from '@/services/localDataStore';
 import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, CalendarPlus, type LucideIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
@@ -1603,6 +1604,15 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       return false;
     }
   });
+  const [noLocalSignalAtMount] = useState(() => {
+    try {
+      const hasEverCheckedIn = localStorage.getItem('hasEverCheckedIn') === 'true';
+      const localSummary = getLocalDataSummary();
+      return !hasEverCheckedIn && localSummary.wearableCount === 0;
+    } catch {
+      return false;
+    }
+  });
 
   // Inner readiness values echoed from the backend.
   // The score row must follow the SAME period contract as the phrase/body:
@@ -1667,7 +1677,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
-  const showLoader = outerBriefLoading || outerBriefFetching;
+  const showLoader = !noLocalSignalAtMount && (outerBriefLoading || outerBriefFetching);
 
   const briefId = (outerBrief as any)?.briefId ?? null;
 

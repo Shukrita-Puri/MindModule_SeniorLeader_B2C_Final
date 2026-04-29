@@ -30,6 +30,7 @@ import {
   msUntilMidnight,
   cacheKeys,
 } from '@/utils/persistentBriefCache';
+import { getLocalDataSummary } from '@/services/localDataStore';
 // Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
 const THEME_KEYWORDS: Record<string, string[]> = {
   'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
@@ -233,6 +234,15 @@ const Insights = () => {
     ? readPersistent<CachedInsightsSections>(insightsDataKey)
     : null) as CachedInsightsSections | null;
   const sectionsHydratedRef = useRef<boolean>(!!cachedSections);
+  const noLocalInputAtMountRef = useRef<boolean>((() => {
+    try {
+      const hasEverCheckedIn = localStorage.getItem('hasEverCheckedIn') === 'true';
+      const localSummary = getLocalDataSummary();
+      return !hasEverCheckedIn && localSummary.wearableCount === 0;
+    } catch {
+      return false;
+    }
+  })());
 
   // Removed page-level `loading` gate – each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>(cachedSections?.weekData || []);
@@ -242,11 +252,11 @@ const Insights = () => {
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(cachedSections?.tinyWinsInsights || null);
   const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>(cachedSections?.tinyWinsContent || []);
   // When cache hit, *Loading starts FALSE — refresh runs silently.
-  const [winsLoading, setWinsLoading] = useState(!cachedSections?.tinyWinsInsights);
+  const [winsLoading, setWinsLoading] = useState(!cachedSections?.tinyWinsInsights && !noLocalInputAtMountRef.current);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(cachedSections?.statePatterns || null);
-  const [patternsLoading, setPatternsLoading] = useState(!cachedSections?.statePatterns);
+  const [patternsLoading, setPatternsLoading] = useState(!cachedSections?.statePatterns && !noLocalInputAtMountRef.current);
   const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(cachedSections?.semanticAnalysis || null);
-  const [semanticLoading, setSemanticLoading] = useState(!cachedSections?.semanticAnalysis);
+  const [semanticLoading, setSemanticLoading] = useState(!cachedSections?.semanticAnalysis && !noLocalInputAtMountRef.current);
   const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(cachedSections?.profileBaseline || null);
   const [patternsError, setPatternsError] = useState(false);
   const [winsError, setWinsError] = useState(false);
@@ -264,7 +274,9 @@ const Insights = () => {
     return cacheKeys.insightsScriptDone(uid, today);
   })();
   const insightsAlreadyShown = !!(insightsScriptKey && readPersistent<boolean>(insightsScriptKey) === true);
-  const [insightsScriptDone, setInsightsScriptDone] = useState(insightsAlreadyShown);
+  const [insightsScriptDone, setInsightsScriptDone] = useState(
+    insightsAlreadyShown || noLocalInputAtMountRef.current
+  );
   useEffect(() => {
     if (insightsScriptDone && insightsScriptKey) {
       writePersistent(insightsScriptKey, true, msUntilMidnight());
@@ -276,7 +288,7 @@ const Insights = () => {
   // and skips the scripted loader. TTL = midnight rollover.
   useEffect(() => {
     if (!insightsDataKey) return;
-    if (!statePatterns || !tinyWinsInsights || !semanticAnalysis) return;
+    if (!statePatterns || !tinyWinsInsights) return;
     const payload: CachedInsightsSections = {
       statePatterns,
       tinyWinsInsights,
@@ -337,7 +349,7 @@ const Insights = () => {
   // DEV_MODE only: direct database queries for insights data
   const fetchInsightsDataDev = async () => {
     if (!user?.id || !DEV_MODE) return;
-    setPatternsLoading(true);
+    if (!sectionsHydratedRef.current && !noLocalInputAtMountRef.current) setPatternsLoading(true);
     const effectiveUserId = DEV_USER.id;
 
     try {
@@ -432,7 +444,7 @@ const Insights = () => {
   const fetchTinyWinsInsights = async () => {
     if (!user?.id) return;
     // Silent refresh when we already hydrated from per-day cache.
-    if (!sectionsHydratedRef.current) setWinsLoading(true);
+    if (!sectionsHydratedRef.current && !noLocalInputAtMountRef.current) setWinsLoading(true);
     try {
       // DEV_MODE: Direct database query with server-side dimensions (no client extraction)
       if (DEV_MODE) {
@@ -536,7 +548,7 @@ const Insights = () => {
 
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
-    if (!sectionsHydratedRef.current) setPatternsLoading(true);
+    if (!sectionsHydratedRef.current && !noLocalInputAtMountRef.current) setPatternsLoading(true);
     // patternsLoading already set above
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
@@ -620,7 +632,7 @@ const Insights = () => {
 
   const fetchSemanticAnalysis = async () => {
     if (!user?.id) return;
-    if (!sectionsHydratedRef.current) setSemanticLoading(true);
+    if (!sectionsHydratedRef.current && !noLocalInputAtMountRef.current) setSemanticLoading(true);
     try {
       // DEV_MODE: Extract themes from actual data
       if (DEV_MODE) {

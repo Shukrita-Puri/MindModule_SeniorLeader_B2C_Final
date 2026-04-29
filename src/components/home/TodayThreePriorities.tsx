@@ -34,6 +34,7 @@ import {
   cacheKeys,
   localISODate,
 } from '@/utils/persistentBriefCache';
+import { getLocalDataSummary } from '@/services/localDataStore';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -181,13 +182,22 @@ const TodayThreePriorities = ({
       return null;
     }
   })();
+  const [noLocalSignalAtMount] = useState(() => {
+    try {
+      const hasEverCheckedIn = localStorage.getItem('hasEverCheckedIn') === 'true';
+      const localSummary = getLocalDataSummary();
+      return !hasEverCheckedIn && localSummary.wearableCount === 0;
+    } catch {
+      return false;
+    }
+  });
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(initialCached);
-  const [loading, setLoading] = useState(!initialCached);
+  const [loading, setLoading] = useState(!initialCached && !noLocalSignalAtMount);
   const [fetchFailed, setFetchFailed] = useState(false);
   // Awaiting-signals state — mirrors the Brief contract. When true, the
   // Plan card renders the same quiet "Begin with your check-in" prompt
   // instead of generating a plan from defaults.
-  const [awaitingSignals, setAwaitingSignals] = useState(false);
+  const [awaitingSignals, setAwaitingSignals] = useState(noLocalSignalAtMount);
   // Ref preserves the "we already had a cached payload at mount" fact for
   // the lifetime of this component, so a transient `loading=true` from a
   // silent refresh can never re-trigger the scripted EngravedLoader.
@@ -335,7 +345,7 @@ const TodayThreePriorities = ({
     // would re-trigger the scripted EngravedLoader for users who already
     // have a valid plan rendered. We still fetch in the background and
     // swap `plan` if anything changed.
-    if (!opts?.silent) setLoading(true);
+    if (!opts?.silent && !noLocalSignalAtMount) setLoading(true);
     setFetchFailed(false);
     try {
       const currentPeriod = getCurrentTimeWindow();
@@ -556,7 +566,7 @@ const TodayThreePriorities = ({
       console.error('Error loading plan:', error);
     }
     setLoading(false);
-  }, [user, outerReadinessData]);
+  }, [user, outerReadinessData, noLocalSignalAtMount]);
 
   useEffect(() => {
     // Wait for the brief to resolve before kicking off `loadPlan` — without
