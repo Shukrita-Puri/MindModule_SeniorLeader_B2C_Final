@@ -1,8 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Loader2, ExternalLink } from 'lucide-react';
-import { getRedirectUri, nativeLogin, nativeLoginHandled, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
+import { Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import {
+  getRedirectUri,
+  nativeLogin,
+  nativeLoginHandled,
+  getSanitisedAuth0Audience,
+  isNativeAuthBusy,
+  isNativeAuthCompleted,
+  isNativeAuthStale,
+  resetStaleNativeAuth,
+} from '@/utils/nativeAuth';
 import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
 
 function isInIframe(): boolean {
@@ -13,11 +22,17 @@ function isInIframe(): boolean {
   }
 }
 
+type RedirectStatus = 'preparing' | 'redirecting' | 'error';
+const REDIRECT_TIMEOUT_MS = 8000;
+
 const Login = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectInitiated = useRef(false);
+  const timeoutRef = useRef<number | null>(null);
+  const [status, setStatus] = useState<RedirectStatus>('preparing');
+  const [attempt, setAttempt] = useState(0);
 
   const intendedDestination = (location.state as { from?: string })?.from || '/daily-check-in';
   const urlParams = new URLSearchParams(window.location.search);
@@ -26,11 +41,61 @@ const Login = () => {
 
   const inIframe = isInIframe();
 
+  const clearTimeoutSafe = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const startRedirect = useCallback(async () => {
+    setStatus('redirecting');
+    clearTimeoutSafe();
+    timeoutRef.current = window.setTimeout(() => {
+      console.warn('[Login] Redirect timeout reached');
+      setStatus('error');
+    }, REDIRECT_TIMEOUT_MS);
+
+    try {
+      const result = await nativeLogin({ returnTo: finalDestination });
+      if (nativeLoginHandled(result)) return;
+
+      await loginWithRedirect({
+        appState: { returnTo: finalDestination },
+        authorizationParams: {
+          redirect_uri: getRedirectUri(),
+          audience: getSanitisedAuth0Audience(),
+          scope: 'openid profile email offline_access',
+        },
+      });
+    } catch (e) {
+      console.error('[Login] Auth0 redirect failed:', e);
+      clearTimeoutSafe();
+      redirectInitiated.current = false;
+      setStatus('error');
+    }
+  }, [clearTimeoutSafe, finalDestination, loginWithRedirect]);
+
+  const handleRetry = useCallback(() => {
+    clearTimeoutSafe();
+    resetStaleNativeAuth();
+    redirectInitiated.current = false;
+    setStatus('preparing');
+    setAttempt((n) => n + 1);
+  }, [clearTimeoutSafe]);
+
+  const handleHome = useCallback(() => {
+    clearTimeoutSafe();
+    resetStaleNativeAuth();
+    navigate('/', { replace: true });
+  }, [clearTimeoutSafe, navigate]);
+
   useEffect(() => {
     if (inIframe) return;
     if (isLoading) return;
 
     if (isAuthenticated) {
+      clearTimeoutSafe();
       navigate(finalDestination);
       return;
     }
@@ -43,26 +108,28 @@ const Login = () => {
     }
 
     if (redirectInitiated.current) return;
+    if (isNativeAuthBusy() || isNativeAuthCompleted()) {
+      if (isNativeAuthStale()) {
+        console.log('[Login] Stale native auth detected, clearing for retry');
+        resetStaleNativeAuth();
+      } else {
+        console.log('[Login] Native auth in progress or completed, waiting...');
+        clearTimeoutSafe();
+        timeoutRef.current = window.setTimeout(() => {
+          if (!isAuthenticated) setStatus('error');
+        }, REDIRECT_TIMEOUT_MS);
+        return;
+      }
+    }
     redirectInitiated.current = true;
 
     // Clear guard since user explicitly navigated to /login
     clearLogoutGuard();
 
-    // On iOS native, open in-app browser
-    (async () => {
-      const result = await nativeLogin({ returnTo: finalDestination });
-      if (nativeLoginHandled(result)) return;
+    void startRedirect();
+  }, [isLoading, isAuthenticated, navigate, finalDestination, inIframe, clearTimeoutSafe, startRedirect, attempt]);
 
-      loginWithRedirect({
-        appState: { returnTo: finalDestination },
-        authorizationParams: {
-          redirect_uri: getRedirectUri(),
-          audience: getSanitisedAuth0Audience(),
-          scope: 'openid profile email offline_access',
-        },
-      });
-    })();
-  }, [isLoading, isAuthenticated, navigate, loginWithRedirect, finalDestination, inIframe]);
+  useEffect(() => () => clearTimeoutSafe(), [clearTimeoutSafe]);
 
   if (inIframe) {
     return (
@@ -85,11 +152,40 @@ const Login = () => {
     );
   }
 
+  if (status === 'error') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
+          <p className="text-base font-semibold text-foreground">
+            We couldn't open login. Please try again.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition"
+            >
+              Try again
+            </button>
+            <button
+              onClick={handleHome}
+              className="px-6 py-3 rounded-xl border border-black/[0.08] text-foreground hover:bg-black/[0.03] transition"
+            >
+              Back to home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground">Redirecting to login...</p>
+        <p className="text-muted-foreground">
+          {status === 'redirecting' ? 'Opening login...' : 'Preparing login...'}
+        </p>
       </div>
     </div>
   );
