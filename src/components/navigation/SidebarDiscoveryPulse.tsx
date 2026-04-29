@@ -66,10 +66,10 @@ const SidebarDiscoveryPulse = () => {
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="relative">
+          <div className="relative z-[70] h-12 w-12 pointer-events-none md:pointer-events-auto">
             <SidebarTrigger
               data-tour="sidebar-trigger"
-              className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20 relative z-10"
+              className="fixed left-3 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] z-[70] h-12 w-12 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20 pointer-events-auto touch-manipulation md:relative md:left-auto md:top-auto md:h-11 md:w-11"
             />
           </div>
         </TooltipTrigger>

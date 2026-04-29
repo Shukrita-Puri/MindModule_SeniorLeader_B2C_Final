@@ -11,7 +11,7 @@ import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken, getEdgeFunctionHeaders } from "@/services/authTokenService";
 
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
@@ -341,7 +341,7 @@ const ExecutiveHome = () => {
               <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-background/30 to-background pointer-events-none" />
             </div>
             
-            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
+            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
               <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
                 <SidebarDiscoveryPulse />
               </div>

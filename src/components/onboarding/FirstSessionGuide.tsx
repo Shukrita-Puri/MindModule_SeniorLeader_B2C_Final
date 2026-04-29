@@ -4,7 +4,7 @@
  * A 3-step guided demo that highlights real UI elements on the actual pages.
  * Step 1: Check-in carousel on /daily-check-in
  * Step 2: Today State card on /executive-home
- * Step 3: Daily Plan on /executive-home
+ * Step 3: Daily Plan on /plan
  *
  * Key behaviours:
  * - Two-pass tooltip: hidden mount → measure height → compute position → reveal.
@@ -34,7 +34,7 @@ interface GuideStep {
   targetSelector: string;
   title: string;
   body: string;
-  page: 'check-in' | 'home';
+  page: 'check-in' | 'home' | 'plan';
   phaseLabel: string;
   scrollToTop?: boolean;
   scrollBlock?: ScrollLogicalPosition;
@@ -66,7 +66,7 @@ const STEPS: GuideStep[] = [
     targetSelector: '[data-tour="daily-plan"]',
     title: 'Performance Mastery Plan',
     body: "Today's plan — built to close the gap between state and demand.",
-    page: 'home',
+    page: 'plan',
     phaseLabel: 'YOUR DAILY LOOP',
     scrollBlock: 'center',
     tooltipPosition: 'above',
@@ -450,7 +450,6 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     clearFirstSessionTour({ markDone: true });
     setSidebar(false);
     onComplete();
-    navigate('/daily-check-in');
   };
 
   const dismissIntroAndStart = () => {
@@ -673,6 +672,7 @@ function getPagePath(page: string): string {
   switch (page) {
     case 'home': return '/executive-home';
     case 'check-in': return '/daily-check-in';
+    case 'plan': return '/plan';
     default: return '/';
   }
 }
