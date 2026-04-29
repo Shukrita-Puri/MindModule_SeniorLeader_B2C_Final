@@ -8,6 +8,7 @@ import uspPulseSignal from "@/assets/onboarding/usp-pulse-signal.jpg";
 import uspConstellation from "@/assets/onboarding/usp-constellation.jpg";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
 import heroBg from "@/assets/onboarding/onboarding-intro-active.jpg";
+import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 interface Slide {
   headline: string;
@@ -60,7 +61,7 @@ export default function StageUSPIntro() {
 
   const goPrev = useCallback(() => {
     if (currentSlide === -1) {
-      navigate("/onboarding/payment");
+      navigate(PAYMENT_PAGE_SUPPRESSED ? "/onboarding/results" : "/onboarding/payment");
     } else {
       setCurrentSlide((s) => s - 1);
     }

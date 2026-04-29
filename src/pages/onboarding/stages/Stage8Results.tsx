@@ -13,6 +13,7 @@ import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { resolveOnboardingAccess } from "@/utils/subscriptionHelpers";
+import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 import { GradientProgress } from "@/components/ui/gradient-progress";
 import EngravedLoader from "@/components/ui/engraved-loader";
 import {
@@ -403,6 +404,12 @@ export default function Stage8Results() {
           // Wait until access state is resolved – never route while it's
           // 'pending', otherwise a valid beta user could be flashed to /payment.
           if (authLoading || onboardingAccess === 'pending') return;
+
+          if (PAYMENT_PAGE_SUPPRESSED) {
+            recordStep('payment', { skipped: true, reason: 'payment_suppressed' });
+            navigate('/onboarding/app-intro');
+            return;
+          }
 
           // Canonical decision: only 'needs_payment' should land on the
           // payment page. Beta + active + trialing all resolve to 'allow'.

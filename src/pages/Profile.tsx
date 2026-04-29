@@ -16,6 +16,7 @@ import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStore';
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
+import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -212,7 +213,7 @@ const Profile = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm">{planLabel}</span>
-                <DropdownMenu>
+                {!PAYMENT_PAGE_SUPPRESSED && <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-1 rounded hover:bg-muted transition-colors">
                       <MoreVertical className="h-4 w-4 text-muted-foreground" />
@@ -257,7 +258,7 @@ const Profile = () => {
                       </>
                     )}
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu>}
               </div>
             </div>
             {expiryLabel && (
@@ -279,30 +280,31 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Manage Plan button */}
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={isPaying ? handleManageBilling : () => navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } })}
-              disabled={managingPortal}
-            >
-              {isPaying ? (
-                <>
-                  <ExternalLink className="h-4 w-4" />
-                  {managingPortal ? 'Opening…' : 'Manage Plan'}
-                </>
-              ) : isBetaUser ? (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Upgrade Plan
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Upgrade Plan
-                </>
-              )}
-            </Button>
+            {!PAYMENT_PAGE_SUPPRESSED && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={isPaying ? handleManageBilling : () => navigate(profileUpgradePath, { state: { source: 'profile_upgrade' } })}
+                disabled={managingPortal}
+              >
+                {isPaying ? (
+                  <>
+                    <ExternalLink className="h-4 w-4" />
+                    {managingPortal ? 'Opening…' : 'Manage Plan'}
+                  </>
+                ) : isBetaUser ? (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Upgrade Plan
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Upgrade Plan
+                  </>
+                )}
+              </Button>
+            )}
 
             {/* Connected Data */}
             <Button

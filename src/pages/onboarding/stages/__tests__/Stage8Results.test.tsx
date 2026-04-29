@@ -238,7 +238,7 @@ describe("Stage8Results — Layout Rendering", () => {
     expect(screen.getByText(/Development Area/i)).toBeInTheDocument();
   });
 
-  it("renders CTA and navigates to payment on click", async () => {
+  it("renders CTA and skips payment when payment page is suppressed", async () => {
     seedResponses();
     mockInvoke.mockResolvedValueOnce(makeResult());
     renderResults();
@@ -248,7 +248,7 @@ describe("Stage8Results — Layout Rendering", () => {
     }, { timeout: 3000 });
 
     screen.getByText("Activate My System").closest("button")?.click();
-    expect(mockNavigate).toHaveBeenCalledWith("/onboarding/payment");
+    expect(mockNavigate).toHaveBeenCalledWith("/onboarding/app-intro");
   });
 
   it("shows loading state initially", () => {

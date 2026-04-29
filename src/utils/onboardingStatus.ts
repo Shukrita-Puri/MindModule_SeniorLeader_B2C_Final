@@ -1,6 +1,7 @@
 import { getSession, getAllResponses } from "./onboardingStorage";
 import { fetchOnboardingProgressSnapshot, hasValidBetaAccess, isOnboardingCompleteSnapshot } from "./onboardingCompletion";
 import { resolveOnboardingAccessFromSnapshot } from "./subscriptionHelpers";
+import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 export interface OnboardingStatus {
   isComplete: boolean;
@@ -12,7 +13,7 @@ export interface OnboardingStatus {
   lastUpdated?: string;
 }
 
-const TOTAL_STAGES = 9; // Welcome, Identity, Energy Regulation, Focus Recovery, Energy Renewal, Growth Assessment, Results, Payment, Context Connection
+const TOTAL_STAGES = PAYMENT_PAGE_SUPPRESSED ? 8 : 9; // Welcome, questionnaire, Results, optional Payment, Context Connection
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   const session = getSession();
@@ -115,7 +116,7 @@ async function getResumeRouteFromDB(): Promise<string | null> {
     const hasPersistedResults = !!(data.mental_fitness_baseline || data.onboarding_insight || data.user_archetype);
 
     if (isOnboardingCompleteSnapshot(data)) return '/daily-check-in';
-    if (!data.context_connection_at && (data.payment_at || isBetaValid)) return '/onboarding/app-intro';
+    if (!data.context_connection_at && ((PAYMENT_PAGE_SUPPRESSED && data.results_at) || data.payment_at || isBetaValid)) return '/onboarding/app-intro';
     if (!data.payment_at && !isBetaValid && data.results_at) return '/onboarding/payment';
     if (!data.results_at && data.signup_step_at) return '/onboarding/results';
     if (!data.results_at && hasPersistedResults) return '/onboarding/results';
@@ -161,6 +162,10 @@ function getResumeRouteFromLocal(): string {
  * Returns the correct redirect route if they can't, or null if access is allowed.
  */
 export async function validateStageAccess(targetPath: string): Promise<string | null> {
+  if (PAYMENT_PAGE_SUPPRESSED && targetPath === '/onboarding/payment') {
+    return '/onboarding/app-intro';
+  }
+
   const stageOrder = [
     '/onboarding',
     '/onboarding/identity',
@@ -209,6 +214,11 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       }
       if (targetPath === '/onboarding/payment' && !data?.results_at) {
         return await getResumeRoute();
+      }
+
+      if (PAYMENT_PAGE_SUPPRESSED && (targetPath === '/onboarding/app-intro' || targetPath === '/onboarding/context-connection')) {
+        if (!data.results_at) return await getResumeRoute();
+        return null;
       }
 
       // Subscription/beta access gates – delegated to the canonical helper.

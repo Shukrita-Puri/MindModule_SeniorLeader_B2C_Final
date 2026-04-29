@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
+import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 
 const UserSettingsPopover = () => {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const UserSettingsPopover = () => {
     : user?.email?.[0]?.toUpperCase() || 'U';
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    ...(!isValidBeta(user) ? [
+    ...(!PAYMENT_PAGE_SUPPRESSED && !isValidBeta(user) ? [
       { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment?source=profile-upgrade', source: 'profile_upgrade' },
     ] : []),
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },

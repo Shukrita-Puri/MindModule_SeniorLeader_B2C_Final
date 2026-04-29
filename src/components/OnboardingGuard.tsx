@@ -5,9 +5,10 @@ import { DEV_MODE } from "@/config/devMode";
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { fetchOnboardingProgressSnapshot, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import DelayedFallback from "@/components/ui/delayed-fallback";
+import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 // Routes that completed users can still access (e.g. upgrade flow)
-const ONBOARDING_WHITELIST = ['/onboarding/payment'];
+const ONBOARDING_WHITELIST = PAYMENT_PAGE_SUPPRESSED ? [] : ['/onboarding/payment'];
 
 /**
  * Check if onboarding is complete by querying DB progress.

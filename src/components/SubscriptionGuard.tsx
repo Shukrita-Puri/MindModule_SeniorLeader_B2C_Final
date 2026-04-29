@@ -11,6 +11,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { resolveSubscriptionAccess } from '@/utils/subscriptionHelpers';
+import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 
 export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -20,6 +21,10 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
 
   // No user – let ProtectedRoute handle redirect
   if (!user) return <>{children}</>;
+
+  if (PAYMENT_PAGE_SUPPRESSED) {
+    return <>{children}</>;
+  }
 
   const decision = resolveSubscriptionAccess(user);
 

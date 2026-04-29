@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import {
   createBrowserRouter,
+  Navigate,
   RouterProvider,
   Outlet,
   useLocation,
@@ -18,6 +19,7 @@ import { PushNotificationProvider, PushNotificationActionHandler } from "./compo
 import { AuthProvider } from "./hooks/useAuth";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
+import { PAYMENT_PAGE_SUPPRESSED } from "./config/payments";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -265,7 +267,7 @@ const router = createBrowserRouter([
           { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
           { path: "results", element: <Suspense fallback={<RouteSkeleton />}><Stage8Results /></Suspense> },
-          { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
+          { path: "payment", element: PAYMENT_PAGE_SUPPRESSED ? <Navigate to="/onboarding/app-intro" replace /> : <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],

@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
 import { getResumeRoute } from "@/utils/onboardingStatus";
+import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 const CANONICAL_HOME = '/daily-check-in';
 
@@ -72,6 +73,11 @@ const Auth0Front = () => {
 
     // Case 3: Logged-in + onboarding complete + no valid subscription
     if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
+      if (PAYMENT_PAGE_SUPPRESSED) {
+        navigate(CANONICAL_HOME);
+        return;
+      }
+
       if (isWithin60DaysOfCancellation(user as any)) {
         navigate('/onboarding/payment');
       } else {
