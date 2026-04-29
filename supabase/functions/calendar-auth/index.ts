@@ -118,7 +118,7 @@ serve(async (req) => {
 
     console.log('[calendar-auth] Action:', action, 'Provider:', provider);
 
-    const providerSchema = z.enum(['google', 'outlook']);
+    const providerSchema = z.enum(['google', 'microsoft']);
     const validProvider = providerSchema.parse(provider);
 
     if (action === 'connect') {
@@ -145,6 +145,22 @@ serve(async (req) => {
         const encodedState = btoa(statePayload);
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&include_granted_scopes=true&state=${encodeURIComponent(encodedState)}`;
         console.log('[calendar-auth] Generated OAuth URL for user:', authenticatedUserId);
+      } else if (validProvider === 'microsoft') {
+        const clientId = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '';
+        if (!clientId) {
+          throw new Error('Microsoft Calendar Client ID not configured');
+        }
+        // 'common' tenant supports both personal and work/school accounts.
+        // offline_access is required for refresh tokens.
+        const scope = 'offline_access openid profile email Calendars.Read';
+        const statePayload = JSON.stringify({
+          userId: authenticatedUserId,
+          redirectPath: (body.redirectPath as string) || '/onboarding/context-connection',
+          provider: 'microsoft',
+        });
+        const encodedState = btoa(statePayload);
+        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(encodedState)}&prompt=consent`;
+        console.log('[calendar-auth] Generated Microsoft OAuth URL for user:', authenticatedUserId);
       }
 
       return new Response(
@@ -161,14 +177,21 @@ serve(async (req) => {
 
       let validUserId: string;
       let redirectPath = '/onboarding/context-connection';
-      
+      let stateProvider: string | null = null;
+
       try {
         const stateData = JSON.parse(atob(decodeURIComponent(stateUserId)));
         validUserId = stateData.userId;
         redirectPath = stateData.redirectPath || redirectPath;
+        stateProvider = stateData.provider || null;
       } catch {
         validUserId = decodeURIComponent(stateUserId);
       }
+
+      // Provider may arrive via query (?provider=) or via state payload.
+      // State takes precedence so the right token endpoint is used on callback.
+      const callbackProvider = (stateProvider || provider || 'google') as 'google' | 'microsoft';
+      const validCallbackProvider = providerSchema.parse(callbackProvider);
 
       const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -183,10 +206,14 @@ serve(async (req) => {
       let clientSecret = '';
       const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
-      if (validProvider === 'google') {
+      if (validCallbackProvider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
         clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
         clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '';
+      } else if (validCallbackProvider === 'microsoft') {
+        tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+        clientId = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '';
+        clientSecret = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '';
       }
 
       // Exchange code for tokens
@@ -241,7 +268,7 @@ serve(async (req) => {
         .from('calendar_connections')
         .select('id, refresh_token_enc, refresh_token_iv')
         .eq('user_id', validUserId)
-        .eq('provider', validProvider)
+        .eq('provider', validCallbackProvider)
         .maybeSingle();
 
       if (existingConn) {
@@ -275,7 +302,7 @@ serve(async (req) => {
           .from('calendar_connections')
           .insert({
             user_id: validUserId,
-            provider: validProvider,
+            provider: validCallbackProvider,
             access_token_enc: accessTokenEnc,
             refresh_token_enc: refreshTokenEnc,
             token_iv: accessIv,
@@ -297,7 +324,7 @@ serve(async (req) => {
       // Failure is non-fatal — the daily cron will pick it up.
       const supaUrl = Deno.env.get('SUPABASE_URL');
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supaUrl && serviceKey && validProvider === 'google') {
+      if (supaUrl && serviceKey && validCallbackProvider === 'google') {
         fetch(`${supaUrl}/functions/v1/register-calendar-watch`, {
           method: 'POST',
           headers: {
