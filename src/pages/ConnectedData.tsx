@@ -589,18 +589,38 @@ const ConnectedData = () => {
 
   /* ─── Connection Data ─── */
 
+  const calendarProvider = status?.calendar.provider ?? null;
+  const calendarConnected = status?.calendar.connected ?? false;
+  const googleConnected = calendarConnected && calendarProvider === 'google';
+  const microsoftConnected = calendarConnected && calendarProvider === 'microsoft';
+
   const connections = [
     {
       id: 'google-calendar',
       name: 'Google Calendar',
       description: 'Sync your calendar for contextual recommendations',
-      logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
-      connected: status?.calendar.connected ?? false,
-      lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      connected: googleConnected,
+      lastSync: googleConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
       showReconnect: false,
       onConnect: handleConnectCalendar,
+      onDisconnect: handleDisconnectCalendar,
+      onSync: handleSyncNow,
+      canSync: true,
+    },
+    {
+      id: 'microsoft-calendar',
+      name: 'Microsoft Calendar',
+      description: 'Connect your Outlook calendar to help Mind Module understand meetings, decision load, and recovery windows.',
+      logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      connected: microsoftConnected,
+      lastSync: microsoftConnected ? formatLastSync(status?.calendar.lastSync ?? null) : null,
+      statusLabel: undefined as string | undefined,
+      statusNote: undefined as string | undefined,
+      showReconnect: false,
+      onConnect: handleConnectMicrosoftCalendar,
       onDisconnect: handleDisconnectCalendar,
       onSync: handleSyncNow,
       canSync: true,
