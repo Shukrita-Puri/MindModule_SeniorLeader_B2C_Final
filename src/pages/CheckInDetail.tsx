@@ -145,10 +145,10 @@ const CheckInDetail = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-    <div className="h-screen flex w-full bg-background overflow-hidden">
+    <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
       <LeftSidebar />
-      <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">
+      <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8.75rem)]">
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
@@ -238,7 +238,7 @@ const CheckInDetail = () => {
 
       {/* Sticky bottom CTA – sits above pill nav, behind sidebar overlay */}
       <div className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2.5 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
       >
         <div className="max-w-lg mx-auto">
           <button

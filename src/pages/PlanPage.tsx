@@ -16,15 +16,15 @@ const PlanPage = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-screen flex w-full bg-background overflow-hidden">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
         <LeftSidebar />
-        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
+        <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto">
           <div className="pt-[env(safe-area-inset-top,0px)]">
             <header className="flex items-center px-3 md:px-4 py-3">
               <SidebarDiscoveryPulse />
             </header>
 
-            <div className="pb-[100px]">
+            <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-lg mx-auto px-3 md:px-4">
                 <div className="pb-3 text-center">
                   <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
@@ -45,7 +45,7 @@ const PlanPage = () => {
                   {prioritiesEmpty && <DailyRitual />}
                 </div>
               </div>
-              <div className="mt-8">
+              <div className="mt-8 hidden sm:block">
                 <PrivacyFooter />
               </div>
             </div>

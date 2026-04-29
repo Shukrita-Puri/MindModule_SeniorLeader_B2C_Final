@@ -316,10 +316,10 @@ const ExecutiveHome = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-screen flex w-full bg-background overflow-hidden">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
         <LeftSidebar />
         
-        <SidebarInset className="w-full overflow-x-hidden overflow-y-auto">
+        <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden sm:overflow-y-auto">
           {/* Immersive Hero Visual */}
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -364,7 +364,7 @@ const ExecutiveHome = () => {
           </div>
 
           {/* All sections stacked on one page */}
-          <div className="flex-1 w-full pb-[100px]">
+          <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
@@ -379,7 +379,7 @@ const ExecutiveHome = () => {
             </div>
 
 
-            <div className="mt-8">
+            <div className="mt-8 hidden sm:block">
               <PrivacyFooter />
             </div>
           </div>
