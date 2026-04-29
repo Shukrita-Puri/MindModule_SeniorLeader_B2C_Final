@@ -97,6 +97,23 @@
     --gradient-subtle: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.03) 100%);
     --gradient-overlay: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.15) 100%);
     
+    /* ─── Design System v2 — Pilot Tokens (Oura-inspired tonal depth) ───
+       Pilot scope: ExecutiveHome (Brief + Today's 3 Priorities).
+       Contrast validated: muted #5A5A5A on all surfaces ≥ 4.5:1 (body AA).
+       Saffron stays CTA-only — fails as text. */
+    --surface-raised: 0 0% 100%;        /* #FFFFFF — hero cards, modals */
+    --surface-sunken: 36 16% 90%;       /* #EAE6DF — pill backs, inset wells */
+    --surface-card-v2: 40 25% 97%;      /* #FAF8F4 — standard card (pilot) */
+    --bg-v2: 38 22% 93%;                /* #F2EFEA — deeper page canvas (pilot) */
+    --border-strong: 0 0% 0% / 0.10;    /* hairline border for cards */
+    --text-secondary: 0 0% 25%;         /* #3F3F3F — body on raised surfaces */
+    --muted-foreground-v2: 0 0% 35%;    /* #5A5A5A — captions, validated 4.5:1+ */
+
+    /* Elevation tokens — capped at 3 tiers, two-mechanism rule */
+    --elev-1: 0 1px 2px rgba(0,0,0,0.04);
+    --elev-2: 0 4px 12px rgba(0,0,0,0.06);
+    --elev-3: 0 12px 32px rgba(0,0,0,0.10);
+
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 17%;
     --sidebar-primary: 25 15% 55%;
@@ -152,6 +169,113 @@ body {
   /* Microcopy / Hints */
   .hint {
     @apply font-hint text-sm text-muted-foreground;
+  }
+
+  /* ─── Typography Tokens v2 (Pilot) ───
+     Rules (enforced by docs/DESIGN_SYSTEM.md):
+     • One serif (Cormorant) — display/h1 only, ≥24px
+     • One sans (Inter) — everything else
+     • Italics only on .text-quote (theme phrase). Banned in body, captions, eyebrows.
+     • H2 = card titles only. H3 = intra-card headers only. Not interchangeable. */
+  .text-display {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;          /* 32px mobile */
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  @media (min-width: 768px) {
+    .text-display { font-size: 2.75rem; }   /* 44px desktop */
+  }
+  .text-h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.625rem;      /* 26px */
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  @media (min-width: 768px) {
+    .text-h1 { font-size: 2rem; }            /* 32px */
+  }
+  .text-h2 {
+    /* Inter at H2 — Cormorant retreats to avoid thin-stroke issues on mobile */
+    font-family: Inter, sans-serif;
+    font-size: 1.1875rem;     /* 19px */
+    line-height: 1.3;
+    font-weight: 600;
+  }
+  @media (min-width: 768px) {
+    .text-h2 { font-size: 1.375rem; }        /* 22px */
+  }
+  .text-h3 {
+    font-family: Inter, sans-serif;
+    font-size: 1rem;          /* 16px */
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  @media (min-width: 768px) {
+    .text-h3 { font-size: 1.0625rem; }       /* 17px */
+  }
+  .text-body {
+    font-family: Inter, sans-serif;
+    font-size: 1rem;          /* 16px mobile minimum */
+    line-height: 1.55;
+    font-weight: 400;
+  }
+  @media (min-width: 768px) {
+    .text-body { font-size: 1.0625rem; }     /* 17px */
+  }
+  .text-body-sm {
+    font-family: Inter, sans-serif;
+    font-size: 0.875rem;      /* 14px — dense lists only */
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .text-caption {
+    font-family: Inter, sans-serif;
+    font-size: 0.75rem;       /* 12px */
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  .text-eyebrow {
+    font-family: Inter, sans-serif;
+    font-size: 0.6875rem;     /* 11px — preserved style users responded to */
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .text-quote {
+    /* Only italic style permitted in the system — pull-quote / theme phrase */
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.125rem;      /* 18px */
+    line-height: 1.4;
+    font-weight: 400;
+    font-style: italic;
+  }
+  @media (min-width: 768px) {
+    .text-quote { font-size: 1.25rem; }      /* 20px */
+  }
+
+  /* ─── Card Surfaces v2 (Pilot — strict 2-mechanism depth rule) ───
+     • .card-standard : tonal background + hairline border (no shadow inflation)
+     • .card-hero     : raised surface + elev-2 shadow (no border, no gradient creep)
+     • .well-sunken   : sunken background + inner hairline (no shadow) */
+  .card-standard {
+    background-color: hsl(var(--surface-card-v2));
+    border: 1px solid hsl(var(--border-strong));
+    box-shadow: var(--elev-1);
+  }
+  .card-hero {
+    background: linear-gradient(180deg,
+      hsl(var(--surface-raised)) 0%,
+      hsl(var(--surface-card-v2)) 100%);
+    box-shadow: var(--elev-2);
+    border: 1px solid hsl(var(--border-strong));
+  }
+  .well-sunken {
+    background-color: hsl(var(--surface-sunken));
+    box-shadow: inset 0 0 0 1px hsl(var(--border-strong));
   }
   
   /* Translucent Overlay Utility */
