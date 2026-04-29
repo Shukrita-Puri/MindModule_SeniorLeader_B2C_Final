@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, nativeLoginHandled, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
@@ -40,7 +40,12 @@ const Auth0Front = () => {
     clearLogoutGuard();
 
     const result = await nativeLogin({ returnTo: CANONICAL_HOME });
-    if (nativeLoginHandled(result)) return;
+    if (result.status === 'opened') return;
+
+    if (result.status !== 'not_native' && result.status !== 'failed') {
+      navigate(`/login?returnTo=${encodeURIComponent(CANONICAL_HOME)}`);
+      return;
+    }
 
     loginWithRedirect({
       appState: { returnTo: CANONICAL_HOME },
@@ -113,12 +118,12 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
     }
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (DEV_MODE) {
       navigate(CANONICAL_HOME);
       return;
     }
-    onSignIn();
+    await onSignIn();
   };
 
   return <div className={`relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
@@ -167,7 +172,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
               Let's Go
             </Button>
             
-            <button onClick={handleSignIn} className="text-sm text-white/60 hover:text-white transition-colors duration-200 font-body">
+            <button type="button" onClick={handleSignIn} className="text-sm text-white/60 hover:text-white transition-colors duration-200 font-body">
               Already have an account? <span className="underline underline-offset-2">Log in</span>
             </button>
           </div>
