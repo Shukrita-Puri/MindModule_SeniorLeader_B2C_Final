@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
@@ -15,6 +15,7 @@ import { isRetakeForUser, isTourActiveForUser } from "@/utils/firstSessionTour";
 const PlanPage = () => {
   const { user } = useAuth();
   const { recordStep } = useOnboardingProgress();
+  const navigate = useNavigate();
   const [prioritiesEmpty, setPrioritiesEmpty] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [searchParams] = useSearchParams();
@@ -67,6 +68,7 @@ const PlanPage = () => {
             <FirstSessionGuide onComplete={() => {
               setShowGuide(false);
               recordStep('first_session_walkthrough', { completed: true });
+              navigate('/daily-check-in', { replace: true });
             }} />
           )}
         </SidebarInset>

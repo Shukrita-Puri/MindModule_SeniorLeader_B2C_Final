@@ -1,35 +1,47 @@
-## Goal
+# Fix: Tour completion should land user on Daily Check-in
 
-On the USP intro slide only (`StageUSPIntro.tsx`, the `isIntro` branch with the "A new era of executive performance" glass card), reduce the card's footprint so it never crowds the progress dots / CTA below — optimised for mobile iOS safe areas. No other slides, pages or components touched.
+## Audit
 
-## What's wrong today
+The 3-step First Session Tour ends on the Plan page (step 3 highlights `[data-tour="daily-plan"]`). When the user clicks **Let's Go!**, `FirstSessionGuide.finish()` runs:
 
-In `src/pages/onboarding/stages/StageUSPIntro.tsx` (the `if (isIntro)` block):
+1. Clears tour sessionStorage (`clearFirstSessionTour({ markDone: true })`)
+2. Calls `onComplete()` provided by the host page
 
-- Glass card uses `p-6 mt-8` and headline is `text-[2rem] sm:text-4xl` with `leading-tight`.
-- On a notched iPhone (e.g. iPhone 14/15) the card stacks under logo + brand and pushes into the dot row, which sits at `mb-[22%]` from the bottom — visible overflow in the screenshot.
+`PlanPage.tsx` (line 67) implements `onComplete` as:
+```tsx
+onComplete={() => {
+  setShowGuide(false);
+  recordStep('first_session_walkthrough', { completed: true });
+}}
+```
 
-## Changes (intro slide only)
+Result: the guide disappears but the user is left sitting on /plan. This is **not** the intended end-state — the canonical post-onboarding home is `/daily-check-in` (already used everywhere else, e.g. `Front.tsx` `CANONICAL_HOME`).
 
-Scoped strictly to the JSX inside the `if (isIntro) { return (...) }` branch — the slide-deck branch below it is untouched.
+The other two `FirstSessionGuide` mount sites (`DailyCheckIn.tsx`, `ExecutiveHome.tsx`) are intermediate hosts during the tour — only the one that actually receives the final "Let's Go!" needs the redirect, which today is `PlanPage`.
 
-1. **Glass card padding** — `p-6` → `px-5 py-4` (tighter vertical rhythm without changing the rounded-3xl shape).
-2. **Card top spacing** — `mt-8` → `mt-6` to claw back ~8px above the card.
-3. **Headline size** — `text-[2rem] sm:text-4xl` → `text-[1.5rem] sm:text-[2rem]` and `leading-tight` → `leading-[1.15]`. This drops mobile from 32px → 24px (still well within design-system display range for a glass-card hero) and keeps desktop at 32px.
-4. **Sub-copy size** — `text-[1.0625rem] sm:text-lg` → `text-[0.9375rem] sm:text-base` (15px mobile / 16px sm+) with `mt-3` → `mt-2`.
-5. **Bottom region breathing room** — `mb-[22%]` on the dots/CTA wrapper → `mb-[14%]` so the dots clear the card on shorter devices (iPhone SE, mini) while keeping CTA above the home-indicator.
-6. **Logo block spacing** — `space-y-4` → `space-y-3` and brand sub-line offset `-mt-1 sm:-mt-3` → `-mt-0.5 sm:-mt-2` to recover a few more px above the card.
+## Change
 
-No changes to:
-- The 3 USP slide screens (slide deck branch)
-- Any other onboarding stage
-- Tailwind config, design tokens, or `index.css`
-- Imagery, dot indicator logic, navigation handlers
+**File:** `src/pages/PlanPage.tsx`
 
-## File touched
+In the `onComplete` handler for `<FirstSessionGuide>`, navigate to `/daily-check-in` after recording the step.
 
-- `src/pages/onboarding/stages/StageUSPIntro.tsx` — JSX inside the `isIntro` return only.
+```tsx
+const navigate = useNavigate(); // add import from react-router-dom
+
+<FirstSessionGuide onComplete={() => {
+  setShowGuide(false);
+  recordStep('first_session_walkthrough', { completed: true });
+  navigate('/daily-check-in', { replace: true });
+}} />
+```
+
+`replace: true` keeps the back stack clean so Back doesn't return into a finished tour.
+
+## Why scoped to PlanPage only
+
+- Tour ends deterministically on step 3 (Plan). `DailyCheckIn` and `ExecutiveHome` only host the guide for steps 1 & 2 transitions; the user clicks **Next** there, not **Let's Go!**.
+- A skip mid-tour from any page already calls the same `finish()` → `onComplete()`, so a user who skips on /plan also lands on /daily-check-in (desired). Skips on /daily-check-in or /executive-home stay on those pages, which is fine — they're already valid app surfaces.
 
 ## Risk
 
-Very low. Pure className swaps in one isolated branch; no logic, routing, or shared component changes. Verified visually against iPhone safe-area insets (the wrapper already uses `pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]`).
+Very low. Single navigation call in one onComplete callback. No changes to tour state machine, sessionStorage keys, or other mount sites.
