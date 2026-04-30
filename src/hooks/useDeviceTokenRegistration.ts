@@ -2,6 +2,42 @@ import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
 
+interface NormalizedApnsToken {
+  token: string | null;
+  source: 'hex' | 'base64' | 'invalid';
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function normalizeApnsToken(value: unknown): NormalizedApnsToken {
+  const raw = typeof value === 'string' ? value : String(value ?? '');
+  const trimmed = raw.trim();
+
+  // Capacitor normally returns a 64-char APNs hex token. Older/native paths can
+  // include Data.description wrappers like "<ab cd ...>", so strip only those.
+  const hexCandidate = trimmed.replace(/[<>\s]/g, '').toLowerCase();
+  if (/^[0-9a-f]{64}$/.test(hexCandidate)) {
+    return { token: hexCandidate, source: 'hex' };
+  }
+
+  // Some iOS bridges expose the 32-byte token as base64. Convert that to the
+  // 64-char hex format APNs HTTP/2 expects.
+  try {
+    const base64Candidate = trimmed.replace(/^data:.*?;base64,/, '');
+    const decoded = atob(base64Candidate);
+    if (decoded.length === 32) {
+      const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+      return { token: bytesToHex(bytes), source: 'base64' };
+    }
+  } catch {
+    // Not base64; fall through to invalid.
+  }
+
+  return { token: null, source: 'invalid' };
+}
+
 /**
  * Registers the iOS device token for push notifications.
  * Safe no-op on web. Must be called after auth is loaded.
@@ -33,16 +69,17 @@ export function useDeviceTokenRegistration() {
         // Listen for registration success
         await PushNotifications.addListener('registration', async (token) => {
           const raw = token.value ?? '';
-          // Normalize: strip iOS Data.description artifacts ("<...>" or spaces) just in case
-          const cleaned = raw.replace(/[<>\s]/g, '').toLowerCase();
-          const isValidApns = /^[0-9a-f]{64}$/.test(cleaned);
+          const normalized = normalizeApnsToken(raw);
+          const cleaned = normalized.token;
           console.log(
-            `[PushReg] Device token received: len=${raw.length} cleaned_len=${cleaned.length} valid=${isValidApns} prefix=${cleaned.substring(0, 12)}...`
+            `[PushReg] Device token received: type=${typeof raw} len=${String(raw).length} ` +
+            `source=${normalized.source} valid=${!!cleaned} prefix=${cleaned?.substring(0, 12) ?? 'n/a'}...`
           );
-          if (!isValidApns) {
+          if (!cleaned) {
+            registered.current = false;
             console.error(
-              '[PushReg] Refusing to register malformed APNs token (expected 64 hex chars). ' +
-              'This usually means the app build is stale — please reinstall.'
+              '[PushReg] Refusing to register malformed APNs token. Expected 64 hex chars ' +
+              'or a base64-encoded 32-byte token. Reinstall if this persists.'
             );
             return;
           }
