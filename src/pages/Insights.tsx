@@ -937,10 +937,10 @@ const Insights = () => {
             </header>
 
             <div className="px-3 md:px-4 pb-2 text-center">
-              <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
+              <h1 className="text-display text-foreground">
                 Mental Performance Insights
               </h1>
-              <p className="text-sm text-muted-foreground/70 mt-1 font-body">
+              <p className="text-body-sm text-muted-foreground mt-1">
                 What's consistently true about how you lead, perform, and recover
               </p>
             </div>

@@ -40,10 +40,10 @@ const PlanPage = () => {
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-lg mx-auto px-3 md:px-4">
                 <div className="pb-3 text-center">
-                  <h1 className="text-[26px] sm:text-[28px] font-headline text-foreground tracking-tight">
+                  <h1 className="text-display text-foreground">
                     Mental Performance Plan
                   </h1>
-                  <p className="text-sm text-muted-foreground/70 mt-1 font-body">
+                  <p className="text-body-sm text-muted-foreground mt-1">
                     Your priorities mapped based on your brief and for your day
                   </p>
                 </div>
