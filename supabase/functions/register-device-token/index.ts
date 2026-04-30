@@ -24,15 +24,20 @@ serve(async (req) => {
       });
     }
 
-    // Validate APNs token shape: 64 hex chars. Anything else (e.g. 160-char
-    // double-encoded historical artifact) is silently rejected by APNs as
-    // BadDeviceToken, so don't persist it.
+    // Validate APNs token shape. Apple treats device-token length as variable,
+    // so require only a reasonable even-length hex string instead of hardcoding
+    // the older 64-char value.
     if (platform === 'ios') {
-      const isValid = typeof device_token === 'string' && /^[0-9a-fA-F]{64}$/.test(device_token);
+      const isValid =
+        typeof device_token === 'string' &&
+        /^[0-9a-fA-F]+$/.test(device_token) &&
+        device_token.length >= 64 &&
+        device_token.length <= 256 &&
+        device_token.length % 2 === 0;
       if (!isValid) {
         console.warn(`[register-device-token] Rejected malformed iOS token for ${userId}: length=${device_token?.length}`);
         return new Response(JSON.stringify({
-          error: 'Invalid iOS device token format (expected 64 hex chars)',
+          error: 'Invalid iOS device token format (expected even-length APNs hex token)',
           length: typeof device_token === 'string' ? device_token.length : null,
         }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

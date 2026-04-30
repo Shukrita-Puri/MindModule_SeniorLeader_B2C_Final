@@ -15,19 +15,20 @@ function normalizeApnsToken(value: unknown): NormalizedApnsToken {
   const raw = typeof value === 'string' ? value : String(value ?? '');
   const trimmed = raw.trim();
 
-  // Capacitor normally returns a 64-char APNs hex token. Older/native paths can
+  // Capacitor normally returns an APNs hex token. Older/native paths can
   // include Data.description wrappers like "<ab cd ...>", so strip only those.
+  // Do not hardcode 64 chars: Apple treats device-token size as variable.
   const hexCandidate = trimmed.replace(/[<>\s]/g, '').toLowerCase();
-  if (/^[0-9a-f]{64}$/.test(hexCandidate)) {
+  if (/^[0-9a-f]+$/.test(hexCandidate) && hexCandidate.length >= 64 && hexCandidate.length <= 256 && hexCandidate.length % 2 === 0) {
     return { token: hexCandidate, source: 'hex' };
   }
 
-  // Some iOS bridges expose the 32-byte token as base64. Convert that to the
-  // 64-char hex format APNs HTTP/2 expects.
+  // Some iOS bridges expose the binary token as base64. Convert that to the
+  // hex format APNs HTTP/2 expects.
   try {
     const base64Candidate = trimmed.replace(/^data:.*?;base64,/, '');
     const decoded = atob(base64Candidate);
-    if (decoded.length === 32) {
+    if (decoded.length >= 32 && decoded.length <= 128) {
       const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
       return { token: bytesToHex(bytes), source: 'base64' };
     }
@@ -78,8 +79,8 @@ export function useDeviceTokenRegistration() {
           if (!cleaned) {
             registered.current = false;
             console.error(
-              '[PushReg] Refusing to register malformed APNs token. Expected 64 hex chars ' +
-              'or a base64-encoded 32-byte token. Reinstall if this persists.'
+              '[PushReg] Refusing to register malformed APNs token. Expected an even-length hex token ' +
+              'or a base64-encoded binary token. Reinstall if this persists.'
             );
             return;
           }
