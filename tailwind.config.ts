@@ -20,7 +20,6 @@ export default {
     extend: {
       fontFamily: {
         headline: ['"Cormorant Garamond"', 'serif'],
-        subheadline: ['"Crimson Pro"', 'serif'],
         body: ['Inter', 'sans-serif'],
         hint: ['Inter', 'sans-serif'],
       },
