@@ -87,19 +87,18 @@ serve(async (req) => {
 
     // Optional targeting by email (sends to all tokens for that user, even inactive,
     // so we can diagnose stale/invalid token states).
-    let targetUserId: string | null = null;
+    let targetUserIds: string[] = [];
     let targetEmail: string | null = null;
     try {
       if (req.method === "POST") {
         const body = await req.json().catch(() => ({}));
         if (body && typeof body.email === "string" && body.email.trim()) {
           targetEmail = body.email.trim().toLowerCase();
-          const { data: prof } = await supabase
+          const { data: profs } = await supabase
             .from("profiles")
             .select("id")
-            .ilike("email", targetEmail)
-            .maybeSingle();
-          if (prof?.id) targetUserId = prof.id;
+            .ilike("email", targetEmail);
+          if (profs && profs.length > 0) targetUserIds = profs.map((p: any) => p.id);
         }
       }
     } catch (_) { /* ignore */ }
@@ -109,8 +108,8 @@ serve(async (req) => {
       .select("user_id, device_token, platform, is_active, updated_at")
       .eq("platform", "ios");
 
-    if (targetUserId) {
-      tokenQuery = tokenQuery.eq("user_id", targetUserId).order("updated_at", { ascending: false });
+    if (targetUserIds.length > 0) {
+      tokenQuery = tokenQuery.in("user_id", targetUserIds).order("updated_at", { ascending: false });
     } else {
       tokenQuery = tokenQuery.eq("is_active", true);
     }
@@ -122,7 +121,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: "No iOS device tokens found",
         target_email: targetEmail,
-        target_user_id: targetUserId,
+        target_user_ids: targetUserIds,
       }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
