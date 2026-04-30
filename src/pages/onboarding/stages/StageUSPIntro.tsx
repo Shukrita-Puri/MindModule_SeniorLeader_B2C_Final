@@ -120,28 +120,28 @@ export default function StageUSPIntro() {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-6">
-          <div className="flex flex-col items-center space-y-4 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
+          <div className="flex flex-col items-center space-y-3 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
             <img src={mmLogo} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
 
             <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
               MIND MODULE
             </h1>
-            <p className="text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+            <p className="text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-0.5 sm:-mt-2">
               Executive Edition
             </p>
 
-            <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
-              <h2 className="font-headline text-[2rem] sm:text-4xl font-bold leading-tight tracking-tight text-white">
+            <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl px-5 py-4 mt-6 max-w-sm mx-auto">
+              <h2 className="font-headline text-[1.5rem] sm:text-[2rem] font-bold leading-[1.15] tracking-tight text-white">
                 A new era of executive performance.
               </h2>
-              <p className="font-body text-[1.0625rem] sm:text-lg text-white/70 leading-relaxed mt-3">
+              <p className="font-body text-[0.9375rem] sm:text-base text-white/70 leading-relaxed mt-2">
                 This isn't self-improvement. This is self-mastery.
               </p>
             </div>
           </div>
 
           {/* Bottom: dots + CTA */}
-          <div className="w-full mt-auto mb-[22%] sm:mb-auto sm:mt-8">
+          <div className="w-full mt-auto mb-[14%] sm:mb-auto sm:mt-8">
             {dots()}
             <Button
               variant="critical"
