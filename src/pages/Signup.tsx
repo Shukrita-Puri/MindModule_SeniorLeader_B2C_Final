@@ -6,6 +6,7 @@ import {
   getRedirectUri,
   nativeLogin,
   nativeLoginHandled,
+  NATIVE_AUTH_CANCELLED_EVENT,
   resetStaleNativeAuth,
   getSanitisedAuth0Audience,
 } from '@/utils/nativeAuth';
@@ -77,6 +78,10 @@ const Signup = () => {
     (async () => {
       try {
         const result = await nativeLogin({ returnTo, screenHint: 'signup' });
+        if (result.status === 'opened') {
+          clearTimeoutSafe();
+          return;
+        }
         if (nativeLoginHandled(result)) return;
 
         const baseRedirect = getRedirectUri();
@@ -111,6 +116,17 @@ const Signup = () => {
   ]);
 
   useEffect(() => () => clearTimeoutSafe(), [clearTimeoutSafe]);
+
+  useEffect(() => {
+    const handleNativeCancel = () => {
+      clearTimeoutSafe();
+      redirectInitiated.current = false;
+      setHasError(true);
+    };
+
+    window.addEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+    return () => window.removeEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+  }, [clearTimeoutSafe]);
 
   if (hasError) {
     return (

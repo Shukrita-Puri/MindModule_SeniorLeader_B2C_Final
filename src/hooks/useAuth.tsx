@@ -491,7 +491,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
         const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('https://app.mindmodule.me')}`;
         const { Browser } = await import('@capacitor/browser');
-        await Browser.open({ url: logoutUrl, presentationStyle: 'popover' });
+        await Browser.open({ url: logoutUrl, presentationStyle: 'fullscreen' });
         setTimeout(async () => {
           try { await Browser.close(); } catch { /* ignore */ }
         }, 1500);

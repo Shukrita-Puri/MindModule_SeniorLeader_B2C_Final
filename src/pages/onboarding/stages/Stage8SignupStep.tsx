@@ -8,6 +8,7 @@ import {
   getRedirectUri,
   nativeLogin,
   nativeLoginHandled,
+  NATIVE_AUTH_CANCELLED_EVENT,
   isNativeAuthBusy,
   isNativeAuthCompleted,
   isNativeAuthStale,
@@ -62,10 +63,12 @@ const Stage8SignupStep = () => {
 
     try {
       const result = await nativeLogin({ returnTo: '/onboarding/results', screenHint: 'signup' });
+      if (result.status === 'opened') {
+        clearTimeoutSafe();
+        return;
+      }
       if (nativeLoginHandled(result)) {
-        // Native took over (opened browser, busy, completed, etc.) — wait for callback.
-        // Timeout is still armed; if iOS browser is closed without completing,
-        // the user will see the error UI and can retry.
+        // Native took over (busy, completed, etc.) — wait for callback or retry state.
         return;
       }
 
@@ -99,6 +102,18 @@ const Stage8SignupStep = () => {
     clearTimeoutSafe();
     navigate('/onboarding/growth-intention');
   }, [clearTimeoutSafe, navigate]);
+
+  useEffect(() => {
+    const handleNativeCancel = () => {
+      clearTimeoutSafe();
+      redirectInitiated.current = false;
+      setErrorMessage("We couldn't open account creation. Please try again.");
+      setStatus('error');
+    };
+
+    window.addEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+    return () => window.removeEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+  }, [clearTimeoutSafe]);
 
   useEffect(() => {
     if (DEV_MODE) {

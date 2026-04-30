@@ -6,6 +6,7 @@ import {
   getRedirectUri,
   nativeLogin,
   nativeLoginHandled,
+  NATIVE_AUTH_CANCELLED_EVENT,
   getSanitisedAuth0Audience,
   isNativeAuthBusy,
   isNativeAuthCompleted,
@@ -58,6 +59,10 @@ const Login = () => {
 
     try {
       const result = await nativeLogin({ returnTo: finalDestination });
+      if (result.status === 'opened') {
+        clearTimeoutSafe();
+        return;
+      }
       if (nativeLoginHandled(result)) return;
 
       await loginWithRedirect({
@@ -130,6 +135,17 @@ const Login = () => {
   }, [isLoading, isAuthenticated, navigate, finalDestination, inIframe, clearTimeoutSafe, startRedirect, attempt]);
 
   useEffect(() => () => clearTimeoutSafe(), [clearTimeoutSafe]);
+
+  useEffect(() => {
+    const handleNativeCancel = () => {
+      clearTimeoutSafe();
+      redirectInitiated.current = false;
+      setStatus('error');
+    };
+
+    window.addEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+    return () => window.removeEventListener(NATIVE_AUTH_CANCELLED_EVENT, handleNativeCancel);
+  }, [clearTimeoutSafe]);
 
   if (inIframe) {
     return (

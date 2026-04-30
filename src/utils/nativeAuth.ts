@@ -13,6 +13,7 @@ const APP_SCHEME = 'app.mindmodule.me';
 
 /** Centralised redirect URI – used in authorize URL AND token exchange */
 export const AUTH0_NATIVE_REDIRECT_URI = `${APP_SCHEME}://callback`;
+export const NATIVE_AUTH_CANCELLED_EVENT = 'native-auth-cancelled';
 
 // ─── Environment helpers ────────────────────────────────────────────
 
@@ -433,7 +434,7 @@ export async function nativeLogin(options?: {
   try {
     const { Browser } = await import('@capacitor/browser');
     await registerBrowserCancelListener();
-    await Browser.open({ url: authorizeUrl, presentationStyle: 'popover' });
+    await Browser.open({ url: authorizeUrl, presentationStyle: 'fullscreen' });
     console.log('[NativeAuth] ✅ Browser.open succeeded');
     return { status: 'opened' };
   } catch (e) {
@@ -459,9 +460,13 @@ async function registerBrowserCancelListener(): Promise<void> {
     const { Browser } = await import('@capacitor/browser');
     Browser.addListener('browserFinished', () => {
       console.log('[NativeAuth] browserFinished – clearing login flags (callback untouched)');
+      const wasCallbackActive = _callbackInProgress;
       _loginInProgress = false;
       _safariPresented = false;
       _loginStartedAt = null;
+      if (!wasCallbackActive) {
+        window.dispatchEvent(new CustomEvent(NATIVE_AUTH_CANCELLED_EVENT));
+      }
     });
   } catch (e) {
     console.warn('[NativeAuth] Could not register browser cancel listener:', e);
