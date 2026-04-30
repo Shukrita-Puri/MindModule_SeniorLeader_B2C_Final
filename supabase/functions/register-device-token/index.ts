@@ -48,6 +48,22 @@ serve(async (req) => {
       });
     }
 
+    // Validate APNs token shape: 64 hex chars. Anything else (e.g. 160-char
+    // double-encoded historical artifact) is silently rejected by APNs as
+    // BadDeviceToken, so don't persist it.
+    if (platform === 'ios') {
+      const isValid = typeof device_token === 'string' && /^[0-9a-fA-F]{64}$/.test(device_token);
+      if (!isValid) {
+        console.warn(`[register-device-token] Rejected malformed iOS token for ${userId}: length=${device_token?.length}`);
+        return new Response(JSON.stringify({
+          error: 'Invalid iOS device token format (expected 64 hex chars)',
+          length: typeof device_token === 'string' ? device_token.length : null,
+        }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
