@@ -79,7 +79,7 @@ async function sendApnsPush(
   body: string,
   customData: Record<string, string>,
   apnsHost: string = 'api.sandbox.push.apple.com'
-): Promise<boolean> {
+): Promise<{ ok: boolean; status: number; reason: string }> {
   const apnsPayload = {
     aps: {
       alert: { title, body },
@@ -109,15 +109,17 @@ async function sendApnsPush(
   if (!response.ok) {
     const errBody = await response.text();
     console.error(`[APNs] Failed (${response.status}): ${errBody} – host=${apnsHost} topic=${bundleId} token=${deviceToken.substring(0, 12)}...`);
-    if (response.status === 410 || response.status === 400) {
-      console.log(`[APNs] Deactivating invalid token: ${deviceToken.substring(0, 12)}...`);
-    }
-    return false;
+    let reason = errBody || `http_${response.status}`;
+    try {
+      const parsed = JSON.parse(errBody);
+      if (parsed?.reason) reason = parsed.reason;
+    } catch (_) { /* keep raw body */ }
+    return { ok: false, status: response.status, reason };
   }
 
   await response.text();
   console.log(`[APNs] Success – token=${deviceToken.substring(0, 12)}...`);
-  return true;
+  return { ok: true, status: response.status, reason: 'success' };
 }
 
 const corsHeaders = {
