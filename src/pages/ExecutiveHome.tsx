@@ -319,7 +319,10 @@ const ExecutiveHome = () => {
       <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
         <LeftSidebar />
         
-        <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden sm:overflow-y-auto">
+        <SidebarInset
+          data-scroll-container
+          className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        >
           {/* Immersive Hero Visual */}
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
