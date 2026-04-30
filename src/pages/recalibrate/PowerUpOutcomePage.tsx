@@ -192,11 +192,11 @@ const PowerUpOutcomePage = () => {
       <TopNavigation backPath="/recalibrate" />
       
       {/* Minimal Header */}
-      <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <h1 className="text-[28px] md:text-4xl font-headline font-semibold text-foreground mb-2">
+      <div className="relative pt-[calc(env(safe-area-inset-top,0px)+5rem)] pb-6 px-6 max-w-4xl mx-auto">
+        <h1 className="text-display text-foreground mb-2">
           Recharge Mastery
         </h1>
-        <p className="text-muted-foreground text-sm font-body">Rebuild energy and readiness for high-stakes moments.</p>
+        <p className="text-body-sm text-muted-foreground">Rebuild energy and readiness for high-stakes moments.</p>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">
