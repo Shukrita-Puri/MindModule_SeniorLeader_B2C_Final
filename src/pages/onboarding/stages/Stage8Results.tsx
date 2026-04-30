@@ -70,6 +70,7 @@ export default function Stage8Results() {
   const [error, setError] = useState<string | null>(null);
   const [insightOpen, setInsightOpen] = useState(false);
   const [resultsScriptDone, setResultsScriptDone] = useState(!!cachedAtMount);
+  const [continuing, setContinuing] = useState(false);
   const completionPersisted = useRef(false);
   const resultsStepPersisted = useRef(false);
 
@@ -400,29 +401,36 @@ export default function Stage8Results() {
       <Button
         variant="critical"
         size="lg"
-        onClick={() => {
+        onClick={async () => {
           // Wait until access state is resolved – never route while it's
           // 'pending', otherwise a valid beta user could be flashed to /payment.
-          if (authLoading || onboardingAccess === 'pending') return;
+          if (authLoading || onboardingAccess === 'pending' || continuing) return;
 
-          if (PAYMENT_PAGE_SUPPRESSED) {
-            recordStep('payment', { skipped: true, reason: 'payment_suppressed' });
-            navigate('/onboarding/app-intro');
-            return;
-          }
+          setContinuing(true);
+          try {
+            await recordStep('results');
 
-          // Canonical decision: only 'needs_payment' should land on the
-          // payment page. Beta + active + trialing all resolve to 'allow'.
-          if (onboardingAccess === 'needs_payment') {
-            navigate('/onboarding/payment');
-          } else {
-            navigate('/onboarding/app-intro');
+            if (PAYMENT_PAGE_SUPPRESSED) {
+              await recordStep('payment', { skipped: true, reason: 'payment_suppressed' });
+              navigate('/onboarding/app-intro');
+              return;
+            }
+
+            // Canonical decision: only 'needs_payment' should land on the
+            // payment page. Beta + active + trialing all resolve to 'allow'.
+            if (onboardingAccess === 'needs_payment') {
+              navigate('/onboarding/payment');
+            } else {
+              navigate('/onboarding/app-intro');
+            }
+          } finally {
+            setContinuing(false);
           }
         }}
-        disabled={authLoading || onboardingAccess === 'pending'}
+        disabled={authLoading || onboardingAccess === 'pending' || continuing}
         className="w-full group shadow-lg border-0"
       >
-        Activate My System
+        {continuing ? 'Activating…' : 'Activate My System'}
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
     </div>

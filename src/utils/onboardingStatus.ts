@@ -14,6 +14,32 @@ export interface OnboardingStatus {
 }
 
 const TOTAL_STAGES = PAYMENT_PAGE_SUPPRESSED ? 8 : 9; // Welcome, questionnaire, Results, optional Payment, Context Connection
+const CHECKOUT_RETURN_GRACE_KEY = 'onboarding_checkout_return_at';
+const CHECKOUT_RETURN_GRACE_MS = 10 * 60 * 1000;
+
+function markCheckoutReturnGrace(): void {
+  try {
+    sessionStorage.setItem(CHECKOUT_RETURN_GRACE_KEY, String(Date.now()));
+  } catch {
+    // Ignore storage failures; the live session_id still gates this navigation.
+  }
+}
+
+function hasRecentCheckoutReturn(): boolean {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_RETURN_GRACE_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts)) return false;
+    if (Date.now() - ts > CHECKOUT_RETURN_GRACE_MS) {
+      sessionStorage.removeItem(CHECKOUT_RETURN_GRACE_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   const session = getSession();
@@ -166,6 +192,16 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
     return '/onboarding/app-intro';
   }
 
+  const currentSearch = typeof window !== 'undefined' ? window.location.search : '';
+  const searchParams = new URLSearchParams(currentSearch);
+  const isStripeCheckoutReturn =
+    targetPath === '/onboarding/context-connection' &&
+    !!searchParams.get('session_id');
+
+  if (isStripeCheckoutReturn) {
+    markCheckoutReturnGrace();
+  }
+
   const stageOrder = [
     '/onboarding',
     '/onboarding/identity',
@@ -214,6 +250,13 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       }
       if (targetPath === '/onboarding/payment' && !data?.results_at) {
         return await getResumeRoute();
+      }
+
+      if (
+        isStripeCheckoutReturn ||
+        ((targetPath === '/onboarding/app-intro' || targetPath === '/onboarding/context-connection') && hasRecentCheckoutReturn())
+      ) {
+        return null;
       }
 
       if (PAYMENT_PAGE_SUPPRESSED && (targetPath === '/onboarding/app-intro' || targetPath === '/onboarding/context-connection')) {

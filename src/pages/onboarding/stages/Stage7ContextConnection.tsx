@@ -116,6 +116,27 @@ export default function Stage7ContextConnection() {
 
   useEffect(() => {
     const calendarCallback = searchParams.get("calendar_connected");
+    const checkoutSessionId = searchParams.get("session_id");
+
+    if (checkoutSessionId) {
+      recordStep("payment", {
+        completed: true,
+        reason: "stripe_checkout_return",
+      });
+
+      const next = new URLSearchParams(searchParams);
+      next.delete("session_id");
+      setSearchParams(next, { replace: true });
+
+      const refreshDelays = [0, 1500, 3500];
+      refreshDelays.forEach((delay) => {
+        window.setTimeout(() => {
+          refreshProfile().catch((err) => {
+            console.warn("[Stage7] Profile refresh after checkout return failed:", err);
+          });
+        }, delay);
+      });
+    }
 
     if (calendarCallback === "true") {
       searchParams.delete("calendar_connected");
@@ -171,7 +192,7 @@ export default function Stage7ContextConnection() {
     } else {
       verifyConnection();
     }
-  }, [verifyConnection, searchParams, setSearchParams, queryClient]);
+  }, [verifyConnection, searchParams, setSearchParams, queryClient, recordStep, refreshProfile]);
 
   // Handle Google Calendar toggle
   const handleCalendarToggle = async (checked: boolean) => {
