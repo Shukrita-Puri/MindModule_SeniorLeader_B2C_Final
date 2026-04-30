@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { AlertTriangle, BatteryLow, Cloud, Minus, ArrowUp } from "lucide-react";
 import { trackEngagement } from "@/utils/engagementTracking";
@@ -17,7 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
-import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS } from "@/utils/firstSessionTour";
+import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS, FIRST_SESSION_TOUR_STARTED_EVENT } from "@/utils/firstSessionTour";
 import { EngravedFill } from "@/components/ui/engraved-fill";
 import { clear as clearPersistent, cacheKeys, localISODate } from "@/utils/persistentBriefCache";
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
@@ -74,6 +74,7 @@ const outcomes = [
 
 const DailyCheckIn = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
@@ -139,10 +140,21 @@ const DailyCheckIn = () => {
 
   const { recordStep } = useOnboardingProgress();
 
+  useEffect(() => {
+    const handleTourStarted = () => {
+      const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+      if (effectiveId) ensureTourBoundToUser(effectiveId);
+      setShowGuide(true);
+    };
+
+    window.addEventListener(FIRST_SESSION_TOUR_STARTED_EVENT, handleTourStarted);
+    return () => window.removeEventListener(FIRST_SESSION_TOUR_STARTED_EVENT, handleTourStarted);
+  }, [user?.id]);
+
   // Show first session guide – DB is the single source of truth for eligibility
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const hasTourParam = params.get('tour') === '1';
     const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
     const activateGuide = () => {
@@ -244,7 +256,7 @@ const DailyCheckIn = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.onboarding_completed_at]);
+  }, [location.search, user?.id, user?.onboarding_completed_at]);
 
   const handleConfirm = async () => {
     if (!selectedOutcome || isSubmitting) return;

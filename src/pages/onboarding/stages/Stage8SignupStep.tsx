@@ -13,6 +13,7 @@ import {
   isNativeAuthCompleted,
   isNativeAuthStale,
   resetStaleNativeAuth,
+  hasRecoverableNativeSession,
   getSanitisedAuth0Audience,
 } from '@/utils/nativeAuth';
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
@@ -137,7 +138,11 @@ const Stage8SignupStep = () => {
 
     if (redirectInitiated.current) return;
     // If native auth is busy/completed but stale, allow retry; otherwise wait.
-    if (isNativeAuthBusy() || isNativeAuthCompleted()) {
+    const nativeCompleted = isNativeAuthCompleted();
+    if (nativeCompleted && !hasRecoverableNativeSession()) {
+      console.log('[Stage8] Stale native completion flag without tokens, clearing for fresh signup');
+      resetStaleNativeAuth();
+    } else if (isNativeAuthBusy() || nativeCompleted) {
       if (isNativeAuthStale()) {
         console.log('[Stage8] Stale native auth detected, clearing for retry');
         resetStaleNativeAuth();

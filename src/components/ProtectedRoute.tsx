@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, nativeLoginHandled, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, nativeLoginHandled, isNativeAuthBusy, isNativeAuthCompleted, hasRecoverableNativeSession, resetStaleNativeAuth, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
 import { isPreviewContext } from "@/utils/previewAuth";
 import DelayedFallback from "@/components/ui/delayed-fallback";
@@ -72,7 +72,10 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       console.log('[ProtectedRoute] Native auth busy, waiting...');
       return;
     }
-    if (isNativeAuthCompleted()) {
+    if (isNativeAuthCompleted() && !hasRecoverableNativeSession()) {
+      console.log('[ProtectedRoute] Stale native completion flag without tokens, clearing...');
+      resetStaleNativeAuth();
+    } else if (isNativeAuthCompleted()) {
       console.log('[ProtectedRoute] Native auth completed, waiting for hydration...');
       return;
     }

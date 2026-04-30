@@ -12,8 +12,10 @@ import {
   isNativeAuthCompleted,
   isNativeAuthStale,
   resetStaleNativeAuth,
+  hasRecoverableNativeSession,
 } from '@/utils/nativeAuth';
 import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
+import { useAuth } from '@/hooks/useAuth';
 
 function isInIframe(): boolean {
   try {
@@ -27,7 +29,8 @@ type RedirectStatus = 'preparing' | 'redirecting' | 'error';
 const REDIRECT_TIMEOUT_MS = 8000;
 
 const Login = () => {
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated: sdkIsAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated: appIsAuthenticated, loading: appAuthLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectInitiated = useRef(false);
@@ -97,9 +100,9 @@ const Login = () => {
 
   useEffect(() => {
     if (inIframe) return;
-    if (isLoading) return;
+    if (isLoading || appAuthLoading) return;
 
-    if (isAuthenticated) {
+    if (sdkIsAuthenticated || appIsAuthenticated) {
       clearTimeoutSafe();
       navigate(finalDestination);
       return;
@@ -113,7 +116,11 @@ const Login = () => {
     }
 
     if (redirectInitiated.current) return;
-    if (isNativeAuthBusy() || isNativeAuthCompleted()) {
+    const nativeCompleted = isNativeAuthCompleted();
+    if (nativeCompleted && !hasRecoverableNativeSession()) {
+      console.log('[Login] Stale native completion flag without tokens, clearing for fresh login');
+      resetStaleNativeAuth();
+    } else if (isNativeAuthBusy() || nativeCompleted) {
       if (isNativeAuthStale()) {
         console.log('[Login] Stale native auth detected, clearing for retry');
         resetStaleNativeAuth();
@@ -121,7 +128,7 @@ const Login = () => {
         console.log('[Login] Native auth in progress or completed, waiting...');
         clearTimeoutSafe();
         timeoutRef.current = window.setTimeout(() => {
-          if (!isAuthenticated) setStatus('error');
+          if (!sdkIsAuthenticated && !appIsAuthenticated) setStatus('error');
         }, REDIRECT_TIMEOUT_MS);
         return;
       }
@@ -132,7 +139,7 @@ const Login = () => {
     clearLogoutGuard();
 
     void startRedirect();
-  }, [isLoading, isAuthenticated, navigate, finalDestination, inIframe, clearTimeoutSafe, startRedirect, attempt]);
+  }, [isLoading, appAuthLoading, sdkIsAuthenticated, appIsAuthenticated, navigate, finalDestination, inIframe, clearTimeoutSafe, startRedirect, attempt]);
 
   useEffect(() => () => clearTimeoutSafe(), [clearTimeoutSafe]);
 

@@ -382,8 +382,13 @@ export async function nativeLogin(options?: {
   }
 
   if (isNativeAuthCompleted()) {
-    console.log('[NativeAuth] Auth already completed (pending hydration), skipping login');
-    return { status: 'completed_pending_hydration' };
+    if (hasRecoverableNativeSession()) {
+      console.log('[NativeAuth] Auth already completed (pending hydration), skipping login');
+      return { status: 'completed_pending_hydration' };
+    }
+
+    console.warn('[NativeAuth] Stale completed flag without recoverable tokens – clearing before login');
+    clearNativeAuthCompleted();
   }
 
   // Check if we have recoverable tokens before opening login

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import mmLogoCircle from "@/assets/brand/mm-logo-circle.png";
 import heroIllustration from "@/assets/onboarding/usp-sky-light.jpeg";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
-import { clearLogoutGuard } from "@/utils/logoutGuard";
+import { clearLogoutGuard, isLogoutGuardActive } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
 import { getResumeRoute } from "@/utils/onboardingStatus";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
@@ -27,17 +27,61 @@ const Auth0Front = () => {
   const { loginWithRedirect } = useAuth0();
   const { isAuthenticated, loading, user } = useAuth();
   const navigate = useNavigate();
+  const logoutGuardActive = isLogoutGuardActive();
 
-  // Auto-redirect: logged-in + completed + valid → straight to app
+  // Auto-redirect authenticated users away from the public landing/login page.
   useEffect(() => {
+    if (logoutGuardActive) return;
     if (loading || !isAuthenticated || !user) return;
-    if (user.onboarding_completed_at && hasValidAccess(user)) {
+
+    if (user.onboarding_completed_at && (hasValidAccess(user) || PAYMENT_PAGE_SUPPRESSED)) {
       navigate(CANONICAL_HOME, { replace: true });
+      return;
     }
-  }, [loading, isAuthenticated, user, navigate]);
+
+    if (!user.onboarding_completed_at) {
+      let cancelled = false;
+      void getResumeRoute()
+        .then((resumeRoute) => {
+          if (!cancelled) navigate(resumeRoute, { replace: true });
+        })
+        .catch(() => {
+          if (!cancelled) navigate('/onboarding', { replace: true });
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!hasValidAccess(user)) {
+      navigate('/onboarding/payment', { replace: true });
+    }
+  }, [loading, isAuthenticated, user, navigate, logoutGuardActive]);
 
   const handleSignIn = async () => {
     clearLogoutGuard();
+
+    if (isAuthenticated && user?.onboarding_completed_at && hasValidAccess(user)) {
+      navigate(CANONICAL_HOME);
+      return;
+    }
+
+    if (isAuthenticated && user && !user.onboarding_completed_at) {
+      try {
+        const resumeRoute = await getResumeRoute();
+        console.log('[Front] Resuming onboarding from sign in at:', resumeRoute);
+        navigate(resumeRoute);
+      } catch {
+        navigate('/onboarding');
+      }
+      return;
+    }
+
+    if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
+      navigate(PAYMENT_PAGE_SUPPRESSED ? CANONICAL_HOME : '/onboarding/payment');
+      return;
+    }
 
     const result = await nativeLogin({ returnTo: CANONICAL_HOME });
     if (result.status === 'opened') return;
@@ -96,8 +140,25 @@ const Auth0Front = () => {
     navigate('/onboarding');
   };
 
-  return <FrontContent onSignIn={handleSignIn} onLetsGo={handleLetsGo} isAuthenticated={isAuthenticated} user={user} />;
+  if (!logoutGuardActive && (loading || isAuthenticated)) {
+    return <FrontLoading />;
+  }
+
+  return (
+    <FrontContent
+      onSignIn={handleSignIn}
+      onLetsGo={handleLetsGo}
+      isAuthenticated={logoutGuardActive ? false : isAuthenticated}
+      user={logoutGuardActive ? null : user}
+    />
+  );
 };
+
+const FrontLoading = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+  </div>
+);
 
 const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
   onSignIn: () => void;

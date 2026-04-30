@@ -464,7 +464,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     syncAttempted.current = false;
     nativeHydrationAttempted.current = false;
     setNativeAuthed(false);
-    setAuthResolved(false);
+    setAuthResolved(true);
+    setSyncing(false);
     clearNativeTokens();
     clearNativeAuthCompleted();
     clearNativeLoginInProgress();

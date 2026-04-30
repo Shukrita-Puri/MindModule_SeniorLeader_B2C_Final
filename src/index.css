@@ -151,6 +151,13 @@
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
   }
+
+  img:not([data-allow-image-callout="true"]) {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
   
 body {
    @apply bg-background text-foreground font-body;

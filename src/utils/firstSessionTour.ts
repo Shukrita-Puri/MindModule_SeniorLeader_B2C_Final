@@ -40,6 +40,8 @@ export const FST_KEYS = {
   done: 'first_session_guide_done',
 } as const;
 
+export const FIRST_SESSION_TOUR_STARTED_EVENT = 'first-session-tour-started';
+
 type StartSource = 'onboarding' | 'retake';
 
 export interface StartTourOptions {
@@ -73,6 +75,11 @@ export function startFirstSessionTour({ userId, source }: StartTourOptions): str
   safeRemove(FST_KEYS.introSeen);
   // A previous completion marker would suppress the new tour run.
   safeRemove(FST_KEYS.done);
+  try {
+    window.dispatchEvent(new CustomEvent(FIRST_SESSION_TOUR_STARTED_EVENT, {
+      detail: { userId: userId || null, source },
+    }));
+  } catch { /* non-browser/test environment */ }
   return '/daily-check-in?tour=1';
 }
 
