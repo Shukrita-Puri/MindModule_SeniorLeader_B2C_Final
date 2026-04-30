@@ -50,7 +50,7 @@ export function useDeviceTokenRegistration() {
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const accessToken = await window.__auth0Client?.getAccessTokenSilently();
 
-            await fetch(
+            const response = await fetch(
               `https://${projectId}.supabase.co/functions/v1/register-device-token`,
               {
                 method: 'POST',
@@ -64,8 +64,15 @@ export function useDeviceTokenRegistration() {
                 }),
               }
             );
+            const responseText = await response.text();
+            if (!response.ok) {
+              registered.current = false;
+              console.error('[PushReg] Backend rejected token:', response.status, responseText);
+              return;
+            }
             console.log('[PushReg] Token persisted to backend');
           } catch (err) {
+            registered.current = false;
             console.error('[PushReg] Failed to persist token:', err);
           }
         });

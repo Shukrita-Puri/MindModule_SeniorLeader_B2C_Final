@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,34 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate via Auth0 JWT
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-
-    // Verify token via Auth0 userinfo
-    const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-    if (!auth0Domain) {
-      return new Response(JSON.stringify({ error: 'Auth not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const userInfoRes = await fetch(`https://${auth0Domain}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!userInfoRes.ok) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    const userInfo = await userInfoRes.json();
-    const userId = userInfo.sub;
+    const auth = await authenticateRequest(req, corsHeaders);
+    if ('errorResponse' in auth) return auth.errorResponse;
+    const userId = auth.userId;
 
     const { device_token, platform } = await req.json();
     if (!device_token || !platform) {
