@@ -69,8 +69,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Upsert: deactivate old tokens for this user/platform, then insert/update
-    // First deactivate any existing tokens for this user on this platform
+    // Single-active-token policy:
+    // 1. Deactivate every other token for this user on this platform (only one active per device class)
     await supabase
       .from('notification_device_tokens')
       .update({ is_active: false })
@@ -78,7 +78,7 @@ serve(async (req) => {
       .eq('platform', platform)
       .neq('device_token', device_token);
 
-    // Upsert the current token
+    // 2. Upsert the current token as the active one
     const { error } = await supabase
       .from('notification_device_tokens')
       .upsert(
@@ -94,7 +94,20 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    console.log(`[register-device-token] Token registered for ${userId} (${platform})`);
+    // 3. Hard-delete this user's tokens that have been inactive for > 7 days
+    //    (keeps the table tight; periodic cron also runs this globally)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: pruneErr, count: prunedCount } = await supabase
+      .from('notification_device_tokens')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+      .eq('is_active', false)
+      .lt('updated_at', sevenDaysAgo);
+    if (pruneErr) {
+      console.warn('[register-device-token] Prune failed (non-fatal):', pruneErr.message);
+    }
+
+    console.log(`[register-device-token] Token registered for ${userId} (${platform}); pruned ${prunedCount ?? 0} stale tokens`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
