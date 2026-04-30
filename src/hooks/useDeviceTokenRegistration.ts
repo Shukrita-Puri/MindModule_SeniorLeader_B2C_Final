@@ -32,7 +32,20 @@ export function useDeviceTokenRegistration() {
 
         // Listen for registration success
         await PushNotifications.addListener('registration', async (token) => {
-          console.log('[PushReg] Device token received:', token.value.substring(0, 12) + '...');
+          const raw = token.value ?? '';
+          // Normalize: strip iOS Data.description artifacts ("<...>" or spaces) just in case
+          const cleaned = raw.replace(/[<>\s]/g, '').toLowerCase();
+          const isValidApns = /^[0-9a-f]{64}$/.test(cleaned);
+          console.log(
+            `[PushReg] Device token received: len=${raw.length} cleaned_len=${cleaned.length} valid=${isValidApns} prefix=${cleaned.substring(0, 12)}...`
+          );
+          if (!isValidApns) {
+            console.error(
+              '[PushReg] Refusing to register malformed APNs token (expected 64 hex chars). ' +
+              'This usually means the app build is stale — please reinstall.'
+            );
+            return;
+          }
           try {
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const accessToken = await window.__auth0Client?.getAccessTokenSilently();
@@ -46,7 +59,7 @@ export function useDeviceTokenRegistration() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  device_token: token.value,
+                  device_token: cleaned,
                   platform: 'ios',
                 }),
               }
