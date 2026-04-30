@@ -2284,7 +2284,7 @@ serve(async (req) => {
         for (const tokenInfo of notif.tokens) {
           if (tokenInfo.platform !== 'ios') continue;
           try {
-            const sent = await sendApnsPush(
+            const result = await sendApnsPush(
               tokenInfo.token,
               apnsJwt,
               apnsBundleId,
@@ -2298,8 +2298,41 @@ serve(async (req) => {
               },
               apnsHost
             );
-            if (sent) sendSuccess++;
+            if (result.ok) sendSuccess++;
             else sendFailed++;
+
+            // Persist APNs result on the notification_log row for SQL-level debugging.
+            if (notificationLogId) {
+              await supabase
+                .from('notification_log')
+                .update({
+                  payload: {
+                    ...payload,
+                    apns_status: result.status,
+                    apns_reason: result.reason,
+                    apns_token_prefix: tokenInfo.token.substring(0, 12),
+                  },
+                })
+                .eq('id', notificationLogId);
+            }
+
+            // Auto-deactivate tokens APNs has rejected as permanently bad.
+            // 400 BadDeviceToken / 410 Unregistered are the documented contract.
+            const reasonLc = (result.reason || '').toLowerCase();
+            const shouldDeactivate =
+              result.status === 410 ||
+              (result.status === 400 && (
+                reasonLc.includes('baddevicetoken') ||
+                reasonLc.includes('devicetokennotforTopic'.toLowerCase())
+              ));
+            if (shouldDeactivate) {
+              console.log(`[smart-nudges] Deactivating dead token user=${notif.userId} prefix=${tokenInfo.token.substring(0, 12)}... status=${result.status} reason=${result.reason}`);
+              await supabase
+                .from('notification_device_tokens')
+                .update({ is_active: false })
+                .eq('user_id', notif.userId)
+                .eq('device_token', tokenInfo.token);
+            }
           } catch (e) {
             console.error(`[smart-nudges] APNs send error for ${notif.userId}:`, e);
             sendFailed++;
