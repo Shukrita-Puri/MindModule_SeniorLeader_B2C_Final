@@ -51,7 +51,7 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * Bump this when scoring/classification logic changes so that any cached
  * row missing this version is treated as stale and recomputed automatically.
  */
-const ENGINE_VERSION = 2;
+const ENGINE_VERSION = 3;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -101,6 +101,50 @@ interface Payload {
   coverage: Coverage;
   generatedAt: string;
   version: number;
+  // ── New v3 projections (UI: Performance Causality card tabs) ─────────
+  // PROPRIETARY LOGIC NOTICE: All formulas, weights, modifiers, baselines,
+  // and signal-combination rules live in this Edge Function source only.
+  // The payload exposes ONLY rendered numbers, opacities, sample sizes,
+  // confidence tiers, colors, and short pre-baked banner copy. The UI
+  // never receives the formula or its breakdown, so the protected logic
+  // is never inspectable from the client.
+  stressMatrix?: StressMatrix;
+  burnoutMatrix?: BurnoutMatrix;
+  // Computed silently per spec — engine measures these so the UI can
+  // surface them later without a separate backfill. The card does not
+  // currently render these tabs.
+  sleepDisruptionMatrix?: StressMatrix | null;
+  recoveryCostTimeline?: RecoveryTimeline | null;
+}
+
+// ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
+interface StressMatrix {
+  events: string[];               // column headers (event-type buckets)
+  days: string[];                 // row headers (Mon..Fri)
+  cells: (number | null)[][];     // value to render (e.g. peak HR delta in bpm); null = no data
+  n: number[][];                  // sample size per cell
+  confidence: (Confidence | null)[][];
+  maxObserved: number;            // for client-side ramp scaling
+  topCell: { event: string; day: string; value: number } | null;
+  lowCell: { event: string; day: string; value: number } | null;
+  topDay: { day: string; total: number } | null;
+}
+interface BurnoutMatrix {
+  weeks: string[];                                  // 5 labels: '4 wks ago' .. 'This week'
+  dims: Array<{
+    key: 'load' | 'rhr' | 'hrv' | 'sleep';
+    label: string;
+    color: string;                                  // hex from spec, ramp via opacity client-side
+    weekly: number[];                               // 1-5 intensity per week
+    trajectory: 'escalating' | 'stable' | 'improving';
+  }>;
+  cardTrajectory: 'escalating' | 'stable' | 'improving';
+  bannerCopy: string;                               // pre-baked, no formula reveal
+}
+interface RecoveryTimeline {
+  days: string[];                                   // ISO dates
+  values: (number | null)[];                        // recovery-cost score per day
+  rolling7: (number | null)[];
 }
 
 // ── Unified pattern store: flat projection for fast O(1) reads by other
