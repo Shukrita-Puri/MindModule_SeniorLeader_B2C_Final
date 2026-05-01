@@ -135,6 +135,9 @@ Deno.serve(async (req) => {
         if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) row.hrv_samples = sample.hrv_samples;
         if (sample.resting_heart_rate != null) row.resting_heart_rate = sample.resting_heart_rate;
         if (sample.heart_rate != null) row.heart_rate = sample.heart_rate;
+        // Per-sample HR readings for the day, used by cause-effect-engine
+        // to compute true per-event-window peak HR (not a day-max proxy).
+        if (sample.hr_samples && Array.isArray(sample.hr_samples)) row.hr_samples = sample.hr_samples;
         if (sample.total_sleep_minutes != null) row.total_sleep_minutes = sample.total_sleep_minutes;
         if (sample.deep_sleep_minutes != null) row.deep_sleep_minutes = sample.deep_sleep_minutes;
         if (sample.rem_sleep_minutes != null) row.rem_sleep_minutes = sample.rem_sleep_minutes;

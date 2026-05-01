@@ -32,6 +32,30 @@ export interface MockCoverage {
   eventCount: number;
 }
 
+export interface MockStressMatrix {
+  events: string[];
+  days: string[];
+  cells: (number | null)[][];
+  n: number[][];
+  confidence: ('strong' | 'emerging' | null)[][];
+  maxObserved: number;
+  topCell: { event: string; day: string; value: number } | null;
+  lowCell: { event: string; day: string; value: number } | null;
+  topDay: { day: string; total: number } | null;
+}
+export interface MockBurnoutMatrix {
+  weeks: string[];
+  dims: Array<{
+    key: 'load' | 'rhr' | 'hrv' | 'sleep';
+    label: string;
+    color: string;
+    weekly: number[];
+    trajectory: 'escalating' | 'stable' | 'improving';
+  }>;
+  cardTrajectory: 'escalating' | 'stable' | 'improving';
+  bannerCopy: string;
+}
+
 export interface MockCausalityPayload {
   top: MockFinding | null;
   lensA: MockFinding[];
@@ -41,6 +65,8 @@ export interface MockCausalityPayload {
   coverage: MockCoverage;
   generatedAt: string;
   isMock: true;
+  stressMatrix?: MockStressMatrix;
+  burnoutMatrix?: MockBurnoutMatrix;
 }
 
 const lensA: MockFinding[] = [
@@ -155,4 +181,44 @@ export const MOCK_CAUSALITY_PAYLOAD: MockCausalityPayload = {
   },
   generatedAt: new Date().toISOString(),
   isMock: true,
+  stressMatrix: {
+    events: ['Board reviews', 'Investor calls', '1:1s', 'Town halls', 'Client meetings', 'Deep work', 'Interviews'],
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    cells: [
+      [38, 22, 12, null, 18, 4, 14],
+      [12, 28, 14, 32, 16,  6, 18],
+      [10, 16, 10, 12, 14,  8, 12],
+      [20, 34, 16, 14, 22,  6, 26],
+      [ 8, 12, 10, null,10,  4, 12],
+    ],
+    n: [
+      [3, 2, 4, 0, 2, 3, 2],
+      [2, 3, 4, 2, 3, 4, 2],
+      [3, 3, 5, 2, 3, 3, 2],
+      [2, 3, 4, 2, 2, 3, 3],
+      [2, 2, 4, 0, 2, 3, 2],
+    ],
+    confidence: [
+      ['emerging','emerging','emerging',null,'emerging','emerging','emerging'],
+      ['emerging','emerging','emerging','emerging','emerging','emerging','emerging'],
+      ['emerging','emerging','strong','emerging','emerging','emerging','emerging'],
+      ['emerging','emerging','emerging','emerging','emerging','emerging','emerging'],
+      ['emerging','emerging','emerging',null,'emerging','emerging','emerging'],
+    ],
+    maxObserved: 38,
+    topCell: { event: 'Board reviews', day: 'Mon', value: 38 },
+    lowCell: { event: 'Deep work', day: 'Mon', value: 4 },
+    topDay: { day: 'Thu', total: 20 },
+  },
+  burnoutMatrix: {
+    weeks: ['4 wks ago', '3 wks ago', '2 wks ago', 'Last week', 'This week'],
+    dims: [
+      { key: 'load',  label: 'Calendar load', color: '#D85A30', weekly: [2, 3, 3, 4, 5], trajectory: 'escalating' },
+      { key: 'rhr',   label: 'RHR trend ↑',   color: '#EF9F27', weekly: [2, 2, 3, 4, 4], trajectory: 'escalating' },
+      { key: 'hrv',   label: 'HRV trend ↓',   color: '#534AB7', weekly: [2, 2, 3, 3, 4], trajectory: 'escalating' },
+      { key: 'sleep', label: 'Sleep deficit', color: '#185FA5', weekly: [1, 2, 2, 3, 4], trajectory: 'escalating' },
+    ],
+    cardTrajectory: 'escalating',
+    bannerCopy: 'Risk trajectory: escalating',
+  },
 };

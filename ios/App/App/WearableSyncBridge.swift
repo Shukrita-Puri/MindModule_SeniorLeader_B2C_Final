@@ -142,6 +142,24 @@ import Security
             }
         }
 
+        // ----- HR (per-sample, for true event-window peak HR) -----
+        // Collected as [{ "t": ISO8601, "v": bpm }, ...] per local day.
+        // Used by cause-effect-engine to compute peak HR within each
+        // calendar event window vs the user's resting baseline.
+        if let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) {
+            group.enter()
+            queryQuantitySamples(type: hrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap in
+                lock.lock()
+                for (day, samplesArr) in dayMap {
+                    var entry = dailySamples[day] ?? ["summary_date": day]
+                    entry["hr_samples"] = samplesArr
+                    dailySamples[day] = entry
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
+
         // ----- Sleep -----
         if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             group.enter()
@@ -209,6 +227,49 @@ import Security
                 avg[day] = sum / Double(vals.count)
             }
             completion(avg)
+        }
+        healthStore.execute(query)
+    }
+
+    /// Return per-sample readings grouped by local day as
+    /// [{ "t": ISO8601, "v": Int }]. Used by the cause-effect engine to
+    /// compute per-event-window peak HR (true causation) rather than a
+    /// daily-average proxy.
+    private func queryQuantitySamples(
+        type: HKQuantityType,
+        unit: HKUnit,
+        start: Date,
+        end: Date,
+        completion: @escaping ([String: [[String: Any]]]) -> Void
+    ) {
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+            if let error = error {
+                NSLog("[WearableSyncBridge] Per-sample query failed for \(type.identifier): \(error.localizedDescription)")
+                completion([:])
+                return
+            }
+            guard let quantitySamples = samples as? [HKQuantitySample] else {
+                completion([:])
+                return
+            }
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "yyyy-MM-dd"
+            dayFormatter.timeZone = TimeZone.current
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            var byDay: [String: [[String: Any]]] = [:]
+            for s in quantitySamples {
+                let value = s.quantity.doubleValue(for: unit)
+                if value <= 0 { continue }
+                let dayKey = dayFormatter.string(from: s.startDate)
+                let sample: [String: Any] = [
+                    "t": isoFormatter.string(from: s.startDate),
+                    "v": Int(round(value)),
+                ]
+                byDay[dayKey, default: []].append(sample)
+            }
+            completion(byDay)
         }
         healthStore.execute(query)
     }

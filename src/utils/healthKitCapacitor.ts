@@ -18,6 +18,8 @@ export interface DailyWearableSummary {
   hrvSamples: { value: number; hour: number; timestamp: string }[];
   restingHeartRate: number | null;       // daily average RHR (bpm)
   heartRate: number | null;              // daily average HR (bpm)
+  /** Per-sample HR readings for the day (true event-window peak source). */
+  hrSamples: { t: string; v: number }[];
   totalSleepMinutes: number | null;      // total sleep duration
   deepSleepMinutes: number | null;       // deep sleep stage
   remSleepMinutes: number | null;        // REM sleep stage
@@ -218,6 +220,8 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
     // ---- Group HR by day (average) ----
     const hrByDay: Record<string, number[]> = {};
+    // Per-sample HR for true event-window peaks (used by cause-effect engine).
+    const hrSamplesByDay: Record<string, { t: string; v: number }[]> = {};
     for (const s of hrSamples) {
       const sDate = s.endDate ?? s.date;
       if (!sDate) continue;
@@ -226,6 +230,9 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       if (isNaN(value) || value <= 0) continue;
       if (!hrByDay[dayKey]) hrByDay[dayKey] = [];
       hrByDay[dayKey].push(value);
+      const startISO = s.startDate ?? s.date ?? sDate;
+      if (!hrSamplesByDay[dayKey]) hrSamplesByDay[dayKey] = [];
+      hrSamplesByDay[dayKey].push({ t: new Date(startISO).toISOString(), v: Math.round(value) });
     }
 
     // ---- Group Sleep by day ----
@@ -334,6 +341,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
         hrvSamples: hrvDay ?? [],
         restingHeartRate: rhrAvg,
         heartRate: hrAvg,
+        hrSamples: hrSamplesByDay[day] ?? [],
         totalSleepMinutes: totalSleep,
         deepSleepMinutes: deepSleep,
         remSleepMinutes: remSleep,

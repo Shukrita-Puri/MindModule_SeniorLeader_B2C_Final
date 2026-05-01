@@ -4166,6 +4166,7 @@ export type Database = {
           deep_sleep_minutes: number | null
           energy_level: string | null
           heart_rate: number | null
+          hr_samples: Json
           hrv: number | null
           hrv_samples: Json | null
           hrv_status: string | null
@@ -4189,6 +4190,7 @@ export type Database = {
           deep_sleep_minutes?: number | null
           energy_level?: string | null
           heart_rate?: number | null
+          hr_samples?: Json
           hrv?: number | null
           hrv_samples?: Json | null
           hrv_status?: string | null
@@ -4212,6 +4214,7 @@ export type Database = {
           deep_sleep_minutes?: number | null
           energy_level?: string | null
           heart_rate?: number | null
+          hr_samples?: Json
           hrv?: number | null
           hrv_samples?: Json | null
           hrv_status?: string | null
