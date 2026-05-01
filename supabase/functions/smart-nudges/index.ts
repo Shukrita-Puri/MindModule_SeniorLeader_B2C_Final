@@ -1193,7 +1193,7 @@ ${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV
 - Day: ${ctx.dayName}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
-Required CTA verb at end of body: "open your brief" (default) or "build your prep plan" (if HRV<-15% or sleep<60 with a heavy day) or "open your prep plan" (if naming a high-stakes event).`;
+Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
       break;
     }
 
@@ -1210,9 +1210,8 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until. Do NOT add filler phrases.
-Example shape: "${evtTitle} in ${evt.minutesUntil} min. Prep plan is queued — open your prep plan."
-Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
+Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
       break;
     }
 
@@ -1227,8 +1226,8 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until. No filler.
-Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence (e.g. "Stay sharp instead of running on fumes") — never a bare metric.
+Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if depleted).`;
       break;
     }
 
@@ -1241,7 +1240,8 @@ Available signals:
 - Meetings today: ${ctx.eventCount}
 
 Required: name the count "${remaining} practice${remaining === 1 ? '' : 's'} left".
-Required CTA verb at end of body: "open your plan".
+The first sentence translates what that means for the day, not the raw count alone.
+Required CTA verb at end of body: "check in to recalibrate".
 Say "practices" not "priorities". Never reference "Priority 1".`;
       break;
     }
@@ -1254,8 +1254,8 @@ Available signals:
 - Morning check-in: ${ctx.morningCheckinOutcome}
 - Next event: "${eventTitle}"
 
-Required: name the morning state AND the event.
-Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
+Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next — this is the recovery window").
+Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
 
@@ -1274,8 +1274,8 @@ Available signals:
 - Next high-stakes: "${evtTitle}"
 ${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
 
-Required: name the wearable signal AND "${evtTitle}".
-Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
+Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") — never lead with the bare metric.
+Required CTA verb at end of body: "log in to prep your state" or "check in to recalibrate".`;
       break;
     }
 
@@ -1305,9 +1305,10 @@ ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
 ${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 
-${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "build your prep plan" or "open your brief".` : ''}
-${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes). Required CTA verb at end of body: "close the week".` : ''}
-${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "close the day" (if practices done or wearable signal) or "open your plan" (if practices remaining).` : ''}`;
+${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
+${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
+${!isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6 ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
+${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
       break;
     }
 
@@ -1368,17 +1369,27 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
-      // v7 — enforce JIT-or-State + prep-CTA contract on AI output.
-      // V6 lint kept above as a reference; V7 is now authoritative.
-      const violation = violatesCopyContractV7(parsed.body);
+      // v8 — enforce Meaning-Forward + Mind-Prep CTA contract on AI output.
+      // Pass real ctx tokens so requiresNamedContextToken can match against
+      // actual event titles and check-in outcomes the user logged.
+      const v8Ctx = {
+        eventTitles: [
+          ...ctx.todayEvents.map(e => e.title || ''),
+          ...ctx.tomorrowEvents.map(e => e.title || ''),
+          ...ctx.highStakesEvents.map(e => e.title || ''),
+          ctx.firstNonNoiseEvent?.title || '',
+        ].filter(Boolean),
+        checkinWord: ctx.morningCheckinOutcome ?? null,
+      };
+      const violation = violatesCopyContractV8(parsed.body, v8Ctx);
       if (violation) {
-        console.warn(`[smart-nudges v7] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
+        console.warn(`[smart-nudges v8] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
         return null;
       }
 
       return {
         title: parsed.title.substring(0, 60),
-        body: parsed.body.substring(0, 120),
+        body: parsed.body.substring(0, 140),
         variantId: `AI-${nudgeType}-${Date.now()}`,
       };
     }
