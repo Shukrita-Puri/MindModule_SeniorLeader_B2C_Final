@@ -102,11 +102,11 @@ const PALETTE_RAMPS: Record<LevelPalette, { color: string; dark: string }[]> = {
     { color: '#006064', dark: '#003F42' }, // 5
   ],
   confidence: [
-    { color: '#B39DDB', dark: '#9685C2' }, // 1
-    { color: '#9575CD', dark: '#7459B0' }, // 2
+    { color: '#E0D4F5', dark: '#C4B3E8' }, // 1
+    { color: '#B39DDB', dark: '#9685C2' }, // 2
     { color: '#7E57C2', dark: '#5E3FA0' }, // 3
-    { color: '#5E35B1', dark: '#46278A' }, // 4
-    { color: '#311B92', dark: '#1F0F66' }, // 5
+    { color: '#3A1B82', dark: '#28115E' }, // 4
+    { color: '#080226', dark: '#020010' }, // 5
   ],
 };
 
