@@ -2562,7 +2562,7 @@ serve(async (req) => {
     const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
     const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
     const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
-    const isDryRun = !apnsKey || !apnsKeyId || !apnsTeamId;
+    const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
 
     if (isDryRun) {
       const missing = [
