@@ -2362,8 +2362,9 @@ serve(async (req) => {
 
       // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
+      const isForcedUser = forceUserId !== null && forceUserId === userId;
       // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
-      if (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL) {
+      if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
         console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
         continue;
       }
@@ -2371,8 +2372,8 @@ serve(async (req) => {
       // DND / quiet day check
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
-      if (isInDND(localHour, dndStart, dndEnd)) continue;
-      if (isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
+      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) continue;
+      if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
 
       // Convert local midnight to UTC for log queries
       const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
