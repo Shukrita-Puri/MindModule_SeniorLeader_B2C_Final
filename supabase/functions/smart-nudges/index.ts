@@ -1442,6 +1442,7 @@ async function tryAIProvider(
       title: parsed.title.substring(0, 60),
       body: parsed.body.substring(0, 140),
       variantId: `AI-${provider}-${nudgeType}-${Date.now()}`,
+      aiProvider: provider,
     };
   } catch (e) {
     console.warn(`[smart-nudges ${provider}] AI copy error:`, e instanceof Error ? e.message : e);
