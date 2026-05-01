@@ -943,6 +943,12 @@ const FORBIDDEN_WORDS_V6 = [
   'anchor mental','lock in decision','set decision','set posture','decision-ready',
   'optimal performance','peak performance','performance state','cognitive load',
   'capacity','reserves','baseline','trajectory reset','reset trajectory',
+  // v8 — passive-consumption verbs (defeat the "open the app and do it" principle)
+  'your prep is ready','prep is ready','your plan is ready','your brief is ready',
+  'see your prep','see your plan','see your readiness','tap to prep',
+  // v8 — unqualified V7 prep verbs (CEO reads "prep" as strategic prep, not mental)
+  'open the app to prep','check into the app to prep','go to the app to prep',
+  'prep now','open the app to prep tonight','open the app to prep with a cool-down',
 ];
 const ALLOWED_CTA_VERBS_V6 = [
   'open your brief','open your plan','open your prep plan','open your readiness',
