@@ -5,8 +5,26 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { EngravedFill } from "@/components/ui/engraved-fill"
 
-const LUXURY_SPECTRUM =
-  "linear-gradient(90deg,#d8553f 0%,#e88a52 25%,#d4b75a 50%,#7ba87a 75%,#3d6fa8 100%)"
+const LUXURY_SPECTRUMS = {
+  luxury:
+    "linear-gradient(90deg,#d8553f 0%,#e88a52 25%,#d4b75a 50%,#7ba87a 75%,#3d6fa8 100%)",
+  sharpness:
+    "linear-gradient(90deg,#FFE082 0%,#FFD54F 25%,#FFC107 50%,#FFA000 75%,#B8860B 100%)",
+  clarity:
+    "linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)",
+  confidence:
+    "linear-gradient(90deg,#B39DDB 0%,#9575CD 25%,#7E57C2 50%,#5E35B1 75%,#311B92 100%)",
+} as const
+
+type LuxuryVariant = keyof typeof LUXURY_SPECTRUMS
+const LUXURY_VARIANTS: readonly LuxuryVariant[] = [
+  "luxury",
+  "sharpness",
+  "clarity",
+  "confidence",
+]
+const isLuxuryVariant = (v: unknown): v is LuxuryVariant =>
+  typeof v === "string" && (LUXURY_VARIANTS as readonly string[]).includes(v)
 
 const sliderTrackVariants = cva(
   "relative w-full grow overflow-hidden rounded-full",
@@ -15,6 +33,9 @@ const sliderTrackVariants = cva(
       variant: {
         default: "h-2 bg-secondary",
         luxury: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        sharpness: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        clarity: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        confidence: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
       },
     },
     defaultVariants: { variant: "default" },
@@ -29,6 +50,12 @@ const sliderRangeVariants = cva("absolute h-full overflow-hidden", {
         // transparent: the spectrum stays painted on the track underneath.
         // The traversed portion is signaled by an inner shadow + denser hatch.
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      sharpness:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      clarity:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      confidence:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
     },
   },
   defaultVariants: { variant: "default" },
@@ -41,6 +68,12 @@ const sliderThumbVariants = cva(
       variant: {
         default: "h-5 w-5",
         luxury:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        sharpness:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        clarity:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        confidence:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
       },
     },
@@ -150,12 +183,12 @@ const Slider = React.forwardRef<
     <SliderPrimitive.Track
       className={sliderTrackVariants({ variant })}
       style={
-        variant === "luxury"
-          ? { backgroundImage: LUXURY_SPECTRUM }
+        isLuxuryVariant(variant)
+          ? { backgroundImage: LUXURY_SPECTRUMS[variant] }
           : undefined
       }
     >
-      {variant === "luxury" && (
+      {isLuxuryVariant(variant) && (
         <>
           {/* full-rail engraved hatch — always visible */}
           <div className="pointer-events-none absolute inset-0">
@@ -166,7 +199,7 @@ const Slider = React.forwardRef<
         </>
       )}
       <SliderPrimitive.Range className={sliderRangeVariants({ variant })}>
-        {variant === "luxury" && (
+        {isLuxuryVariant(variant) && (
           <div className="pointer-events-none absolute inset-0">
             <EngravedFill variant="refined" density={3} opacity={0.22} />
           </div>
@@ -174,7 +207,7 @@ const Slider = React.forwardRef<
       </SliderPrimitive.Range>
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb className={sliderThumbVariants({ variant })}>
-      {variant === "luxury" && <LuxuryThumb />}
+      {isLuxuryVariant(variant) && <LuxuryThumb />}
     </SliderPrimitive.Thumb>
   </SliderPrimitive.Root>
 ))
