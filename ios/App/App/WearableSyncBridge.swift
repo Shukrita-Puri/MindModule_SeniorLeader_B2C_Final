@@ -142,6 +142,24 @@ import Security
             }
         }
 
+        // ----- HR (per-sample, for true event-window peak HR) -----
+        // Collected as [{ "t": ISO8601, "v": bpm }, ...] per local day.
+        // Used by cause-effect-engine to compute peak HR within each
+        // calendar event window vs the user's resting baseline.
+        if let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) {
+            group.enter()
+            queryQuantitySamples(type: hrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap in
+                lock.lock()
+                for (day, samplesArr) in dayMap {
+                    var entry = dailySamples[day] ?? ["summary_date": day]
+                    entry["hr_samples"] = samplesArr
+                    dailySamples[day] = entry
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
+
         // ----- Sleep -----
         if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             group.enter()
