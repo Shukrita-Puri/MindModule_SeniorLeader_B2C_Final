@@ -356,7 +356,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
                 </div>
                 {(['morning', 'midday', 'evening'] as const).map((tw) => {
                   const slot = day.slots[tw];
-                  const tier = tierFor(slot.value);
+                  const tier = tierFor(LEVEL_TIERS, slot.value);
                   const hasValue = !!tier && !day.isFuture;
                   return (
                     <div
