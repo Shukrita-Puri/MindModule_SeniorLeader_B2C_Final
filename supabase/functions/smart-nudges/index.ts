@@ -1611,7 +1611,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     }
     return {
       title: 'Week complete',
-      body: `Five days behind you this week. Close the week before you disconnect — check in to close the week.`,
+      body: `Five days of leadership behind you this week. Close the week cleanly so it doesn't bleed into the weekend — check in to close the week.`,
       variantId: 'FB-N3-fri-light',
     };
   }
@@ -1628,7 +1628,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
     return {
       title: 'Closing strong',
-      body: `${p} still open on today's plan. Close the loop before tomorrow loads up — check in to close the day.`,
+      body: `${p} still open on today's plan and the day is winding down. Land the close before tomorrow loads up — check in to close the day.`,
       variantId: 'FB-N3-priorities',
     };
   }
@@ -1664,7 +1664,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   }
   return {
     title: 'Closing the day',
-    body: `Quiet day on the calendar today. A short close still sets up tomorrow — check in to close the day.`,
+    body: `Quiet day on the calendar today, but tomorrow still benefits from a clean close tonight — check in to close the day.`,
     variantId: 'FB-N3-light',
   };
 }
