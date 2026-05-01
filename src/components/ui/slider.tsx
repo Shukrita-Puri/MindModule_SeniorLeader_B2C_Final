@@ -13,7 +13,7 @@ const LUXURY_SPECTRUMS = {
   clarity:
     "linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)",
   confidence:
-    "linear-gradient(90deg,#B39DDB 0%,#9575CD 25%,#7E57C2 50%,#5E35B1 75%,#311B92 100%)",
+    "linear-gradient(90deg,#E0D4F5 0%,#B39DDB 25%,#7E57C2 50%,#3A1B82 75%,#080226 100%)",
 } as const
 
 type LuxuryVariant = keyof typeof LUXURY_SPECTRUMS

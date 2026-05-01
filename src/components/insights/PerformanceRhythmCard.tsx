@@ -103,28 +103,28 @@ const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 // share one visual language.
 const stateColors: Record<string, { color: string; dark: string; glow: string; label: string }> = {
   overwhelmed: {
-    color: '#8AA0E0', dark: '#6A82D8',
-    glow: 'rgba(138, 160, 224, 0.35)',
+    color: '#B8C7F0', dark: '#9AAEE6',
+    glow: 'rgba(184, 199, 240, 0.35)',
     label: 'Overloaded',
   },
   drained: {
-    color: '#6A82D8', dark: '#4F63C8',
-    glow: 'rgba(106, 130, 216, 0.35)',
+    color: '#7A93E0', dark: '#5E78CC',
+    glow: 'rgba(122, 147, 224, 0.35)',
     label: 'Drained',
   },
   scattered: {
-    color: '#4F63C8', dark: '#3949AB',
-    glow: 'rgba(79, 99, 200, 0.35)',
+    color: '#3F54B8', dark: '#2F4196',
+    glow: 'rgba(63, 84, 184, 0.35)',
     label: 'Scattered',
   },
   steady: {
-    color: '#3949AB', dark: '#2C3A8C',
-    glow: 'rgba(57, 73, 171, 0.35)',
+    color: '#16205C', dark: '#0E1742',
+    glow: 'rgba(22, 32, 92, 0.35)',
     label: 'Steady',
   },
   focused: {
-    color: '#283593', dark: '#1A237E',
-    glow: 'rgba(40, 53, 147, 0.35)',
+    color: '#02061F', dark: '#000010',
+    glow: 'rgba(2, 6, 31, 0.5)',
     label: 'Focused',
   },
 };
