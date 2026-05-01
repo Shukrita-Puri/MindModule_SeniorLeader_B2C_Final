@@ -326,19 +326,22 @@ export type CtaVariant = 'A' | 'B' | 'C' | 'D';
 
 const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
 
-// v7 — every variant is a "prep" CTA. We keep A/B testing surface forms,
-// but every form ends with the word "prep" so the user always sees a
-// proactive, app-language CTA. Deep-link routing is unchanged on the
-// payload (system's job, not user's vocabulary).
+// v8 — Meaning-Forward / Mind-Prep CTA. Every variant is a qualified
+// mental-prep action verb (NEVER an unqualified "prep" — a CEO would read
+// that as "prep the board deck"). The user's job is always to log in /
+// check in and do MENTAL prep / recalibration / closing. Deep-link routing
+// is unchanged on the payload — verbs only imply a destination, the system
+// still controls the route.
 const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
-  // A = control
-  A: { brief: 'open the app to prep',         plan: 'open the app to prep' },
-  // B = check-in framed
-  B: { brief: 'check into the app to prep',   plan: 'go to the app to prep' },
-  // C = urgent short
-  C: { brief: 'prep now',                     plan: 'prep now' },
-  // D = evening-only variants (overridden in applyCtaVariant when route differs)
-  D: { brief: 'open the app to prep tonight', plan: 'open the app to prep with a cool-down' },
+  // A = control — calm, mental-prep
+  A: { brief: 'check in to set your intention', plan: 'log in to prep your mind' },
+  // B = state-framed
+  B: { brief: 'check in to recalibrate',        plan: 'log in to prep your state' },
+  // C = urgency / recovery
+  C: { brief: 'log in to recalibrate your mind', plan: 'log in to prep your mind' },
+  // D = close-of-day / week (evening variants — applyCtaVariant decides
+  // which 'close' verb based on deep-link route)
+  D: { brief: 'check in to close the day',       plan: 'check in to close the week' },
 };
 
 // Stable hash so the same user lands in the same bucket per nudge_type
@@ -365,35 +368,45 @@ function nudgeFamily(nudgeType: string): string {
   return nudgeType;
 }
 
-// v7 — recognise both legacy phrases and the new V7 "prep" CTAs so any
-// generated body can be rewritten to match the assigned variant.
+// v8 — recognise legacy V6/V7 phrases AND the new V8 qualified mind-prep
+// verbs so any generated body can be rewritten to match the assigned
+// variant. Anything matched here gets replaced with the variant's V8 verb.
 const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
-  // Legacy
-  { rx: /open your brief/gi,        kind: 'brief' },
-  { rx: /open the brief/gi,         kind: 'brief' },
-  { rx: /open your plan/gi,         kind: 'plan'  },
-  { rx: /open the plan/gi,          kind: 'plan'  },
-  { rx: /open your prep plan/gi,    kind: 'plan'  },
-  { rx: /build your prep plan/gi,   kind: 'plan'  },
-  { rx: /build your plan/gi,        kind: 'plan'  },
-  { rx: /lock in your prep/gi,      kind: 'plan'  },
-  { rx: /tap to prep/gi,            kind: 'plan'  },
-  { rx: /see your prep/gi,          kind: 'plan'  },
-  { rx: /see your readiness/gi,     kind: 'brief' },
-  { rx: /see your plan/gi,          kind: 'plan'  },
-  { rx: /recalibrate now/gi,        kind: 'brief' },
-  { rx: /close the day/gi,          kind: 'brief' },
-  { rx: /close the week/gi,         kind: 'brief' },
-  { rx: /close the loop/gi,         kind: 'brief' },
-  { rx: /check in now/gi,           kind: 'brief' },
-  { rx: /open the app$/gi,          kind: 'brief' },
-  // V7 surface forms (also rewritten when variant differs)
-  { rx: /open the app to prep tonight/gi,         kind: 'brief' },
+  // Legacy V5/V6 (still tolerated as input, normalised to V8 on rewrite)
+  { rx: /open your brief/gi,                       kind: 'brief' },
+  { rx: /open the brief/gi,                        kind: 'brief' },
+  { rx: /open your plan/gi,                        kind: 'plan'  },
+  { rx: /open the plan/gi,                         kind: 'plan'  },
+  { rx: /open your prep plan/gi,                   kind: 'plan'  },
+  { rx: /build your prep plan/gi,                  kind: 'plan'  },
+  { rx: /build your plan/gi,                       kind: 'plan'  },
+  { rx: /lock in your prep/gi,                     kind: 'plan'  },
+  { rx: /tap to prep/gi,                           kind: 'plan'  },
+  { rx: /see your prep/gi,                         kind: 'plan'  },
+  { rx: /see your readiness/gi,                    kind: 'brief' },
+  { rx: /see your plan/gi,                         kind: 'plan'  },
+  { rx: /recalibrate now/gi,                       kind: 'brief' },
+  { rx: /check in now/gi,                          kind: 'brief' },
+  { rx: /open the app$/gi,                         kind: 'brief' },
+  // V7 unqualified-prep verbs (banned in V8 — rewritten away)
+  { rx: /open the app to prep tonight/gi,          kind: 'plan'  },
   { rx: /open the app to prep with a cool-down/gi, kind: 'plan'  },
-  { rx: /check into the app to prep/gi,           kind: 'brief' },
-  { rx: /go to the app to prep/gi,                kind: 'plan'  },
-  { rx: /open the app to prep/gi,                 kind: 'brief' },
-  { rx: /\bprep now\b/gi,                         kind: 'brief' },
+  { rx: /check into the app to prep/gi,            kind: 'brief' },
+  { rx: /go to the app to prep/gi,                 kind: 'plan'  },
+  { rx: /open the app to prep/gi,                  kind: 'brief' },
+  { rx: /\bprep now\b/gi,                          kind: 'brief' },
+  // V8 surface forms (rewritten when assigned variant differs)
+  { rx: /log in to prep your mind tonight/gi,      kind: 'plan'  },
+  { rx: /log in to prep your mind/gi,              kind: 'plan'  },
+  { rx: /log in to prep your state/gi,             kind: 'plan'  },
+  { rx: /log in to recalibrate your mind/gi,       kind: 'brief' },
+  { rx: /check in to recalibrate/gi,               kind: 'brief' },
+  { rx: /check in to set your intention/gi,        kind: 'brief' },
+  { rx: /check in to set tomorrow/gi,              kind: 'brief' },
+  { rx: /check in to close the day/gi,             kind: 'brief' },
+  { rx: /check in to close the week/gi,            kind: 'brief' },
+  { rx: /check in to land the weekend/gi,          kind: 'brief' },
+  { rx: /open your insights/gi,                    kind: 'brief' },
 ];
 
 function applyCtaVariant(
