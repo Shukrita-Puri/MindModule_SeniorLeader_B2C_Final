@@ -234,6 +234,8 @@ import Security
     /// Aggregate sleep per local day (attribute to wake-up day).
     /// Prefers per-stage rows; falls back to .asleepUnspecified umbrella when no per-stage data exists.
     private func querySleepDaily(
+
+        type: HKCategoryType,
         type: HKCategoryType,
         start: Date,
         end: Date,
