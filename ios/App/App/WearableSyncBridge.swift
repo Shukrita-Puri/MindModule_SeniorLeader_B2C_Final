@@ -231,6 +231,49 @@ import Security
         healthStore.execute(query)
     }
 
+    /// Return per-sample readings grouped by local day as
+    /// [{ "t": ISO8601, "v": Int }]. Used by the cause-effect engine to
+    /// compute per-event-window peak HR (true causation) rather than a
+    /// daily-average proxy.
+    private func queryQuantitySamples(
+        type: HKQuantityType,
+        unit: HKUnit,
+        start: Date,
+        end: Date,
+        completion: @escaping ([String: [[String: Any]]]) -> Void
+    ) {
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+            if let error = error {
+                NSLog("[WearableSyncBridge] Per-sample query failed for \(type.identifier): \(error.localizedDescription)")
+                completion([:])
+                return
+            }
+            guard let quantitySamples = samples as? [HKQuantitySample] else {
+                completion([:])
+                return
+            }
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "yyyy-MM-dd"
+            dayFormatter.timeZone = TimeZone.current
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            var byDay: [String: [[String: Any]]] = [:]
+            for s in quantitySamples {
+                let value = s.quantity.doubleValue(for: unit)
+                if value <= 0 { continue }
+                let dayKey = dayFormatter.string(from: s.startDate)
+                let sample: [String: Any] = [
+                    "t": isoFormatter.string(from: s.startDate),
+                    "v": Int(round(value)),
+                ]
+                byDay[dayKey, default: []].append(sample)
+            }
+            completion(byDay)
+        }
+        healthStore.execute(query)
+    }
+
     /// Aggregate sleep per local day (attribute to wake-up day).
     /// Prefers per-stage rows; falls back to .asleepUnspecified umbrella when no per-stage data exists.
     private func querySleepDaily(
