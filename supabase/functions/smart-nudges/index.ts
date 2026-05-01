@@ -1405,66 +1405,126 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v7 — [USER CONTEXT] + [PREP CTA]. Each branch cites a real signal.
+  // v8 — Meaning-first sentence + named context + qualified mind-prep CTA.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100 — open the app to prep.`, variantId: 'FB-N1-recovery' };
+    return {
+      title: 'Short sleep last night',
+      body: `Last night was light on recovery (Sleep ${ctx.wearable.sleepScore}/100). Today still needs you sharp — log in to prep your state.`,
+      variantId: 'FB-N1-recovery',
+    };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today — check into the app to prep.`, variantId: 'FB-N1-hrv' };
+    return {
+      title: 'Starting from where you are',
+      body: `Your body's running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%). Manage the day instead of reacting to it — check in to set your intention.`,
+      variantId: 'FB-N1-hrv',
+    };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today — open the app to prep.`, variantId: 'FB-N1-stakes' };
+    return {
+      title: 'Preparing mental performance',
+      body: `${ev} on the calendar today. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+      variantId: 'FB-N1-stakes',
+    };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today — open the app to prep.`, variantId: 'FB-N1-heavy' };
+    return {
+      title: 'Starting from where you are',
+      body: `${ctx.eventCount} meetings ahead today. Manage your energy instead of reacting to it — check in to set your intention.`,
+      variantId: 'FB-N1-heavy',
+    };
   }
   if (ctx.dayOfWeek === 6) {
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Slower start today', body: `${ev} ahead — open the app to prep.`, variantId: 'FB-N1-sat-anchored' };
+    return {
+      title: 'New day, same standards',
+      body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
+      variantId: 'FB-N1-sat-anchored',
+    };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} today`, body: `${m} today — open the app to prep.`, variantId: 'FB-N1-calendar' };
+    return {
+      title: 'Setting the day',
+      body: `${m} ahead today. Three minutes of clarity now beats reacting to the calendar — check in to set your intention.`,
+      variantId: 'FB-N1-calendar',
+    };
   }
-  return { title: 'Light calendar today', body: 'Light day ahead — open the app to prep.', variantId: 'FB-N1-light' };
+  return {
+    title: 'Room to breathe today',
+    body: `Lighter day ahead — only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar. Use the space — check in to set your intention.`,
+    variantId: 'FB-N1-light',
+  };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `From your morning Plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N1-JIT' };
+  return {
+    title: 'Preparing mental performance',
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+    variantId: 'FB-N1-JIT',
+  };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `From your plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N2-JIT-soon' };
+    return {
+      title: 'Preparing mental performance',
+      body: `From your plan: ${ev} in ${minutesUntil} min. Walk in sharp — log in to prep your mind.`,
+      variantId: 'FB-N2-JIT-soon',
+    };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `From your plan: ${ev} at ${timeStr} — open the app to prep.`, variantId: 'FB-N2-JIT-later' };
+  return {
+    title: 'Preparing mental performance',
+    body: `From your plan: ${ev} at ${timeStr}. Front-load the prep instead of scrambling later — log in to prep your mind.`,
+    variantId: 'FB-N2-JIT-later',
+  };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
   const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
-  return { title: `${p} left today`, body: `${p} left on today's plan — open the app to prep.`, variantId: 'FB-N2-priorities' };
+  return {
+    title: 'Recalibrating mid-day',
+    body: `${p} still open on today's plan. Stay sharp instead of running on fumes — check in to recalibrate.`,
+    variantId: 'FB-N2-priorities',
+  };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead — check into the app to prep.`, variantId: 'FB-N2-recal' };
+  return {
+    title: 'Mid-day reset window',
+    body: `Your morning state was low and ${ev} is next. This is the recovery window — check in to recalibrate.`,
+    variantId: 'FB-N2-recal',
+  };
 }
 
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev} — open the app to prep.`, variantId: 'FB-N2-reserves-rhr' };
+    return {
+      title: 'Managing the moment',
+      body: `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+      variantId: 'FB-N2-reserves-rhr',
+    };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV down and ${ev} ahead — open the app to prep.`, variantId: 'FB-N2-reserves-hrv' };
+  return {
+    title: 'Managing the moment',
+    body: `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+    variantId: 'FB-N2-reserves-hrv',
+  };
 }
 
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running — open the app to prep.`, variantId: 'FB-N2-consec-low' };
+  return {
+    title: 'Recovery deficit detected',
+    body: `Your body's been under-recovering for ${daysLow} days. That's a load signal, not a weakness — log in to recalibrate your mind.`,
+    variantId: 'FB-N2-consec-low',
+  };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
@@ -1476,40 +1536,92 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `Tomorrow opens with ${ev} — open the app to prep tonight.`, variantId: 'FB-N3-sun-stakes' };
+      return {
+        title: 'Big Monday — pre-loading now',
+        body: `Tomorrow opens with ${ev}. Wake up ahead instead of behind — log in to prep your mind tonight.`,
+        variantId: 'FB-N3-sun-stakes',
+      };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday — open the app to prep tonight.`, variantId: 'FB-N3-sun-heavy' };
+      return {
+        title: 'Monday is already mapped',
+        body: `Tomorrow opens with ${tomorrowCount} meetings. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow.`,
+        variantId: 'FB-N3-sun-heavy',
+      };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead — open the app to prep tonight.', variantId: 'FB-N3-sun-default' };
+    return {
+      title: 'Carrying the right things into Monday',
+      body: `Light Monday ahead — ${tomorrowCount} meeting${tomorrowCount === 1 ? '' : 's'} on the calendar. Decide what you're bringing in — check in to set tomorrow.`,
+      variantId: 'FB-N3-sun-default',
+    };
   }
 
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today — open the app to prep with a cool-down.`, variantId: 'FB-N3-fri' };
+      return {
+        title: 'Week complete',
+        body: `${ctx.eventCount} meetings behind you this week. Close the week before it bleeds into the weekend — check in to close the week.`,
+        variantId: 'FB-N3-fri',
+      };
     }
-    return { title: 'Week behind you', body: 'Week behind you — open the app to prep with a cool-down.', variantId: 'FB-N3-fri-light' };
+    return {
+      title: 'Week complete',
+      body: `Five days behind you this week. Close the week before you disconnect — check in to close the week.`,
+      variantId: 'FB-N3-fri-light',
+    };
+  }
+
+  if (ctx.dayOfWeek === 6) {
+    return {
+      title: 'The body\'s still catching up',
+      body: `Recovery from the week isn't instant — even on Saturday. A short check-in tells you what kind of weekend you actually need — check in to land the weekend.`,
+      variantId: 'FB-N3-sat',
+    };
   }
 
   if (prioritiesRemaining > 0) {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
-    return { title: `${p} still open`, body: `${p} still open — open the app to prep.`, variantId: 'FB-N3-priorities' };
+    return {
+      title: 'Closing strong',
+      body: `${p} still open on today's plan. Close the loop before tomorrow loads up — check in to close the day.`,
+      variantId: 'FB-N3-priorities',
+    };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal} done — open the app to prep with a cool-down.`, variantId: 'FB-N3-done' };
+    return {
+      title: 'Closing strong',
+      body: `${prioritiesTotal} practice${prioritiesTotal === 1 ? '' : 's'} done today. Land it cleanly so tomorrow opens fresh — check in to close the day.`,
+      variantId: 'FB-N3-done',
+    };
   }
 
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today — open the app to prep with a cool-down.', variantId: 'FB-N3-rhr' };
+    return {
+      title: 'Recovery in progress',
+      body: `Your body ran warm today (RHR elevated). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind.`,
+      variantId: 'FB-N3-rhr',
+    };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `Heavy day, tomorrow needs you sharp — open the app to prep with a cool-down.`, variantId: 'FB-N3-heavy' };
+    return {
+      title: 'Evening cool-down',
+      body: `${ctx.eventCount} meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind.`,
+      variantId: 'FB-N3-heavy',
+    };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} done`, body: `${m} done today — open the app to prep with a cool-down.`, variantId: 'FB-N3-default' };
+    return {
+      title: 'Closing the day',
+      body: `${m} behind you today. Close cleanly so tomorrow opens fresh — check in to close the day.`,
+      variantId: 'FB-N3-default',
+    };
   }
-  return { title: 'Day landed', body: 'Tomorrow needs you sharp — open the app to prep with a cool-down.', variantId: 'FB-N3-light' };
+  return {
+    title: 'Closing the day',
+    body: `Quiet day on the calendar today. A short close still sets up tomorrow — check in to close the day.`,
+    variantId: 'FB-N3-light',
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
