@@ -1,7 +1,7 @@
 // Centralized thumbnail imports for micro exercises
-import pauseVisual from "@/assets/recalibrate/pause/soundscape-pause-visual.png";
-import flowVisual from "@/assets/recalibrate/presence/soundscape-flow-visual.png";
-import renewalVisual from "@/assets/recalibrate/power-up/soundscape-renewal-visual.png";
+import pauseVisual from "@/assets/recalibrate/pause/soundscape-pause-visual.jpg";
+import flowVisual from "@/assets/recalibrate/presence/soundscape-flow-visual.jpg";
+import renewalVisual from "@/assets/recalibrate/power-up/soundscape-renewal-visual.jpg";
 
 export const getThumbnailByCategory = (category: string): string => {
   switch (category) {
