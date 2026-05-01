@@ -341,6 +341,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
         hrvSamples: hrvDay ?? [],
         restingHeartRate: rhrAvg,
         heartRate: hrAvg,
+        hrSamples: hrSamplesByDay[day] ?? [],
         totalSleepMinutes: totalSleep,
         deepSleepMinutes: deepSleep,
         remSleepMinutes: remSleep,
