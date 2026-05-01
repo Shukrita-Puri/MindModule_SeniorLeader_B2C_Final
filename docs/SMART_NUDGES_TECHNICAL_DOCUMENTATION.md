@@ -376,3 +376,91 @@ SELECT cron.schedule(
 | 2026-03-25 | **Priority reorder:** State-Aware Nudge moved above Afternoon Check-In (P4 vs P6). Engagement feedback loop shortened from 14 days to 7 days for faster learning. Updated time-of-day priority tables. |
 | 2026-03-25 | **Major enhancement:** Added daily global cap (max 3/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (7-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
 | 2026-03-25 | Fixed timezone bug: `todayStr` log query now uses UTC-corrected boundaries. Added separate 2-hour suppression query independent of date filter. This fixes duplicate notifications and enables Pattern Alert / State-Aware nudges to fire correctly. |
+
+---
+
+## V8 Copy Contract — Meaning-Forward, Mind-Prep CTA (May 2026)
+
+**Scope of V8.** V8 evolves the copy principles only. Cascade, suppression, frequency caps, slot priority, signal-strength comparator, routing, deep-links, A/B bucketing assignment, scheduling, wearable/calendar/JIT logic, and notification log schema are **unchanged**. Telemetry tags bumped to `architecture: 'cos-mind-v8-meaning-forward'` and `cta_experiment: 'cta-action-verb-v2'` so V8 traffic does not pool with V5–V7.
+
+### The three V8 principles
+
+1. **Lead with meaning, not the data point.** Raw metrics never lead. The first sentence translates what the data MEANS for the user's day. The number, if used, sits inside the meaning sentence (parenthetical or clause).
+   - ❌ `HRV -22% today — log in to prep.`
+   - ✅ `Your body's running below baseline (HRV -22%). Close the day before tomorrow loads up — log in to recalibrate your mind.`
+2. **Title = state or moment. Body = context + one clear action.** Title names a moment a CEO recognises. Body delivers the so-what plus a specific in-app action.
+3. **CTA always ends at a specific app screen via a "log in / check in / open" verb — and the prep is always MENTAL.** Plain `prep` is ambiguous (a CEO reads it as "prep the deck"). Every CTA must qualify the prep as MIND / STATE / RECALIBRATE / CLOSE / SET / LAND.
+
+### V8 allowed CTA verbs (verbatim end of body)
+
+| CTA verb | Implied screen |
+|---|---|
+| `log in to prep your mind` | `/executive-home` (JIT plan) |
+| `log in to prep your mind tonight` | `/executive-home` (Sunday/eve, high-stakes Monday) |
+| `log in to prep your state` | `/executive-home` (JIT, depleted state) |
+| `log in to recalibrate your mind` | `/recalibrate` (evening recovery) |
+| `check in to recalibrate` | `/recalibrate` (mid-day reset) |
+| `check in to set your intention` | `/daily-check-in` (morning anchor) |
+| `check in to set tomorrow` | `/daily-check-in` (Sunday close) |
+| `check in to close the day` | `/daily-check-in` (evening close) |
+| `check in to close the week` | `/daily-check-in` (Friday close) |
+| `check in to land the weekend` | `/daily-check-in` (Saturday) |
+| `open your insights` | `/insights` (pattern alerts only) |
+
+### V8 banned verbs (added to `FORBIDDEN_WORDS_V6`)
+
+- **Passive consumption** (presents the work as already done): `your prep is ready`, `your plan is ready`, `your brief is ready`, `see your prep`, `see your plan`, `see your readiness`, `tap to prep`.
+- **Unqualified V7 prep verbs** (CEO reads as strategic prep): `open the app to prep`, `check into the app to prep`, `go to the app to prep`, `prep now`, `open the app to prep tonight`, `open the app to prep with a cool-down`.
+
+### V8 body contract
+
+Body MUST satisfy ALL of:
+- **Meaning sentence first** — first sentence is not a bare metric (`violatesMeaningSentence`).
+- **At least one named context token** — event title from ctx, numeric physiological signal with unit, countable today-state (`5 meetings`, `3 priorities`), check-in outcome word the user logged, or minutes-until / clock time for a real event (`requiresNamedContextToken`).
+- **Ends with a V8 qualified mind-prep CTA verb** (verbatim, modulo trailing punctuation).
+- ≤ 22 words and ≤ 140 chars (raised from V7's 16/95 — meaning-forward bodies are longer than metric-led ones).
+- No forbidden words, no placeholder tokens.
+
+Title: ≤ 6 words, no emoji, names the state/moment.
+JIT prefix `From your morning Plan:` / `From your plan:` retained for plan-anchored bodies.
+Pattern citation: brief, human, no percent or n.
+
+### Gold-standard examples (used in the system prompt and as fallback shapes)
+
+| Slot / context | Title | Body |
+|---|---|---|
+| Evening · 7 meetings | Evening cool-down | `Seven meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind.` |
+| Evening · HRV deficit | Recovery in progress | `Your body's running below baseline (HRV -22%). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind.` |
+| Morning · yesterday depleted + heavy day | Starting from where you are | `Yesterday was heavy and today has 5 meetings ahead. Manage your energy instead of reacting to it — check in to set your intention.` |
+| Morning · JIT board in 60m | Preparing mental performance | `Board Review in an hour. Walk in with the edge, not the anxiety — log in to prep your mind.` |
+| Afternoon · morning was low | Mid-day reset window | `Your morning state was low and the afternoon is still ahead. This is the recovery window — check in to recalibrate.` |
+| Afternoon · 3 more meetings | Recalibrating mid-day | `Halfway through with three more meetings ahead. Stay sharp instead of running on fumes — check in to recalibrate.` |
+| Pre-event · investor 60m | You're ready for this | `Investor Update in an hour. Your mental prep is built for exactly this moment — log in to prep your mind.` |
+| Pre-event · board 45m, depleted | Managing the moment | `Board Review in 45 minutes and you're running low. Short, sharp, built for right now — log in to prep your state.` |
+| Friday close | Week complete | `Five heavy days behind you. Close the week before you disconnect so it doesn't bleed into the weekend — check in to close the week.` |
+| Sunday · heavy Monday | Monday is already mapped | `Tomorrow opens with Board Review and a full calendar. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow.` |
+| Sunday · high-stakes Monday | Big Monday — pre-loading now | `Tomorrow opens with a high-stakes moment. Wake up ahead instead of behind — log in to prep your mind tonight.` |
+| Saturday · low HRV | The body's still catching up | `Recovery from the week isn't instant — your HRV is still below baseline. A short check-in tells you what kind of weekend you actually need — check in to land the weekend.` |
+| Pattern · 3 days in red | Three days in the red | `You've been running depleted for three days in a row. That's a pattern worth looking at, not pushing through — open your insights.` |
+
+### V8 A/B variant arms (`cta-action-verb-v2`)
+
+| Arm | Brief route (`/daily-check-in`, `/recalibrate`, `/insights`) | Plan route (`/executive-home`) |
+|---|---|---|
+| **A** control | `check in to set your intention` | `log in to prep your mind` |
+| **B** state | `check in to recalibrate` | `log in to prep your state` |
+| **C** urgency | `log in to recalibrate your mind` | `log in to prep your mind` |
+| **D** close | `check in to close the day` | `check in to close the week` |
+
+### Verification (per-deploy)
+
+1. `supabase--test_edge_functions` on `smart-nudges` — V8 contract tests pass.
+2. Dry-run POST across N1/N2/N3 slots; confirm `payload.architecture === 'cos-mind-v8-meaning-forward'` and `payload.cta_experiment === 'cta-action-verb-v2'`.
+3. Tail edge logs for one cron tick — zero `[smart-nudges v8] Rejected AI copy` lines expected; if any, refine prompt examples and redeploy.
+4. SQL spot-check on the last 10 V8 `notification_log` rows — every body contains a named token, every body's first sentence is a meaning sentence (not a bare metric), every body ends in one of the 11 V8 verbs.
+
+### Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-05-01 | **V8 copy evolution.** Renamed contract to "Meaning-Forward, Mind-Prep CTA". `violatesCopyContractV7 → violatesCopyContractV8` (adds `requiresNamedContextToken` + `violatesMeaningSentence`, raises ceilings to 22 words / 140 chars). `ALLOWED_CTA_VERBS_V7 → ALLOWED_CTA_VERBS_V8` (qualified mind-prep verbs only). `FORBIDDEN_WORDS_V6` extended with V7 unqualified-prep verbs and V8 passive-consumption verbs. `CTA_PHRASES` rewritten for the 4 V8 arms. System prompt rewritten with the three principles, the gold-standard examples above, and explicit "this is a mental-performance system; `prep` always means mental prep" instruction. Static fallback library rewritten one-for-one to the V8 shape. Telemetry bumped: `architecture='cos-mind-v8-meaning-forward'`, `cta_experiment='cta-action-verb-v2'`. **Scope:** copy/principle only — cascade, suppression, frequency, routing, scheduling unchanged. |
