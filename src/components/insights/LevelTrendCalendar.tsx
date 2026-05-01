@@ -16,6 +16,8 @@ export type LevelVocabulary = {
   1: string;
 };
 
+export type LevelPalette = 'sharpness' | 'clarity' | 'confidence';
+
 interface LevelTrendCalendarProps {
   userId?: string;
   field: LevelField;
@@ -26,6 +28,11 @@ interface LevelTrendCalendarProps {
    * overrides the generic tier labels for both the legend and dot tooltip.
    */
   vocabulary?: LevelVocabulary;
+  /**
+   * Single-hue ramp synced to the matching /check-in-detail slider gradient.
+   * Falls back to the legacy traffic-light palette when omitted.
+   */
+  palette?: LevelPalette;
 }
 
 interface DayCell {
@@ -42,14 +49,35 @@ interface DayCell {
 }
 
 // Tier mapping for the 1–5 slider scale used in the detailed Check-in page.
-// Palette is locked to the daily check-in outcome accents so the trend dots,
-// outcome buttons, and Mental Energy Trend all share one visual language.
-//   5 Peak     → Focused-blue   #3d6fa8
-//   4 Strong   → Steady-green   #7ba87a
-//   3 Steady   → Scattered-gold #d4b75a
-//   2 Low      → Drained-amber  #e88a52
-//   1 Depleted → Overloaded-red #d8553f
-const LEVEL_TIERS: { value: number; color: string; dark: string; glow: string; label: string }[] = [
+// Each palette is a single-hue ramp synced to the matching slider gradient
+// in /check-in-detail (see LUXURY_SPECTRUMS in components/ui/slider.tsx).
+type Tier = { value: number; color: string; dark: string; glow: string; label: string };
+
+const glow = (hex: string) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.35)`;
+};
+
+const buildTiers = (
+  ramp: { color: string; dark: string }[],
+  labels: { 5: string; 4: string; 3: string; 2: string; 1: string },
+): Tier[] =>
+  // ramp[0] = lowest (level 1), ramp[4] = highest (level 5)
+  [5, 4, 3, 2, 1].map((value) => {
+    const stop = ramp[value - 1];
+    return {
+      value,
+      color: stop.color,
+      dark: stop.dark,
+      glow: glow(stop.color),
+      label: labels[value as 1 | 2 | 3 | 4 | 5],
+    };
+  });
+
+// Default (legacy) traffic-light tier palette + labels.
+const DEFAULT_TIERS: Tier[] = [
   { value: 5, color: '#3d6fa8', dark: '#2f5685', glow: 'rgba(61, 111, 168, 0.35)',  label: 'Peak' },
   { value: 4, color: '#7ba87a', dark: '#5f8a5e', glow: 'rgba(123, 168, 122, 0.35)', label: 'Strong' },
   { value: 3, color: '#d4b75a', dark: '#b89a3f', glow: 'rgba(212, 183, 90, 0.35)',  label: 'Steady' },
@@ -57,14 +85,46 @@ const LEVEL_TIERS: { value: number; color: string; dark: string; glow: string; l
   { value: 1, color: '#d8553f', dark: '#b03d2a', glow: 'rgba(216, 85, 63, 0.35)',   label: 'Depleted' },
 ];
 
-const tierFor = (v: number | null) => {
+// Single-hue ramps mirror the slider gradients (low → high = level 1 → 5).
+const PALETTE_RAMPS: Record<LevelPalette, { color: string; dark: string }[]> = {
+  sharpness: [
+    { color: '#FFE082', dark: '#E6C975' }, // 1
+    { color: '#FFD54F', dark: '#E6BF47' }, // 2
+    { color: '#FFC107', dark: '#E6AE06' }, // 3
+    { color: '#FFA000', dark: '#CC8000' }, // 4
+    { color: '#B8860B', dark: '#8E6708' }, // 5
+  ],
+  clarity: [
+    { color: '#B2EBF2', dark: '#8FD2DA' }, // 1
+    { color: '#80DEEA', dark: '#5FBFCC' }, // 2
+    { color: '#26C6DA', dark: '#1FA1B2' }, // 3
+    { color: '#0097A7', dark: '#007581' }, // 4
+    { color: '#006064', dark: '#003F42' }, // 5
+  ],
+  confidence: [
+    { color: '#B39DDB', dark: '#9685C2' }, // 1
+    { color: '#9575CD', dark: '#7459B0' }, // 2
+    { color: '#7E57C2', dark: '#5E3FA0' }, // 3
+    { color: '#5E35B1', dark: '#46278A' }, // 4
+    { color: '#311B92', dark: '#1F0F66' }, // 5
+  ],
+};
+
+const tiersFor = (palette?: LevelPalette, vocabulary?: LevelVocabulary): Tier[] => {
+  if (!palette) return DEFAULT_TIERS;
+  const labels = vocabulary ?? { 5: 'Peak', 4: 'Strong', 3: 'Steady', 2: 'Low', 1: 'Depleted' };
+  return buildTiers(PALETTE_RAMPS[palette], labels);
+};
+
+const tierFor = (tiers: Tier[], v: number | null) => {
   if (v == null) return null;
   // Clamp 1–5 (defensive against any legacy 6–10 values: collapse into Peak).
   const clamped = Math.max(1, Math.min(5, Math.round(v)));
-  return LEVEL_TIERS.find((t) => t.value === clamped) || null;
+  return tiers.find((t) => t.value === clamped) || null;
 };
 
-const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: LevelTrendCalendarProps) => {
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette }: LevelTrendCalendarProps) => {
+  const LEVEL_TIERS = tiersFor(palette, vocabulary);
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
@@ -296,7 +356,7 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary }: L
                 </div>
                 {(['morning', 'midday', 'evening'] as const).map((tw) => {
                   const slot = day.slots[tw];
-                  const tier = tierFor(slot.value);
+                  const tier = tierFor(LEVEL_TIERS, slot.value);
                   const hasValue = !!tier && !day.isFuture;
                   return (
                     <div

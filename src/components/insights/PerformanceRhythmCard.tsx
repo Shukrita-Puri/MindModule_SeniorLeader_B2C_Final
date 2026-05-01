@@ -103,28 +103,28 @@ const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 // share one visual language.
 const stateColors: Record<string, { color: string; dark: string; glow: string; label: string }> = {
   overwhelmed: {
-    color: '#d8553f', dark: '#b03d2a',
-    glow: 'rgba(216, 85, 63, 0.35)',
+    color: '#8AA0E0', dark: '#6A82D8',
+    glow: 'rgba(138, 160, 224, 0.35)',
     label: 'Overloaded',
   },
   drained: {
-    color: '#e88a52', dark: '#c76d38',
-    glow: 'rgba(232, 138, 82, 0.35)',
+    color: '#6A82D8', dark: '#4F63C8',
+    glow: 'rgba(106, 130, 216, 0.35)',
     label: 'Drained',
   },
   scattered: {
-    color: '#d4b75a', dark: '#b89a3f',
-    glow: 'rgba(212, 183, 90, 0.35)',
+    color: '#4F63C8', dark: '#3949AB',
+    glow: 'rgba(79, 99, 200, 0.35)',
     label: 'Scattered',
   },
   steady: {
-    color: '#7ba87a', dark: '#5f8a5e',
-    glow: 'rgba(123, 168, 122, 0.35)',
+    color: '#3949AB', dark: '#2C3A8C',
+    glow: 'rgba(57, 73, 171, 0.35)',
     label: 'Steady',
   },
   focused: {
-    color: '#3d6fa8', dark: '#2f5685',
-    glow: 'rgba(61, 111, 168, 0.35)',
+    color: '#283593', dark: '#1A237E',
+    glow: 'rgba(40, 53, 147, 0.35)',
     label: 'Focused',
   },
 };
@@ -1012,6 +1012,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     title="Clarity Trend"
                     explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
                     vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
+                    palette="clarity"
                   />
                   <LevelTrendCalendar
                     userId={userId}
@@ -1019,6 +1020,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     title="Sharpness Trend"
                     explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
                     vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
+                    palette="sharpness"
                   />
                   <LevelTrendCalendar
                     userId={userId}
@@ -1026,6 +1028,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     title="Confidence Trend"
                     explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
                     vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
+                    palette="confidence"
                   />
                 </CollapsibleContent>
               </Collapsible>
