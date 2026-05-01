@@ -2571,6 +2571,17 @@ serve(async (req) => {
       const ctaVariant = assignCtaVariant(notif.userId, nudgeFamily(notif.type));
       notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
 
+      // V8 — final post-rewrite check. The CTA variant rewriter mutates the
+      // trailing verb; if anything in the chain produces a non-V8 body we
+      // suppress the send rather than ship V7 phrasing.
+      const finalViolation = violatesCopyContractV8(notif.copy.body);
+      if (finalViolation) {
+        console.warn(
+          `[smart-nudges v8] SUPPRESSED post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation} body="${notif.copy.body}"`,
+        );
+        continue;
+      }
+
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
         body: notif.copy.body,
@@ -2581,6 +2592,15 @@ serve(async (req) => {
         architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
+        // V8 telemetry — also persist under payload.metadata so SQL
+        // dashboards that query JSON paths like
+        // payload.metadata.architecture see the V8 tags.
+        metadata: {
+          architecture: 'cos-mind-v8-meaning-forward',
+          cta_experiment: 'cta-action-verb-v2',
+          cta_variant: ctaVariant,
+          ai_fallback_chain: 'claude-haiku → gemini-flash → static',
+        },
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
