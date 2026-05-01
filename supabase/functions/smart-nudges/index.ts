@@ -2508,9 +2508,9 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v7-jit-or-state',
+        architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
-        cta_experiment: 'cta-action-verb-v1',
+        cta_experiment: 'cta-action-verb-v2',
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
@@ -2598,7 +2598,7 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'cos-mind-v7-jit-or-state',
+      architecture: 'cos-mind-v8-meaning-forward',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
