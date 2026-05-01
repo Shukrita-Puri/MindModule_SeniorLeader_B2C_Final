@@ -975,34 +975,97 @@ function violatesCopyContractV6(body: string): string | null {
   return null;
 }
 
-// ── v7 — JIT-or-State + prep-CTA contract ──────────────────────────────
-// Every body must end with a "prep" verb. Same forbidden-word + length
-// ceilings as V6. The CTA-verb gate is tighter than V6: only V7 verbs.
-const ALLOWED_CTA_VERBS_V7 = [
-  'open the app to prep tonight',
-  'open the app to prep with a cool-down',
-  'check into the app to prep',
-  'go to the app to prep',
-  'open the app to prep',
-  'prep now',
+// ── v8 — Meaning-Forward + Mind-Prep CTA contract ──────────────────────
+// Three principles, enforced verbatim:
+//   1. Lead with meaning, not the data point.  (the metric, if used, sits
+//      INSIDE a meaning sentence — never as the whole first sentence).
+//   2. Title = state or moment.  Body = context + one clear action.
+//   3. CTA always ends at a specific app screen via a "log in / check in /
+//      open" verb that QUALIFIES the prep as mental (mind / state /
+//      recalibrate / close / set / land).  Unqualified "prep" is banned.
+const ALLOWED_CTA_VERBS_V8 = [
+  'log in to prep your mind tonight',
+  'log in to prep your mind',
+  'log in to prep your state',
+  'log in to recalibrate your mind',
+  'check in to recalibrate',
+  'check in to set your intention',
+  'check in to set tomorrow',
+  'check in to close the day',
+  'check in to close the week',
+  'check in to land the weekend',
+  'open your insights',
 ];
-function violatesCopyContractV7(body: string): string | null {
+
+// V8 — body must reference at least one real, named context token.
+// Sources: a calendar event title, a numeric physiological signal with
+// unit, a countable today-state, a check-in outcome word, or a
+// minutes-until / clock-time for a real event.
+const NAMED_CONTEXT_RX_DEFAULT = [
+  /\b(HRV|RHR|HR|sleep)\b\s*[+\-]?\d/i,                               // HRV -22%, Sleep 62
+  /\b\d+\s*\/\s*100\b/,                                                // 62/100
+  /\b\d+\s*(meeting|meetings|priority|priorities|min|minutes|day|days)\b/i,
+  /\b(in|at)\s+\d{1,2}(?::\d{2})?\s*(min|minutes|am|pm|h)?\b/i,        // in 25 min, at 10am
+  /\b(started low|managing|depleted|heavy|low|peak|strong|focused|overloaded)\b/i,
+];
+function requiresNamedContextToken(
+  body: string,
+  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
+): boolean {
+  if (NAMED_CONTEXT_RX_DEFAULT.some(rx => rx.test(body))) return true;
+  const titles = ctx?.eventTitles ?? [];
+  for (const t of titles) {
+    if (!t || t.length < 3) continue;
+    if (body.toLowerCase().includes(t.toLowerCase())) return true;
+    // Title-cased words from a real event title (3+ chars) also count.
+    const head = t.split(/\s+/).slice(0, 3).join(' ');
+    if (head.length >= 3 && body.toLowerCase().includes(head.toLowerCase())) return true;
+  }
+  if (ctx?.checkinWord && body.toLowerCase().includes(ctx.checkinWord.toLowerCase())) return true;
+  return false;
+}
+
+// V8 — first sentence must NOT be a bare metric statement. The metric, if
+// used, must be embedded INSIDE a meaning sentence (parenthetical or clause).
+function violatesMeaningSentence(body: string): string | null {
+  const first = body.split(/(?<=[.!?])\s+/)[0]?.trim() ?? body.trim();
+  // Bare metric leads (HRV -22% today, RHR +9 bpm, Sleep 62/100, etc.)
+  if (/^(HRV|RHR|HR|Sleep|Sleep score)\s*[+\-]?\d[^.]*$/i.test(first)) {
+    return `first sentence is a bare metric: "${first}"`;
+  }
+  // First sentence is purely a number+unit clause with no human meaning verb.
+  if (/^[+\-]?\d+\s*(%|bpm|\/100)\b[^.]*$/i.test(first)) {
+    return `first sentence is a bare number+unit: "${first}"`;
+  }
+  return null;
+}
+
+function violatesCopyContractV8(
+  body: string,
+  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
+): string | null {
   const lower = body.toLowerCase().trim();
   for (const w of FORBIDDEN_WORDS_V6) {
     if (lower.includes(w)) return `forbidden word: "${w}"`;
   }
-  // Must end with a V7 prep verb (allow trailing punctuation).
+  // Must end with a V8 qualified mind-prep verb (allow trailing punctuation).
   const trailing = lower.replace(/[.!?\s]+$/, '');
-  if (!ALLOWED_CTA_VERBS_V7.some(v => trailing.endsWith(v))) {
-    return 'must end with a V7 prep CTA verb';
+  if (!ALLOWED_CTA_VERBS_V8.some(v => trailing.endsWith(v))) {
+    return 'must end with a V8 qualified mind-prep CTA verb';
   }
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  // Meaning-first lint
+  const meaningViolation = violatesMeaningSentence(body);
+  if (meaningViolation) return meaningViolation;
+  // Named-context lint
+  if (!requiresNamedContextToken(body, ctx)) {
+    return 'body cites no named context token (event title, metric+unit, count, time, or check-in word)';
+  }
   const wordCount = body.trim().split(/\s+/).length;
-  // v7.1 — JIT prefix ("From your morning Plan:") and the longest cool-down
-  // CTA each cost ~3–4 extra words. Allow up to 16 words but keep the strict
-  // 95-char ceiling so notifications still fit one push line.
-  if (wordCount > 16) return `body too long (${wordCount} words, max 16)`;
-  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
+  // v8 — meaning-forward bodies are longer than V7 metric-led bodies.
+  // Gold-standard examples run 18–22 words.
+  if (wordCount > 22) return `body too long (${wordCount} words, max 22)`;
+  if (body.length > 140) return `body too long (${body.length} chars, max 140)`;
   return null;
 }
 
