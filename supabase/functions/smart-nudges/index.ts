@@ -311,6 +311,10 @@ interface NudgeCopy {
   title: string;
   body: string;
   variantId: string;
+  // V8 telemetry — which provider produced this copy.
+  // 'claude' / 'gemini' when AI succeeded, 'static' when fallback library used,
+  // null when never set (defensive).
+  aiProvider?: 'claude' | 'gemini' | 'static' | null;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1366,7 +1370,9 @@ function validateStaticFallbackCopy(
     );
     return null;
   }
-  return copy;
+  // V8 telemetry — stamp the provider so the insert payload can record
+  // which path actually produced the shipped copy (claude / gemini / static).
+  return { ...copy, aiProvider: 'static' };
 }
 
 async function tryAIProvider(
@@ -1438,6 +1444,7 @@ async function tryAIProvider(
       title: parsed.title.substring(0, 60),
       body: parsed.body.substring(0, 140),
       variantId: `AI-${provider}-${nudgeType}-${Date.now()}`,
+      aiProvider: provider,
     };
   } catch (e) {
     console.warn(`[smart-nudges ${provider}] AI copy error:`, e instanceof Error ? e.message : e);
@@ -2261,6 +2268,21 @@ serve(async (req) => {
 
     console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
+    // V8 test path — `?force_user=<id>` (or `?force_user_id=`) bypasses the
+    // global quiet-window + DND checks for that one user so we can trigger
+    // the AI copy path on demand and verify Claude→Gemini are reachable in
+    // production. All other guards (cooldowns, suppression, anchor presence,
+    // V8 validators) still run. Optional `?force_dry=1` skips APNs delivery.
+    const url = new URL(req.url);
+    const forceUserId =
+      url.searchParams.get('force_user') ||
+      url.searchParams.get('force_user_id') ||
+      null;
+    const forceDryRun = url.searchParams.get('force_dry') === '1';
+    if (forceUserId) {
+      console.log(`[smart-nudges][v8 test] force_user=${forceUserId} (bypassing window+DND, dry=${forceDryRun})`);
+    }
+
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
       .from('notification_device_tokens')
@@ -2340,8 +2362,9 @@ serve(async (req) => {
 
       // ── Quiet Hours: 10pm–6:30am ──
       const localTime = localHour + localMinute / 60;
+      const isForcedUser = forceUserId !== null && forceUserId === userId;
       // v5: hard floor at GLOBAL_EARLIEST_LOCAL (08:00) — kills 6/7am sends
-      if (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL) {
+      if (!isForcedUser && (localTime >= GLOBAL_LATEST_LOCAL || localTime < GLOBAL_EARLIEST_LOCAL)) {
         console.log(`[smart-nudges][v5] User ${userId} outside global window (${localTime.toFixed(1)}). Skipping.`);
         continue;
       }
@@ -2349,8 +2372,8 @@ serve(async (req) => {
       // DND / quiet day check
       const dndStart = prefs?.dnd_start ?? null;
       const dndEnd = prefs?.dnd_end ?? null;
-      if (isInDND(localHour, dndStart, dndEnd)) continue;
-      if (isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
+      if (!isForcedUser && isInDND(localHour, dndStart, dndEnd)) continue;
+      if (!isForcedUser && isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
 
       // Convert local midnight to UTC for log queries
       const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
@@ -2539,7 +2562,7 @@ serve(async (req) => {
     const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
     const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
     const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
-    const isDryRun = !apnsKey || !apnsKeyId || !apnsTeamId;
+    const isDryRun = (!apnsKey || !apnsKeyId || !apnsTeamId) || forceDryRun;
 
     if (isDryRun) {
       const missing = [
@@ -2600,12 +2623,17 @@ serve(async (req) => {
           cta_experiment: 'cta-action-verb-v2',
           cta_variant: ctaVariant,
           ai_fallback_chain: 'claude-haiku → gemini-flash → static',
+          // Which provider in the fallback chain actually produced the
+          // copy that shipped. Defensive default 'static' — every NudgeCopy
+          // returned to the send loop should carry this stamp.
+          ai_provider_used: notif.copy.aiProvider ?? 'static',
         },
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
           type: notif.type,
           cta_variant: ctaVariant,
+          ai_provider_used: notif.copy.aiProvider ?? 'static',
         },
       };
 
