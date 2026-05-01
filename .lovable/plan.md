@@ -1,61 +1,77 @@
-# Fix Practice Effectiveness Card
+## Root cause
 
-## Root cause (confirmed against DB)
+The Practice Impact card on `/insights` shows the empty state for every user, even ones with many ratings and completions in the database.
 
-The card queries the right tables, but three filters silently strip nearly all data:
+`src/components/insights/PracticeEffectiveness.tsx` reads three tables directly from the browser via the Supabase JS client:
 
-1. **`trigger_context` filter** keeps only `post_practice_completion` (or null), discarding `post_plan_completion` and `brief_inline` ratings. Of 28 last-30d ratings, only 12 survive.
-2. **Min-2-ratings-per-content_id** rule is too strict: across all users in 30d, only 2 content_ids meet it (both `plan-tod`, which the filter above discards anyway).
-3. **Misleading metric copy.** Card says "% followed by improved state" but the code computes "% of ratings ≥ 4 stars" — pure self-report, no state-delta logic.
+- `content_relevance_feedback`
+- `practice_sessions`
+- `sanctuary_events`
 
-For the most active test user, all 17 ratings are `brief_inline` → card is empty.
+All three have RLS policies of the form `(auth.uid())::text = user_id`. This app authenticates with **Auth0**, not Supabase Auth, so the Supabase client never carries a Supabase JWT. `auth.uid()` is `null`, every policy fails, and every query silently returns `[]`. The previous "5 of 6 users have data" validation was run with service-role SQL, which bypasses RLS, so the bug stayed hidden.
+
+This matches the project memory standard: *RLS deny-by-default for user data. All writes [and user-scoped reads] handled by Edge Functions via service role.*
+
+## Fix (additive, isolation-first)
+
+Add a new read action to the existing `content-feedback` edge function (already Auth0-aware, already used for writes from this same component flow). The browser makes one call and gets back the aggregated top practice plus the completion count. No other component, page, or table is touched.
+
+### What this does NOT touch
+
+- No RLS policy changes (zero risk to other cards/pages).
+- No DB schema changes, no triggers, no migrations.
+- No changes to brief page, plan page, practice players, reset pages, coach, or any other Insights card (`PerformanceCausalityCard`, `LeadershipPatternsCard`, `PerformanceRhythmCard`, `DailyShowUpCalendar`, trajectory rows, etc.).
+- No change to write paths in `relevanceFeedback.ts` (`submitPracticeRating`, `submitPlanFeedback`, `submitBriefFeedback`) — the data being written is already correct; only the read path is broken.
+- No change to existing `content-feedback` actions (`GET_FEEDBACK`, `SUBMIT_FEEDBACK`, `UPDATE_SESSION_RATING`).
+- No change to `supabase/config.toml`, `_shared/auth.ts`, or any shared utility.
 
 ## Changes
 
-### 1. `src/components/insights/PracticeEffectiveness.tsx`
+### 1. Edge function: add a new `GET_PRACTICE_IMPACT` action
 
-- **Broaden rating sources**: accept `trigger_context IN ('post_practice_completion', 'post_plan_completion', NULL)`. Keep excluding `brief_inline` (those rate the *brief*, not a practice) — but if `content_id` joins to `sanctuary_content`, count it.
-- **Lower the "top practice" threshold to 1 rating** (current behavior already falls back to single-rating, but only when *no* practice has ≥2; make ≥1 the primary path and prefer practices with more ratings as tiebreaker).
-- **Rename the metric in the UI** to match what's actually computed:
-  - Replace `"X% followed by improved state"` with `"Avg rating Y.Y / 5 across N session(s)"`.
-  - Replace `"Your top restorer"` with `"Highest-rated this month"`.
-- **Add a secondary line** when applicable: if a same-day check-in exists before *and* after the practice and `energy_balance` improved, append `"· improved state X/N times"`. This is the missing "state-delta" measurement the docstring promises.
-- **Tighten empty state**: "Rate practices after completion to see what works for you" instead of the vague "Use 2+ times" copy.
+File: `supabase/functions/content-feedback/index.ts`
 
-### 2. (Optional, recommended) Backfill UX for plan-level ratings
+- Extend the `RequestBody.action` union with `'GET_PRACTICE_IMPACT'` (purely additive).
+- Add a new `case 'GET_PRACTICE_IMPACT'` branch. All other cases left untouched.
+- Inside the branch, using the service-role client and the Auth0-verified `userId`:
+  1. Read `content_relevance_feedback` for last 30 days where `feedback_type='star_rating'`, `star_rating IS NOT NULL`, and `trigger_context` is null OR `'post_practice_completion'` OR `'post_plan_completion'`. Excludes `brief_inline` so brief feedback can never win the card.
+  2. Read `practice_sessions` for last 30 days where `effectiveness_rating IS NOT NULL`. De-dupe against feedback rows that already reference the same `session_id`.
+  3. Read `sanctuary_events` for last 30 days where `event_type IN ('completed','session_complete')` to compute `totalPractices`.
+  4. Aggregate per `content_id` → `{ total, count }`. Score = `avg * 100 + min(count, 5)`. Pick highest.
+  5. Resolve title via `sanctuary_content` lookup. For any `plan-*` content_id (no matching content row) use the friendly label `"Your daily plan"`. Otherwise fall back to the event's category. This preserves the existing client behaviour exactly.
+- Response shape (stable contract):
+  ```json
+  {
+    "data": {
+      "topPractice": { "contentId", "title", "category", "timesUsed", "avgRating" } | null,
+      "totalPractices": number
+    }
+  }
+  ```
 
-`post_plan_completion` rates the whole 3-practice plan, not one practice. Currently those ratings stamp `content_id='plan-tod'` which doesn't map to a sanctuary practice. Two options:
+### 2. Component: switch reads to the edge function
 
-- **Option A (small):** in the player's plan-completion handler, also write a per-practice star_rating row for each practice the user just finished, so plan-level satisfaction propagates to per-practice effectiveness. Trigger_context: `post_plan_completion`.
-- **Option B (none):** leave plan ratings out of practice-level scoring; rely only on `post_practice_completion` modal stars. (Cleaner, but means we need to make sure that modal is reliably shown — verify rate of stars-per-completion is healthy.)
+File: `src/components/insights/PracticeEffectiveness.tsx`
 
-Recommend **Option B first** + add a tiny diagnostic: log when a session completes without a rating within 5 min, so we can see the modal-skip rate.
+- Replace the three `supabase.from(...)` calls and all client-side aggregation with one `supabase.functions.invoke('content-feedback', { headers: { Authorization: 'Bearer …' }, body: { action: 'GET_PRACTICE_IMPACT' } })`.
+  - In DEV_MODE, `devInterceptor` already injects `x-dev-user-id`, and `getAuthToken()` returns the publishable key — no special-casing needed.
+- Set `topPractice` and `totalPractices` straight from the response.
+- Keep all three render branches unchanged: top practice / "N completed" / fully empty.
+- Keep the `InsightInfoModal`, but tighten the copy so it explicitly covers both signals:
+  > "Based on the star ratings you've given practices and daily plans over the last 30 days. We highlight whichever you've rated highest."
+- Keep loader, layout, icons, container styling identical so the Insights grid is byte-for-byte unaffected.
 
-### 3. Honest "how is this computed" affordance
+### 3. Safety guarantees (cross-feature)
 
-The card has no info modal today. Add a small `(i)` next to the "Practice Impact" header that reveals (user-facing, no formula leak):
+- Failure handling: if the edge call errors, the catch sets the same fallback state the current code uses on error → existing empty state shows. No crash, no impact on sibling cards in the same tab.
+- Network shape unchanged for write flows used from Plan / Practice players (`SUBMIT_FEEDBACK`, `UPDATE_SESSION_RATING`). They keep their current behaviour and payloads.
+- No shared util changes → Brief feedback, Plan feedback, and Practice rating modals continue to write through their existing paths.
 
-> Based on your post-practice ratings over the last 30 days. Highlights the practice you've rated highest.
+## Validation steps after build
 
-Keep the actual formula in code/docs, not in the UI.
-
-## Validation after change
-
-```sql
--- expect non-zero rows for active users after broadening filters
-SELECT user_id, content_id, count(*), avg(star_rating)
-FROM content_relevance_feedback
-WHERE feedback_type='star_rating' AND star_rating IS NOT NULL
-  AND created_at > now() - interval '30 days'
-  AND coalesce(trigger_context,'post_practice_completion')
-      IN ('post_practice_completion','post_plan_completion')
-GROUP BY 1,2;
-```
-
-Then sign in as `google-oauth2|111878...` (17 ratings) and confirm the card renders. Currently empty because all their ratings are `brief_inline` — they will still be empty under this plan unless we also include `brief_inline`. **Decision needed:** include `brief_inline` ratings? They rate the brief, not a practice, so probably no — but we should confirm whether that user actually completed practices or only rated briefs.
-
-## Files touched
-
-- `src/components/insights/PracticeEffectiveness.tsx` (filters, threshold, copy, info modal, optional state-delta line)
-- No DB migration required.
-- No changes to rating-write paths in `relevanceFeedback.ts` unless we pick Option A above.
+1. `/insights` → Progress tab as a user with practice ratings only → shows that practice with avg + count.
+2. Same view as a user with only `plan-tod` ratings → shows "Your daily plan" with avg + count.
+3. As a user with completions but zero ratings → middle state ("N practices completed").
+4. As a brand-new account → fully empty state.
+5. Confirm `brief_inline` feedback never appears.
+6. Smoke check: Patterns tab cards (`PerformanceCausalityCard`, momentum, rhythm), Brief page, Plan page, Practice players, Reset pages — all render and submit feedback exactly as before (no shared code paths altered).

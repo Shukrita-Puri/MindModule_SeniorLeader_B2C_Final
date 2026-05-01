@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING';
+  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING' | 'GET_PRACTICE_IMPACT';
   contentId?: string;
   feedbackData?: {
     content_id: string;
@@ -127,6 +127,140 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+
+      case 'GET_PRACTICE_IMPACT': {
+        // 30-day window
+        const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        // 1) Practice + plan-level star ratings (exclude brief_inline)
+        const { data: feedbackRows, error: fbErr } = await supabase
+          .from('content_relevance_feedback')
+          .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
+          .eq('user_id', userId)
+          .eq('feedback_type', 'star_rating')
+          .not('star_rating', 'is', null)
+          .gte('created_at', sinceIso);
+        if (fbErr) {
+          console.error('[content-feedback] GET_PRACTICE_IMPACT feedback error:', fbErr);
+          throw fbErr;
+        }
+
+        const practiceFeedback = (feedbackRows ?? []).filter(
+          (r: any) =>
+            !r.trigger_context ||
+            r.trigger_context === 'post_practice_completion' ||
+            r.trigger_context === 'post_plan_completion'
+        );
+
+        // 2) Session-level effectiveness ratings
+        const { data: sessionRows, error: psErr } = await supabase
+          .from('practice_sessions')
+          .select('id, content_id, effectiveness_rating, completed_at')
+          .eq('user_id', userId)
+          .not('effectiveness_rating', 'is', null)
+          .gte('completed_at', sinceIso);
+        if (psErr) {
+          console.error('[content-feedback] GET_PRACTICE_IMPACT sessions error:', psErr);
+          throw psErr;
+        }
+
+        // 3) Completion count
+        const { data: completedEvents, error: evErr } = await supabase
+          .from('sanctuary_events')
+          .select('content_id, category, timestamp')
+          .eq('user_id', userId)
+          .in('event_type', ['completed', 'session_complete'])
+          .gte('timestamp', sinceIso);
+        if (evErr) {
+          console.error('[content-feedback] GET_PRACTICE_IMPACT events error:', evErr);
+          throw evErr;
+        }
+
+        const totalPractices = completedEvents?.length ?? 0;
+
+        // Aggregate per content_id
+        type Agg = { total: number; count: number; sessionIds: Set<string> };
+        const perContent = new Map<string, Agg>();
+        const ensure = (id: string): Agg => {
+          let a = perContent.get(id);
+          if (!a) {
+            a = { total: 0, count: 0, sessionIds: new Set() };
+            perContent.set(id, a);
+          }
+          return a;
+        };
+
+        for (const r of practiceFeedback) {
+          if (!r.content_id || r.star_rating == null) continue;
+          const a = ensure(r.content_id);
+          a.total += r.star_rating;
+          a.count += 1;
+          if (r.session_id) a.sessionIds.add(r.session_id);
+        }
+
+        for (const s of sessionRows ?? []) {
+          if (!s.content_id || s.effectiveness_rating == null) continue;
+          const a = ensure(s.content_id);
+          if (s.id && a.sessionIds.has(s.id)) continue;
+          a.total += s.effectiveness_rating;
+          a.count += 1;
+        }
+
+        if (perContent.size === 0) {
+          return new Response(
+            JSON.stringify({ data: { topPractice: null, totalPractices } }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const ratedIds = Array.from(perContent.keys());
+        const { data: contentData } = await supabase
+          .from('sanctuary_content')
+          .select('id, title, category')
+          .in('id', ratedIds);
+        const contentMap = new Map((contentData ?? []).map((c: any) => [c.id, c]));
+
+        const eventCategoryMap = new Map<string, string>();
+        for (const e of completedEvents ?? []) {
+          if (e.content_id && e.category && !eventCategoryMap.has(e.content_id)) {
+            eventCategoryMap.set(e.content_id, e.category);
+          }
+        }
+
+        let best: {
+          contentId: string;
+          title: string;
+          category: string;
+          timesUsed: number;
+          avgRating: number;
+        } | null = null;
+        let bestScore = -1;
+        perContent.forEach((agg, contentId) => {
+          const avg = agg.total / agg.count;
+          const score = avg * 100 + Math.min(agg.count, 5);
+          if (score > bestScore) {
+            bestScore = score;
+            const content = contentMap.get(contentId) as any;
+            const isPlanBucket = contentId.startsWith('plan-');
+            best = {
+              contentId,
+              title:
+                content?.title ||
+                (isPlanBucket
+                  ? 'Your daily plan'
+                  : eventCategoryMap.get(contentId) || 'Practice'),
+              category: content?.category || eventCategoryMap.get(contentId) || 'unknown',
+              timesUsed: agg.count,
+              avgRating: avg,
+            };
+          }
+        });
+
+        return new Response(
+          JSON.stringify({ data: { topPractice: best, totalPractices } }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       default:
