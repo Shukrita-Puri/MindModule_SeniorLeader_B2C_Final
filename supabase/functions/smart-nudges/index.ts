@@ -311,6 +311,10 @@ interface NudgeCopy {
   title: string;
   body: string;
   variantId: string;
+  // V8 telemetry — which provider produced this copy.
+  // 'claude' / 'gemini' when AI succeeded, 'static' when fallback library used,
+  // null when never set (defensive).
+  aiProvider?: 'claude' | 'gemini' | 'static' | null;
 }
 
 // ══════════════════════════════════════════════════════════════
