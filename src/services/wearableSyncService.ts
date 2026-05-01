@@ -275,6 +275,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       hrv_samples: ds.hrvSamples,
       resting_heart_rate: ds.restingHeartRate,
       heart_rate: ds.heartRate,
+      hr_samples: ds.hrSamples,
       total_sleep_minutes: ds.totalSleepMinutes,
       deep_sleep_minutes: ds.deepSleepMinutes,
       rem_sleep_minutes: ds.remSleepMinutes,
