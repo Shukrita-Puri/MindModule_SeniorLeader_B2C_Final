@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 // ── APNs Helper Functions ──
 
@@ -1327,75 +1327,120 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
       return null;
   }
 
+  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
+  // Both providers are validated through the identical V8 gate.
+  const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
+  if (claudeCopy) return claudeCopy;
+  const geminiCopy = await tryAIProvider('gemini', ctx, nudgeType, systemPrompt, userPrompt);
+  if (geminiCopy) return geminiCopy;
+  return null;
+}
+
+// V8 — shared real-context tokens for requiresNamedContextToken().
+function buildV8CtxForCheck(ctx: NudgeContext): { eventTitles: string[]; checkinWord: string | null } {
+  return {
+    eventTitles: [
+      ...ctx.todayEvents.map(e => e.title || ''),
+      ...ctx.tomorrowEvents.map(e => e.title || ''),
+      ...ctx.highStakesEvents.map(e => e.title || ''),
+      ctx.firstNonNoiseEvent?.title || '',
+    ].filter(Boolean),
+    checkinWord: ctx.morningCheckinOutcome ?? null,
+  };
+}
+
+// V8 — validate any static fallback copy through the same contract used for
+// AI output. If the fallback violates V8, we drop it so the cron tick simply
+// sends nothing rather than ship V7 phrasing.
+function validateStaticFallbackCopy(
+  copy: NudgeCopy | null,
+  ctx: NudgeContext,
+  nudgeType: string,
+): NudgeCopy | null {
+  if (!copy) return null;
+  const v8Ctx = buildV8CtxForCheck(ctx);
+  const violation = violatesCopyContractV8(copy.body, v8Ctx);
+  if (violation) {
+    console.warn(
+      `[smart-nudges v8] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${violation} | "${copy.body}"`,
+    );
+    return null;
+  }
+  return copy;
+}
+
+async function tryAIProvider(
+  provider: 'claude' | 'gemini',
+  ctx: NudgeContext,
+  nudgeType: string,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<NudgeCopy | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
 
-    const content = await callClaudeText({
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-      model: CLAUDE_MODELS.HAIKU,
-      max_tokens: 256,
-      temperature: 0.7,
-      signal: controller.signal,
-    });
+    let content = '';
+    if (provider === 'claude') {
+      content = await callClaudeText({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        model: CLAUDE_MODELS.HAIKU,
+        max_tokens: 256,
+        temperature: 0.7,
+        signal: controller.signal,
+      });
+    } else {
+      content = await callLovableAIText({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        model: 'google/gemini-3-flash-preview',
+        max_tokens: 256,
+        temperature: 0.7,
+        signal: controller.signal,
+      });
+    }
 
     clearTimeout(timeout);
-
     if (!content) return null;
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed.title && parsed.body) {
-      if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
-        console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType}, fabricated wearable data detected: "${parsed.body}"`);
-        return null;
-      }
+    if (!parsed?.title || !parsed?.body) return null;
 
-      // v6 — also reject if specific wearable fields are null but the body cites them
-      const lowerBody = (parsed.body as string).toLowerCase();
-      if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites HRV but field null`);
-        return null;
-      }
-      if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites RHR but no signal`);
-        return null;
-      }
-      if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites sleep but field null`);
-        return null;
-      }
-
-      // v8 — enforce Meaning-Forward + Mind-Prep CTA contract on AI output.
-      // Pass real ctx tokens so requiresNamedContextToken can match against
-      // actual event titles and check-in outcomes the user logged.
-      const v8Ctx = {
-        eventTitles: [
-          ...ctx.todayEvents.map(e => e.title || ''),
-          ...ctx.tomorrowEvents.map(e => e.title || ''),
-          ...ctx.highStakesEvents.map(e => e.title || ''),
-          ctx.firstNonNoiseEvent?.title || '',
-        ].filter(Boolean),
-        checkinWord: ctx.morningCheckinOutcome ?? null,
-      };
-      const violation = violatesCopyContractV8(parsed.body, v8Ctx);
-      if (violation) {
-        console.warn(`[smart-nudges v8] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
-        return null;
-      }
-
-      return {
-        title: parsed.title.substring(0, 60),
-        body: parsed.body.substring(0, 140),
-        variantId: `AI-${nudgeType}-${Date.now()}`,
-      };
+    if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
+      console.warn(`[smart-nudges ${provider}] Rejected AI copy for ${nudgeType}, fabricated wearable data: "${parsed.body}"`);
+      return null;
     }
-    return null;
+    const lowerBody = (parsed.body as string).toLowerCase();
+    if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites HRV but null`);
+      return null;
+    }
+    if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites RHR but no signal`);
+      return null;
+    }
+    if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites sleep but null`);
+      return null;
+    }
+
+    const violation = violatesCopyContractV8(parsed.body, buildV8CtxForCheck(ctx));
+    if (violation) {
+      console.warn(`[smart-nudges v8 ${provider}] Rejected for ${nudgeType}: ${violation} | "${parsed.body}"`);
+      return null;
+    }
+
+    return {
+      title: parsed.title.substring(0, 60),
+      body: parsed.body.substring(0, 140),
+      variantId: `AI-${provider}-${nudgeType}-${Date.now()}`,
+    };
   } catch (e) {
-    console.warn(`[smart-nudges] AI copy error:`, e instanceof Error ? e.message : e);
+    console.warn(`[smart-nudges ${provider}] AI copy error:`, e instanceof Error ? e.message : e);
     return null;
   }
 }
@@ -1416,7 +1461,7 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
     return {
       title: 'Starting from where you are',
-      body: `Your body's running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%). Manage the day instead of reacting to it — check in to set your intention.`,
+      body: `Your body is running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%) and ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} sit ahead. Manage the day rather than react to it — check in to set your intention.`,
       variantId: 'FB-N1-hrv',
     };
   }
@@ -1453,7 +1498,7 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   }
   return {
     title: 'Room to breathe today',
-    body: `Lighter day ahead — only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar. Use the space — check in to set your intention.`,
+    body: `Only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar today gives you the rare chance to choose what your mind owns. Use the space — check in to set your intention.`,
     variantId: 'FB-N1-light',
   };
 }
@@ -1566,7 +1611,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     }
     return {
       title: 'Week complete',
-      body: `Five days behind you this week. Close the week before you disconnect — check in to close the week.`,
+      body: `Five days of leadership behind you this week. Close the week cleanly so it doesn't bleed into the weekend — check in to close the week.`,
       variantId: 'FB-N3-fri-light',
     };
   }
@@ -1583,7 +1628,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
     return {
       title: 'Closing strong',
-      body: `${p} still open on today's plan. Close the loop before tomorrow loads up — check in to close the day.`,
+      body: `${p} still open on today's plan and the day is winding down. Land the close before tomorrow loads up — check in to close the day.`,
       variantId: 'FB-N3-priorities',
     };
   }
@@ -1619,7 +1664,7 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   }
   return {
     title: 'Closing the day',
-    body: `Quiet day on the calendar today. A short close still sets up tomorrow — check in to close the day.`,
+    body: `Quiet day on the calendar today, but tomorrow still benefits from a clean close tonight — check in to close the day.`,
     variantId: 'FB-N3-light',
   };
 }
@@ -1680,7 +1725,11 @@ async function evaluateNudgeOne(
         eventTitle: evt.eventTitle || 'Upcoming event',
         minutesUntil,
       });
-      const copy = aiCopy || getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+        ctx, 'nudge_one_jit',
+      );
+      if (!copy) continue;
 
       // Route by check-in state — if user hasn't done check-in yet, send
       // them to the brief; otherwise send them to the queued plan.
@@ -1739,7 +1788,8 @@ async function evaluateNudgeOne(
   }
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_morning');
-  const copy = aiCopy || getFallbackNudgeOneMorningCopy(ctx);
+  const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeOneMorningCopy(ctx), ctx, 'nudge_one_morning');
+  if (!copy) return null;
 
   return {
     type: 'nudge_one',
@@ -1795,7 +1845,11 @@ async function evaluateNudgeTwo(
       eventTitle: evt.eventTitle || 'Upcoming event',
       minutesUntil,
     });
-    const copy = aiCopy || getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+    const copy = aiCopy || validateStaticFallbackCopy(
+      getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+      ctx, 'nudge_two_jit',
+    );
+    if (!copy) continue;
 
     // v5 smart routing — brief if check-in pending, plan if check-in done
     const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
@@ -1831,7 +1885,13 @@ async function evaluateNudgeTwo(
       const evTitle = upcomingHighStakes[0].title || 'your next high-stakes meeting';
       const signal: 'rhr' | 'hrv' = ctx.wearable.rhrElevated ? 'rhr' : 'hrv';
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_reserves', { eventTitle: evTitle, signal });
-      const copy = aiCopy || getFallbackNudgeTwoReservesCopy(evTitle, signal);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeTwoReservesCopy(evTitle, signal),
+        ctx, 'nudge_two_reserves',
+      );
+      if (!copy) {
+        // No compliant copy available; skip this lure rather than send V7 phrasing.
+      } else {
       return {
         type: 'nudge_two',
         copy,
@@ -1841,6 +1901,7 @@ async function evaluateNudgeTwo(
         slot: 'afternoon',
         signalStrength: 2,
       };
+      }
     }
   }
 
@@ -1854,7 +1915,11 @@ async function evaluateNudgeTwo(
       remainingCount: remaining,
       priorityTitle,
     });
-    const copy = aiCopy || getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle);
+    const copy = aiCopy || validateStaticFallbackCopy(
+      getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle),
+      ctx, 'nudge_two_priorities',
+    );
+    if (!copy) return null;
 
     return {
       type: 'nudge_two',
@@ -1877,7 +1942,11 @@ async function evaluateNudgeTwo(
     if (afternoonHighStakes.length > 0) {
       const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_recalibrate', { eventTitle });
-      const copy = aiCopy || getFallbackNudgeTwoRecalibrateCopy(eventTitle);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeTwoRecalibrateCopy(eventTitle),
+        ctx, 'nudge_two_recalibrate',
+      );
+      if (!copy) return null;
 
       return {
         type: 'nudge_two',
@@ -1944,7 +2013,8 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
-  const copy = aiCopy || getFallbackNudgeThreeCopy(ctx);
+  const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeThreeCopy(ctx), ctx, 'nudge_three');
+  if (!copy) return null;
 
   // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
   // otherwise to STATE (today's load / wearable / Sunday week prep).
@@ -2501,6 +2571,17 @@ serve(async (req) => {
       const ctaVariant = assignCtaVariant(notif.userId, nudgeFamily(notif.type));
       notif.copy = applyCtaVariant(notif.copy, ctaVariant, effectiveRoute);
 
+      // V8 — final post-rewrite check. The CTA variant rewriter mutates the
+      // trailing verb; if anything in the chain produces a non-V8 body we
+      // suppress the send rather than ship V7 phrasing.
+      const finalViolation = violatesCopyContractV8(notif.copy.body);
+      if (finalViolation) {
+        console.warn(
+          `[smart-nudges v8] SUPPRESSED post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation} body="${notif.copy.body}"`,
+        );
+        continue;
+      }
+
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
         body: notif.copy.body,
@@ -2511,6 +2592,15 @@ serve(async (req) => {
         architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
+        // V8 telemetry — also persist under payload.metadata so SQL
+        // dashboards that query JSON paths like
+        // payload.metadata.architecture see the V8 tags.
+        metadata: {
+          architecture: 'cos-mind-v8-meaning-forward',
+          cta_experiment: 'cta-action-verb-v2',
+          cta_variant: ctaVariant,
+          ai_fallback_chain: 'claude-haiku → gemini-flash → static',
+        },
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
