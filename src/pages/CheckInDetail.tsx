@@ -182,7 +182,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="luxury"
+                variant="sharpness"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -203,7 +203,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="luxury"
+                variant="clarity"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -224,7 +224,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="luxury"
+                variant="confidence"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
