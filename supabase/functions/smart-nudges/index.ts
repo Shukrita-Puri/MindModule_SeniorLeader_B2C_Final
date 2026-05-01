@@ -1370,7 +1370,9 @@ function validateStaticFallbackCopy(
     );
     return null;
   }
-  return copy;
+  // V8 telemetry — stamp the provider so the insert payload can record
+  // which path actually produced the shipped copy (claude / gemini / static).
+  return { ...copy, aiProvider: 'static' };
 }
 
 async function tryAIProvider(
