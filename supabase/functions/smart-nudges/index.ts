@@ -2623,12 +2623,17 @@ serve(async (req) => {
           cta_experiment: 'cta-action-verb-v2',
           cta_variant: ctaVariant,
           ai_fallback_chain: 'claude-haiku → gemini-flash → static',
+          // Which provider in the fallback chain actually produced the
+          // copy that shipped. Defensive default 'static' — every NudgeCopy
+          // returned to the send loop should carry this stamp.
+          ai_provider_used: notif.copy.aiProvider ?? 'static',
         },
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
           type: notif.type,
           cta_variant: ctaVariant,
+          ai_provider_used: notif.copy.aiProvider ?? 'static',
         },
       };
 
