@@ -1327,75 +1327,120 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
       return null;
   }
 
+  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
+  // Both providers are validated through the identical V8 gate.
+  const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
+  if (claudeCopy) return claudeCopy;
+  const geminiCopy = await tryAIProvider('gemini', ctx, nudgeType, systemPrompt, userPrompt);
+  if (geminiCopy) return geminiCopy;
+  return null;
+}
+
+// V8 — shared real-context tokens for requiresNamedContextToken().
+function buildV8CtxForCheck(ctx: NudgeContext): { eventTitles: string[]; checkinWord: string | null } {
+  return {
+    eventTitles: [
+      ...ctx.todayEvents.map(e => e.title || ''),
+      ...ctx.tomorrowEvents.map(e => e.title || ''),
+      ...ctx.highStakesEvents.map(e => e.title || ''),
+      ctx.firstNonNoiseEvent?.title || '',
+    ].filter(Boolean),
+    checkinWord: ctx.morningCheckinOutcome ?? null,
+  };
+}
+
+// V8 — validate any static fallback copy through the same contract used for
+// AI output. If the fallback violates V8, we drop it so the cron tick simply
+// sends nothing rather than ship V7 phrasing.
+function validateStaticFallbackCopy(
+  copy: NudgeCopy | null,
+  ctx: NudgeContext,
+  nudgeType: string,
+): NudgeCopy | null {
+  if (!copy) return null;
+  const v8Ctx = buildV8CtxForCheck(ctx);
+  const violation = violatesCopyContractV8(copy.body, v8Ctx);
+  if (violation) {
+    console.warn(
+      `[smart-nudges v8] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${violation} | "${copy.body}"`,
+    );
+    return null;
+  }
+  return copy;
+}
+
+async function tryAIProvider(
+  provider: 'claude' | 'gemini',
+  ctx: NudgeContext,
+  nudgeType: string,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<NudgeCopy | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
 
-    const content = await callClaudeText({
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-      model: CLAUDE_MODELS.HAIKU,
-      max_tokens: 256,
-      temperature: 0.7,
-      signal: controller.signal,
-    });
+    let content = '';
+    if (provider === 'claude') {
+      content = await callClaudeText({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        model: CLAUDE_MODELS.HAIKU,
+        max_tokens: 256,
+        temperature: 0.7,
+        signal: controller.signal,
+      });
+    } else {
+      content = await callLovableAIText({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        model: 'google/gemini-3-flash-preview',
+        max_tokens: 256,
+        temperature: 0.7,
+        signal: controller.signal,
+      });
+    }
 
     clearTimeout(timeout);
-
     if (!content) return null;
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed.title && parsed.body) {
-      if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
-        console.warn(`[smart-nudges] Rejected AI copy for ${nudgeType}, fabricated wearable data detected: "${parsed.body}"`);
-        return null;
-      }
+    if (!parsed?.title || !parsed?.body) return null;
 
-      // v6 — also reject if specific wearable fields are null but the body cites them
-      const lowerBody = (parsed.body as string).toLowerCase();
-      if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites HRV but field null`);
-        return null;
-      }
-      if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites RHR but no signal`);
-        return null;
-      }
-      if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
-        console.warn(`[smart-nudges v6] Rejected AI copy for ${nudgeType}, cites sleep but field null`);
-        return null;
-      }
-
-      // v8 — enforce Meaning-Forward + Mind-Prep CTA contract on AI output.
-      // Pass real ctx tokens so requiresNamedContextToken can match against
-      // actual event titles and check-in outcomes the user logged.
-      const v8Ctx = {
-        eventTitles: [
-          ...ctx.todayEvents.map(e => e.title || ''),
-          ...ctx.tomorrowEvents.map(e => e.title || ''),
-          ...ctx.highStakesEvents.map(e => e.title || ''),
-          ctx.firstNonNoiseEvent?.title || '',
-        ].filter(Boolean),
-        checkinWord: ctx.morningCheckinOutcome ?? null,
-      };
-      const violation = violatesCopyContractV8(parsed.body, v8Ctx);
-      if (violation) {
-        console.warn(`[smart-nudges v8] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
-        return null;
-      }
-
-      return {
-        title: parsed.title.substring(0, 60),
-        body: parsed.body.substring(0, 140),
-        variantId: `AI-${nudgeType}-${Date.now()}`,
-      };
+    if (containsFabricatedWearableData(parsed.body, ctx.hasWearableData)) {
+      console.warn(`[smart-nudges ${provider}] Rejected AI copy for ${nudgeType}, fabricated wearable data: "${parsed.body}"`);
+      return null;
     }
-    return null;
+    const lowerBody = (parsed.body as string).toLowerCase();
+    if (ctx.wearable.hrvDeltaPct === null && /hrv|heart rate variability/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites HRV but null`);
+      return null;
+    }
+    if (!ctx.wearable.rhrElevated && ctx.wearable.hrvDeltaPct === null && /rhr|resting heart rate/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites RHR but no signal`);
+      return null;
+    }
+    if (ctx.wearable.sleepScore === null && /sleep score|slept/.test(lowerBody)) {
+      console.warn(`[smart-nudges ${provider}] Rejected for ${nudgeType}, cites sleep but null`);
+      return null;
+    }
+
+    const violation = violatesCopyContractV8(parsed.body, buildV8CtxForCheck(ctx));
+    if (violation) {
+      console.warn(`[smart-nudges v8 ${provider}] Rejected for ${nudgeType}: ${violation} | "${parsed.body}"`);
+      return null;
+    }
+
+    return {
+      title: parsed.title.substring(0, 60),
+      body: parsed.body.substring(0, 140),
+      variantId: `AI-${provider}-${nudgeType}-${Date.now()}`,
+    };
   } catch (e) {
-    console.warn(`[smart-nudges] AI copy error:`, e instanceof Error ? e.message : e);
+    console.warn(`[smart-nudges ${provider}] AI copy error:`, e instanceof Error ? e.message : e);
     return null;
   }
 }
