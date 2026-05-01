@@ -14,14 +14,15 @@ import { Loader2, Sparkles, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { format, subDays } from 'date-fns';
+import InsightInfoModal from '@/components/insights/InsightInfoModal';
 
 interface PracticeEffect {
   contentId: string;
   title: string;
   category: string;
   timesUsed: number;
-  improvedAfter: number;
-  effectivenessRate: number;
+  avgRating: number;       // mean star rating (0..5)
+  stateImproved: number;   // count of sessions followed by an improved check-in
 }
 
 interface PracticeEffectivenessProps {
@@ -46,9 +47,8 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
       const thirtyDaysAgoIso = new Date(thirtyDaysAgo).toISOString();
 
       // ── PRIMARY SOURCE: feedback modal ratings ──────────────────────────
-      // Ratings written by `submitPracticeRating` →
-      // content_relevance_feedback{ feedback_type='star_rating',
-      // trigger_context='post_practice_completion', star_rating 1..5 }
+      // Accept any practice-anchored rating context. Exclude `brief_inline`
+      // which rates the morning brief, not a practice.
       const { data: feedbackRows } = await supabase
         .from('content_relevance_feedback')
         .select('content_id, content_type, star_rating, session_id, created_at, trigger_context')
@@ -58,7 +58,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         .gte('created_at', thirtyDaysAgoIso);
 
       const practiceFeedback = (feedbackRows ?? []).filter(
-        (r) => !r.trigger_context || r.trigger_context === 'post_practice_completion'
+        (r) =>
+          !r.trigger_context ||
+          r.trigger_context === 'post_practice_completion' ||
+          r.trigger_context === 'post_plan_completion'
       );
 
       // ── SECONDARY SOURCE: practice_sessions.effectiveness_rating ───────
@@ -81,12 +84,12 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
       setTotalPractices(completionCount);
 
       // Aggregate ratings per content_id (modal feedback first, sessions second).
-      type Agg = { total: number; count: number; positive: number; sessionIds: Set<string> };
+      type Agg = { total: number; count: number; sessionIds: Set<string> };
       const perContent = new Map<string, Agg>();
       const ensure = (id: string): Agg => {
         let a = perContent.get(id);
         if (!a) {
-          a = { total: 0, count: 0, positive: 0, sessionIds: new Set() };
+          a = { total: 0, count: 0, sessionIds: new Set() };
           perContent.set(id, a);
         }
         return a;
@@ -97,7 +100,6 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         const a = ensure(r.content_id);
         a.total += r.star_rating;
         a.count += 1;
-        if (r.star_rating >= 4) a.positive += 1;
         if (r.session_id) a.sessionIds.add(r.session_id);
       });
 
@@ -109,7 +111,6 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         if (s.id && a.sessionIds.has(s.id)) return;
         a.total += s.effectiveness_rating;
         a.count += 1;
-        if (s.effectiveness_rating >= 4) a.positive += 1;
       });
 
       // No ratings yet → render the "completed N practices" empty state.
@@ -118,7 +119,8 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         return;
       }
 
-      // Resolve titles for rated content.
+      // Resolve titles for rated content. Plan-level rows (e.g. `plan-tod`)
+      // won't match sanctuary_content; we surface them with a friendly label.
       const ratedIds = Array.from(perContent.keys());
       const { data: contentData } = await supabase
         .from('sanctuary_content')
@@ -134,51 +136,30 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
         }
       });
 
-      // Pick top: highest avg rating, min 2 ratings; tiebreak by count.
+      // Pick top: highest avg rating; tiebreak by rating count, then recency
+      // (implicit via Map insertion order). Threshold ≥ 1 rating.
       let best: PracticeEffect | null = null;
+      let bestScore = -1;
       perContent.forEach((agg, contentId) => {
-        if (agg.count < 2) return;
         const avg = agg.total / agg.count;
-        const rate = agg.positive / agg.count;
-        const content = contentMap.get(contentId);
-        const candidate: PracticeEffect = {
-          contentId,
-          title: content?.title || eventCategoryMap.get(contentId) || 'Practice',
-          category: content?.category || eventCategoryMap.get(contentId) || 'unknown',
-          timesUsed: agg.count,
-          improvedAfter: agg.positive,
-          effectivenessRate: rate,
-        };
-        if (
-          !best ||
-          avg > best.effectivenessRate * 5 ||
-          (rate === best.effectivenessRate && agg.count > best.timesUsed)
-        ) {
-          best = candidate;
+        // Composite score lightly favors more-rated practices at equal avg.
+        const score = avg * 100 + Math.min(agg.count, 5);
+        if (score > bestScore) {
+          bestScore = score;
+          const content = contentMap.get(contentId);
+          const isPlanBucket = contentId.startsWith('plan-');
+          best = {
+            contentId,
+            title:
+              content?.title ||
+              (isPlanBucket ? 'Your daily plan' : eventCategoryMap.get(contentId) || 'Practice'),
+            category: content?.category || eventCategoryMap.get(contentId) || 'unknown',
+            timesUsed: agg.count,
+            avgRating: avg,
+            stateImproved: 0,
+          };
         }
       });
-
-      // Fallback: if no practice has 2+ ratings yet, show the single highest-rated one.
-      if (!best) {
-        let bestSingle: PracticeEffect | null = null;
-        let bestAvg = -1;
-        perContent.forEach((agg, contentId) => {
-          const avg = agg.total / agg.count;
-          if (avg > bestAvg) {
-            bestAvg = avg;
-            const content = contentMap.get(contentId);
-            bestSingle = {
-              contentId,
-              title: content?.title || eventCategoryMap.get(contentId) || 'Practice',
-              category: content?.category || eventCategoryMap.get(contentId) || 'unknown',
-              timesUsed: agg.count,
-              improvedAfter: agg.positive,
-              effectivenessRate: agg.positive / agg.count,
-            };
-          }
-        });
-        best = bestSingle;
-      }
 
       setTopPractice(best);
     } catch (error) {
@@ -201,6 +182,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-saffron" />
         <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Practice Impact</span>
+        <InsightInfoModal
+          title="Practice Impact"
+          explanation="Based on the star ratings you've given practices over the last 30 days. We highlight the practice you've rated highest. The more you rate, the sharper this gets."
+        />
       </div>
 
       {topPractice ? (
@@ -209,15 +194,15 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
             {topPractice.title}
           </p>
           <p className="text-xs text-muted-foreground">
-            Used {topPractice.timesUsed}× · {Math.round(topPractice.effectivenessRate * 100)}% followed by improved state
+            Avg {topPractice.avgRating.toFixed(1)} / 5 across {topPractice.timesUsed} rating{topPractice.timesUsed === 1 ? '' : 's'}
           </p>
-          <p className="text-xs text-saffron">Your top restorer</p>
+          <p className="text-xs text-saffron">Highest-rated this month</p>
         </>
       ) : totalPractices > 0 ? (
         <>
           <p className="text-2xl font-headline font-semibold text-foreground">{totalPractices}</p>
           <p className="text-xs text-muted-foreground">practices completed</p>
-          <p className="text-xs text-muted-foreground/60">Use 2+ times to see effectiveness</p>
+          <p className="text-xs text-muted-foreground/60">Rate practices after completion to see what works</p>
         </>
       ) : (
         <>
