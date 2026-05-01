@@ -2076,9 +2076,9 @@ const MicroPracticePlayerCards = () => {
   const isLastCard = current === cards.length - 1;
 
   return (
-    <div className="min-h-screen relative overflow-hidden animate-page-enter">
+    <div className="min-h-screen relative overflow-hidden animate-page-enter bg-foreground">
       {/* Fixed full-bleed background with optimized filter */}
-      <div className="fixed inset-0 -z-10">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <img
           src={getBackgroundForPractice(id)}
           alt="Practice background"
@@ -2086,7 +2086,7 @@ const MicroPracticePlayerCards = () => {
           style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
         />
         {/* Luxury warm overlay - matching soundscapes */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-foreground/25 via-taupe-rich/30 to-foreground/60" />
       </div>
 
       {/* Top Navigation */}
@@ -2127,7 +2127,7 @@ const MicroPracticePlayerCards = () => {
       )}
 
       {/* Carousel — swipe gestures are scoped to this wrapper */}
-      <div ref={carouselScopeRef} className="w-full h-full">
+      <div ref={carouselScopeRef} className="relative z-10 w-full h-full">
       <Carousel
         setApi={setApi}
         className="w-full h-full"
@@ -2236,7 +2236,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/10 to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-foreground/10 to-transparent">
         <div className="max-w-md mx-auto space-y-4">
           {/* Progress dots */}
           <CardProgress total={cards.length} current={current} />
