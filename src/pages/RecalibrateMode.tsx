@@ -2,9 +2,9 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
-import architecturalPowerUp from "@/assets/recalibrate/power-up/architectural-power-up.png";
-import architecturalPause from "@/assets/recalibrate/pause/architectural-pause.png";
-import architecturalPresence from "@/assets/recalibrate/presence/architectural-presence.png";
+import architecturalPowerUp from "@/assets/recalibrate/power-up/architectural-power-up.jpg";
+import architecturalPause from "@/assets/recalibrate/pause/architectural-pause.jpg";
+import architecturalPresence from "@/assets/recalibrate/presence/architectural-presence.jpg";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
