@@ -1461,7 +1461,7 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
     return {
       title: 'Starting from where you are',
-      body: `Your body's running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%). Manage the day instead of reacting to it — check in to set your intention.`,
+      body: `Your body is running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%) and ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} sit ahead. Manage the day rather than react to it — check in to set your intention.`,
       variantId: 'FB-N1-hrv',
     };
   }
@@ -1498,7 +1498,7 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   }
   return {
     title: 'Room to breathe today',
-    body: `Lighter day ahead — only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar. Use the space — check in to set your intention.`,
+    body: `Only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar today gives you the rare chance to choose what your mind owns. Use the space — check in to set your intention.`,
     variantId: 'FB-N1-light',
   };
 }
