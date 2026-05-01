@@ -1725,7 +1725,11 @@ async function evaluateNudgeOne(
         eventTitle: evt.eventTitle || 'Upcoming event',
         minutesUntil,
       });
-      const copy = aiCopy || getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+        ctx, 'nudge_one_jit',
+      );
+      if (!copy) continue;
 
       // Route by check-in state — if user hasn't done check-in yet, send
       // them to the brief; otherwise send them to the queued plan.
@@ -1784,7 +1788,8 @@ async function evaluateNudgeOne(
   }
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_morning');
-  const copy = aiCopy || getFallbackNudgeOneMorningCopy(ctx);
+  const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeOneMorningCopy(ctx), ctx, 'nudge_one_morning');
+  if (!copy) return null;
 
   return {
     type: 'nudge_one',
@@ -1840,7 +1845,11 @@ async function evaluateNudgeTwo(
       eventTitle: evt.eventTitle || 'Upcoming event',
       minutesUntil,
     });
-    const copy = aiCopy || getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+    const copy = aiCopy || validateStaticFallbackCopy(
+      getFallbackNudgeTwoJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+      ctx, 'nudge_two_jit',
+    );
+    if (!copy) continue;
 
     // v5 smart routing — brief if check-in pending, plan if check-in done
     const checkedInToday = ctx.morningCheckinOutcome !== null || ctx.afternoonCheckinOutcome !== null;
@@ -1876,7 +1885,13 @@ async function evaluateNudgeTwo(
       const evTitle = upcomingHighStakes[0].title || 'your next high-stakes meeting';
       const signal: 'rhr' | 'hrv' = ctx.wearable.rhrElevated ? 'rhr' : 'hrv';
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_reserves', { eventTitle: evTitle, signal });
-      const copy = aiCopy || getFallbackNudgeTwoReservesCopy(evTitle, signal);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeTwoReservesCopy(evTitle, signal),
+        ctx, 'nudge_two_reserves',
+      );
+      if (!copy) {
+        // No compliant copy available; skip this lure rather than send V7 phrasing.
+      } else {
       return {
         type: 'nudge_two',
         copy,
@@ -1886,6 +1901,7 @@ async function evaluateNudgeTwo(
         slot: 'afternoon',
         signalStrength: 2,
       };
+      }
     }
   }
 
@@ -1899,7 +1915,11 @@ async function evaluateNudgeTwo(
       remainingCount: remaining,
       priorityTitle,
     });
-    const copy = aiCopy || getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle);
+    const copy = aiCopy || validateStaticFallbackCopy(
+      getFallbackNudgeTwoPrioritiesCopy(remaining, priorityTitle),
+      ctx, 'nudge_two_priorities',
+    );
+    if (!copy) return null;
 
     return {
       type: 'nudge_two',
@@ -1922,7 +1942,11 @@ async function evaluateNudgeTwo(
     if (afternoonHighStakes.length > 0) {
       const eventTitle = afternoonHighStakes[0].title || 'your next meeting';
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_two_recalibrate', { eventTitle });
-      const copy = aiCopy || getFallbackNudgeTwoRecalibrateCopy(eventTitle);
+      const copy = aiCopy || validateStaticFallbackCopy(
+        getFallbackNudgeTwoRecalibrateCopy(eventTitle),
+        ctx, 'nudge_two_recalibrate',
+      );
+      if (!copy) return null;
 
       return {
         type: 'nudge_two',
@@ -1989,7 +2013,8 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
-  const copy = aiCopy || getFallbackNudgeThreeCopy(ctx);
+  const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeThreeCopy(ctx), ctx, 'nudge_three');
+  if (!copy) return null;
 
   // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
   // otherwise to STATE (today's load / wearable / Sunday week prep).
