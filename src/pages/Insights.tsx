@@ -1020,6 +1020,14 @@ const Insights = () => {
                 <PracticeEffectiveness userId={user?.id} />
               </CardContent>
             </LuxuryInsightCard>
+          </div>
+        </div>
+
+        {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
+        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
+            <PerformanceCausalityCard userId={user?.id} />
+            <PerformanceRhythmCard userId={user?.id} />
 
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
@@ -1058,10 +1066,9 @@ const Insights = () => {
 
                       const domainCounts: Record<string, number> = { Resilience: 0, Leadership: 0, Decision: 0, Growth: 0, Delivery: 0 };
                       tinyWinsContent.forEach(w => { domainCounts[getDomain(w)]++; });
-                      
+
                       const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
                       const [dominantDomain, dominantCount] = sorted[0];
-                      const winTopicsCount = Object.values(domainCounts).filter(c => c > 0).length;
 
                       return (
                         <>
@@ -1107,7 +1114,7 @@ const Insights = () => {
                         let domain = 'Delivery';
                         let dotColor = 'bg-slate-400';
                         let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
-                        
+
                         if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) {
                           domain = 'Delivery'; dotColor = 'bg-slate-400'; tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
                         } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
@@ -1124,7 +1131,7 @@ const Insights = () => {
                             /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) {
                           domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
                         }
-                        
+
                         return (
                           <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10 border border-border/10">
                             <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
@@ -1157,14 +1164,6 @@ const Insights = () => {
                 )}
               </CardContent>
             </LuxuryInsightCard>
-          </div>
-        </div>
-
-        {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
-        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
-            <PerformanceCausalityCard userId={user?.id} />
-            <PerformanceRhythmCard userId={user?.id} />
           </div>
         </div>
         </div>
