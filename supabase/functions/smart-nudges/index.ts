@@ -326,19 +326,22 @@ export type CtaVariant = 'A' | 'B' | 'C' | 'D';
 
 const CTA_VARIANTS: CtaVariant[] = ['A', 'B', 'C', 'D'];
 
-// v7 — every variant is a "prep" CTA. We keep A/B testing surface forms,
-// but every form ends with the word "prep" so the user always sees a
-// proactive, app-language CTA. Deep-link routing is unchanged on the
-// payload (system's job, not user's vocabulary).
+// v8 — Meaning-Forward / Mind-Prep CTA. Every variant is a qualified
+// mental-prep action verb (NEVER an unqualified "prep" — a CEO would read
+// that as "prep the board deck"). The user's job is always to log in /
+// check in and do MENTAL prep / recalibration / closing. Deep-link routing
+// is unchanged on the payload — verbs only imply a destination, the system
+// still controls the route.
 const CTA_PHRASES: Record<CtaVariant, { brief: string; plan: string }> = {
-  // A = control
-  A: { brief: 'open the app to prep',         plan: 'open the app to prep' },
-  // B = check-in framed
-  B: { brief: 'check into the app to prep',   plan: 'go to the app to prep' },
-  // C = urgent short
-  C: { brief: 'prep now',                     plan: 'prep now' },
-  // D = evening-only variants (overridden in applyCtaVariant when route differs)
-  D: { brief: 'open the app to prep tonight', plan: 'open the app to prep with a cool-down' },
+  // A = control — calm, mental-prep
+  A: { brief: 'check in to set your intention', plan: 'log in to prep your mind' },
+  // B = state-framed
+  B: { brief: 'check in to recalibrate',        plan: 'log in to prep your state' },
+  // C = urgency / recovery
+  C: { brief: 'log in to recalibrate your mind', plan: 'log in to prep your mind' },
+  // D = close-of-day / week (evening variants — applyCtaVariant decides
+  // which 'close' verb based on deep-link route)
+  D: { brief: 'check in to close the day',       plan: 'check in to close the week' },
 };
 
 // Stable hash so the same user lands in the same bucket per nudge_type
@@ -365,35 +368,45 @@ function nudgeFamily(nudgeType: string): string {
   return nudgeType;
 }
 
-// v7 — recognise both legacy phrases and the new V7 "prep" CTAs so any
-// generated body can be rewritten to match the assigned variant.
+// v8 — recognise legacy V6/V7 phrases AND the new V8 qualified mind-prep
+// verbs so any generated body can be rewritten to match the assigned
+// variant. Anything matched here gets replaced with the variant's V8 verb.
 const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
-  // Legacy
-  { rx: /open your brief/gi,        kind: 'brief' },
-  { rx: /open the brief/gi,         kind: 'brief' },
-  { rx: /open your plan/gi,         kind: 'plan'  },
-  { rx: /open the plan/gi,          kind: 'plan'  },
-  { rx: /open your prep plan/gi,    kind: 'plan'  },
-  { rx: /build your prep plan/gi,   kind: 'plan'  },
-  { rx: /build your plan/gi,        kind: 'plan'  },
-  { rx: /lock in your prep/gi,      kind: 'plan'  },
-  { rx: /tap to prep/gi,            kind: 'plan'  },
-  { rx: /see your prep/gi,          kind: 'plan'  },
-  { rx: /see your readiness/gi,     kind: 'brief' },
-  { rx: /see your plan/gi,          kind: 'plan'  },
-  { rx: /recalibrate now/gi,        kind: 'brief' },
-  { rx: /close the day/gi,          kind: 'brief' },
-  { rx: /close the week/gi,         kind: 'brief' },
-  { rx: /close the loop/gi,         kind: 'brief' },
-  { rx: /check in now/gi,           kind: 'brief' },
-  { rx: /open the app$/gi,          kind: 'brief' },
-  // V7 surface forms (also rewritten when variant differs)
-  { rx: /open the app to prep tonight/gi,         kind: 'brief' },
+  // Legacy V5/V6 (still tolerated as input, normalised to V8 on rewrite)
+  { rx: /open your brief/gi,                       kind: 'brief' },
+  { rx: /open the brief/gi,                        kind: 'brief' },
+  { rx: /open your plan/gi,                        kind: 'plan'  },
+  { rx: /open the plan/gi,                         kind: 'plan'  },
+  { rx: /open your prep plan/gi,                   kind: 'plan'  },
+  { rx: /build your prep plan/gi,                  kind: 'plan'  },
+  { rx: /build your plan/gi,                       kind: 'plan'  },
+  { rx: /lock in your prep/gi,                     kind: 'plan'  },
+  { rx: /tap to prep/gi,                           kind: 'plan'  },
+  { rx: /see your prep/gi,                         kind: 'plan'  },
+  { rx: /see your readiness/gi,                    kind: 'brief' },
+  { rx: /see your plan/gi,                         kind: 'plan'  },
+  { rx: /recalibrate now/gi,                       kind: 'brief' },
+  { rx: /check in now/gi,                          kind: 'brief' },
+  { rx: /open the app$/gi,                         kind: 'brief' },
+  // V7 unqualified-prep verbs (banned in V8 — rewritten away)
+  { rx: /open the app to prep tonight/gi,          kind: 'plan'  },
   { rx: /open the app to prep with a cool-down/gi, kind: 'plan'  },
-  { rx: /check into the app to prep/gi,           kind: 'brief' },
-  { rx: /go to the app to prep/gi,                kind: 'plan'  },
-  { rx: /open the app to prep/gi,                 kind: 'brief' },
-  { rx: /\bprep now\b/gi,                         kind: 'brief' },
+  { rx: /check into the app to prep/gi,            kind: 'brief' },
+  { rx: /go to the app to prep/gi,                 kind: 'plan'  },
+  { rx: /open the app to prep/gi,                  kind: 'brief' },
+  { rx: /\bprep now\b/gi,                          kind: 'brief' },
+  // V8 surface forms (rewritten when assigned variant differs)
+  { rx: /log in to prep your mind tonight/gi,      kind: 'plan'  },
+  { rx: /log in to prep your mind/gi,              kind: 'plan'  },
+  { rx: /log in to prep your state/gi,             kind: 'plan'  },
+  { rx: /log in to recalibrate your mind/gi,       kind: 'brief' },
+  { rx: /check in to recalibrate/gi,               kind: 'brief' },
+  { rx: /check in to set your intention/gi,        kind: 'brief' },
+  { rx: /check in to set tomorrow/gi,              kind: 'brief' },
+  { rx: /check in to close the day/gi,             kind: 'brief' },
+  { rx: /check in to close the week/gi,            kind: 'brief' },
+  { rx: /check in to land the weekend/gi,          kind: 'brief' },
+  { rx: /open your insights/gi,                    kind: 'brief' },
 ];
 
 function applyCtaVariant(
@@ -930,6 +943,12 @@ const FORBIDDEN_WORDS_V6 = [
   'anchor mental','lock in decision','set decision','set posture','decision-ready',
   'optimal performance','peak performance','performance state','cognitive load',
   'capacity','reserves','baseline','trajectory reset','reset trajectory',
+  // v8 — passive-consumption verbs (defeat the "open the app and do it" principle)
+  'your prep is ready','prep is ready','your plan is ready','your brief is ready',
+  'see your prep','see your plan','see your readiness','tap to prep',
+  // v8 — unqualified V7 prep verbs (CEO reads "prep" as strategic prep, not mental)
+  'open the app to prep','check into the app to prep','go to the app to prep',
+  'prep now','open the app to prep tonight','open the app to prep with a cool-down',
 ];
 const ALLOWED_CTA_VERBS_V6 = [
   'open your brief','open your plan','open your prep plan','open your readiness',
@@ -956,34 +975,97 @@ function violatesCopyContractV6(body: string): string | null {
   return null;
 }
 
-// ── v7 — JIT-or-State + prep-CTA contract ──────────────────────────────
-// Every body must end with a "prep" verb. Same forbidden-word + length
-// ceilings as V6. The CTA-verb gate is tighter than V6: only V7 verbs.
-const ALLOWED_CTA_VERBS_V7 = [
-  'open the app to prep tonight',
-  'open the app to prep with a cool-down',
-  'check into the app to prep',
-  'go to the app to prep',
-  'open the app to prep',
-  'prep now',
+// ── v8 — Meaning-Forward + Mind-Prep CTA contract ──────────────────────
+// Three principles, enforced verbatim:
+//   1. Lead with meaning, not the data point.  (the metric, if used, sits
+//      INSIDE a meaning sentence — never as the whole first sentence).
+//   2. Title = state or moment.  Body = context + one clear action.
+//   3. CTA always ends at a specific app screen via a "log in / check in /
+//      open" verb that QUALIFIES the prep as mental (mind / state /
+//      recalibrate / close / set / land).  Unqualified "prep" is banned.
+const ALLOWED_CTA_VERBS_V8 = [
+  'log in to prep your mind tonight',
+  'log in to prep your mind',
+  'log in to prep your state',
+  'log in to recalibrate your mind',
+  'check in to recalibrate',
+  'check in to set your intention',
+  'check in to set tomorrow',
+  'check in to close the day',
+  'check in to close the week',
+  'check in to land the weekend',
+  'open your insights',
 ];
-function violatesCopyContractV7(body: string): string | null {
+
+// V8 — body must reference at least one real, named context token.
+// Sources: a calendar event title, a numeric physiological signal with
+// unit, a countable today-state, a check-in outcome word, or a
+// minutes-until / clock-time for a real event.
+const NAMED_CONTEXT_RX_DEFAULT = [
+  /\b(HRV|RHR|HR|sleep)\b\s*[+\-]?\d/i,                               // HRV -22%, Sleep 62
+  /\b\d+\s*\/\s*100\b/,                                                // 62/100
+  /\b\d+\s*(meeting|meetings|priority|priorities|min|minutes|day|days)\b/i,
+  /\b(in|at)\s+\d{1,2}(?::\d{2})?\s*(min|minutes|am|pm|h)?\b/i,        // in 25 min, at 10am
+  /\b(started low|managing|depleted|heavy|low|peak|strong|focused|overloaded)\b/i,
+];
+function requiresNamedContextToken(
+  body: string,
+  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
+): boolean {
+  if (NAMED_CONTEXT_RX_DEFAULT.some(rx => rx.test(body))) return true;
+  const titles = ctx?.eventTitles ?? [];
+  for (const t of titles) {
+    if (!t || t.length < 3) continue;
+    if (body.toLowerCase().includes(t.toLowerCase())) return true;
+    // Title-cased words from a real event title (3+ chars) also count.
+    const head = t.split(/\s+/).slice(0, 3).join(' ');
+    if (head.length >= 3 && body.toLowerCase().includes(head.toLowerCase())) return true;
+  }
+  if (ctx?.checkinWord && body.toLowerCase().includes(ctx.checkinWord.toLowerCase())) return true;
+  return false;
+}
+
+// V8 — first sentence must NOT be a bare metric statement. The metric, if
+// used, must be embedded INSIDE a meaning sentence (parenthetical or clause).
+function violatesMeaningSentence(body: string): string | null {
+  const first = body.split(/(?<=[.!?])\s+/)[0]?.trim() ?? body.trim();
+  // Bare metric leads (HRV -22% today, RHR +9 bpm, Sleep 62/100, etc.)
+  if (/^(HRV|RHR|HR|Sleep|Sleep score)\s*[+\-]?\d[^.]*$/i.test(first)) {
+    return `first sentence is a bare metric: "${first}"`;
+  }
+  // First sentence is purely a number+unit clause with no human meaning verb.
+  if (/^[+\-]?\d+\s*(%|bpm|\/100)\b[^.]*$/i.test(first)) {
+    return `first sentence is a bare number+unit: "${first}"`;
+  }
+  return null;
+}
+
+function violatesCopyContractV8(
+  body: string,
+  ctx?: { eventTitles?: string[]; checkinWord?: string | null },
+): string | null {
   const lower = body.toLowerCase().trim();
   for (const w of FORBIDDEN_WORDS_V6) {
     if (lower.includes(w)) return `forbidden word: "${w}"`;
   }
-  // Must end with a V7 prep verb (allow trailing punctuation).
+  // Must end with a V8 qualified mind-prep verb (allow trailing punctuation).
   const trailing = lower.replace(/[.!?\s]+$/, '');
-  if (!ALLOWED_CTA_VERBS_V7.some(v => trailing.endsWith(v))) {
-    return 'must end with a V7 prep CTA verb';
+  if (!ALLOWED_CTA_VERBS_V8.some(v => trailing.endsWith(v))) {
+    return 'must end with a V8 qualified mind-prep CTA verb';
   }
   if (/\{[a-z_]+\}|\bN\b|--/i.test(body)) return 'placeholder token detected';
+  // Meaning-first lint
+  const meaningViolation = violatesMeaningSentence(body);
+  if (meaningViolation) return meaningViolation;
+  // Named-context lint
+  if (!requiresNamedContextToken(body, ctx)) {
+    return 'body cites no named context token (event title, metric+unit, count, time, or check-in word)';
+  }
   const wordCount = body.trim().split(/\s+/).length;
-  // v7.1 — JIT prefix ("From your morning Plan:") and the longest cool-down
-  // CTA each cost ~3–4 extra words. Allow up to 16 words but keep the strict
-  // 95-char ceiling so notifications still fit one push line.
-  if (wordCount > 16) return `body too long (${wordCount} words, max 16)`;
-  if (body.length > 95) return `body too long (${body.length} chars, max 95)`;
+  // v8 — meaning-forward bodies are longer than V7 metric-led bodies.
+  // Gold-standard examples run 18–22 words.
+  if (wordCount > 22) return `body too long (${wordCount} words, max 22)`;
+  if (body.length > 140) return `body too long (${body.length} chars, max 140)`;
   return null;
 }
 
@@ -1002,48 +1084,92 @@ async function generateNudgeCopy(
     return null;
   }
 
-  const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications.
+  const systemPrompt = `You are the Chief of Staff for the Mind of a C-suite leader. You write push notifications for a MENTAL-PERFORMANCE app. The user's job, every time, is to OPEN THE APP and do MENTAL prep — never strategic prep, never deck prep.
 
 EVERY notification is anchored to ONE of two things:
   • JIT  — a specific upcoming/just-past calendar event from the user's morning plan
   • STATE — a specific physiological / check-in / plan-progress signal from today
 If neither anchor is present, do not write copy.
 
-EVERY body ends with a "prep" CTA — the user's job is to open the app and PREP.
+THE THREE V8 PRINCIPLES (non-negotiable):
 
-VOICE: trusted human chief of staff. Plain English a CEO would say to a peer. Never mechanical:
-forbidden phrases include "decision posture", "decision readiness", "mental sharpness",
-"anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline".
+1. LEAD WITH MEANING, NOT THE DATA POINT.
+   Raw metrics never lead. The first sentence translates what the data MEANS for the user's day. The number, if used, sits INSIDE the meaning sentence (parenthetical or clause) — it never carries the message alone.
+   ❌ "HRV -22% today — log in to prep."
+   ✅ "Your body's running below baseline (HRV -22%). Close the day before tomorrow loads up — log in to recalibrate your mind."
 
-Gold-standard examples (match these shapes exactly):
-- Morning JIT:        "From your morning Plan: Board Review in 25 min — open the app to prep."
-- Morning State:      "HRV down 22% today — check into the app to prep."
-- Afternoon State:    "You started low and Investor Update is next — open the app to prep."
-- Afternoon Reserves: "RHR elevated before Board Review — open the app to prep."
-- Afternoon JIT:      "From your plan: Board Review in 40 min — open the app to prep."
-- Evening State:      "Heavy day today and tomorrow needs you sharp — open the app to prep with a cool-down."
-- Evening JIT:        "Tomorrow opens with Board Review — open the app to prep tonight."
-- With pattern:       "From your morning Plan: Board Review at 10. HR ran high last time — open the app to prep."
+2. TITLE = STATE OR MOMENT. BODY = CONTEXT + ONE CLEAR ACTION.
+   Title names a moment a CEO recognises ("Recovery in progress", "Starting from where you are", "Recalibrating mid-day"). Body delivers the so-what plus a specific in-app action.
+
+3. CTA ALWAYS ENDS AT A SPECIFIC APP SCREEN VIA A "log in / check in / open" VERB — AND THE PREP IS ALWAYS MENTAL.
+   This is a mental-performance system. Plain "prep" is ambiguous (a CEO reads it as "prep the deck"). Every CTA must qualify the prep as MIND / STATE / RECALIBRATE / CLOSE / SET / LAND.
+
+Allowed CTA verbs (verbatim end of body, modulo trailing punctuation):
+  "log in to prep your mind"               (JIT plan exists)
+  "log in to prep your mind tonight"       (Sunday/eve, high-stakes Monday)
+  "log in to prep your state"              (JIT, depleted state)
+  "log in to recalibrate your mind"        (evening recovery)
+  "check in to recalibrate"                (mid-day reset)
+  "check in to set your intention"         (morning anchor)
+  "check in to set tomorrow"               (Sunday close)
+  "check in to close the day"              (evening close)
+  "check in to close the week"             (Friday close)
+  "check in to land the weekend"           (Saturday)
+  "open your insights"                     (pattern alerts only)
+
+BANNED CTA verbs (never use, even if the user's data tempts you):
+  "your prep is ready", "your plan is ready", "your brief is ready",
+  "see your prep", "see your plan", "see your readiness", "tap to prep",
+  "open the app to prep", "check into the app to prep", "go to the app to prep",
+  "prep now", "open the app to prep tonight", "open the app to prep with a cool-down".
+These either present the work as already done (passive consumption) or leave "prep" unqualified (CEO reads it as strategic prep).
+
+Gold-standard examples (match these shapes — meaning-first, named context, qualified mind-prep CTA):
+- Evening · 7 meetings:
+  Title: "Evening cool-down"
+  Body:  "Seven meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind."
+- Evening · HRV deficit:
+  Title: "Recovery in progress"
+  Body:  "Your body's running below baseline (HRV -22%). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind."
+- Morning · yesterday depleted + heavy day:
+  Title: "Starting from where you are"
+  Body:  "Yesterday was heavy and today has 5 meetings ahead. Manage your energy instead of reacting to it — check in to set your intention."
+- Morning · JIT board in 60m:
+  Title: "Preparing mental performance"
+  Body:  "Board Review in an hour. Walk in with the edge, not the anxiety — log in to prep your mind."
+- Afternoon · morning was low:
+  Title: "Mid-day reset window"
+  Body:  "Your morning state was low and the afternoon is still ahead. This is the recovery window — check in to recalibrate."
+- Afternoon · 3 more meetings:
+  Title: "Recalibrating mid-day"
+  Body:  "Halfway through with three more meetings ahead. Stay sharp instead of running on fumes — check in to recalibrate."
+- Pre-event · investor 60m, peak:
+  Title: "You're ready for this"
+  Body:  "Investor Update in an hour. Your mental prep is built for exactly this moment — log in to prep your mind."
+- Pre-event · board 45m, depleted:
+  Title: "Managing the moment"
+  Body:  "Board Review in 45 minutes and you're running low. Short, sharp, built for right now — log in to prep your state."
+- Friday close:
+  Title: "Week complete"
+  Body:  "Five heavy days behind you. Close the week before you disconnect so it doesn't bleed into the weekend — check in to close the week."
+- Sunday · heavy Monday:
+  Title: "Monday is already mapped"
+  Body:  "Tomorrow opens with Board Review and a full calendar. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow."
+- Sunday · high-stakes Monday event:
+  Title: "Big Monday — pre-loading now"
+  Body:  "Tomorrow opens with a high-stakes moment. Wake up ahead instead of behind — log in to prep your mind tonight."
+- Saturday · low HRV:
+  Title: "The body's still catching up"
+  Body:  "Recovery from the week isn't instant — your HRV is still below baseline. A short check-in tells you what kind of weekend you actually need — check in to land the weekend."
 
 Hard rules:
-- Title: max 6 words, no emoji, names the situation in human language.
-- Body: HARD MAX 14 words AND 95 characters. Two short sentences allowed.
-- Body MUST end with one of these "prep" CTA verbs (verbatim, end of body):
-    "open the app to prep", "check into the app to prep", "go to the app to prep",
-    "prep now", "open the app to prep tonight", "open the app to prep with a cool-down".
-- Body MUST cite at least ONE real signal from the data block: an event title from the
-  user's morning plan, a minutes-until, an HRV/RHR/sleep number, a check-in outcome,
-  a meetings count, or tomorrow's first meeting. Never invent a number or a meeting name.
-- When the JIT anchor is an event already in the user's morning plan, prefix the body
-  with "From your morning Plan:" or "From your plan:" — that prefix IS the proactive lure.
-- When a historical pattern is provided (e.g. "HRV averaged -22% during your last Board
-  meetings"), reference it briefly with human language ("HR ran high last time") — never
-  cite the percent or n in the body.
-- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge,
-  self-care, streak, "keep it up", "well done", "great job", productive, productivity,
-  intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness",
-  "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves",
-  "baseline", "set the tone", "loaded day", "come back".
+- Title: max 6 words, no emoji, names the state or moment in human language.
+- Body: max 22 words AND 140 characters. One or two short sentences.
+- Body MUST cite at least ONE named context token from the data block: a real event title, an HRV/RHR/sleep number with unit, a meetings/practices count, a minutes-until or clock time, or a check-in outcome word the user actually logged. Never invent a number or a meeting name.
+- The first sentence MUST be a meaning sentence — never a bare metric like "HRV -22% today" or "RHR +9 bpm".
+- The body MUST end with one of the V8 qualified mind-prep CTA verbs above (verbatim).
+- When the JIT anchor is an event from the user's morning plan, prefix with "From your morning Plan:" or "From your plan:" — that prefix IS the proactive lure.
+- Forbidden words/phrases: wellness, mindful, mindfulness, relax, breathe, calm, recharge, self-care, streak, "keep it up", "well done", "great job", productive, productivity, intent, strategy, strategic, "decision posture", "decision readiness", "mental sharpness", "anchor sharpness", "performance state", "reset trajectory", "capacity", "reserves", "baseline", "set the tone", "loaded day", "come back", and every banned CTA verb listed above.
 - Truncate any event title longer than 20 characters to its first 3 words.
 - Return ONLY valid JSON: {"title":"...","body":"..."}`;
 
@@ -1067,7 +1193,7 @@ ${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV
 - Day: ${ctx.dayName}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
-Required CTA verb at end of body: "open your brief" (default) or "build your prep plan" (if HRV<-15% or sleep<60 with a heavy day) or "open your prep plan" (if naming a high-stakes event).`;
+Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
       break;
     }
 
@@ -1084,9 +1210,8 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until. Do NOT add filler phrases.
-Example shape: "${evtTitle} in ${evt.minutesUntil} min. Prep plan is queued — open your prep plan."
-Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
+Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
       break;
     }
 
@@ -1101,8 +1226,8 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 
-Required: name "${evtTitle}" + minutes-until. No filler.
-Required CTA verb at end of body: "open your prep plan" or "lock in your prep".`;
+Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence (e.g. "Stay sharp instead of running on fumes") — never a bare metric.
+Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if depleted).`;
       break;
     }
 
@@ -1115,7 +1240,8 @@ Available signals:
 - Meetings today: ${ctx.eventCount}
 
 Required: name the count "${remaining} practice${remaining === 1 ? '' : 's'} left".
-Required CTA verb at end of body: "open your plan".
+The first sentence translates what that means for the day, not the raw count alone.
+Required CTA verb at end of body: "check in to recalibrate".
 Say "practices" not "priorities". Never reference "Priority 1".`;
       break;
     }
@@ -1128,8 +1254,8 @@ Available signals:
 - Morning check-in: ${ctx.morningCheckinOutcome}
 - Next event: "${eventTitle}"
 
-Required: name the morning state AND the event.
-Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
+Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next — this is the recovery window").
+Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
 
@@ -1148,8 +1274,8 @@ Available signals:
 - Next high-stakes: "${evtTitle}"
 ${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
 
-Required: name the wearable signal AND "${evtTitle}".
-Required CTA verb at end of body: "recalibrate now" or "open your brief".`;
+Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") — never lead with the bare metric.
+Required CTA verb at end of body: "log in to prep your state" or "check in to recalibrate".`;
       break;
     }
 
@@ -1179,9 +1305,10 @@ ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
 ${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 
-${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "build your prep plan" or "open your brief".` : ''}
-${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes). Required CTA verb at end of body: "close the week".` : ''}
-${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "close the day" (if practices done or wearable signal) or "open your plan" (if practices remaining).` : ''}`;
+${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
+${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
+${!isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6 ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
+${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
       break;
     }
 
@@ -1242,17 +1369,27 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
         return null;
       }
 
-      // v7 — enforce JIT-or-State + prep-CTA contract on AI output.
-      // V6 lint kept above as a reference; V7 is now authoritative.
-      const violation = violatesCopyContractV7(parsed.body);
+      // v8 — enforce Meaning-Forward + Mind-Prep CTA contract on AI output.
+      // Pass real ctx tokens so requiresNamedContextToken can match against
+      // actual event titles and check-in outcomes the user logged.
+      const v8Ctx = {
+        eventTitles: [
+          ...ctx.todayEvents.map(e => e.title || ''),
+          ...ctx.tomorrowEvents.map(e => e.title || ''),
+          ...ctx.highStakesEvents.map(e => e.title || ''),
+          ctx.firstNonNoiseEvent?.title || '',
+        ].filter(Boolean),
+        checkinWord: ctx.morningCheckinOutcome ?? null,
+      };
+      const violation = violatesCopyContractV8(parsed.body, v8Ctx);
       if (violation) {
-        console.warn(`[smart-nudges v7] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
+        console.warn(`[smart-nudges v8] Rejected AI copy for ${nudgeType}, ${violation}: "${parsed.body}"`);
         return null;
       }
 
       return {
         title: parsed.title.substring(0, 60),
-        body: parsed.body.substring(0, 120),
+        body: parsed.body.substring(0, 140),
         variantId: `AI-${nudgeType}-${Date.now()}`,
       };
     }
@@ -1268,66 +1405,126 @@ ${!isSundayEvening && ctx.dayOfWeek !== 5 ? `Required CTA verb at end of body: "
 // ══════════════════════════════════════════════════════════════
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
-  // v7 — [USER CONTEXT] + [PREP CTA]. Each branch cites a real signal.
+  // v8 — Meaning-first sentence + named context + qualified mind-prep CTA.
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
-    return { title: 'Short sleep last night', body: `Sleep was ${ctx.wearable.sleepScore}/100 — open the app to prep.`, variantId: 'FB-N1-recovery' };
+    return {
+      title: 'Short sleep last night',
+      body: `Last night was light on recovery (Sleep ${ctx.wearable.sleepScore}/100). Today still needs you sharp — log in to prep your state.`,
+      variantId: 'FB-N1-recovery',
+    };
   }
   if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15) {
-    return { title: 'HRV is down today', body: `HRV ${ctx.wearable.hrvDeltaPct}% today — check into the app to prep.`, variantId: 'FB-N1-hrv' };
+    return {
+      title: 'Starting from where you are',
+      body: `Your body's running below baseline (HRV ${ctx.wearable.hrvDeltaPct}%). Manage the day instead of reacting to it — check in to set your intention.`,
+      variantId: 'FB-N1-hrv',
+    };
   }
   if (ctx.highStakesEvents.length > 0) {
     const ev = truncateEventTitle(ctx.highStakesEvents[0].title || 'high-stakes meeting');
-    return { title: `${ev} today`, body: `${ev} today — open the app to prep.`, variantId: 'FB-N1-stakes' };
+    return {
+      title: 'Preparing mental performance',
+      body: `${ev} on the calendar today. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+      variantId: 'FB-N1-stakes',
+    };
   }
   if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
-    return { title: `${ctx.eventCount} meetings today`, body: `${ctx.eventCount} meetings today — open the app to prep.`, variantId: 'FB-N1-heavy' };
+    return {
+      title: 'Starting from where you are',
+      body: `${ctx.eventCount} meetings ahead today. Manage your energy instead of reacting to it — check in to set your intention.`,
+      variantId: 'FB-N1-heavy',
+    };
   }
   if (ctx.dayOfWeek === 6) {
     const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
-    return { title: 'Slower start today', body: `${ev} ahead — open the app to prep.`, variantId: 'FB-N1-sat-anchored' };
+    return {
+      title: 'New day, same standards',
+      body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
+      variantId: 'FB-N1-sat-anchored',
+    };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} today`, body: `${m} today — open the app to prep.`, variantId: 'FB-N1-calendar' };
+    return {
+      title: 'Setting the day',
+      body: `${m} ahead today. Three minutes of clarity now beats reacting to the calendar — check in to set your intention.`,
+      variantId: 'FB-N1-calendar',
+    };
   }
-  return { title: 'Light calendar today', body: 'Light day ahead — open the app to prep.', variantId: 'FB-N1-light' };
+  return {
+    title: 'Room to breathe today',
+    body: `Lighter day ahead — only ${ctx.eventCount} meeting${ctx.eventCount === 1 ? '' : 's'} on the calendar. Use the space — check in to set your intention.`,
+    variantId: 'FB-N1-light',
+  };
 }
 
 function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `${ev} in ${minutesUntil} min`, body: `From your morning Plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N1-JIT' };
+  return {
+    title: 'Preparing mental performance',
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety — log in to prep your mind.`,
+    variantId: 'FB-N1-JIT',
+  };
 }
 
 function getFallbackNudgeTwoJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
   if (minutesUntil <= 120) {
-    return { title: `${ev} in ${minutesUntil} min`, body: `From your plan: ${ev} in ${minutesUntil} min — open the app to prep.`, variantId: 'FB-N2-JIT-soon' };
+    return {
+      title: 'Preparing mental performance',
+      body: `From your plan: ${ev} in ${minutesUntil} min. Walk in sharp — log in to prep your mind.`,
+      variantId: 'FB-N2-JIT-soon',
+    };
   }
   const eventTime = new Date(Date.now() + minutesUntil * 60000);
   const timeStr = eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return { title: `${ev} at ${timeStr}`, body: `From your plan: ${ev} at ${timeStr} — open the app to prep.`, variantId: 'FB-N2-JIT-later' };
+  return {
+    title: 'Preparing mental performance',
+    body: `From your plan: ${ev} at ${timeStr}. Front-load the prep instead of scrambling later — log in to prep your mind.`,
+    variantId: 'FB-N2-JIT-later',
+  };
 }
 
 function getFallbackNudgeTwoPrioritiesCopy(remaining: number, _priorityTitle: string): NudgeCopy {
   const p = `${remaining} practice${remaining > 1 ? 's' : ''}`;
-  return { title: `${p} left today`, body: `${p} left on today's plan — open the app to prep.`, variantId: 'FB-N2-priorities' };
+  return {
+    title: 'Recalibrating mid-day',
+    body: `${p} still open on today's plan. Stay sharp instead of running on fumes — check in to recalibrate.`,
+    variantId: 'FB-N2-priorities',
+  };
 }
 
 function getFallbackNudgeTwoRecalibrateCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
-  return { title: `Started low, ${ev} ahead`, body: `Started low and ${ev} ahead — check into the app to prep.`, variantId: 'FB-N2-recal' };
+  return {
+    title: 'Mid-day reset window',
+    body: `Your morning state was low and ${ev} is next. This is the recovery window — check in to recalibrate.`,
+    variantId: 'FB-N2-recal',
+  };
 }
 
 function getFallbackNudgeTwoReservesCopy(nextEventTitle: string, signal: 'rhr' | 'hrv'): NudgeCopy {
   const ev = truncateEventTitle(nextEventTitle);
   if (signal === 'rhr') {
-    return { title: `RHR up, ${ev} ahead`, body: `RHR up before ${ev} — open the app to prep.`, variantId: 'FB-N2-reserves-rhr' };
+    return {
+      title: 'Managing the moment',
+      body: `You're running warm (RHR elevated) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+      variantId: 'FB-N2-reserves-rhr',
+    };
   }
-  return { title: `HRV down, ${ev} ahead`, body: `HRV down and ${ev} ahead — open the app to prep.`, variantId: 'FB-N2-reserves-hrv' };
+  return {
+    title: 'Managing the moment',
+    body: `You're running low (HRV below baseline) and ${ev} is next. Short, sharp, built for right now — log in to prep your state.`,
+    variantId: 'FB-N2-reserves-hrv',
+  };
 }
 
 function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
-  return { title: `HRV down ${daysLow} days`, body: `HRV down ${daysLow} days running — open the app to prep.`, variantId: 'FB-N2-consec-low' };
+  return {
+    title: 'Recovery deficit detected',
+    body: `Your body's been under-recovering for ${daysLow} days. That's a load signal, not a weakness — log in to recalibrate your mind.`,
+    variantId: 'FB-N2-consec-low',
+  };
 }
 
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
@@ -1339,40 +1536,92 @@ function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
     const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
     if (tomorrowStakes.length > 0) {
       const ev = truncateEventTitle(tomorrowStakes[0].title);
-      return { title: `${ev} tomorrow`, body: `Tomorrow opens with ${ev} — open the app to prep tonight.`, variantId: 'FB-N3-sun-stakes' };
+      return {
+        title: 'Big Monday — pre-loading now',
+        body: `Tomorrow opens with ${ev}. Wake up ahead instead of behind — log in to prep your mind tonight.`,
+        variantId: 'FB-N3-sun-stakes',
+      };
     }
     if (tomorrowCount >= 4) {
-      return { title: `${tomorrowCount} meetings Monday`, body: `${tomorrowCount} meetings Monday — open the app to prep tonight.`, variantId: 'FB-N3-sun-heavy' };
+      return {
+        title: 'Monday is already mapped',
+        body: `Tomorrow opens with ${tomorrowCount} meetings. Three minutes of clarity tonight beats two hours of catch-up — check in to set tomorrow.`,
+        variantId: 'FB-N3-sun-heavy',
+      };
     }
-    return { title: 'Light Monday ahead', body: 'Light Monday ahead — open the app to prep tonight.', variantId: 'FB-N3-sun-default' };
+    return {
+      title: 'Carrying the right things into Monday',
+      body: `Light Monday ahead — ${tomorrowCount} meeting${tomorrowCount === 1 ? '' : 's'} on the calendar. Decide what you're bringing in — check in to set tomorrow.`,
+      variantId: 'FB-N3-sun-default',
+    };
   }
 
   if (ctx.dayOfWeek === 5) {
     if (ctx.eventCount > 0) {
-      return { title: `${ctx.eventCount} meetings done`, body: `${ctx.eventCount} meetings today — open the app to prep with a cool-down.`, variantId: 'FB-N3-fri' };
+      return {
+        title: 'Week complete',
+        body: `${ctx.eventCount} meetings behind you this week. Close the week before it bleeds into the weekend — check in to close the week.`,
+        variantId: 'FB-N3-fri',
+      };
     }
-    return { title: 'Week behind you', body: 'Week behind you — open the app to prep with a cool-down.', variantId: 'FB-N3-fri-light' };
+    return {
+      title: 'Week complete',
+      body: `Five days behind you this week. Close the week before you disconnect — check in to close the week.`,
+      variantId: 'FB-N3-fri-light',
+    };
+  }
+
+  if (ctx.dayOfWeek === 6) {
+    return {
+      title: 'The body\'s still catching up',
+      body: `Recovery from the week isn't instant — even on Saturday. A short check-in tells you what kind of weekend you actually need — check in to land the weekend.`,
+      variantId: 'FB-N3-sat',
+    };
   }
 
   if (prioritiesRemaining > 0) {
     const p = `${prioritiesRemaining} practice${prioritiesRemaining > 1 ? 's' : ''}`;
-    return { title: `${p} still open`, body: `${p} still open — open the app to prep.`, variantId: 'FB-N3-priorities' };
+    return {
+      title: 'Closing strong',
+      body: `${p} still open on today's plan. Close the loop before tomorrow loads up — check in to close the day.`,
+      variantId: 'FB-N3-priorities',
+    };
   }
   if (prioritiesTotal > 0 && prioritiesRemaining === 0) {
-    return { title: `${prioritiesTotal}/${prioritiesTotal} done today`, body: `${prioritiesTotal} done — open the app to prep with a cool-down.`, variantId: 'FB-N3-done' };
+    return {
+      title: 'Closing strong',
+      body: `${prioritiesTotal} practice${prioritiesTotal === 1 ? '' : 's'} done today. Land it cleanly so tomorrow opens fresh — check in to close the day.`,
+      variantId: 'FB-N3-done',
+    };
   }
 
   if (ctx.hasWearableData && ctx.wearable.rhrElevated) {
-    return { title: 'RHR ran high today', body: 'RHR ran high today — open the app to prep with a cool-down.', variantId: 'FB-N3-rhr' };
+    return {
+      title: 'Recovery in progress',
+      body: `Your body ran warm today (RHR elevated). Close the day with a short reset before tomorrow loads up — log in to recalibrate your mind.`,
+      variantId: 'FB-N3-rhr',
+    };
   }
   if (ctx.eventCount >= 6) {
-    return { title: `${ctx.eventCount} meetings done`, body: `Heavy day, tomorrow needs you sharp — open the app to prep with a cool-down.`, variantId: 'FB-N3-heavy' };
+    return {
+      title: 'Evening cool-down',
+      body: `${ctx.eventCount} meetings, no real break for your mind today. Close the day before it carries into tomorrow — log in to recalibrate your mind.`,
+      variantId: 'FB-N3-heavy',
+    };
   }
   if (ctx.eventCount > 0) {
     const m = `${ctx.eventCount} meeting${ctx.eventCount > 1 ? 's' : ''}`;
-    return { title: `${m} done`, body: `${m} done today — open the app to prep with a cool-down.`, variantId: 'FB-N3-default' };
+    return {
+      title: 'Closing the day',
+      body: `${m} behind you today. Close cleanly so tomorrow opens fresh — check in to close the day.`,
+      variantId: 'FB-N3-default',
+    };
   }
-  return { title: 'Day landed', body: 'Tomorrow needs you sharp — open the app to prep with a cool-down.', variantId: 'FB-N3-light' };
+  return {
+    title: 'Closing the day',
+    body: `Quiet day on the calendar today. A short close still sets up tomorrow — check in to close the day.`,
+    variantId: 'FB-N3-light',
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2259,9 +2508,9 @@ serve(async (req) => {
         variant_id: notif.copy.variantId,
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
-        architecture: 'cos-mind-v7-jit-or-state',
+        architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
-        cta_experiment: 'cta-action-verb-v1',
+        cta_experiment: 'cta-action-verb-v2',
         decision_trace: {
           variant: notif.copy.variantId,
           route: effectiveRoute,
@@ -2349,7 +2598,7 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
-      architecture: 'cos-mind-v7-jit-or-state',
+      architecture: 'cos-mind-v8-meaning-forward',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,

@@ -43,7 +43,9 @@ const SUPABASE_SERVICE =
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/smart-nudges`;
 const SOURCE_PATH = new URL("./index.ts", import.meta.url);
 
-// v6 copy contract — keep in sync with FORBIDDEN_WORDS_V6 + ALLOWED_CTA_VERBS_V6 in index.ts (~line 793)
+// v8 copy contract — keep in sync with FORBIDDEN_WORDS_V6 + ALLOWED_CTA_VERBS_V8 in index.ts.
+// v8 inherits all V6 forbidden words, adds the V7 unqualified-prep verbs and V8
+// passive-consumption verbs (which are now banned).
 const FORBIDDEN_WORDS = [
   "set your intent",
   "set the tone",
@@ -70,17 +72,32 @@ const FORBIDDEN_WORDS = [
   "self-care",
   "streak",
   "intent",
+  // v8 — passive consumption (banned)
+  "your prep is ready",
+  "your plan is ready",
+  "your brief is ready",
+  "see your prep",
+  "see your plan",
+  "see your readiness",
+  "tap to prep",
+  // v8 — unqualified V7 prep verbs (banned because CEO reads as strategic prep)
+  "open the app to prep",
+  "check into the app to prep",
+  "go to the app to prep",
+  "prep now",
+  "open the app to prep tonight",
+  "open the app to prep with a cool-down",
 ];
 
-// CTA verbs the v6 fallback strings + A/B variants are required to use.
+// v8 — qualified mind-prep CTA verbs the fallback strings + A/B variants are required to use.
 const CTA_VERB_RX =
-  /\b(open your brief|open your plan|open your prep plan|build your prep plan|recalibrate now|close the day|close the week|lock in your prep)\b/i;
+  /\b(log in to prep your mind(?: tonight)?|log in to prep your state|log in to recalibrate your mind|check in to recalibrate|check in to set your intention|check in to set tomorrow|check in to close the day|check in to close the week|check in to land the weekend|open your insights)\b/i;
 
-// Legacy v5 verbs (still allowed in old rows; v6 no longer emits these)
+// Legacy v5/v6/v7 verbs (still allowed in old rows; v8 no longer emits these)
 const CTA_VERB_RX_V5_LEGACY =
-  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|lock in your prep|tap to prep|recalibrate before)\b/i;
+  /\b(open your brief|open your plan|open the brief|open the plan|see your readiness|see your prep|recalibrate now|close the day|close the week|lock in your prep|tap to prep|recalibrate before|open the app to prep(?:\s+tonight| with a cool-down)?|check into the app to prep|go to the app to prep|prep now)\b/i;
 
-// v6 also rejects placeholder tokens and orphan metric mentions
+// v8 also rejects placeholder tokens and orphan metric mentions
 const PLACEHOLDER_RX = /(\{[^}]+\}|\b(?:N|--)\b|\?\?|\bundefined\b|\bnull\b|NaN%)/;
 
 const VALID_DEEP_LINKS = new Set([
@@ -134,13 +151,13 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   }
 });
 
-Deno.test("v6 source: global timing constants + arch stamp", async () => {
+Deno.test("v8 source: global timing constants + arch stamp", async () => {
   const src = await Deno.readTextFile(SOURCE_PATH);
   assert(/GLOBAL_EARLIEST_LOCAL\s*=\s*8(\.0)?/.test(src), "GLOBAL_EARLIEST_LOCAL must = 8.0");
   assert(/APP_OPEN_COOLDOWN_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/.test(src), "APP_OPEN_COOLDOWN_MS must be 60 min");
   assert(/INTRA_TICK_MAX\s*=\s*1/.test(src), "INTRA_TICK_MAX must be 1");
-  assert(/architecture:\s*['"`]cos-mind-v6-cta['"`]/.test(src), "Payload must stamp architecture='cos-mind-v6-cta'");
-  assert(/cta_experiment:\s*['"`]cta-action-verb-v1['"`]/.test(src), "Payload must stamp cta_experiment");
+  assert(/architecture:\s*['"`]cos-mind-v8-meaning-forward['"`]/.test(src), "Payload must stamp architecture='cos-mind-v8-meaning-forward'");
+  assert(/cta_experiment:\s*['"`]cta-action-verb-v2['"`]/.test(src), "Payload must stamp cta_experiment='cta-action-verb-v2'");
 });
 
 // ─── Test 2: CTA variant distribution ────────────────────────────────────────
@@ -280,19 +297,27 @@ Deno.test({
     // architectures. Older v4 rows are tolerated here.
     const v5Rows = rows.filter((r) => {
       const arch = (r.payload as Record<string, unknown>)?.architecture;
-      return arch === "cos-mind-v6-cta" || arch === "cos-mind-v5";
+      return arch === "cos-mind-v8-meaning-forward"
+        || arch === "cos-mind-v7-jit-or-state"
+        || arch === "cos-mind-v6-cta"
+        || arch === "cos-mind-v5";
     });
-    console.log(`[validation] v5/v6 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
+    console.log(`[validation] v5–v8 rows in last 24h: ${v5Rows.length} / ${rows.length}`);
 
     for (const r of v5Rows) {
       const payload = r.payload as Record<string, unknown>;
 
       // Stamps must all be present
+      const arch = payload.architecture;
       assert(
-        payload.architecture === "cos-mind-v6-cta" || payload.architecture === "cos-mind-v5",
-        `arch invalid on row ${r.user_id}@${r.sent_at}: ${payload.architecture}`,
+        arch === "cos-mind-v8-meaning-forward"
+          || arch === "cos-mind-v7-jit-or-state"
+          || arch === "cos-mind-v6-cta"
+          || arch === "cos-mind-v5",
+        `arch invalid on row ${r.user_id}@${r.sent_at}: ${arch}`,
       );
-      assertEquals(payload.cta_experiment, "cta-action-verb-v1", `cta_experiment missing on ${r.user_id}@${r.sent_at}`);
+      const expectedExp = arch === "cos-mind-v8-meaning-forward" ? "cta-action-verb-v2" : "cta-action-verb-v1";
+      assertEquals(payload.cta_experiment, expectedExp, `cta_experiment mismatch on ${r.user_id}@${r.sent_at} (arch=${arch})`);
       assert(
         ["A", "B", "C", "D"].includes(payload.cta_variant as string),
         `cta_variant invalid on ${r.user_id}@${r.sent_at}: ${payload.cta_variant}`,
@@ -304,13 +329,22 @@ Deno.test({
 
       // Body invariants
       const body = String(payload.body ?? "");
-      const bad = bodyContainsForbidden(body);
-      assertEquals(bad, null, `Forbidden word "${bad}" in body: ${body}`);
-      if (payload.architecture === "cos-mind-v6-cta") {
-        assert(CTA_VERB_RX.test(body), `v6 body missing CTA verb: ${body}`);
-        assert(!PLACEHOLDER_RX.test(body), `Placeholder in v6 body: ${body}`);
+      if (arch === "cos-mind-v8-meaning-forward") {
+        // v8 contract is strict — apply the full lint.
+        const bad = bodyContainsForbidden(body);
+        assertEquals(bad, null, `Forbidden word "${bad}" in v8 body: ${body}`);
+        assert(CTA_VERB_RX.test(body), `v8 body missing qualified mind-prep CTA verb: ${body}`);
+        assert(!PLACEHOLDER_RX.test(body), `Placeholder in v8 body: ${body}`);
+        // Meaning-first: first sentence must not be a bare metric.
+        const first = body.split(/(?<=[.!?])\s+/)[0]?.trim() ?? body.trim();
+        assert(
+          !/^(HRV|RHR|HR|Sleep)\s*[+\-]?\d[^.]*$/i.test(first),
+          `v8 first sentence is a bare metric: "${first}"`,
+        );
       } else {
-        assert(CTA_VERB_RX_V5_LEGACY.test(body), `v5 body missing legacy CTA verb: ${body}`);
+        // Legacy rows: only check the looser legacy verb set; old forbidden
+        // words (e.g. the V8 banned verbs) are tolerated here.
+        assert(CTA_VERB_RX_V5_LEGACY.test(body) || CTA_VERB_RX.test(body), `legacy body missing any known CTA verb: ${body}`);
       }
 
       // 08:00 local floor
