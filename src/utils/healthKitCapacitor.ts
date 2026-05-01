@@ -18,6 +18,8 @@ export interface DailyWearableSummary {
   hrvSamples: { value: number; hour: number; timestamp: string }[];
   restingHeartRate: number | null;       // daily average RHR (bpm)
   heartRate: number | null;              // daily average HR (bpm)
+  /** Per-sample HR readings for the day (true event-window peak source). */
+  hrSamples: { t: string; v: number }[];
   totalSleepMinutes: number | null;      // total sleep duration
   deepSleepMinutes: number | null;       // deep sleep stage
   remSleepMinutes: number | null;        // REM sleep stage
