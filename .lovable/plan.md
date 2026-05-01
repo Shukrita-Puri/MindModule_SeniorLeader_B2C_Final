@@ -1,159 +1,89 @@
-## Answer to your question
+## Goal
 
-Smart Nudges is **not currently using a Claude → Gemini → static fallback chain**.
+Isolated **color-only** change on `/daily-check-in` (state buttons) and `/check-in-detail` (three sliders). Each surface gets its own **single-hue light→dark sequential ramp** mapped to its psychological theme. No logic, scoring, layout, slider mechanics, thumb, engraved hatch, ticks, button geometry, or CTA behavior changes.
 
-Current behavior in `smart-nudges` is:
+## Scope (strict)
 
-```text
-Claude Haiku → if missing/error/invalid → static fallback copy
+Touched files (color values only):
+1. `src/components/ui/slider.tsx` — extend `variant` to accept per-theme gradients (`energy` already not used; add `clarity`, `confidence`, `sharpness`). Keep existing `luxury` variant intact as fallback.
+2. `src/pages/CheckInDetail.tsx` — pass the matching variant to each of the 3 sliders.
+3. `src/pages/DailyCheckIn.tsx` — replace the 5 `accent` hex values in the `outcomes` array with an Indigo/Electric Blue light→dark ramp.
+
+Explicitly NOT touched:
+- Slider track height, thumb (`LuxuryThumb`), `EngravedFill`, hatch density/opacity, range shadow, ticks.
+- Slider score range (1–5), labels, value handlers, save logic, slider order on the page.
+- Button sizes, ring, shadow, scale, icons, ordering, sticky CTA styling.
+- Tier traffic-light tokens in `src/index.css` (`--tier-*`).
+- Any other page, component, or token.
+
+## Theme → color mapping
+
+Each surface uses a **single-hue** light→dark gradient (5 stops) so the lightest end reads as the lower state and the darkest end as the peak state — matching the existing left-to-right semantic of the slider and the Overloaded→Focused order of the buttons.
+
+### `/daily-check-in` — Mental Energy buttons (Indigo / Electric Blue)
+
+5-stop ramp (Overloaded → Focused, lightest → darkest), legibility-corrected for white text + EngravedFill overlay:
+
+| # | Outcome     | Hex       |
+|---|-------------|-----------|
+| 1 | Overloaded  | `#8AA0E0` |
+| 2 | Drained     | `#6A82D8` |
+| 3 | Scattered   | `#4F63C8` |
+| 4 | Steady      | `#3949AB` |
+| 5 | Focused     | `#283593` |
+
+### `/check-in-detail` — three sliders
+
+Each gradient runs left (depleted) → right (peak) in 5 stops.
+
+**Sharpness — Vivid Yellow → Dark Amber**
+```
+linear-gradient(90deg,#FFE082 0%,#FFD54F 25%,#FFC107 50%,#FFA000 75%,#B8860B 100%)
 ```
 
-There is a Lovable AI/Gemini helper available in the shared AI utility, but `smart-nudges/index.ts` does not import or call it today. Because the Claude Haiku alias is currently `claude-3-5-haiku-latest`, the AI path is likely failing with 404 and the function is effectively relying on static fallback copy.
-
-## Focused patch scope
-
-I will make one isolated Smart Nudges patch only. I will not change cascade logic, suppression, frequency, routing, timing windows, APNs delivery, user selection, or notification preferences.
-
-## Implementation plan
-
-### 1. Fix Claude Haiku model alias
-
-Update the shared Claude model alias:
-
-```text
-claude-3-5-haiku-latest → claude-3-5-haiku-20241022
+**Clarity — Pale Cyan → Deep Teal**
+```
+linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)
 ```
 
-This restores the existing first-choice AI path without changing prompt logic or nudge behavior.
-
-### 2. Add Gemini/Lovable AI as the middle AI fallback
-
-Update Smart Nudges copy generation to follow:
-
-```text
-Claude Haiku → Lovable AI Gemini → validated static fallback
+**Confidence — Soft Lavender → Deep Royal Purple**
+```
+linear-gradient(90deg,#B39DDB 0%,#9575CD 25%,#7E57C2 50%,#5E35B1 75%,#311B92 100%)
 ```
 
-Implementation details:
-- Import the existing `callLovableAIText` helper into `smart-nudges/index.ts`.
-- Reuse the same V8 system prompt and user prompt for the Gemini attempt.
-- Use the supported default Lovable AI model `google/gemini-3-flash-preview`.
-- Apply the exact same V8 parsing and validation gate to both AI providers:
-  - no fabricated wearable data
-  - no citing null HRV/RHR/sleep fields
-  - `violatesCopyContractV8`
-  - `requiresNamedContextToken`
-  - `violatesMeaningSentence`
-- If Claude fails, log the Claude failure and attempt Gemini.
-- If Gemini fails or returns invalid/non-compliant copy, fall back to static copy.
+(Slider thumb fill stays off-white per `LuxuryThumb`; pencil hatch stays black; only the underlying track gradient changes.)
 
-### 3. Gate all static fallback copy through V8 validators
+## Changes
 
-Add a small local validator wrapper for fallback copy, used immediately after each fallback is selected:
+### `src/components/ui/slider.tsx`
+- Replace the single `LUXURY_SPECTRUM` constant with a small map:
+  ```ts
+  const LUXURY_SPECTRUMS = {
+    luxury:     "linear-gradient(90deg,#8FB3D9 0%,#6E9AC8 25%,#4A7FB0 50%,#2B6CB0 75%,#1E4E83 100%)", // unused but kept as default
+    sharpness:  "linear-gradient(90deg,#FFE082 0%,#FFD54F 25%,#FFC107 50%,#FFA000 75%,#B8860B 100%)",
+    clarity:    "linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)",
+    confidence: "linear-gradient(90deg,#B39DDB 0%,#9575CD 25%,#7E57C2 50%,#5E35B1 75%,#311B92 100%)",
+  } as const;
+  ```
+- Extend the `variant` union in `sliderTrackVariants` / `sliderRangeVariants` / `sliderThumbVariants` to include `sharpness | clarity | confidence`. All three reuse the **same styles as `luxury`** (track height, hatch overlay, transparent range with inset shadow, LuxuryThumb, ticks). Only the `backgroundImage` differs.
+- In the `Slider` render: `style={ variant && variant !== "default" ? { backgroundImage: LUXURY_SPECTRUMS[variant] } : undefined }`.
+- Show `LuxuryThumb` + `LuxuryTicks` + `EngravedFill` whenever `variant !== "default"`.
 
-```text
-validateStaticFallbackCopy(copy, ctx, nudgeType)
-```
+No other behavior change — the component API is additive and backward-compatible (`variant="luxury"` keeps working unchanged).
 
-It will:
-- Build the same real-token V8 context used for AI validation.
-- Run `violatesCopyContractV8(copy.body, v8Ctx)`.
-- Reject/suppress any fallback body that violates V8.
-- Log the variant id and reason if a fallback fails.
-- Return a safe V8-compliant emergency copy only if absolutely needed, so the function never ships V7 phrasing.
+### `src/pages/CheckInDetail.tsx`
+Change only the `variant` prop on each of the 3 sliders, in the order they currently appear:
+- Sharpness slider → `variant="sharpness"`
+- Clarity slider → `variant="clarity"`
+- Confidence slider → `variant="confidence"`
 
-This keeps validation centralized and prevents future fallback regressions.
+Nothing else touched (handlers, labels, layout, CTA, save flow all unchanged).
 
-### 4. Rewrite/purge the known failing V7 fallback variants
+### `src/pages/DailyCheckIn.tsx`
+Replace only the 5 `accent` hex values in the `outcomes` array with the Indigo ramp above (same order: Overloaded, Drained, Scattered, Steady, Focused). Icons, titles, values, ordering, button classes unchanged.
 
-Target only the known failing variants you listed, plus any direct static fallback selected by those same branches:
+## Verification checklist
 
-- `FB-N1-light::A/B/C/D`
-- `FB-N1-hrv::C`
-- `FB-N3-light::B/C`
-- `FB-N3-priorities::C`
-- `FB-N3-fri-light::B`
-
-I will rewrite these to V8 gold-standard shape:
-
-```text
-Meaning sentence with real context → specific in-app mental-performance CTA
-```
-
-Examples of allowed endings:
-- `check in to set your intention`
-- `check in to recalibrate`
-- `check in to close the day`
-- `check in to close the week`
-- `log in to prep your mind`
-- `log in to prep your state`
-- `log in to recalibrate your mind`
-
-I will remove/suppress V7 phrases such as:
-- `prep now`
-- `go to the app to prep`
-- `open the app to prep`
-- bare metric starts like `HRV -20% today — ...`
-- passive consumption such as `your prep is ready`
-
-### 5. Revalidate CTA variant rewriting after A/B assignment
-
-Because the A/B CTA variant function rewrites the body after fallback selection, I will add a final V8 validation check after `applyCtaVariant(...)` and before insert/send.
-
-This is important because the failing examples include variant suffixes like `::B` and `::C`; the final shipped text must be V8-compliant after CTA mutation, not only before it.
-
-If final validation fails:
-- suppress that notification for that cron tick rather than send non-compliant copy
-- log the variant id, nudge type, and violation reason
-
-### 6. Persist V8 telemetry in `notification_log.payload.metadata`
-
-Currently the payload has top-level fields:
-
-```text
-architecture
-cta_experiment
-```
-
-but recent rows show `payload.metadata` is null. I will persist both top-level and nested metadata to support current and future queries:
-
-```json
-{
-  "architecture": "cos-mind-v8-meaning-forward",
-  "cta_experiment": "cta-action-verb-v2",
-  "metadata": {
-    "architecture": "cos-mind-v8-meaning-forward",
-    "cta_experiment": "cta-action-verb-v2"
-  }
-}
-```
-
-The APNs status update path will preserve the same metadata object when updating the payload.
-
-### 7. Update the focused validation harness/docs references only where needed
-
-I will update the existing Smart Nudges validation test/documentation references only as needed to reflect the focused patch:
-- Claude fixed alias
-- AI fallback chain is now Claude → Gemini → static
-- static fallback copy is V8-gated
-- telemetry metadata is persisted under `payload.metadata`
-
-No unrelated Smart Nudges docs or architecture sections will be rewritten.
-
-## Validation after patch
-
-After implementation, I will validate:
-
-1. Static code search confirms no active fallback body contains banned V7 phrases.
-2. Fallback variants pass `violatesCopyContractV8` and `requiresNamedContextToken`.
-3. Final post-CTA-variant body is validated before insert/send.
-4. Dry-run/live function response still reports `cos-mind-v8-meaning-forward`.
-5. Recent inserted `notification_log.payload.metadata.architecture` and `.cta_experiment` are populated.
-6. Edge logs no longer show Claude 404 for the Haiku model alias.
-
-## Files expected to change
-
-- `supabase/functions/_shared/anthropic.ts`
-- `supabase/functions/smart-nudges/index.ts`
-- `supabase/functions/smart-nudges/v5_validation_test.ts` if needed for the V8 validation assertions
-- `docs/SMART_NUDGES_TECHNICAL_DOCUMENTATION.md` only for the narrow fallback-chain / metadata note if needed
+- `/daily-check-in`: 5 buttons identical in shape/icon/order; fills are now an Indigo light→dark ramp. White text remains legible against EngravedFill overlay. CTA button untouched.
+- `/check-in-detail`: 3 sliders render with identical track height, hatch overlay, ticks, and pencil thumb. Track gradients are now Yellow (Sharpness), Teal/Cyan (Clarity), Purple (Confidence) respectively.
+- No other route, readiness/tier color, or component affected.
