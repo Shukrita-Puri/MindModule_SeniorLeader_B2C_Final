@@ -1119,12 +1119,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 </p>
               </div>
             )}
-            {/* Data Source Note */}
-            {data.checkInCount > 0 && (
-              <p className="text-xs text-muted-foreground/60 text-center">
-                {data.dataSourceNote}
-              </p>
-            )}
           </div>
         )}
       </CardContent>
