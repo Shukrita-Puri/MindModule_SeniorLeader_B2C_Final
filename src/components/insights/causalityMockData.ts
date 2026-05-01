@@ -32,6 +32,30 @@ export interface MockCoverage {
   eventCount: number;
 }
 
+export interface MockStressMatrix {
+  events: string[];
+  days: string[];
+  cells: (number | null)[][];
+  n: number[][];
+  confidence: ('strong' | 'emerging' | null)[][];
+  maxObserved: number;
+  topCell: { event: string; day: string; value: number } | null;
+  lowCell: { event: string; day: string; value: number } | null;
+  topDay: { day: string; total: number } | null;
+}
+export interface MockBurnoutMatrix {
+  weeks: string[];
+  dims: Array<{
+    key: 'load' | 'rhr' | 'hrv' | 'sleep';
+    label: string;
+    color: string;
+    weekly: number[];
+    trajectory: 'escalating' | 'stable' | 'improving';
+  }>;
+  cardTrajectory: 'escalating' | 'stable' | 'improving';
+  bannerCopy: string;
+}
+
 export interface MockCausalityPayload {
   top: MockFinding | null;
   lensA: MockFinding[];
@@ -41,6 +65,8 @@ export interface MockCausalityPayload {
   coverage: MockCoverage;
   generatedAt: string;
   isMock: true;
+  stressMatrix?: MockStressMatrix;
+  burnoutMatrix?: MockBurnoutMatrix;
 }
 
 const lensA: MockFinding[] = [
