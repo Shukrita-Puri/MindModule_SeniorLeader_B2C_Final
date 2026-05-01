@@ -263,7 +263,7 @@ function GatingPrompt({ hasWearable, hasCalendar }: { hasWearable: boolean; hasC
         {!hasWearable && (
           <button
             type="button"
-            onClick={() => navigate('/settings/integrations')}
+            onClick={() => navigate('/connected-data')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
           >
             <Watch className="h-3.5 w-3.5" /> Connect wearable
@@ -272,7 +272,7 @@ function GatingPrompt({ hasWearable, hasCalendar }: { hasWearable: boolean; hasC
         {!hasCalendar && (
           <button
             type="button"
-            onClick={() => navigate('/settings/integrations')}
+            onClick={() => navigate('/connected-data')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
           >
             <CalendarIcon className="h-3.5 w-3.5" /> Connect calendar
