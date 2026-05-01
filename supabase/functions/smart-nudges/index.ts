@@ -2268,6 +2268,21 @@ serve(async (req) => {
 
     console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');
 
+    // V8 test path — `?force_user=<id>` (or `?force_user_id=`) bypasses the
+    // global quiet-window + DND checks for that one user so we can trigger
+    // the AI copy path on demand and verify Claude→Gemini are reachable in
+    // production. All other guards (cooldowns, suppression, anchor presence,
+    // V8 validators) still run. Optional `?force_dry=1` skips APNs delivery.
+    const url = new URL(req.url);
+    const forceUserId =
+      url.searchParams.get('force_user') ||
+      url.searchParams.get('force_user_id') ||
+      null;
+    const forceDryRun = url.searchParams.get('force_dry') === '1';
+    if (forceUserId) {
+      console.log(`[smart-nudges][v8 test] force_user=${forceUserId} (bypassing window+DND, dry=${forceDryRun})`);
+    }
+
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
       .from('notification_device_tokens')
