@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import LevelTrendCalendar from '@/components/insights/LevelTrendCalendar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import StreakWreath from '@/components/insights/StreakWreath';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -132,7 +132,7 @@ const stateColors: Record<string, { color: string; dark: string; glow: string; l
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [activeTrend, setActiveTrend] = useState<'energy' | 'clarity' | 'sharpness' | 'confidence'>('energy');
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -843,10 +843,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Mind Readiness Rhythm
+            Mind Readiness Trend
           </span>
           <InsightInfoModal
-            title="Mind Readiness Rhythm"
+            title="Mind Readiness Trend"
             explanation="When you’re at your sharpest, and what your outer world is doing to your inner state — patterns you can’t see without zooming out."
           />
         </div>
@@ -867,16 +867,63 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 2 – Week at a Glance (moved above How You Show Up) */}
-            {data.checkInCount >= 5 && data.weekRows && (() => {
+            {/* Tab switcher: one chart at a time */}
+            {data.checkInCount >= 5 && (
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { k: 'energy', label: 'Energy' },
+                  { k: 'clarity', label: 'Clarity' },
+                  { k: 'sharpness', label: 'Sharpness' },
+                  { k: 'confidence', label: 'Confidence' },
+                ] as const).map(({ k, label }) => (
+                  <button
+                    key={k}
+                    onClick={() => setActiveTrend(k)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-medium tracking-wide font-body transition-all',
+                      activeTrend === k
+                        ? 'bg-foreground text-background shadow-sm'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 2 – Energy Trend (only when Energy tab is active) */}
+            {data.checkInCount >= 5 && data.weekRows && activeTrend === 'energy' && (() => {
               const allDays = data.weekRows.flatMap(w => w.days);
               const todayIdx = allDays.findIndex(d => d.isToday);
+
+              // Energy streak: consecutive in-month days (ending today, or
+              // yesterday if today not yet logged) where ANY slot outcome
+              // was 'focused' or 'steady'. Resets on the 1st of the month.
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const todayStr = today.toLocaleDateString('en-CA');
+              const month = today.getMonth();
+              const year = today.getFullYear();
+              const inMonth = allDays.filter(d => {
+                const dt = new Date(d.date);
+                return !d.isFuture && dt.getMonth() === month && dt.getFullYear() === year;
+              });
+              const isPositive = (d: typeof allDays[number]) =>
+                [d.slots.morning.outcome, d.slots.midday.outcome, d.slots.evening.outcome]
+                  .some(o => o === 'focused' || o === 'steady');
+              const hasAny = (d: typeof allDays[number]) =>
+                [d.slots.morning.outcome, d.slots.midday.outcome, d.slots.evening.outcome].some(o => !!o);
+              let i = inMonth.length - 1;
+              if (i >= 0 && inMonth[i].date === todayStr && !hasAny(inMonth[i])) i -= 1;
+              let energyStreak = 0;
+              while (i >= 0 && isPositive(inMonth[i])) { energyStreak += 1; i -= 1; }
 
               return (
                 <>
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">
                           Energy Trend
                         </span>
@@ -885,7 +932,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                           explanation="Each dot is a check-in at that time of day. The colour shows how you reported feeling. Empty dots mean no check-in was logged."
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground/50">← scroll for past weeks</span>
+                      <span className="text-[10px] text-muted-foreground/50 self-center flex-1 text-center">← scroll for past weeks</span>
+                      <div className="flex-shrink-0">
+                        <StreakWreath
+                          count={energyStreak}
+                          label={energyStreak > 0 ? 'days of high energy' : 'start your streak'}
+                        />
+                      </div>
                     </div>
 
                     <div className="flex">
@@ -998,40 +1051,39 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               );
             })()}
 
-            {/* Clarity / Sharpness / Confidence trends — same calendar style as Mental Energy Trend */}
-            {data.checkInCount >= 5 && (
-              <Collapsible open={levelsOpen} onOpenChange={setLevelsOpen}>
-                <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/60 font-body font-medium hover:text-muted-foreground/80 transition-colors cursor-pointer">
-                  {levelsOpen ? 'Hide' : 'Show'} Clarity, Sharpness & Confidence trends
-                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", levelsOpen && "rotate-180")} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-6 pt-4">
-                  <LevelTrendCalendar
-                    userId={userId}
-                    field="clarity_level"
-                    title="Clarity Trend"
-                    explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
-                    vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
-                    palette="clarity"
-                  />
-                  <LevelTrendCalendar
-                    userId={userId}
-                    field="mental_sharpness_level"
-                    title="Sharpness Trend"
-                    explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
-                    vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
-                    palette="sharpness"
-                  />
-                  <LevelTrendCalendar
-                    userId={userId}
-                    field="confidence_level"
-                    title="Confidence Trend"
-                    explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
-                    vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
-                    palette="confidence"
-                  />
-                </CollapsibleContent>
-              </Collapsible>
+            {/* Clarity / Sharpness / Confidence trends — single chart per tab */}
+            {data.checkInCount >= 5 && activeTrend === 'clarity' && (
+              <LevelTrendCalendar
+                userId={userId}
+                field="clarity_level"
+                title="Clarity Trend"
+                explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
+                palette="clarity"
+                streakLabel="days of crystal clarity"
+              />
+            )}
+            {data.checkInCount >= 5 && activeTrend === 'sharpness' && (
+              <LevelTrendCalendar
+                userId={userId}
+                field="mental_sharpness_level"
+                title="Sharpness Trend"
+                explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
+                palette="sharpness"
+                streakLabel="days of peak sharpness"
+              />
+            )}
+            {data.checkInCount >= 5 && activeTrend === 'confidence' && (
+              <LevelTrendCalendar
+                userId={userId}
+                field="confidence_level"
+                title="Confidence Trend"
+                explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
+                palette="confidence"
+                streakLabel="days of strong confidence"
+              />
             )}
 
             {/* 1A – Your Rhythm Signals: top-3 Chief-of-Staff prioritized findings */}

@@ -1,20 +1,43 @@
 ---
 name: Insights Level Trend Calendars
-description: Clarity/Sharpness/Confidence trend calendars under Mind Readiness Rhythm — palette, scale, layout, and rename rules
+description: Energy/Clarity/Sharpness/Confidence trend calendars under Mind Readiness Trend — tab switcher, monthly streak wreaths, palette, and layout rules
 type: feature
 ---
 
-# Mind Readiness Rhythm — Trend Calendars
+# Mind Readiness Trend — Trend Calendars
 
-Section title: **Mind Readiness Rhythm** (was "Your Readiness Rhythm").
+Section title: **Mind Readiness Trend** (was "Mind Readiness Rhythm" / "Your Readiness Rhythm").
 
-Four calendars, in this order, all sharing one visual language:
-1. **Energy Trend** (was "Mental Energy Trend") — outcome-based dots from `daily_checkins.outcome`.
+Four trend calendars, all sharing one visual language, surfaced via a **tab switcher** under the section header — only **one chart at a time** is visible (mirrors the Cause & Effect card pattern):
+
+`[ Energy ] [ Clarity ] [ Sharpness ] [ Confidence ]` — Energy is the default tab.
+
+Sources:
+1. **Energy Trend** — `daily_checkins.outcome`.
 2. **Clarity Trend** — `daily_checkins.clarity_level`.
-3. **Sharpness Trend** (was "Mental Sharpness Trend") — `daily_checkins.mental_sharpness_level`.
+3. **Sharpness Trend** — `daily_checkins.mental_sharpness_level`.
 4. **Confidence Trend** — `daily_checkins.confidence_level`.
 
-Then **How You Show Up** below all four.
+Then **Your Rhythm Signals** below the active calendar.
+
+## Per-chart header (3-zone)
+`[ Title (info) ]   ← scroll for past weeks   [ StreakWreath ]`
+- The "scroll for past weeks" hint sits centred next to the title (was on the right).
+- A gold `StreakWreath` (`src/components/insights/StreakWreath.tsx`) sits on the extreme right of every chart header.
+
+## Streak rules (UI-only, no new queries)
+Derived from the same `daily_checkins` rows the calendar already loads.
+- **Window:** current calendar month only. Resets to 0 on day 1 of every month.
+- **Day grain:** a day counts as positive if **any** check-in slot that day meets the positive band.
+- **Anchor:** consecutive positive days ending **today** — or **yesterday** if today has no entry yet (so the streak doesn't visually break mid-day).
+- **Gap rule:** any in-month day that is non-positive *or* has no check-in ends the streak.
+- Positive bands: Energy → `outcome ∈ {focused, steady}`; Clarity / Sharpness / Confidence → `level ≥ 4`.
+- Milestone celebrations at **3 / 7 / 14 / 21 / 30** days play a one-shot 1.2s gold pulse + sparkle (CSS `streak-pulse` keyframe in `src/index.css`). No toasts, no confetti.
+
+## StreakWreath component
+- Reuses the laurel-wreath SVG paths from `src/components/MetaSkillsWreath.tsx` — do **not** redraw them.
+- Solid `hsl(var(--gold))` fill, transparent background, no drop-shadow, no inner sub-label.
+- Caption below the wreath uses per-trend copy: `days of high energy` / `days of crystal clarity` / `days of peak sharpness` / `days of strong confidence`. Empty streak (`0`) renders the wreath at 35% opacity with a `—` and caption `start your streak`.
 
 ## Data scale
 Clarity / Sharpness / Confidence levels are **1–5** in the DB (slider on `/checkin/detail`), NOT 1–10. Tier mapping must use 1–5.

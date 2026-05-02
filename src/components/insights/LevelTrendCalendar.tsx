@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import StreakWreath from '@/components/insights/StreakWreath';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -33,6 +34,8 @@ interface LevelTrendCalendarProps {
    * Falls back to the legacy traffic-light palette when omitted.
    */
   palette?: LevelPalette;
+  /** Caption shown below the streak wreath (e.g. "days of crystal clarity"). */
+  streakLabel?: string;
 }
 
 interface DayCell {
@@ -123,7 +126,10 @@ const tierFor = (tiers: Tier[], v: number | null) => {
   return tiers.find((t) => t.value === clamped) || null;
 };
 
-const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette }: LevelTrendCalendarProps) => {
+const MILESTONES = [3, 7, 14, 21, 30] as const;
+type Milestone = (typeof MILESTONES)[number];
+
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel }: LevelTrendCalendarProps) => {
   const LEVEL_TIERS = tiersFor(palette, vocabulary);
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +139,47 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
   const isMobileRef = useRef(isMobile);
   isMobileRef.current = isMobile;
   daysRef.current = days;
+
+  // ── Streak: consecutive days in the current calendar month, ending today
+  // (or yesterday if today has no entry yet), where ANY slot for the day
+  // hit the positive band (level ≥ 4). Resets on the 1st of each month.
+  const streak = useMemo(() => {
+    if (!days || days.length === 0) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toLocaleDateString('en-CA');
+    const inMonth = days.filter((d) => !d.isFuture);
+    const isPositive = (d: DayCell) =>
+      [d.slots.morning.value, d.slots.midday.value, d.slots.evening.value].some(
+        (v) => v != null && v >= 4,
+      );
+    const hasAny = (d: DayCell) =>
+      [d.slots.morning.value, d.slots.midday.value, d.slots.evening.value].some((v) => v != null);
+    let i = inMonth.length - 1;
+    // If today exists and has no check-in yet, anchor at yesterday.
+    if (i >= 0 && inMonth[i].date === todayStr && !hasAny(inMonth[i])) i -= 1;
+    let count = 0;
+    while (i >= 0 && isPositive(inMonth[i])) {
+      count += 1;
+      i -= 1;
+    }
+    return count;
+  }, [days]);
+
+  const lastStreakRef = useRef(0);
+  const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(null);
+  useEffect(() => {
+    const prev = lastStreakRef.current;
+    if (streak > prev) {
+      const hit = MILESTONES.find((m) => prev < m && streak >= m);
+      if (hit) {
+        setActiveMilestone(hit);
+        const t = setTimeout(() => setActiveMilestone(null), 1400);
+        return () => clearTimeout(t);
+      }
+    }
+    lastStreakRef.current = streak;
+  }, [streak]);
 
   const labelFor = (value: number) =>
     vocabulary?.[value as 1 | 2 | 3 | 4 | 5] ??
@@ -310,12 +357,19 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
           <InsightInfoModal title={title} explanation={explanation} />
         </div>
-        <span className="text-xs text-muted-foreground/50">← scroll for past weeks</span>
+        <span className="text-[10px] text-muted-foreground/50 self-center flex-1 text-center">← scroll for past weeks</span>
+        <div className="flex-shrink-0">
+          <StreakWreath
+            count={streak}
+            label={streak > 0 ? (streakLabel ?? 'day streak') : 'start your streak'}
+            milestone={activeMilestone}
+          />
+        </div>
       </div>
 
       <div className="flex">
