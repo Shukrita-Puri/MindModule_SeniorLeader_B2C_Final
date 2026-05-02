@@ -28,7 +28,7 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
 
   const isEmpty = count <= 0;
   const display = isEmpty ? '—' : String(count);
-  const fontSize = display.length >= 3 ? 11 : display.length === 2 ? 13 : 15;
+  const fontSize = display.length >= 3 ? 16 : display.length === 2 ? 19 : 22;
 
   return (
     <div
@@ -50,12 +50,13 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
           draggable={false}
         />
         <span
-          className="absolute inset-0 flex items-center justify-center font-headline font-bold leading-none"
+          className="absolute inset-0 flex items-center justify-center font-headline font-black leading-none"
           style={{
-            color: '#1a1208',
+            color: '#0d0905',
             fontSize,
-            paddingTop: 10, // nudge into flame body, not the tip
-            textShadow: '0 1px 0 rgba(255,236,200,0.6)',
+            paddingTop: 12, // nudge into flame body, not the tip
+            textShadow: '0 1px 0 rgba(255,236,200,0.85), 0 0 2px rgba(255,236,200,0.6)',
+            WebkitTextStroke: '0.4px rgba(255,236,200,0.5)',
           }}
         >
           {display}
