@@ -100,40 +100,27 @@ serve(async (req) => {
       }
 
       case 'UPDATE_SESSION_RATING': {
-        if (!reqSessionId || !rating) {
-          return new Response(JSON.stringify({ error: 'Missing sessionId or rating' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        const { error } = await supabase
-          .from('practice_sessions')
-          .update({
-            effectiveness_rating: rating,
-            metadata: {
-              qualitative_rating: qualitativeRating,
-              feedback_text: feedbackText
-            }
-          })
-          .eq('id', reqSessionId)
-          .eq('user_id', userId);
-
-        if (error) {
-          console.error('[content-feedback] UPDATE_SESSION_RATING error:', error);
-          throw error;
-        }
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        // Deprecated: practice ratings now write only to content_relevance_feedback (CRF).
+        // Returning 410 Gone so any straggling clients fail loudly instead of silently
+        // writing to the now-dead practice_sessions.effectiveness_rating column.
+        console.warn('[content-feedback] UPDATE_SESSION_RATING is deprecated — CRF is the single source of truth.');
+        return new Response(
+          JSON.stringify({
+            error: 'UPDATE_SESSION_RATING is deprecated. Use SUBMIT_FEEDBACK with feedback_type=star_rating instead.',
+          }),
+          {
+            status: 410,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       case 'GET_PRACTICE_IMPACT': {
         // 30-day window
         const sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        // 1) Practice + plan-level star ratings (exclude brief_inline)
+        // CRF is the single source of truth for Brief/Plan/Practice ratings.
+        // Read practice + plan-level star ratings here (exclude brief_inline).
         const { data: feedbackRows, error: fbErr } = await supabase
           .from('content_relevance_feedback')
           .select('content_id, content_type, star_rating, session_id, trigger_context, created_at')
@@ -153,19 +140,7 @@ serve(async (req) => {
             r.trigger_context === 'post_plan_completion'
         );
 
-        // 2) Session-level effectiveness ratings
-        const { data: sessionRows, error: psErr } = await supabase
-          .from('practice_sessions')
-          .select('id, content_id, effectiveness_rating, completed_at')
-          .eq('user_id', userId)
-          .not('effectiveness_rating', 'is', null)
-          .gte('completed_at', sinceIso);
-        if (psErr) {
-          console.error('[content-feedback] GET_PRACTICE_IMPACT sessions error:', psErr);
-          throw psErr;
-        }
-
-        // 3) Completion count
+        // Completion count (engagement signal, not feedback)
         const { data: completedEvents, error: evErr } = await supabase
           .from('sanctuary_events')
           .select('content_id, category, timestamp')
@@ -180,12 +155,12 @@ serve(async (req) => {
         const totalPractices = completedEvents?.length ?? 0;
 
         // Aggregate per content_id
-        type Agg = { total: number; count: number; sessionIds: Set<string> };
+        type Agg = { total: number; count: number };
         const perContent = new Map<string, Agg>();
         const ensure = (id: string): Agg => {
           let a = perContent.get(id);
           if (!a) {
-            a = { total: 0, count: 0, sessionIds: new Set() };
+            a = { total: 0, count: 0 };
             perContent.set(id, a);
           }
           return a;
@@ -195,15 +170,6 @@ serve(async (req) => {
           if (!r.content_id || r.star_rating == null) continue;
           const a = ensure(r.content_id);
           a.total += r.star_rating;
-          a.count += 1;
-          if (r.session_id) a.sessionIds.add(r.session_id);
-        }
-
-        for (const s of sessionRows ?? []) {
-          if (!s.content_id || s.effectiveness_rating == null) continue;
-          const a = ensure(s.content_id);
-          if (s.id && a.sessionIds.has(s.id)) continue;
-          a.total += s.effectiveness_rating;
           a.count += 1;
         }
 
