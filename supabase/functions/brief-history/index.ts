@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const { data, error } = await supabase
       .from('brief_snapshots')
-      .select('id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver, score, tier, signal_pills, wearable_snapshot, checkin_snapshot, user_rating, feedback_text, created_at')
+      .select('id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver, score, tier, signal_pills, wearable_snapshot, checkin_snapshot, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
