@@ -21,9 +21,9 @@ Sources:
 Then **Your Rhythm Signals** below the active calendar.
 
 ## Per-chart header (3-zone)
-`[ Title (info) ]   ← scroll for past weeks   [ StreakWreath ]`
+`[ Title (info) ]   ← scroll for past weeks   [ StreakFlame ]`
 - The "scroll for past weeks" hint sits centred next to the title (was on the right).
-- A gold `StreakWreath` (`src/components/insights/StreakWreath.tsx`) sits on the extreme right of every chart header.
+- An engraved coloured-flame streak icon (`src/components/insights/StreakWreath.tsx`, exported as `StreakWreath` for backwards-compat) sits on the extreme right of every chart header. The streak number is rendered inside the flame's inner core.
 
 ## Streak rules (UI-only, no new queries)
 Derived from the same `daily_checkins` rows the calendar already loads.
@@ -34,10 +34,11 @@ Derived from the same `daily_checkins` rows the calendar already loads.
 - Positive bands: Energy → `outcome ∈ {focused, steady}`; Clarity / Sharpness / Confidence → `level ≥ 4`.
 - Milestone celebrations at **3 / 7 / 14 / 21 / 30** days play a one-shot 1.2s gold pulse + sparkle (CSS `streak-pulse` keyframe in `src/index.css`). No toasts, no confetti.
 
-## StreakWreath component
-- Reuses the laurel-wreath SVG paths from `src/components/MetaSkillsWreath.tsx` — do **not** redraw them.
-- Solid `hsl(var(--gold))` fill, transparent background, no drop-shadow, no inner sub-label.
-- Caption below the wreath uses per-trend copy: `days of high energy` / `days of crystal clarity` / `days of peak sharpness` / `days of strong confidence`. Empty streak (`0`) renders the wreath at 35% opacity with a `—` and caption `start your streak`.
+## Streak Flame component
+- Hand-drawn engraved flame in the 19th-century scientific-engraving language (see `mem://brand/reset-studio-visual-system`). Do NOT revert to the laurel wreath.
+- Warm amber/gold gradient body (`#f4c14a → #e8a23a → #c9651f`), thin `hsl(var(--gold))` outline, sparse hatch lines for engraving texture, cream inner core that holds the streak number, single saffron tip wisp.
+- Transparent background, no drop-shadow. Caption below uses per-trend copy: `days of high energy` / `days of crystal clarity` / `days of peak sharpness` / `days of strong confidence`. Empty streak (`0`) renders the flame at 35% opacity with a `—` and caption `start your streak`.
+- Milestone (3/7/14/21/30) plays the `animate-streak-pulse` keyframe plus a one-shot ember sparkle above the flame tip.
 
 ## Data scale
 Clarity / Sharpness / Confidence levels are **1–5** in the DB (slider on `/checkin/detail`), NOT 1–10. Tier mapping must use 1–5.

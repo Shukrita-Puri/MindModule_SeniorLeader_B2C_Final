@@ -10,10 +10,10 @@ interface StreakWreathProps {
 }
 
 /**
- * Streak indicator built from the same laurel-wreath SVG paths as
- * MetaSkillsWreath, but rendered in solid gold on a transparent background.
- * Used in the Mind Readiness Trend section to celebrate consecutive
- * positive check-in days within the current calendar month.
+ * Engraved coloured-flame streak icon for the Mind Readiness Trend section.
+ * 19th-century scientific-engraving aesthetic: thin gold outline, hatched
+ * interior, warm amber gradient body, with the streak number rendered
+ * inside the inner core.
  */
 const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps) => {
   const [pulse, setPulse] = useState(false);
@@ -27,7 +27,11 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
 
   const isEmpty = count <= 0;
   const display = isEmpty ? '—' : String(count);
-  const fontSize = display.length >= 3 ? 24 : display.length === 2 ? 30 : 34;
+  const fontSize = display.length >= 3 ? 22 : display.length === 2 ? 28 : 34;
+
+  // Unique gradient ids per render so multiple flames on a page don't collide
+  const gradId = `flame-body-${label.replace(/\s+/g, '-')}`;
+  const coreId = `flame-core-${label.replace(/\s+/g, '-')}`;
 
   return (
     <div
@@ -39,78 +43,80 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
     >
       <svg
         width="64"
-        height="56"
-        viewBox="0 0 140 120"
+        height="72"
+        viewBox="0 0 100 120"
         className={cn(pulse && 'animate-streak-pulse')}
         style={{ overflow: 'visible' }}
       >
-        {/* Left laurel branch */}
+        <defs>
+          <linearGradient id={gradId} x1="50%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stopColor="#f4c14a" />
+            <stop offset="55%" stopColor="#e8a23a" />
+            <stop offset="100%" stopColor="#c9651f" />
+          </linearGradient>
+          <radialGradient id={coreId} cx="50%" cy="60%" r="55%">
+            <stop offset="0%" stopColor="#fff4dc" />
+            <stop offset="100%" stopColor="#f6dca0" />
+          </radialGradient>
+        </defs>
+
+        {/* Outer flame silhouette — classic teardrop with a curling tip */}
         <path
-          d="M 30 90 Q 25 85, 20 80 Q 18 70, 20 60 Q 22 50, 25 40 Q 28 30, 32 20"
-          fill="none"
+          d="M 50 8
+             C 58 22, 76 34, 80 56
+             C 84 82, 68 108, 50 110
+             C 32 108, 16 82, 20 56
+             C 24 34, 42 22, 50 8 Z"
+          fill={`url(#${gradId})`}
           stroke="hsl(var(--gold))"
-          strokeWidth="2.5"
+          strokeWidth="1.25"
+          strokeLinejoin="round"
+        />
+
+        {/* Engraving hatch lines (thin, sparse — engraved-pencil feel) */}
+        <g stroke="hsl(var(--gold))" strokeWidth="0.6" opacity="0.55" fill="none" strokeLinecap="round">
+          <path d="M 30 50 Q 34 62, 30 78" />
+          <path d="M 36 42 Q 40 58, 36 84" />
+          <path d="M 70 50 Q 66 62, 70 78" />
+          <path d="M 64 42 Q 60 58, 64 84" />
+          <path d="M 50 18 Q 52 26, 50 32" />
+        </g>
+
+        {/* Inner cream core — holds the number */}
+        <ellipse
+          cx="50"
+          cy="72"
+          rx="20"
+          ry="24"
+          fill={`url(#${coreId})`}
+          stroke="hsl(var(--gold))"
+          strokeWidth="0.9"
+          opacity="0.95"
+        />
+
+        {/* Saffron tip wisp */}
+        <path
+          d="M 50 8 Q 53 4, 51 0"
+          fill="none"
+          stroke="#c9651f"
+          strokeWidth="1.25"
           strokeLinecap="round"
         />
-        {[20, 30, 40, 50, 60, 70, 80].map((y, i) => (
-          <ellipse
-            key={`l-${i}`}
-            cx={30 - (90 - y) * 0.08}
-            cy={y}
-            rx="6"
-            ry="10"
-            fill="hsl(var(--gold))"
-            opacity="0.92"
-            transform={`rotate(${-35 + i * 2} ${30 - (90 - y) * 0.08} ${y})`}
-          />
-        ))}
-        {/* Right laurel branch */}
-        <path
-          d="M 110 90 Q 115 85, 120 80 Q 122 70, 120 60 Q 118 50, 115 40 Q 112 30, 108 20"
-          fill="none"
-          stroke="hsl(var(--gold))"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {[20, 30, 40, 50, 60, 70, 80].map((y, i) => (
-          <ellipse
-            key={`r-${i}`}
-            cx={110 + (90 - y) * 0.08}
-            cy={y}
-            rx="6"
-            ry="10"
-            fill="hsl(var(--gold))"
-            opacity="0.92"
-            transform={`rotate(${35 - i * 2} ${110 + (90 - y) * 0.08} ${y})`}
-          />
-        ))}
-        {/* Bow */}
-        <path
-          d="M 55 95 Q 60 92, 65 90 Q 70 88, 75 90 Q 80 92, 85 95"
-          fill="none"
-          stroke="hsl(var(--gold))"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M 55 95 Q 50 100, 45 105 M 85 95 Q 90 100, 95 105"
-          fill="none"
-          stroke="hsl(var(--gold))"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        {/* Milestone sparkle */}
+
+        {/* Milestone ember sparkle */}
         {pulse && (
-          <circle cx="70" cy="14" r="2.5" fill="hsl(var(--gold))" className="animate-ping" />
+          <circle cx="50" cy="-4" r="2.5" fill="#e8a23a" className="animate-ping" />
         )}
-        {/* Number */}
+
+        {/* Streak number */}
         <text
-          x="70"
-          y="62"
+          x="50"
+          y="72"
           textAnchor="middle"
+          dominantBaseline="central"
           className="font-headline font-bold"
           fontSize={fontSize}
-          fill="hsl(var(--gold))"
+          fill="hsl(var(--foreground))"
         >
           {display}
         </text>
