@@ -581,6 +581,17 @@ body {
   }
 }
 
+@keyframes streak-pulse {
+  0%   { transform: scale(1);    filter: drop-shadow(0 0 0 hsl(var(--gold) / 0)); }
+  40%  { transform: scale(1.06); filter: drop-shadow(0 0 6px hsl(var(--gold) / 0.55)); }
+  100% { transform: scale(1);    filter: drop-shadow(0 0 0 hsl(var(--gold) / 0)); }
+}
+
+.animate-streak-pulse {
+  animation: streak-pulse 1.2s ease-out;
+  transform-origin: center;
+}
+
 .hex-badge-shine {
   background: linear-gradient(
     135deg, 
