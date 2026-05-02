@@ -52,10 +52,10 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
         <span
           className="absolute inset-0 flex items-center justify-center font-headline font-bold leading-none"
           style={{
-            color: '#fff4dc',
+            color: '#1a1208',
             fontSize,
             paddingTop: 10, // nudge into flame body, not the tip
-            textShadow: '0 1px 1px rgba(80,30,5,0.55)',
+            textShadow: '0 1px 0 rgba(255,236,200,0.6)',
           }}
         >
           {display}
@@ -67,7 +67,7 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
           />
         )}
       </div>
-      <span className="mt-0.5 text-[8px] tracking-wider uppercase text-gold/70 font-body text-center max-w-[64px] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="mt-0.5 text-[8px] tracking-wider uppercase text-gold/70 font-body text-center leading-tight whitespace-nowrap">
         {label}
       </span>
     </div>
