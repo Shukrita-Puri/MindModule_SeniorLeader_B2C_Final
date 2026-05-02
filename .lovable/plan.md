@@ -1,102 +1,99 @@
+## Mind Readiness Trend — UI refresh (no logic/scoring changes)
 
-## Practice Effectiveness Card v3 — Isolated rebuild
+Pure presentation update to the section currently titled **Mind Readiness Rhythm** in `src/components/insights/PerformanceRhythmCard.tsx`. No edge functions, no schema, no scoring math touched. Streak is a derived count from the same `daily_checkins` rows already fetched by the four calendars.
 
-Scope: only `src/components/insights/PracticeEffectiveness.tsx` and the `GET_PRACTICE_IMPACT` action in `supabase/functions/content-feedback/index.ts`. No other component, route or write path is touched. CRF stays the single source of truth for ratings.
+---
 
-### What the user sees
+### 1. Rename
+- Section title: `Mind Readiness Rhythm` → **`Mind Readiness Trend`** (header + `InsightInfoModal` title).
+- Memory file `mem/features/insights/level-trend-calendars.md` updated to reflect the new title.
 
-Stage bar (Day 1–6 / Day 7–29 / Day 30+) auto-selected from session count, but tappable.
+### 2. Tab switcher (one chart at a time)
+Match the existing **Cause & Effect** card pattern: a row of 4 pill buttons directly under the section header.
 
-Three boxes side-by-side. Tapping a box swaps the chart below — only one chart visible at a time.
+```text
+[ Energy ] [ Clarity ] [ Sharpness ] [ Confidence ]
+```
 
-- **Box 1 — Most effective practice**: top practice by composite score (next-check-in clarity + sharpness + confidence delta vs baseline, equal-weighted; thumbs/star rating from CRF as a booster; favourited practices boosted further and shown with ★ badge). Surfaces post-plan thumbs too — if the practice ran inside a plan, that plan-level CRF rating contributes.
-- **Box 2 — Best time of day**: morning / afternoon / evening cell that has the highest average post-session check-in score, computed off the cross of `sanctuary_events.timestamp` window and the next `daily_checkins` in the same window. Day-of-week strip is the secondary layer in the same chart view.
-- **Box 3 — Cognitive + physical lift**: composite of self-declared lift (clarity, sharpness, confidence — next check-in vs same-day baseline) + wearable lift (HRV next morning, RHR next morning lower=better) from `wearable_data`.
+- Default: `Energy` selected on mount.
+- Active pill uses the same active style as the cause-effect tabs (filled bg, foreground text).
+- Only the selected dimension's calendar renders below — the existing collapsible "Show Clarity, Sharpness & Confidence" toggle is removed.
+- Mobile: pills wrap; horizontal scroll if needed.
 
-Locked state when a box doesn't have enough data yet (pip progress bar shows how close).
+### 3. Per-chart header layout
+Replace the current `[title] ............ [← scroll for past weeks]` row with a 3-zone layout:
 
-### Chart views (one at a time, swap on box tap)
+```text
+[ Title (info-icon) ]   ← scroll for past weeks      [ Wreath ]
+        left                    middle                  right
+```
 
-- Box 1 → ranked horizontal bars per practice with sessions count and thumbs ratio + plan badge if applicable.
-- Box 2 → 3-cell time-of-day grid (best cell highlighted) + 7-day-of-week mini strip below.
-- Box 3 → before/after paired bars per dimension (Clarity, Sharpness, Confidence, HRV next AM, RHR next AM with inverse coloring).
+- Title + info icon: left.
+- "← scroll for past weeks" hint: now sits next to the title (middle of the row, smaller muted), as requested.
+- Wreath: extreme right, vertically centered against the calendar block (slightly overhanging above the dot grid is fine).
 
-Empty/early state: "Day 1–6" copy explains baselines forming, shows sessions-logged + thumbs-given pips.
+### 4. Streak Wreath component
+New file: `src/components/insights/StreakWreath.tsx`.
 
-### Data sources (read-only, no schema changes)
+- Reuses the **exact SVG paths** from `src/components/MetaSkillsWreath.tsx` (laurel branches + bow), so we are not redrawing it.
+- Differences from `MetaSkillsWreath`:
+  - Transparent background (no card / no shadow wrapper, no tooltip provider).
+  - Color: solid **gold** (`hsl(var(--gold))`) — drop the existing gradient stop variation, keep one clean gold fill.
+  - No drop-shadow filter on the SVG.
+  - Removes the inner "Meta Skills"/"Growth" label.
+  - Center text: large gold streak number (e.g. `7`).
+  - Caption below the wreath (outside the SVG, centered): `days of high energy` / `days of crystal clarity` / `days of peak sharpness` / `days of strong confidence` — tiny uppercase, 9–10px, gold/muted.
+  - Empty state (streak `= 0`): wreath rendered at 35% opacity with a faint `—` in the center; caption reads `start your streak`.
+  - Milestone celebration at `3 / 7 / 14 / 21 / 30`: subtle one-shot gold pulse (CSS keyframe scale 1 → 1.06 → 1, 1.2s) plus a tiny gold sparkle dot above the bow. No confetti, no toasts — keeps with the executive aesthetic.
 
-| Signal | Source |
-|---|---|
-| Sessions completed, time window, content_id, category | `sanctuary_events` (event_type in `completed`/`session_complete`) |
-| Star/thumbs ratings, plan-level ratings | `content_relevance_feedback` (`feedback_type='star_rating'`, `trigger_context in ('post_practice_completion','post_plan_completion')`) |
-| Clarity / sharpness / confidence baseline + post-session | `daily_checkins` (`clarity_level`, `mental_sharpness_level`, `confidence_level`, `time_window`, `timestamp`) |
-| HRV / RHR next-morning lift | `wearable_data` (`hrv`, `resting_heart_rate`, `summary_date`) |
-| ★ favourite booster + badge | `user_favorites` |
-
-### Backend changes
-
-`supabase/functions/content-feedback/index.ts` → extend `GET_PRACTICE_IMPACT` to return one richer payload (no new action, no breaking change for any other consumer — `topPractice` + `totalPractices` keys preserved, additional keys appended):
-
+Props:
 ```ts
-{
-  data: {
-    // existing keys (back-compat)
-    topPractice, totalPractices,
-    // new
-    stage: 'day_1_6' | 'day_7_29' | 'day_30_plus',
-    windowDays: 30,
-    box1: { practices: [{ contentId, title, category, sessions, thumbsUp, thumbsTotal,
-                         compositeScore, clarityDelta, isFavourite, planBadge }] },
-    box2: { byWindow: { morning, afternoon, evening },  // each = avg post-session check-in score + n
-            byDayOfWeek: [{ dow:0..6, score, n }],
-            best: 'morning'|'afternoon'|'evening' },
-    box3: { dims: [
-      { label:'Clarity',    before, after, lift, n },
-      { label:'Sharpness',  before, after, lift, n },
-      { label:'Confidence', before, after, lift, n },
-      { label:'HRV (next AM)',  before, after, lift, n },
-      { label:'RHR (next AM)',  before, after, lift, n, inverse:true },
-    ]}
-  }
+interface StreakWreathProps {
+  count: number;            // current streak
+  label: string;            // e.g. "days of high energy"
+  milestone?: 3|7|14|21|30; // when the count crosses one, parent passes it for the pulse
 }
 ```
 
-Aggregation rules (all 30-day window, server-side, service role):
+Sized ~64×56 px so it sits cleanly to the right of the dot grid header.
 
-1. Pull `sanctuary_events` completions, `daily_checkins`, `wearable_data`, `content_relevance_feedback` (star_rating, trigger=practice or plan), `user_favorites`, `sanctuary_content` for titles.
-2. For each completed session, find the **next** `daily_checkins` row after `timestamp` (same day or next slot) → that's the post-session check-in. The **prior** check-in (or earliest of day) is the baseline.
-3. Per-practice composite = mean(clarityΔ, sharpnessΔ, confidenceΔ) normalised 0..100, then × (1 + 0.1·favouriteBoost) + thumbs booster ((thumbsUpRate − 0.5) · 20).
-4. By window = mean composite of sessions whose `time_window` (derived from event timestamp in user TZ via the 5/12/18 standard) matches.
-5. Box 3 wearable: for each AM session day D, compare `wearable_data` D vs D+1.
-6. Stage: sessions<3 → day_1_6, <10 → day_7_29, else day_30_plus.
+### 5. Streak calculation (UI-only derivation)
+Run on whatever rows the chart already has — no new queries.
 
-If user has zero sessions, return existing empty `topPractice:null, totalPractices:0` shape — keeps the locked early state working.
+Common rules:
+- **Window:** current calendar month only (1st of month → today). Streak resets to 0 on the 1st of every month.
+- **Day grain:** one entry per local date. If multiple check-ins exist that day, the day counts as "positive" if **any** check-in that day meets the positive band.
+- **Anchor:** streak is the number of consecutive positive days ending **today** (or, if today has no check-in yet, ending yesterday — so the streak doesn't visually break mid-day).
+- **Gap rule:** any in-month day with a check-in that is **not** positive ends the streak. A day with **no check-in** also ends the streak (best-in-class: "streak = consecutive days you showed up positively"); this matches how Apple/Strava handle daily streaks and avoids inflating numbers across silent days.
 
-### Frontend changes
+Positive bands (already defined in the level-trend memory, no new logic):
 
-Rewrite `src/components/insights/PracticeEffectiveness.tsx`:
+| Dimension | Source | Positive when |
+|---|---|---|
+| Energy | `daily_checkins.outcome` | `outcome ∈ { focused, steady }` |
+| Clarity | `daily_checkins.clarity_level` | `>= 4` |
+| Sharpness | `daily_checkins.mental_sharpness_level` | `>= 4` |
+| Confidence | `daily_checkins.confidence_level` | `>= 4` |
 
-- Keep the existing edge-function fetch (`content-feedback / GET_PRACTICE_IMPACT`) and `userId` prop signature.
-- Add stage bar, three boxes, swap-chart area.
-- Use existing tokens (`text-saffron`, `bg-card`, `border-border`, etc.) — no new colors, no new dependencies. Match the look & feel of the uploaded HTML mock but using Tailwind + design system tokens.
-- Reuse `InsightInfoModal` for the explainer.
-- Active box state local to the component; defaults to Box 1.
-- Locked boxes: dash + "needs N more sessions" copy + pip progress.
+Compute location:
+- **Energy** streak: in `PerformanceRhythmCard.tsx` from the `checkIns` array already in scope.
+- **Clarity / Sharpness / Confidence** streaks: inside `LevelTrendCalendar.tsx`, derived from the `days[]` it already builds for the month. Add an optional `onStreak?: (count: number) => void` callback so the parent can show milestone pulses, OR (simpler and self-contained) render the `StreakWreath` directly inside `LevelTrendCalendar`'s header.
 
-### Out of scope (untouched)
+We will go with the **self-contained** approach: `LevelTrendCalendar` renders its own wreath in its header. The parent renders the wreath only for the Energy chart (which lives directly in `PerformanceRhythmCard.tsx`).
 
-- Write paths for Brief / Plan / Practice modals (already CRF-only).
-- All other insights cards.
-- Database schema, RLS, migrations.
-- `/coach`, `llmContextBuilder`, `brief-history`, all other readers.
+Milestone detection: keep `lastSeenStreak` in `useRef`; when the new value crosses one of `[3, 7, 14, 21, 30]` upward, pass that value as the `milestone` prop for one render so the wreath plays the pulse animation.
 
-### Files to change
+### 6. What is removed / kept
+- **Removed:** the `Collapsible` "Show Clarity, Sharpness & Confidence trends" block (replaced by tabs).
+- **Kept untouched:** all data fetching, `level-trend-calendar` edge function, palettes, vocabularies, "Your Rhythm Signals" block below, Calendar/Cause-Effect cards, scoring, RLS — none of these change.
 
-1. `supabase/functions/content-feedback/index.ts` — extend `GET_PRACTICE_IMPACT` payload; redeploy.
-2. `src/components/insights/PracticeEffectiveness.tsx` — full rewrite of the rendering + stage logic.
+### 7. Files touched
 
-### Validation after build
+```text
+src/components/insights/PerformanceRhythmCard.tsx   (rename, tab switcher, single-chart render, energy wreath, header layout)
+src/components/insights/LevelTrendCalendar.tsx      (header layout, embed streak wreath, milestone tracking)
+src/components/insights/StreakWreath.tsx            (NEW – reuses MetaSkills wreath SVG, gold, transparent)
+mem/features/insights/level-trend-calendars.md      (rename + tab switcher + streak rules)
+```
 
-- `psql` spot-check the aggregation against current 30-row rated set (30 ratings, 86 sessions, 22 unique practices).
-- Curl the edge function for a real user to confirm payload shape.
-- Visual check on `/insights` desktop + mobile, including the "Day 1–6" locked state by toggling stage manually.
+No DB migrations. No edge function changes. No new dependencies.
