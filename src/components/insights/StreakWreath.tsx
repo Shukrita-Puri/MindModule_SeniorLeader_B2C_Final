@@ -50,16 +50,23 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
           draggable={false}
         />
         <span
-          className="absolute inset-0 flex items-center justify-center font-headline font-black leading-none"
-          style={{
-            color: '#0d0905',
-            fontSize,
-            paddingTop: 12, // nudge into flame body, not the tip
-            textShadow: '0 1px 0 rgba(255,236,200,0.85), 0 0 2px rgba(255,236,200,0.6)',
-            WebkitTextStroke: '0.4px rgba(255,236,200,0.5)',
-          }}
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ paddingTop: 12 }}
+          aria-hidden="true"
         >
-          {display}
+          <span
+            className="flex items-center justify-center rounded-full font-headline font-black leading-none"
+            style={{
+              width: fontSize + 8,
+              height: fontSize + 8,
+              background: '#ffffff',
+              color: '#0d0905',
+              fontSize,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(201,104,31,0.35)',
+            }}
+          >
+            {display}
+          </span>
         </span>
         {pulse && (
           <span
