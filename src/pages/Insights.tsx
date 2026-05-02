@@ -940,9 +940,6 @@ const Insights = () => {
               <h1 className="text-display text-foreground">
                 Mental Performance Insights
               </h1>
-              <p className="text-body-sm text-muted-foreground mt-1">
-                What's consistently true about how you lead, perform, and recover
-              </p>
             </div>
 
             {!sectionsHydratedRef.current && (patternsLoading || winsLoading || !insightsScriptDone) && (
