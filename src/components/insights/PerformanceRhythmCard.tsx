@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
+import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import LevelTrendCalendar from '@/components/insights/LevelTrendCalendar';
 import StreakWreath from '@/components/insights/StreakWreath';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
