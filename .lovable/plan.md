@@ -1,98 +1,102 @@
-## Goal
 
-Make `content_relevance_feedback` (CRF) the **single source of truth** for all user-submitted ratings/feedback coming from the three Feedback Modals: Brief, Plan, Practice. Stop writing the same feedback into `brief_snapshots.user_rating/feedback_text` and `practice_sessions.effectiveness_rating/metadata`. Then re-point upstream/downstream consumers of feedback to read from CRF.
+## Practice Effectiveness Card v3 — Isolated rebuild
 
-This is **scoped to feedback only** — no plan-tracking changes, no UI changes, no DB drops. Other uses of `practice_sessions.effectiveness_rating` (legacy outcome mapping in `sync-practice-data`, etc.) are out of scope.
+Scope: only `src/components/insights/PracticeEffectiveness.tsx` and the `GET_PRACTICE_IMPACT` action in `supabase/functions/content-feedback/index.ts`. No other component, route or write path is touched. CRF stays the single source of truth for ratings.
 
-## Current state (verified)
+### What the user sees
 
-Writes today:
-- **Brief modal** → already writes only to CRF (`trigger_context='brief_inline'`, `content_type='brief'`). ✅
-- **Plan modal** → already writes only to CRF (`trigger_context='post_plan_completion'`, `content_id='plan-{tod|jit}'`). ✅
-- **Practice modal** → writes to CRF **AND** dual-writes to `practice_sessions.effectiveness_rating` via `content-feedback` action `UPDATE_SESSION_RATING`. ❌ This is the only Modal-driven dual-write.
+Stage bar (Day 1–6 / Day 7–29 / Day 30+) auto-selected from session count, but tappable.
 
-Legacy/dead write paths:
-- `supabase/functions/brief-rating/index.ts` exists and writes to `brief_snapshots.user_rating` — **no client calls it** (verified via repo search). Safe to retire.
-- `brief_snapshots.user_rating` & `feedback_text` columns: `0` rows populated.
-- `practice_sessions.effectiveness_rating`: `0` rows populated. Nothing to backfill.
+Three boxes side-by-side. Tapping a box swaps the chart below — only one chart visible at a time.
 
-Reads today:
-- `content-feedback` action `GET_PRACTICE_IMPACT` reads from **both** CRF and `practice_sessions.effectiveness_rating` and dedupes by `session_id`.
-- `brief-history` selects `user_rating, feedback_text` from `brief_snapshots` (always null).
-- `llmContextBuilder.ts` reads `practice_sessions.effectiveness_rating` for recent-practices context.
-- `compute-outer-readiness` reads `sanctuary_events.effectiveness_rating` (separate column, not modal-sourced — leave alone).
+- **Box 1 — Most effective practice**: top practice by composite score (next-check-in clarity + sharpness + confidence delta vs baseline, equal-weighted; thumbs/star rating from CRF as a booster; favourited practices boosted further and shown with ★ badge). Surfaces post-plan thumbs too — if the practice ran inside a plan, that plan-level CRF rating contributes.
+- **Box 2 — Best time of day**: morning / afternoon / evening cell that has the highest average post-session check-in score, computed off the cross of `sanctuary_events.timestamp` window and the next `daily_checkins` in the same window. Day-of-week strip is the secondary layer in the same chart view.
+- **Box 3 — Cognitive + physical lift**: composite of self-declared lift (clarity, sharpness, confidence — next check-in vs same-day baseline) + wearable lift (HRV next morning, RHR next morning lower=better) from `wearable_data`.
 
-## Changes
+Locked state when a box doesn't have enough data yet (pip progress bar shows how close).
 
-### 1. Stop dual-writes from the Practice modal
+### Chart views (one at a time, swap on box tap)
 
-**`src/utils/relevanceFeedback.ts` — `submitPracticeRating`**
-Remove the `UPDATE_SESSION_RATING` call. Practice rating writes only to CRF.
+- Box 1 → ranked horizontal bars per practice with sessions count and thumbs ratio + plan badge if applicable.
+- Box 2 → 3-cell time-of-day grid (best cell highlighted) + 7-day-of-week mini strip below.
+- Box 3 → before/after paired bars per dimension (Clarity, Sharpness, Confidence, HRV next AM, RHR next AM with inverse coloring).
 
-**`supabase/functions/content-feedback/index.ts`**
-- Remove the `UPDATE_SESSION_RATING` action (return 410 Gone for safety) so any stragglers fail loudly.
-- Update `GET_PRACTICE_IMPACT` to compute solely from CRF rows (drop the `practice_sessions` query and dedupe logic).
+Empty/early state: "Day 1–6" copy explains baselines forming, shows sessions-logged + thumbs-given pips.
 
-### 2. Retire legacy brief write path
+### Data sources (read-only, no schema changes)
 
-- Delete `supabase/functions/brief-rating/index.ts` (no callers).
-- `brief-history` edge function: remove `user_rating, feedback_text` from the SELECT (they're always null and would mislead future readers). Brief feedback for a given snapshot is now read from CRF via `context_data.brief_snapshot_id`.
+| Signal | Source |
+|---|---|
+| Sessions completed, time window, content_id, category | `sanctuary_events` (event_type in `completed`/`session_complete`) |
+| Star/thumbs ratings, plan-level ratings | `content_relevance_feedback` (`feedback_type='star_rating'`, `trigger_context in ('post_practice_completion','post_plan_completion')`) |
+| Clarity / sharpness / confidence baseline + post-session | `daily_checkins` (`clarity_level`, `mental_sharpness_level`, `confidence_level`, `time_window`, `timestamp`) |
+| HRV / RHR next-morning lift | `wearable_data` (`hrv`, `resting_heart_rate`, `summary_date`) |
+| ★ favourite booster + badge | `user_favorites` |
 
-### 3. Repoint downstream readers to CRF
+### Backend changes
 
-- **`src/utils/llmContextBuilder.ts`**: switch the recent-practices effectiveness lookup from `practice_sessions` to CRF (`feedback_type='star_rating'`, `trigger_context='post_practice_completion'`, last 7 days). Map `star_rating` → `effectiveness`.
-- **`PracticeEffectiveness.tsx`** and any other Insights consumer that calls `GET_PRACTICE_IMPACT`: no change needed — the edge function now sources from CRF transparently.
-- Header doc comment on `PracticeEffectiveness.tsx` updated to reflect CRF as the single source.
+`supabase/functions/content-feedback/index.ts` → extend `GET_PRACTICE_IMPACT` to return one richer payload (no new action, no breaking change for any other consumer — `topPractice` + `totalPractices` keys preserved, additional keys appended):
 
-### 4. One-time backfill (defensive, even though counts are 0)
-
-A single migration that copies any non-null legacy rows into CRF in case dev/staging has data the prod query didn't see:
-
-```text
-INSERT INTO content_relevance_feedback
-  (user_id, content_id, content_type, feedback_type, star_rating,
-   session_id, trigger_context, feedback_text, feedback_reason,
-   context_data, timestamp, created_at)
-SELECT ... FROM practice_sessions WHERE effectiveness_rating IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM content_relevance_feedback c
-                  WHERE c.session_id = practice_sessions.id
-                    AND c.feedback_type='star_rating');
-
-INSERT INTO content_relevance_feedback (...)
-SELECT ... FROM brief_snapshots WHERE user_rating IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM content_relevance_feedback c
-                  WHERE c.context_data->>'brief_snapshot_id' = brief_snapshots.id::text);
+```ts
+{
+  data: {
+    // existing keys (back-compat)
+    topPractice, totalPractices,
+    // new
+    stage: 'day_1_6' | 'day_7_29' | 'day_30_plus',
+    windowDays: 30,
+    box1: { practices: [{ contentId, title, category, sessions, thumbsUp, thumbsTotal,
+                         compositeScore, clarityDelta, isFavourite, planBadge }] },
+    box2: { byWindow: { morning, afternoon, evening },  // each = avg post-session check-in score + n
+            byDayOfWeek: [{ dow:0..6, score, n }],
+            best: 'morning'|'afternoon'|'evening' },
+    box3: { dims: [
+      { label:'Clarity',    before, after, lift, n },
+      { label:'Sharpness',  before, after, lift, n },
+      { label:'Confidence', before, after, lift, n },
+      { label:'HRV (next AM)',  before, after, lift, n },
+      { label:'RHR (next AM)',  before, after, lift, n, inverse:true },
+    ]}
+  }
+}
 ```
 
-Map: `up→5, neutral→3, down→1` for brief rows; `effectiveness_rating` is already 1–5 for sessions.
+Aggregation rules (all 30-day window, server-side, service role):
 
-### 5. Leave columns in place (for now)
+1. Pull `sanctuary_events` completions, `daily_checkins`, `wearable_data`, `content_relevance_feedback` (star_rating, trigger=practice or plan), `user_favorites`, `sanctuary_content` for titles.
+2. For each completed session, find the **next** `daily_checkins` row after `timestamp` (same day or next slot) → that's the post-session check-in. The **prior** check-in (or earliest of day) is the baseline.
+3. Per-practice composite = mean(clarityΔ, sharpnessΔ, confidenceΔ) normalised 0..100, then × (1 + 0.1·favouriteBoost) + thumbs booster ((thumbsUpRate − 0.5) · 20).
+4. By window = mean composite of sessions whose `time_window` (derived from event timestamp in user TZ via the 5/12/18 standard) matches.
+5. Box 3 wearable: for each AM session day D, compare `wearable_data` D vs D+1.
+6. Stage: sessions<3 → day_1_6, <10 → day_7_29, else day_30_plus.
 
-We will **not** drop `brief_snapshots.user_rating`, `brief_snapshots.feedback_text`, or `practice_sessions.effectiveness_rating` in this change. They become dead columns. Removal can happen in a follow-up after a few weeks of CRF being the only writer, to avoid breaking anything we missed.
+If user has zero sessions, return existing empty `topPractice:null, totalPractices:0` shape — keeps the locked early state working.
 
-The `brief_snapshots_user_update_guard` trigger keeps them protected; nothing else writes to them after step 1–2.
+### Frontend changes
 
-## Out of scope (explicitly)
+Rewrite `src/components/insights/PracticeEffectiveness.tsx`:
 
-- No new `plan_feedback` table.
-- No changes to `session_feedback` (already unused).
-- No changes to `sanctuary_events.effectiveness_rating` (different signal).
-- No changes to Plan tracking architecture — the user said this comes after, as a separate audit.
-- No UI changes to any of the three modals.
+- Keep the existing edge-function fetch (`content-feedback / GET_PRACTICE_IMPACT`) and `userId` prop signature.
+- Add stage bar, three boxes, swap-chart area.
+- Use existing tokens (`text-saffron`, `bg-card`, `border-border`, etc.) — no new colors, no new dependencies. Match the look & feel of the uploaded HTML mock but using Tailwind + design system tokens.
+- Reuse `InsightInfoModal` for the explainer.
+- Active box state local to the component; defaults to Box 1.
+- Locked boxes: dash + "needs N more sessions" copy + pip progress.
 
-## Files touched
+### Out of scope (untouched)
 
-- `src/utils/relevanceFeedback.ts` (drop dual-write)
-- `src/utils/llmContextBuilder.ts` (read from CRF)
-- `supabase/functions/content-feedback/index.ts` (drop UPDATE_SESSION_RATING; rewrite GET_PRACTICE_IMPACT to CRF-only)
-- `supabase/functions/brief-history/index.ts` (drop dead columns from SELECT)
-- `supabase/functions/brief-rating/` (delete)
-- `src/components/insights/PracticeEffectiveness.tsx` (header comment only)
-- One DB migration (idempotent backfill)
+- Write paths for Brief / Plan / Practice modals (already CRF-only).
+- All other insights cards.
+- Database schema, RLS, migrations.
+- `/coach`, `llmContextBuilder`, `brief-history`, all other readers.
 
-## Verification after implementation
+### Files to change
 
-1. Submit a rating from each of Brief, Plan, Practice modals → confirm exactly one CRF row per submission, no rows in `brief_snapshots.user_rating` or `practice_sessions.effectiveness_rating`.
-2. Insights "Practice Impact" tile renders identical numbers as before.
-3. Coach LLM context still shows recent practice effectiveness.
-4. `brief-history` still returns past briefs (without rating fields).
+1. `supabase/functions/content-feedback/index.ts` — extend `GET_PRACTICE_IMPACT` payload; redeploy.
+2. `src/components/insights/PracticeEffectiveness.tsx` — full rewrite of the rendering + stage logic.
+
+### Validation after build
+
+- `psql` spot-check the aggregation against current 30-row rated set (30 ratings, 86 sessions, 22 unique practices).
+- Curl the edge function for a real user to confirm payload shape.
+- Visual check on `/insights` desktop + mobile, including the "Day 1–6" locked state by toggling stage manually.
