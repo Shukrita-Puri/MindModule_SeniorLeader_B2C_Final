@@ -27,11 +27,14 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
 
   const isEmpty = count <= 0;
   const display = isEmpty ? '—' : String(count);
-  const fontSize = display.length >= 3 ? 22 : display.length === 2 ? 28 : 34;
+  const fontSize = display.length >= 3 ? 24 : display.length === 2 ? 30 : 36;
 
-  // Unique gradient ids per render so multiple flames on a page don't collide
-  const gradId = `flame-body-${label.replace(/\s+/g, '-')}`;
-  const coreId = `flame-core-${label.replace(/\s+/g, '-')}`;
+  // Unique ids per render so multiple flames on a page don't collide
+  const uid = label.replace(/\s+/g, '-');
+  const gradId = `flame-body-${uid}`;
+  const coreId = `flame-core-${uid}`;
+  const hatchId = `flame-hatch-${uid}`;
+  const clipId = `flame-clip-${uid}`;
 
   return (
     <div
@@ -42,73 +45,93 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
       )}
     >
       <svg
-        width="64"
-        height="72"
+        width="40"
+        height="48"
         viewBox="0 0 100 120"
         className={cn(pulse && 'animate-streak-pulse')}
         style={{ overflow: 'visible' }}
       >
         <defs>
           <linearGradient id={gradId} x1="50%" y1="0%" x2="50%" y2="100%">
-            <stop offset="0%" stopColor="#f4c14a" />
-            <stop offset="55%" stopColor="#e8a23a" />
-            <stop offset="100%" stopColor="#c9651f" />
+            <stop offset="0%" stopColor="#f6c95a" />
+            <stop offset="55%" stopColor="#e29630" />
+            <stop offset="100%" stopColor="#a44a17" />
           </linearGradient>
           <radialGradient id={coreId} cx="50%" cy="60%" r="55%">
             <stop offset="0%" stopColor="#fff4dc" />
-            <stop offset="100%" stopColor="#f6dca0" />
+            <stop offset="100%" stopColor="#f4d28e" />
           </radialGradient>
+          {/* Cross-hatch pattern for an engraved-pencil feel */}
+          <pattern id={hatchId} patternUnits="userSpaceOnUse" width="3.2" height="3.2" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="3.2" stroke="#5a2a0c" strokeWidth="0.45" strokeOpacity="0.55" strokeLinecap="round" />
+          </pattern>
+          <clipPath id={clipId}>
+            <path d="M 50 6
+              C 60 22, 78 34, 82 58
+              C 86 84, 68 110, 50 112
+              C 32 110, 14 84, 18 58
+              C 22 34, 40 22, 50 6 Z" />
+          </clipPath>
         </defs>
 
-        {/* Outer flame silhouette — classic teardrop with a curling tip */}
+        {/* Body fill */}
         <path
-          d="M 50 8
-             C 58 22, 76 34, 80 56
-             C 84 82, 68 108, 50 110
-             C 32 108, 16 82, 20 56
-             C 24 34, 42 22, 50 8 Z"
+          d="M 50 6
+             C 60 22, 78 34, 82 58
+             C 86 84, 68 110, 50 112
+             C 32 110, 14 84, 18 58
+             C 22 34, 40 22, 50 6 Z"
           fill={`url(#${gradId})`}
-          stroke="hsl(var(--gold))"
-          strokeWidth="1.25"
+        />
+        {/* Engraved cross-hatch (clipped to flame) */}
+        <rect x="0" y="0" width="100" height="120" fill={`url(#${hatchId})`} clipPath={`url(#${clipId})`} opacity="0.85" />
+        {/* Curving contour hatch lines for woodcut feel */}
+        <g stroke="#4a1f08" strokeWidth="0.55" opacity="0.55" fill="none" strokeLinecap="round" clipPath={`url(#${clipId})`}>
+          <path d="M 28 46 Q 32 64, 28 86" />
+          <path d="M 34 36 Q 38 60, 34 92" />
+          <path d="M 72 46 Q 68 64, 72 86" />
+          <path d="M 66 36 Q 62 60, 66 92" />
+          <path d="M 50 16 Q 52 28, 50 36" />
+          <path d="M 44 24 Q 46 40, 44 52" />
+          <path d="M 56 24 Q 54 40, 56 52" />
+        </g>
+        {/* Outline */}
+        <path
+          d="M 50 6
+             C 60 22, 78 34, 82 58
+             C 86 84, 68 110, 50 112
+             C 32 110, 14 84, 18 58
+             C 22 34, 40 22, 50 6 Z"
+          fill="none"
+          stroke="#3a1606"
+          strokeWidth="1.4"
           strokeLinejoin="round"
         />
-
-        {/* Engraving hatch lines (thin, sparse — engraved-pencil feel) */}
-        <g stroke="hsl(var(--gold))" strokeWidth="0.6" opacity="0.55" fill="none" strokeLinecap="round">
-          <path d="M 30 50 Q 34 62, 30 78" />
-          <path d="M 36 42 Q 40 58, 36 84" />
-          <path d="M 70 50 Q 66 62, 70 78" />
-          <path d="M 64 42 Q 60 58, 64 84" />
-          <path d="M 50 18 Q 52 26, 50 32" />
-        </g>
 
         {/* Inner cream core — holds the number */}
         <ellipse
           cx="50"
           cy="72"
-          rx="20"
-          ry="24"
+          rx="22"
+          ry="26"
           fill={`url(#${coreId})`}
-          stroke="hsl(var(--gold))"
-          strokeWidth="0.9"
-          opacity="0.95"
+          stroke="#3a1606"
+          strokeWidth="1"
         />
 
         {/* Saffron tip wisp */}
         <path
-          d="M 50 8 Q 53 4, 51 0"
+          d="M 50 6 Q 54 0, 50 -8"
           fill="none"
-          stroke="#c9651f"
-          strokeWidth="1.25"
+          stroke="#a44a17"
+          strokeWidth="1.4"
           strokeLinecap="round"
         />
 
-        {/* Milestone ember sparkle */}
         {pulse && (
-          <circle cx="50" cy="-4" r="2.5" fill="#e8a23a" className="animate-ping" />
+          <circle cx="50" cy="-12" r="2.5" fill="#e8a23a" className="animate-ping" />
         )}
 
-        {/* Streak number */}
         <text
           x="50"
           y="72"
@@ -116,12 +139,12 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
           dominantBaseline="central"
           className="font-headline font-bold"
           fontSize={fontSize}
-          fill="hsl(var(--foreground))"
+          fill="#2a1004"
         >
           {display}
         </text>
       </svg>
-      <span className="mt-0.5 text-[9px] tracking-widest uppercase text-gold/80 font-body text-center max-w-[88px] leading-tight">
+      <span className="mt-0.5 text-[8px] tracking-wider uppercase text-gold/70 font-body text-center max-w-[64px] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
         {label}
       </span>
     </div>
