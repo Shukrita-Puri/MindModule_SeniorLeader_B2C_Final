@@ -936,7 +936,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div className="flex-shrink-0">
                         <StreakWreath
                           count={energyStreak}
-                          label={energyStreak > 0 ? 'days of high energy' : 'start your streak'}
+                          label={energyStreak > 0 ? 'Peak Energy' : 'start your streak'}
                         />
                       </div>
                     </div>
@@ -1060,7 +1060,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 explanation="Each dot is your reported clarity (1–5) at that time of day. Cooler tones mean higher clarity; empty dots mean no check-in for that slot."
                 vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
                 palette="clarity"
-                streakLabel="days of crystal clarity"
+                streakLabel="Peak Clarity"
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'sharpness' && (
@@ -1071,7 +1071,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
                 vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
                 palette="sharpness"
-                streakLabel="days of peak sharpness"
+                streakLabel="Peak Sharpness"
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'confidence' && (
@@ -1082,7 +1082,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
                 vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
                 palette="confidence"
-                streakLabel="days of strong confidence"
+                streakLabel="Peak Confidence"
               />
             )}
 
