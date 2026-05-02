@@ -1,9 +1,9 @@
 /**
  * Practice Effectiveness Component
  *
- * Primary source: in-app feedback modal ratings stored in
- *   - content_relevance_feedback (star_rating, post_practice_completion)
- *   - practice_sessions.effectiveness_rating
+ * Single source of truth: in-app feedback modal ratings stored in
+ *   content_relevance_feedback (feedback_type='star_rating',
+ *   trigger_context='post_practice_completion' or 'post_plan_completion').
  *
  * Secondary/derived: same-day → next-day check-in state improvement
  * (kept for context, never overrides modal feedback).

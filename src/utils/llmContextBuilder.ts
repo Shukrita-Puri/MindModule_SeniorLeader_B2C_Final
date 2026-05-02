@@ -58,9 +58,12 @@ export async function buildUserContext(
   let sessions = [];
   if (userId) {
     const { data } = await supabase
-      .from('practice_sessions')
-      .select('content_type, effectiveness_rating, created_at')
+      .from('content_relevance_feedback')
+      .select('content_type, star_rating, created_at')
       .eq('user_id', userId)
+      .eq('feedback_type', 'star_rating')
+      .eq('trigger_context', 'post_practice_completion')
+      .not('star_rating', 'is', null)
       .gte('created_at', sevenDaysAgo.toISOString())
       .order('created_at', { ascending: false })
       .limit(10);
@@ -69,7 +72,7 @@ export async function buildUserContext(
   
   const recentPractices = sessions.map(s => ({
     type: s.content_type,
-    effectiveness: s.effectiveness_rating,
+    effectiveness: s.star_rating,
     timestamp: s.created_at
   }));
   
