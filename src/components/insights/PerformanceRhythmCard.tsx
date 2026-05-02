@@ -844,10 +844,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Mind Readiness Rhythm
+            Mind Readiness Trend
           </span>
           <InsightInfoModal
-            title="Mind Readiness Rhythm"
+            title="Mind Readiness Trend"
             explanation="When you’re at your sharpest, and what your outer world is doing to your inner state — patterns you can’t see without zooming out."
           />
         </div>
