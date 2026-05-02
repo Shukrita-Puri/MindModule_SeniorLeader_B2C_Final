@@ -123,7 +123,9 @@ export async function submitRelevanceFeedback(feedback: RelevanceFeedbackData) {
 
 /**
  * Submit post-practice star rating
- * Saves to both practice_sessions (effectiveness_rating) and content_relevance_feedback tables
+ * Writes ONLY to content_relevance_feedback (CRF) — the single source of truth
+ * for all Brief, Plan, and Practice feedback. The legacy dual-write to
+ * practice_sessions.effectiveness_rating has been removed.
  */
 export async function submitPracticeRating(
   sessionId: string | undefined,
@@ -139,25 +141,7 @@ export async function submitPracticeRating(
     // Map star rating to qualitative feedback
     const qualitativeRating = mapRatingToQualitative(rating);
 
-    // Update practice_sessions rating via edge function (RLS blocks direct client writes)
-    if (sessionId) {
-      try {
-        await supabase.functions.invoke('content-feedback', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {
-            action: 'UPDATE_SESSION_RATING',
-            sessionId,
-            rating,
-            qualitativeRating,
-            feedbackText: feedback
-          }
-        });
-      } catch (e) {
-        console.error('Failed to update practice session rating:', e);
-      }
-    }
-
-    // Save to content_relevance_feedback
+    // Save to content_relevance_feedback — the canonical feedback store.
     const feedbackResult = await submitRelevanceFeedback({
       contentId,
       contentType,
