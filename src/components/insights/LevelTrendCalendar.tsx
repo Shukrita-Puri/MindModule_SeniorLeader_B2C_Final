@@ -357,12 +357,12 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground font-body">{title}</span>
           <InsightInfoModal title={title} explanation={explanation} />
+          <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll for past weeks</span>
         </div>
-        <span className="text-[10px] text-muted-foreground/50 self-center flex-1 text-center">← scroll for past weeks</span>
         <div className="flex-shrink-0">
           <StreakWreath
             count={streak}
