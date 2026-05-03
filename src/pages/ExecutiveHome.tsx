@@ -20,6 +20,7 @@ import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codeba
 import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
 import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
+import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
@@ -328,6 +329,7 @@ const ExecutiveHome = () => {
           {/* Unified Today header bar + shared hero (header overlays hero) */}
           <div className="relative">
             <TodayHero />
+            <TodayGreeting />
             <header className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
               <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
                 <SidebarDiscoveryPulse />
@@ -345,12 +347,7 @@ const ExecutiveHome = () => {
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
-              <div className="pb-3 text-center">
-                <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
-                  Performance Readiness Brief
-                </p>
-                <h1 className="sr-only">{getGreeting()}</h1>
-              </div>
+              <h1 className="sr-only">{getGreeting()}</h1>
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
