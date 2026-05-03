@@ -55,14 +55,10 @@ const StreakWreath = ({ count, label, milestone, className }: StreakWreathProps)
           aria-hidden="true"
         >
           <span
-            className="flex items-center justify-center rounded-full font-headline font-black leading-none"
+            className="flex items-center justify-center font-headline font-black leading-none"
             style={{
-              width: fontSize + 8,
-              height: fontSize + 8,
-              background: '#ffffff',
               color: '#0d0905',
               fontSize,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(201,104,31,0.35)',
             }}
           >
             {display}
