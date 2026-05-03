@@ -1566,7 +1566,7 @@ interface PerformanceReadinessBriefProps {
 
 const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBriefProps = {}) => {
   const navigate = useNavigate();
-  const [signalsOpen, setSignalsOpen] = useState(false);
+  const [signalsOpen, setSignalsOpen] = useState(true);
 
   // Single canonical payload — no separate computeEnergyState call
   const {
