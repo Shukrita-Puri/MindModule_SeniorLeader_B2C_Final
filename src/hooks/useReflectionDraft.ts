@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/services/authTokenService";
 
 type StepMeta = { stepNumber: number; title?: string; prompt?: string };
 
@@ -81,12 +82,12 @@ export function useReflectionDraft({
         url.searchParams.set("practiceId", practiceId);
         url.searchParams.set("tempSessionKey", tempSessionKey);
         url.searchParams.set("localDate", todayLocalYmd());
-        const session = (await supabase.auth.getSession()).data.session;
         const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const accessToken = await getAuthToken();
         const r = await fetch(url.toString(), {
           headers: {
             apikey: anon,
-            Authorization: session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${anon}`,
+            Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${anon}`,
           },
         });
         const json = await r.json().catch(() => ({}));
@@ -121,7 +122,9 @@ export function useReflectionDraft({
         else localStorage.removeItem(lsKey(practiceId, tempSessionKey, stepNumber));
       } catch { /* ignore */ }
 
+      const accessToken = await getAuthToken();
       await supabase.functions.invoke("save-practice-reflection", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         body: {
           practiceId,
           practiceType: "mindset",
