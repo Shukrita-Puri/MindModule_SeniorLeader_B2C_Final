@@ -585,11 +585,16 @@ async function buildNudgeContext(
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // V8 — yesterday's date string (local) for post-travel awareness
+  const yesterdayDate = new Date(`${todayStr}T00:00:00`);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
   // All queries in parallel
   const [
     { data: todayEventsRaw },
     { data: tomorrowEventsRaw },
+    { data: yesterdayEventsRaw },
     { data: latestWearable },
     { data: wearable30d },
     { data: latestSnapshot },
@@ -614,6 +619,11 @@ async function buildNudgeContext(
       .gte('start_time', `${tomorrowStr}T00:00:00`)
       .lte('start_time', `${tomorrowStr}T23:59:59`)
       .order('start_time', { ascending: true }),
+    supabase.from('calendar_events')
+      .select('id, title, start_time')
+      .eq('user_id', userId)
+      .gte('start_time', `${yesterdayStr}T00:00:00`)
+      .lte('start_time', `${yesterdayStr}T23:59:59`),
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
       .eq('user_id', userId)
