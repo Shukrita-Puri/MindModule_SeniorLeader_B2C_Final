@@ -28,9 +28,6 @@ import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebas
 import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
-import GenerateTodaysPlanLink from "@/components/home/GenerateTodaysPlanLink";
-
-
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
