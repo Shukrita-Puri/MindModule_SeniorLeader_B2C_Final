@@ -1845,7 +1845,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       {/* 10. HOW TO SHOW UP — Progressive Disclosure (collapsed by default) */}
       <Collapsible>
         <CollapsibleTrigger className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-medium hover:text-muted-foreground/70 transition-colors cursor-pointer">
-          How to show up
+          Lean on/Watch Out
           <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
 
