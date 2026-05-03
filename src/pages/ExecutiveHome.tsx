@@ -340,7 +340,7 @@ const ExecutiveHome = () => {
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
 
-            <TodayStepper current={2} />
+            <TodayStepper current={2} nextHint={briefCtaReady ? 3 : undefined} />
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
@@ -348,11 +348,6 @@ const ExecutiveHome = () => {
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
-              {briefCtaReady && (
-                 <div data-tour="daily-plan" className="mt-5 pt-1 flex justify-end animate-in fade-in duration-300">
-                   <GenerateTodaysPlanLink onClick={() => navigate('/plan')} />
-                 </div>
-               )}
             </div>
 
 
