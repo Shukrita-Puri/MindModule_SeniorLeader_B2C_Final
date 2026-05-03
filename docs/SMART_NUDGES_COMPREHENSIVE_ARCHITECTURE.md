@@ -85,8 +85,9 @@ Calendar-aware timing:
 - If first meeting at 10am → nudge at ~8:30-9:00
 - If first meeting at 8am → nudge at ~6:30-7:00
 - Weekday: 6:30-9:30 (shifts based on first event)
-- Saturday: 7:30-10:00
-- Sunday: 8:00-10:30
+- Saturday with meeting: 9:00-11:00 (slower entry, anchored)
+- Saturday no meeting: 9:00-10:30 (recovery/reset, state-anchored)
+- Sunday: 9:00-10:30 (recovery/reset habit; anchored if a meeting exists)
 
 Gate: No morning check-in yet (or no JIT plan started)
 ```
@@ -102,6 +103,12 @@ Gate: No morning check-in yet (or no JIT plan started)
 | Saturday | `No agenda` | `Check in when you are ready — your day, your terms` | `/daily-check-in` |
 | Sunday morning | `Sunday reset` | `A moment to land before the week forms` | `/daily-check-in` |
 | Low recovery (wearable) | `Ground First` | `Low recovery last night. Ground yourself before the day starts.` | `/daily-check-in` |
+| Saturday no meeting (V8) | `Saturday recovery` | `No meetings today — a short reset shapes the kind of weekend you actually need. Check in to set your intention.` | `/daily-check-in` |
+| Sunday no meeting (V8) | `Sunday reset` | `Quiet Sunday on the calendar — a short reset lands you before the week forms. Check in to set your intention.` | `/daily-check-in` |
+| Travel-day morning (V8) | `Travel today` | `Travel on today's calendar. Ground yourself before the day moves — check in to set your intention.` | `/daily-check-in` |
+| Away-day / OOO (V8) | `Day away` | `On your day away — a short reset before you switch off. Check in to set your intention.` | `/daily-check-in` |
+| Post-travel STATE (V8) | `Recovery context` | `Yesterday included travel — body may still be carrying load. Log in to prep your state.` | `/daily-check-in` |
+| Post-travel JIT (V8) | `Preparing mental performance` | `From your morning Plan: {Event} in {min} min. Yesterday included travel — log in to prep your mind.` | `/executive-home` |
 
 ### Nudge 2 — Mid-day Action (plan-driven)
 
