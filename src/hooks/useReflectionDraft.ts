@@ -110,7 +110,7 @@ export function useReflectionDraft({
     return () => { cancelled = true; };
   }, [isMindset, practiceId, tempSessionKey]);
 
-  const saveStep = useCallback(async (stepNumber: number) => {
+  const saveStep = useCallback(async (stepNumber: number, overrideSessionId?: string) => {
     if (!isMindset || !practiceId) return;
     const value = draftsRef.current[stepNumber] ?? "";
     const stepMeta = stepsRef.current.find((s) => s.stepNumber === stepNumber);
@@ -125,7 +125,7 @@ export function useReflectionDraft({
         body: {
           practiceId,
           practiceType: "mindset",
-          sessionId: sessionIdRef.current || undefined,
+          sessionId: overrideSessionId || sessionIdRef.current || undefined,
           tempSessionKey,
           stepNumber,
           stepTitle: stepMeta?.title,
@@ -151,14 +151,14 @@ export function useReflectionDraft({
     }, DEBOUNCE_MS);
   }, [saveStep]);
 
-  const flush = useCallback(async (stepNumber?: number) => {
+  const flush = useCallback(async (stepNumber?: number, overrideSessionId?: string) => {
     if (!isMindset) return;
     if (typeof stepNumber === "number") {
       if (timersRef.current[stepNumber]) {
         window.clearTimeout(timersRef.current[stepNumber]);
         delete timersRef.current[stepNumber];
       }
-      await saveStep(stepNumber);
+      await saveStep(stepNumber, overrideSessionId);
       return;
     }
     // Flush all
@@ -170,7 +170,7 @@ export function useReflectionDraft({
     const stepsToSave = new Set<number>([
       ...Object.keys(draftsRef.current).map(Number),
     ]);
-    await Promise.all(Array.from(stepsToSave).map((n) => saveStep(n)));
+    await Promise.all(Array.from(stepsToSave).map((n) => saveStep(n, overrideSessionId)));
   }, [isMindset, saveStep]);
 
   const getDraft = useCallback((stepNumber: number) => drafts[stepNumber] ?? "", [drafts]);
