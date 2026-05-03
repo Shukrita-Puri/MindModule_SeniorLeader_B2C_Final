@@ -936,11 +936,16 @@ const Insights = () => {
               <SidebarDiscoveryPulse />
             </header>
 
-            <div className="px-3 md:px-4 pb-2 text-center">
-              <h1 className="text-display text-foreground">
+            <div
+              className="absolute left-0 right-0 z-30 pointer-events-none text-center px-4"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.25rem)' }}
+            >
+              <h1 className="text-display text-foreground leading-tight">
                 Mental Performance Insights
               </h1>
             </div>
+
+            <div className="px-3 md:px-4 pt-[3rem] pb-2 text-center" />
 
             {!sectionsHydratedRef.current && (patternsLoading || winsLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
