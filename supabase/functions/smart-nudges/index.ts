@@ -1753,11 +1753,11 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
-  // ── v5 weekend skip ──
-  // Sunday morning: never fire (Sunday only fires in the evening).
-  if (ctx.dayOfWeek === 0) return null;
-  // Saturday morning: only fire if a real meeting exists today; otherwise skip.
-  if (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent) return null;
+  // V8 weekend morning policy:
+  // - Saturday AM with a meeting: fire calendar-anchored (slower entry, Saturday tone).
+  // - Saturday AM no meeting: fire recovery/reset state-anchored nudge (09:00–10:30).
+  // - Sunday AM: always fire recovery/reset habit nudge (08:00–10:30 if no meeting,
+  //   calendar-anchored if a meeting exists).
 
   // ── A) JIT morning event — check first ──
   // v5: drop the jit_horizons_surfaced requirement so the lure fires on
