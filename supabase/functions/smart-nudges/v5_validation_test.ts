@@ -108,7 +108,10 @@ const VALID_DEEP_LINKS = new Set([
 function bodyContainsForbidden(body: string): string | null {
   const lower = body.toLowerCase();
   for (const w of FORBIDDEN_WORDS) {
-    if (lower.includes(w)) return w;
+    // Word-boundary match so "set your intent" does not flag the allowed
+    // CTA "set your intention".
+    const rx = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (rx.test(lower)) return w;
   }
   return null;
 }
