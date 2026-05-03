@@ -20,6 +20,9 @@ import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
+import { getProtocolType } from "@/utils/protocolMatcher";
+import { useReflectionDraft } from "@/hooks/useReflectionDraft";
+import { Textarea } from "@/components/ui/textarea";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.jpg";
 import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-self.jpg";
 import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-through-evidence.jpg";
@@ -1655,6 +1658,26 @@ const StepCardContent = ({ card }: { card: any }) => {
       <p className="text-[15px] text-white/85 leading-relaxed max-w-[280px]">
         {card.instruction}
       </p>
+
+      {/* Optional inline reflection (mindset protocols only) */}
+      {card.reflection?.enabled && (
+        <div className="w-full max-w-[300px] space-y-1.5">
+          <Textarea
+            value={card.reflection.draft ?? ""}
+            onChange={(e) => card.reflection.onChange(e.target.value)}
+            onBlur={card.reflection.onBlur}
+            placeholder="Your response… (optional)"
+            maxLength={2000}
+            rows={3}
+            className="bg-white/5 border-white/15 text-white/90 placeholder:text-white/35 min-h-[88px] rounded-xl text-sm focus-visible:ring-saffron/40 resize-none"
+          />
+          <p className="text-[11px] text-white/40 text-left">
+            {card.reflection.draft?.length
+              ? `Saved · ${card.reflection.draft.length} chars`
+              : "Optional reflection"}
+          </p>
+        </div>
+      )}
 
       {/* Expand toggle for secondary content */}
       {hasSecondary && (
