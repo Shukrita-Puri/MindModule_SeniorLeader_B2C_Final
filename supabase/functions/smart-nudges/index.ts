@@ -917,6 +917,15 @@ async function buildNudgeContext(
     inMeetingNow,
     hrvDeltaPctFromSnapshot,
     pattern: null, // Hydrated by main handler before evaluators run
+    dayContext: (() => {
+      const today = detectDayKindFromEvents(todayEvents);
+      const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
+      return {
+        kind: today.kind,
+        signalToken: today.signalToken,
+        postTravel: yesterday.kind === 'travel-day',
+      };
+    })(),
   };
 }
 
