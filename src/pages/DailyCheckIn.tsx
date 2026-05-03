@@ -12,6 +12,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 import FloatingPillNav from "@/components/navigation/FloatingPillNav";
+import TodayStepper from "@/components/today/TodayStepper";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
@@ -399,6 +400,7 @@ const DailyCheckIn = () => {
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
+      <TodayStepper current={1} />
 
       {/* Hero Banner – compact for single-fold */}
       <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
