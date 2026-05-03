@@ -931,7 +931,7 @@ const Insights = () => {
             scrollPaddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)',
           }}
         >
-          <div>
+          <div className="relative">
             <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
               <SidebarDiscoveryPulse />
             </header>
