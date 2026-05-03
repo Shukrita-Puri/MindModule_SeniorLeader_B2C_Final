@@ -43,22 +43,13 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
               >
                 <span className="relative inline-flex items-center justify-center">
                   {isHinted && (
-                    <>
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-0 rounded-full motion-safe:animate-ping"
-                        style={{
-                          backgroundColor: 'hsl(var(--saffron) / 0.35)',
-                        }}
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="absolute -inset-1 rounded-full"
-                        style={{
-                          boxShadow: '0 0 0 2px hsl(var(--saffron) / 0.45)',
-                        }}
-                      />
-                    </>
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full motion-safe:animate-ping"
+                      style={{
+                        backgroundColor: 'hsl(var(--muted-foreground) / 0.3)',
+                      }}
+                    />
                   )}
                   <span
                   className={`flex items-center justify-center rounded-full transition-all duration-200 font-headline text-[11px] font-semibold ${
@@ -70,7 +61,7 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                           ? 'bg-background text-foreground border w-7 h-7 shadow-sm'
                           : 'bg-transparent text-muted-foreground/70 border border-muted-foreground/30 w-6 h-6'
                   }`}
-                  style={isHinted ? { borderColor: 'hsl(var(--saffron))' } : undefined}
+                  style={isHinted ? { borderColor: 'hsl(var(--muted-foreground) / 0.5)' } : undefined}
                 >
                   {step.key}
                   </span>
@@ -93,7 +84,7 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                         className="flex-1 h-px mx-2 mb-4 motion-safe:animate-stepper-shimmer"
                         style={{
                           backgroundImage:
-                            'repeating-linear-gradient(to right, hsl(var(--saffron) / 0.6) 0 6px, transparent 6px 10px)',
+                            'repeating-linear-gradient(to right, hsl(var(--muted-foreground) / 0.5) 0 6px, transparent 6px 10px)',
                           backgroundSize: '20px 1px',
                           backgroundRepeat: 'repeat-x',
                         }}
