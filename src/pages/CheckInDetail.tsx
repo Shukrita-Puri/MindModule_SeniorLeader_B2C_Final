@@ -151,21 +151,15 @@ const CheckInDetail = () => {
       <LeftSidebar />
       <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden">
     <div className="h-full min-h-0 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8.75rem)]">
-      <header className="flex items-center px-3 md:px-4 py-3">
-        <SidebarDiscoveryPulse />
-      </header>
-      <TodayHero />
+      <div className="relative">
+        <TodayHero />
+        <header className="absolute top-0 left-0 right-0 z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
+          <SidebarDiscoveryPulse />
+        </header>
+      </div>
       <TodayStepper current={1} />
 
-      <div className="px-4 pt-1 pb-2 text-center">
-        <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
-          Performance Readiness Assessment
-        </p>
-        <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body leading-none mt-1">
-          Mental Performance Signals
-        </p>
-        <h1 className="sr-only">Performance Readiness Assessment</h1>
-      </div>
+      <h1 className="sr-only">Performance Readiness Assessment</h1>
 
       <div className="flex-1 flex min-h-0 items-start justify-center px-4 pt-1 pb-0">
         <div className="w-full max-w-lg animate-fade-in">
@@ -174,6 +168,16 @@ const CheckInDetail = () => {
             bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
             border border-black/[0.08]
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
+
+            {/* Eyebrow header inside card (top-left, matches Brief card) */}
+            <div className="flex items-baseline justify-between -mt-1 mb-1">
+              <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+                Performance Readiness Assessment
+              </p>
+              <p className="text-[11px] tracking-[0.12em] uppercase text-muted-foreground/60 font-body">
+                Mental Performance Signals
+              </p>
+            </div>
 
             {/* Mental Sharpness Slider (Renewal) */}
             <div className="relative space-y-3">
