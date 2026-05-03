@@ -58,7 +58,7 @@ const PlanPage = () => {
                       Mental Performance Plan
                     </span>
                     <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
-                      Today's Priorities
+                      Today's 3 Priorities
                     </span>
                   </div>
                   <div data-tour="daily-plan">
