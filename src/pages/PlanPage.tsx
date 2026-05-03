@@ -7,6 +7,7 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
+import TodayGreeting from "@/components/today/TodayGreeting";
 import DailyRitual from "@/components/home/DailyRitual";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -38,6 +39,7 @@ const PlanPage = () => {
           <div>
             <div className="relative">
               <TodayHero />
+              <TodayGreeting />
               <header className="absolute top-0 left-0 right-0 z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
                 <SidebarDiscoveryPulse />
               </header>
@@ -55,7 +57,7 @@ const PlanPage = () => {
                     <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
                       Mental Performance Plan
                     </p>
-                    <p className="text-body-sm text-muted-foreground mt-1">
+                    <p className="text-[12px] text-muted-foreground/80 font-body mt-1">
                       Your priorities mapped based on your brief and for your day
                     </p>
                   </div>
