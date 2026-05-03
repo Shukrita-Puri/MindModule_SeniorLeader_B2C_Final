@@ -11,7 +11,6 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import LeftSidebar from '@/components/navigation/LeftSidebar';
 import SidebarDiscoveryPulse from '@/components/navigation/SidebarDiscoveryPulse';
-import FloatingPillNav from '@/components/navigation/FloatingPillNav';
 import TodayStepper from '@/components/today/TodayStepper';
 import TodayHero from '@/components/today/TodayHero';
 import TodayGreeting from '@/components/today/TodayGreeting';
