@@ -1884,6 +1884,14 @@ const MicroPracticePlayerCards = () => {
     }
     const onSelect = () => {
       if (!mountedRef.current) return;
+      // Flush whichever step we're leaving (best-effort)
+      try {
+        const leavingIndex = current;
+        const leavingCard: any = cards[leavingIndex];
+        if (isMindset && leavingCard?.type === 'step' && leavingCard?.stepNumber) {
+          void reflection.flush(leavingCard.stepNumber);
+        }
+      } catch { /* noop */ }
       setCurrent(api.selectedScrollSnap());
       triggerHaptic();
     };
@@ -1895,7 +1903,7 @@ const MicroPracticePlayerCards = () => {
         /* noop — embla off can throw if api was destroyed */
       }
     };
-  }, [api]);
+  }, [api, current, cards, isMindset, reflection]);
 
   // Track engagement on page load
   useEffect(() => {
