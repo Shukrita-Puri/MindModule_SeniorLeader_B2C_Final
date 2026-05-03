@@ -73,50 +73,32 @@ export function useReflectionDraft({
         }
       } catch { /* ignore */ }
 
-      // 2. Server hydrate (latest by date — supports revisits)
+      // 2. Server hydrate via direct GET (supabase.functions.invoke doesn't pass query params well)
       try {
-        const { data } = await supabase.functions.invoke("get-practice-reflections", {
-          method: "GET" as any,
-          // supabase-js doesn't pass GET params well; use body=null + URL via headers instead.
-          // We send query via the function URL by relying on invoke's "body" not being used.
-          // Workaround: include params in headers handled by edge function isn't supported,
-          // so we fall back to constructing the URL manually below if needed.
-        } as any);
-        if (data?.success && Array.isArray(data.data)) {
-          for (const row of data.data) {
-            // Only keep rows for our practice
+        const url = new URL(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-practice-reflections`,
+        );
+        url.searchParams.set("practiceId", practiceId);
+        url.searchParams.set("tempSessionKey", tempSessionKey);
+        url.searchParams.set("localDate", todayLocalYmd());
+        const session = (await supabase.auth.getSession()).data.session;
+        const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const r = await fetch(url.toString(), {
+          headers: {
+            apikey: anon,
+            Authorization: session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${anon}`,
+          },
+        });
+        const json = await r.json().catch(() => ({}));
+        if (json?.success && Array.isArray(json.data)) {
+          for (const row of json.data) {
             if (row.step_number && typeof row.response === "string") {
               if (!next[row.step_number]) next[row.step_number] = row.response;
             }
           }
         }
-      } catch (err) {
-        // Fall back: use a manual fetch with query params
-        try {
-          const url = new URL(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-practice-reflections`,
-          );
-          url.searchParams.set("practiceId", practiceId);
-          url.searchParams.set("tempSessionKey", tempSessionKey);
-          url.searchParams.set("localDate", todayLocalYmd());
-          const session = (await supabase.auth.getSession()).data.session;
-          const r = await fetch(url.toString(), {
-            headers: {
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: session?.access_token ? `Bearer ${session.access_token}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-          });
-          const json = await r.json().catch(() => ({}));
-          if (json?.success && Array.isArray(json.data)) {
-            for (const row of json.data) {
-              if (row.step_number && typeof row.response === "string") {
-                if (!next[row.step_number]) next[row.step_number] = row.response;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("[useReflectionDraft] hydrate fetch failed", e);
-        }
+      } catch (e) {
+        console.warn("[useReflectionDraft] hydrate fetch failed", e);
       }
 
       if (!cancelled && Object.keys(next).length) {
