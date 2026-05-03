@@ -57,6 +57,19 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // If we have a real sessionId AND a tempSessionKey, re-link any earlier
+    // drafts (saved before completion returned a session_id) to the session.
+    if (sessionId && tempSessionKey) {
+      const { error: linkErr } = await supabase
+        .from("practice_reflections")
+        .update({ session_id: sessionId })
+        .eq("user_id", userId)
+        .eq("practice_id", practiceId)
+        .eq("temp_session_key", tempSessionKey)
+        .is("session_id", null);
+      if (linkErr) console.error("[save-practice-reflection] relink error", linkErr);
+    }
+
     // Empty response → delete any existing row for this slot
     if (!trimmed) {
       const q = supabase
