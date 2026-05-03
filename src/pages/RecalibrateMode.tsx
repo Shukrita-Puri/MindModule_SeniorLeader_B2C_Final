@@ -111,13 +111,12 @@ const RecalibrateMode = () => {
               <h1 className="text-display text-foreground leading-tight">
                 Mental Performance Reset
               </h1>
-            </div>
-
-            <div className="px-3 md:px-4 pt-[5.5rem] pb-2 text-center">
               <p className="text-body-sm text-muted-foreground mt-1">
                 Mindset and Somatic Protocols drawn from proven wisdom
               </p>
             </div>
+
+            <div className="px-3 md:px-4 pt-[7.5rem] pb-2" />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] flex-1 flex flex-col">
               {renderToolSelection()}
