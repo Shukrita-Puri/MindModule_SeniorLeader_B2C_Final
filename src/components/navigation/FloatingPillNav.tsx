@@ -11,8 +11,8 @@ interface Tab {
 
 const TABS: Tab[] = [
   { icon: FileText, label: 'Today', path: '/executive-home' },
-  { icon: TrendingUp, label: 'Insight', path: '/insights' },
   { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
+  { icon: TrendingUp, label: 'Insight', path: '/insights' },
 ];
 
 const FloatingPillNav = () => {
@@ -34,7 +34,6 @@ const FloatingPillNav = () => {
           borderRadius: 999,
           padding: '6px 8px',
           gap: 4,
-          minWidth: 300,
         }}
       >
         {TABS.map((tab) => {
