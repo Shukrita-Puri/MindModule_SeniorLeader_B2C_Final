@@ -1,119 +1,120 @@
 ## Goal
 
-Make `/daily-check-in`, `/executive-home`, and `/plan` *feel* like one "Today" flow shown as **Step 1 → Step 2 → Step 3**, while keeping every route, button, hook, and backend call exactly as today.
+Make Step 1 (Assessment + Detail), Step 2 (Brief), and Step 3 (Plan) look like one flow:
+1. Same hero video at the top of all pages (the one already used on `/executive-home`).
+2. Remove the large centered `<h1>` from each page and present that title as the **eyebrow** above the page's card (same style as the brief card eyebrow).
 
-Pure presentation change. No new logic, no scoring change, no behaviour change. `/check-in-detail` keeps the same wrapper since it is a Step 1 sub-view.
+Pure presentational change. No routing, hooks, scoring, or backend touched.
 
 ---
 
-## What the user will see
-
-Bottom nav: rename **Brief** → **Today** (target stays `/executive-home` → Step 2). From any of the three pages the user sees the same shell:
+## What changes visually
 
 ```text
- ┌──────────────────────────────────────────────┐
- │            Hero video / gradient             │   ← matches /executive-home
- │                                              │
- │   ●─────────○─────────○                      │
- │  Step 1   Step 2   Step 3                    │
- │ Assessment  Brief   Plan                     │   ← short stepper labels
- │                                              │
- │  ┌────────────────────────────────────────┐  │
- │  │  PERFORMANCE READINESS ASSESSMENT      │  │   ← eyebrow = page's own title
- │  │                                        │  │
- │  │  …existing page body, unchanged…       │  │
- │  └────────────────────────────────────────┘  │
- └──────────────────────────────────────────────┘
-       [ Today ] [ Plan ] [ Insight ] [ Reset ]   ← existing pill nav
+ ┌──────────────────────────────────────────┐
+ │       Hero video (tier + time of day)    │  ← same on all 3 steps
+ │                                          │
+ │   ●─────○─────○                          │  ← TodayStepper (unchanged)
+ │  Step1 Step2 Step3                       │
+ │                                          │
+ │  ┌────────────────────────────────────┐  │
+ │  │ PERFORMANCE READINESS ASSESSMENT   │  │ ← eyebrow (was the H1)
+ │  │ Mental Energy State                │  │ ← existing subline
+ │  │  …existing card body…              │  │
+ │  └────────────────────────────────────┘  │
+ └──────────────────────────────────────────┘
 ```
 
-Eyebrow text per step (taken verbatim from each page's current heading, no "Today" word):
-
-- Step 1 → `PERFORMANCE READINESS ASSESSMENT`
-- Step 2 → `PERFORMANCE READINESS BRIEF`
-- Step 3 → `MENTAL PERFORMANCE PLAN`
-
-Stepper dots are clickable and just call `navigate('/daily-check-in' | '/executive-home' | '/plan')` — same routes the buttons already go to. Active dot highlighted; non-blocking (user can move freely between steps, mirroring today's behaviour).
+Eyebrows per step (taken verbatim from each page's current H1):
+- Step 1 (`/daily-check-in`) → `PERFORMANCE READINESS ASSESSMENT`
+- Step 1 detail (`/check-in-detail`) → `PERFORMANCE READINESS ASSESSMENT`
+- Step 2 (`/executive-home`) → `PERFORMANCE READINESS BRIEF`
+- Step 3 (`/plan`) → `MENTAL PERFORMANCE PLAN`
 
 ---
 
-## Implementation (2 new files, 4 light edits)
+## Implementation (1 new file, 4 edits)
 
-### 1. NEW `src/components/today/TodayShell.tsx`
+### 1. NEW `src/components/today/TodayHero.tsx`
 
-Pure presentational wrapper. Props:
+Extract the hero block already in `ExecutiveHome.tsx` (lines ~327–355) into a shared, presentational component:
 
-- `step: 1 | 2 | 3`
-- `eyebrow: string`
-- `children: ReactNode`
+- Picks `heroEnergyTier` + `heroDivergenceMode` from `useOuterReadiness()` (read-only — same hook ExecutiveHome already calls; cached via React Query so other pages reuse the cache, no extra network call when the cache is warm).
+- Computes `heroVideoUrl` exactly as ExecutiveHome does today.
+- Renders gradient + `<video autoplay muted loop playsInline>` + bottom fade overlay. No greeting text, no CTAs.
+- Optional prop `heightClass` (default `h-[180px]`) so Step 1/3 can render a slightly shorter version than Step 2 if needed (Step 2 keeps current full size by passing its existing wrapper).
 
-Renders, in order:
-1. A static hero block (gradient + still image) — same visual language as `/executive-home`, but **without** importing any brief/energy hooks. This guarantees zero coupling to data pipelines on Step 1 and Step 3.
-2. `<TodayStepper current={step} />`.
-3. A white rounded card containing the eyebrow (uppercase, tracked, same classes used by the brief card today) and `{children}`.
+Zero side-effects beyond what ExecutiveHome already does.
 
-No effects, no context, no fetch.
+### 2. EDIT `src/pages/ExecutiveHome.tsx`
 
-### 2. NEW `src/components/today/TodayStepper.tsx`
-
-~50 lines. Three buttons: Assessment / Brief / Plan with a thin connecting line. Active step uses gold accent; inactive use muted-foreground. Clicking calls `navigate(...)` to the existing route. Reuses semantic tokens only.
+- Replace the inline hero block + `getGreeting()` H1 with `<TodayHero />` (keep the existing header bar with `SidebarDiscoveryPulse` on top of it, same layering as today).
+- Remove the `Ready, {firstName}` H1. Add an eyebrow line **above** `<PerformanceReadinessBrief />` reading `PERFORMANCE READINESS BRIEF` using the same uppercase/tracked style the brief card already uses.
+- Keep `TodayStepper current={2}`, `useOuterReadiness`, brief tracking, all hooks untouched.
 
 ### 3. EDIT `src/pages/DailyCheckIn.tsx`
 
-Wrap the outermost return:
+- Insert `<TodayHero />` directly under the header (above `<TodayStepper current={1} />`).
+- Remove the centered `<h1>Performance Readiness Assessment</h1>` block (lines ~406–413). Keep it as `sr-only` for tour selectors / a11y.
+- Add eyebrow row above the radiogroup card:
+  - `PERFORMANCE READINESS ASSESSMENT` (uppercase, tracked, muted) on top
+  - `MENTAL ENERGY STATE` underneath (already exists — just relocated as the subline below the eyebrow).
 
-```tsx
-<TodayShell step={1} eyebrow="PERFORMANCE READINESS ASSESSMENT">
-  {/* existing JSX, unchanged */}
-</TodayShell>
-```
-
-If the page currently renders its own visible H1 ("Daily Check-in" etc.), keep it as `sr-only` so any tour selectors still work. All hooks, scoring writes, navigation handlers — untouched.
+No changes to outcomes, save logic, tour, or navigation.
 
 ### 4. EDIT `src/pages/CheckInDetail.tsx`
 
-Same wrap with `step={1}` and the same eyebrow (it is a Step 1 detail view). No body changes.
+- Insert `<TodayHero />` under the header.
+- Remove the centered H1 block (lines ~158–165).
+- Place eyebrow `PERFORMANCE READINESS ASSESSMENT` + subline `MENTAL PERFORMANCE SIGNALS` directly above the glass slider card (or as the card's first line).
+
+Sliders, save handler, sticky CTA — untouched.
 
 ### 5. EDIT `src/pages/PlanPage.tsx`
 
-Replace the current centered `<h1>Mental Performance Plan</h1>` block with the shell wrap, eyebrow `"MENTAL PERFORMANCE PLAN"`. The descriptive subline ("Your priorities mapped…") stays inside the card, unchanged. `TodayThreePriorities`, `DailyRitual`, `FirstSessionGuide`, `LeftSidebar`, sidebar context — all untouched.
+- Insert `<TodayHero />` under the header (above `<TodayStepper current={3} />`).
+- Remove the centered `<h1>Mental Performance Plan</h1>` + descriptive `<p>`.
+- Add an eyebrow `MENTAL PERFORMANCE PLAN` + the existing description as a subline directly above `<TodayThreePriorities />`.
 
-### 6. EDIT `src/pages/ExecutiveHome.tsx`
+`TodayThreePriorities`, `DailyRitual`, sidebar, tour — untouched.
 
-Minimal: insert `<TodayStepper current={2} />` directly above the existing brief white card. Do **not** change the existing dynamic hero video, brief data flow, or card markup. The page's own header text stays as-is and acts as the eyebrow naturally; if duplication looks off, only the existing visible H1 line is removed (display-only).
+---
 
-### 7. EDIT `src/components/navigation/FloatingPillNav.tsx`
+## Eyebrow markup (single shared style)
 
-One-line change: first tab `label: 'Brief'` → `label: 'Today'`. Path stays `/executive-home`.
+```tsx
+<div className="px-4 max-w-lg mx-auto pt-1 pb-3 text-center">
+  <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+    {eyebrow}
+  </p>
+  {subline && (
+    <p className="text-sm text-muted-foreground mt-1 font-body">{subline}</p>
+  )}
+</div>
+```
 
-### 8. EDIT `src/App.tsx`
-
-Add `'/daily-check-in'` and `'/check-in-detail'` to `PILL_NAV_VISIBLE_ROUTES` so the bottom pill (and its "Today" tab) is visible on Step 1.
+Reused on all 4 page wraps so the visual rhythm matches the brief card today.
 
 ---
 
 ## Safety guarantees
 
-- **No route changes.** All paths and `ProtectedRoute / OnboardingGuard / SubscriptionGuard` chains stay identical.
-- **No backend, edge-function, DB, RLS, or scoring touches.**
-- **No hook, context, or service edits.** `TodayShell` and `TodayStepper` are presentational only.
-- **ExecutiveHome's brief pipeline is not modified** — only a stepper inserted above the existing card.
-- **Stepper is non-gating.** It mirrors current free navigation; nothing depends on completion state.
-- **Static hero on Steps 1 / 3** so we don't import `useOuterBrief` etc. into pages that don't already use them.
-- **Existing tests** (`src/pages/__tests__/CheckInDetail.test.tsx`) keep passing — page body is wrapped, not rewritten.
-- All page-internal CTAs ("Continue → Brief", "Open Plan", etc.) keep their current `navigate(...)` targets unchanged, so the flow Step 1 → 2 → 3 still happens via the same buttons.
+- No route, guard, RLS, edge function, scoring, or hook changes.
+- `useOuterReadiness` is already called by `/executive-home`; using it on Step 1 / Step 3 hits the same React Query cache — no new write paths.
+- Hero is rendered behind the existing header (z-layering preserved).
+- All existing buttons, tour selectors (`data-tour="check-in-carousel"`, `data-tour="today-state"`, `data-tour="daily-plan"`), save flows, and CheckInDetail tests remain intact (H1 preserved as `sr-only`).
+- Stepper unchanged.
+
+---
 
 ## Files touched
 
 ```text
-NEW  src/components/today/TodayShell.tsx
-NEW  src/components/today/TodayStepper.tsx
-EDIT src/pages/DailyCheckIn.tsx          (wrap return)
-EDIT src/pages/CheckInDetail.tsx         (wrap return)
-EDIT src/pages/PlanPage.tsx              (wrap return; replace centered h1 with shell eyebrow)
-EDIT src/pages/ExecutiveHome.tsx         (insert <TodayStepper current={2}/> above brief card)
-EDIT src/components/navigation/FloatingPillNav.tsx   (label 'Brief' → 'Today')
-EDIT src/App.tsx                         (add /daily-check-in, /check-in-detail to PILL_NAV_VISIBLE_ROUTES)
+NEW  src/components/today/TodayHero.tsx
+EDIT src/pages/ExecutiveHome.tsx     (use TodayHero, drop greeting H1, add eyebrow)
+EDIT src/pages/DailyCheckIn.tsx      (insert TodayHero, demote H1 to sr-only, eyebrow)
+EDIT src/pages/CheckInDetail.tsx     (insert TodayHero, demote H1 to sr-only, eyebrow)
+EDIT src/pages/PlanPage.tsx          (insert TodayHero, drop H1, eyebrow)
 ```
 
-No new dependencies, no migrations, no edge-function deploys.
+No new dependencies, no migrations, no edge function deploys.
