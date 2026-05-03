@@ -1598,7 +1598,7 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
       const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title || 'today\'s meeting');
       return {
         title: 'Saturday with one to land',
-        body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
+        body: `${ev} on the calendar today. Land your mind before it arrives — check in to set your intention.`,
         variantId: 'FB-N1-sat-anchored',
       };
     }

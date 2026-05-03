@@ -108,7 +108,10 @@ const VALID_DEEP_LINKS = new Set([
 function bodyContainsForbidden(body: string): string | null {
   const lower = body.toLowerCase();
   for (const w of FORBIDDEN_WORDS) {
-    if (lower.includes(w)) return w;
+    // Word-boundary match so "set your intent" does not flag the allowed
+    // CTA "set your intention".
+    const rx = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (rx.test(lower)) return w;
   }
   return null;
 }
@@ -127,26 +130,22 @@ Deno.test("v5 source: fallback strings contain no forbidden vocabulary", async (
   assert(startIdx > 0 && endIdx > startIdx, "Could not locate MVP fallback region in source");
   const region = src.slice(startIdx, endIdx);
 
-  const lines = region.split("\n");
-  const fallbackLines: string[] = [];
-  for (const ln of lines) {
-    if (/variantId:\s*['"`]FB-/.test(ln) && /body:/.test(ln)) {
-      fallbackLines.push(ln);
-    }
+  // Match multi-line fallback objects: capture body literal between `body:`
+  // and the following `variantId: 'FB-...'`. Bodies may span multiple lines.
+  const fallbackRx = /body:\s*([\s\S]*?),\s*variantId:\s*['"`](FB-[A-Za-z0-9-]+)['"`]/g;
+  const fallbacks: Array<{ body: string; id: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = fallbackRx.exec(region)) !== null) {
+    fallbacks.push({ body: m[1], id: m[2] });
   }
-  assertGreaterOrEqual(fallbackLines.length, 15, `Expected ≥15 FB-* fallback strings, got ${fallbackLines.length}`);
+  assertGreaterOrEqual(fallbacks.length, 15, `Expected ≥15 FB-* fallback strings, got ${fallbacks.length}`);
 
-  for (const ln of fallbackLines) {
-    // Extract the body literal, which may be a template string with embedded
-    // single-quotes (e.g. `${count} meeting${count > 1 ? 's' : ''}`). We grab
-    // everything between `body:` and `, variantId:` on the same line.
-    const segMatch = ln.match(/body:\s*([\s\S]*?),\s*variantId:/);
-    const bodyText = segMatch ? segMatch[1] : ln;
+  for (const { body: bodyText, id } of fallbacks) {
     const bad = bodyContainsForbidden(bodyText);
-    assertEquals(bad, null, `Forbidden word "${bad}" found in fallback body: ${bodyText.substring(0, 140)}…`);
+    assertEquals(bad, null, `Forbidden word "${bad}" found in fallback ${id}: ${bodyText.substring(0, 140)}…`);
     assert(
       CTA_VERB_RX.test(bodyText),
-      `Fallback missing action-verb CTA: ${bodyText.substring(0, 140)}…`,
+      `Fallback ${id} missing action-verb CTA: ${bodyText.substring(0, 140)}…`,
     );
   }
 });
