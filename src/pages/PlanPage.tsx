@@ -53,13 +53,13 @@ const PlanPage = () => {
                   bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
                   border border-black/[0.08]
                   shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-                  <div className="mb-3">
-                    <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
                       Mental Performance Plan
-                    </p>
-                    <p className="text-[12px] text-muted-foreground/80 font-body mt-1">
-                      Your priorities mapped based on your brief and for your day
-                    </p>
+                    </span>
+                    <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
+                      Today's Priorities
+                    </span>
                   </div>
                   <div data-tour="daily-plan">
                     <TodayThreePriorities
