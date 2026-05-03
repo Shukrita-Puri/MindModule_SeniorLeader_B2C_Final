@@ -13,6 +13,7 @@ import LeftSidebar from '@/components/navigation/LeftSidebar';
 import SidebarDiscoveryPulse from '@/components/navigation/SidebarDiscoveryPulse';
 import FloatingPillNav from '@/components/navigation/FloatingPillNav';
 import TodayStepper from '@/components/today/TodayStepper';
+import TodayHero from '@/components/today/TodayHero';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -153,15 +154,17 @@ const CheckInDetail = () => {
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
+      <TodayHero />
       <TodayStepper current={1} />
 
-      <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
-        <div className="relative h-full flex flex-col items-center justify-center text-center z-10 space-y-1.5">
-          <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight leading-tight">
-            Performance Readiness Assessment
-          </h1>
-          <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body leading-none">Mental Performance Signals</p>
-        </div>
+      <div className="px-4 pt-1 pb-2 text-center">
+        <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+          Performance Readiness Assessment
+        </p>
+        <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body leading-none mt-1">
+          Mental Performance Signals
+        </p>
+        <h1 className="sr-only">Performance Readiness Assessment</h1>
       </div>
 
       <div className="flex-1 flex min-h-0 items-start justify-center px-4 pt-1 pb-0">

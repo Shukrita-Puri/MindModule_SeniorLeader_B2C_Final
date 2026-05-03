@@ -6,6 +6,7 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import TodayStepper from "@/components/today/TodayStepper";
+import TodayHero from "@/components/today/TodayHero";
 import DailyRitual from "@/components/home/DailyRitual";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -38,17 +39,19 @@ const PlanPage = () => {
             <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
               <SidebarDiscoveryPulse />
             </header>
+            <TodayHero />
             <TodayStepper current={3} />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-lg mx-auto px-3 md:px-4">
                 <div className="pb-3 text-center">
-                  <h1 className="text-display text-foreground">
+                  <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
                     Mental Performance Plan
-                  </h1>
+                  </p>
                   <p className="text-body-sm text-muted-foreground mt-1">
                     Your priorities mapped based on your brief and for your day
                   </p>
+                  <h1 className="sr-only">Mental Performance Plan</h1>
                 </div>
                 <div data-tour="daily-plan">
                   <TodayThreePriorities

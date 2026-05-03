@@ -19,6 +19,7 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
 import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
 import TodayStepper from "@/components/today/TodayStepper";
+import TodayHero from "@/components/today/TodayHero";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
@@ -324,48 +325,16 @@ const ExecutiveHome = () => {
           data-scroll-container
           className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         >
-          {/* Immersive Hero Visual */}
-          <div className="relative">
-            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-              <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
-              <video 
-                ref={videoRef}
-                key={heroVideoUrl}
-                src={heroVideoUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                onCanPlay={(e) => fadeInVideo(e.currentTarget)}
-                onLoadedData={(e) => fadeInVideo(e.currentTarget)}
-                className="w-full h-full object-cover video-warm-luxury"
-                style={{ opacity: 0 }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-background/30 to-background pointer-events-none" />
+          {/* Unified Today header bar + shared hero */}
+          <header className="relative z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
+            <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
+              <SidebarDiscoveryPulse />
             </div>
-            
-            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
-              <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
-                <SidebarDiscoveryPulse />
-              </div>
-              <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
-                <div data-tour="coach-access"><CoachAccessButton /></div>
-              </div>
-            </header>
-            
-            <div className="relative z-10 pt-0 pb-2 max-w-lg mx-auto text-center">
-            <h1 className="text-[28px] sm:text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
-                {getGreeting()}
-              </h1>
-              {/* TEMP_SUPPRESSED: subheadline phrase hidden to avoid duplication with brief italic line */}
-              {false && (
-                <p className="text-sm text-muted-foreground/70 mt-1 font-body">
-                  {getSubheadline()}
-                </p>
-              )}
+            <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
+              <div data-tour="coach-access"><CoachAccessButton /></div>
             </div>
-          </div>
+          </header>
+          <TodayHero />
 
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
@@ -374,6 +343,12 @@ const ExecutiveHome = () => {
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
+              <div className="pb-3 text-center">
+                <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+                  Performance Readiness Brief
+                </p>
+                <h1 className="sr-only">{getGreeting()}</h1>
+              </div>
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
               </section>
