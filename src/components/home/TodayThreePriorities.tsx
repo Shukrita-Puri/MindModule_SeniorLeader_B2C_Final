@@ -913,10 +913,7 @@ const TodayThreePriorities = ({
 
       {/* Header with info modal */}
       <div className="px-4 max-w-lg mx-auto">
-        <div className="flex items-center justify-between">
-          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
-            {plan?.ledger?.source === 'bonus-round' ? "Today's 3 · Bonus Round" : "Today's 3 Priorities"}
-          </span>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xs font-medium font-body whitespace-nowrap",
