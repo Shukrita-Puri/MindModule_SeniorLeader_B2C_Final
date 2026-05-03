@@ -58,9 +58,9 @@ const StrategicIntentionCard = ({ jitEvent }: StrategicIntentionCardProps) => {
     )}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xs tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Outer Readiness Brief</h2>
+        <h2 className="text-xs tracking-[0.08em] uppercase text-muted-foreground/60 font-body">Your Leading Signal Inputs</h2>
         <MetricInfoModal
-          title="Your Outer Readiness Brief"
+          title="Your Leading Signal Inputs"
           description="A short read on how your inner state meets today’s demands. It tells you what to lean on and what to watch for — a direction, not a prescription."
         />
       </div>
