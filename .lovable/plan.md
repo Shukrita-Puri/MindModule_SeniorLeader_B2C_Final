@@ -1,36 +1,44 @@
-## Goal
-Make it obvious that Step 3 (Plan) is the next tap after the Brief, without adding a redundant "Tap to generate plan" link below the brief card.
+## Problem
 
-## Approach
-Remove the standalone `GenerateTodaysPlanLink` from the Brief page and instead draw the user's eye to the **Step 3 dot in the TodayStepper** with a quiet pulsing affordance + an animated dotted connector flowing from Step 2 → Step 3.
+`FloatingPillNav` (the bottom pill) keeps the same dark pill chrome everywhere it's mounted, but the **Today** tab's "active" highlight (`bg-white/15` + full-opacity label) only lights up when `pathname === '/executive-home'`. On the Assessment (`/daily-check-in`) and Plan (`/plan`) pages no tab matches, so the pill *looks* different — there's no active chip — and the user reads that as "the nav changed colour".
 
-This keeps the navigation model consistent (the stepper is the canonical way to move between Assessment → Brief → Plan) and removes the duplicated CTA.
+We want: across all three Today-flow pages (Assessment, Brief, Plan) the pill renders identically and the **Today** tab is the highlighted one. No routing, no side-panel changes.
 
-## Changes (UI only, no behavior changes)
+## Change (one file)
 
-### 1. `src/pages/ExecutiveHome.tsx`
-- Remove the `GenerateTodaysPlanLink` block (and its import) that currently renders below the brief once `briefCtaReady` is true.
-- Pass a new prop to `TodayStepper`, e.g. `nextHint={3}`, only when `briefCtaReady` is true, so the stepper knows to highlight Step 3.
+`src/components/navigation/FloatingPillNav.tsx`
 
-### 2. `src/components/today/TodayStepper.tsx`
-- Accept optional `nextHint?: 1 | 2 | 3` prop.
-- When `nextHint === 3` (and Step 3 is not the current step):
-  - Render the connector line between Step 2 and Step 3 as a **dashed/dotted line** with a subtle left-to-right shimmer animation (CSS `background-size` + `background-position` keyframes on a repeating linear-gradient).
-  - Add a soft **breathing pulse ring** around the Step 3 dot (existing `animate-breathe-arrow` style or a new `animate-pulse-ring` using Tailwind `animate-ping` on an absolutely-positioned ring + the dot itself unchanged). Use saffron at low opacity to stay within the executive aesthetic.
-  - Step 3 label color shifts from muted to `text-foreground` so it reads as "next".
-- All other states (no hint, past, active) render exactly as today.
+Add a small set of "extra paths" that count as the Today tab being active, so the highlight follows the user across the stepper:
 
-### 3. No changes to:
-- Routing, navigation handlers, `briefCtaReady` logic, or the Plan page itself.
-- The Assessment page or Check-in detail page stepper rendering (they pass `current={1}` with no hint, so behavior is unchanged).
-- The bottom floating nav.
+```ts
+const TODAY_FLOW_PATHS = ['/executive-home', '/daily-check-in', '/plan', '/check-in-detail'];
 
-## Visual spec
-- Dotted connector: 1px dashed line, `hsl(var(--saffron) / 0.5)`, 6px dash / 4px gap, shimmer cycle ~2.4s ease-in-out.
-- Step 3 pulse ring: 2px ring, saffron at 40% opacity, scale 1 → 1.35, opacity 0.6 → 0, 1.8s loop.
-- Respects `prefers-reduced-motion`: animations disabled, dotted line stays static, ring becomes a steady soft halo.
+const isTodayFlow = TODAY_FLOW_PATHS.some(
+  (p) => pathname === p || pathname.startsWith(p + '/'),
+);
 
-## Result
-- Brief page no longer shows the redundant "TAP TO GENERATE TODAY'S PLAN" link.
-- Once the brief is ready, the eye is drawn up to Step 3 via the shimmering dotted line + pulsing dot.
-- Tapping Step 3 (already wired) navigates to `/plan`.
+// inside the map:
+const isActive =
+  tab.path === '/executive-home'
+    ? isTodayFlow
+    : pathname === tab.path || pathname.startsWith(tab.path + '/');
+```
+
+That's the entire behavioural change. Tapping Today still navigates to `/executive-home` (its existing `path`), so routing is untouched. Reset and Insight tabs keep their current matching rules.
+
+## Why this also fixes the "colour changing" perception
+
+The pill container styling (`bg-black/70 backdrop-blur-2xl`, border, padding, radius) is already constant — there is no per-route override anywhere. The visual delta the user is seeing is purely the missing active-chip on Assessment/Plan. Once Today stays highlighted on those routes, the pill looks identical to the Brief page.
+
+No CSS edits needed; no other components touched.
+
+## Out of scope (explicit)
+
+- No changes to `App.tsx` mount logic for the pill.
+- No changes to `TodayStepper`, side panel, routes, guards, or page chrome.
+- Reset / Insight tabs unchanged.
+- No accessibility changes beyond the existing active state, which already drives the visual highlight.
+
+## Files touched
+
+- `src/components/navigation/FloatingPillNav.tsx` — only the `isActive` derivation.
