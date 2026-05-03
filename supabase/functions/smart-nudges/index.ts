@@ -1512,6 +1512,35 @@ async function tryAIProvider(
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v8 — Meaning-first sentence + named context + qualified mind-prep CTA.
+  const dc = ctx.dayContext;
+
+  // V8 — Out-of-office / away-day morning (weekday or weekend, no meeting needed)
+  if (dc.kind === 'ooo' || dc.kind === 'away-day') {
+    return {
+      title: 'Day away',
+      body: `On your day away — a short reset before you switch off. Check in to set your intention.`,
+      variantId: 'FB-N1-away',
+    };
+  }
+
+  // V8 — Travel today (state-anchored, no meeting required)
+  if (dc.kind === 'travel-day') {
+    return {
+      title: 'Travel today',
+      body: `Travel on today's calendar. Ground yourself before the day moves — check in to set your intention.`,
+      variantId: 'FB-N1-travel',
+    };
+  }
+
+  // V8 — Post-travel morning (yesterday included travel), STATE-only, no JIT
+  if (dc.postTravel) {
+    return {
+      title: 'Recovery context',
+      body: `Yesterday included travel — body may still be carrying load. Log in to prep your state.`,
+      variantId: 'FB-N1-post-travel',
+    };
+  }
+
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
     return {
       title: 'Short sleep last night',
@@ -1542,11 +1571,37 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
     };
   }
   if (ctx.dayOfWeek === 6) {
-    const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
+    // V8 — Saturday AM with a meeting: anchored Saturday tone.
+    if (ctx.firstNonNoiseEvent) {
+      const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title || 'today\'s meeting');
+      return {
+        title: 'Saturday with one to land',
+        body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
+        variantId: 'FB-N1-sat-anchored',
+      };
+    }
+    // V8 — Saturday AM no meeting: recovery/reset, sets tone for the weekend.
     return {
-      title: 'New day, same standards',
-      body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
-      variantId: 'FB-N1-sat-anchored',
+      title: 'Saturday recovery',
+      body: `No meetings today — a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
+      variantId: 'FB-N1-sat-recovery',
+    };
+  }
+
+  // V8 — Sunday AM habit: recovery/reset before the week forms.
+  if (ctx.dayOfWeek === 0) {
+    if (ctx.firstNonNoiseEvent) {
+      const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title);
+      return {
+        title: 'Sunday reset',
+        body: `${ev} on the calendar today. A short reset before the day forms — check in to set your intention.`,
+        variantId: 'FB-N1-sun-anchored',
+      };
+    }
+    return {
+      title: 'Sunday reset',
+      body: `Quiet Sunday on the calendar — a short reset lands you before the week forms. Check in to set your intention.`,
+      variantId: 'FB-N1-sun-reset',
     };
   }
   if (ctx.eventCount > 0) {
@@ -1570,6 +1625,16 @@ function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): N
     title: 'Preparing mental performance',
     body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety — log in to prep your mind.`,
     variantId: 'FB-N1-JIT',
+  };
+}
+
+// V8 — Post-travel JIT variant: lead with travel-recovery awareness, then JIT, then CTA.
+function getFallbackNudgeOneJitPostTravelCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Preparing mental performance',
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Yesterday included travel — log in to prep your mind.`,
+    variantId: 'FB-N1-JIT-post-travel',
   };
 }
 
