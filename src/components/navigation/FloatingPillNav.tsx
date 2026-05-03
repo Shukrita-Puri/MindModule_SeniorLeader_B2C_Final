@@ -15,9 +15,25 @@ const TABS: Tab[] = [
   { icon: TrendingUp, label: 'Insight', path: '/insights' },
 ];
 
+/**
+ * Routes that all belong to the "Today" flow (Assessment → Brief → Plan).
+ * The Today tab stays highlighted across all of them so the bottom pill
+ * looks identical on every step of the stepper.
+ */
+const TODAY_FLOW_PATHS = [
+  '/executive-home',
+  '/daily-check-in',
+  '/check-in-detail',
+  '/plan',
+];
+
 const FloatingPillNav = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  const isTodayFlow = TODAY_FLOW_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  );
 
   return (
     <nav
@@ -37,7 +53,10 @@ const FloatingPillNav = () => {
         }}
       >
         {TABS.map((tab) => {
-          const isActive = pathname === tab.path || pathname.startsWith(tab.path + '/');
+          const isActive =
+            tab.path === '/executive-home'
+              ? isTodayFlow
+              : pathname === tab.path || pathname.startsWith(tab.path + '/');
           return (
             <button
               key={tab.path}
