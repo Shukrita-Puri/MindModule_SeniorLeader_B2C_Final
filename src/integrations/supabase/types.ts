@@ -2946,6 +2946,57 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_reflections: {
+        Row: {
+          created_at: string
+          entry_context: string | null
+          id: string
+          local_date: string
+          practice_id: string
+          practice_type: string
+          prompt: string | null
+          response: string
+          session_id: string | null
+          step_number: number
+          step_title: string | null
+          temp_session_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_context?: string | null
+          id?: string
+          local_date: string
+          practice_id: string
+          practice_type?: string
+          prompt?: string | null
+          response: string
+          session_id?: string | null
+          step_number: number
+          step_title?: string | null
+          temp_session_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_context?: string | null
+          id?: string
+          local_date?: string
+          practice_id?: string
+          practice_type?: string
+          prompt?: string | null
+          response?: string
+          session_id?: string | null
+          step_number?: number
+          step_title?: string | null
+          temp_session_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_sessions: {
         Row: {
           category: string

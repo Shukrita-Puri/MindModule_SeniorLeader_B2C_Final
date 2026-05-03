@@ -20,6 +20,8 @@ import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
+import { useReflectionDraft } from "@/hooks/useReflectionDraft";
+import { Textarea } from "@/components/ui/textarea";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.jpg";
 import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-self.jpg";
 import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-through-evidence.jpg";
@@ -1656,6 +1658,26 @@ const StepCardContent = ({ card }: { card: any }) => {
         {card.instruction}
       </p>
 
+      {/* Optional inline reflection (mindset protocols only) */}
+      {card.reflection?.enabled && (
+        <div className="w-full max-w-[300px] space-y-1.5">
+          <Textarea
+            value={card.reflection.draft ?? ""}
+            onChange={(e) => card.reflection.onChange(e.target.value)}
+            onBlur={card.reflection.onBlur}
+            placeholder="Your response… (optional)"
+            maxLength={2000}
+            rows={3}
+            className="bg-white/5 border-white/15 text-white/90 placeholder:text-white/35 min-h-[88px] rounded-xl text-sm focus-visible:ring-saffron/40 resize-none"
+          />
+          <p className="text-[11px] text-white/40 text-left">
+            {card.reflection.draft?.length
+              ? `Saved · ${card.reflection.draft.length} chars`
+              : "Optional reflection"}
+          </p>
+        </div>
+      )}
+
       {/* Expand toggle for secondary content */}
       {hasSecondary && (
         <>
@@ -1772,6 +1794,41 @@ const MicroPracticePlayerCards = () => {
   // Get cards for the current practice
   const cards = getCardsForPractice(id);
 
+  // Mindset detection — practice subType 'mindset' or stoic-reflection.
+  const isMindset = !!(practice && ((practice as any).subType === 'mindset' || practice.id === 'stoic-reflection'));
+
+  const entryContext: 'plan' | 'standalone' | 'jit' = fromIntervention
+    ? 'jit'
+    : fromRitual
+      ? 'plan'
+      : 'standalone';
+
+  // Stable temp session key for this player mount (links pre-completion drafts).
+  const tempSessionKeyRef = useRef<string>('');
+  if (!tempSessionKeyRef.current) {
+    tempSessionKeyRef.current =
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  const stepMeta = cards
+    .filter((c: any) => c.type === 'step')
+    .map((c: any) => ({
+      stepNumber: c.stepNumber,
+      title: c.title,
+      prompt: c.instruction,
+    }));
+
+  const reflection = useReflectionDraft({
+    practiceId: id,
+    isMindset,
+    entryContext,
+    tempSessionKey: tempSessionKeyRef.current,
+    steps: stepMeta,
+    sessionId,
+  });
+
   // Check if this is part of a practice queue (safe-parsed)
   useEffect(() => {
     const parsed = safeReadPracticeQueue();
@@ -1827,6 +1884,14 @@ const MicroPracticePlayerCards = () => {
     }
     const onSelect = () => {
       if (!mountedRef.current) return;
+      // Flush whichever step we're leaving (best-effort)
+      try {
+        const leavingIndex = current;
+        const leavingCard: any = cards[leavingIndex];
+        if (isMindset && leavingCard?.type === 'step' && leavingCard?.stepNumber) {
+          void reflection.flush(leavingCard.stepNumber);
+        }
+      } catch { /* noop */ }
       setCurrent(api.selectedScrollSnap());
       triggerHaptic();
     };
@@ -1838,7 +1903,7 @@ const MicroPracticePlayerCards = () => {
         /* noop — embla off can throw if api was destroyed */
       }
     };
-  }, [api]);
+  }, [api, current, cards, isMindset, reflection]);
 
   // Track engagement on page load
   useEffect(() => {
@@ -1866,6 +1931,11 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
+      // Flush all in-flight reflection drafts before tracking completion.
+      if (isMindset) {
+        try { await reflection.flush(); } catch (e) { console.warn('[MicroPracticePlayerCards] reflection flush failed', e); }
+      }
+
       const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
         Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
@@ -1892,6 +1962,10 @@ const MicroPracticePlayerCards = () => {
 
       if (result.data?.practiceSessionId) {
         setSessionId(result.data.practiceSessionId);
+        // Re-link previously saved reflections (saved with tempSessionKey) to the real session id.
+        if (isMindset) {
+          try { await reflection.flush(); } catch { /* noop */ }
+        }
       }
 
       // Update ritual completion if part of recommended plan or queue
@@ -2199,7 +2273,21 @@ const MicroPracticePlayerCards = () => {
                   )}
 
                   {card.type === "step" && (
-                    <StepCardContent card={card} />
+                    <StepCardContent
+                      card={
+                        isMindset
+                          ? {
+                              ...card,
+                              reflection: {
+                                enabled: true,
+                                draft: reflection.getDraft(card.stepNumber),
+                                onChange: (v: string) => reflection.setDraft(card.stepNumber, v),
+                                onBlur: () => { void reflection.flush(card.stepNumber); },
+                              },
+                            }
+                          : card
+                      }
+                    />
                   )}
 
                   {card.type === "science" && (
