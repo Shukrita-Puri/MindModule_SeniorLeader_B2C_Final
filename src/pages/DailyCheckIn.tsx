@@ -508,7 +508,6 @@ const DailyCheckIn = () => {
         }} />
       )}
     </div>
-    {!showGuide && <FloatingPillNav />}
     </SidebarInset>
     </div>
     </SidebarProvider>
