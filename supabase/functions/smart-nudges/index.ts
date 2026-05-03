@@ -169,6 +169,35 @@ function isNoiseEvent(title: string): boolean {
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+// V8 — Day-context awareness (copy-only, no scheduling/scoring impact).
+// "travel" is named verbatim — no long/short-haul distinction.
+const TRAVEL_KEYWORDS = ['flight', 'airport', 'boarding', 'departure', 'arrival', 'layover', 'transit', 'train'];
+const AWAY_KEYWORDS = ['annual leave', 'holiday', 'vacation', 'pto', 'away', 'day off'];
+const OOO_KEYWORDS = ['out of office', 'ooo'];
+
+function detectDayKindFromEvents(
+  events: Array<{ title?: string | null }>,
+): { kind: 'normal' | 'travel-day' | 'away-day' | 'ooo'; signalToken?: string } {
+  for (const e of events) {
+    const lower = (e.title || '').toLowerCase();
+    if (!lower) continue;
+    for (const kw of TRAVEL_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'travel-day', signalToken: 'travel' };
+    }
+  }
+  for (const e of events) {
+    const lower = (e.title || '').toLowerCase();
+    if (!lower) continue;
+    for (const kw of OOO_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'ooo', signalToken: 'out of office' };
+    }
+    for (const kw of AWAY_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'away-day', signalToken: kw };
+    }
+  }
+  return { kind: 'normal' };
+}
+
 const HIGH_STAKES_KEYWORDS = [
   'board', 'investor', 'presentation', 'negotiation', 'pitch',
   'review', 'performance', 'strategy', 'stakeholder',
