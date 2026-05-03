@@ -5,6 +5,7 @@ import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import TodayStepper from "@/components/today/TodayStepper";
 import DailyRitual from "@/components/home/DailyRitual";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -37,6 +38,7 @@ const PlanPage = () => {
             <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
               <SidebarDiscoveryPulse />
             </header>
+            <TodayStepper current={3} />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-lg mx-auto px-3 md:px-4">

@@ -18,6 +18,7 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
 import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
+import TodayStepper from "@/components/today/TodayStepper";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
@@ -368,6 +369,8 @@ const ExecutiveHome = () => {
 
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
+
+            <TodayStepper current={2} />
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
             <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">

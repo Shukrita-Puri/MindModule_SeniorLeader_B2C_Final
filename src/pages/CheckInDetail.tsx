@@ -12,6 +12,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import LeftSidebar from '@/components/navigation/LeftSidebar';
 import SidebarDiscoveryPulse from '@/components/navigation/SidebarDiscoveryPulse';
 import FloatingPillNav from '@/components/navigation/FloatingPillNav';
+import TodayStepper from '@/components/today/TodayStepper';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -152,7 +153,8 @@ const CheckInDetail = () => {
       <header className="flex items-center px-3 md:px-4 py-3">
         <SidebarDiscoveryPulse />
       </header>
-      
+      <TodayStepper current={1} />
+
       <div className="relative h-auto overflow-hidden px-4 pt-1 pb-2">
         <div className="relative h-full flex flex-col items-center justify-center text-center z-10 space-y-1.5">
           <h1 className="text-[28px] sm:text-3xl font-headline font-bold text-foreground tracking-tight leading-tight">
