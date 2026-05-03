@@ -1241,6 +1241,7 @@ Hard rules:
       const firstEvent = firstEventRaw ? truncateEventTitle(firstEventRaw) : null;
       const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
       const stakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title)).filter(Boolean);
+      const dayShapeLine = buildDayShapeLine(ctx);
       userPrompt = `Morning nudge (06:30–09:00 local). Prepare the leader for today.
 
 Available signals (use ONLY these):
@@ -1249,6 +1250,7 @@ ${firstEvent ? `- First event: ${firstEvent}${firstEventTime ? ` at ${firstEvent
 ${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stakes today: none'}
 ${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines'}
 - Day: ${ctx.dayName}
+${dayShapeLine}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
 Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
@@ -1260,6 +1262,7 @@ Required CTA verb at end of body: "check in to set your intention" (default) or 
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
+      const dayShapeLine = buildDayShapeLine(ctx);
       userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
 The proactive job is to pull them back into the app to use that prep before the event starts.
 
@@ -1267,6 +1270,7 @@ Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
+${dayShapeLine}
 
 Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
