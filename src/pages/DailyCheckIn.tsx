@@ -14,6 +14,7 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 import FloatingPillNav from "@/components/navigation/FloatingPillNav";
 import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
+import TodayGreeting from "@/components/today/TodayGreeting";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
@@ -397,9 +398,10 @@ const DailyCheckIn = () => {
     <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden">
-      <div className="h-full min-h-0 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8.75rem)]">
+      <div className="h-full min-h-0 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
       <div className="relative">
         <TodayHero />
+        <TodayGreeting />
         <header className="absolute top-0 left-0 right-0 z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
           <SidebarDiscoveryPulse />
         </header>
@@ -417,22 +419,14 @@ const DailyCheckIn = () => {
           shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
           {/* Eyebrow header inside card (top-left) */}
-          <div className="flex items-baseline justify-between mb-3">
+          <div className="mb-3">
             <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
               Performance Readiness Assessment
             </p>
-            <p className="text-[11px] tracking-[0.12em] uppercase text-muted-foreground/60 font-body">
-              Mental Energy State
-            </p>
           </div>
 
-          {/* Instruction */}
-          <p className="text-sm text-muted-foreground font-body mb-3 tracking-wide text-center leading-none">
-            Select your current state
-          </p>
-
           {/* Vertical state list – compact gaps */}
-          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
+          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2 w-full pt-0.5">
           {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -453,11 +447,16 @@ const DailyCheckIn = () => {
                 aria-label={outcome.title}
                 tabIndex={isTabStop ? 0 : -1}
                 onKeyDown={(e) => handleRadioKeyDown(e, index)}
-                onClick={() => setSelectedOutcome(outcome.value)}
+                onClick={() => {
+                  if (isSubmitting) return;
+                  setSelectedOutcome(outcome.value);
+                  setIsSubmitting(true);
+                  void handleOutcomeSelect(outcome.value).finally(() => setIsSubmitting(false));
+                }}
                 className={`
-                  w-[84%] mx-auto block text-left
+                  w-full block text-left
                   rounded-2xl
-                  min-h-[58px] flex items-center gap-3.5 px-4 py-2.5
+                  min-h-[52px] flex items-center gap-3.5 px-4 py-2
                   touch-manipulation select-none
                   transition-all duration-200
                   relative overflow-hidden
@@ -498,26 +497,6 @@ const DailyCheckIn = () => {
         </div>
       </div>
 
-      {/* Sticky bottom CTA – sits above pill nav, behind sidebar overlay */}
-      <div className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2.5 bg-gradient-to-t from-background via-background to-background/0"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
-      >
-        <div className="max-w-lg mx-auto">
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedOutcome || isSubmitting}
-            className={`
-              w-[84%] mx-auto block h-12 rounded-xl font-body text-[15px] font-medium tracking-wide
-              transition-all duration-200
-              ${selectedOutcome
-                ? 'bg-taupe text-white shadow-lg hover:bg-taupe/90 active:scale-[0.98]'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'}
-            `}
-          >
-            {isSubmitting ? 'Saving…' : 'Confirm'}
-          </button>
-        </div>
-      </div>
       {/* First Session Guide overlay */}
       {showGuide && (
         <FirstSessionGuide onComplete={() => {
