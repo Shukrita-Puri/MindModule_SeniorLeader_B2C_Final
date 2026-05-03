@@ -47,28 +47,28 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                       aria-hidden="true"
                       className="absolute inset-0 rounded-full motion-safe:animate-ping"
                       style={{
-                        backgroundColor: 'hsl(var(--muted-foreground) / 0.3)',
+                        backgroundColor: 'hsl(var(--taupe) / 0.35)',
                       }}
                     />
                   )}
                   <span
                   className={`flex items-center justify-center rounded-full transition-all duration-200 font-headline text-[11px] font-semibold ${
                     isActive
-                      ? 'bg-foreground text-background w-7 h-7 shadow-sm'
+                      ? 'bg-saffron text-saffron-foreground w-7 h-7 shadow-sm'
                       : isPast
-                        ? 'bg-foreground/70 text-background w-6 h-6'
+                        ? 'bg-taupe/70 text-taupe-foreground w-6 h-6'
                         : isHinted
-                          ? 'bg-background text-foreground border w-7 h-7 shadow-sm'
-                          : 'bg-transparent text-muted-foreground/70 border border-muted-foreground/30 w-6 h-6'
+                          ? 'bg-taupe/20 text-foreground border w-7 h-7 shadow-sm'
+                          : 'bg-transparent text-taupe border border-taupe/40 w-6 h-6'
                   }`}
-                  style={isHinted ? { borderColor: 'hsl(var(--muted-foreground) / 0.5)' } : undefined}
+                  style={isHinted ? { borderColor: 'hsl(var(--taupe) / 0.5)' } : undefined}
                 >
                   {step.key}
                   </span>
                 </span>
                 <span
                   className={`text-[10px] tracking-[0.12em] uppercase font-body leading-none ${
-                    isActive || isHinted ? 'text-foreground' : 'text-muted-foreground/70'
+                    isActive ? 'text-foreground' : isHinted ? 'text-foreground' : 'text-taupe'
                   }`}
                 >
                   {step.label}
@@ -84,7 +84,7 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                         className="flex-1 h-px mx-2 mb-4 motion-safe:animate-stepper-shimmer"
                         style={{
                           backgroundImage:
-                            'repeating-linear-gradient(to right, hsl(var(--muted-foreground) / 0.5) 0 6px, transparent 6px 10px)',
+                            'repeating-linear-gradient(to right, hsl(var(--taupe) / 0.5) 0 6px, transparent 6px 10px)',
                           backgroundSize: '20px 1px',
                           backgroundRepeat: 'repeat-x',
                         }}
@@ -95,7 +95,7 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                   return (
                     <div
                       className={`flex-1 h-px mx-2 mb-4 ${
-                        isPast || isActive ? 'bg-foreground/40' : 'bg-muted-foreground/20'
+                        isPast || isActive ? 'bg-taupe/50' : 'bg-taupe/20'
                       }`}
                     />
                   );
