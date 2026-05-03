@@ -10,6 +10,12 @@ const STEPS: Array<{ key: StepKey; label: string; path: string }> = [
 
 interface TodayStepperProps {
   current: StepKey;
+  /**
+   * Optional: highlight a step as the next suggested action.
+   * When set (and different from `current`), the connector leading
+   * to it animates as a dashed shimmer and the dot gets a soft pulse.
+   */
+  nextHint?: StepKey;
 }
 
 /**
@@ -17,7 +23,7 @@ interface TodayStepperProps {
  * Assessment → Brief → Plan pages under a shared "Today" flow.
  * Each dot navigates to the existing route — no logic or guarding.
  */
-const TodayStepper = ({ current }: TodayStepperProps) => {
+const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
   const navigate = useNavigate();
 
   return (
@@ -26,39 +32,83 @@ const TodayStepper = ({ current }: TodayStepperProps) => {
         {STEPS.map((step, idx) => {
           const isActive = step.key === current;
           const isPast = step.key < current;
+          const isHinted = nextHint === step.key && !isActive;
           return (
             <div key={step.key} className="flex items-center flex-1 last:flex-none">
               <button
                 type="button"
                 onClick={() => navigate(step.path)}
-                className="flex flex-col items-center gap-1 group focus:outline-none"
+                className="flex flex-col items-center gap-1 group focus:outline-none relative"
                 aria-current={isActive ? 'step' : undefined}
               >
-                <span
+                <span className="relative inline-flex items-center justify-center">
+                  {isHinted && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-full motion-safe:animate-ping"
+                        style={{
+                          backgroundColor: 'hsl(var(--saffron) / 0.35)',
+                        }}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -inset-1 rounded-full"
+                        style={{
+                          boxShadow: '0 0 0 2px hsl(var(--saffron) / 0.45)',
+                        }}
+                      />
+                    </>
+                  )}
+                  <span
                   className={`flex items-center justify-center rounded-full transition-all duration-200 font-headline text-[11px] font-semibold ${
                     isActive
                       ? 'bg-foreground text-background w-7 h-7 shadow-sm'
                       : isPast
                         ? 'bg-foreground/70 text-background w-6 h-6'
-                        : 'bg-transparent text-muted-foreground/70 border border-muted-foreground/30 w-6 h-6'
+                        : isHinted
+                          ? 'bg-background text-foreground border w-7 h-7 shadow-sm'
+                          : 'bg-transparent text-muted-foreground/70 border border-muted-foreground/30 w-6 h-6'
                   }`}
+                  style={isHinted ? { borderColor: 'hsl(var(--saffron))' } : undefined}
                 >
                   {step.key}
+                  </span>
                 </span>
                 <span
                   className={`text-[10px] tracking-[0.12em] uppercase font-body leading-none ${
-                    isActive ? 'text-foreground' : 'text-muted-foreground/70'
+                    isActive || isHinted ? 'text-foreground' : 'text-muted-foreground/70'
                   }`}
                 >
                   {step.label}
                 </span>
               </button>
               {idx < STEPS.length - 1 && (
-                <div
-                  className={`flex-1 h-px mx-2 mb-4 ${
-                    isPast || isActive ? 'bg-foreground/40' : 'bg-muted-foreground/20'
-                  }`}
-                />
+                (() => {
+                  const nextStepKey = (step.key + 1) as StepKey;
+                  const connectorHinted = nextHint === nextStepKey && nextStepKey !== current;
+                  if (connectorHinted) {
+                    return (
+                      <div
+                        className="flex-1 h-px mx-2 mb-4 motion-safe:animate-stepper-shimmer"
+                        style={{
+                          backgroundImage:
+                            'repeating-linear-gradient(to right, hsl(var(--saffron) / 0.6) 0 6px, transparent 6px 10px)',
+                          backgroundSize: '20px 1px',
+                          backgroundRepeat: 'repeat-x',
+                        }}
+                        aria-hidden="true"
+                      />
+                    );
+                  }
+                  return (
+                    <div
+                      className={`flex-1 h-px mx-2 mb-4 ${
+                        isPast || isActive ? 'bg-foreground/40' : 'bg-muted-foreground/20'
+                      }`}
+                    />
+                  );
+                })()
               )}
             </div>
           );

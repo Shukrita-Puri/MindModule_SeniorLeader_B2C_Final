@@ -204,6 +204,10 @@ export default {
           "0%, 100%": { transform: "translateX(0)", opacity: "1" },
           "50%": { transform: "translateX(3px)", opacity: "0.65" },
         },
+        "stepper-shimmer": {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "20px 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -216,6 +220,7 @@ export default {
         "slide-out-right": "slide-out-right 0.3s ease-out",
         "shimmer": "shimmer 2s ease-in-out infinite",
         "page-enter": "page-enter 0.4s ease-out",
+        "stepper-shimmer": "stepper-shimmer 2.4s linear infinite",
         "float-logo-1": "float-logo-1 3s ease-in-out infinite",
         "float-logo-2": "float-logo-2 3.5s ease-in-out infinite 0.3s",
         "float-logo-3": "float-logo-3 4s ease-in-out infinite 0.6s",
