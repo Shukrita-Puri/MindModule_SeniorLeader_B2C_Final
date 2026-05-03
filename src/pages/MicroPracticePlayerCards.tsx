@@ -20,7 +20,6 @@ import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { safeReadPracticeQueue, safeReadJitInterventionData, safeReadQueueIndex } from "@/utils/safeStorage";
-import { getProtocolType } from "@/utils/protocolMatcher";
 import { useReflectionDraft } from "@/hooks/useReflectionDraft";
 import { Textarea } from "@/components/ui/textarea";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/buddhist-phoenix.jpg";
