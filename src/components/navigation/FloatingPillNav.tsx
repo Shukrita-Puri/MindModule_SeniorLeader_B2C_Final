@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileText, ListChecks, TrendingUp, type LucideIcon } from 'lucide-react';
+import { FileText, TrendingUp, type LucideIcon } from 'lucide-react';
 import { Compass, type Icon } from '@phosphor-icons/react';
 
 interface Tab {
@@ -11,7 +11,6 @@ interface Tab {
 
 const TABS: Tab[] = [
   { icon: FileText, label: 'Today', path: '/executive-home' },
-  { icon: ListChecks, label: 'Plan', path: '/plan' },
   { icon: TrendingUp, label: 'Insight', path: '/insights' },
   { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
 ];
