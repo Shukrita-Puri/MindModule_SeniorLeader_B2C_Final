@@ -98,6 +98,8 @@ import FloatingPillNav from "./components/navigation/FloatingPillNav";
 const PILL_NAV_VISIBLE_ROUTES = [
   '/executive-home',
   '/plan',
+  '/daily-check-in',
+  '/check-in-detail',
   '/recalibrate',
   '/insights',
   '/profile',
