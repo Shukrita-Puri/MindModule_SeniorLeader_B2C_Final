@@ -1794,6 +1794,41 @@ const MicroPracticePlayerCards = () => {
   // Get cards for the current practice
   const cards = getCardsForPractice(id);
 
+  // Mindset detection — practice subType 'mindset' or stoic-reflection.
+  const isMindset = !!(practice && ((practice as any).subType === 'mindset' || practice.id === 'stoic-reflection'));
+
+  const entryContext: 'plan' | 'standalone' | 'jit' = fromIntervention
+    ? 'jit'
+    : fromRitual
+      ? 'plan'
+      : 'standalone';
+
+  // Stable temp session key for this player mount (links pre-completion drafts).
+  const tempSessionKeyRef = useRef<string>('');
+  if (!tempSessionKeyRef.current) {
+    tempSessionKeyRef.current =
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  const stepMeta = cards
+    .filter((c: any) => c.type === 'step')
+    .map((c: any) => ({
+      stepNumber: c.stepNumber,
+      title: c.title,
+      prompt: c.instruction,
+    }));
+
+  const reflection = useReflectionDraft({
+    practiceId: id,
+    isMindset,
+    entryContext,
+    tempSessionKey: tempSessionKeyRef.current,
+    steps: stepMeta,
+    sessionId,
+  });
+
   // Check if this is part of a practice queue (safe-parsed)
   useEffect(() => {
     const parsed = safeReadPracticeQueue();
