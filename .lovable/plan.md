@@ -1,82 +1,92 @@
 ## Goal
 
-Two purely-presentational fixes across the Today flow (Assessment / Detail / Brief / Plan). No logic, scoring, routing, hooks, save handlers, tour selectors, or button behaviour change.
+Four small, isolated UI fixes across the Today flow (Assessment / Detail / Brief / Plan). No scoring, save handlers, routing, tour selectors, or CTA logic semantics change. Only what's listed below is touched.
 
 ---
 
-## 1. Hero layering — restore Brief-page behaviour on every step
+## 1. Assessment (`DailyCheckIn.tsx`) — fit content + CTA inside the white card
 
-Today the header sits **above** `<TodayHero />` in the DOM on Assessment / Detail / Plan, so it consumes vertical space and pushes the hero down. On the Brief page the hero sits at the very top and the sidebar pulse button floats over it. We replicate that on all four pages.
+Problem: The five state buttons + sticky `Confirm` CTA overflow on iOS (CTA gets pushed under the pill nav).
 
-### Pattern applied identically to `ExecutiveHome.tsx`, `DailyCheckIn.tsx`, `CheckInDetail.tsx`, `PlanPage.tsx`
+Fix (purely presentational + one tiny behaviour tweak the user explicitly asked for):
 
-```text
-[ SidebarInset ] (relative)
-  [ TodayHero ]               ← first child, full-width, flush to top
-  [ header ]                  ← absolute top-0 left-0 right-0 z-40
-    SidebarDiscoveryPulse     ← floats on top of the hero, same as Brief today
-  [ TodayStepper ]
-  [ content / cards ]
-```
+- **Auto-advance on selection**: clicking a state button now triggers `handleOutcomeSelect(outcome.value)` directly (the same function `handleConfirm` already calls). The state still updates visually first, then advances. This removes the need for the Confirm CTA on this page.
+- Remove the sticky bottom CTA block (the fixed-position Confirm button) entirely. Removing the bottom bar also reclaims ~80px of vertical space, so all five state buttons + eyebrow + instruction sit comfortably inside the white card on a 375×812 iPhone viewport.
+- Tighten the state buttons so they fit without the CTA being needed at all:
+  - reduce `min-h-[58px]` → `min-h-[52px]`
+  - reduce `w-[84%]` → `w-full` (card padding already provides the inset)
+  - reduce vertical gap `gap-2.5` → `gap-2`
+- Remove the centered "Select your current state" instruction line (redundant once the eyebrow lives inside the card and selection auto-advances).
+- Keep the radiogroup `data-tour="check-in-carousel"`, ARIA roles, roving tabindex, keyboard handling, EngravedFill, accent colours and FirstSessionGuide hook untouched.
 
-Concrete change per page: render `<TodayHero />` as the first child of `<SidebarInset>`, then render the existing header with `className="absolute top-0 left-0 right-0 z-40 …"` keeping its current safe-area top padding and inner content. Hero height, video logic, gradients, and `useOuterReadiness` calls are untouched.
-
-ExecutiveHome already had this layering historically; the recent edit reordered header → hero. We restore hero-first + overlayed header so all four pages match the Brief behaviour exactly.
+No change to `handleOutcomeSelect`, `saveCheckin`, cache-clearing, navigation target (`/check-in-detail`), or tour key handling.
 
 ---
 
-## 2. White card packaging (Assessment, Detail, Plan)
+## 2. CheckInDetail (`CheckInDetail.tsx`) — bring sticky CTA inside the white card
 
-Wrap the content in the same white glass card the Brief uses, with the eyebrow inside the card top-left.
+Move the existing `Continue to Today's Performance` button out of the fixed bottom bar and into the bottom of the existing glass card (still full-width, same colour, same disabled state, same `handleSave` call). Removes the iOS gap between the card and the floating CTA.
 
-### Shared eyebrow row (inside card)
+- Delete the `fixed left-0 right-0 z-30 …` wrapper.
+- Render the same `<button>` as the last child inside the white card, with `mt-2` spacing.
+- `pb-[calc(env(safe-area-inset-bottom,0px)+8.75rem)]` on the page can drop to `+5.75rem` since the bar is gone, leaving room for the FloatingPillNav.
+
+No change to `handleSave`, `allThreeTouched` gating, slider logic, cache invalidation, or routing.
+
+---
+
+## 3. Greeting above the hero — visible on all 3 pages
+
+Currently the greeting only exists on `ExecutiveHome` and is rendered as `sr-only`. The user wants a small visible greeting line at the very top of the hero, on Assessment / Brief / Plan.
+
+Add a presentational `TodayGreeting` element rendered as the first child inside the `<div className="relative">` hero block (before `<TodayHero />`), absolutely positioned over the hero so it doesn't push layout:
+
 ```tsx
-<div className="flex items-baseline justify-between mb-4">
-  <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
-    {eyebrow}
+<div className="absolute top-[calc(env(safe-area-inset-top,0px)+0.85rem)] right-4 z-30 pointer-events-none">
+  <p className="text-[12px] tracking-wide font-body text-white/85 drop-shadow-sm">
+    {greeting}
   </p>
-  {rightSlot /* optional small subline like "Mental Energy State" */}
 </div>
 ```
 
-### Card surface (matches existing CheckInDetail glass card)
+`greeting` is computed locally on each page using the same rotation rule already in `ExecutiveHome` (`Ready, {firstName}` etc.), reading `useAuth().user`. The header (sidebar pulse) stays at top-left; greeting sits at top-right so they don't collide.
+
+No new shared component is required; same 3-line snippet duplicated on the four pages keeps it isolated and avoids touching `TodayHero` internals. (If preferred during implementation we extract to `TodayGreeting.tsx`, but the diff is identical.)
+
+---
+
+## 4. Brief page (`ExecutiveHome.tsx`) — remove duplicated eyebrow + match Assessment treatment
+
+- Delete the centered `Performance Readiness Brief` paragraph block (lines 347–353 wrapper around the `<p>` + `sr-only` h1). The `sr-only` h1 with the greeting is preserved by moving it to a hidden `h1` inside the brief section.
+- The Brief card itself (`PerformanceReadinessBrief`) already contains its own eyebrow internally, so this removes the duplication the user pointed out.
+
+### Eyebrow font consistency (Brief vs Assessment)
+
+Standardize the eyebrow row used inside the white card on Assessment, CheckInDetail, and Plan to match the Brief card's eyebrow exactly:
+
 ```tsx
-<div className="relative overflow-hidden rounded-2xl p-5
-  bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
-  border border-black/[0.08]
-  shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-  …eyebrow row…
-  …existing content…
-</div>
+<p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+  {EYEBROW}
+</p>
 ```
 
-### Step 1 — `DailyCheckIn.tsx`
-- Remove the centered eyebrow block above the radiogroup.
-- Wrap `<div role="radiogroup" data-tour="check-in-carousel">` (and the "Select your current state" instruction) in the white card.
-- Inside the card, top-left: `PERFORMANCE READINESS ASSESSMENT` with `MENTAL ENERGY STATE` as a small subline.
-- Outcomes data, save flow, sticky Confirm CTA, tour selectors — untouched.
+This is already the class string in use; the only inconsistency is `Plan` page using `font-body` body weight without the same letter-spacing on its subline. Align by:
 
-### Step 1 detail — `CheckInDetail.tsx`
-- The existing glass slider card stays. Move the eyebrow + `MENTAL PERFORMANCE SIGNALS` subline **inside** that card top-left; remove the centered text block above it.
-- Sliders, save handler, sticky CTA — untouched.
+- On the Plan card: keep the eyebrow paragraph as above, change subline to `text-[12px] text-muted-foreground/80 font-body mt-1` (same family/treatment as Brief subline).
+- On the Assessment card: drop the `Mental Energy State` right-side subline (it's redundant once the centered instruction is removed and the eyebrow is the only label).
+- On CheckInDetail card: drop the `Mental Performance Signals` right-side subline for the same reason; eyebrow alone reads cleanly.
 
-### Step 3 — `PlanPage.tsx`
-- Wrap `<TodayThreePriorities />` (and `DailyRitual` fallback) in the white card.
-- Inside the card top-left: `MENTAL PERFORMANCE PLAN` with the existing "Your priorities mapped based on your brief and for your day" line as the subline.
-- `TodayThreePriorities` props, completion logic, reflection deeplinks, tour — untouched.
-
-### Step 2 — `ExecutiveHome.tsx`
-- No card change (Brief owns its own card). Only the §1 hero layering fix applies. Greeting / brief content stay exactly where they are today.
+Result: every card across Assessment → Brief → Plan opens with one identically-styled eyebrow line at top-left.
 
 ---
 
 ## Files touched
 
 ```text
-EDIT src/pages/ExecutiveHome.tsx     (header overlay; no card change)
-EDIT src/pages/DailyCheckIn.tsx      (header overlay; wrap radiogroup in card with eyebrow inside)
-EDIT src/pages/CheckInDetail.tsx     (header overlay; move eyebrow inside existing slider card)
-EDIT src/pages/PlanPage.tsx          (header overlay; wrap priorities in card with eyebrow inside)
+EDIT src/pages/DailyCheckIn.tsx     (auto-advance, remove sticky CTA, shrink buttons, drop instruction, single eyebrow, add greeting overlay)
+EDIT src/pages/CheckInDetail.tsx    (move CTA inside card, drop right subline, add greeting overlay)
+EDIT src/pages/ExecutiveHome.tsx    (delete duplicated eyebrow block, add visible greeting overlay)
+EDIT src/pages/PlanPage.tsx         (align subline class with Brief, add greeting overlay)
 ```
 
-No new components, hooks, routes, migrations, or edge function deploys. `sr-only` H1s and all `data-tour` selectors preserved.
+No new components, hooks, routes, migrations, or edge function deploys. All `data-tour` selectors, save flows, scoring, navigation targets, and FirstSessionGuide wiring preserved.
