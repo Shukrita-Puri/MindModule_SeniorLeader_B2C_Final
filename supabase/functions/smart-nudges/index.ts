@@ -964,6 +964,24 @@ function buildWearablePriorityLines(ctx: NudgeContext): string {
   return lines.join('\n');
 }
 
+// V8 — Day-shape awareness line for AI prompts. Empty when normal & no post-travel.
+function buildDayShapeLine(ctx: NudgeContext): string {
+  const dc = ctx.dayContext;
+  if (dc.kind === 'normal' && !dc.postTravel) return '';
+  const parts: string[] = [];
+  if (dc.kind === 'travel-day') {
+    parts.push('Today shape: travel on the calendar — name "travel" verbatim (no long/short-haul).');
+  } else if (dc.kind === 'away-day') {
+    parts.push('Today shape: away-day — acknowledge the day away.');
+  } else if (dc.kind === 'ooo') {
+    parts.push('Today shape: out of office — acknowledge it.');
+  }
+  if (dc.postTravel) {
+    parts.push('Recovery context: yesterday included travel — body may still be carrying load. Lead the meaning sentence with this awareness.');
+  }
+  return parts.join('\n');
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── Post-generation fabrication validation ──
 // ══════════════════════════════════════════════════════════════
