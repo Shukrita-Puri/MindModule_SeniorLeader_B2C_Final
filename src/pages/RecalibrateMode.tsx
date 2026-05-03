@@ -99,7 +99,7 @@ const RecalibrateMode = () => {
       <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
         <LeftSidebar />
         <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto">
-          <div>
+          <div className="relative">
             <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
               <SidebarDiscoveryPulse />
             </header>
