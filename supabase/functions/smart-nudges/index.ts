@@ -1840,6 +1840,13 @@ async function evaluateNudgeOne(
     morningEnd = Math.max(morningEnd, 11.0);
   }
 
+  // V8 — Sunday AM, or Saturday AM with no meeting: 09:00–10:30 local recovery window
+  // (users may sleep in on weekends).
+  if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
+    morningStart = 9.0;
+    morningEnd = 10.5;
+  }
+
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
 
   // Don't fire if first event is < 30 min away (we already missed the window)
