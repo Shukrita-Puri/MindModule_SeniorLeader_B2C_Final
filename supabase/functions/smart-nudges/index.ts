@@ -169,6 +169,35 @@ function isNoiseEvent(title: string): boolean {
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+// V8 — Day-context awareness (copy-only, no scheduling/scoring impact).
+// "travel" is named verbatim — no long/short-haul distinction.
+const TRAVEL_KEYWORDS = ['flight', 'airport', 'boarding', 'departure', 'arrival', 'layover', 'transit', 'train'];
+const AWAY_KEYWORDS = ['annual leave', 'holiday', 'vacation', 'pto', 'away', 'day off'];
+const OOO_KEYWORDS = ['out of office', 'ooo'];
+
+function detectDayKindFromEvents(
+  events: Array<{ title?: string | null }>,
+): { kind: 'normal' | 'travel-day' | 'away-day' | 'ooo'; signalToken?: string } {
+  for (const e of events) {
+    const lower = (e.title || '').toLowerCase();
+    if (!lower) continue;
+    for (const kw of TRAVEL_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'travel-day', signalToken: 'travel' };
+    }
+  }
+  for (const e of events) {
+    const lower = (e.title || '').toLowerCase();
+    if (!lower) continue;
+    for (const kw of OOO_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'ooo', signalToken: 'out of office' };
+    }
+    for (const kw of AWAY_KEYWORDS) {
+      if (lower.includes(kw)) return { kind: 'away-day', signalToken: kw };
+    }
+  }
+  return { kind: 'normal' };
+}
+
 const HIGH_STAKES_KEYWORDS = [
   'board', 'investor', 'presentation', 'negotiation', 'pitch',
   'review', 'performance', 'strategy', 'stakeholder',
@@ -305,6 +334,12 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 — Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
+  // V8 — Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
+  dayContext: {
+    kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
+    signalToken?: string;
+    postTravel: boolean;
+  };
 }
 
 interface NudgeCopy {
@@ -550,11 +585,16 @@ async function buildNudgeContext(
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // V8 — yesterday's date string (local) for post-travel awareness
+  const yesterdayDate = new Date(`${todayStr}T00:00:00`);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
   // All queries in parallel
   const [
     { data: todayEventsRaw },
     { data: tomorrowEventsRaw },
+    { data: yesterdayEventsRaw },
     { data: latestWearable },
     { data: wearable30d },
     { data: latestSnapshot },
@@ -579,6 +619,11 @@ async function buildNudgeContext(
       .gte('start_time', `${tomorrowStr}T00:00:00`)
       .lte('start_time', `${tomorrowStr}T23:59:59`)
       .order('start_time', { ascending: true }),
+    supabase.from('calendar_events')
+      .select('id, title, start_time')
+      .eq('user_id', userId)
+      .gte('start_time', `${yesterdayStr}T00:00:00`)
+      .lte('start_time', `${yesterdayStr}T23:59:59`),
     supabase.from('wearable_data')
       .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
       .eq('user_id', userId)
@@ -872,6 +917,15 @@ async function buildNudgeContext(
     inMeetingNow,
     hrvDeltaPctFromSnapshot,
     pattern: null, // Hydrated by main handler before evaluators run
+    dayContext: (() => {
+      const today = detectDayKindFromEvents(todayEvents);
+      const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
+      return {
+        kind: today.kind,
+        signalToken: today.signalToken,
+        postTravel: yesterday.kind === 'travel-day',
+      };
+    })(),
   };
 }
 
@@ -908,6 +962,24 @@ function buildWearablePriorityLines(ctx: NudgeContext): string {
     lines.push('PRIORITY: Lead with HRV recovery signal');
   }
   return lines.join('\n');
+}
+
+// V8 — Day-shape awareness line for AI prompts. Empty when normal & no post-travel.
+function buildDayShapeLine(ctx: NudgeContext): string {
+  const dc = ctx.dayContext;
+  if (dc.kind === 'normal' && !dc.postTravel) return '';
+  const parts: string[] = [];
+  if (dc.kind === 'travel-day') {
+    parts.push('Today shape: travel on the calendar — name "travel" verbatim (no long/short-haul).');
+  } else if (dc.kind === 'away-day') {
+    parts.push('Today shape: away-day — acknowledge the day away.');
+  } else if (dc.kind === 'ooo') {
+    parts.push('Today shape: out of office — acknowledge it.');
+  }
+  if (dc.postTravel) {
+    parts.push('Recovery context: yesterday included travel — body may still be carrying load. Lead the meaning sentence with this awareness.');
+  }
+  return parts.join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1187,6 +1259,7 @@ Hard rules:
       const firstEvent = firstEventRaw ? truncateEventTitle(firstEventRaw) : null;
       const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
       const stakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title)).filter(Boolean);
+      const dayShapeLine = buildDayShapeLine(ctx);
       userPrompt = `Morning nudge (06:30–09:00 local). Prepare the leader for today.
 
 Available signals (use ONLY these):
@@ -1195,6 +1268,7 @@ ${firstEvent ? `- First event: ${firstEvent}${firstEventTime ? ` at ${firstEvent
 ${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stakes today: none'}
 ${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines'}
 - Day: ${ctx.dayName}
+${dayShapeLine}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
 Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
@@ -1206,6 +1280,7 @@ Required CTA verb at end of body: "check in to set your intention" (default) or 
       const evtTitle = truncateEventTitle(evt.eventTitle);
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
+      const dayShapeLine = buildDayShapeLine(ctx);
       userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
 The proactive job is to pull them back into the app to use that prep before the event starts.
 
@@ -1213,6 +1288,7 @@ Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes${hrvLine}
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
+${dayShapeLine}
 
 Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
@@ -1458,6 +1534,35 @@ async function tryAIProvider(
 
 function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
   // v8 — Meaning-first sentence + named context + qualified mind-prep CTA.
+  const dc = ctx.dayContext;
+
+  // V8 — Out-of-office / away-day morning (weekday or weekend, no meeting needed)
+  if (dc.kind === 'ooo' || dc.kind === 'away-day') {
+    return {
+      title: 'Day away',
+      body: `On your day away — a short reset before you switch off. Check in to set your intention.`,
+      variantId: 'FB-N1-away',
+    };
+  }
+
+  // V8 — Travel today (state-anchored, no meeting required)
+  if (dc.kind === 'travel-day') {
+    return {
+      title: 'Travel today',
+      body: `Travel on today's calendar. Ground yourself before the day moves — check in to set your intention.`,
+      variantId: 'FB-N1-travel',
+    };
+  }
+
+  // V8 — Post-travel morning (yesterday included travel), STATE-only, no JIT
+  if (dc.postTravel) {
+    return {
+      title: 'Recovery context',
+      body: `Yesterday included travel — body may still be carrying load. Log in to prep your state.`,
+      variantId: 'FB-N1-post-travel',
+    };
+  }
+
   if (ctx.hasWearableData && ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
     return {
       title: 'Short sleep last night',
@@ -1488,11 +1593,37 @@ function getFallbackNudgeOneMorningCopy(ctx: NudgeContext): NudgeCopy {
     };
   }
   if (ctx.dayOfWeek === 6) {
-    const ev = truncateEventTitle(ctx.firstNonNoiseEvent?.title || 'today\'s meeting');
+    // V8 — Saturday AM with a meeting: anchored Saturday tone.
+    if (ctx.firstNonNoiseEvent) {
+      const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title || 'today\'s meeting');
+      return {
+        title: 'Saturday with one to land',
+        body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
+        variantId: 'FB-N1-sat-anchored',
+      };
+    }
+    // V8 — Saturday AM no meeting: recovery/reset, sets tone for the weekend.
     return {
-      title: 'New day, same standards',
-      body: `${ev} on the calendar today. Set the tone for your mind before it arrives — check in to set your intention.`,
-      variantId: 'FB-N1-sat-anchored',
+      title: 'Saturday recovery',
+      body: `No meetings today — a short reset shapes the kind of weekend you actually need. Check in to set your intention.`,
+      variantId: 'FB-N1-sat-recovery',
+    };
+  }
+
+  // V8 — Sunday AM habit: recovery/reset before the week forms.
+  if (ctx.dayOfWeek === 0) {
+    if (ctx.firstNonNoiseEvent) {
+      const ev = truncateEventTitle(ctx.firstNonNoiseEvent.title);
+      return {
+        title: 'Sunday reset',
+        body: `${ev} on the calendar today. A short reset before the day forms — check in to set your intention.`,
+        variantId: 'FB-N1-sun-anchored',
+      };
+    }
+    return {
+      title: 'Sunday reset',
+      body: `Quiet Sunday on the calendar — a short reset lands you before the week forms. Check in to set your intention.`,
+      variantId: 'FB-N1-sun-reset',
     };
   }
   if (ctx.eventCount > 0) {
@@ -1516,6 +1647,16 @@ function getFallbackNudgeOneJitCopy(eventTitle: string, minutesUntil: number): N
     title: 'Preparing mental performance',
     body: `From your morning Plan: ${ev} in ${minutesUntil} min. Walk in with the edge, not the anxiety — log in to prep your mind.`,
     variantId: 'FB-N1-JIT',
+  };
+}
+
+// V8 — Post-travel JIT variant: lead with travel-recovery awareness, then JIT, then CTA.
+function getFallbackNudgeOneJitPostTravelCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Preparing mental performance',
+    body: `From your morning Plan: ${ev} in ${minutesUntil} min. Yesterday included travel — log in to prep your mind.`,
+    variantId: 'FB-N1-JIT-post-travel',
   };
 }
 
@@ -1699,11 +1840,11 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
-  // ── v5 weekend skip ──
-  // Sunday morning: never fire (Sunday only fires in the evening).
-  if (ctx.dayOfWeek === 0) return null;
-  // Saturday morning: only fire if a real meeting exists today; otherwise skip.
-  if (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent) return null;
+  // V8 weekend morning policy:
+  // - Saturday AM with a meeting: fire calendar-anchored (slower entry, Saturday tone).
+  // - Saturday AM no meeting: fire recovery/reset state-anchored nudge (09:00–10:30).
+  // - Sunday AM: always fire recovery/reset habit nudge (08:00–10:30 if no meeting,
+  //   calendar-anchored if a meeting exists).
 
   // ── A) JIT morning event — check first ──
   // v5: drop the jit_horizons_surfaced requirement so the lure fires on
@@ -1733,7 +1874,9 @@ async function evaluateNudgeOne(
         minutesUntil,
       });
       const copy = aiCopy || validateStaticFallbackCopy(
-        getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+        ctx.dayContext.postTravel
+          ? getFallbackNudgeOneJitPostTravelCopy(evt.eventTitle || 'Upcoming event', minutesUntil)
+          : getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
         ctx, 'nudge_one_jit',
       );
       if (!copy) continue;
@@ -1784,6 +1927,13 @@ async function evaluateNudgeOne(
   if (ctx.dayOfWeek === 6) {
     morningStart = Math.max(morningStart, 9.0);
     morningEnd = Math.max(morningEnd, 11.0);
+  }
+
+  // V8 — Sunday AM, or Saturday AM with no meeting: 09:00–10:30 local recovery window
+  // (users may sleep in on weekends).
+  if (ctx.dayOfWeek === 0 || (ctx.dayOfWeek === 6 && !ctx.firstNonNoiseEvent)) {
+    morningStart = 9.0;
+    morningEnd = 10.5;
   }
 
   if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
