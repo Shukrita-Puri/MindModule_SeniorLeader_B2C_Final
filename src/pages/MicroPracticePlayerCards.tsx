@@ -2273,7 +2273,21 @@ const MicroPracticePlayerCards = () => {
                   )}
 
                   {card.type === "step" && (
-                    <StepCardContent card={card} />
+                    <StepCardContent
+                      card={
+                        isMindset
+                          ? {
+                              ...card,
+                              reflection: {
+                                enabled: true,
+                                draft: reflection.getDraft(card.stepNumber),
+                                onChange: (v: string) => reflection.setDraft(card.stepNumber, v),
+                                onBlur: () => { void reflection.flush(card.stepNumber); },
+                              },
+                            }
+                          : card
+                      }
+                    />
                   )}
 
                   {card.type === "science" && (
