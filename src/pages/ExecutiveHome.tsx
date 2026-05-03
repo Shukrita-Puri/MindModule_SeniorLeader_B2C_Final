@@ -325,16 +325,18 @@ const ExecutiveHome = () => {
           data-scroll-container
           className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         >
-          {/* Unified Today header bar + shared hero */}
-          <header className="relative z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
-            <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
-              <SidebarDiscoveryPulse />
-            </div>
-            <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
-              <div data-tour="coach-access"><CoachAccessButton /></div>
-            </div>
-          </header>
-          <TodayHero />
+          {/* Unified Today header bar + shared hero (header overlays hero) */}
+          <div className="relative">
+            <TodayHero />
+            <header className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 w-full pointer-events-auto">
+              <div data-tour="sidebar-trigger-wrap" className="p-2 -m-2 rounded-full">
+                <SidebarDiscoveryPulse />
+              </div>
+              <div data-tour="coach-access-wrap" className="hidden p-2 -m-2 rounded-full">
+                <div data-tour="coach-access"><CoachAccessButton /></div>
+              </div>
+            </header>
+          </div>
 
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">

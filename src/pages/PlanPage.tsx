@@ -36,32 +36,39 @@ const PlanPage = () => {
         <LeftSidebar />
         <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto">
           <div>
-            <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
-              <SidebarDiscoveryPulse />
-            </header>
-            <TodayHero />
+            <div className="relative">
+              <TodayHero />
+              <header className="absolute top-0 left-0 right-0 z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
+                <SidebarDiscoveryPulse />
+              </header>
+            </div>
             <TodayStepper current={3} />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-lg mx-auto px-3 md:px-4">
-                <div className="pb-3 text-center">
-                  <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
-                    Mental Performance Plan
-                  </p>
-                  <p className="text-body-sm text-muted-foreground mt-1">
-                    Your priorities mapped based on your brief and for your day
-                  </p>
-                  <h1 className="sr-only">Mental Performance Plan</h1>
-                </div>
-                <div data-tour="daily-plan">
-                  <TodayThreePriorities
-                    onEmpty={() => setPrioritiesEmpty(true)}
-                    onLoaded={() => setPrioritiesEmpty(false)}
-                    expandReflection={expandReflection}
-                    reflectionContext={reflectionContext}
-                    reflectionEvent={reflectionEvent}
-                  />
-                  {prioritiesEmpty && <DailyRitual />}
+                <h1 className="sr-only">Mental Performance Plan</h1>
+                <div className="relative overflow-hidden rounded-2xl p-5
+                  bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
+                  border border-black/[0.08]
+                  shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <div className="mb-3">
+                    <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+                      Mental Performance Plan
+                    </p>
+                    <p className="text-body-sm text-muted-foreground mt-1">
+                      Your priorities mapped based on your brief and for your day
+                    </p>
+                  </div>
+                  <div data-tour="daily-plan">
+                    <TodayThreePriorities
+                      onEmpty={() => setPrioritiesEmpty(true)}
+                      onLoaded={() => setPrioritiesEmpty(false)}
+                      expandReflection={expandReflection}
+                      reflectionContext={reflectionContext}
+                      reflectionEvent={reflectionEvent}
+                    />
+                    {prioritiesEmpty && <DailyRitual />}
+                  </div>
                 </div>
               </div>
               <div className="mt-8 hidden sm:block">
