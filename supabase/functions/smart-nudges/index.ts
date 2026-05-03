@@ -1852,7 +1852,9 @@ async function evaluateNudgeOne(
         minutesUntil,
       });
       const copy = aiCopy || validateStaticFallbackCopy(
-        getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
+        ctx.dayContext.postTravel
+          ? getFallbackNudgeOneJitPostTravelCopy(evt.eventTitle || 'Upcoming event', minutesUntil)
+          : getFallbackNudgeOneJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil),
         ctx, 'nudge_one_jit',
       );
       if (!copy) continue;
