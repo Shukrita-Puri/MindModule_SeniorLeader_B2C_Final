@@ -334,6 +334,12 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 — Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
+  // V8 — Day-shape awareness (copy only). Travel/away-day/ooo and post-travel.
+  dayContext: {
+    kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
+    signalToken?: string;
+    postTravel: boolean;
+  };
 }
 
 interface NudgeCopy {
