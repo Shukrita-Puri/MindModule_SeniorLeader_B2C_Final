@@ -1931,6 +1931,11 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
+      // Flush all in-flight reflection drafts before tracking completion.
+      if (isMindset) {
+        try { await reflection.flush(); } catch (e) { console.warn('[MicroPracticePlayerCards] reflection flush failed', e); }
+      }
+
       const practiceQueueLocal = safeReadPracticeQueue();
       const isPartOfRitual =
         Array.isArray(practiceQueueLocal) && practiceQueueLocal.some((p: any) => p.id === id);
@@ -1957,6 +1962,10 @@ const MicroPracticePlayerCards = () => {
 
       if (result.data?.practiceSessionId) {
         setSessionId(result.data.practiceSessionId);
+        // Re-link previously saved reflections (saved with tempSessionKey) to the real session id.
+        if (isMindset) {
+          try { await reflection.flush(); } catch { /* noop */ }
+        }
       }
 
       // Update ritual completion if part of recommended plan or queue
