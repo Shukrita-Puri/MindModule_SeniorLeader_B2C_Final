@@ -171,11 +171,14 @@ const CheckInDetail = () => {
             border border-black/[0.08]
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
-            {/* Eyebrow header inside card (top-left, matches Brief card) */}
-            <div className="-mt-1 mb-1">
-              <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+            {/* Eyebrow row inside card (matches Brief card) */}
+            <div className="-mt-1 mb-1 flex items-center justify-between">
+              <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
                 Performance Readiness Assessment
-              </p>
+              </span>
+              <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
+                Mental Performance State Check
+              </span>
             </div>
 
             {/* Mental Sharpness Slider (Renewal) */}
