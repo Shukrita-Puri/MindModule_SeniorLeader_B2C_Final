@@ -398,32 +398,41 @@ const DailyCheckIn = () => {
       <LeftSidebar />
       <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-hidden">
       <div className="h-full min-h-0 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8.75rem)]">
-      <header className="flex items-center px-3 md:px-4 py-3">
-        <SidebarDiscoveryPulse />
-      </header>
-      <TodayHero />
+      <div className="relative">
+        <TodayHero />
+        <header className="absolute top-0 left-0 right-0 z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3">
+          <SidebarDiscoveryPulse />
+        </header>
+      </div>
       <TodayStepper current={1} />
 
-      {/* Eyebrow header (replaces large H1) */}
-      <div className="px-4 pt-1 pb-2 text-center">
-        <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
-          Performance Readiness Assessment
-        </p>
-        <p className="text-sm tracking-[0.08em] uppercase text-muted-foreground/60 font-body leading-none mt-1">
-          Mental Energy State
-        </p>
-        <h1 className="sr-only">Performance Readiness Assessment</h1>
-      </div>
+      <h1 className="sr-only">Performance Readiness Assessment</h1>
 
-      <div className="flex-1 flex min-h-0 flex-col px-4 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex min-h-0 flex-col px-4 max-w-lg mx-auto w-full pt-2">
 
-        {/* Instruction */}
-        <p className="text-sm text-muted-foreground font-body mb-4 tracking-wide text-center leading-none">
-          Select your current state
-        </p>
+        {/* Glass card wrapper (matches Brief card) */}
+        <div className="relative overflow-hidden rounded-2xl p-5 flex-1 flex flex-col
+          bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
+          border border-black/[0.08]
+          shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
-        {/* Vertical state list – compact gaps */}
-        <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
+          {/* Eyebrow header inside card (top-left) */}
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/70 font-body">
+              Performance Readiness Assessment
+            </p>
+            <p className="text-[11px] tracking-[0.12em] uppercase text-muted-foreground/60 font-body">
+              Mental Energy State
+            </p>
+          </div>
+
+          {/* Instruction */}
+          <p className="text-sm text-muted-foreground font-body mb-3 tracking-wide text-center leading-none">
+            Select your current state
+          </p>
+
+          {/* Vertical state list – compact gaps */}
+          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2.5 w-full pt-0.5">
           {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
@@ -485,6 +494,7 @@ const DailyCheckIn = () => {
               </button>
             );
           })}
+          </div>
         </div>
       </div>
 
