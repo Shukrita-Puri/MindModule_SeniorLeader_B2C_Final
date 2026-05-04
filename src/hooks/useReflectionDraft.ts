@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getAuthToken } from "@/services/authTokenService";
+import { getEdgeFunctionHeaders } from "@/services/authTokenService";
 
 type StepMeta = { stepNumber: number; title?: string; prompt?: string };
 
@@ -83,11 +83,11 @@ export function useReflectionDraft({
         url.searchParams.set("tempSessionKey", tempSessionKey);
         url.searchParams.set("localDate", todayLocalYmd());
         const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const accessToken = await getAuthToken();
+        const authHeaders = await getEdgeFunctionHeaders();
         const r = await fetch(url.toString(), {
           headers: {
             apikey: anon,
-            Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${anon}`,
+            ...authHeaders,
           },
         });
         const json = await r.json().catch(() => ({}));
@@ -122,9 +122,8 @@ export function useReflectionDraft({
         else localStorage.removeItem(lsKey(practiceId, tempSessionKey, stepNumber));
       } catch { /* ignore */ }
 
-      const accessToken = await getAuthToken();
-      await supabase.functions.invoke("save-practice-reflection", {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      const { error } = await supabase.functions.invoke("save-practice-reflection", {
+        headers: await getEdgeFunctionHeaders(),
         body: {
           practiceId,
           practiceType: "mindset",
@@ -138,6 +137,7 @@ export function useReflectionDraft({
           localDate: todayLocalYmd(),
         },
       });
+      if (error) throw error;
     } catch (err) {
       console.warn("[useReflectionDraft] save failed (kept locally)", err);
     }
