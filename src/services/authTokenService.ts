@@ -10,6 +10,7 @@
  */
 
 import { DEV_MODE } from '@/config/devMode';
+import { getNativeTokens, isNativeApp, refreshNativeTokens } from '@/utils/nativeAuth';
 
 // ─── Token cache with expiry ────────────────────────────────────────
 let cachedToken: string | null = null;
@@ -17,6 +18,32 @@ let cachedTokenExpiresAt = 0;
 const TOKEN_EXPIRY_BUFFER_S = 60;
 
 let inflightTokenPromise: Promise<string | null> | null = null;
+
+async function getNativeAccessToken(now: number): Promise<string | null> {
+  if (!isNativeApp()) return null;
+  let tokens = getNativeTokens();
+  if (tokens && tokens.expires_at > now + TOKEN_EXPIRY_BUFFER_S) {
+    cachedToken = tokens.access_token;
+    cachedTokenExpiresAt = tokens.expires_at;
+    console.log(`[authTokenService] ✅ Token acquired (TTL: ${tokens.expires_at - now}s, path: native-cache)`);
+    return tokens.access_token;
+  }
+
+  if (tokens?.refresh_token) {
+    const refreshed = await refreshNativeTokens();
+    if (refreshed) {
+      tokens = getNativeTokens();
+      if (tokens?.access_token) {
+        cachedToken = tokens.access_token;
+        cachedTokenExpiresAt = tokens.expires_at || now + 300;
+        console.log('[authTokenService] ✅ Token acquired (path: native-refresh)');
+        return tokens.access_token;
+      }
+    }
+  }
+
+  return null;
+}
 
 function getJwtExpiry(token: string): number | null {
   try {
@@ -45,6 +72,9 @@ export async function getAuthToken(): Promise<string | null> {
 
   inflightTokenPromise = (async () => {
     try {
+      const nativeToken = await getNativeAccessToken(now);
+      if (nativeToken) return nativeToken;
+
       const auth0Client = (window as any).__auth0Client;
       if (!auth0Client) {
         console.warn('[authTokenService] Auth0 client not available yet, waiting 1s...');
@@ -87,6 +117,9 @@ export async function getAuthToken(): Promise<string | null> {
       // If refresh token is missing, try iframe-based silent auth as fallback
       if (err?.error === 'missing_refresh_token' || err?.error === 'invalid_grant') {
         try {
+          const nativeToken = await getNativeAccessToken(now);
+          if (nativeToken) return nativeToken;
+
           const auth0Client = (window as any).__auth0Client;
           if (auth0Client) {
             console.log('[authTokenService] Attempting iframe fallback (cacheMode: off)');
