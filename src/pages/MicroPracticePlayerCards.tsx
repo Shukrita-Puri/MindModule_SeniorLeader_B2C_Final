@@ -1660,7 +1660,7 @@ const StepCardContent = ({ card }: { card: any }) => {
 
       {/* Optional inline reflection (mindset protocols only) */}
       {card.reflection?.enabled && (
-        <div className="w-full max-w-[300px] space-y-1.5">
+        <div className="w-full max-w-[300px] space-y-1.5 isolate [transform:translateZ(0)]">
           <Textarea
             value={card.reflection.draft ?? ""}
             onChange={(e) => card.reflection.onChange(e.target.value)}
@@ -1668,7 +1668,11 @@ const StepCardContent = ({ card }: { card: any }) => {
             placeholder="Your response… (optional)"
             maxLength={2000}
             rows={3}
-            className="bg-white/5 border-white/15 text-white/90 placeholder:text-white/35 min-h-[88px] rounded-xl text-sm focus-visible:ring-saffron/40 resize-none"
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
+            enterKeyHint="done"
+            className="bg-foreground/90 border-white/15 text-background placeholder:text-background/50 min-h-[88px] rounded-xl text-sm focus-visible:ring-saffron/40 resize-none"
           />
           <p className="text-[11px] text-white/40 text-left">
             {card.reflection.draft?.length
