@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getContentById } from '@/data/practicesAndSoundscapes';
-import { getAuthToken } from '@/services/authTokenService';
+import { getEdgeFunctionHeaders } from '@/services/authTokenService';
 
 interface ReflectionCornerProps {
   /** When provided, switches the prompt to a post-event framing. */
@@ -72,15 +72,8 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       const source = postEventTitle ? 'post_event_reflection' : 'reflection_corner';
       // Edge function uses authenticateRequest → needs Auth0 bearer in prod,
       // x-dev-user-id in DEV. supabase-js does NOT inject Auth0 tokens for us.
-      const headers: Record<string, string> = {};
-      if (DEV_MODE) {
-        headers['x-dev-user-id'] = DEV_USER.id;
-      } else {
-        const token = await getAuthToken();
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-      }
       const { error } = await supabase.functions.invoke('store-tiny-win', {
-        headers,
+        headers: await getEdgeFunctionHeaders(),
         body: {
           winContent: winContent.trim(),
           source,
@@ -166,16 +159,22 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
             <p className="text-sm text-foreground/80 font-body leading-snug">
               {promptCopy}
             </p>
-            <Textarea
-              value={winContent}
-              onChange={(e) => setWinContent(e.target.value)}
-              placeholder="A small moment, a clean decision, a held boundary…"
-              className={cn(
-                "min-h-[80px] resize-none text-sm bg-white/40 border-black/[0.08]",
-                "focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
-              )}
-              maxLength={500}
-            />
+            <div className="isolate [transform:translateZ(0)]">
+              <Textarea
+                value={winContent}
+                onChange={(e) => setWinContent(e.target.value)}
+                placeholder="A small moment, a clean decision, a held boundary…"
+                className={cn(
+                  "min-h-[80px] resize-none text-sm bg-background border-black/[0.08]",
+                  "focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
+                )}
+                maxLength={500}
+                autoCapitalize="sentences"
+                autoCorrect="on"
+                spellCheck
+                enterKeyHint="done"
+              />
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground/60 font-body">
                 {winContent.trim().length < 10
