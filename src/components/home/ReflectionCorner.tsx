@@ -133,7 +133,17 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 space-y-3">
+      {/*
+        iOS WKWebView flicker mitigation:
+        - Promote this card to its own compositing layer (translateZ + isolation)
+          so keystroke-driven repaints inside the textarea do NOT invalidate
+          the parent Plan card's backdrop-blur layer.
+        - Keep backdrop-blur but add `contain: paint` so paint is clipped to
+          this subtree and the blur is not re-rasterised by sibling updates.
+      */}
+      <div
+        className="rounded-xl bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 space-y-3 isolate [transform:translateZ(0)] [contain:paint]"
+      >
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium tracking-[0.18em] uppercase text-primary/70 font-body">
             Reflection Corner
@@ -159,7 +169,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
             <p className="text-sm text-foreground/80 font-body leading-snug">
               {promptCopy}
             </p>
-            <div className="isolate [transform:translateZ(0)]">
+            <div className="isolate [transform:translateZ(0)] [contain:layout_paint]">
               <Textarea
                 value={winContent}
                 onChange={(e) => setWinContent(e.target.value)}
@@ -175,8 +185,13 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
                 enterKeyHint="done"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground/60 font-body">
+            {/*
+              Counter is isolated into its own compositing/paint-contained block
+              so per-keystroke text changes don't dirty the surrounding blurred
+              card subtree on iOS Safari/WKWebView.
+            */}
+            <div className="flex items-center justify-between isolate [transform:translateZ(0)] [contain:layout_paint]">
+              <span className="text-[11px] text-muted-foreground/60 font-body tabular-nums">
                 {winContent.trim().length < 10
                   ? `${10 - winContent.trim().length} more characters`
                   : `${winContent.trim().length} characters`}
@@ -197,7 +212,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       {stoic && (
         <button
           onClick={openStoic}
-          className="w-full flex items-center gap-3 rounded-xl bg-white/50 backdrop-blur-[20px] border border-black/[0.06] hover:bg-white/70 hover:border-primary/20 transition-all p-3 text-left group"
+          className="w-full flex items-center gap-3 rounded-xl bg-white/50 backdrop-blur-[20px] border border-black/[0.06] hover:bg-white/70 hover:border-primary/20 transition-all p-3 text-left group isolate [transform:translateZ(0)] [contain:paint]"
         >
           <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0">
             <Clock size={16} className="text-primary/70" />
