@@ -144,6 +144,9 @@ export function useReflectionDraft({
   }, [isMindset, practiceId, tempSessionKey, entryContext]);
 
   const setDraft = useCallback((stepNumber: number, value: string) => {
+    // Keep the ref in sync immediately so a fast tap on "Mark Complete"
+    // saves the latest typed value before React's state effect has run.
+    draftsRef.current = { ...draftsRef.current, [stepNumber]: value };
     setDrafts((prev) => ({ ...prev, [stepNumber]: value }));
     // Debounced save
     if (timersRef.current[stepNumber]) {
