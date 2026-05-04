@@ -1964,7 +1964,7 @@ const MicroPracticePlayerCards = () => {
         setSessionId(result.data.practiceSessionId);
         // Re-link previously saved reflections (saved with tempSessionKey) to the real session id.
         if (isMindset) {
-          try { await reflection.flush(); } catch { /* noop */ }
+          try { await reflection.flush(undefined, result.data.practiceSessionId); } catch { /* noop */ }
         }
       }
 
