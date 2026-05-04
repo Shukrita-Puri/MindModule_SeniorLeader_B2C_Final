@@ -9,5 +9,7 @@ type: feature
 - Drafts mirror to `localStorage` keyed `reflection:{practiceId}:{tempSessionKey}:{stepNumber}` for offline resilience.
 - Pre-completion saves use a `tempSessionKey`. After `handleComplete` returns `practiceSessionId`, a final flush re-links rows to that session via the save function.
 - Empty input never blocks "Mark Complete".
+- iOS native requires the shared edge-function auth headers from `getEdgeFunctionHeaders()` and the native token fallback in `getAuthToken()`; do not call reflection functions with only the Supabase anon/session token.
+- iOS WKWebView textarea flicker is avoided with an isolated `translateZ(0)` wrapper and an opaque input background when the textarea sits inside blurred/translucent UI.
 - Reflection Corner / `tiny_wins` flow remains the evening summary — not repurposed.
 - Insights / Coach consumption is a follow-up; not in this pass.
