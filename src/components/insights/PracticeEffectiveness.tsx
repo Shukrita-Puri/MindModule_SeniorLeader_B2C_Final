@@ -274,11 +274,11 @@ const BoxCard = ({
     >
       <div
         className={cn(
-          'text-[9px] font-medium tracking-wider uppercase mb-1.5 flex items-center gap-1',
+          'text-[9px] font-medium tracking-wider uppercase mb-1.5 flex items-center gap-1 min-w-0',
           locked ? 'text-muted-foreground' : 'text-foreground/70'
         )}
       >
-        <span className="truncate">{eyebrow}</span>
+        <span className="line-clamp-2 break-words leading-tight">{eyebrow}</span>
         {favourite && (
           <span className="inline-flex items-center gap-0.5 text-[8px] bg-saffron/15 text-saffron px-1 py-0.5 rounded-sm">
             <Star className="h-2 w-2 fill-current" /> fav
@@ -292,12 +292,12 @@ const BoxCard = ({
         </div>
       ) : (
         <>
-          <div className="text-[20px] font-medium text-foreground leading-tight mb-0.5 truncate">
+          <div className="text-[14px] sm:text-[18px] md:text-[20px] font-medium text-foreground leading-tight mb-0.5 line-clamp-2 break-words">
             {val}
           </div>
-          {sub && <div className="text-[10px] text-muted-foreground leading-snug truncate">{sub}</div>}
+          {sub && <div className="text-[10px] text-muted-foreground leading-snug line-clamp-2 break-words">{sub}</div>}
           {delta && (
-            <div className="text-[10px] font-medium mt-1.5 text-foreground/80 leading-snug truncate">
+            <div className="text-[10px] font-medium mt-1.5 text-foreground/80 leading-snug line-clamp-2 break-words">
               {delta}
             </div>
           )}
