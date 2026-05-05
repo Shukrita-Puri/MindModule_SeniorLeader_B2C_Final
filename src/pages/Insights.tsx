@@ -917,12 +917,12 @@ const Insights = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[linear-gradient(165deg,hsl(122_22%_41%/0.16)_0%,hsl(122_18%_50%/0.10)_55%,hsl(122_22%_41%/0.18)_100%)]">
         <LeftSidebar />
         <SidebarInset
           data-sidebar-inset
           data-scroll-container
-          className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto"
+          className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto bg-transparent"
           style={{
             // Make in-page anchors (#highlight) and tab switches account for
             // iOS safe-area + sticky header at the top, and the floating pill
