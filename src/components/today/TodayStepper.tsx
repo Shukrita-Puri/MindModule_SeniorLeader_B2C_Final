@@ -41,6 +41,14 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                 className="flex flex-col items-center gap-1 group focus:outline-none relative"
                 aria-current={isActive ? 'step' : undefined}
               >
+                <span
+                  className={`text-[9px] tracking-[0.14em] uppercase font-body leading-none text-taupe transition-opacity ${
+                    isHinted ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  aria-hidden={!isHinted}
+                >
+                  Click
+                </span>
                 <span className="relative inline-flex items-center justify-center">
                   {isHinted && (
                     <span
@@ -63,7 +71,7 @@ const TodayStepper = ({ current, nextHint }: TodayStepperProps) => {
                   }`}
                   style={isHinted ? { borderColor: 'hsl(var(--taupe) / 0.5)' } : undefined}
                 >
-                  {step.key}
+                  {isHinted ? '+' : step.key}
                   </span>
                 </span>
                 <span
