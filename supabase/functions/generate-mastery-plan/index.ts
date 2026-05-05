@@ -2834,6 +2834,9 @@ interface HorizonModule {
   practice: any; // PlanModule — backward compat (= practices[0])
   practices: any[]; // 1-3 practices per slot
   sequenceReasoning?: string; // Why these practices together in this order
+  stepRationale?: string[]; // v5.1: 2–4-word rationale per practice step
+  slotKind?: 'start_of_day' | 'jit' | 'end_of_day' | 'state-management'; // v5.1: server-only slot purpose
+  ceoRealities?: string[]; // v5.1: tags driving Why composition
   isJit: boolean;
   jitEventTitle: string | null;
   jitMinutesUntil: number | null;
