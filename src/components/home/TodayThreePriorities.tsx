@@ -1054,7 +1054,7 @@ const TodayThreePriorities = ({
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground font-body">
                         {hm.jitMinutesUntil != null && hm.jitMinutesUntil < 120
                           ? `in ${hm.jitMinutesUntil} min`
-                          : (hm.jitTimeUntilLabel || hm.timeLabel)}
+                          : hm.timeLabel}
                       </span>
                       {hm.showPriorityPill && (
                         <span className="text-[11px] px-2 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
