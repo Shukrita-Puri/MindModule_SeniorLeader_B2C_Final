@@ -2830,6 +2830,7 @@ interface HorizonModule {
   timeLabel: string;
   typeLabel: string;
   whyLine: string;
+  recommendedAction: string;
   practice: any; // PlanModule — backward compat (= practices[0])
   practices: any[]; // 1-3 practices per slot
   sequenceReasoning?: string; // Why these practices together in this order
