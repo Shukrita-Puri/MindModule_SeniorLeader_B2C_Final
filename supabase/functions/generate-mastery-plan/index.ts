@@ -2192,6 +2192,25 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
   }
 
+  // v5.1: hard 24h MVP ceiling on JIT eligibility — never surface JIT prep for events >24h away.
+  filteredEvents = filteredEvents.filter(e => (e.minutesUntil ?? 0) <= MVP_JIT_HORIZON_MINUTES);
+
+  // v5.1: strategic event scoring boosts (deterministic, additive)
+  try {
+    const growthArea = ((req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content || '').toLowerCase();
+    const priorityTag = (req.practicePriorityTag || '').toLowerCase();
+    for (const se of filteredEvents) {
+      const title = (se.event?.title || '').toLowerCase();
+      const evtType = (se.scenario?.id || '').toLowerCase();
+      if (growthArea && (title.includes(growthArea) || evtType.includes(growthArea))) se.score = (se.score || 0) + 15;
+      if (priorityTag && (title.includes(priorityTag.replace(/_/g, ' ')) || evtType.includes(priorityTag))) se.score = (se.score || 0) + 10;
+      if (se.hrvCorrelation && Math.abs(se.hrvCorrelation.avgDeviation) > 10) se.score = (se.score || 0) + 10;
+    }
+    filteredEvents.sort((a, b) => (b.score || 0) - (a.score || 0));
+  } catch (boostErr: any) {
+    console.warn('[generate-mastery-plan] strategic boost failed:', boostErr?.message);
+  }
+
   // Observability: log calendar scoring summary
   console.log(`[generate-mastery-plan] Calendar: ${req.calendarEvents?.length || 0} events fetched, ${scoredEvents.length} scored, ${filteredEvents.length} after suppression. Top event: ${filteredEvents[0]?.event.title || 'none'} (score: ${filteredEvents[0]?.score || 0})`);
 
