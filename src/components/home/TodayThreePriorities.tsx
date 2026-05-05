@@ -976,7 +976,7 @@ const TodayThreePriorities = ({
               key={`${module.contentId}-${index}`}
               className={cn(
                 // Pilot v2 — standard card: tonal bg + hairline border + elev-1 (2 mechanisms)
-                "space-y-0 rounded-xl card-standard px-4 py-1 transition-colors"
+                "space-y-0 rounded-xl card-standard px-3 py-1 transition-colors"
               )}
             >
               {/* Slot header row */}
@@ -999,25 +999,18 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
-                {/* Time label + practice name */}
+                {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "text-xs font-body",
-                      hm.isJit ? "text-saffron font-medium" : "text-muted-foreground/60"
-                    )}>
-                      {hm.timeLabel}
-                    </span>
-                    {hm.showPriorityPill && !slotCompleted && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
-                        Priority event
-                      </span>
-                    )}
-                  </div>
+                  <p className={cn(
+                    "text-[15px] md:text-[16px] font-semibold leading-tight truncate",
+                    slotCompleted ? "text-muted-foreground/60 line-through" : "text-foreground"
+                  )}>
+                    {hm.timeLabel}
+                  </p>
                   {!isExpanded && (
                     <div>
                       <p className={cn(
-                        "text-sm font-body truncate",
+                        "text-sm font-body truncate mt-0.5",
                         slotCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
                       )}>
                         {module.title}
@@ -1054,10 +1047,23 @@ const TodayThreePriorities = ({
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {/* New hierarchy: WHY THIS MATTERS → reasoning → recommended action.
-                      Replaces the previous "type label first" order so users see the
-                      reason before the protocol taxonomy. Type label is intentionally
-                      omitted from the expanded view (kept in collapsed view). */}
+                  {/* Pill row — only for JIT slots (real upcoming event).
+                      Morning/evening non-JIT slots hide both pills per spec. */}
+                  {hm.isJit && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground font-body">
+                        {hm.jitMinutesUntil != null && hm.jitMinutesUntil < 120
+                          ? `in ${hm.jitMinutesUntil} min`
+                          : (hm.jitTimeUntilLabel || hm.timeLabel)}
+                      </span>
+                      {hm.showPriorityPill && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
+                          Priority event
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {hm.whyLine && (
                     <div className="space-y-1">
                       <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
@@ -1069,7 +1075,7 @@ const TodayThreePriorities = ({
                     </div>
                   )}
 
-                  <p className="text-[14px] md:text-[14px] text-foreground font-body font-medium leading-snug pt-1">
+                  <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {hm.recommendedAction || fallbackRecommendedAction(hm)}
                   </p>
 
