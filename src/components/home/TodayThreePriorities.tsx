@@ -1180,9 +1180,9 @@ const TodayThreePriorities = ({
                               {practice.duration} min
                             </span>
             {/* Per-practice reasoning */}
-                            {practice.reasoning && (
+                            {(hm.stepRationale?.[pIdx] || practice.reasoning) && (
                               <p className="text-[11px] text-muted-foreground/85 font-body mt-1 line-clamp-3 leading-snug">
-                                {practice.reasoning}
+                                {hm.stepRationale?.[pIdx] || practice.reasoning}
                               </p>
                             )}
                           </div>
