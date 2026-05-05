@@ -1,65 +1,76 @@
-## Goal
+Isolated Plan-page change. Only `src/components/home/TodayThreePriorities.tsx` (UI) plus one additive field in `supabase/functions/generate-mastery-plan/index.ts` (`recommendedAction`). No other files, no logic changes.
 
-Three isolated UI-only tweaks across Today flow + Reset/Insights pages. No logic changes.
+## 1. New text hierarchy in each expanded priority
 
----
+```text
+1  Before you start — Cambridge Interview          ← collapsed/expanded header
 
-## 1. Shrink Today hero (Brief / Plan / Assessment pages)
+   [ in 63 min ]  [ Priority event ]               ← pill row
 
-The shared `TodayHero` currently defaults to `h-[140px]`, which on a ~870px mobile viewport eats ~16% but pushes the stepper + white card down so they only get the lower portion. The user wants the **visual ≈20–25%** and the **stepper + card ≈75–80%**.
+   WHY THIS MATTERS                                ← small uppercase grey label
+   Reserves low with 3 meetings ahead,             ← existing whyLine, normal weight
+   regulate before the afternoon compounds.
 
-The cleanest move is to reduce the hero band itself rather than re-layout each page (the stepper and card already flow directly under it, so shrinking the hero automatically pulls them up).
+   Enter optimal flow state ahead of               ← NEW recommendedAction line
+   Cambridge Interview
 
-**Change:** `src/components/today/TodayHero.tsx`
-- Default `heightClass` from `h-[140px]` → `h-[110px]` (mobile) with `md:h-[140px]` preserved for desktop.
-  - Final: `heightClass = 'h-[110px] md:h-[140px]'`
-- No callers pass an override, so this propagates to ExecutiveHome, PlanPage, and DailyCheckIn automatically.
-
-This reclaims ~30px above the stepper on mobile, putting the hero at ~22% of a typical mobile viewport — matching the reference screenshot.
-
-## 2. Shift the "Ready to roll, Shuk" greeting right (away from sidebar button)
-
-`TodayGreeting` is centered absolutely across the full width. On mobile the sidebar button (top-left) overlaps the left edge of long greetings.
-
-**Change:** `src/components/today/TodayGreeting.tsx`
-- Add `pl-14 md:pl-0` to the absolute container (mirrors the existing pattern on Insights/Reset headlines).
-- Keep `text-center` on desktop; the `pl-14` only nudges on mobile where overlap occurs.
-
-## 3. Vertically center the greeting + Insights/Reset headlines with the sidebar button
-
-Currently:
-- Sidebar button sits in a header with `pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]` and is a `size=sm` button (h-9 = 36px). Its **vertical center** is at `safe + 0.75rem + 18px`.
-- Greeting/headlines use `top: calc(safe + 0.875rem)` — top-aligned with the button's top edge, not its center, so taller text (the 33px greeting / 26px headline) appears to start above center.
-
-**Fix (applied to all three):**
-Change the absolute container's top from `0.875rem` to a value that centers the text against the button center. Using a flex wrapper matched to the button container's height is the cleanest approach:
-
-Replace the absolute-positioned text wrapper with one that mirrors the header's vertical box:
-```tsx
-<div
-  className="absolute left-0 right-0 z-30 pointer-events-none flex items-center justify-center px-4"
-  style={{
-    top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
-    height: '2.75rem', // matches header py-2 + h-9 button
-  }}
->
-  …text…
-</div>
+   [ Practice card ]   [ Practice card ]           ← bigger, mobile-readable
+   [ Start ]
 ```
 
-This makes the greeting/headline's vertical mid-line equal to the sidebar button's mid-line on every page.
+Rules:
+- Header stays "Before you start" (or existing variant). When the slot is JIT, append " — {jitEventTitle}" after an em-dash so the user immediately sees what the priority is for. Non-JIT morning/evening slots keep current header only.
+- Pill row: `timeLabel` chip ("In 63 min", "4 days away") + existing `Priority event` pill when present. Hide the time pill if `timeLabel` is a generic word like "Morning"/"Evening" so it stays quiet.
+- "WHY THIS MATTERS" eyebrow uses `text-eyebrow` muted, then `whyLine` rendered as normal foreground (not italic, not muted) so it actually reads as the reason.
+- `recommendedAction` is the new short benefit line ("Enter optimal flow state ahead of Cambridge Interview", "Build resilience for high-demand days"). Rendered ~14–15px medium weight, foreground/80.
+- `typeLabel` (e.g. "REGULATE · SOMATIC PROTOCOL") is removed from the expanded view per your spec — taxonomy no longer competes with reasoning. Still kept in the underlying data, just not displayed.
+- `sequenceReasoning` (multi-practice helper) renders as a thin caption between recommendedAction and the cards, only when there is more than one practice.
+- Collapsed view unchanged.
 
-**Files:**
-- `src/components/today/TodayGreeting.tsx` (greeting on Brief/Plan/Assessment)
-- `src/pages/Insights.tsx` (lines ~938–950, the headline + subtext block)
-- `src/pages/RecalibrateMode.tsx` (the headline + subtext block)
+## 2. Source of `recommendedAction`
 
-For Insights & Reset which have a headline **and** a subtext line, keep the same flex wrapper but stack `<h1>` + `<p>` inside; align the wrapper so the `<h1>` (first line) center matches the button center — i.e. anchor by `items-start` and adjust top so the h1 baseline area is centered on the button. Concretely: keep current absolute positioning but change `top` from `0.875rem` to `1.25rem` on mobile (and `0.875rem` on `md` where the headline is much larger). This shifts the headline down ~6px so its visual center aligns with the 36px sidebar button.
+Added to `HorizonModule` in `supabase/functions/generate-mastery-plan/index.ts` next to the existing deterministic `whyLine` builder (~lines 2900–3090). One template per (module type × hasJitEvent), e.g.:
+- regulate + JIT event → `Settle your nervous system before {event}`
+- prepare + JIT event → `Enter optimal flow state ahead of {event}`
+- align + JIT event → `Sharpen your thinking before {event}`
+- regulate, no event → `Regulate before the {morning|afternoon|evening} compounds`
+- align, no event → `Set your focus for the {time of day}`
+- prepare, no event → `Build resilience for high-demand days`
+- integrate (evening) → `Close the day with intention`
 
----
+Deterministic, no LLM, no scoring change. Client falls back to a small lookup if an older cached plan lacks the field, so nothing breaks during rollout.
 
-## Out of scope
+## 3. Bigger, mobile-readable practice cards (Plan page only)
 
-- No changes to copy, colors, navigation, data, animations.
-- TodayStepper internals untouched (the "+ / Click" hint stays as-is).
-- White card content untouched — it just rides up because the hero shrank.
+Current: `h-40`, thumbnail `w-28`, title `text-[14px] line-clamp-2`, multi cards `w-[80%]`. On 360–414px viewports the text column collapses to ~140px.
+
+Changes:
+- Slot card container: widen to `max-w-xl` on mobile (was `max-w-lg`) and reduce horizontal page padding from `px-4` to `px-3` so each priority box uses more screen width.
+- Practice card height: `h-40` → `h-44 md:h-40`.
+- Thumbnail width: `w-28` → `w-24 md:w-28` (frees ~16px for copy on phones).
+- Title: `text-[14px] line-clamp-2` → `text-[15px] md:text-[14px] line-clamp-3`.
+- Multi-practice horizontal scroll card width: `w-[80%]` → `w-[88%] md:w-[80%]` so the visible card is wider; second card still peeks for affordance.
+- `practice.reasoning` line: `line-clamp-2` → `line-clamp-3`, color bumped from `muted-foreground/60` to `muted-foreground/80` for legibility.
+
+Single-practice slots (the common case) inherit the wider container automatically.
+
+## 4. Files touched
+
+- `src/components/home/TodayThreePriorities.tsx` — re-order expanded block (~lines 1030–1055), add header event suffix, add WHY-THIS-MATTERS label, add `recommendedAction` line with client fallback, drop `typeLabel` from expanded view, resize practice card classes (~lines 1086–1150), bump container width (~line 941).
+- `supabase/functions/generate-mastery-plan/index.ts` — add `recommendedAction: string` to the `HorizonModule` shape (~line 2830) and populate it in the deterministic builder alongside `whyLine` (~lines 2900–3090).
+- Nothing else. Brief, Today, Insights, Reset, stepper, scoring, JIT logic, ledger, feedback, completion tracking, navigation untouched.
+
+## 5. Answer to your prompt question
+
+The "Why this matters" / context copy on the **Plan** page is **not** LLM-generated. It comes from a deterministic builder in `supabase/functions/generate-mastery-plan/index.ts`. For each of the 3 slots it inspects the live context (jitEventTitle, jitMinutesUntil, hrvEventCorrelation, coachGrowthArea, pendingCommitment, patternInsight, archetypeWatchFor, consecutive-low-state counters, calendar load, time of day, day of week) and routes through a priority cascade that returns `{ situation, whyLine }`. Sample templates already in code:
+
+- `Your HRV drops avg {pct}% before {eventType}, ground your nervous system before that pattern takes over.`
+- `Reserves low with {meetings} meetings ahead, regulate {timeAnchor}.`
+- `{count} {state} days running, this interrupts the pattern before it becomes your baseline.`
+- `Your coach commitment: '{commitment}', this practice directly addresses it while your calendar allows.`
+
+Strengthening these = editing those template strings (and adding the new `recommendedAction` next to them). The Brief itself does use an LLM via `compute-outer-readiness`, but per-priority "why" lines on the Plan page are template-driven for predictability and speed. Full template list documented in `docs/MASTERY_PLAN_CONTEXT_LOGIC.md` if you want to review/edit copy line-by-line before I implement.
+
+## 6. Out of scope
+
+Stepper, hero, greeting, completion ledger, slot selection, JIT scoring, ReflectionCorner, Brief page, Insights, Reset, scoring weights, content recommendation engine.
