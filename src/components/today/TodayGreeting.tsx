@@ -20,11 +20,11 @@ const TodayGreeting = () => {
     <div
       className="absolute left-0 right-0 z-30 pointer-events-none text-center px-4 pl-14 md:pl-0 flex items-center justify-center"
       style={{
-        top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
-        height: '2.75rem',
+        top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+        height: '2.5rem',
       }}
     >
-      <p className="text-[33px] leading-tight font-headline font-semibold text-foreground tracking-tight">
+      <p className="font-headline font-semibold text-foreground tracking-tight leading-tight text-[26px] md:text-[42px]">
         {greeting}
       </p>
     </div>

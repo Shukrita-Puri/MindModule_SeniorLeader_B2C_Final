@@ -1,76 +1,69 @@
-Isolated Plan-page change. Only `src/components/home/TodayThreePriorities.tsx` (UI) plus one additive field in `supabase/functions/generate-mastery-plan/index.ts` (`recommendedAction`). No other files, no logic changes.
+Three isolated polish changes on the Plan page. No logic, no data, no routing changes.
 
-## 1. New text hierarchy in each expanded priority
+## 1. Greeting "Ready to roll, Shuk"
+
+File: `src/components/today/TodayGreeting.tsx`
+
+- Match the H1 used on Insights and Reset pages: `font-headline text-[26px] md:text-[42px] tracking-tight`. (Currently `text-[33px]` — inconsistent with the other two pages.)
+- Keep it bold per request → `font-semibold` (today it's already semibold; only the size changes).
+- Vertically center on the **same line as the sidebar toggle button**. Today the greeting sits at `top: env(safe-area-inset-top) + 0.5rem` while the header sits at `pt-[calc(env(safe-area-inset-top)+0.75rem)]` with a ~40px round button → greeting baseline floats above button center.
+  - Change: anchor greeting to the same top as the header (`top: calc(env(safe-area-inset-top,0px) + 0.75rem)`), height `2.5rem`, `flex items-center justify-center`. Now greeting vertical-centers with button vertical-center.
+  - Keep `pl-14 md:pl-0` so text isn't pushed off-center on mobile by the sidebar button.
+
+## 2. Plan-page expanded priority — text hierarchy
+
+File: `src/components/home/TodayThreePriorities.tsx` (~lines 1002–1075)
+
+New order and weights inside an expanded slot:
 
 ```text
-1  Before you start — Cambridge Interview          ← collapsed/expanded header
-
-   [ in 63 min ]  [ Priority event ]               ← pill row
-
-   WHY THIS MATTERS                                ← small uppercase grey label
-   Reserves low with 3 meetings ahead,             ← existing whyLine, normal weight
-   regulate before the afternoon compounds.
-
-   Enter optimal flow state ahead of               ← NEW recommendedAction line
-   Cambridge Interview
-
-   [ Practice card ]   [ Practice card ]           ← bigger, mobile-readable
-   [ Start ]
+Before Shukrita Puri and Pradnya          ← Tier 1: bold, foreground (the WHEN)
+[ in 63 min ]   [ Priority event ]        ← pill row (only when JIT event)
+WHY THIS MATTERS                          ← eyebrow (uppercase, muted)
+Clarity low, address it before the        ← Tier 3: body, normal weight
+afternoon compounds...
+Regulate your state for the morning ahead ← italic, muted (action line)
+[ practice cards ]
+[ Start ]
 ```
 
-Rules:
-- Header stays "Before you start" (or existing variant). When the slot is JIT, append " — {jitEventTitle}" after an em-dash so the user immediately sees what the priority is for. Non-JIT morning/evening slots keep current header only.
-- Pill row: `timeLabel` chip ("In 63 min", "4 days away") + existing `Priority event` pill when present. Hide the time pill if `timeLabel` is a generic word like "Morning"/"Evening" so it stays quiet.
-- "WHY THIS MATTERS" eyebrow uses `text-eyebrow` muted, then `whyLine` rendered as normal foreground (not italic, not muted) so it actually reads as the reason.
-- `recommendedAction` is the new short benefit line ("Enter optimal flow state ahead of Cambridge Interview", "Build resilience for high-demand days"). Rendered ~14–15px medium weight, foreground/80.
-- `typeLabel` (e.g. "REGULATE · SOMATIC PROTOCOL") is removed from the expanded view per your spec — taxonomy no longer competes with reasoning. Still kept in the underlying data, just not displayed.
-- `sequenceReasoning` (multi-practice helper) renders as a thin caption between recommendedAction and the cards, only when there is more than one practice.
-- Collapsed view unchanged.
+Changes:
 
-## 2. Source of `recommendedAction`
+- **Header line ("Before Shukrita…")** — currently rendered as small `text-xs text-muted-foreground/60` inside the time-label row. Promote to top of hierarchy on its own line: `text-[15px] md:text-[16px] font-semibold text-foreground`. The string is `hm.timeLabel` for JIT slots ("Before {event}"); for non-JIT morning/evening slots it is "Morning"/"Evening" — also rendered bold so the WHEN is always the visual anchor.
+- **Pill row** — render below the bold WHEN line. Show `timeLabel` chip ("In 63 min", "in 4 days") + "Priority event" pill **only when `hm.isJit`**. For morning/evening non-JIT slots: hide both pills entirely (per request: "if its a morning or evening card then no time pill and we don't need priority pill").
+  - Time-until pill styling: `text-[11px] px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground`.
+- **WHY THIS MATTERS eyebrow** — keep current style.
+- **whyLine body** — keep current `text-[13px] text-foreground/85 leading-relaxed`.
+- **Recommended action** (`hm.recommendedAction`) — switch from current bold medium to **italic, muted**: `text-[13px] italic text-muted-foreground font-body leading-relaxed`. Per spec: "any action based text… should be in italics".
+- Remove the duplicate header rendering inside the collapsed-button area when expanded so the new bold WHEN line is the only header.
 
-Added to `HorizonModule` in `supabase/functions/generate-mastery-plan/index.ts` next to the existing deterministic `whyLine` builder (~lines 2900–3090). One template per (module type × hasJitEvent), e.g.:
-- regulate + JIT event → `Settle your nervous system before {event}`
-- prepare + JIT event → `Enter optimal flow state ahead of {event}`
-- align + JIT event → `Sharpen your thinking before {event}`
-- regulate, no event → `Regulate before the {morning|afternoon|evening} compounds`
-- align, no event → `Set your focus for the {time of day}`
-- prepare, no event → `Build resilience for high-demand days`
-- integrate (evening) → `Close the day with intention`
+## 3. Practice cards — smaller visual, all text retained
 
-Deterministic, no LLM, no scoring change. Client falls back to a small lookup if an older cached plan lacks the field, so nothing breaks during rollout.
+Same file (~lines 1126–1178).
 
-## 3. Bigger, mobile-readable practice cards (Plan page only)
-
-Current: `h-40`, thumbnail `w-28`, title `text-[14px] line-clamp-2`, multi cards `w-[80%]`. On 360–414px viewports the text column collapses to ~140px.
+User clarification: keep title, step, time, and context. Only the **image side gets smaller**; the white text panel stays. Tighten title and context copy weight/size for crispness. Horizontal scroll stays.
 
 Changes:
-- Slot card container: widen to `max-w-xl` on mobile (was `max-w-lg`) and reduce horizontal page padding from `px-4` to `px-3` so each priority box uses more screen width.
-- Practice card height: `h-40` → `h-44 md:h-40`.
-- Thumbnail width: `w-28` → `w-24 md:w-28` (frees ~16px for copy on phones).
-- Title: `text-[14px] line-clamp-2` → `text-[15px] md:text-[14px] line-clamp-3`.
-- Multi-practice horizontal scroll card width: `w-[80%]` → `w-[88%] md:w-[80%]` so the visible card is wider; second card still peeks for affordance.
-- `practice.reasoning` line: `line-clamp-2` → `line-clamp-3`, color bumped from `muted-foreground/60` to `muted-foreground/80` for legibility.
+- Card height: `h-44 md:h-40` → `h-36 md:h-36` (slightly shorter; text still fits at 4 lines).
+- **Thumbnail** (visual): `w-24 md:w-28` → `w-16 md:w-20` (the only real shrink — image becomes a smaller bookmark on the left, freeing ~32 px for the text panel).
+- Multi-card scroll width: `w-[88%] md:w-[80%]` → `w-[80%] md:w-[70%]` so the next card peeks more prominently as a scroll affordance. (Still scrolls horizontally; not all cards on one line.)
+- **Title** (`practice.title`): `text-[15px] md:text-[14px] line-clamp-3` → `text-[13px] font-semibold line-clamp-2 leading-tight`. Crisper, bolder, fewer lines.
+- **Step indicator** ("Step 1 of 2"): kept (visible whenever `hasMultiple`). Tightened: `text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-0.5`. Single-step priorities don't show it (already conditional).
+- **Time** ("2.47 min"): kept. `text-xs` → `text-[11px] text-muted-foreground` so it sits between title and context without crowding.
+- **Context** (`practice.reasoning`): kept and **fully visible** (no clamp removed by space — just smaller text). `line-clamp-3 text-xs` → `line-clamp-3 text-[11px] leading-snug text-muted-foreground/85`. The smaller thumbnail gives the context room to breathe so the user reads the reason for the practice in full.
+- Slot card inner padding: `px-4 py-1` → `px-3 py-1` (frees ~8 px for cards on 360–414 px screens).
 
-Single-practice slots (the common case) inherit the wider container automatically.
+Net effect: image is the only thing that shrinks; the text column gets wider and the four pieces of copy (step → title → time → context) stack tighter and crisper.
 
-## 4. Files touched
+## Files touched
 
-- `src/components/home/TodayThreePriorities.tsx` — re-order expanded block (~lines 1030–1055), add header event suffix, add WHY-THIS-MATTERS label, add `recommendedAction` line with client fallback, drop `typeLabel` from expanded view, resize practice card classes (~lines 1086–1150), bump container width (~line 941).
-- `supabase/functions/generate-mastery-plan/index.ts` — add `recommendedAction: string` to the `HorizonModule` shape (~line 2830) and populate it in the deterministic builder alongside `whyLine` (~lines 2900–3090).
-- Nothing else. Brief, Today, Insights, Reset, stepper, scoring, JIT logic, ledger, feedback, completion tracking, navigation untouched.
+- `src/components/today/TodayGreeting.tsx` — size + vertical alignment.
+- `src/components/home/TodayThreePriorities.tsx` — expanded-slot hierarchy + practice-card resizing.
 
-## 5. Answer to your prompt question
+Nothing else. No backend, no scoring, no JIT logic, no routes.
 
-The "Why this matters" / context copy on the **Plan** page is **not** LLM-generated. It comes from a deterministic builder in `supabase/functions/generate-mastery-plan/index.ts`. For each of the 3 slots it inspects the live context (jitEventTitle, jitMinutesUntil, hrvEventCorrelation, coachGrowthArea, pendingCommitment, patternInsight, archetypeWatchFor, consecutive-low-state counters, calendar load, time of day, day of week) and routes through a priority cascade that returns `{ situation, whyLine }`. Sample templates already in code:
+## UX rationale
 
-- `Your HRV drops avg {pct}% before {eventType}, ground your nervous system before that pattern takes over.`
-- `Reserves low with {meetings} meetings ahead, regulate {timeAnchor}.`
-- `{count} {state} days running, this interrupts the pattern before it becomes your baseline.`
-- `Your coach commitment: '{commitment}', this practice directly addresses it while your calendar allows.`
-
-Strengthening these = editing those template strings (and adding the new `recommendedAction` next to them). The Brief itself does use an LLM via `compute-outer-readiness`, but per-priority "why" lines on the Plan page are template-driven for predictability and speed. Full template list documented in `docs/MASTERY_PLAN_CONTEXT_LOGIC.md` if you want to review/edit copy line-by-line before I implement.
-
-## 6. Out of scope
-
-Stepper, hero, greeting, completion ledger, slot selection, JIT scoring, ReflectionCorner, Brief page, Insights, Reset, scoring weights, content recommendation engine.
+1. **WHEN as anchor**: bold event title first turns each slot into a "Before X" headline. Pills become metadata, not headlines.
+2. **Italic action line**: italics signal verb/outcome without competing with the bold WHEN. One bold + one italic = clean primary→secondary hierarchy.
+3. **Shrink visual, keep copy**: the practice card's job here is to *introduce* a practice, not to be a hero tile. A smaller bookmark image keeps brand/atmosphere while the text panel — which is what tells the user *what* and *why* — gets more room and crisper type.
