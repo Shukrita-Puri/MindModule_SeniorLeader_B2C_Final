@@ -938,7 +938,7 @@ const Insights = () => {
 
             <div
               className="absolute left-0 right-0 z-30 pointer-events-none text-center px-4"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.875rem)' }}
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
             >
               <h1 className="font-headline font-medium text-foreground leading-tight tracking-tight text-[26px] md:text-[42px] pl-14 md:pl-0">
                 Mental Performance Insights
