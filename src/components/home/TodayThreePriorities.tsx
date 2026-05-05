@@ -59,6 +59,7 @@ interface HorizonModule {
   timeLabel: string;
   typeLabel: string;
   whyLine: string;
+  recommendedAction?: string;
   practice: PlanModule;
   practices?: PlanModule[];
   sequenceReasoning?: string;
