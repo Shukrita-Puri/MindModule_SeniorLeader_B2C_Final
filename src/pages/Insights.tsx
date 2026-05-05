@@ -917,7 +917,7 @@ const Insights = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[linear-gradient(165deg,hsl(122_22%_41%/0.16)_0%,hsl(122_18%_50%/0.10)_55%,hsl(122_22%_41%/0.18)_100%)]">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[radial-gradient(ellipse_120%_80%_at_15%_-10%,hsl(0_0%_100%/0.55)_0%,hsl(0_0%_100%/0.16)_30%,transparent_58%),radial-gradient(ellipse_90%_60%_at_110%_110%,hsl(122_22%_35%/0.32)_0%,transparent_60%),linear-gradient(165deg,hsl(122_22%_41%/0.22)_0%,hsl(122_18%_50%/0.10)_55%,hsl(122_22%_41%/0.24)_100%)]">
         <LeftSidebar />
         <SidebarInset
           data-sidebar-inset
@@ -962,9 +962,9 @@ const Insights = () => {
 
             {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
-      {/* Sticky Tab Bar – file-folder tabs to signal click-to-switch */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="max-w-lg mx-auto flex items-end gap-1 px-3 pt-2 h-12">
+      {/* Sticky Tab Bar – flat underlined tabs */}
+      <div className="sticky top-0 z-30 bg-transparent backdrop-blur-md">
+        <div className="max-w-lg mx-auto flex items-end gap-6 px-4 pt-2 h-11">
           {INSIGHT_TABS.map(({ key, label }) => {
             const active = activeTab === key;
             return (
@@ -974,15 +974,17 @@ const Insights = () => {
                 aria-selected={active}
                 role="tab"
                 className={cn(
-                  'relative flex-1 h-10 px-4 rounded-t-lg transition-all',
-                  'text-[10px] uppercase tracking-[0.12em] font-body font-medium',
+                  'relative h-10 pb-2 transition-colors bg-transparent border-0',
+                  'text-[11px] uppercase tracking-[0.14em] font-body font-medium',
                   active
-                    ? 'bg-taupe/20 text-foreground border-2 border-taupe/60 border-b-0 shadow-[0_-2px_8px_-4px_rgba(0,0,0,0.18)]'
-                    : 'bg-taupe/5 text-muted-foreground/70 hover:text-foreground/80 hover:bg-taupe/10 border border-taupe/20 border-b-2 border-b-taupe/40'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground/60 hover:text-foreground/80'
                 )}
-                style={active ? { marginBottom: '-1px' } : undefined}
               >
                 {label}
+                {active && (
+                  <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-taupe rounded-full" />
+                )}
               </button>
             );
           })}
@@ -1001,7 +1003,7 @@ const Insights = () => {
 
         {/* PROGRESS tab — Trajectory + Practice Effectiveness + Wins Log */}
         <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 space-y-3" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
             {/* Suppressed for now — keep import/component intact for easy re-enable */}
             {false && <DailyShowUpCalendar userId={user?.id} />}
 
@@ -1026,7 +1028,7 @@ const Insights = () => {
 
         {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
         <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-4 space-y-6">
+          <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 space-y-3">
             <PerformanceCausalityCard userId={user?.id} />
             <PerformanceRhythmCard userId={user?.id} />
 
