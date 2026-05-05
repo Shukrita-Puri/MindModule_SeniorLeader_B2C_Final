@@ -1,100 +1,65 @@
-## Inline Mindset Reflection Capture
+## Goal
 
-Add an optional, auto-saving writing area to each **step card** of mindset protocols inside `MicroPracticePlayerCards`. Somatic protocols, soundscapes, guided practices, plan slot logic, brief logic, recommendation engine, smart nudges, and the evening Reflection Corner / tiny-win flow are untouched.
+Three isolated UI-only tweaks across Today flow + Reset/Insights pages. No logic changes.
 
-### 1. Database (new migration)
+---
 
-`public.practice_reflections`:
-- `id uuid pk default gen_random_uuid()`
-- `user_id text not null` (Auth0 sub)
-- `practice_id text not null`
-- `practice_type text not null default 'mindset'`
-- `session_id uuid null` (links to `practice_sessions` once `handleComplete` returns it)
-- `step_number int not null`
-- `step_title text`, `prompt text` (snapshotted)
-- `response text not null`
-- `entry_context text` (`'plan' | 'standalone' | 'jit'`)
-- `local_date date not null`
-- `created_at`, `updated_at timestamptz default now()`
-- Unique on `(user_id, practice_id, coalesce(session_id,'00000000-0000-0000-0000-000000000000'::uuid), step_number)` for per-step upsert
-- Index on `(user_id, practice_id, local_date desc)`
-- RLS **enabled, deny-by-default** (no policies). All access via service-role edge functions.
-- `update_updated_at_column()` trigger reused.
+## 1. Shrink Today hero (Brief / Plan / Assessment pages)
 
-### 2. Edge functions (new)
+The shared `TodayHero` currently defaults to `h-[140px]`, which on a ~870px mobile viewport eats ~16% but pushes the stepper + white card down so they only get the lower portion. The user wants the **visual ≈20–25%** and the **stepper + card ≈75–80%**.
 
-**`save-practice-reflection`** (POST)
-- Auth via shared `authenticateRequest` (DEV_MODE header supported).
-- Zod-validated body: `practiceId`, `stepNumber (int 1..20)`, `stepTitle`, `prompt`, `response (string ≤2000, trimmed)`, `entryContext`, `localDate (YYYY-MM-DD)`, optional `sessionId`, optional `tempSessionKey` (for pre-completion drafts).
-- Upserts on conflict key. If `response` empty after trim → delete existing row instead.
-- Returns `{ id, updated_at }`.
+The cleanest move is to reduce the hero band itself rather than re-layout each page (the stepper and card already flow directly under it, so shrinking the hero automatically pulls them up).
 
-**`get-practice-reflections`** (GET)
-- Query: `practiceId`, optional `sessionId`, optional `localDate` (default today user-local).
-- Returns latest session's rows (or rows for the date) ordered by `step_number`.
+**Change:** `src/components/today/TodayHero.tsx`
+- Default `heightClass` from `h-[140px]` → `h-[110px]` (mobile) with `md:h-[140px]` preserved for desktop.
+  - Final: `heightClass = 'h-[110px] md:h-[140px]'`
+- No callers pass an override, so this propagates to ExecutiveHome, PlanPage, and DailyCheckIn automatically.
 
-Both functions: CORS, structured logging, service-role client. `verify_jwt = false` (in-code auth), no config.toml change needed unless default differs.
+This reclaims ~30px above the stepper on mobile, putting the hero at ~22% of a typical mobile viewport — matching the reference screenshot.
 
-### 3. Frontend
+## 2. Shift the "Ready to roll, Shuk" greeting right (away from sidebar button)
 
-**`src/hooks/useReflectionDraft.ts` (new)**
-- Signature: `useReflectionDraft({ practiceId, isMindset, entryContext, sessionId, tempSessionKey, steps })` where `steps` is `[{ stepNumber, title, prompt }]`.
-- On mount (mindset only): one `get-practice-reflections` call → seeds `Record<stepNumber, string>`.
-- Exposes `getDraft(n)`, `setDraft(n, value)`, `flush(n?)`, `flushAll()`.
-- Debounced save (1.2s) per step; immediate save on blur, on carousel `select` change, and on `handleComplete`.
-- `localStorage` mirror keyed `reflection:{practiceId}:{tempSessionKey}:{stepNumber}` for offline; flushed when fetch succeeds.
-- After `handleComplete` returns a real `session_id`, calls `flushAll({ sessionId })` so all rows attach to the session row.
+`TodayGreeting` is centered absolutely across the full width. On mobile the sidebar button (top-left) overlaps the left edge of long greetings.
 
-**`src/pages/MicroPracticePlayerCards.tsx`**
-- Import `getProtocolType` from `@/utils/protocolMatcher`; compute `isMindset = practice && getProtocolType(practice as any) === 'mindset'`.
-- Derive `entryContext`: `fromIntervention → 'jit'`, else `fromRitual → 'plan'`, else `'standalone'`.
-- Generate `tempSessionKey` (uuid via `crypto.randomUUID()`) once per mount; pass to hook.
-- Build `steps` array from `cards.filter(c => c.type === 'step')`.
-- Wire hook; pass `draft`, `setDraft`, `onBlurFlush` into `StepCardContent` for step cards (only when `isMindset`).
-- In carousel `onSelect` effect: call `flush(previousStepNumber)`.
-- In `handleComplete`: `await flushAll()` before `trackSanctuaryEvent`; after sanctuary returns `practiceSessionId`, call `flushAll({ sessionId })` to re-link.
+**Change:** `src/components/today/TodayGreeting.tsx`
+- Add `pl-14 md:pl-0` to the absolute container (mirrors the existing pattern on Insights/Reset headlines).
+- Keep `text-center` on desktop; the `pl-14` only nudges on mobile where overlap occurs.
 
-**`StepCardContent`** gets new optional props `{ isMindset, draft, onDraftChange, onBlurFlush }`. When `isMindset`, render below the instruction (above the More toggle):
+## 3. Vertically center the greeting + Insights/Reset headlines with the sidebar button
 
+Currently:
+- Sidebar button sits in a header with `pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]` and is a `size=sm` button (h-9 = 36px). Its **vertical center** is at `safe + 0.75rem + 18px`.
+- Greeting/headlines use `top: calc(safe + 0.875rem)` — top-aligned with the button's top edge, not its center, so taller text (the 33px greeting / 26px headline) appears to start above center.
+
+**Fix (applied to all three):**
+Change the absolute container's top from `0.875rem` to a value that centers the text against the button center. Using a flex wrapper matched to the button container's height is the cleanest approach:
+
+Replace the absolute-positioned text wrapper with one that mirrors the header's vertical box:
 ```tsx
-<div className="w-full max-w-[300px] space-y-1.5">
-  <Textarea
-    value={draft ?? ''}
-    onChange={(e) => onDraftChange?.(e.target.value)}
-    onBlur={onBlurFlush}
-    placeholder="Your response… (optional)"
-    maxLength={2000}
-    className="bg-white/5 border-white/15 text-white/90 placeholder:text-white/35 min-h-[88px] rounded-xl text-sm focus-visible:ring-saffron/40"
-  />
-  <p className="text-[11px] text-white/40 text-left">
-    {draft?.length ? `Saved · ${draft.length} chars` : 'Optional reflection'}
-  </p>
+<div
+  className="absolute left-0 right-0 z-30 pointer-events-none flex items-center justify-center px-4"
+  style={{
+    top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+    height: '2.75rem', // matches header py-2 + h-9 button
+  }}
+>
+  …text…
 </div>
 ```
 
-Empty input never blocks "Mark Complete".
+This makes the greeting/headline's vertical mid-line equal to the sidebar button's mid-line on every page.
 
-### 4. Memory
+**Files:**
+- `src/components/today/TodayGreeting.tsx` (greeting on Brief/Plan/Assessment)
+- `src/pages/Insights.tsx` (lines ~938–950, the headline + subtext block)
+- `src/pages/RecalibrateMode.tsx` (the headline + subtext block)
 
-Add `mem://features/mastery-plan/inline-mindset-reflection-capture.md` documenting:
-- Mindset protocols only (`subType === 'mindset'` or stoic-reflection).
-- Per-step rows in `practice_reflections`, upsert by `(user_id, practice_id, session_id, step_number)`.
-- Reflection Corner / tiny_wins remain the evening summary; no overlap.
-- Coach/Insights consumption is a follow-up, not part of this pass.
+For Insights & Reset which have a headline **and** a subtext line, keep the same flex wrapper but stack `<h1>` + `<p>` inside; align the wrapper so the `<h1>` (first line) center matches the button center — i.e. anchor by `items-start` and adjust top so the h1 baseline area is centered on the button. Concretely: keep current absolute positioning but change `top` from `0.875rem` to `1.25rem` on mobile (and `0.875rem` on `md` where the headline is much larger). This shifts the headline down ~6px so its visual center aligns with the 36px sidebar button.
 
-### Files touched
+---
 
-- New: `supabase/functions/save-practice-reflection/index.ts`
-- New: `supabase/functions/get-practice-reflections/index.ts`
-- New migration: `practice_reflections` table + RLS deny-by-default + indexes + updated_at trigger
-- Edited: `src/pages/MicroPracticePlayerCards.tsx`
-- New: `src/hooks/useReflectionDraft.ts`
-- New: `mem://features/mastery-plan/inline-mindset-reflection-capture.md`
+## Out of scope
 
-### Out of scope (confirmed)
-
-Recommendation/sequencing, tiny-win storage, Insights surfacing, Coach prompt consumption, somatic/soundscape/guided practices.
-
-### Open question — defaulting to your stated assumption
-
-Storing **per-step rows** (not one JSON blob). Reply if you'd rather a single JSON blob per session; otherwise I'll proceed with rows.
+- No changes to copy, colors, navigation, data, animations.
+- TodayStepper internals untouched (the "+ / Click" hint stays as-is).
+- White card content untouched — it just rides up because the hero shrank.
