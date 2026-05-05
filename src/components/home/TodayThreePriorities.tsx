@@ -38,6 +38,29 @@ import { getLocalDataSummary } from '@/services/localDataStore';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
+// Client-side fallback for `recommendedAction` when an older cached plan
+// response lacks the field. Mirrors the deterministic server builder shape
+// — short, plain-English benefit line shown above the practice cards.
+const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTitle: string | null; timeLabel: string }): string => {
+  const type = hm.practice?.type;
+  const event = hm.jitEventTitle?.trim() || null;
+  const tl = (hm.timeLabel || '').toLowerCase();
+  const tod = tl.includes('evening') || tl.includes('bed') ? 'evening'
+    : tl.includes('afternoon') || tl.includes('midday') || tl.includes('later today') ? 'afternoon'
+    : 'morning';
+  if (event) {
+    if (type === 'regulate') return `Settle your nervous system before ${event}`;
+    if (type === 'align')    return `Sharpen your thinking before ${event}`;
+    if (type === 'prepare')  return `Enter optimal flow state ahead of ${event}`;
+    if (type === 'integrate')return `Land cleanly after ${event}`;
+  }
+  if (type === 'regulate') return `Regulate your state for the ${tod} ahead`;
+  if (type === 'align')    return `Set your focus for the ${tod}`;
+  if (type === 'prepare')  return `Build resilience for high-demand days`;
+  if (type === 'integrate')return tod === 'evening' ? `Close the day with intention` : `Consolidate what's working`;
+  return `Strengthen your state for what's ahead`;
+};
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
@@ -59,6 +82,7 @@ interface HorizonModule {
   timeLabel: string;
   typeLabel: string;
   whyLine: string;
+  recommendedAction?: string;
   practice: PlanModule;
   practices?: PlanModule[];
   sequenceReasoning?: string;
@@ -938,7 +962,7 @@ const TodayThreePriorities = ({
       {/* 3 Slots — each priority on its own card so users perceive them as
           three distinct things to do at different times rather than one
           bulky block. Pure UI grouping; no logic/tracking changes. */}
-      <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+      <div className="flex flex-col gap-3 px-3 sm:px-4 max-w-xl mx-auto">
         {horizonModules.map((hm, index) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
@@ -1030,27 +1054,31 @@ const TodayThreePriorities = ({
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {/* Type label — context first, then reflection, then practice cards.
-                      Client-side strip of "Mind Performance Coach" branding from
-                      integrate/prepare slot labels (Coach is fully suppressed in Plan). */}
-                  <span className={cn(
-                    "text-xs uppercase tracking-wider font-body",
-                    hm.isJit ? "text-saffron" : "text-saffron/80"
-                  )}>
-                    {hm.typeLabel.replace(/\s*·\s*Mind Performance Coach\s*$/i, '').trim()}
-                  </span>
+                  {/* New hierarchy: WHY THIS MATTERS → reasoning → recommended action.
+                      Replaces the previous "type label first" order so users see the
+                      reason before the protocol taxonomy. Type label is intentionally
+                      omitted from the expanded view (kept in collapsed view). */}
+                  {hm.whyLine && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
+                        Why this matters
+                      </span>
+                      <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
+                        {hm.whyLine}
+                      </p>
+                    </div>
+                  )}
 
-                  {/* Sequence reasoning (if multi-practice) */}
+                  <p className="text-[14px] md:text-[14px] text-foreground font-body font-medium leading-snug pt-1">
+                    {hm.recommendedAction || fallbackRecommendedAction(hm)}
+                  </p>
+
+                  {/* Sequence reasoning (multi-practice helper, if present) */}
                   {hm.sequenceReasoning && hasMultiple && (
-                    <p className="text-xs text-foreground/70 font-body font-medium leading-relaxed">
+                    <p className="text-xs text-muted-foreground/80 font-body leading-relaxed">
                       {hm.sequenceReasoning}
                     </p>
                   )}
-
-                  {/* Why line */}
-                  <p className="text-xs italic text-muted-foreground font-body leading-relaxed">
-                    {hm.whyLine}
-                  </p>
 
                   {/* Reflection Corner — inline replacement for the suppressed /coach surface
                       on the evening "Tiny Win and Reflection" priority. Rendered AFTER the
@@ -1095,18 +1123,18 @@ const TodayThreePriorities = ({
                           key={practice.contentId}
                           onClick={() => !isPracticeCompleted && navigateToPractice(practice, slotPractices)}
                           className={cn(
-                            "relative flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300 snap-start",
+                            "relative flex rounded-xl overflow-hidden h-44 md:h-40 cursor-pointer transition-all duration-300 snap-start",
                             "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                             "bg-white/15 backdrop-blur-md border border-white/40",
                             "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                             hm.showNavyBorder && pIdx === 0 && "border-l-2 border-l-foreground",
                             isPracticeCompleted && "opacity-40 sepia-[0.3] saturate-50",
-                            hasMultiple ? "w-[80%] flex-shrink-0" : "w-full"
+                            hasMultiple ? "w-[88%] md:w-[80%] flex-shrink-0" : "w-full"
                           )}
                         >
                           {/* Thumbnail */}
                           {isCoach ? (
-                            <div className="w-28 h-full flex-shrink-0 relative overflow-hidden">
+                            <div className="w-24 md:w-28 h-full flex-shrink-0 relative overflow-hidden">
                               <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1118,7 +1146,7 @@ const TodayThreePriorities = ({
                             <img
                               src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
                               alt={practice.title}
-                              className="w-28 h-full object-cover flex-shrink-0"
+                              className="w-24 md:w-28 h-full object-cover flex-shrink-0"
                             />
                           )}
 
@@ -1131,7 +1159,7 @@ const TodayThreePriorities = ({
                               </span>
                             )}
                             <div className="flex items-start gap-1">
-                              <h4 className="text-[14px] font-medium line-clamp-2 leading-snug font-body flex-1 text-foreground">
+                              <h4 className="text-[15px] md:text-[14px] font-medium line-clamp-3 leading-snug font-body flex-1 text-foreground">
                                 {practice.title}
                               </h4>
                               {isPracticeCompleted && <Check size={14} className="text-taupe flex-shrink-0 mt-0.5 stroke-[3]" />}
@@ -1144,7 +1172,7 @@ const TodayThreePriorities = ({
                             </span>
             {/* Per-practice reasoning */}
                             {practice.reasoning && (
-                              <p className="text-xs text-muted-foreground/60 font-body mt-1 line-clamp-2 leading-snug">
+                              <p className="text-xs text-muted-foreground/80 font-body mt-1 line-clamp-3 leading-snug">
                                 {practice.reasoning}
                               </p>
                             )}

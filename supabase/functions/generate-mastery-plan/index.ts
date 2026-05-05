@@ -2830,6 +2830,7 @@ interface HorizonModule {
   timeLabel: string;
   typeLabel: string;
   whyLine: string;
+  recommendedAction: string;
   practice: any; // PlanModule — backward compat (= practices[0])
   practices: any[]; // 1-3 practices per slot
   sequenceReasoning?: string; // Why these practices together in this order
@@ -3092,6 +3093,45 @@ function buildSequenceReasoning(practiceTypes: string[], ctx: SlotContextInput):
   return undefined;
 }
 
+/**
+ * Builds a short, plain-English benefit line shown above the practice cards
+ * on the Plan page (e.g. "Enter optimal flow state ahead of Cambridge Interview",
+ * "Build resilience for high-demand days"). Deterministic — no LLM.
+ * Companion to whyLine: whyLine = "why now", recommendedAction = "what this does for you".
+ */
+function buildRecommendedAction(
+  primaryType: 'regulate' | 'align' | 'prepare' | 'integrate' | string,
+  ctx: SlotContextInput
+): string {
+  const event = ctx.eventTitle?.trim() || null;
+  const tod = ctx.timeOfDay || 'morning';
+  const todWord = tod === 'morning' ? 'morning' : tod === 'afternoon' ? 'afternoon' : 'evening';
+
+  if (event) {
+    switch (primaryType) {
+      case 'regulate': return `Settle your nervous system before ${event}`;
+      case 'align':    return `Sharpen your thinking before ${event}`;
+      case 'prepare':  return `Enter optimal flow state ahead of ${event}`;
+      case 'integrate':return `Land cleanly after ${event}`;
+    }
+  }
+
+  if (ctx.tier === 'depleted') {
+    if (primaryType === 'regulate') return `Restore reserves before the ${todWord} compounds`;
+    if (primaryType === 'align')    return `Recover focus while reserves are low`;
+    if (primaryType === 'integrate')return `Close the day and protect tomorrow's capacity`;
+    return `Rebuild capacity for what's ahead`;
+  }
+
+  switch (primaryType) {
+    case 'regulate': return `Regulate your state for the ${todWord} ahead`;
+    case 'align':    return `Set your focus for the ${todWord}`;
+    case 'prepare':  return `Build resilience for high-demand days`;
+    case 'integrate':return tod === 'evening' ? `Close the day with intention` : `Consolidate what's working`;
+    default:         return `Strengthen your state for what's ahead`;
+  }
+}
+
 function buildHorizonModules(
   todModules: any[],
   preEventPlan: any,
@@ -3218,6 +3258,7 @@ function buildHorizonModules(
       timeLabel: slot1TimeLabel,
       typeLabel: `${labels[primaryPractice.type] || 'REGULATE'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
       whyLine: slotCtx.whyLine,
+      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
       practice: primaryPractice,
       practices: slot1Practices,
       sequenceReasoning: seqReasoning,
@@ -3272,6 +3313,7 @@ function buildHorizonModules(
       timeLabel: slot2TimeLabel,
       typeLabel: `${labels[primaryPractice.type] || 'ALIGN'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
       whyLine: slotCtx.whyLine,
+      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
       practice: primaryPractice,
       practices: slot2Practices,
       sequenceReasoning: seqReasoning,
@@ -3320,6 +3362,7 @@ function buildHorizonModules(
       timeLabel: slot3TimeLabel,
       typeLabel: `${labels[primaryPractice.type] || 'INTEGRATE'} · ${protocols[primaryPractice.type] || 'Protocol'}`,
       whyLine: slotCtx.whyLine,
+      recommendedAction: buildRecommendedAction(primaryPractice.type, ctxInput),
       practice: primaryPractice,
       practices: slot3Practices,
       sequenceReasoning: seqReasoning,
