@@ -13,17 +13,13 @@ const HERO_IMAGES = {
   evening: '/all-visuals/images/hero-evening.jpg',
 } as const;
 
-interface TodayHeroProps {
-  /** Tailwind height class for the hero band. Default 140px. */
-  heightClass?: string;
-}
 
 /**
  * Shared hero visual used across the Today flow (Assessment / Brief / Plan).
  * Static dark-charcoal B&W landscape — one image per time-of-day window.
  * No tier or divergence branching; no motion.
  */
-const TodayHero = ({ heightClass = 'h-[140px]' }: TodayHeroProps) => {
+const TodayHero = ({ heightClass = 'h-[110px] md:h-[140px]' }: TodayHeroProps) => {
   const heroImageUrl = useMemo(() => HERO_IMAGES[getTimeOfDay()], []);
 
   return (
