@@ -976,7 +976,7 @@ const TodayThreePriorities = ({
               key={`${module.contentId}-${index}`}
               className={cn(
                 // Pilot v2 — standard card: tonal bg + hairline border + elev-1 (2 mechanisms)
-                "space-y-0 rounded-xl card-standard px-4 py-1 transition-colors"
+                "space-y-0 rounded-xl card-standard px-3 py-1 transition-colors"
               )}
             >
               {/* Slot header row */}
@@ -999,25 +999,18 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
-                {/* Time label + practice name */}
+                {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "text-xs font-body",
-                      hm.isJit ? "text-saffron font-medium" : "text-muted-foreground/60"
-                    )}>
-                      {hm.timeLabel}
-                    </span>
-                    {hm.showPriorityPill && !slotCompleted && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
-                        Priority event
-                      </span>
-                    )}
-                  </div>
+                  <p className={cn(
+                    "text-[15px] md:text-[16px] font-semibold leading-tight truncate",
+                    slotCompleted ? "text-muted-foreground/60 line-through" : "text-foreground"
+                  )}>
+                    {hm.timeLabel}
+                  </p>
                   {!isExpanded && (
                     <div>
                       <p className={cn(
-                        "text-sm font-body truncate",
+                        "text-sm font-body truncate mt-0.5",
                         slotCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
                       )}>
                         {module.title}
@@ -1054,10 +1047,23 @@ const TodayThreePriorities = ({
               {/* Expanded content */}
               {isExpanded && !slotCompleted && (
                 <div className="pl-10 space-y-2 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {/* New hierarchy: WHY THIS MATTERS → reasoning → recommended action.
-                      Replaces the previous "type label first" order so users see the
-                      reason before the protocol taxonomy. Type label is intentionally
-                      omitted from the expanded view (kept in collapsed view). */}
+                  {/* Pill row — only for JIT slots (real upcoming event).
+                      Morning/evening non-JIT slots hide both pills per spec. */}
+                  {hm.isJit && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground font-body">
+                        {hm.jitMinutesUntil != null && hm.jitMinutesUntil < 120
+                          ? `in ${hm.jitMinutesUntil} min`
+                          : hm.timeLabel}
+                      </span>
+                      {hm.showPriorityPill && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-foreground/8 text-foreground font-medium">
+                          Priority event
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {hm.whyLine && (
                     <div className="space-y-1">
                       <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
@@ -1069,7 +1075,7 @@ const TodayThreePriorities = ({
                     </div>
                   )}
 
-                  <p className="text-[14px] md:text-[14px] text-foreground font-body font-medium leading-snug pt-1">
+                  <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {hm.recommendedAction || fallbackRecommendedAction(hm)}
                   </p>
 
@@ -1123,22 +1129,22 @@ const TodayThreePriorities = ({
                           key={practice.contentId}
                           onClick={() => !isPracticeCompleted && navigateToPractice(practice, slotPractices)}
                           className={cn(
-                            "relative flex rounded-xl overflow-hidden h-44 md:h-40 cursor-pointer transition-all duration-300 snap-start",
+                            "relative flex rounded-xl overflow-hidden h-36 cursor-pointer transition-all duration-300 snap-start",
                             "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                             "bg-white/15 backdrop-blur-md border border-white/40",
                             "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                             hm.showNavyBorder && pIdx === 0 && "border-l-2 border-l-foreground",
                             isPracticeCompleted && "opacity-40 sepia-[0.3] saturate-50",
-                            hasMultiple ? "w-[88%] md:w-[80%] flex-shrink-0" : "w-full"
+                            hasMultiple ? "w-[80%] md:w-[70%] flex-shrink-0" : "w-full"
                           )}
                         >
                           {/* Thumbnail */}
                           {isCoach ? (
-                            <div className="w-24 md:w-28 h-full flex-shrink-0 relative overflow-hidden">
+                            <div className="w-16 md:w-20 h-full flex-shrink-0 relative overflow-hidden">
                               <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                                <span className="text-2xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
                                 <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
                               </div>
                             </div>
@@ -1146,7 +1152,7 @@ const TodayThreePriorities = ({
                             <img
                               src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
                               alt={practice.title}
-                              className="w-24 md:w-28 h-full object-cover flex-shrink-0"
+                              className="w-16 md:w-20 h-full object-cover flex-shrink-0"
                             />
                           )}
 
@@ -1154,12 +1160,12 @@ const TodayThreePriorities = ({
                           <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
                             {/* Step indicator for multi-practice */}
                             {hasMultiple && (
-                              <span className="text-xs uppercase tracking-wider text-muted-foreground/50 font-body mb-0.5">
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-body mb-0.5">
                                 Step {pIdx + 1} of {slotPractices.length}
                               </span>
                             )}
                             <div className="flex items-start gap-1">
-                              <h4 className="text-[15px] md:text-[14px] font-medium line-clamp-3 leading-snug font-body flex-1 text-foreground">
+                              <h4 className="text-[13px] font-semibold line-clamp-2 leading-tight font-body flex-1 text-foreground">
                                 {practice.title}
                               </h4>
                               {isPracticeCompleted && <Check size={14} className="text-taupe flex-shrink-0 mt-0.5 stroke-[3]" />}
@@ -1167,12 +1173,12 @@ const TodayThreePriorities = ({
                                 <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground font-body mt-1">
+                            <span className="text-[11px] text-muted-foreground font-body mt-0.5">
                               {practice.duration} min
                             </span>
             {/* Per-practice reasoning */}
                             {practice.reasoning && (
-                              <p className="text-xs text-muted-foreground/80 font-body mt-1 line-clamp-3 leading-snug">
+                              <p className="text-[11px] text-muted-foreground/85 font-body mt-1 line-clamp-3 leading-snug">
                                 {practice.reasoning}
                               </p>
                             )}
