@@ -4,7 +4,7 @@
  * Uses display:none toggling (not unmount) to preserve component state.
  */
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -35,16 +35,6 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
-const TIER_GRADIENTS: Record<string, string> = {
-  depleted: 'from-blue-900/50 via-slate-800/35 to-background',
-  managing: 'from-amber-900/45 via-stone-800/30 to-background',
-  strong: 'from-emerald-900/45 via-teal-800/30 to-background',
-  peak: 'from-violet-900/45 via-purple-800/30 to-background',
-  default: 'from-stone-800/40 via-stone-700/25 to-background',
-};
-
-
-
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
@@ -238,82 +228,6 @@ const ExecutiveHome = () => {
     return outerBrief.phrase || "Let's make today count.";
   };
   
-  const getTierGradient = () => {
-    return TIER_GRADIENTS[heroEnergyTier] || TIER_GRADIENTS.default;
-  };
-  
-  const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return 'morning';
-    if (hour >= 12 && hour < 18) return 'afternoon';
-    return 'evening';
-  };
-
-  const heroVideoUrl = useMemo(() => {
-    const timeOfDay = getTimeOfDay();
-    const tier = heroEnergyTier;
-    const videoMap: Record<string, Record<string, string>> = {
-      depleted: {
-        morning: '/all-visuals/videos/depleted-morning.mp4',
-        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
-        evening: '/all-visuals/videos/depleted-evening.mp4',
-      },
-      managing: {
-        morning: '/all-visuals/videos/managing-morning.mp4',
-        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
-        evening: '/all-visuals/videos/managing-evening.mp4',
-      },
-      strong: {
-        morning: '/all-visuals/videos/strong-morning.mp4',
-        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
-        evening: '/all-visuals/videos/strong-evening.mp4',
-      },
-      peak: {
-        morning: '/all-visuals/videos/peak-morning.mp4',
-        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
-        evening: '/all-visuals/videos/peak-evening.mp4',
-      },
-      very_high: {
-        morning: '/all-visuals/videos/veryhigh-morning.mp4',
-        afternoon: '/all-visuals/videos/veryhigh-afternoon.mp4',
-        evening: '/all-visuals/videos/veryhigh-evening.mp4',
-      },
-      default: {
-        morning: '/all-visuals/videos/strong-morning.mp4',
-        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
-        evening: '/all-visuals/videos/strong-evening.mp4',
-      },
-    };
-
-    // Divergence variant override: when wearable/check-in signals diverge
-    const divergenceMode = String(heroDivergenceMode || '').toLowerCase();
-    if (divergenceMode.includes('recovery')) {
-      return `/all-visuals/videos/recovery-${timeOfDay}.mp4`;
-    }
-    if (divergenceMode.includes('masked')) {
-      return `/all-visuals/videos/masked-${timeOfDay}.mp4`;
-    }
-
-    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
-  }, [heroEnergyTier, heroDivergenceMode]);
-  
-  const videoFadedIn = useRef(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  
-  const fadeInVideo = useCallback((el?: HTMLVideoElement | null) => {
-    const target = el || videoRef.current;
-    if (!videoFadedIn.current && target) {
-      target.style.opacity = '0.4';
-      videoFadedIn.current = true;
-    }
-  }, []);
-
-  useEffect(() => {
-    videoFadedIn.current = false;
-    const timer = setTimeout(() => fadeInVideo(), 3000);
-    return () => clearTimeout(timer);
-  }, [heroVideoUrl, fadeInVideo]);
-
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
