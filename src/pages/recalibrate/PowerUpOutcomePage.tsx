@@ -231,7 +231,7 @@ const PowerUpOutcomePage = () => {
                     <Heart
                       className={cn(
                         "h-5 w-5 transition-colors",
-                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                        isFavorite(item.id) ? "fill-saffron text-saffron" : "text-muted-foreground"
                       )}
                     />
                   </button>
@@ -303,7 +303,7 @@ const PowerUpOutcomePage = () => {
                     <Heart
                       className={cn(
                         "h-5 w-5 transition-colors",
-                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                        isFavorite(item.id) ? "fill-saffron text-saffron" : "text-muted-foreground"
                       )}
                     />
                   </button>
