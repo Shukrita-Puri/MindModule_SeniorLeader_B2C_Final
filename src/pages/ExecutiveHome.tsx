@@ -4,7 +4,7 @@
  * Uses display:none toggling (not unmount) to preserve component state.
  */
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { trackBriefView } from "@/utils/engagementTracking";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
@@ -35,16 +35,6 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
-const TIER_GRADIENTS: Record<string, string> = {
-  depleted: 'from-blue-900/50 via-slate-800/35 to-background',
-  managing: 'from-amber-900/45 via-stone-800/30 to-background',
-  strong: 'from-emerald-900/45 via-teal-800/30 to-background',
-  peak: 'from-violet-900/45 via-purple-800/30 to-background',
-  default: 'from-stone-800/40 via-stone-700/25 to-background',
-};
-
-
-
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
