@@ -162,7 +162,7 @@ const CheckInDetail = () => {
 
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
-      <div className="flex-1 flex min-h-0 items-start justify-center px-4 pt-1 pb-0">
+      <div className="flex items-start justify-center px-4 pt-1 pb-4">
         <div className="w-full max-w-lg animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-5 space-y-6

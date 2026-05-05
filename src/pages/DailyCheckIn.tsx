@@ -409,10 +409,10 @@ const DailyCheckIn = () => {
 
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
-      <div className="flex-1 flex min-h-0 flex-col px-4 max-w-lg mx-auto w-full pt-2">
+      <div className="flex flex-col px-4 max-w-lg mx-auto w-full pt-2 pb-4">
 
         {/* Glass card wrapper (matches Brief card) */}
-        <div className="relative overflow-hidden rounded-2xl p-5 flex-1 flex flex-col
+        <div className="relative overflow-hidden rounded-2xl p-5 flex flex-col
           bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
           border border-black/[0.08]
           shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -428,7 +428,7 @@ const DailyCheckIn = () => {
           </div>
 
           {/* Vertical state list – compact gaps */}
-          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2 w-full pt-0.5">
+          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-col gap-2 w-full pt-0.5">
           {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
