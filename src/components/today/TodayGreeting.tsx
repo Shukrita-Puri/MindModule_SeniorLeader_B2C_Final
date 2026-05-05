@@ -19,9 +19,9 @@ const TodayGreeting = () => {
   return (
     <div
       className="absolute left-0 right-0 z-30 pointer-events-none text-center px-4"
-      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.25rem)' }}
+      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.875rem)' }}
     >
-      <p className="text-[35px] leading-tight font-headline font-semibold text-foreground tracking-tight">
+      <p className="text-[33px] leading-tight font-headline font-semibold text-foreground tracking-tight">
         {greeting}
       </p>
     </div>
