@@ -86,6 +86,9 @@ interface HorizonModule {
   practice: PlanModule;
   practices?: PlanModule[];
   sequenceReasoning?: string;
+  stepRationale?: string[];
+  slotKind?: 'start_of_day' | 'jit' | 'end_of_day' | 'state-management';
+  ceoRealities?: string[];
   isJit: boolean;
   jitEventTitle: string | null;
   jitMinutesUntil: number | null;
