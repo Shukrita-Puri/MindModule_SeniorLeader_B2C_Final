@@ -38,6 +38,29 @@ import { getLocalDataSummary } from '@/services/localDataStore';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
+// Client-side fallback for `recommendedAction` when an older cached plan
+// response lacks the field. Mirrors the deterministic server builder shape
+// — short, plain-English benefit line shown above the practice cards.
+const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTitle: string | null; timeLabel: string }): string => {
+  const type = hm.practice?.type;
+  const event = hm.jitEventTitle?.trim() || null;
+  const tl = (hm.timeLabel || '').toLowerCase();
+  const tod = tl.includes('evening') || tl.includes('bed') ? 'evening'
+    : tl.includes('afternoon') || tl.includes('midday') || tl.includes('later today') ? 'afternoon'
+    : 'morning';
+  if (event) {
+    if (type === 'regulate') return `Settle your nervous system before ${event}`;
+    if (type === 'align')    return `Sharpen your thinking before ${event}`;
+    if (type === 'prepare')  return `Enter optimal flow state ahead of ${event}`;
+    if (type === 'integrate')return `Land cleanly after ${event}`;
+  }
+  if (type === 'regulate') return `Regulate your state for the ${tod} ahead`;
+  if (type === 'align')    return `Set your focus for the ${tod}`;
+  if (type === 'prepare')  return `Build resilience for high-demand days`;
+  if (type === 'integrate')return tod === 'evening' ? `Close the day with intention` : `Consolidate what's working`;
+  return `Strengthen your state for what's ahead`;
+};
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
