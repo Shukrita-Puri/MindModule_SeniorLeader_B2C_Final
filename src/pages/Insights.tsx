@@ -945,7 +945,7 @@ const Insights = () => {
               </h1>
             </div>
 
-            <div className="px-3 md:px-4 pt-[3rem] pb-2 text-center" />
+            <div className="px-3 md:px-4 pt-1 pb-2 text-center" />
 
             {!sectionsHydratedRef.current && (patternsLoading || winsLoading || !insightsScriptDone) && (
               <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 pb-4">
