@@ -3096,6 +3096,341 @@ function buildSequenceReasoning(practiceTypes: string[], ctx: SlotContextInput):
   return undefined;
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// v5.1 STRATEGIC-AWARE POST-PROCESSOR
+// Re-composes whyLine using {Strategic. Tactical. Immediate. → Action.}
+// with hard anti-duplication against the brief, plus CEO-Reality flags.
+// Also derives stepRationale[] (2–4-word sequence rationales) per slot.
+// Server-only slotKind (start_of_day | jit | end_of_day | state-management)
+// — never surfaced as a UI label.
+// ════════════════════════════════════════════════════════════════════════
+
+const MVP_JIT_HORIZON_MINUTES = 24 * 60;
+
+const PTO_RX = /(ooo|out of office|vacation|annual leave|\bpto\b|on leave|holiday day)/i;
+const PUBLIC_HOLIDAY_RX = /(public holiday|bank holiday|national holiday)/i;
+const TRAVEL_RX = /(flight|airport|red-eye|red eye|long haul|long-haul)/i;
+const BOARD_RX = /(board|investor|vc\b|earnings|town hall|all-hands|all hands|keynote)/i;
+const DRAIN_RX = /(1:1|1-on-1|performance review|layoff|restructure|escalation|difficult conversation|hr\b)/i;
+
+type CeoRealityTag =
+  | 'veto_risk'
+  | 'circadian_travel'
+  | 'decision_leakage'
+  | 'post_peak_hangover'
+  | 'personal_friction'
+  | 'board_outcome'
+  | 'public_holiday'
+  | 'personal_pto';
+
+function detectCeoRealities(req: PlanRequest, shared: SharedContext): CeoRealityTag[] {
+  const tags: CeoRealityTag[] = [];
+  const events = req.calendarEvents || [];
+  const within24h = events.filter(e => {
+    const t = new Date(e.startTime).getTime() - Date.now();
+    return t >= 0 && t <= MVP_JIT_HORIZON_MINUTES * 60 * 1000;
+  });
+  const within48h = events.filter(e => {
+    const t = new Date(e.startTime).getTime() - Date.now();
+    return t >= -24 * 60 * 60 * 1000 && t <= 48 * 60 * 60 * 1000;
+  });
+
+  // Public holiday / PTO — checked first; suppress heavier flags downstream
+  if (events.some(e => PUBLIC_HOLIDAY_RX.test(e.title || ''))) tags.push('public_holiday');
+  if (events.some(e => PTO_RX.test(e.title || ''))) tags.push('personal_pto');
+
+  // Travel / circadian
+  if (within48h.some(e => TRAVEL_RX.test(e.title || ''))) tags.push('circadian_travel');
+
+  // Board-level outcome
+  if (within24h.some(e => BOARD_RX.test(e.title || ''))) tags.push('board_outcome');
+
+  // Veto risk — masked fatigue
+  const w = req.wearableContext;
+  const sharpHigh = (req.confidenceLevel ?? 0) >= 4 || (req.clarityLevel ?? 0) >= 4;
+  if (w?.hasData && sharpHigh) {
+    const hrvNeg = w.hrvDeviation !== null && w.hrvDeviation < -10;
+    const lowSleep = w.sleepScore !== null && w.sleepScore < 65;
+    if (hrvNeg || lowSleep) tags.push('veto_risk');
+  }
+
+  // Decision leakage
+  const drained = (req.checkInOutcome || '').toLowerCase().includes('depleted') ||
+                  (req.checkInOutcome || '').toLowerCase().includes('managing');
+  const wearableEmoProxy = w?.hasData && (w.hrvDeviation !== null && w.hrvDeviation < -15);
+  if ((drained || wearableEmoProxy) && within24h.some(e => DRAIN_RX.test(e.title || ''))) {
+    tags.push('decision_leakage');
+  }
+
+  // Post-peak hangover — uses score trend if available
+  const trend: any = (shared as any)?.innerReadinessPattern;
+  if (trend?.values && trend.values.length >= 2) {
+    const yest = trend.values[trend.values.length - 2];
+    const tdy = trend.values[trend.values.length - 1];
+    if (typeof yest === 'number' && typeof tdy === 'number' && yest >= 75 && (yest - tdy) >= 10) {
+      tags.push('post_peak_hangover');
+    }
+  }
+
+  // Personal friction — Sun pm / Mon am declining self-decl, no wearable degradation
+  const day = new Date().getDay();
+  const hour = new Date().getHours();
+  const sundayPm = day === 0 && hour >= 14;
+  const mondayAm = day === 1 && hour < 12;
+  if ((sundayPm || mondayAm) && drained && !(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10)) {
+    tags.push('personal_friction');
+  }
+
+  return tags;
+}
+
+/**
+ * Token-set of facts the brief already named — used to forbid the Plan
+ * from echoing the same claim. Deterministic, no LLM.
+ */
+function buildBriefClaimSet(outerReadinessCache: any, req: PlanRequest): Set<string> {
+  const claim = new Set<string>();
+  const corpus = [
+    outerReadinessCache?.phrase,
+    outerReadinessCache?.context || outerReadinessCache?.contextStatement,
+    outerReadinessCache?.body,
+    req.outerReadinessPhrase,
+    req.outerReadinessContext,
+  ].filter(Boolean).join(' ').toLowerCase();
+  if (!corpus) return claim;
+
+  // Numbers + adjacent noun
+  const numMatches = corpus.match(/(\d+%?|\d+\s?(?:hr|hrs|hour|hours|min|mins|h|m|ms|bpm|meeting|meetings|days?))/g) || [];
+  numMatches.forEach(n => claim.add(n.replace(/\s+/g, '')));
+
+  // Named events from calendar that brief mentions
+  for (const e of req.calendarEvents || []) {
+    const t = (e.title || '').toLowerCase().trim();
+    if (t && t.length >= 4 && corpus.includes(t)) claim.add(`evt:${t}`);
+  }
+
+  // Lexicon clusters used
+  const clusters = ['hrv', 'sleep', 'rhr', 'clarity', 'confidence', 'composure', 'sharpness', 'recovery', 'resilience', 'readiness'];
+  clusters.forEach(c => { if (corpus.includes(c)) claim.add(`lex:${c}`); });
+
+  return claim;
+}
+
+function clauseOverlapsBrief(clause: string, brief: Set<string>): boolean {
+  if (!clause || brief.size === 0) return false;
+  const lc = clause.toLowerCase();
+  let hits = 0;
+  for (const tok of brief) {
+    if (tok.startsWith('lex:')) {
+      if (lc.includes(tok.slice(4))) hits += 1;
+    } else if (tok.startsWith('evt:')) {
+      if (lc.includes(tok.slice(4))) return true; // any named-event echo = overlap
+    } else {
+      if (lc.includes(tok)) hits += 1;
+    }
+    if (hits >= 2) return true;
+  }
+  return false;
+}
+
+function strategicAnchorClause(req: PlanRequest, ceo: CeoRealityTag[]): string | null {
+  if (ceo.includes('public_holiday') || ceo.includes('personal_pto')) {
+    return 'Holiday today — light touch.';
+  }
+  if (ceo.includes('circadian_travel')) return 'Travel debt is active.';
+  if (ceo.includes('board_outcome')) return 'Today protects Executive Presence for a board-level call.';
+  if (ceo.includes('veto_risk')) return 'You feel sharp; the body reads otherwise.';
+  if (ceo.includes('personal_friction')) return 'Internal Buffer is compressed.';
+  const growth = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content;
+  if (growth) return `Aligned to your work on ${String(growth).toLowerCase()}.`;
+  const tagLabels: Record<string, string> = {
+    regulation_composure: 'composure under pressure',
+    regulation_early: 'early regulation',
+    recovery_resilience: 'recovery and resilience',
+    energy_endurance: 'energy and endurance',
+    focus_clarity: 'focus and clarity',
+    mindset_reframe: 'mindset reframing',
+  };
+  if (req.practicePriorityTag && tagLabels[req.practicePriorityTag]) {
+    return `Your long-term focus is ${tagLabels[req.practicePriorityTag]}.`;
+  }
+  return null;
+}
+
+function tacticalClause(req: PlanRequest, shared: SharedContext, hrvCorrelations: any, ceo: CeoRealityTag[]): string | null {
+  if (ceo.includes('post_peak_hangover')) return "Yesterday's peak left a recovery gap.";
+  const pat = (req as any).patternInsight;
+  if (pat?.count >= 3 && pat.state) return `${pat.count} ${pat.state} days running.`;
+  if (hrvCorrelations) {
+    const top = Object.entries(hrvCorrelations).find(([, c]: any) => c?.count >= 2 && Math.abs(c.avgHRVDeviation) >= 10);
+    if (top) {
+      const [evtType, c]: any = top;
+      const dir = c.avgHRVDeviation < 0 ? 'drops' : 'lifts';
+      return `Your HRV ${dir} ~${Math.abs(Math.round(c.avgHRVDeviation))}% before ${evtType}.`;
+    }
+  }
+  const trend: any = (shared as any)?.innerReadinessPattern;
+  if (trend?.trend === 'declining') return 'State has been trending down this week.';
+  return null;
+}
+
+function immediateClause(req: PlanRequest, ceo: CeoRealityTag[]): string | null {
+  if (ceo.includes('decision_leakage')) return 'Drain event ahead — protect composure.';
+  const w = req.wearableContext;
+  // Choose whichever live signal is available; brief-anti-dup will swap if it overlaps
+  if (w?.hasData) {
+    if (w.sleepScore !== null && w.sleepScore < 65) return `Sleep ran short (${w.sleepScore}).`;
+    if (w.hrvDeviation !== null && w.hrvDeviation < -10) return `HRV is ${Math.abs(Math.round(w.hrvDeviation))}% below your baseline.`;
+    if (w.restingHR !== null && w.restingHR > 0) return `Resting HR is elevated.`;
+  }
+  if ((req.clarityLevel ?? 5) <= 2) return 'Clarity is low this morning.';
+  if ((req.confidenceLevel ?? 5) <= 2) return 'Confidence is reading low.';
+  if (req.calendarEvents && req.calendarEvents.length >= 5) return 'Calendar is dense today.';
+  return null;
+}
+
+function pickActionVerb(primaryType: string): string {
+  switch (primaryType) {
+    case 'regulate': return 'Settle the system';
+    case 'align': return 'Sharpen focus';
+    case 'prepare': return 'Pre-frame the moment';
+    case 'integrate': return 'Close cleanly';
+    default: return 'Hold the base';
+  }
+}
+
+function composeWhyLine(
+  hm: HorizonModule,
+  req: PlanRequest,
+  shared: SharedContext,
+  hrvCorrelations: any,
+  ceo: CeoRealityTag[],
+  briefClaim: Set<string>,
+  fusionEventTitle: string | null,
+): string {
+  let strat = strategicAnchorClause(req, ceo);
+  let tac = tacticalClause(req, shared, hrvCorrelations, ceo);
+  let imm = immediateClause(req, ceo);
+
+  if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
+  if (tac && clauseOverlapsBrief(tac, briefClaim)) tac = null;
+  if (imm && clauseOverlapsBrief(imm, briefClaim)) imm = null;
+
+  // Bridge mode if everything overlaps
+  const allOverlap = !strat && !tac && !imm && briefClaim.size > 0;
+  const verb = pickActionVerb(hm.practice?.type || 'regulate');
+
+  // forContext — JIT name, fusion event, or slot purpose
+  let forContext = '';
+  if (hm.isJit && hm.jitEventTitle) {
+    forContext = `before ${hm.jitEventTitle}`;
+  } else if (fusionEventTitle) {
+    forContext = `to enter the day and prep for ${fusionEventTitle}`;
+  } else if (hm.slotKind === 'end_of_day') {
+    forContext = 'to close the day with intention';
+  } else if (hm.slotKind === 'start_of_day') {
+    forContext = 'to set the day';
+  } else {
+    forContext = 'for what the day is asking of you';
+  }
+
+  const parts: string[] = [];
+  if (allOverlap) {
+    parts.push('Following your brief:');
+  } else {
+    if (strat) parts.push(strat);
+    if (tac) parts.push(tac);
+    if (imm) parts.push(imm);
+  }
+  parts.push(`${verb} ${forContext}.`);
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+const STEP_RATIONALE_MAP: Record<string, [string, string]> = {
+  'regulate->align': ['Ground first.', 'Then sharpen.'],
+  'regulate->prepare': ['Settle body.', 'Then prep mind.'],
+  'regulate->integrate': ['Settle first.', 'Then close out.'],
+  'align->integrate': ['Sharpen now.', 'Then consolidate.'],
+  'align->prepare': ['Sharpen first.', 'Then pre-frame.'],
+  'prepare->integrate': ['Pre-frame.', 'Then consolidate.'],
+  'regulate->regulate': ['Reset the body.', 'Deepen the calm.'],
+};
+
+function buildStepRationale(types: string[]): string[] | undefined {
+  if (!types || types.length < 2) return undefined;
+  const key = `${types[0]}->${types[1]}`;
+  const pair = STEP_RATIONALE_MAP[key];
+  if (!pair) return undefined;
+  if (types.length === 2) return pair;
+  // 3-step: append third
+  return [pair[0], pair[1], 'Then land it.'];
+}
+
+function detectMorningFusionEvent(req: PlanRequest, ceo: CeoRealityTag[]): string | null {
+  if (!ceo.includes('board_outcome')) return null;
+  const hour = new Date().getHours();
+  if (hour > 11) return null;
+  const events = req.calendarEvents || [];
+  for (const e of events) {
+    const minsUntil = (new Date(e.startTime).getTime() - Date.now()) / 60000;
+    if (minsUntil >= 0 && minsUntil <= 240 && BOARD_RX.test(e.title || '')) {
+      return e.title;
+    }
+  }
+  return null;
+}
+
+/**
+ * Apply v5.1 enrichment in-place to the final modules.
+ * - Tags slotKind (start_of_day / jit / end_of_day / state-management)
+ * - Recomposes whyLine with 3-tier + brief-anti-dup + CEO realities
+ * - Adds stepRationale[]
+ * - Replaces each practice's `reasoning` with its stepRationale (the
+ *   user-visible context line on step cards) when available.
+ * Practice titles never change.
+ */
+function applyV51Enrichment(
+  modules: HorizonModule[],
+  req: PlanRequest,
+  shared: SharedContext,
+  hrvCorrelations: any,
+  outerReadinessCache: any,
+  timeOfDay: string,
+): HorizonModule[] {
+  const ceo = detectCeoRealities(req, shared);
+  const briefClaim = buildBriefClaimSet(outerReadinessCache, req);
+  const fusionEvent = detectMorningFusionEvent(req, ceo);
+
+  modules.forEach((hm, idx) => {
+    // Slot purpose tagging
+    if (hm.isJit) hm.slotKind = 'jit';
+    else if (idx === 0 && timeOfDay === 'morning') hm.slotKind = 'start_of_day';
+    else if (timeOfDay === 'evening' || idx === 2) hm.slotKind = 'end_of_day';
+    else hm.slotKind = 'state-management';
+
+    hm.ceoRealities = ceo;
+
+    // Compose Why
+    const fusion = idx === 0 && fusionEvent && hm.slotKind === 'start_of_day' ? fusionEvent : null;
+    const newWhy = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
+    if (newWhy && newWhy.length >= 12) hm.whyLine = newWhy;
+
+    // Step rationale (2–4 words) per practice
+    const types = (hm.practices || [hm.practice]).map((p: any) => p?.type).filter(Boolean);
+    const rationale = buildStepRationale(types);
+    if (rationale) {
+      hm.stepRationale = rationale;
+      // Replace the user-visible context line on each step card
+      (hm.practices || []).forEach((p: any, i: number) => {
+        if (rationale[i]) p.reasoning = rationale[i];
+      });
+      if (hm.practice && rationale[0]) hm.practice.reasoning = rationale[0];
+    }
+  });
+
+  return modules;
+}
+
 /**
  * Builds a short, plain-English benefit line shown above the practice cards
  * on the Plan page (e.g. "Enter optimal flow state ahead of Cambridge Interview",
