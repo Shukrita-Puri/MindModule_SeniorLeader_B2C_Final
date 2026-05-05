@@ -14,6 +14,11 @@ const HERO_IMAGES = {
 } as const;
 
 
+interface TodayHeroProps {
+  /** Tailwind height class for the hero band. */
+  heightClass?: string;
+}
+
 /**
  * Shared hero visual used across the Today flow (Assessment / Brief / Plan).
  * Static dark-charcoal B&W landscape — one image per time-of-day window.
