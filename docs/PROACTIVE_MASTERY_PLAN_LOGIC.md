@@ -258,3 +258,46 @@ When wearable data is unremarkable (within normal range) or absent, the system f
 ## 13. Typography Standard
 
 All AI-generated text in the Mastery Plan (plan briefs, reasoning strings, context descriptions) uses the en-dash (–) and never the em-dash (—), per the project-wide typography standard.
+
+## 14. v5.1 — Strategic-Aware Slot Model (no UI changes)
+
+The Plan now runs a **server-only slot model** layered on top of existing horizon logic.
+
+**Internal slot purposes** (never shown as labels):
+- `start_of_day` — prep for today's stress patterns + strategic goal.
+- `jit` — pre-event regulation; capped at a 24h MVP ceiling (`MVP_JIT_HORIZON_MINUTES = 1440`).
+- `end_of_day` — strategic decompression, sleep, accountability.
+- `state-management` — fallback when no qualifying JIT exists in 24h.
+
+**Morning ↔ JIT fusion**: when `slotKind === 'start_of_day'` and a board-level event sits ≤4h ahead, the same slot's Why weaves both day-prep and event-prep — no extra slot.
+
+**Why-this-matters composition** (deterministic, no LLM):
+`{strategicAnchor}. {tacticalPattern}. {immediateSignal}. → {actionVerb} {forContext}.`
+- Strategic: coach growth_area, practicePriorityTag, plus CEO-Reality reframes.
+- Tactical: post-peak hangover, patternInsight streak, hrvCorrelations, declining trend.
+- Immediate: wearable signals, low clarity/confidence, dense calendar.
+
+**Anti-duplication with the Brief**: `buildBriefClaimSet()` extracts numbers, named events, and lexicon clusters from the cached brief. Any clause that overlaps is dropped; if every clause overlaps, the Why opens with "Following your brief: …" and goes straight to the action verb. The Plan never restates the Brief.
+
+**CEO-Reality awareness** (deterministic on calendar + wearable + check-in):
+| Tag | Detection |
+|---|---|
+| `public_holiday` | calendar matches `/(public holiday\|bank holiday)/i` |
+| `personal_pto` | calendar matches `/(ooo\|out of office\|vacation\|annual leave\|pto)/i` |
+| `circadian_travel` | calendar matches `/(flight\|airport\|red-eye\|long haul)/i` in 48h |
+| `board_outcome` | calendar matches `/(board\|investor\|vc\|earnings\|town hall\|all-hands\|keynote)/i` in 24h |
+| `veto_risk` | wearable HRV<-10% or sleep<65 AND self-decl clarity/confidence ≥4 |
+| `decision_leakage` | (HRV<-15 or self-decl depleted/managing) AND drain event in 24h |
+| `post_peak_hangover` | yesterday score ≥75 AND ≥10pt drop today |
+| `personal_friction` | Sun pm / Mon am declining self-decl, no wearable degradation |
+
+All of these are **inline qualifiers inside Why-text** — never new UI badges.
+
+**Step-card context line** is now a 2–4-word sequence rationale derived from ordered `practiceTypes` (e.g. `regulate→align` = "Ground first." / "Then sharpen."). Same UI slot, crisper content.
+
+**Strategic event-scoring boosts** (additive to existing scores):
+- +15 if event matches `coach_pattern_observations.growth_area`.
+- +10 if event matches `practicePriorityTag`.
+- +10 if event has historical HRV impact >10%.
+
+**UI contract — explicitly unchanged**: no slot-name chips, no brief-reference top line, no new holiday/PTO/jet-lag badges. The visible deltas are confined to (a) the Why-this-matters body and (b) the step card context line.
