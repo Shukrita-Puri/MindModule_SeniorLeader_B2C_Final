@@ -428,7 +428,7 @@ const DailyCheckIn = () => {
           </div>
 
           {/* Vertical state list – compact gaps */}
-          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-1 flex-col gap-2 w-full pt-0.5">
+          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-col gap-2 w-full pt-0.5">
           {outcomes.map((outcome, index) => {
             const IconComponent = outcome.icon;
             const isSelected = selectedOutcome === outcome.value;
