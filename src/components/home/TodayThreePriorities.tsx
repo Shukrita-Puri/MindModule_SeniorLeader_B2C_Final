@@ -1129,22 +1129,22 @@ const TodayThreePriorities = ({
                           key={practice.contentId}
                           onClick={() => !isPracticeCompleted && navigateToPractice(practice, slotPractices)}
                           className={cn(
-                            "relative flex rounded-xl overflow-hidden h-44 md:h-40 cursor-pointer transition-all duration-300 snap-start",
+                            "relative flex rounded-xl overflow-hidden h-36 cursor-pointer transition-all duration-300 snap-start",
                             "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                             "bg-white/15 backdrop-blur-md border border-white/40",
                             "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                             hm.showNavyBorder && pIdx === 0 && "border-l-2 border-l-foreground",
                             isPracticeCompleted && "opacity-40 sepia-[0.3] saturate-50",
-                            hasMultiple ? "w-[88%] md:w-[80%] flex-shrink-0" : "w-full"
+                            hasMultiple ? "w-[80%] md:w-[70%] flex-shrink-0" : "w-full"
                           )}
                         >
                           {/* Thumbnail */}
                           {isCoach ? (
-                            <div className="w-24 md:w-28 h-full flex-shrink-0 relative overflow-hidden">
+                            <div className="w-16 md:w-20 h-full flex-shrink-0 relative overflow-hidden">
                               <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                                <span className="text-2xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
                                 <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
                               </div>
                             </div>
@@ -1152,7 +1152,7 @@ const TodayThreePriorities = ({
                             <img
                               src={practice.thumbnailUrl || getContentById(practice.contentId)?.thumbnail || ''}
                               alt={practice.title}
-                              className="w-24 md:w-28 h-full object-cover flex-shrink-0"
+                              className="w-16 md:w-20 h-full object-cover flex-shrink-0"
                             />
                           )}
 
@@ -1160,12 +1160,12 @@ const TodayThreePriorities = ({
                           <div className="flex-1 p-3 flex flex-col justify-center min-w-0">
                             {/* Step indicator for multi-practice */}
                             {hasMultiple && (
-                              <span className="text-xs uppercase tracking-wider text-muted-foreground/50 font-body mb-0.5">
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-body mb-0.5">
                                 Step {pIdx + 1} of {slotPractices.length}
                               </span>
                             )}
                             <div className="flex items-start gap-1">
-                              <h4 className="text-[15px] md:text-[14px] font-medium line-clamp-3 leading-snug font-body flex-1 text-foreground">
+                              <h4 className="text-[13px] font-semibold line-clamp-2 leading-tight font-body flex-1 text-foreground">
                                 {practice.title}
                               </h4>
                               {isPracticeCompleted && <Check size={14} className="text-taupe flex-shrink-0 mt-0.5 stroke-[3]" />}
@@ -1173,12 +1173,12 @@ const TodayThreePriorities = ({
                                 <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground font-body mt-1">
+                            <span className="text-[11px] text-muted-foreground font-body mt-0.5">
                               {practice.duration} min
                             </span>
             {/* Per-practice reasoning */}
                             {practice.reasoning && (
-                              <p className="text-xs text-muted-foreground/80 font-body mt-1 line-clamp-3 leading-snug">
+                              <p className="text-[11px] text-muted-foreground/85 font-body mt-1 line-clamp-3 leading-snug">
                                 {practice.reasoning}
                               </p>
                             )}
