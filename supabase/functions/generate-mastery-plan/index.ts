@@ -2662,6 +2662,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       ledgerErr instanceof Error ? ledgerErr.message : ledgerErr);
   }
 
+  // v5.1: enrich whyLine + stepRationale + slotKind without changing UI structure.
+  try {
+    finalHorizonModules = applyV51Enrichment(
+      finalHorizonModules, req, shared, hrvCorrelations, outerReadinessCache, timeOfDay,
+    );
+  } catch (enrichErr: any) {
+    console.warn('[generate-mastery-plan] v5.1 enrichment failed:', enrichErr?.message);
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
