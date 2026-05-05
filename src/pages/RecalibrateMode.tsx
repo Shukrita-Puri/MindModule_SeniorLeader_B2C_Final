@@ -116,8 +116,8 @@ const RecalibrateMode = () => {
               </p>
             </div>
 
-            {/* Spacer reserves room for absolute headline + subheadline; 4px gap before content */}
-            <div className="px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+4.25rem)] pb-0" />
+            {/* Spacer reserves room for absolute headline + subheadline; tightened 1.5px closer to subheadline */}
+            <div className="px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+4.25rem-1.5px)] pb-0" />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] flex-1 flex flex-col">
               {renderToolSelection()}
