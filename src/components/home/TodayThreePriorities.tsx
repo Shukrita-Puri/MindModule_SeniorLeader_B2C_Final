@@ -962,7 +962,7 @@ const TodayThreePriorities = ({
       {/* 3 Slots — each priority on its own card so users perceive them as
           three distinct things to do at different times rather than one
           bulky block. Pure UI grouping; no logic/tracking changes. */}
-      <div className="flex flex-col gap-3 px-4 max-w-lg mx-auto">
+      <div className="flex flex-col gap-3 px-3 sm:px-4 max-w-xl mx-auto">
         {horizonModules.map((hm, index) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
