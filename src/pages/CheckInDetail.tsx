@@ -162,10 +162,10 @@ const CheckInDetail = () => {
 
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
-      <div className="flex items-start justify-center px-4 pt-1 pb-4">
+      <div className="flex items-start justify-center pt-1 pb-4">
         <div className="w-full max-w-lg animate-fade-in">
-          {/* Luxury glass card wrapper */}
-          <div className="relative overflow-hidden rounded-2xl p-5 space-y-6
+          {/* Luxury glass card wrapper — edge-to-edge on mobile */}
+          <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 space-y-6
             bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
             border border-black/[0.08]
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
