@@ -96,9 +96,9 @@ const RecalibrateMode = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[linear-gradient(160deg,hsl(var(--taupe-highlight)/0.45)_0%,hsl(var(--taupe)/0.30)_45%,hsl(var(--taupe-rich)/0.35)_100%)]">
         <LeftSidebar />
-        <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto">
+        <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto bg-transparent">
           <div className="relative">
             <header className="relative z-40 flex items-center px-3 md:px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-1">
               <SidebarDiscoveryPulse />

@@ -409,10 +409,10 @@ const DailyCheckIn = () => {
 
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
-      <div className="flex flex-col px-4 max-w-lg mx-auto w-full pt-2 pb-4">
+      <div className="flex flex-col max-w-lg mx-auto w-full pt-2 pb-4">
 
-        {/* Glass card wrapper (matches Brief card) */}
-        <div className="relative overflow-hidden rounded-2xl p-5 flex flex-col
+        {/* Glass card wrapper (matches Brief card) — edge-to-edge on mobile */}
+        <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 flex flex-col
           bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
           border border-black/[0.08]
           shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">

@@ -343,7 +343,7 @@ const ExecutiveHome = () => {
             <TodayStepper current={2} nextHint={briefCtaReady ? 3 : undefined} />
 
             {/* DECISION READINESS BRIEF (replaces State + Compass) */}
-            <div className="px-4 md:px-6 max-w-lg mx-auto pt-0">
+            <div className="max-w-lg mx-auto md:px-6 pt-0">
               <h1 className="sr-only">{getGreeting()}</h1>
               <section data-tour="today-state" className="animate-in fade-in duration-500">
                 <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />

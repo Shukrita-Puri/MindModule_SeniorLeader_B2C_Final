@@ -47,9 +47,9 @@ const PlanPage = () => {
             <TodayStepper current={3} />
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
-              <div className="max-w-lg mx-auto px-3 md:px-4">
+              <div className="max-w-lg mx-auto md:px-4">
                 <h1 className="sr-only">Mental Performance Plan</h1>
-                <div className="relative overflow-hidden rounded-2xl p-5
+                <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5
                   bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
                   border border-black/[0.08]
                   shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
