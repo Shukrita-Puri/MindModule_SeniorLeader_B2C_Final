@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationEngagement } from '@/hooks/useNotificationEngagement';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Deep link routing for smart nudges.
@@ -57,6 +58,10 @@ export function usePushNotificationHandler() {
           // Track engagement
           if (notificationLogId) {
             trackTap(notificationLogId);
+            // v5.3 — Honest receipts: tap is also a "delivered" signal.
+            supabase.functions.invoke('notification-receipt', {
+              body: { notification_log_id: notificationLogId, received_at: new Date().toISOString() },
+            }).catch(() => { /* best-effort */ });
           }
 
           // Priority: server-provided deep_link_route > type-based mapping > fallback
