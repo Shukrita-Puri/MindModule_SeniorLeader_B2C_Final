@@ -2958,6 +2958,22 @@ serve(async (req) => {
         if (suppressed && !isJitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
+          // ── v5.3 — Receipt-feedback: stamp warning if last 3 sends for
+          // this family expired before delivery (per-user timing signal).
+          const family = nudgeFamily(bestNudge.type);
+          const { data: lastThree } = await supabase
+            .from('notification_log')
+            .select('delivery_state, notification_type')
+            .eq('user_id', userId)
+            .eq('notification_type', family)
+            .order('sent_at', { ascending: false })
+            .limit(3);
+          const qualificationWarnings: string[] = [];
+          if ((lastThree || []).length >= 3 &&
+              (lastThree || []).every((r: any) => r.delivery_state === 'expired_before_delivery')) {
+            qualificationWarnings.push('repeated_expiry');
+          }
+          const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
           allNotifications.push({
             userId,
             type: bestNudge.type,
@@ -2967,6 +2983,10 @@ serve(async (req) => {
             commitmentText: bestNudge.commitmentText,
             meetingTitle: bestNudge.meetingTitle,
             tokens: userTokens.get(userId)!,
+            badge: ctx.badgeCount ?? 1,
+            isTravel,
+            todayStr,
+            qualificationWarnings,
           });
         }
       }
