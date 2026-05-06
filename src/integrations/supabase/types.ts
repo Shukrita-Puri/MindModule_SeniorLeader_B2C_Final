@@ -2682,6 +2682,8 @@ export type Database = {
       notification_log: {
         Row: {
           app_opened: boolean
+          delivered_at: string | null
+          delivery_state: string | null
           dismissed: boolean
           event_reference: string | null
           id: string
@@ -2696,6 +2698,8 @@ export type Database = {
         }
         Insert: {
           app_opened?: boolean
+          delivered_at?: string | null
+          delivery_state?: string | null
           dismissed?: boolean
           event_reference?: string | null
           id?: string
@@ -2710,6 +2714,8 @@ export type Database = {
         }
         Update: {
           app_opened?: boolean
+          delivered_at?: string | null
+          delivery_state?: string | null
           dismissed?: boolean
           event_reference?: string | null
           id?: string
