@@ -948,11 +948,55 @@ async function buildNudgeContext(
     dayContext: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
+      // v5.3 — Travel arc sub-flags. Travel today = a calendar event whose
+      // title matches a TRAVEL_KEYWORDS (flight/airport/boarding/...).
+      let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
+      let inFlight: { eventTitle: string; minutesUntil: number } | null = null;
+      if (today.kind === 'travel-day') {
+        const nowMs = now.getTime();
+        const travelEvents = todayEvents.filter(e => {
+          const t = (e.title || '').toLowerCase();
+          return TRAVEL_KEYWORDS.some(kw => t.includes(kw));
+        });
+        // pre-flight: first travel event starting in 60–240 min
+        for (const e of travelEvents) {
+          const startMs = new Date(e.start_time).getTime();
+          const m = Math.round((startMs - nowMs) / 60000);
+          if (m >= 60 && m <= 240) { preFlight = { eventTitle: e.title || 'Travel', minutesUntil: m }; break; }
+        }
+        // in-flight: now is inside a travel event ≥ 90 min long
+        for (const e of travelEvents) {
+          const startMs = new Date(e.start_time).getTime();
+          const endMs = new Date(e.end_time).getTime();
+          const lengthMin = (endMs - startMs) / 60000;
+          if (lengthMin >= 90 && nowMs >= startMs && nowMs <= endMs) {
+            const m = Math.round((nowMs - startMs) / 60000);
+            inFlight = { eventTitle: e.title || 'Flight', minutesUntil: m };
+            break;
+          }
+        }
+      }
       return {
         kind: today.kind,
         signalToken: today.signalToken,
         postTravel: yesterday.kind === 'travel-day',
+        preFlight,
+        inFlight,
+        // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
+        ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
       };
+    })(),
+    badgeCount: (() => {
+      // v5.3 — Intelligent badge: outstanding cognitive debt the user can
+      // clear today. Falls back to 1 when there is nothing to count.
+      const open = pendingPracticeIds.length;
+      const checkinDue = (() => {
+        if (localHour < 12) return morningCheckin ? 0 : 1;
+        if (localHour < 18) return afternoonCheckin ? 0 : 1;
+        return ((todayCheckins || []).length === 0) ? 1 : 0;
+      })();
+      const total = open + checkinDue;
+      return total > 0 ? Math.min(total, 9) : 1;
     })(),
   };
 }
