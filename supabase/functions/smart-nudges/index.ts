@@ -78,13 +78,27 @@ async function sendApnsPush(
   title: string,
   body: string,
   customData: Record<string, string>,
-  apnsHost: string = 'api.sandbox.push.apple.com'
-): Promise<{ ok: boolean; status: number; reason: string }> {
+  apnsHost: string = 'api.sandbox.push.apple.com',
+  options: {
+    ttlSeconds?: number;
+    collapseId?: string;
+    badge?: number;
+  } = {},
+): Promise<{ ok: boolean; status: number; reason: string; expirationTs: number; collapseId: string | null }> {
+  // v5.3 — Punctuality + Clean Desk
+  // Caller passes per-intent ttlSeconds and collapseId so APNs drops the push
+  // once it stops being relevant ("no zombie notifications") and so a stale
+  // queued one is replaced when the device reconnects.
+  const ttlSeconds = Math.max(60, options.ttlSeconds ?? 6 * 3600);
+  const expirationTs = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const collapseId = options.collapseId ?? null;
+  const badge = typeof options.badge === 'number' ? Math.max(0, options.badge) : 1;
+
   const apnsPayload = {
     aps: {
       alert: { title, body },
       sound: 'default',
-      badge: 1,
+      badge,
       'mutable-content': 1,
     },
     ...customData,
@@ -92,17 +106,21 @@ async function sendApnsPush(
 
   const url = `https://${apnsHost}/3/device/${deviceToken}`;
 
-  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars)`);
+  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars) | ttl=${ttlSeconds}s | collapse=${collapseId ?? '-'}`);
+
+  const headers: Record<string, string> = {
+    'Authorization': `bearer ${jwt}`,
+    'apns-topic': bundleId,
+    'apns-push-type': 'alert',
+    'apns-priority': '10',
+    'apns-expiration': String(expirationTs),
+    'Content-Type': 'application/json',
+  };
+  if (collapseId) headers['apns-collapse-id'] = collapseId.substring(0, 64);
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `bearer ${jwt}`,
-      'apns-topic': bundleId,
-      'apns-push-type': 'alert',
-      'apns-priority': '10',
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(apnsPayload),
   });
 
@@ -114,12 +132,12 @@ async function sendApnsPush(
       const parsed = JSON.parse(errBody);
       if (parsed?.reason) reason = parsed.reason;
     } catch (_) { /* keep raw body */ }
-    return { ok: false, status: response.status, reason };
+    return { ok: false, status: response.status, reason, expirationTs, collapseId };
   }
 
   await response.text();
   console.log(`[APNs] Success – token=${deviceToken.substring(0, 12)}...`);
-  return { ok: true, status: response.status, reason: 'success' };
+  return { ok: true, status: response.status, reason: 'success', expirationTs, collapseId };
 }
 
 const corsHeaders = {
@@ -141,6 +159,39 @@ const MVP_POST_LAUNCH = false;
 // v7 — Suppress legacy generic mid-day variants (priorities-count, consecutive-low).
 // Framework code is preserved for future use; flip this on to re-enable.
 const LEGACY_GENERIC_NUDGES_ENABLED = false;
+
+// ── v5.3 — Per-intent TTL + collapse-id helpers ────────────────────────
+// Maps the resolved nudge variant to its actionable window (TTL) and the
+// collapse bucket APNs should de-dupe by. After expiration, APNs drops the
+// queued push, so when the device reconnects the user only sees pushes that
+// are still in their relevance window — exactly the Chief-of-Staff
+// "no zombie notifications" contract.
+function nudgeTtlSeconds(variantId: string, type: string): number {
+  if (variantId === 'nudge_one_jit')              return 45 * 60;          // 45 min
+  if (variantId === 'nudge_one_jit_post_travel')  return 45 * 60;
+  if (variantId === 'nudge_one_morning')          return 3 * 3600;         // 3 h
+  if (variantId === 'nudge_one_pre_flight')       return 45 * 60;          // 45 min
+  if (variantId === 'nudge_one_post_arrival')     return 3 * 3600;
+  if (variantId === 'nudge_two_jit')              return 45 * 60;
+  if (variantId === 'nudge_two_recalibrate')      return 2 * 3600;         // 2 h
+  if (variantId === 'nudge_two_reserves')         return 2 * 3600;
+  if (variantId === 'nudge_two_priorities')       return 2 * 3600;
+  if (variantId === 'nudge_two_in_flight')        return 90 * 60;          // 90 min
+  if (variantId === 'nudge_three_lookahead')      return 10 * 3600;
+  if (variantId.startsWith('nudge_three'))        return 6 * 3600;         // 6 h
+  // Family fallback
+  if (type === 'nudge_one') return 3 * 3600;
+  if (type === 'nudge_two') return 2 * 3600;
+  if (type === 'nudge_three') return 6 * 3600;
+  return 3600;
+}
+
+function nudgeCollapseId(family: string, localDate: string, isTravel: boolean): string {
+  // Travel pre-flight + in-flight collapse to a single "travel" bucket so
+  // the latest update wins on reconnect (clean desk).
+  if (isTravel) return `travel-${localDate}`;
+  return `${family}-${localDate}`;
+}
 
 // ── v5 timing contract ─────────────────────────────────────────────────
 // Hard floor: never deliver any push before this local hour, regardless of
@@ -339,7 +390,17 @@ interface NudgeContext {
     kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
     signalToken?: string;
     postTravel: boolean;
+    // v5.3 — Travel arc sub-flags (derived from today's calendar). Each
+    // rides one of the existing 3 slots — they never add a 4th send.
+    preFlight?: { eventTitle: string; minutesUntil: number } | null;
+    inFlight?: { eventTitle: string; minutesUntil: number } | null;
+    // v5.3 — PTO / public-holiday "light touch" mode. Collapses the day to
+    // a single morning nudge and skips JIT pre-event prep.
+    ptoMode?: boolean;
   };
+  // v5.3 — Server-computed badge: outstanding cognitive debt the user
+  // can clear today. Falls back to 1 when we cannot compute it.
+  badgeCount?: number;
 }
 
 interface NudgeCopy {
@@ -920,11 +981,55 @@ async function buildNudgeContext(
     dayContext: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
+      // v5.3 — Travel arc sub-flags. Travel today = a calendar event whose
+      // title matches a TRAVEL_KEYWORDS (flight/airport/boarding/...).
+      let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
+      let inFlight: { eventTitle: string; minutesUntil: number } | null = null;
+      if (today.kind === 'travel-day') {
+        const nowMs = now.getTime();
+        const travelEvents = todayEvents.filter(e => {
+          const t = (e.title || '').toLowerCase();
+          return TRAVEL_KEYWORDS.some(kw => t.includes(kw));
+        });
+        // pre-flight: first travel event starting in 60–240 min
+        for (const e of travelEvents) {
+          const startMs = new Date(e.start_time).getTime();
+          const m = Math.round((startMs - nowMs) / 60000);
+          if (m >= 60 && m <= 240) { preFlight = { eventTitle: e.title || 'Travel', minutesUntil: m }; break; }
+        }
+        // in-flight: now is inside a travel event ≥ 90 min long
+        for (const e of travelEvents) {
+          const startMs = new Date(e.start_time).getTime();
+          const endMs = new Date(e.end_time).getTime();
+          const lengthMin = (endMs - startMs) / 60000;
+          if (lengthMin >= 90 && nowMs >= startMs && nowMs <= endMs) {
+            const m = Math.round((nowMs - startMs) / 60000);
+            inFlight = { eventTitle: e.title || 'Flight', minutesUntil: m };
+            break;
+          }
+        }
+      }
       return {
         kind: today.kind,
         signalToken: today.signalToken,
         postTravel: yesterday.kind === 'travel-day',
+        preFlight,
+        inFlight,
+        // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
+        ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
       };
+    })(),
+    badgeCount: (() => {
+      // v5.3 — Intelligent badge: outstanding cognitive debt the user can
+      // clear today. Falls back to 1 when there is nothing to count.
+      const open = pendingPracticeIds.length;
+      const checkinDue = (() => {
+        if (localHour < 12) return morningCheckin ? 0 : 1;
+        if (localHour < 18) return afternoonCheckin ? 0 : 1;
+        return ((todayCheckins || []).length === 0) ? 1 : 0;
+      })();
+      const total = open + checkinDue;
+      return total > 0 ? Math.min(total, 9) : 1;
     })(),
   };
 }
@@ -1720,6 +1825,45 @@ function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
   };
 }
 
+// ── v5.3 — Travel arc + look-ahead fallback copy ──
+// Self-sufficient bodies (the in-flight one names the protocol so the user
+// can still act if they have no Wi-Fi). All comply with the V8 qualified
+// mind-prep CTA contract.
+function getFallbackNudgeOnePreFlightCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Travel ahead',
+    body: `${ev} in ~${minutesUntil} min. Two minutes of paced breathing now keeps the body out of debt before takeoff — log in to prep your state.`,
+    variantId: 'nudge_one_pre_flight',
+  };
+}
+
+function getFallbackNudgeTwoInFlightCopy(eventTitle: string): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Mid-air reset',
+    body: `You're in the air on ${ev}. A short breath protocol now blunts the jet-lag tax — open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
+    variantId: 'nudge_two_in_flight',
+  };
+}
+
+function getFallbackNudgeOnePostArrivalCopy(): NudgeCopy {
+  return {
+    title: 'Recovery context',
+    body: `Yesterday included travel — body may still be carrying load. Settle in first — check in to recalibrate.`,
+    variantId: 'nudge_one_post_arrival',
+  };
+}
+
+function getFallbackNudgeThreeLookaheadCopy(tomorrowEventTitle: string): NudgeCopy {
+  const ev = truncateEventTitle(tomorrowEventTitle);
+  return {
+    title: 'Tomorrow forms tonight',
+    body: `${ev} on tomorrow's calendar. A clean close tonight is half the prep — log in to prep your mind tonight.`,
+    variantId: 'nudge_three_lookahead',
+  };
+}
+
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesRemaining = ctx.pendingPracticeIds.length;
   const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
@@ -1840,6 +1984,49 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
+  // ── v5.3 — Travel arc: pre-flight rides the morning slot ──
+  if (ctx.dayContext.preFlight) {
+    const pf = ctx.dayContext.preFlight;
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeOnePreFlightCopy(pf.eventTitle, pf.minutesUntil),
+      ctx, 'nudge_one_morning',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_one',
+        copy,
+        deepLinkRoute: '/recalibrate',
+        priority: 0,
+        anchorKind: 'state',
+        slot: 'morning',
+        signalStrength: 3,
+      };
+    }
+  }
+
+  // ── v5.3 — Post-arrival recovery rides the morning slot ──
+  if (ctx.dayContext.postTravel && ctx.morningCheckinOutcome === null) {
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeOnePostArrivalCopy(),
+      ctx, 'nudge_one_morning',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_one',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 0,
+        anchorKind: 'state',
+        slot: 'morning',
+        signalStrength: 2,
+      };
+    }
+  }
+
+  // ── v5.3 — PTO / public-holiday "light touch": single morning nudge,
+  // skip JIT pre-event prep entirely. Falls through to morning anchor.
+  const ptoMode = ctx.dayContext.ptoMode === true;
+
   // V8 weekend morning policy:
   // - Saturday AM with a meeting: fire calendar-anchored (slower entry, Saturday tone).
   // - Saturday AM no meeting: fire recovery/reset state-anchored nudge (09:00–10:30).
@@ -1850,6 +2037,9 @@ async function evaluateNudgeOne(
   // v5: drop the jit_horizons_surfaced requirement so the lure fires on
   // any high-stakes event detected by the JIT scoring layer.
   if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
+    if (ptoMode) {
+      // PTO: never fire JIT pre-event prep on a day off.
+    } else
     for (const evt of ctx.jitEvents) {
       if (evt.confidenceBand === 'none') continue;
       if (sentEventRefs.has(evt.externalId)) continue;
@@ -1868,6 +2058,28 @@ async function evaluateNudgeOne(
         .eq('dismissed_by_user', false)
         .limit(1);
       if (!jitPlan || jitPlan.length === 0) continue;
+
+      // ── v5.3 — JIT silence when prep is already consumed ──
+      // If today's plan ledger marks a matching priority as completed,
+      // skip — the user has already done the work.
+      const { data: ledgerRows } = await supabase
+        .from('daily_ritual_completions')
+        .select('plan_ledger')
+        .eq('user_id', ctx.userId)
+        .eq('ritual_date', ctx.todayStr);
+      const ledger = (ledgerRows || []).flatMap((r: any) => (r.plan_ledger as any[]) || []);
+      const evtBucket = (evt.eventTitle || '').toLowerCase();
+      const prepDone = ledger.some((p: any) => {
+        const status = String(p?.status || '').toLowerCase();
+        const ref = String(p?.event_reference || '').toLowerCase();
+        const title = String(p?.title || '').toLowerCase();
+        return status === 'completed' && (ref === evt.externalId.toLowerCase() ||
+          (evtBucket && (ref.includes(evtBucket) || title.includes(evtBucket))));
+      });
+      if (prepDone) {
+        console.log(`[smart-nudges][v5.3] JIT silenced (prep_already_done) user=${ctx.userId} event=${evt.externalId}`);
+        continue;
+      }
 
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_jit', {
         eventTitle: evt.eventTitle || 'Upcoming event',
@@ -1978,6 +2190,29 @@ async function evaluateNudgeTwo(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
   if (ctx.localTime < GLOBAL_EARLIEST_LOCAL || ctx.localTime >= 16) return null;
+
+  // ── v5.3 — In-flight reset rides the mid-day slot ──
+  if (ctx.dayContext.inFlight) {
+    const ifl = ctx.dayContext.inFlight;
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeTwoInFlightCopy(ifl.eventTitle),
+      ctx, 'nudge_two_recalibrate',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_two',
+        copy,
+        deepLinkRoute: '/recalibrate',
+        priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 3,
+      };
+    }
+  }
+
+  // ── v5.3 — PTO collapse: no mid-day or JIT on PTO days ──
+  if (ctx.dayContext.ptoMode) return null;
 
   // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
@@ -2134,6 +2369,9 @@ async function evaluateNudgeTwo(
 async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) return null;
 
+  // ── v5.3 — PTO collapse: no evening close on PTO days ──
+  if (ctx.dayContext.ptoMode) return null;
+
   // Saturday: NO evening nudge
   if (ctx.dayOfWeek === 6) {
     console.log(`[smart-nudges] User ${ctx.userId}, Saturday, no evening nudge`);
@@ -2168,6 +2406,33 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   eveningEnd = Math.min(eveningEnd, GLOBAL_LATEST_LOCAL);
 
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
+
+  // ── v5.3 — Look-ahead overlay: any evening (not just Sunday) where
+  // tomorrow has a high-stakes event in the next 18 h gets a forward-set.
+  const nowLookahead = Date.now();
+  const lookaheadStakes = ctx.tomorrowEvents.find(e => {
+    if (!isHighStakes(e.title)) return false;
+    const startMs = new Date(e.start_time).getTime();
+    const hours = (startMs - nowLookahead) / 3_600_000;
+    return hours >= 0 && hours <= 18;
+  });
+  if (lookaheadStakes && ctx.dayOfWeek !== 0) {
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeThreeLookaheadCopy(lookaheadStakes.title || 'a high-stakes meeting'),
+      ctx, 'nudge_three',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_three',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 2,
+        anchorKind: 'jit',
+        slot: 'evening',
+        signalStrength: 3,
+      };
+    }
+  }
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
   const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeThreeCopy(ctx), ctx, 'nudge_three');
@@ -2493,6 +2758,10 @@ serve(async (req) => {
       commitmentText?: string;
       meetingTitle?: string;
       tokens: Array<{ token: string; platform: string }>;
+      badge: number;
+      isTravel: boolean;
+      todayStr: string;
+      qualificationWarnings: string[];
     }> = [];
 
     // 3. Evaluate each user
@@ -2689,6 +2958,22 @@ serve(async (req) => {
         if (suppressed && !isJitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
+          // ── v5.3 — Receipt-feedback: stamp warning if last 3 sends for
+          // this family expired before delivery (per-user timing signal).
+          const family = nudgeFamily(bestNudge.type);
+          const { data: lastThree } = await supabase
+            .from('notification_log')
+            .select('delivery_state, notification_type')
+            .eq('user_id', userId)
+            .eq('notification_type', family)
+            .order('sent_at', { ascending: false })
+            .limit(3);
+          const qualificationWarnings: string[] = [];
+          if ((lastThree || []).length >= 3 &&
+              (lastThree || []).every((r: any) => r.delivery_state === 'expired_before_delivery')) {
+            qualificationWarnings.push('repeated_expiry');
+          }
+          const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
           allNotifications.push({
             userId,
             type: bestNudge.type,
@@ -2698,6 +2983,10 @@ serve(async (req) => {
             commitmentText: bestNudge.commitmentText,
             meetingTitle: bestNudge.meetingTitle,
             tokens: userTokens.get(userId)!,
+            badge: ctx.badgeCount ?? 1,
+            isTravel,
+            todayStr,
+            qualificationWarnings,
           });
         }
       }
@@ -2765,6 +3054,11 @@ serve(async (req) => {
         architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
+        // v5.3 — Per-intent TTL + collapse-id telemetry
+        apns_expiration: Math.floor(Date.now() / 1000) + nudgeTtlSeconds(notif.copy.variantId, notif.type),
+        apns_collapse_id: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+        badge: notif.badge,
+        qualification_warnings: notif.qualificationWarnings,
         // V8 telemetry — also persist under payload.metadata so SQL
         // dashboards that query JSON paths like
         // payload.metadata.architecture see the V8 tags.
@@ -2812,8 +3106,14 @@ serve(async (req) => {
                 variant_id: notif.copy.variantId,
                 notification_log_id: notificationLogId || '',
                 deep_link_route: effectiveRoute,
+                expiration_ts: String((payload as any).apns_expiration ?? ''),
               },
-              apnsHost
+              apnsHost,
+              {
+                ttlSeconds: nudgeTtlSeconds(notif.copy.variantId, notif.type),
+                collapseId: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+                badge: notif.badge,
+              },
             );
             if (result.ok) sendSuccess++;
             else sendFailed++;
@@ -2828,7 +3128,10 @@ serve(async (req) => {
                     apns_status: result.status,
                     apns_reason: result.reason,
                     apns_token_prefix: tokenInfo.token.substring(0, 12),
+                    apns_expiration: result.expirationTs,
+                    apns_collapse_id: result.collapseId,
                   },
+                  delivery_state: result.ok ? 'accepted' : 'failed',
                 })
                 .eq('id', notificationLogId);
             }
