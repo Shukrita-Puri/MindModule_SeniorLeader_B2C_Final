@@ -78,13 +78,27 @@ async function sendApnsPush(
   title: string,
   body: string,
   customData: Record<string, string>,
-  apnsHost: string = 'api.sandbox.push.apple.com'
-): Promise<{ ok: boolean; status: number; reason: string }> {
+  apnsHost: string = 'api.sandbox.push.apple.com',
+  options: {
+    ttlSeconds?: number;
+    collapseId?: string;
+    badge?: number;
+  } = {},
+): Promise<{ ok: boolean; status: number; reason: string; expirationTs: number; collapseId: string | null }> {
+  // v5.3 — Punctuality + Clean Desk
+  // Caller passes per-intent ttlSeconds and collapseId so APNs drops the push
+  // once it stops being relevant ("no zombie notifications") and so a stale
+  // queued one is replaced when the device reconnects.
+  const ttlSeconds = Math.max(60, options.ttlSeconds ?? 6 * 3600);
+  const expirationTs = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const collapseId = options.collapseId ?? null;
+  const badge = typeof options.badge === 'number' ? Math.max(0, options.badge) : 1;
+
   const apnsPayload = {
     aps: {
       alert: { title, body },
       sound: 'default',
-      badge: 1,
+      badge,
       'mutable-content': 1,
     },
     ...customData,
@@ -92,17 +106,21 @@ async function sendApnsPush(
 
   const url = `https://${apnsHost}/3/device/${deviceToken}`;
 
-  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars)`);
+  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars) | ttl=${ttlSeconds}s | collapse=${collapseId ?? '-'}`);
+
+  const headers: Record<string, string> = {
+    'Authorization': `bearer ${jwt}`,
+    'apns-topic': bundleId,
+    'apns-push-type': 'alert',
+    'apns-priority': '10',
+    'apns-expiration': String(expirationTs),
+    'Content-Type': 'application/json',
+  };
+  if (collapseId) headers['apns-collapse-id'] = collapseId.substring(0, 64);
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `bearer ${jwt}`,
-      'apns-topic': bundleId,
-      'apns-push-type': 'alert',
-      'apns-priority': '10',
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(apnsPayload),
   });
 
@@ -114,12 +132,12 @@ async function sendApnsPush(
       const parsed = JSON.parse(errBody);
       if (parsed?.reason) reason = parsed.reason;
     } catch (_) { /* keep raw body */ }
-    return { ok: false, status: response.status, reason };
+    return { ok: false, status: response.status, reason, expirationTs, collapseId };
   }
 
   await response.text();
   console.log(`[APNs] Success – token=${deviceToken.substring(0, 12)}...`);
-  return { ok: true, status: response.status, reason: 'success' };
+  return { ok: true, status: response.status, reason: 'success', expirationTs, collapseId };
 }
 
 const corsHeaders = {
