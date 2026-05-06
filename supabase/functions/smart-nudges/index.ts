@@ -2369,6 +2369,9 @@ async function evaluateNudgeTwo(
 async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) return null;
 
+  // ── v5.3 — PTO collapse: no evening close on PTO days ──
+  if (ctx.dayContext.ptoMode) return null;
+
   // Saturday: NO evening nudge
   if (ctx.dayOfWeek === 6) {
     console.log(`[smart-nudges] User ${ctx.userId}, Saturday, no evening nudge`);
@@ -2403,6 +2406,33 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   eveningEnd = Math.min(eveningEnd, GLOBAL_LATEST_LOCAL);
 
   if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
+
+  // ── v5.3 — Look-ahead overlay: any evening (not just Sunday) where
+  // tomorrow has a high-stakes event in the next 18 h gets a forward-set.
+  const nowLookahead = Date.now();
+  const lookaheadStakes = ctx.tomorrowEvents.find(e => {
+    if (!isHighStakes(e.title)) return false;
+    const startMs = new Date(e.start_time).getTime();
+    const hours = (startMs - nowLookahead) / 3_600_000;
+    return hours >= 0 && hours <= 18;
+  });
+  if (lookaheadStakes && ctx.dayOfWeek !== 0) {
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeThreeLookaheadCopy(lookaheadStakes.title || 'a high-stakes meeting'),
+      ctx, 'nudge_three',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_three',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 2,
+        anchorKind: 'jit',
+        slot: 'evening',
+        signalStrength: 3,
+      };
+    }
+  }
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
   const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeThreeCopy(ctx), ctx, 'nudge_three');
