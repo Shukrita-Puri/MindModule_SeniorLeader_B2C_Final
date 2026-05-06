@@ -1825,6 +1825,45 @@ function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
   };
 }
 
+// ── v5.3 — Travel arc + look-ahead fallback copy ──
+// Self-sufficient bodies (the in-flight one names the protocol so the user
+// can still act if they have no Wi-Fi). All comply with the V8 qualified
+// mind-prep CTA contract.
+function getFallbackNudgeOnePreFlightCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Travel ahead',
+    body: `${ev} in ~${minutesUntil} min. Two minutes of paced breathing now keeps the body out of debt before takeoff — log in to prep your state.`,
+    variantId: 'nudge_one_pre_flight',
+  };
+}
+
+function getFallbackNudgeTwoInFlightCopy(eventTitle: string): NudgeCopy {
+  const ev = truncateEventTitle(eventTitle);
+  return {
+    title: 'Mid-air reset',
+    body: `You're in the air on ${ev}. A short breath protocol now blunts the jet-lag tax — open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
+    variantId: 'nudge_two_in_flight',
+  };
+}
+
+function getFallbackNudgeOnePostArrivalCopy(): NudgeCopy {
+  return {
+    title: 'Recovery context',
+    body: `Yesterday included travel — body may still be carrying load. Settle in first — check in to recalibrate.`,
+    variantId: 'nudge_one_post_arrival',
+  };
+}
+
+function getFallbackNudgeThreeLookaheadCopy(tomorrowEventTitle: string): NudgeCopy {
+  const ev = truncateEventTitle(tomorrowEventTitle);
+  return {
+    title: 'Tomorrow forms tonight',
+    body: `${ev} on tomorrow's calendar. A clean close tonight is half the prep — log in to prep your mind tonight.`,
+    variantId: 'nudge_three_lookahead',
+  };
+}
+
 function getFallbackNudgeThreeCopy(ctx: NudgeContext): NudgeCopy {
   const prioritiesRemaining = ctx.pendingPracticeIds.length;
   const prioritiesTotal = ctx.completedPracticeIds.length + ctx.pendingPracticeIds.length;
