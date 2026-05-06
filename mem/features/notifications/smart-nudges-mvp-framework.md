@@ -1,3 +1,17 @@
+
+## v5.3 — Chief-of-Staff overlays (Apr 2026)
+
+- **3-slot ceiling absolute.** Travel arc, pattern-promotion, and look-ahead all ride existing `nudge_one`/`nudge_two`/`nudge_three` slots. Never a 4th send.
+- **OR-fusion.** A nudge fires on Immediate OR Tactical OR Strategic — never an AND-gate. Other layers enrich copy only.
+- **Travel sub-flags** in `dayContext`: `preFlight` (60–240 min before flight, rides morning, 45-min TTL), `inFlight` (now inside ≥90-min flight, rides mid, 90-min TTL, self-sufficient body), `postArrival` (existing).
+- **Pattern-promotion JIT.** `findEventPattern` already promotes pattern-cited JITs to `signalStrength=3`; today's state enriches copy tone but does not gate firing.
+- **PTO collapse.** `dayContext.ptoMode` (away-day/ooo) → only morning light-touch nudge; mid + evening + JIT skipped.
+- **Look-ahead overlay.** Any evening (not just Sunday) where tomorrow has a high-stakes event in next 18 h → `nudge_three_lookahead` variant.
+- **JIT silence.** If matching priority in `daily_ritual_completions.plan_ledger` is `completed`, JIT pre-event prep is suppressed.
+- **Punctuality + clean desk.** Per-intent `apns-expiration` + `apns-collapse-id` (`${family}-${localDate}`, or `travel-${localDate}` for travel arc) — see `nudgeTtlSeconds` / `nudgeCollapseId`.
+- **Honest receipts.** `notification_log.delivery_state` (`accepted | delivered | expired_before_delivery | failed`) + `delivered_at`. iOS Notification Service Extension and tap handler POST to `notification-receipt` edge function.
+- **Intelligent badge.** `aps.badge` = pending priorities + due check-in. Computed in `buildNudgeContext` (`badgeCount`).
+- **Receipt feedback.** 3 consecutive `expired_before_delivery` for a family stamps `payload.qualification_warnings = ['repeated_expiry']`.
 ---
 name: Smart Nudges v8 Framework
 description: JIT-or-State anchoring, slot/anchor/signal comparator, V8 meaning-forward + qualified mind-prep CTA contract, unified pattern store reads. V8 evolves ONLY copy principles — cascade, suppression, frequency, slot priority, comparator, routing, deep-links, scheduling are unchanged.
