@@ -2758,6 +2758,10 @@ serve(async (req) => {
       commitmentText?: string;
       meetingTitle?: string;
       tokens: Array<{ token: string; platform: string }>;
+      badge: number;
+      isTravel: boolean;
+      todayStr: string;
+      qualificationWarnings: string[];
     }> = [];
 
     // 3. Evaluate each user
