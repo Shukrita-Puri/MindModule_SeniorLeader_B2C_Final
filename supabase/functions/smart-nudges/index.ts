@@ -1984,6 +1984,49 @@ async function evaluateNudgeOne(
 ): Promise<QualifiedNudge | null> {
   if (alreadySentTypes.has('nudge_one') || alreadySentTypes.has('morning_prep')) return null;
 
+  // ── v5.3 — Travel arc: pre-flight rides the morning slot ──
+  if (ctx.dayContext.preFlight) {
+    const pf = ctx.dayContext.preFlight;
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeOnePreFlightCopy(pf.eventTitle, pf.minutesUntil),
+      ctx, 'nudge_one_morning',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_one',
+        copy,
+        deepLinkRoute: '/recalibrate',
+        priority: 0,
+        anchorKind: 'state',
+        slot: 'morning',
+        signalStrength: 3,
+      };
+    }
+  }
+
+  // ── v5.3 — Post-arrival recovery rides the morning slot ──
+  if (ctx.dayContext.postTravel && ctx.morningCheckinOutcome === null) {
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeOnePostArrivalCopy(),
+      ctx, 'nudge_one_morning',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_one',
+        copy,
+        deepLinkRoute: '/daily-check-in',
+        priority: 0,
+        anchorKind: 'state',
+        slot: 'morning',
+        signalStrength: 2,
+      };
+    }
+  }
+
+  // ── v5.3 — PTO / public-holiday "light touch": single morning nudge,
+  // skip JIT pre-event prep entirely. Falls through to morning anchor.
+  const ptoMode = ctx.dayContext.ptoMode === true;
+
   // V8 weekend morning policy:
   // - Saturday AM with a meeting: fire calendar-anchored (slower entry, Saturday tone).
   // - Saturday AM no meeting: fire recovery/reset state-anchored nudge (09:00–10:30).
@@ -1994,6 +2037,9 @@ async function evaluateNudgeOne(
   // v5: drop the jit_horizons_surfaced requirement so the lure fires on
   // any high-stakes event detected by the JIT scoring layer.
   if (ctx.morningCheckinOutcome === null || ctx.jitEvents.length > 0) {
+    if (ptoMode) {
+      // PTO: never fire JIT pre-event prep on a day off.
+    } else
     for (const evt of ctx.jitEvents) {
       if (evt.confidenceBand === 'none') continue;
       if (sentEventRefs.has(evt.externalId)) continue;
@@ -2012,6 +2058,28 @@ async function evaluateNudgeOne(
         .eq('dismissed_by_user', false)
         .limit(1);
       if (!jitPlan || jitPlan.length === 0) continue;
+
+      // ── v5.3 — JIT silence when prep is already consumed ──
+      // If today's plan ledger marks a matching priority as completed,
+      // skip — the user has already done the work.
+      const { data: ledgerRows } = await supabase
+        .from('daily_ritual_completions')
+        .select('plan_ledger')
+        .eq('user_id', ctx.userId)
+        .eq('ritual_date', ctx.todayStr);
+      const ledger = (ledgerRows || []).flatMap((r: any) => (r.plan_ledger as any[]) || []);
+      const evtBucket = (evt.eventTitle || '').toLowerCase();
+      const prepDone = ledger.some((p: any) => {
+        const status = String(p?.status || '').toLowerCase();
+        const ref = String(p?.event_reference || '').toLowerCase();
+        const title = String(p?.title || '').toLowerCase();
+        return status === 'completed' && (ref === evt.externalId.toLowerCase() ||
+          (evtBucket && (ref.includes(evtBucket) || title.includes(evtBucket))));
+      });
+      if (prepDone) {
+        console.log(`[smart-nudges][v5.3] JIT silenced (prep_already_done) user=${ctx.userId} event=${evt.externalId}`);
+        continue;
+      }
 
       const aiCopy = await generateNudgeCopy(ctx, 'nudge_one_jit', {
         eventTitle: evt.eventTitle || 'Upcoming event',
