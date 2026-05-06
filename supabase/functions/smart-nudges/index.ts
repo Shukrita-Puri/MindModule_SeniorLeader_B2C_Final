@@ -160,6 +160,39 @@ const MVP_POST_LAUNCH = false;
 // Framework code is preserved for future use; flip this on to re-enable.
 const LEGACY_GENERIC_NUDGES_ENABLED = false;
 
+// ── v5.3 — Per-intent TTL + collapse-id helpers ────────────────────────
+// Maps the resolved nudge variant to its actionable window (TTL) and the
+// collapse bucket APNs should de-dupe by. After expiration, APNs drops the
+// queued push, so when the device reconnects the user only sees pushes that
+// are still in their relevance window — exactly the Chief-of-Staff
+// "no zombie notifications" contract.
+function nudgeTtlSeconds(variantId: string, type: string): number {
+  if (variantId === 'nudge_one_jit')              return 45 * 60;          // 45 min
+  if (variantId === 'nudge_one_jit_post_travel')  return 45 * 60;
+  if (variantId === 'nudge_one_morning')          return 3 * 3600;         // 3 h
+  if (variantId === 'nudge_one_pre_flight')       return 45 * 60;          // 45 min
+  if (variantId === 'nudge_one_post_arrival')     return 3 * 3600;
+  if (variantId === 'nudge_two_jit')              return 45 * 60;
+  if (variantId === 'nudge_two_recalibrate')      return 2 * 3600;         // 2 h
+  if (variantId === 'nudge_two_reserves')         return 2 * 3600;
+  if (variantId === 'nudge_two_priorities')       return 2 * 3600;
+  if (variantId === 'nudge_two_in_flight')        return 90 * 60;          // 90 min
+  if (variantId === 'nudge_three_lookahead')      return 10 * 3600;
+  if (variantId.startsWith('nudge_three'))        return 6 * 3600;         // 6 h
+  // Family fallback
+  if (type === 'nudge_one') return 3 * 3600;
+  if (type === 'nudge_two') return 2 * 3600;
+  if (type === 'nudge_three') return 6 * 3600;
+  return 3600;
+}
+
+function nudgeCollapseId(family: string, localDate: string, isTravel: boolean): string {
+  // Travel pre-flight + in-flight collapse to a single "travel" bucket so
+  // the latest update wins on reconnect (clean desk).
+  if (isTravel) return `travel-${localDate}`;
+  return `${family}-${localDate}`;
+}
+
 // ── v5 timing contract ─────────────────────────────────────────────────
 // Hard floor: never deliver any push before this local hour, regardless of
 // calendar anchor or evaluator. Protects "morning mindset" per CEO feedback.
