@@ -136,6 +136,10 @@ serve(async (req) => {
     const results: Array<{ user_id: string; token_prefix: string; token_length: number; status: number; response: string }> = [];
 
     for (const t of tokens) {
+      const ttlSeconds = 3600;
+      const expirationTs = Math.floor(Date.now() / 1000) + ttlSeconds;
+      const localDate = new Date().toISOString().split('T')[0];
+      const collapseId = `test_push-${localDate}`;
       const payload = {
         aps: {
           alert: {
@@ -144,12 +148,14 @@ serve(async (req) => {
           },
           sound: "default",
           badge: 1,
+          'mutable-content': 1,
         },
         notification_type: "test_push",
+        expiration_ts: String(expirationTs),
       };
 
       const url = `https://${apnsHost}/3/device/${t.device_token}`;
-      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... (${t.device_token.length} chars) | user=${t.user_id}`);
+      console.log(`[test-push] Sending to ${apnsHost} | token=${t.device_token.substring(0, 12)}... | user=${t.user_id} | ttl=${ttlSeconds}s | collapse=${collapseId}`);
 
       const res = await fetch(url, {
         method: "POST",
@@ -158,6 +164,8 @@ serve(async (req) => {
           "apns-topic": apnsBundleId,
           "apns-push-type": "alert",
           "apns-priority": "10",
+          "apns-expiration": String(expirationTs),
+          "apns-collapse-id": collapseId,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -172,6 +180,8 @@ serve(async (req) => {
         token_length: t.device_token.length,
         status: res.status,
         response: resBody || "success",
+        apns_expiration: expirationTs,
+        apns_collapse_id: collapseId,
       });
     }
 
