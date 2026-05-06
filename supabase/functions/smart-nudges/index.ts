@@ -357,7 +357,17 @@ interface NudgeContext {
     kind: 'normal' | 'travel-day' | 'away-day' | 'ooo';
     signalToken?: string;
     postTravel: boolean;
+    // v5.3 — Travel arc sub-flags (derived from today's calendar). Each
+    // rides one of the existing 3 slots — they never add a 4th send.
+    preFlight?: { eventTitle: string; minutesUntil: number } | null;
+    inFlight?: { eventTitle: string; minutesUntil: number } | null;
+    // v5.3 — PTO / public-holiday "light touch" mode. Collapses the day to
+    // a single morning nudge and skips JIT pre-event prep.
+    ptoMode?: boolean;
   };
+  // v5.3 — Server-computed badge: outstanding cognitive debt the user
+  // can clear today. Falls back to 1 when we cannot compute it.
+  badgeCount?: number;
 }
 
 interface NudgeCopy {
