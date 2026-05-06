@@ -3054,6 +3054,11 @@ serve(async (req) => {
         architecture: 'cos-mind-v8-meaning-forward',
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
+        // v5.3 — Per-intent TTL + collapse-id telemetry
+        apns_expiration: Math.floor(Date.now() / 1000) + nudgeTtlSeconds(notif.copy.variantId, notif.type),
+        apns_collapse_id: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+        badge: notif.badge,
+        qualification_warnings: notif.qualificationWarnings,
         // V8 telemetry — also persist under payload.metadata so SQL
         // dashboards that query JSON paths like
         // payload.metadata.architecture see the V8 tags.
@@ -3101,8 +3106,14 @@ serve(async (req) => {
                 variant_id: notif.copy.variantId,
                 notification_log_id: notificationLogId || '',
                 deep_link_route: effectiveRoute,
+                expiration_ts: String((payload as any).apns_expiration ?? ''),
               },
-              apnsHost
+              apnsHost,
+              {
+                ttlSeconds: nudgeTtlSeconds(notif.copy.variantId, notif.type),
+                collapseId: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
+                badge: notif.badge,
+              },
             );
             if (result.ok) sendSuccess++;
             else sendFailed++;
@@ -3117,7 +3128,10 @@ serve(async (req) => {
                     apns_status: result.status,
                     apns_reason: result.reason,
                     apns_token_prefix: tokenInfo.token.substring(0, 12),
+                    apns_expiration: result.expirationTs,
+                    apns_collapse_id: result.collapseId,
                   },
+                  delivery_state: result.ok ? 'accepted' : 'failed',
                 })
                 .eq('id', notificationLogId);
             }
