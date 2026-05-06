@@ -2191,6 +2191,29 @@ async function evaluateNudgeTwo(
   if (alreadySentTypes.has('nudge_two') || alreadySentTypes.has('pre_event_prep')) return null;
   if (ctx.localTime < GLOBAL_EARLIEST_LOCAL || ctx.localTime >= 16) return null;
 
+  // ── v5.3 — In-flight reset rides the mid-day slot ──
+  if (ctx.dayContext.inFlight) {
+    const ifl = ctx.dayContext.inFlight;
+    const copy = validateStaticFallbackCopy(
+      getFallbackNudgeTwoInFlightCopy(ifl.eventTitle),
+      ctx, 'nudge_two_recalibrate',
+    );
+    if (copy) {
+      return {
+        type: 'nudge_two',
+        copy,
+        deepLinkRoute: '/recalibrate',
+        priority: 1,
+        anchorKind: 'state',
+        slot: 'afternoon',
+        signalStrength: 3,
+      };
+    }
+  }
+
+  // ── v5.3 — PTO collapse: no mid-day or JIT on PTO days ──
+  if (ctx.dayContext.ptoMode) return null;
+
   // ── A) JIT event approaching ──
   for (const evt of ctx.jitEvents) {
     if (evt.confidenceBand === 'none') continue;
