@@ -98,7 +98,7 @@ serve(async (req) => {
         sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
         sb.from("calendar_connections").select("is_active")
-          .eq("user_id", userId).eq("is_active", true).maybeSingle(),
+          .eq("user_id", userId).eq("is_active", true).limit(1).maybeSingle(),
         sb.from("calendar_events").select("title, start_time")
           .eq("user_id", userId).gte("start_time", thirtyDaysAgoIso),
         sb.from("behavior_logs").select("behavior_type, created_at")
