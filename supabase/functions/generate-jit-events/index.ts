@@ -409,6 +409,7 @@ serve(async (req) => {
       .select('is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
+      .limit(1)
       .maybeSingle();
 
     // Parallel queries
