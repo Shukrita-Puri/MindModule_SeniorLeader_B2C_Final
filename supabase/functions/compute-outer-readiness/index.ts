@@ -255,14 +255,18 @@ async function getServerCalendarMetrics(
   const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
   const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
 
-  const { data: conn } = await db
+  const { data: activeConnections, error: connError } = await db
     .from('calendar_connections')
-    .select('is_active')
+    .select('provider')
     .eq('user_id', userId)
     .eq('is_active', true)
-    .maybeSingle();
+    .limit(1);
 
-  if (!conn) {
+  if (connError) {
+    console.error('[compute-outer-readiness] Calendar connection query error:', connError);
+  }
+
+  if (!activeConnections || activeConnections.length === 0) {
     return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
   }
 
