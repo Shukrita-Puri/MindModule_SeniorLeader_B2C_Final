@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check calendar connections (users may connect both Google and Microsoft)
+    // Check calendar connections (users may connect multiple providers)
     const { data: calendarConns, error: calError } = await db
       .from("calendar_connections")
       .select("id, provider, is_active, last_sync")
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     const googleConn = (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
     const microsoftConn = (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
     const appleConn = (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
-    const primaryConn = googleConn ?? microsoftConn; // backwards-compat single field
+    const primaryConn = googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
 
     // Check Oura connection
     const { data: ouraConn } = await db

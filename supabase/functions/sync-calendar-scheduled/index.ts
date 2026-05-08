@@ -19,11 +19,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Only active connections
+    // Only OAuth-backed providers can be refreshed from the server.
+    // Apple Calendar is synced on-device by the native iOS bridge.
     const { data: connections, error: connError } = await serviceClient
       .from('calendar_connections')
       .select('user_id, provider')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .in('provider', ['google', 'microsoft']);
 
     if (connError) {
       console.error('[sync-calendar-scheduled] Error fetching connections:', connError);
@@ -44,7 +46,7 @@ serve(async (req) => {
     }
 
     const total = connections?.length || 0;
-    console.log('[sync-calendar-scheduled] Found', total, 'active connections');
+    console.log('[sync-calendar-scheduled] Found', total, 'active OAuth calendar connections');
 
     let successCount = 0;
     let reconnectCount = 0;
