@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.mindmodule.me',
+  appId: 'com.moonshot.mindmoduleapp',
   appName: 'Mind Module',
   webDir: 'dist',
   plugins: {

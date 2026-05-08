@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
+import { DEV_MODE } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface NormalizedApnsToken {
   token: string | null;
@@ -37,6 +39,17 @@ function normalizeApnsToken(value: unknown): NormalizedApnsToken {
   }
 
   return { token: null, source: 'invalid' };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function getRegistrationAuthToken(): Promise<string | null> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const token = await getAuthToken();
+    if (token) return token;
+    await sleep(500 * (attempt + 1));
+  }
+  return null;
 }
 
 /**
@@ -86,15 +99,26 @@ export function useDeviceTokenRegistration() {
           }
           try {
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-            const accessToken = await window.__auth0Client?.getAccessTokenSilently();
+            if (!projectId) {
+              registered.current = false;
+              console.error('[PushReg] Missing VITE_SUPABASE_PROJECT_ID; cannot persist device token');
+              return;
+            }
+
+            const accessToken = await getRegistrationAuthToken();
+            if (!accessToken && !DEV_MODE) {
+              registered.current = false;
+              console.error('[PushReg] Auth token unavailable after retries; cannot persist device token');
+              return;
+            }
 
             const response = await fetch(
               `https://${projectId}.supabase.co/functions/v1/register-device-token`,
               {
                 method: 'POST',
                 headers: {
-                  'Authorization': `Bearer ${accessToken}`,
                   'Content-Type': 'application/json',
+                  ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({
                   device_token: cleaned,
@@ -117,6 +141,7 @@ export function useDeviceTokenRegistration() {
 
         // Listen for registration errors
         await PushNotifications.addListener('registrationError', (err) => {
+          registered.current = false;
           console.error('[PushReg] Registration error:', err);
         });
 

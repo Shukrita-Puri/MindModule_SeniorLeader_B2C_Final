@@ -1,5 +1,33 @@
 import { useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getEdgeFunctionHeaders } from '@/services/authTokenService';
+
+type EngagementAction = 'tap' | 'action_completed' | 'dismissed';
+
+async function postNotificationEngagement(notificationLogId: string, action: EngagementAction) {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  if (!projectId) {
+    throw new Error('Missing VITE_SUPABASE_PROJECT_ID');
+  }
+
+  const headers = await getEdgeFunctionHeaders();
+  const response = await fetch(
+    `https://${projectId}.supabase.co/functions/v1/notification-engagement`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        notification_log_id: notificationLogId,
+        action,
+        occurred_at: new Date().toISOString(),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`notification-engagement failed: ${response.status} ${body}`);
+  }
+}
 
 /**
  * Hook for tracking notification engagement from push notification deep links.
@@ -9,25 +37,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function useNotificationEngagement() {
   const trackTap = useCallback(async (notificationLogId: string) => {
     try {
-      // Get the notification to calculate time_to_engagement
-      const { data: notif } = await supabase
-        .from('notification_log')
-        .select('sent_at')
-        .eq('id', notificationLogId)
-        .single();
-
-      const timeToEngagement = notif?.sent_at
-        ? Math.round((Date.now() - new Date(notif.sent_at).getTime()) / 1000)
-        : null;
-
-      await (supabase as any)
-        .from('notification_log')
-        .update({
-          tapped: true,
-          app_opened: true,
-          time_to_engagement_seconds: timeToEngagement,
-        })
-        .eq('id', notificationLogId);
+      await postNotificationEngagement(notificationLogId, 'tap');
     } catch (err) {
       console.error('[useNotificationEngagement] trackTap error:', err);
     }
@@ -35,10 +45,7 @@ export function useNotificationEngagement() {
 
   const trackActionCompleted = useCallback(async (notificationLogId: string) => {
     try {
-      await (supabase as any)
-        .from('notification_log')
-        .update({ target_action_completed: true })
-        .eq('id', notificationLogId);
+      await postNotificationEngagement(notificationLogId, 'action_completed');
     } catch (err) {
       console.error('[useNotificationEngagement] trackActionCompleted error:', err);
     }
@@ -46,10 +53,7 @@ export function useNotificationEngagement() {
 
   const trackDismissed = useCallback(async (notificationLogId: string) => {
     try {
-      await (supabase as any)
-        .from('notification_log')
-        .update({ dismissed: true })
-        .eq('id', notificationLogId);
+      await postNotificationEngagement(notificationLogId, 'dismissed');
     } catch (err) {
       console.error('[useNotificationEngagement] trackDismissed error:', err);
     }
