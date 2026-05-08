@@ -367,7 +367,7 @@ const DailyCheckIn = () => {
         const accessToken = await getAuthToken();
         const [wearable, calendar] = await Promise.all([
           supabase.from('wearable_data').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
-          supabase.from('calendar_connections').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle()
+          supabase.from('calendar_connections').select('id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
         ]);
         await supabase.functions.invoke('user-events', {
           headers: { Authorization: `Bearer ${accessToken}` },
