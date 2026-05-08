@@ -358,6 +358,88 @@ const ConnectedData = () => {
   const handleSyncGoogle = () => syncCalendarProvider('google');
   const handleSyncMicrosoft = () => syncCalendarProvider('microsoft');
 
+  /* ─── Apple Calendar Handlers (native iOS only) ─── */
+
+  const handleConnectAppleCalendar = async () => {
+    if (!isAppleCalendarSupported()) {
+      toast.info('Apple Calendar is available in the iOS app.');
+      return;
+    }
+    setConnecting('apple-calendar');
+    try {
+      const granted = await requestAppleCalendarPermission();
+      if (!granted) {
+        toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
+        return;
+      }
+      const result = await syncAppleCalendarToBackend();
+      if (result.success) {
+        toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
+        invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+        await fetchStatus();
+      } else {
+        toast.error(result.error || 'Apple Calendar connected but initial sync failed.');
+      }
+    } catch (err) {
+      console.error('[ConnectedData] Apple Calendar connect error:', err);
+      toast.error('Failed to connect Apple Calendar');
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  const handleSyncAppleCalendar = async () => {
+    if (!isAppleCalendarSupported()) return;
+    setSyncing(true);
+    try {
+      const result = await syncAppleCalendarToBackend();
+      if (result.success) {
+        toast.success(`Synced ${result.eventCount ?? 0} events`);
+        invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+        await fetchStatus();
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnectAppleCalendar = async () => {
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+        }
+      );
+      if (!res.ok) throw new Error('Disconnect failed');
+      setStatus(prev => {
+        if (!prev) return prev;
+        const providers = { ...(prev.calendar.providers ?? {}) };
+        providers.apple = { connected: false, lastSync: null };
+        return { ...prev, calendar: { ...prev.calendar, providers } };
+      });
+      invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      toast.success('Apple Calendar disconnected');
+    } catch {
+      toast.error('Failed to disconnect Apple Calendar');
+    }
+  };
+
   /* ─── Apple Health Handlers ─── */
 
   const handleConnectAppleHealth = async () => {
