@@ -233,6 +233,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         .select('is_active')
         .eq('user_id', effectiveUserId)
         .eq('is_active', true)
+        .limit(1)
         .maybeSingle();
 
       if (conn) {

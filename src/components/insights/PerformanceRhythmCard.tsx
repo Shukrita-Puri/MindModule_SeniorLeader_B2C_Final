@@ -159,6 +159,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .select('is_active')
             .eq('user_id', effectiveUserId)
             .eq('is_active', true)
+            .limit(1)
             .maybeSingle(),
           supabase
             .from('calendar_events')

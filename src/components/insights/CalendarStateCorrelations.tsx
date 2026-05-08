@@ -60,6 +60,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
         .select('id, is_active')
         .eq('user_id', effectiveUserId)
         .eq('is_active', true)
+        .limit(1)
         .maybeSingle();
 
       setHasCalendar(!!calendarConn);

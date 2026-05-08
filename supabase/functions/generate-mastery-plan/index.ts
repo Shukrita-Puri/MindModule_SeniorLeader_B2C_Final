@@ -1823,7 +1823,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     favsRes, ritualRes, feedbackRes, insightsRes, commitmentsRes,
     practiceSessionsRes,
   ] = await Promise.all([
-    supabaseClient.from('calendar_connections').select('is_active').eq('user_id', req.userId).eq('is_active', true).maybeSingle(),
+    supabaseClient.from('calendar_connections').select('is_active').eq('user_id', req.userId).eq('is_active', true).limit(1).maybeSingle(),
     supabaseClient.from('daily_checkins').select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window').eq('user_id', req.userId).order('checkin_date', { ascending: false }).order('timestamp', { ascending: false }).limit(10),
     supabaseClient.from('wearable_data').select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date').eq('user_id', req.userId).gte('summary_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]).order('summary_date', { ascending: false }).limit(1).maybeSingle(),
     supabaseClient.from('profiles').select('practice_priority_tag, pressure_context_tag, archetype, component_scores').eq('id', req.userId).maybeSingle(),

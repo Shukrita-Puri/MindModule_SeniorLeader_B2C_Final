@@ -546,6 +546,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
       .select('is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
+      .limit(1)
       .maybeSingle();
 
     // If calendar is disconnected, skip calendar-state correlations entirely
