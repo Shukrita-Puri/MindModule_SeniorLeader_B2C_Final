@@ -715,9 +715,10 @@ const ConnectedData = () => {
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
   const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
   const showAppleCalendar = isAppleCalendarSupported();
+  const showWebCalendars = !showAppleCalendar;
 
   const connections = [
-    {
+    ...(showWebCalendars ? [{
       id: 'google-calendar',
       name: 'Google Calendar',
       description: 'Sync your calendar for contextual recommendations',
@@ -746,7 +747,7 @@ const ConnectedData = () => {
       onDisconnect: handleDisconnectMicrosoft,
       onSync: handleSyncMicrosoft,
       canSync: true,
-    },
+    }] : []),
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
       name: 'Apple Calendar',
