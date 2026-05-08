@@ -388,6 +388,7 @@ serve(async (req) => {
       return {
         ...event,
         user_id: userId,
+        provider,
         event_metadata: { ...event.event_metadata, eventType, isHighStakes },
       };
     });
@@ -399,7 +400,7 @@ serve(async (req) => {
     if (classifiedEvents.length > 0) {
       const { error: upsertError } = await serviceClient
         .from('calendar_events')
-        .upsert(classifiedEvents, { onConflict: 'user_id,external_id' });
+        .upsert(classifiedEvents, { onConflict: 'user_id,provider,external_id' });
       if (upsertError) {
         console.error('[sync-calendar] Upsert error:', upsertError);
         throw upsertError;
@@ -421,6 +422,7 @@ serve(async (req) => {
         .from('calendar_events')
         .delete()
         .eq('user_id', userId)
+        .eq('provider', provider)
         .gte('start_time', windowStartIso)
         .lte('start_time', windowEndIso)
         .not('external_id', 'in', `(${upstreamIds.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`);
@@ -433,6 +435,7 @@ serve(async (req) => {
         .from('calendar_events')
         .delete()
         .eq('user_id', userId)
+        .eq('provider', provider)
         .gte('start_time', windowStartIso)
         .lte('start_time', windowEndIso);
     }
