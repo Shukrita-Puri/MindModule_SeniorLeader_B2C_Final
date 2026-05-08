@@ -54,6 +54,7 @@ interface ConnectionStatus {
     disconnectedAt?: string | null;
     lastError?: string | null;
     lastErrorAt?: string | null;
+    statusUpdatedAt?: string | null;
   };
 }
 
@@ -604,7 +605,7 @@ const ConnectedData = () => {
       : undefined;
 
     // Detect if DB state may be stale
-    const statusUpdatedAt = (aw as any).statusUpdatedAt;
+    const statusUpdatedAt = aw.statusUpdatedAt;
     const hoursSinceStatusUpdate = statusUpdatedAt
       ? (Date.now() - new Date(statusUpdatedAt).getTime()) / (1000 * 60 * 60)
       : null;
