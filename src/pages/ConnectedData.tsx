@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Loader2, MoreVertical, RefreshCw, CalendarDays } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import {
@@ -707,10 +707,13 @@ const ConnectedData = () => {
   const microsoftConnected = status?.calendar.providers?.microsoft?.connected
     ?? (status?.calendar.connected && status?.calendar.provider === 'microsoft')
     ?? false;
+  const appleCalendarConnected = status?.calendar.providers?.apple?.connected ?? false;
   const googleLastSync = status?.calendar.providers?.google?.lastSync
     ?? (googleConnected ? (status?.calendar.lastSync ?? null) : null);
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
+  const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
+  const showAppleCalendar = isAppleCalendarSupported();
 
   const connections = [
     {
@@ -743,6 +746,25 @@ const ConnectedData = () => {
       onSync: handleSyncMicrosoft,
       canSync: true,
     },
+    ...(showAppleCalendar ? [{
+      id: 'apple-calendar',
+      name: 'Apple Calendar',
+      description: 'Read your iOS calendar on-device to tailor readiness and nudges.',
+      logo: (
+        <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
+          <CalendarDays className="h-4 w-4 text-foreground/70" />
+        </div>
+      ),
+      connected: appleCalendarConnected,
+      lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
+      statusLabel: undefined as string | undefined,
+      statusNote: undefined as string | undefined,
+      showReconnect: false,
+      onConnect: handleConnectAppleCalendar,
+      onDisconnect: handleDisconnectAppleCalendar,
+      onSync: handleSyncAppleCalendar,
+      canSync: true,
+    }] : []),
     {
       id: 'apple-health',
       name: 'Apple Health',
