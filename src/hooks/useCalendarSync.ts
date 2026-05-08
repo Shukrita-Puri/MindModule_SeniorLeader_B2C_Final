@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
 import { saveCalendarEventsLocally, type LocalCalendarEvent } from '@/services/localDataStore';
+import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import { isAppleCalendarSupported } from '@/utils/appleCalendar';
 
 interface CalendarConnection {
   id: string;
@@ -49,7 +51,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
         .select('id, provider, is_active, last_sync')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .in('provider', ['google', 'microsoft'])
         .limit(1)
         .maybeSingle();
 
@@ -130,6 +131,23 @@ export function useCalendarSync(): UseCalendarSyncResult {
     try {
       console.log('[useCalendarSync] Triggering sync for provider:', connection.provider);
 
+      if (connection.provider === 'apple') {
+        if (!isAppleCalendarSupported()) {
+          setError('Apple Calendar sync is only available in the iOS app.');
+          return;
+        }
+
+        const result = await syncAppleCalendarToBackend();
+        if (!result.success) {
+          setError(result.error || 'Apple Calendar sync failed');
+          return;
+        }
+
+        setLastSync(new Date());
+        await fetchEvents();
+        return;
+      }
+
       const { data, error: syncError } = await supabase.functions.invoke('sync-calendar', {
         body: {
           provider: connection.provider,
@@ -193,7 +211,6 @@ export function useCalendarSync(): UseCalendarSyncResult {
           .select('id, provider, is_active, last_sync')
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .in('provider', ['google', 'microsoft'])
           .limit(1)
           .maybeSingle();
         
@@ -247,12 +264,22 @@ export function useCalendarSync(): UseCalendarSyncResult {
           if (!syncTime || Date.now() - syncTime.getTime() > STALE_THRESHOLD_MS) {
             console.log('[useCalendarSync] Data is stale, triggering background sync...');
             // Background sync - don't await
-            supabase.functions.invoke('sync-calendar', {
-              body: { provider: connData.provider, userId: user.id }
-            }).then((res) => {
-              if (!cancelled && res.data?.success === true) fetchEvents();
-              if (res.data?.reconnectRequired) console.warn('[useCalendarSync] Background sync: reconnect required');
-            }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
+            if (connData.provider === 'apple') {
+              if (isAppleCalendarSupported()) {
+                syncAppleCalendarToBackend()
+                  .then((res) => {
+                    if (!cancelled && res.success === true) fetchEvents();
+                  })
+                  .catch(err => console.error('[useCalendarSync] Apple background sync failed:', err));
+              }
+            } else {
+              supabase.functions.invoke('sync-calendar', {
+                body: { provider: connData.provider, userId: user.id }
+              }).then((res) => {
+                if (!cancelled && res.data?.success === true) fetchEvents();
+                if (res.data?.reconnectRequired) console.warn('[useCalendarSync] Background sync: reconnect required');
+              }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
+            }
           }
         } else {
           setHasCalendar(false);
