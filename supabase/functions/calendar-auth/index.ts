@@ -118,7 +118,7 @@ serve(async (req) => {
 
     console.log('[calendar-auth] Action:', action, 'Provider:', provider);
 
-    const providerSchema = z.enum(['google', 'microsoft']);
+    const providerSchema = z.enum(['google', 'microsoft', 'apple']);
     const validProvider = providerSchema.parse(provider);
 
     if (action === 'connect') {
@@ -128,7 +128,15 @@ serve(async (req) => {
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
+      if (validProvider === 'apple') {
+        // Apple Calendar uses on-device EventKit; no OAuth flow.
+        return new Response(
+          JSON.stringify({ error: 'Apple Calendar uses on-device permission, not OAuth.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       let authUrl = '';
       const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
@@ -366,8 +374,21 @@ serve(async (req) => {
         .eq('provider', validProvider);
 
       if (error) throw error;
-      
-      console.log('[calendar-auth] Disconnected + cleared tokens for user:', authenticatedUserId);
+
+      // Apple: also purge events because there's no upstream we can re-sync from
+      // without the user re-granting permission on device.
+      if (validProvider === 'apple') {
+        const { error: delErr } = await supabaseAdmin
+          .from('calendar_events')
+          .delete()
+          .eq('user_id', authenticatedUserId)
+          .eq('provider', 'apple');
+        if (delErr) {
+          console.warn('[calendar-auth] Apple events purge warning (non-fatal):', delErr.message);
+        }
+      }
+
+      console.log('[calendar-auth] Disconnected provider:', validProvider, 'user:', authenticatedUserId);
 
       return new Response(
         JSON.stringify({ success: true }),

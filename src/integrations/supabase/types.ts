@@ -359,6 +359,7 @@ export type Database = {
           id: string
           is_organizer: boolean | null
           is_recurring: boolean | null
+          provider: string
           start_time: string
           title: string | null
           user_id: string
@@ -372,6 +373,7 @@ export type Database = {
           id?: string
           is_organizer?: boolean | null
           is_recurring?: boolean | null
+          provider?: string
           start_time: string
           title?: string | null
           user_id: string
@@ -385,6 +387,7 @@ export type Database = {
           id?: string
           is_organizer?: boolean | null
           is_recurring?: boolean | null
+          provider?: string
           start_time?: string
           title?: string | null
           user_id?: string

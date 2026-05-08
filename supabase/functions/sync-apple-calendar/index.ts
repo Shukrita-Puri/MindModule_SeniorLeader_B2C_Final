@@ -1,0 +1,178 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+function jsonOk(body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(body), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+async function verifyAuth0Token(authHeader: string | null): Promise<string> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) throw new Error('Missing Authorization header');
+  const token = authHeader.replace('Bearer ', '');
+  const auth0Domain = Deno.env.get('AUTH0_DOMAIN') || Deno.env.get('VITE_AUTH0_DOMAIN');
+  if (!auth0Domain) throw new Error('Auth0 domain not configured');
+  const res = await fetch(`https://${auth0Domain}/userinfo`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Token verification failed');
+  const info = await res.json();
+  if (!info.sub) throw new Error('Token missing sub claim');
+  return info.sub;
+}
+
+const LOGISTIC_KEYWORDS = [
+  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+  'car service', 'mot', 'oil change', 'dentist', 'optician',
+  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+];
+const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+
+const EventSchema = z.object({
+  external_id: z.string().min(1),
+  title: z.string().default('Untitled Event'),
+  start_time: z.string().min(1),
+  end_time: z.string().min(1),
+  is_organizer: z.boolean().optional().default(false),
+  attendees_count: z.number().int().nonnegative().optional().default(0),
+  is_recurring: z.boolean().optional().default(false),
+  event_metadata: z.record(z.unknown()).optional().default({}),
+});
+
+const BodySchema = z.object({
+  windowStart: z.string().min(1),
+  windowEnd: z.string().min(1),
+  events: z.array(EventSchema).max(2000),
+});
+
+function classify(title: string, attendeesCount: number): { eventType: string; isHighStakes: boolean } {
+  const t = title.toLowerCase();
+  if (LOGISTIC_KEYWORDS.some(kw => t.includes(kw)) || LOGISTIC_PATTERN.test(title)) {
+    return { eventType: 'logistic', isHighStakes: false };
+  }
+  if (t.includes('board') || t.includes('executive')) return { eventType: 'board-meeting', isHighStakes: true };
+  if (t.includes('presentation') || t.includes('demo') || t.includes('pitch')) return { eventType: 'presentation', isHighStakes: true };
+  if (t.includes('client') || t.includes('customer')) return { eventType: 'client-call', isHighStakes: attendeesCount > 5 };
+  if (t.includes('interview')) return { eventType: 'interview', isHighStakes: true };
+  if (t.includes('1:1') || t.includes('one-on-one')) return { eventType: 'one-on-one', isHighStakes: false };
+  if (t.includes('focus') || t.includes('deep work')) return { eventType: 'deep-work', isHighStakes: false };
+  if (t.includes('exam') || t.includes('test')) return { eventType: 'exam', isHighStakes: true };
+  if (t.includes('deadline') || t.includes('submission')) return { eventType: 'deadline', isHighStakes: true };
+  return { eventType: 'meeting', isHighStakes: false };
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  try {
+    let userId: string;
+    try {
+      userId = await verifyAuth0Token(req.headers.get('Authorization'));
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const raw = await req.json();
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid body', details: parsed.error.flatten() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { windowStart, windowEnd, events } = parsed.data;
+
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    console.log('[sync-apple-calendar] user:', userId, 'events:', events.length, 'window:', windowStart, '→', windowEnd);
+
+    // Ensure connection row exists for (user_id, provider='apple')
+    const { data: existingConn } = await serviceClient
+      .from('calendar_connections')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider', 'apple')
+      .maybeSingle();
+
+    const nowIso = new Date().toISOString();
+    if (existingConn) {
+      await serviceClient
+        .from('calendar_connections')
+        .update({ is_active: true, last_sync: nowIso, updated_at: nowIso })
+        .eq('id', existingConn.id);
+    } else {
+      await serviceClient
+        .from('calendar_connections')
+        .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso });
+    }
+
+    const classified = events.map(e => {
+      const { eventType, isHighStakes } = classify(e.title, e.attendees_count);
+      return {
+        user_id: userId,
+        provider: 'apple',
+        external_id: e.external_id,
+        title: e.title || 'Untitled Event',
+        start_time: e.start_time,
+        end_time: e.end_time,
+        is_organizer: e.is_organizer,
+        attendees_count: e.attendees_count,
+        is_recurring: e.is_recurring,
+        event_metadata: { ...e.event_metadata, eventType, isHighStakes },
+      };
+    });
+
+    if (classified.length > 0) {
+      const { error: upsertError } = await serviceClient
+        .from('calendar_events')
+        .upsert(classified, { onConflict: 'user_id,provider,external_id' });
+      if (upsertError) {
+        console.error('[sync-apple-calendar] Upsert error:', upsertError);
+        return jsonOk({ success: false, error: upsertError.message });
+      }
+    }
+
+    // Provider-scoped delete: remove Apple-only rows in window that disappeared upstream
+    const upstreamIds = classified.map(e => e.external_id);
+    if (upstreamIds.length > 0) {
+      const inList = `(${upstreamIds.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`;
+      const { error: scopedDelErr } = await serviceClient
+        .from('calendar_events')
+        .delete()
+        .eq('user_id', userId)
+        .eq('provider', 'apple')
+        .gte('start_time', windowStart)
+        .lte('start_time', windowEnd)
+        .not('external_id', 'in', inList);
+      if (scopedDelErr) {
+        console.warn('[sync-apple-calendar] Scoped delete warning (non-fatal):', scopedDelErr.message);
+      }
+    } else {
+      await serviceClient
+        .from('calendar_events')
+        .delete()
+        .eq('user_id', userId)
+        .eq('provider', 'apple')
+        .gte('start_time', windowStart)
+        .lte('start_time', windowEnd);
+    }
+
+    return jsonOk({ success: true, eventCount: classified.length, lastSync: nowIso });
+  } catch (err) {
+    console.error('[sync-apple-calendar] Unhandled error:', err);
+    return jsonOk({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});

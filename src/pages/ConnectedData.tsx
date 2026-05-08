@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Loader2, MoreVertical, RefreshCw, CalendarDays } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import {
@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
+import { isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
+import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 
 /* ─── Types ─── */
 
@@ -37,6 +39,7 @@ interface ConnectionStatus {
     providers?: {
       google?: { connected: boolean; lastSync: string | null };
       microsoft?: { connected: boolean; lastSync: string | null };
+      apple?: { connected: boolean; lastSync: string | null };
     };
   };
   appleWatch: {
@@ -355,6 +358,88 @@ const ConnectedData = () => {
   const handleSyncGoogle = () => syncCalendarProvider('google');
   const handleSyncMicrosoft = () => syncCalendarProvider('microsoft');
 
+  /* ─── Apple Calendar Handlers (native iOS only) ─── */
+
+  const handleConnectAppleCalendar = async () => {
+    if (!isAppleCalendarSupported()) {
+      toast.info('Apple Calendar is available in the iOS app.');
+      return;
+    }
+    setConnecting('apple-calendar');
+    try {
+      const granted = await requestAppleCalendarPermission();
+      if (!granted) {
+        toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
+        return;
+      }
+      const result = await syncAppleCalendarToBackend();
+      if (result.success) {
+        toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
+        invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+        await fetchStatus();
+      } else {
+        toast.error(result.error || 'Apple Calendar connected but initial sync failed.');
+      }
+    } catch (err) {
+      console.error('[ConnectedData] Apple Calendar connect error:', err);
+      toast.error('Failed to connect Apple Calendar');
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  const handleSyncAppleCalendar = async () => {
+    if (!isAppleCalendarSupported()) return;
+    setSyncing(true);
+    try {
+      const result = await syncAppleCalendarToBackend();
+      if (result.success) {
+        toast.success(`Synced ${result.eventCount ?? 0} events`);
+        invalidatePlanCache();
+        clearOuterReadinessCache(user?.id);
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+        await fetchStatus();
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnectAppleCalendar = async () => {
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+        }
+      );
+      if (!res.ok) throw new Error('Disconnect failed');
+      setStatus(prev => {
+        if (!prev) return prev;
+        const providers = { ...(prev.calendar.providers ?? {}) };
+        providers.apple = { connected: false, lastSync: null };
+        return { ...prev, calendar: { ...prev.calendar, providers } };
+      });
+      invalidatePlanCache();
+      clearOuterReadinessCache(user?.id);
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      toast.success('Apple Calendar disconnected');
+    } catch {
+      toast.error('Failed to disconnect Apple Calendar');
+    }
+  };
+
   /* ─── Apple Health Handlers ─── */
 
   const handleConnectAppleHealth = async () => {
@@ -622,10 +707,13 @@ const ConnectedData = () => {
   const microsoftConnected = status?.calendar.providers?.microsoft?.connected
     ?? (status?.calendar.connected && status?.calendar.provider === 'microsoft')
     ?? false;
+  const appleCalendarConnected = status?.calendar.providers?.apple?.connected ?? false;
   const googleLastSync = status?.calendar.providers?.google?.lastSync
     ?? (googleConnected ? (status?.calendar.lastSync ?? null) : null);
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
+  const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
+  const showAppleCalendar = isAppleCalendarSupported();
 
   const connections = [
     {
@@ -658,6 +746,25 @@ const ConnectedData = () => {
       onSync: handleSyncMicrosoft,
       canSync: true,
     },
+    ...(showAppleCalendar ? [{
+      id: 'apple-calendar',
+      name: 'Apple Calendar',
+      description: 'Read your iOS calendar on-device to tailor readiness and nudges.',
+      logo: (
+        <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
+          <CalendarDays className="h-4 w-4 text-foreground/70" />
+        </div>
+      ),
+      connected: appleCalendarConnected,
+      lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
+      statusLabel: undefined as string | undefined,
+      statusNote: undefined as string | undefined,
+      showReconnect: false,
+      onConnect: handleConnectAppleCalendar,
+      onDisconnect: handleDisconnectAppleCalendar,
+      onSync: handleSyncAppleCalendar,
+      canSync: true,
+    }] : []),
     {
       id: 'apple-health',
       name: 'Apple Health',
@@ -704,7 +811,7 @@ const ConnectedData = () => {
                     {conn.statusNote && (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
                     )}
-                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-health') && (
+                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-calendar' || conn.id === 'apple-health') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
                       </p>

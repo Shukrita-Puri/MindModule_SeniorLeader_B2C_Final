@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
 
     const googleConn = (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
     const microsoftConn = (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
+    const appleConn = (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
     const primaryConn = googleConn ?? microsoftConn; // backwards-compat single field
 
     // Check Oura connection
@@ -110,6 +111,10 @@ Deno.serve(async (req) => {
           microsoft: {
             connected: !!microsoftConn,
             lastSync: microsoftConn?.last_sync || null,
+          },
+          apple: {
+            connected: !!appleConn,
+            lastSync: appleConn?.last_sync || null,
           },
         },
       },
