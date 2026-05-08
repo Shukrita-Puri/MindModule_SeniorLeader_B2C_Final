@@ -49,6 +49,8 @@ export function useCalendarSync(): UseCalendarSyncResult {
         .select('id, provider, is_active, last_sync')
         .eq('user_id', user.id)
         .eq('is_active', true)
+        .in('provider', ['google', 'microsoft'])
+        .limit(1)
         .maybeSingle();
 
       if (connError && connError.code !== 'PGRST116') {
@@ -191,6 +193,8 @@ export function useCalendarSync(): UseCalendarSyncResult {
           .select('id, provider, is_active, last_sync')
           .eq('user_id', user.id)
           .eq('is_active', true)
+          .in('provider', ['google', 'microsoft'])
+          .limit(1)
           .maybeSingle();
         
         if (cancelled) return;
