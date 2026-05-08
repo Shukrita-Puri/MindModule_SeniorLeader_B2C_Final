@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
+import { isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
+import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 
 /* ─── Types ─── */
 
@@ -37,6 +39,7 @@ interface ConnectionStatus {
     providers?: {
       google?: { connected: boolean; lastSync: string | null };
       microsoft?: { connected: boolean; lastSync: string | null };
+      apple?: { connected: boolean; lastSync: string | null };
     };
   };
   appleWatch: {
