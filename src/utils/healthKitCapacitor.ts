@@ -199,12 +199,15 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
     console.log('[HealthKit] queryHealthKitData: reading 30-day window for all metrics...');
 
-    // Read all metrics in parallel – each one is fault-tolerant
+    // Read all metrics in parallel – each one is fault-tolerant.
+    // Cast through unknown because @capgo/capacitor-health types `dataType`
+    // as a strict union; we centralise validation in `safeReadSamples`.
+    const HealthAny = Health as unknown as HealthReader;
     const [hrvSamples, rhrSamples, hrSamples, sleepSamples] = await Promise.all([
-      safeReadSamples(Health, 'heartRateVariability', startISO, endISO, 'HRV'),
-      safeReadSamples(Health, 'restingHeartRate', startISO, endISO, 'RHR'),
-      safeReadSamples(Health, 'heartRate', startISO, endISO, 'HR'),
-      safeReadSamples(Health, 'sleep', startISO, endISO, 'Sleep'),
+      safeReadSamples(HealthAny, 'heartRateVariability', startISO, endISO, 'HRV'),
+      safeReadSamples(HealthAny, 'restingHeartRate', startISO, endISO, 'RHR'),
+      safeReadSamples(HealthAny, 'heartRate', startISO, endISO, 'HR'),
+      safeReadSamples(HealthAny, 'sleep', startISO, endISO, 'Sleep'),
     ]);
 
     console.log(`[HealthKit] Raw counts – HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
@@ -212,7 +215,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // ---- Group HRV by day ----
     const hrvByDay: Record<string, { value: number; hour: number; timestamp: string }[]> = {};
     for (const s of hrvSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dt = new Date(sDate);
       const dayKey = dt.toISOString().split('T')[0];
@@ -225,7 +228,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // ---- Group RHR by day (average) ----
     const rhrByDay: Record<string, number[]> = {};
     for (const s of rhrSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dayKey = new Date(sDate).toISOString().split('T')[0];
       const value = Number(s.value);
@@ -239,14 +242,14 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // Per-sample HR for true event-window peaks (used by cause-effect engine).
     const hrSamplesByDay: Record<string, { t: string; v: number }[]> = {};
     for (const s of hrSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dayKey = new Date(sDate).toISOString().split('T')[0];
       const value = Number(s.value);
       if (isNaN(value) || value <= 0) continue;
       if (!hrByDay[dayKey]) hrByDay[dayKey] = [];
       hrByDay[dayKey].push(value);
-      const startISO = s.startDate ?? s.date ?? sDate;
+      const startISO = (s.startDate ?? s.date ?? sDate) as string | number;
       if (!hrSamplesByDay[dayKey]) hrSamplesByDay[dayKey] = [];
       hrSamplesByDay[dayKey].push({ t: new Date(startISO).toISOString(), v: Math.round(value) });
     }
@@ -268,8 +271,8 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     }
     const sleepByDay: Record<string, SleepBucket> = {};
     for (const s of sleepSamples) {
-      const startDate = s.startDate ?? s.date;
-      const endDate = s.endDate ?? s.date;
+      const startDate = (s.startDate ?? s.date) as string | number | undefined;
+      const endDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!startDate || !endDate) continue;
       // Attribute to wake-up day (end of sleep block)
       const dayKey = new Date(endDate).toISOString().split('T')[0];
