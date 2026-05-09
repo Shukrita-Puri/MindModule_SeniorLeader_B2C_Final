@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { trackIntegrationEvent } from '@/utils/integrationTelemetry';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
 export interface NativeOutboxDiagnostics {
   lastHealthObserverAt?: number | null;
@@ -96,7 +96,7 @@ export async function flushNativeOutbox(): Promise<void> {
   if (!isNativeIos()) return;
   try {
     const r = await NativeBackgroundSync.flushOutbox();
-    trackIntegrationEvent({ provider: 'system', event: 'native_outbox_flushed', meta: r as Record<string, unknown> });
+    emitIntegrationEvent({ provider: 'system', event: 'native_outbox_flushed', meta: r as Record<string, unknown> });
   } catch (err) {
     console.warn('[NativeBackgroundSync] flushOutbox failed:', err);
   }
@@ -106,7 +106,7 @@ export async function clearNativeOutbox(provider?: 'apple-health' | 'apple-calen
   if (!isNativeIos()) return;
   try {
     await NativeBackgroundSync.clearOutbox(provider ? { provider } : undefined);
-    trackIntegrationEvent({ provider: 'system', event: 'native_outbox_cleared', meta: { provider: provider ?? 'all' } });
+    emitIntegrationEvent({ provider: 'system', event: 'native_outbox_cleared', meta: { provider: provider ?? 'all' } });
   } catch (err) {
     console.warn('[NativeBackgroundSync] clearOutbox failed:', err);
   }
