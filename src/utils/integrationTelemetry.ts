@@ -47,7 +47,18 @@ export type IntegrationEventName =
   | 'listener_unregistered'
   // generic
   | 'plugin_call_failed'
-  | 'qa_action';
+  | 'qa_action'
+  // offline-first sync queue
+  | 'queue_enqueued'
+  | 'queue_drained_start'
+  | 'queue_drained_complete'
+  | 'queue_item_retry'
+  | 'queue_item_dropped'
+  | 'queue_overflow'
+  | 'queue_cleared'
+  | 'state_resolved'
+  | 'queue_simulate_offline'
+  | 'queue_simulate_failure';
 
 export interface IntegrationEvent {
   ts: string;                       // ISO timestamp
