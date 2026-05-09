@@ -128,6 +128,13 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
         errorMessage: data.error || bodyText || res.statusText,
         meta: { url, eventCount: events.length },
       });
+      try {
+        queueEnqueue('apple-calendar', {
+          windowStart: start.toISOString(),
+          windowEnd: end.toISOString(),
+          events,
+        }, `http_${res.status}`);
+      } catch { /* */ }
       return { success: false, error: data.error || bodyText || `Sync failed (${res.status})` };
     }
     if (data?.success === false) {
@@ -137,6 +144,13 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
         errorCode: 'backend_returned_error',
         errorMessage: data.error,
       });
+      try {
+        queueEnqueue('apple-calendar', {
+          windowStart: start.toISOString(),
+          windowEnd: end.toISOString(),
+          events,
+        }, 'backend_returned_error');
+      } catch { /* */ }
       return { success: false, error: data.error || 'Sync failed' };
     }
     emitIntegrationEvent({
@@ -148,6 +162,13 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
   } catch (err) {
     const errorMessage = describeFetchError(err);
     console.error('[appleCalendarSync] sync-apple-calendar failed:', errorMessage, err);
+    try {
+      queueEnqueue('apple-calendar', {
+        windowStart: start.toISOString(),
+        windowEnd: end.toISOString(),
+        events,
+      }, errorMessage);
+    } catch { /* */ }
     emitIntegrationEvent({
       provider: 'apple-calendar',
       event: 'sync_failed',
