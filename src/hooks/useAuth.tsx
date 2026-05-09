@@ -6,6 +6,7 @@ import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
 import { clearAllLocalData } from '@/services/localDataStore';
 import { clearHealthKitPermission } from '@/services/wearableSyncService';
+import { clear as clearSyncQueue } from '@/services/syncQueue';
 import { clearByPrefixes, cacheKeyPrefixes } from '@/utils/persistentBriefCache';
 import { toast } from 'sonner';
 
@@ -181,10 +182,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Create user from JWT claims
       const nativeUser: AppUser = {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name || payload.nickname,
-        picture: payload.picture,
+        id: payload.sub as string,
+        email: payload.email as string,
+        name: (payload.name as string) || (payload.nickname as string),
+        picture: payload.picture as string | undefined,
         subscription_status: 'none',
         subscription_plan: undefined,
       };
@@ -224,7 +225,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: profile.id,
             email: profile.email,
             name: profile.display_name || profile.auth_name || profile.full_name || payload.name,
-            picture: payload.picture,
+            picture: payload.picture as string | undefined,
             subscription_status: profile.subscription_status || 'none',
             subscription_plan: profile.subscription_plan || undefined,
             onboarding_completed: !!profile.onboarding_completed_at,
@@ -474,6 +475,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearNativeLoginInProgress();
     clearHealthKitPermission();
     clearAllLocalData();
+    try { clearSyncQueue(); } catch { /* */ }
     try {
       localStorage.removeItem('contextConnections');
     } catch (err) {

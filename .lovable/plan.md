@@ -1,90 +1,135 @@
-# Calendar multi-provider plan
 
-## Phase 1 — Google Calendar audit results
+## Goal
 
-Inspected: `ConnectedData.tsx`, `CalendarConnectionSettings.tsx`, `useCalendarSync.ts`, and edge functions `calendar-auth`, `sync-calendar`, `check-connections-status`, `check-calendar-status`, `register-calendar-watch`, `calendar-webhook`.
+Extend the existing Apple Health + Apple Calendar architecture with a production-grade offline-first sync queue, robust retry orchestration, a unified sync-state model, and developer/QA diagnostics — without rewriting working code.
 
-**Healthy:**
-- OAuth URL gen (Google + Microsoft) ✓
-- Auth0-token POST flow from `ConnectedData.tsx` → `calendar-auth` / `sync-calendar` / `check-connections-status` ✓
-- AES-256-GCM encrypted access + refresh tokens with separate IVs ✓
-- Proactive refresh (5-min buffer), refresh-token preservation when Google omits it ✓
-- Webhook watch channel registration on connect + cron renewal ✓
-- `calendar_connections` already unique on `(user_id, provider)` and `check-connections-status` returns per-provider state ✓
+## What already exists (preserve as-is)
 
-**Issues to fix before Apple work:**
+- `WearableSyncBridge.swift` — HKObserverQueries + HKAnchoredObjectQuery + background delivery for HRV/RHR/HR/Sleep, posts to `persist-wearable-data`.
+- `AppleCalendarBackgroundSyncBridge.swift` — EventKit fetch + post to `sync-apple-calendar`.
+- `AppDelegate.swift` — registers observers + background fetch.
+- `NativeBackgroundSyncPlugin.swift` — Keychain token store + manual `runNow()`.
+- `wearableSyncService.ts` / `appleCalendarSync.ts` — foreground sync with telemetry + permission verification.
+- `integrationTelemetry.ts` — `[itel]` ring-buffer logger.
+- `AppleIntegrationsDebugPanel.tsx` — QA panel gated by `?qa=1` / `VITE_MM_QA_DEBUG`.
+- `ConnectedData.tsx` — pending-disconnect retry queue + online listener (model to extend).
 
-1. **Cross-provider event wipe (CRITICAL).** `sync-calendar` scoped delete is `WHERE user_id = X AND start_time IN window AND external_id NOT IN upstream`. With no `provider` column on `calendar_events`, a Google sync will delete Microsoft (and future Apple) events that fall in the window. Same for the empty-window branch.
-2. **Upsert key is not provider-scoped.** `onConflict: 'user_id,external_id'` collides if two providers ever share an `external_id` shape.
-3. **`useCalendarSync.ts` reads `calendar_connections` and `calendar_events` directly from the frontend** and assumes a single connection (`maybeSingle()`), so a user with both Google + Microsoft gets a non-deterministic connection row and only sees one provider's events at a time. Switch to `check-connections-status` + `sync-calendar` + a thin events read (or a new `list-calendar-events` edge function) and drop the single-row assumption.
-4. **`calendar_events` RLS** uses `auth.jwt() ->> 'sub'` — works because Auth0 JWT is forwarded; keep it but treat reads as best-effort. Writes already go through service role in `sync-calendar`. No change needed beyond schema.
+The native side is already incremental, idempotent (DB upserts on `(user_id, summary_date)` and `(user_id, provider, external_id)`), and lifecycle-aware. We do NOT touch that.
 
-## Phase 2 — Provider-scoped `calendar_events` schema
+## What we add (minimal extensions)
 
-Migration:
-- `ALTER TABLE calendar_events ADD COLUMN provider text` (nullable for backfill).
-- Backfill `UPDATE calendar_events SET provider='google' WHERE provider IS NULL` (Google is the only existing source).
-- `ALTER COLUMN provider SET NOT NULL DEFAULT 'google'`.
-- Drop both old uniques `calendar_events_user_external_unique` and `calendar_events_user_id_external_id_key`.
-- `CREATE UNIQUE INDEX calendar_events_user_provider_external_key ON calendar_events (user_id, provider, external_id)`.
-- Extend `calendar_connections_provider_check` to allow `'apple'`.
+### 1. Offline-first sync queue (JS layer)
 
-Code changes:
-- `sync-calendar`:
-  - Set `provider` on each row built from Google/Microsoft API responses.
-  - `upsert(..., { onConflict: 'user_id,provider,external_id' })`.
-  - Scope both delete branches with `.eq('provider', provider)` so Google sync only prunes Google rows (Microsoft sync only Microsoft, Apple sync only Apple).
-- `useCalendarSync.ts`: add `.eq('provider', ...)` when reading events if a single provider context is needed; otherwise leave provider-agnostic for the unified upcoming-events view (preferred — readiness/JIT consume all providers).
-- No changes to webhook/watch (Google-only by design).
+New file `src/services/syncQueue.ts`:
 
-## Phase 3 — Apple Calendar (EventKit), native iOS only
+- Persistent queue backed by `localStorage` (key `mm.syncQueue.v1`), keyed by `provider` + `id` (uuid) + `payloadHash` + `enqueuedAt` + `attempts` + `lastError`.
+- Queue items: `{ kind: 'apple-health' | 'apple-calendar', payload, enqueuedAt, attempts, lastError }`.
+- Functions: `enqueue`, `peekAll`, `removeById`, `markFailed(id, err)`, `clear`, `clearByKind`.
+- Cap: 50 items per kind (drop oldest when full, log telemetry `queue_overflow`).
+- Used by both wearable + calendar sync services after a foreground sync POST fails OR when offline at attempt time.
 
-### iOS native bridge
-- New Swift plugin `AppleCalendarBridge` exposing `requestPermission()` and `fetchEvents({startISO, endISO})`.
-- iOS 17+: `EKEventStore.requestFullAccessToEvents`; iOS 16: `requestAccess(to: .event)`.
-- `Info.plist`: add `NSCalendarsFullAccessUsageDescription` (iOS 17+) and `NSCalendarsUsageDescription` (iOS 16) — copy: "MindModule reads your upcoming calendar events to tailor daily readiness and nudges."
-- Bridge returns normalized array: `{ external_id (eventIdentifier), title, start_time, end_time, attendees_count (event.attendees?.count), is_organizer (event.organizer?.isCurrentUser), is_recurring (event.hasRecurrenceRules), event_metadata: { location, calendarTitle, isAllDay, url } }`.
-- Register the plugin in `AppDelegate` / `CapApp-SPM` per existing wearable bridge pattern.
+### 2. Retry orchestrator
 
-### Frontend (`src/utils/appleCalendar.ts` + `useAppleCalendar.ts`)
-- `isNativeApp() && Capacitor.getPlatform() === 'ios'` gate.
-- Methods: `requestAppleCalendarPermission()`, `fetchAppleCalendarEvents(windowStart, windowEnd)`, `syncAppleCalendarToBackend()`.
-- `syncAppleCalendarToBackend` POSTs to a new edge function `sync-apple-calendar` with Auth0 Bearer token and `{ events: [...] }`.
+New file `src/services/syncRetryOrchestrator.ts`:
 
-### New edge function `sync-apple-calendar`
-- Auth via `verifyAuth0Token` (same pattern as `sync-calendar`).
-- Uses service role client.
-- Validates body with zod (`events: array`, `windowStart`, `windowEnd`).
-- Ensures a `calendar_connections` row exists for `(user_id, provider='apple')`, marks `is_active=true`, updates `last_sync`. No tokens stored (device-side permission).
-- Reuses Google's classification/logistic-keyword logic (factor into shared inline helper).
-- `upsert(events, { onConflict: 'user_id,provider,external_id' })` with `provider='apple'`.
-- Scoped delete: `eq user_id`, `eq provider 'apple'`, within `[windowStart, windowEnd]`, `external_id NOT IN upstream`.
-- Returns `{ success, eventCount, lastSync }`.
-- Disconnect path handled by extending `calendar-auth` `disconnect` to accept `provider='apple'` (set `is_active=false`, no token cleanup needed; also `delete from calendar_events where user_id=? and provider='apple'`).
+- Central scheduler. Drains queue when:
+  - `online` event fires
+  - app `resume` (Capacitor App listener) — already wired in ConnectedData; we add a single subscription.
+  - auth token successfully refreshed (hook into `getAuthToken` cache write — emit a CustomEvent `mm:auth-token-refreshed`).
+  - Manual trigger from QA panel.
+- Debounce: min 5s between full drains.
+- Exponential backoff per item: 30s, 2m, 5m, 15m, then drop with telemetry `queue_dropped_max_attempts` (max 5 attempts).
+- Calls existing `syncHealthKitToBackend` / `syncAppleCalendarToBackend`-style POST helpers, BUT bypassing the queueing path (direct POST mode) to avoid recursion — small `postDirect()` helpers extracted.
+- Idempotency: relies on existing edge-function upserts on `(user_id, summary_date)` / `(user_id, provider, external_id)`.
 
-### `check-connections-status`
-- Add `apple: { connected, lastSync }` block (only populated if a row exists for provider='apple').
-- Existing `providers.google` / `providers.microsoft` stay; add `providers.apple`.
+### 3. Wire foreground sync services into the queue
 
-### UI (`ConnectedData.tsx`)
-- Add Apple Calendar card rendered only when `isNativeApp() && Capacitor.getPlatform() === 'ios'`.
-- Reuses existing card style (similar to Apple Health card).
-- Connect handler: request permission → on grant call `syncAppleCalendarToBackend` → toast + invalidate plan/readiness caches like Google.
-- Sync Now and Disconnect handlers per-provider, calling `sync-apple-calendar` and `calendar-auth` (action=`disconnect`, provider=`apple`).
-- Web build never renders the card; Google + Microsoft cards unchanged.
+Edit `src/services/wearableSyncService.ts`:
+- On `persist_failed:*` after the existing 2-attempt retry → `enqueue({ kind: 'apple-health', payload: { samples, raw_data } })`.
+- New small `postWearableDirect(payload, token)` extracted so the orchestrator reuses it.
 
-### Background refresh
-- iOS-only: trigger a foreground sync on app resume from `usePushNotificationHandler`/app-state listener (best-effort, non-blocking).
+Edit `src/services/appleCalendarSync.ts`:
+- On network/HTTP failure → `enqueue({ kind: 'apple-calendar', payload: { windowStart, windowEnd, events } })`.
+- New `postAppleCalendarDirect(payload, token)` extracted.
 
-## Verification
+### 4. Unified sync-state model
 
-- `npm run build` (auto by harness) and ESLint on touched files.
-- DB: confirm `provider` column populated, new unique index present, old unique dropped.
-- Google: connect → sync → events stored with `provider='google'`, `last_sync` updates, webhook channel recorded.
-- Mixed scenario: pre-seed an Apple-style row, run Google sync, verify Apple rows remain.
-- Apple (TestFlight): permission prompt appears, events appear in DB with `provider='apple'`, disconnect removes only Apple rows.
-- Microsoft sync still works unchanged.
+New file `src/services/syncStateModel.ts`:
+
+```ts
+export type SyncState =
+  | 'never_synced' | 'syncing' | 'synced' | 'pending_offline_sync'
+  | 'stale' | 'partial_sync' | 'failed' | 'permission_revoked' | 'disconnected';
+```
+
+Resolver `deriveSyncState({ backend, queueDepth, lastAttemptError, lastSyncAt, permission })` used by the debug panel and (optionally) by `ConnectedData` for richer pills. Backend (`check-connections-status`) remains the source of truth for `connected`/`lastSync` — local queue depth only adds the `pending_offline_sync` overlay.
+
+### 5. Telemetry events (extend `integrationTelemetry`)
+
+New event types:
+- `queue_enqueued`, `queue_drained_start`, `queue_drained_complete`, `queue_item_retry`, `queue_item_dropped`, `queue_overflow`, `queue_cleared`, `state_resolved`.
+
+All flow through the existing `[itel]` ring buffer.
+
+### 6. QA panel additions
+
+Extend `AppleIntegrationsDebugPanel.tsx`:
+- "Pending queue" section: shows count per kind + last error + next-retry ETA.
+- Buttons: "Drain queue now", "Clear queue", "Simulate offline" (toggles a window flag intercepted by `postDirect` helpers to force a synthetic network error), "Simulate sync failure" (one-shot 500), "Inspect last sync timestamps" (already partially shown).
+
+### 7. iOS side — minor hardening (no rewrite)
+
+`WearableSyncBridge.swift`:
+- Persist `lastSuccessfulSyncAt` in Keychain on POST 2xx; expose via a small `lastSyncedAt()` reader on the existing `NativeBackgroundSync` plugin (`getDiagnostics()` method) for the QA panel.
+- On non-2xx HTTP: keep the request body in a single-slot Keychain "outbox" (`mindmodule.wearable_outbox`). Next observer/background-fetch fire posts the outbox first before re-querying. Tiny ~30-line addition; no architectural change.
+
+`AppleCalendarBackgroundSyncBridge.swift`:
+- Same pattern: `mindmodule.calendar_outbox` single-slot Keychain outbox flushed on next run.
+
+(Native outbox + JS queue cover background-vs-foreground separately; idempotent edge functions deduplicate.)
+
+### 8. Logout cleanup
+
+Extend `useAuth.cleanupLocalState` (already clears `contextConnections`, HK flag) to also call `syncQueue.clear()` and `NativeBackgroundSync.clearAuthToken()` — the latter already exists, ensure it is invoked.
+
+## Files to modify / create
+
+Created:
+- `src/services/syncQueue.ts`
+- `src/services/syncRetryOrchestrator.ts`
+- `src/services/syncStateModel.ts`
+
+Edited:
+- `src/services/wearableSyncService.ts` — extract `postWearableDirect`, enqueue on failure.
+- `src/services/appleCalendarSync.ts` — extract `postAppleCalendarDirect`, enqueue on failure.
+- `src/services/authTokenService.ts` — emit `mm:auth-token-refreshed` after successful refresh.
+- `src/utils/integrationTelemetry.ts` — extend allowed event names.
+- `src/components/debug/AppleIntegrationsDebugPanel.tsx` — queue inspector + new actions.
+- `src/pages/ConnectedData.tsx` — start orchestrator on mount; wire resume listener.
+- `src/hooks/useAuth.tsx` — clear queue on logout.
+- `ios/App/App/WearableSyncBridge.swift` — outbox + lastSyncedAt diagnostics.
+- `ios/App/App/AppleCalendarBackgroundSyncBridge.swift` — outbox.
+- `ios/App/App/NativeBackgroundSyncPlugin.swift` — add `getDiagnostics()` method.
+- `src/utils/nativeBackgroundSync.ts` — add `getNativeSyncDiagnostics()`.
 
 ## Out of scope
 
-Push notification code, Apple Health, notification copy, wearable flows, downstream brief/plan/insights consumers (will be revisited after the calendar foundation lands).
+- No new edge functions (existing ones are already idempotent).
+- No DB migrations (existing unique constraints handle dedup).
+- No UI redesign for end users — only QA panel grows.
+- No changes to Google/Microsoft calendar paths.
+- BackgroundTasks (BGTaskScheduler) framework — would require new entitlements + Info.plist keys + user re-build. The existing background-fetch + HKObserver path already covers the iOS-permitted execution windows; we can add BGTaskScheduler later if QA shows the gap is real.
+
+## Acceptance verification
+
+- TypeScript build passes (auto).
+- Manual: in QA panel toggle "Simulate offline" → trigger sync → see queue depth 1 → toggle online → see drain telemetry + success.
+- `?qa=1` panel renders only when flag set; production users unaffected.
+- Logout flushes queue (verified via panel after re-login).
+- iOS rebuild required for Swift changes; JS-only changes ship via Lovable Publish.
+
+## Deployment
+
+- Frontend: user clicks Publish → Update.
+- Edge functions: none changed; no redeploy needed.
+- iOS: `git pull && npm install && npx cap sync ios` then Xcode rebuild for TestFlight.

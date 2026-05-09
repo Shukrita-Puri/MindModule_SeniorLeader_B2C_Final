@@ -25,7 +25,13 @@ import {
   isSimulatedStaleSync,
   setSimulatedStaleSync,
   getPendingDisconnects,
+  isSimulatedOffline,
+  setSimulatedOffline,
+  isSimulatedSyncFailure,
+  setSimulatedSyncFailure,
 } from '@/utils/integrationQaHelpers';
+import { peekAll as peekSyncQueue, depthByKind as queueDepthByKind, clear as clearSyncQueue } from '@/services/syncQueue';
+import { drainQueueNow } from '@/services/syncRetryOrchestrator';
 import {
   getIntegrationEvents,
   clearIntegrationEvents,
@@ -57,6 +63,8 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
 
   const platform = useMemo(() => qaPlatformInfo(), []);
   const pending = getPendingDisconnects();
+  const queueItems = peekSyncQueue();
+  const queueDepth = queueDepthByKind();
 
   if (!enabled) return null;
 
@@ -110,6 +118,17 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
             </pre>
           </section>
 
+          <section>
+            <div className="font-semibold text-foreground">
+              Offline sync queue (health: {queueDepth['apple-health']}, calendar: {queueDepth['apple-calendar']})
+            </div>
+            <pre className="mt-1 whitespace-pre-wrap break-all max-h-40 overflow-auto">
+{queueItems.length ? JSON.stringify(queueItems.map(i => ({
+  id: i.id, kind: i.kind, attempts: i.attempts, lastError: i.lastError, nextAttemptAt: i.nextAttemptAt,
+})), null, 2) : 'empty'}
+            </pre>
+          </section>
+
           <section className="flex flex-wrap gap-2 pt-1">
             <Button size="sm" variant="outline" disabled={!!busy}
               onClick={() => run('verify', async () => setVerifyResult(await qaReverifyAppleNative()))}>
@@ -138,6 +157,22 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
             <Button size="sm" variant="ghost" disabled={!!busy}
               onClick={() => clearIntegrationEvents()}>
               Clear telemetry
+            </Button>
+            <Button size="sm" variant="outline" disabled={!!busy}
+              onClick={() => run('drain', () => drainQueueNow('qa_manual').then(() => force(n => n + 1)))}>
+              Drain queue now
+            </Button>
+            <Button size="sm" variant="outline" disabled={!!busy}
+              onClick={() => { clearSyncQueue(); force(n => n + 1); }}>
+              Clear sync queue
+            </Button>
+            <Button size="sm" variant="outline" disabled={!!busy}
+              onClick={() => { setSimulatedOffline(!isSimulatedOffline()); force(n => n + 1); }}>
+              {isSimulatedOffline() ? '✓ Simulated offline' : 'Simulate offline'}
+            </Button>
+            <Button size="sm" variant="outline" disabled={!!busy}
+              onClick={() => { setSimulatedSyncFailure(!isSimulatedSyncFailure()); force(n => n + 1); }}>
+              {isSimulatedSyncFailure() ? '✓ One-shot failure armed' : 'Arm one-shot failure'}
             </Button>
             <Button size="sm" variant="ghost"
               onClick={() => { setQaDebugEnabled(false); window.location.reload(); }}>

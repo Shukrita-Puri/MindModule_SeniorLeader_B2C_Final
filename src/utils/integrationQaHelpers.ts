@@ -14,6 +14,8 @@ import { emitIntegrationEvent } from './integrationTelemetry';
 const QA_FLAG_KEY = 'mm_qa_debug_enabled';
 const SIM_REVOKED_KEY = 'mm_sim_apple_health_revoked';
 const SIM_STALE_KEY = 'mm_sim_apple_health_stale';
+const SIM_OFFLINE_KEY = 'mm_sim_offline';
+const SIM_FAILURE_ONESHOT_KEY = 'mm_sim_failure_oneshot';
 
 /**
  * QA debug surface is enabled when ANY of:
@@ -66,6 +68,35 @@ export function setSimulatedStaleSync(on: boolean): void {
     else localStorage.removeItem(SIM_STALE_KEY);
   } catch { /* */ }
   emitIntegrationEvent({ provider: 'apple-health', event: 'qa_action', meta: { action: 'simulate_stale', on } });
+}
+
+/** Simulate a fully offline network for the next sync attempts. */
+export function isSimulatedOffline(): boolean {
+  try { return localStorage.getItem(SIM_OFFLINE_KEY) === '1'; } catch { return false; }
+}
+export function setSimulatedOffline(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(SIM_OFFLINE_KEY, '1');
+    else localStorage.removeItem(SIM_OFFLINE_KEY);
+  } catch { /* */ }
+  emitIntegrationEvent({ provider: 'system', event: 'queue_simulate_offline', meta: { on } });
+}
+
+/** Single-shot synthetic 500 for the very next sync POST. Auto-consumed. */
+export function isSimulatedSyncFailure(): boolean {
+  try { return localStorage.getItem(SIM_FAILURE_ONESHOT_KEY) === '1'; } catch { return false; }
+}
+export function setSimulatedSyncFailure(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(SIM_FAILURE_ONESHOT_KEY, '1');
+    else localStorage.removeItem(SIM_FAILURE_ONESHOT_KEY);
+  } catch { /* */ }
+  emitIntegrationEvent({ provider: 'system', event: 'queue_simulate_failure', meta: { on } });
+}
+export function consumeSimulatedSyncFailure(): boolean {
+  if (!isSimulatedSyncFailure()) return false;
+  try { localStorage.removeItem(SIM_FAILURE_ONESHOT_KEY); } catch { /* */ }
+  return true;
 }
 
 /** Re-run native verification for both Apple integrations. */

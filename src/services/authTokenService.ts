@@ -207,3 +207,24 @@ export function clearTokenCache(): void {
   inflightTokenPromise = null;
   console.log('[authTokenService] Cache cleared');
 }
+
+function emitTokenRefreshed() {
+  try {
+    if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mm:auth-token-refreshed'));
+    }
+  } catch { /* */ }
+}
+
+// Detect successful token acquisitions by polling the cache expiry — when
+// it advances, a fresh token has just landed in the cache. Fires a window
+// event the sync orchestrator subscribes to. Cheap and side-effect free.
+if (typeof window !== 'undefined') {
+  let lastSeenExpiry = 0;
+  setInterval(() => {
+    if (cachedTokenExpiresAt > lastSeenExpiry) {
+      lastSeenExpiry = cachedTokenExpiresAt;
+      emitTokenRefreshed();
+    }
+  }, 10_000);
+}

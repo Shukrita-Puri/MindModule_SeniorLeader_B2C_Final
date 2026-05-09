@@ -6,9 +6,14 @@ import './index.css'
 import { DEV_MODE } from './config/devMode'
 import { getRedirectUri, initNativeAuthListener, getSanitisedAuth0Audience } from './utils/nativeAuth'
 import { installDevInterceptor } from './lib/devInterceptor'
+import { startSyncOrchestrator } from './services/syncRetryOrchestrator'
 
 // Install dev mode interceptor for edge function calls (no-op in production)
 installDevInterceptor();
+
+// Boot the offline-first sync retry orchestrator (drains queued Apple Health /
+// Apple Calendar payloads when network/auth/app-state allows).
+try { startSyncOrchestrator(); } catch (e) { console.warn('[Main] startSyncOrchestrator skipped:', e); }
 
 // Boot the deep-link listener for iOS Capacitor auth callbacks (safe no-op on web)
 initNativeAuthListener().catch((e) =>
