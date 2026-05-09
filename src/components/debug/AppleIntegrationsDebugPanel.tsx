@@ -25,7 +25,13 @@ import {
   isSimulatedStaleSync,
   setSimulatedStaleSync,
   getPendingDisconnects,
+  isSimulatedOffline,
+  setSimulatedOffline,
+  isSimulatedSyncFailure,
+  setSimulatedSyncFailure,
 } from '@/utils/integrationQaHelpers';
+import { peekAll as peekSyncQueue, depthByKind as queueDepthByKind, clear as clearSyncQueue } from '@/services/syncQueue';
+import { drainQueueNow } from '@/services/syncRetryOrchestrator';
 import {
   getIntegrationEvents,
   clearIntegrationEvents,
@@ -57,6 +63,8 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
 
   const platform = useMemo(() => qaPlatformInfo(), []);
   const pending = getPendingDisconnects();
+  const queueItems = peekSyncQueue();
+  const queueDepth = queueDepthByKind();
 
   if (!enabled) return null;
 
