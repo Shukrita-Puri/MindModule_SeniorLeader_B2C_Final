@@ -42,6 +42,7 @@ export interface HealthKitWearableData {
 }
 
 import { Capacitor } from '@capacitor/core';
+import { emitIntegrationEvent } from './integrationTelemetry';
 
 const HEALTHKIT_READ_TYPES = [
   'heartRateVariability',
@@ -72,6 +73,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
     console.log('[HealthKit] Not native platform, skipping permission request');
     return false;
   }
+  emitIntegrationEvent({ provider: 'apple-health', event: 'permission_request_started' });
 
   try {
     const { Health } = await import('@capgo/capacitor-health');
@@ -85,10 +87,21 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
 
     const verified = await verifyHealthKitAccess();
     console.log('[HealthKit] Permission verification result:', verified);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: verified ? 'permission_granted' : 'permission_denied',
+      nativePermissionState: verified ? 'authorized' : 'denied_or_unverified',
+    });
     return verified;
   } catch (error) {
     console.error('[HealthKit] Permission request threw error:', error);
     const message = error instanceof Error ? error.message : String(error);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'plugin_call_failed',
+      errorMessage: message,
+      meta: { call: 'requestAuthorization' },
+    });
     if (/entitlement|healthkit|unavailable|not available/i.test(message)) {
       console.error('[HealthKit] Developer configuration issue: HealthKit may be unavailable or the app may be missing the HealthKit entitlement.', {
         error: message,
@@ -141,9 +154,20 @@ export async function verifyHealthKitAccess(): Promise<boolean> {
 
   try {
     const authorization = await getHealthKitAuthorization();
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: authorization.permissionGranted ? 'native_verify_success' : 'native_verify_failure',
+      nativePermissionState: authorization.permissionGranted ? 'authorized' : 'unauthorized',
+      meta: { readAuthorized: authorization.readAuthorized, readDenied: authorization.readDenied },
+    });
     return authorization.permissionGranted;
   } catch (error) {
     console.error('[HealthKit] Verification read failed (permission likely denied):', error);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'native_verify_failure',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }
