@@ -573,20 +573,39 @@ const ConnectedData = () => {
   const handleDisconnectAppleCalendar = async () => {
     try {
       setConnecting('apple-calendar');
+      emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_started', userId: user?.id });
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
-        }
-      );
-      if (!res.ok) throw new Error('Disconnect failed');
+      let backendOk = false;
+      try {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+          }
+        );
+        backendOk = res.ok;
+      } catch (netErr) {
+        console.warn('[ConnectedData] Apple Calendar backend disconnect failed (network):', netErr);
+      }
+      if (!backendOk) {
+        // Backend unreachable: keep local UI truthful, queue retry, do NOT
+        // restore optimistic connected state.
+        queuePendingDisconnect('apple-calendar');
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'disconnect_failed',
+          errorCode: 'backend_unreachable',
+        });
+      } else {
+        emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_success' });
+        clearPendingDisconnect('apple-calendar');
+      }
       clearIntegrationCaches('calendar');
       setStatus(prev => {
         if (!prev) return prev;
@@ -612,6 +631,11 @@ const ConnectedData = () => {
       await fetchStatus();
     } catch (err) {
       console.error('[ConnectedData] Apple Calendar disconnect result:', err);
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'disconnect_failed',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       toast.error('Failed to disconnect Apple Calendar');
     } finally {
       setConnecting(null);
@@ -732,8 +756,12 @@ const ConnectedData = () => {
       clearIntegrationCaches('wearable');
       const backendDisconnected = await disconnectAppleHealthFromBackend();
       if (!backendDisconnected) {
-        toast.error('Failed to disconnect Apple Health');
-        return;
+        // Keep UI truthful (we still flip to disconnected locally) but queue
+        // a server retry. Telemetry already emitted by the service.
+        queuePendingDisconnect('apple-health');
+        toast.warning('Disconnected locally — will retry server sync when online.');
+      } else {
+        clearPendingDisconnect('apple-health');
       }
 
       clearHealthKitPermission();
