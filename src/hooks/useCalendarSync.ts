@@ -8,6 +8,7 @@ import { isAppleCalendarSupported, verifyAppleCalendarPermission } from '@/utils
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
+import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl } from '@/utils/supabaseFunctions';
 
 interface CalendarConnection {
   id: string;
@@ -49,18 +50,14 @@ export function useCalendarSync(): UseCalendarSyncResult {
   const markAppleCalendarInactive = useCallback(async () => {
     try {
       const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      if (!token || !projectId) {
+      if (!token) {
         queuePendingDisconnect('apple-calendar');
         return;
       }
 
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+      const res = await fetch(getSupabaseFunctionUrl('calendar-auth'), {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getSupabaseFunctionHeaders(token),
         body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
       });
 
@@ -81,7 +78,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
         provider: 'apple-calendar',
         event: 'disconnect_failed',
         userId: user?.id,
-        errorMessage: err instanceof Error ? err.message : String(err),
+        errorMessage: describeFetchError(err),
       });
     }
   }, [user?.id]);

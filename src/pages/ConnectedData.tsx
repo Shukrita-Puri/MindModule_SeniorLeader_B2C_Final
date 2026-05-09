@@ -37,6 +37,7 @@ import {
   getPendingDisconnects,
 } from '@/utils/integrationQaHelpers';
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
+import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
 
 /* ─── Types ─── */
 
@@ -75,15 +76,12 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
       console.warn('[ConnectedData] No auth token for sync');
       return { success: false };
     }
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const url = getSupabaseFunctionUrl('sync-calendar');
     const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/sync-calendar`,
+      url,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getSupabaseFunctionHeaders(token),
         body: JSON.stringify({ provider }),
       }
     );
@@ -215,31 +213,57 @@ const ConnectedData = () => {
         console.warn('[ConnectedData] No auth token available, skipping status fetch');
         return;
       }
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const url = getSupabaseFunctionUrl('check-connections-status');
+      emitIntegrationEvent({
+        provider: 'system',
+        event: 'app_resume_refresh',
+        userId: user?.id,
+        meta: {
+          phase: 'fetch_status',
+          url,
+          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+        },
+      });
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: getSupabaseFunctionHeaders(token),
+      });
       if (res.ok) {
         const data = await res.json();
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
         const verifiedStatus = await verifyNativeConnectionState(data);
         setStatus(verifiedStatus);
       } else {
-        console.error('[ConnectedData] Status fetch failed:', res.status);
+        const body = await readResponseBody(res);
+        console.error('[ConnectedData] Status fetch failed:', res.status, body);
+        emitIntegrationEvent({
+          provider: 'system',
+          event: 'plugin_call_failed',
+          userId: user?.id,
+          errorCode: `status_http_${res.status}`,
+          errorMessage: body || res.statusText,
+          meta: { url },
+        });
       }
     } catch (err) {
-      console.error('[ConnectedData] Failed to fetch status:', err);
+      const errorMessage = describeFetchError(err);
+      console.error('[ConnectedData] Failed to fetch status:', errorMessage, err);
+      emitIntegrationEvent({
+        provider: 'system',
+        event: 'plugin_call_failed',
+        userId: user?.id,
+        errorCode: 'status_network_error',
+        errorMessage,
+        meta: {
+          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+          supabaseUrlConfigured: !!import.meta.env.VITE_SUPABASE_URL,
+          projectIdConfigured: !!import.meta.env.VITE_SUPABASE_PROJECT_ID,
+        },
+      });
     } finally {
       setLoading(false);
     }
-  }, [verifyNativeConnectionState]);
+  }, [user?.id, verifyNativeConnectionState]);
 
   useEffect(() => {
     if (user?.id) {
@@ -267,10 +291,9 @@ const ConnectedData = () => {
             if (ok) clearPendingDisconnect('apple-health');
           } else if (p.provider === 'apple-calendar') {
             const token = await getAuthToken();
-            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-            const res = await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+            const res = await fetch(getSupabaseFunctionUrl('calendar-auth'), {
               method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              headers: getSupabaseFunctionHeaders(token),
               body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
             });
             if (res.ok) clearPendingDisconnect('apple-calendar');
@@ -348,12 +371,11 @@ const ConnectedData = () => {
       await new Promise(r => setTimeout(r, 500));
 
       const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const statusRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
+        getSupabaseFunctionUrl('check-connections-status'),
         {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: getSupabaseFunctionHeaders(token),
         }
       );
 
@@ -419,15 +441,11 @@ const ConnectedData = () => {
     setConnecting(cardId);
     try {
       const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        getSupabaseFunctionUrl('calendar-auth'),
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: getSupabaseFunctionHeaders(token),
           body: JSON.stringify({
             action: 'connect',
             provider: targetProvider,
@@ -461,15 +479,11 @@ const ConnectedData = () => {
     const label = provider === 'microsoft' ? 'Microsoft Calendar' : 'Google Calendar';
     try {
       const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        getSupabaseFunctionUrl('calendar-auth'),
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: getSupabaseFunctionHeaders(token),
           body: JSON.stringify({ action: 'disconnect', provider }),
         }
       );
@@ -559,13 +573,9 @@ const ConnectedData = () => {
       } else {
         try {
           const token = await getAuthToken();
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+          await fetch(getSupabaseFunctionUrl('calendar-auth'), {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
+            headers: getSupabaseFunctionHeaders(token),
             body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
           });
           clearIntegrationCaches('calendar');
@@ -607,17 +617,13 @@ const ConnectedData = () => {
       setConnecting('apple-calendar');
       emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_started', userId: user?.id });
       const token = await getAuthToken();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       let backendOk = false;
       try {
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+          getSupabaseFunctionUrl('calendar-auth'),
           {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
+            headers: getSupabaseFunctionHeaders(token),
             body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
           }
         );
