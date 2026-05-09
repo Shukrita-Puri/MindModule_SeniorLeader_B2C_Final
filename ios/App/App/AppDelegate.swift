@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import UserNotifications
 import Network
+import BackgroundTasks
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -16,6 +17,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var lastReconnectDrainAt: TimeInterval = 0
     private var lastPathStatus: NWPath.Status = .requiresConnection
 
+    // BGTaskScheduler identifier — must also be listed in Info.plist under
+    // BGTaskSchedulerPermittedIdentifiers.
+    private let backgroundRefreshTaskId = "com.moonshot.mindmoduleapp.refresh"
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Set notification center delegate for foreground notifications
         UNUserNotificationCenter.current().delegate = self
@@ -26,15 +31,64 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // granted (handled by JS layer); if not, observers fire harmlessly.
         WearableSyncBridge.shared.registerBackgroundObservers()
 
-        // Ask iOS to opportunistically wake the app for background fetch.
-        // The actual cadence is controlled by iOS based on usage, battery, and
-        // network conditions.
-        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+        // Register BGAppRefreshTask handler. iOS chooses the actual cadence
+        // based on usage, battery, and network conditions. We also keep the
+        // legacy performFetchWithCompletionHandler path below as a belt-and-
+        // braces fallback on older iOS versions.
+        registerBackgroundRefreshTask()
+        scheduleBackgroundRefresh()
 
         // Start the reconnect monitor.
         startNetworkMonitor()
 
         return true
+    }
+
+    // MARK: - BGTaskScheduler
+
+    private func registerBackgroundRefreshTask() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: backgroundRefreshTaskId,
+            using: nil
+        ) { [weak self] task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleBackgroundRefresh(task: refreshTask)
+        }
+    }
+
+    private func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundRefreshTaskId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            NSLog("[AppDelegate] Failed to schedule BGAppRefreshTask: \(error)")
+        }
+    }
+
+    private func handleBackgroundRefresh(task: BGAppRefreshTask) {
+        // Always re-schedule the next refresh.
+        scheduleBackgroundRefresh()
+
+        NativeSyncDiagnostics.shared.recordBackgroundFetch()
+        let group = DispatchGroup()
+
+        group.enter()
+        WearableSyncBridge.shared.fetchAndPersist { group.leave() }
+        group.enter()
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist { group.leave() }
+
+        task.expirationHandler = {
+            // iOS will kill us shortly — flag failure so it retries sooner.
+            task.setTaskCompleted(success: false)
+        }
+
+        group.notify(queue: .main) {
+            task.setTaskCompleted(success: true)
+        }
     }
 
     private func startNetworkMonitor() {
