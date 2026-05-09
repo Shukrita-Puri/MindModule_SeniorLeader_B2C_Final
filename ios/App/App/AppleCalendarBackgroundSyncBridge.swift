@@ -24,6 +24,7 @@ import Security
     private let tokenExpiryKey = "mindmodule.auth0_token_expires_at"
 
     public func fetchAndPersist(done: @escaping () -> Void) {
+        NativeSyncDiagnostics.shared.recordCalendarBackground()
         guard isCalendarAuthorized() else {
             NSLog("[AppleCalendarBackgroundSync] Calendar permission not granted — skipping")
             done()
@@ -55,7 +56,75 @@ import Security
         let end = calendar.date(byAdding: endComponents, to: calendar.startOfDay(for: now)) ?? now
 
         let events = fetchEvents(start: start, end: end)
-        postToEdgeFunction(events: events, windowStart: start, windowEnd: end, token: token, done: done)
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        // Persist payload to native outbox FIRST so a process kill mid-upload never loses data.
+        let payload: [String: Any] = [
+            "windowStart": iso.string(from: start),
+            "windowEnd": iso.string(from: end),
+            "events": events,
+            "source": "ios-background",
+        ]
+        if !events.isEmpty {
+            NativeOutbox.shared.enqueue(provider: .appleCalendar, payload: payload)
+        }
+        drainOutbox(token: token, done: done)
+    }
+
+    @objc public func flushOutbox(done: @escaping () -> Void) {
+        guard let token = readKeychain(key: tokenKey), !token.isEmpty else {
+            NSLog("[AppleCalendarBackgroundSync] flushOutbox: no token — skipping")
+            done()
+            return
+        }
+        drainOutbox(token: token, done: done)
+    }
+
+    private func drainOutbox(token: String, done: @escaping () -> Void) {
+        let items = NativeOutbox.shared.peek(provider: .appleCalendar)
+        if items.isEmpty { done(); return }
+        let group = DispatchGroup()
+        for item in items {
+            group.enter()
+            postOutboxItem(item, token: token) { group.leave() }
+        }
+        group.notify(queue: .global(qos: .background)) { done() }
+    }
+
+    private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {
+        var request = URLRequest(url: edgeFunctionURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(item.id, forHTTPHeaderField: "X-Outbox-Item-Id")
+        request.timeoutInterval = 30
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: item.payload)
+        } catch {
+            NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: "serialize: \(error.localizedDescription)")
+            done(); return
+        }
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error = error {
+                NSLog("[AppleCalendarBackgroundSync] outbox POST failed: \(error.localizedDescription)")
+                NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: error.localizedDescription)
+                NativeSyncDiagnostics.shared.recordUploadError("apple-calendar: \(error.localizedDescription)")
+                done(); return
+            }
+            if let http = response as? HTTPURLResponse {
+                if (200..<300).contains(http.statusCode) {
+                    NSLog("[AppleCalendarBackgroundSync] outbox POST ok: \(http.statusCode), item \(item.id)")
+                    NativeOutbox.shared.remove(id: item.id, provider: .appleCalendar)
+                    NativeSyncDiagnostics.shared.recordCalendarUpload()
+                } else {
+                    let msg = "http \(http.statusCode)"
+                    NativeOutbox.shared.markFailure(id: item.id, provider: .appleCalendar, error: msg)
+                    NativeSyncDiagnostics.shared.recordUploadError("apple-calendar: \(msg)")
+                }
+            }
+            done()
+        }
+        task.resume()
     }
 
     private func isCalendarAuthorized() -> Bool {
