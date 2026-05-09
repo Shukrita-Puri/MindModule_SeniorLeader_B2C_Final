@@ -56,7 +56,7 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
   }, []);
 
   const platform = useMemo(() => qaPlatformInfo(), []);
-  const pending = useMemo(() => getPendingDisconnects(), [events]);
+  const pending = getPendingDisconnects();
 
   if (!enabled) return null;
 

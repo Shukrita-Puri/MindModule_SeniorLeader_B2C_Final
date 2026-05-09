@@ -54,11 +54,17 @@ export function isSimulatedStaleSync(): boolean {
   try { return localStorage.getItem(SIM_STALE_KEY) === '1'; } catch { return false; }
 }
 export function setSimulatedRevokedPermission(on: boolean): void {
-  try { on ? localStorage.setItem(SIM_REVOKED_KEY, '1') : localStorage.removeItem(SIM_REVOKED_KEY); } catch { /* */ }
+  try {
+    if (on) localStorage.setItem(SIM_REVOKED_KEY, '1');
+    else localStorage.removeItem(SIM_REVOKED_KEY);
+  } catch { /* */ }
   emitIntegrationEvent({ provider: 'apple-health', event: 'qa_action', meta: { action: 'simulate_revoked', on } });
 }
 export function setSimulatedStaleSync(on: boolean): void {
-  try { on ? localStorage.setItem(SIM_STALE_KEY, '1') : localStorage.removeItem(SIM_STALE_KEY); } catch { /* */ }
+  try {
+    if (on) localStorage.setItem(SIM_STALE_KEY, '1');
+    else localStorage.removeItem(SIM_STALE_KEY);
+  } catch { /* */ }
   emitIntegrationEvent({ provider: 'apple-health', event: 'qa_action', meta: { action: 'simulate_stale', on } });
 }
 

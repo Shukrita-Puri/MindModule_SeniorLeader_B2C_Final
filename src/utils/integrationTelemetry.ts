@@ -98,7 +98,6 @@ export function emitIntegrationEvent(evt: Omit<IntegrationEvent, 'ts'> & { ts?: 
     persist();
     // Production-safe structured log: one line, JSON payload, easy to grep.
     // Use console.log so it surfaces in iOS device console / TestFlight logs.
-    // eslint-disable-next-line no-console
     console.log(`[itel] ${full.provider} ${full.event}`, JSON.stringify(full));
     listeners.forEach((l) => {
       try { l(buffer); } catch { /* ignore listener errors */ }
