@@ -124,7 +124,7 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             case .restricted: return "restricted"
             case .denied: return "denied"
             case .authorized: return "authorized"
-            @unknown default: return "unknown"
+            default: return "unknown"
             }
         }
     }
