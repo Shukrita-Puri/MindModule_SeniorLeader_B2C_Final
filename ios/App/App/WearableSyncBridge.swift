@@ -71,6 +71,7 @@ import Security
                 return
             }
             NSLog("[WearableSyncBridge] Observer fired for \(type.identifier)")
+            NativeSyncDiagnostics.shared.recordHealthObserver()
             self.fetchAndPersist {
                 completionHandler()
             }
@@ -181,13 +182,88 @@ import Security
         group.notify(queue: .global(qos: .background)) { [weak self] in
             guard let self = self else { done(); return }
             let samples = Array(dailySamples.values)
-            if samples.isEmpty {
-                NSLog("[WearableSyncBridge] No samples to persist")
+            if !samples.isEmpty {
+                // Persist payload to native outbox FIRST so a process kill mid-upload
+                // never loses the data.
+                let payload: [String: Any] = [
+                    "samples": samples,
+                    "source": "ios-background",
+                ]
+                NativeOutbox.shared.enqueue(provider: .appleHealth, payload: payload)
+            } else {
+                NSLog("[WearableSyncBridge] No new samples — will still drain any pending outbox items")
+            }
+            // Drain ALL pending health items (including the one we just enqueued + any
+            // previous items that failed on prior launches). Each successful upload
+            // removes the item; each failure bumps retry metadata.
+            self.drainOutbox(token: token, done: done)
+        }
+    }
+
+    /// Public entry point used by the plugin and AppDelegate to drain the outbox
+    /// without first re-querying HealthKit (e.g. on app launch / resume / reconnect).
+    @objc public func flushOutbox(done: @escaping () -> Void) {
+        guard let token = readKeychain(key: kKeychainTokenKey), !token.isEmpty else {
+            NSLog("[WearableSyncBridge] flushOutbox: no token — skipping")
+            done()
+            return
+        }
+        drainOutbox(token: token, done: done)
+    }
+
+    private func drainOutbox(token: String, done: @escaping () -> Void) {
+        let items = NativeOutbox.shared.peek(provider: .appleHealth)
+        if items.isEmpty { done(); return }
+
+        let group = DispatchGroup()
+        for item in items {
+            group.enter()
+            postOutboxItem(item, token: token) {
+                group.leave()
+            }
+        }
+        group.notify(queue: .global(qos: .background)) { done() }
+    }
+
+    private func postOutboxItem(_ item: NativeOutbox.Item, token: String, done: @escaping () -> Void) {
+        var request = URLRequest(url: edgeFunctionURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30
+        request.setValue(item.id, forHTTPHeaderField: "X-Outbox-Item-Id") // server-side dedupe hint
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: item.payload)
+        } catch {
+            NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: "serialize: \(error.localizedDescription)")
+            done()
+            return
+        }
+
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error = error {
+                NSLog("[WearableSyncBridge] outbox POST failed: \(error.localizedDescription)")
+                NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: error.localizedDescription)
+                NativeSyncDiagnostics.shared.recordUploadError("apple-health: \(error.localizedDescription)")
                 done()
                 return
             }
-            self.postToEdgeFunction(samples: samples, token: token, done: done)
+            if let http = response as? HTTPURLResponse {
+                if (200..<300).contains(http.statusCode) {
+                    NSLog("[WearableSyncBridge] outbox POST ok: \(http.statusCode), item \(item.id)")
+                    NativeOutbox.shared.remove(id: item.id, provider: .appleHealth)
+                    NativeSyncDiagnostics.shared.recordHealthUpload()
+                } else {
+                    let msg = "http \(http.statusCode)"
+                    NSLog("[WearableSyncBridge] outbox POST non-2xx: \(msg), item \(item.id)")
+                    NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: msg)
+                    NativeSyncDiagnostics.shared.recordUploadError("apple-health: \(msg)")
+                }
+            }
+            done()
         }
+        task.resume()
     }
 
     // MARK: - HealthKit query helpers

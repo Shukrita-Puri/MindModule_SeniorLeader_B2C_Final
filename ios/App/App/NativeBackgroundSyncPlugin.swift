@@ -18,6 +18,11 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "runNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDiagnostics", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getPendingOutboxItems", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "flushOutbox", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearOutbox", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "retryFailedItems", returnType: CAPPluginReturnPromise),
     ]
 
     private let tokenKey = "mindmodule.auth0_token"
@@ -73,6 +78,55 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                 "calendarDone": calendarDone,
             ])
         }
+    }
+
+    @objc func getDiagnostics(_ call: CAPPluginCall) {
+        let depthHealth = NativeOutbox.shared.depth(provider: .appleHealth)
+        let depthCalendar = NativeOutbox.shared.depth(provider: .appleCalendar)
+        var diag = NativeSyncDiagnostics.shared.snapshot()
+        diag["outboxDepth"] = [
+            "apple-health": depthHealth,
+            "apple-calendar": depthCalendar,
+        ]
+        diag["maxItemsPerProvider"] = NativeOutbox.shared.maxItemsPerProvider
+        call.resolve(diag)
+    }
+
+    @objc func getPendingOutboxItems(_ call: CAPPluginCall) {
+        call.resolve(["items": NativeOutbox.shared.snapshotAll()])
+    }
+
+    @objc func flushOutbox(_ call: CAPPluginCall) {
+        let group = DispatchGroup()
+        group.enter()
+        WearableSyncBridge.shared.flushOutbox { group.leave() }
+        group.enter()
+        AppleCalendarBackgroundSyncBridge.shared.flushOutbox { group.leave() }
+        group.notify(queue: .main) {
+            call.resolve([
+                "success": true,
+                "remaining": [
+                    "apple-health": NativeOutbox.shared.depth(provider: .appleHealth),
+                    "apple-calendar": NativeOutbox.shared.depth(provider: .appleCalendar),
+                ],
+            ])
+        }
+    }
+
+    @objc func clearOutbox(_ call: CAPPluginCall) {
+        let providerStr = call.getString("provider")
+        if let providerStr = providerStr,
+           let p = NativeOutbox.Provider(rawValue: providerStr) {
+            NativeOutbox.shared.clear(provider: p)
+        } else {
+            NativeOutbox.shared.clear()
+        }
+        call.resolve(["success": true])
+    }
+
+    @objc func retryFailedItems(_ call: CAPPluginCall) {
+        // Same as flushOutbox — retains existing failures and reposts each item.
+        flushOutbox(call)
     }
 
     private func saveKeychain(key: String, value: String) throws {

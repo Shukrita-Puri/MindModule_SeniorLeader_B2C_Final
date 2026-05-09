@@ -58,7 +58,13 @@ export type IntegrationEventName =
   | 'queue_cleared'
   | 'state_resolved'
   | 'queue_simulate_offline'
-  | 'queue_simulate_failure';
+  | 'queue_simulate_failure'
+  // native iOS outbox
+  | 'native_outbox_flushed'
+  | 'native_outbox_cleared'
+  | 'native_outbox_overflow'
+  | 'native_outbox_upload_success'
+  | 'native_outbox_upload_failure';
 
 export interface IntegrationEvent {
   ts: string;                       // ISO timestamp

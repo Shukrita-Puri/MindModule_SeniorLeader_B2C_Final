@@ -29,6 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // iOS may also call this on its own schedule. We sync HealthKit and Apple
     // Calendar natively because JS timers do not run while the app is suspended.
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        NativeSyncDiagnostics.shared.recordBackgroundFetch()
         let group = DispatchGroup()
 
         group.enter()
@@ -79,7 +80,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func applicationDidEnterBackground(_ application: UIApplication) {}
 
-    func applicationWillEnterForeground(_ application: UIApplication) {}
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        // Drain any payloads that were queued while the app was backgrounded
+        // or terminated. JS layer will also retry, but a native flush guarantees
+        // we don't depend on the WebView being alive.
+        WearableSyncBridge.shared.flushOutbox {}
+        AppleCalendarBackgroundSyncBridge.shared.flushOutbox {}
+    }
 
     func applicationDidBecomeActive(_ application: UIApplication) {}
 
