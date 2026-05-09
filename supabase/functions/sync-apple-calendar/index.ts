@@ -184,8 +184,25 @@ serve(async (req) => {
         .lte('start_time', windowEnd);
     }
 
+    if (outboxItemId) {
+      try {
+        await serviceClient.from('processed_outbox_items').insert({
+          outbox_item_id: outboxItemId,
+          user_id: userId,
+          function_name: 'sync-apple-calendar',
+        });
+      } catch (e) {
+        console.warn('[sync-apple-calendar] processed_outbox_items insert noop:', (e as Error)?.message);
+      }
+      if (Math.random() < 0.02) {
+        try {
+          const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+          await serviceClient.from('processed_outbox_items').delete().lt('created_at', cutoff);
+        } catch { /* */ }
+      }
+    }
+
     return jsonOk({ success: true, eventCount: classified.length, lastSync: nowIso });
-    // (unreached) — record processed below
   } catch (err) {
     console.error('[sync-apple-calendar] Unhandled error:', err);
     return jsonOk({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
