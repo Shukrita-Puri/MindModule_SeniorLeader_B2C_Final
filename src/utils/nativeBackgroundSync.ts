@@ -10,6 +10,13 @@ export interface NativeOutboxDiagnostics {
   lastUploadError?: { at: number; message: string } | null;
   outboxDepth?: { 'apple-health': number; 'apple-calendar': number };
   maxItemsPerProvider?: number;
+  // Hardening counters (added in production-grade hardening pass).
+  anchorShortCircuits?: number;
+  reconnectDrains?: number;
+  dedupHits?: number;
+  lastUploadLatencyMs?: number | null;
+  uploadSuccessCount?: number;
+  uploadFailureCount?: number;
 }
 
 export interface NativeOutboxItem {
