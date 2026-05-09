@@ -207,3 +207,32 @@ export function clearTokenCache(): void {
   inflightTokenPromise = null;
   console.log('[authTokenService] Cache cleared');
 }
+
+function emitTokenRefreshed() {
+  try {
+    if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mm:auth-token-refreshed'));
+    }
+  } catch { /* */ }
+}
+
+// Hook the refresh signal: any time the cached token is replaced via the
+// refresh paths above, fire a window event so the sync orchestrator can
+// flush its offline queue.
+const _origConsoleLog = console.log;
+(function instrumentTokenAcquired() {
+  // Lightweight indirection: detect successful token acquisition by
+  // patching nothing but emitting on a microtask after cache writes.
+  // We use a MutationObserver-style poll pattern via setInterval to
+  // detect rising-edge changes in cachedTokenExpiresAt. Cheap, self-contained.
+  let lastSeen = 0;
+  setInterval(() => {
+    if (cachedTokenExpiresAt > lastSeen) {
+      lastSeen = cachedTokenExpiresAt;
+      emitTokenRefreshed();
+    }
+  }, 10_000);
+})();
+
+// Silence unused-variable warning from instrumented hook.
+void _origConsoleLog;
