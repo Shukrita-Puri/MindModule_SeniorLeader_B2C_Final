@@ -253,6 +253,38 @@ const ConnectedData = () => {
     }
   }, [user?.id, fetchStatus, clearIntegrationCaches]);
 
+  // Online-event retry: if a backend disconnect previously failed, retry now.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOnline = async () => {
+      const pending = getPendingDisconnects();
+      if (pending.length === 0) return;
+      emitIntegrationEvent({ provider: 'system', event: 'qa_action', meta: { action: 'retry_pending_disconnects', count: pending.length } });
+      for (const p of pending) {
+        try {
+          if (p.provider === 'apple-health') {
+            const ok = await disconnectAppleHealthFromBackend();
+            if (ok) clearPendingDisconnect('apple-health');
+          } else if (p.provider === 'apple-calendar') {
+            const token = await getAuthToken();
+            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+            const res = await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+            });
+            if (res.ok) clearPendingDisconnect('apple-calendar');
+          }
+        } catch (err) {
+          console.warn('[ConnectedData] retry pending disconnect failed:', err);
+        }
+      }
+      fetchStatus();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [fetchStatus]);
+
   useEffect(() => {
     if (!isNativeApp() || !user?.id) return;
 
