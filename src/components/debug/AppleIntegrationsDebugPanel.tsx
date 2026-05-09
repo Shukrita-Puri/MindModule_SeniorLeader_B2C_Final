@@ -33,6 +33,14 @@ import {
 import { peekAll as peekSyncQueue, depthByKind as queueDepthByKind, clear as clearSyncQueue } from '@/services/syncQueue';
 import { drainQueueNow } from '@/services/syncRetryOrchestrator';
 import {
+  getNativeSyncDiagnostics,
+  getNativeOutboxItems,
+  flushNativeOutbox,
+  clearNativeOutbox,
+  type NativeOutboxDiagnostics,
+  type NativeOutboxItem,
+} from '@/utils/nativeBackgroundSync';
+import {
   getIntegrationEvents,
   clearIntegrationEvents,
   subscribeIntegrationEvents,
@@ -56,10 +64,25 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
   const [verifyResult, setVerifyResult] = useState<Awaited<ReturnType<typeof qaReverifyAppleNative>> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [, force] = useState(0);
+  const [nativeDiag, setNativeDiag] = useState<NativeOutboxDiagnostics | null>(null);
+  const [nativeOutbox, setNativeOutbox] = useState<Record<string, NativeOutboxItem[]>>({});
 
   useEffect(() => {
     return subscribeIntegrationEvents((evts) => setEvents([...evts]));
   }, []);
+
+  const refreshNative = async () => {
+    const [d, items] = await Promise.all([getNativeSyncDiagnostics(), getNativeOutboxItems()]);
+    setNativeDiag(d);
+    setNativeOutbox(items);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    refreshNative();
+    const id = setInterval(refreshNative, 5000);
+    return () => clearInterval(id);
+  }, [open]);
 
   const platform = useMemo(() => qaPlatformInfo(), []);
   const pending = getPendingDisconnects();
@@ -127,6 +150,49 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
   id: i.id, kind: i.kind, attempts: i.attempts, lastError: i.lastError, nextAttemptAt: i.nextAttemptAt,
 })), null, 2) : 'empty'}
             </pre>
+          </section>
+
+          <section>
+            <div className="font-semibold text-foreground">
+              Native iOS outbox (
+              health: {nativeDiag?.outboxDepth?.['apple-health'] ?? '—'},
+              calendar: {nativeDiag?.outboxDepth?.['apple-calendar'] ?? '—'})
+            </div>
+            <pre className="mt-1 whitespace-pre-wrap break-all">
+{nativeDiag ? JSON.stringify(nativeDiag, null, 2) : '— web/non-ios or unavailable —'}
+            </pre>
+            <pre className="mt-1 whitespace-pre-wrap break-all max-h-40 overflow-auto">
+{Object.keys(nativeOutbox).length
+  ? JSON.stringify(
+      Object.fromEntries(Object.entries(nativeOutbox).map(([k, arr]) => [
+        k,
+        arr.map((it) => ({
+          id: it.id, retryCount: it.retryCount, lastError: it.lastError, lastAttemptAt: it.lastAttemptAt, createdAt: it.createdAt,
+        })),
+      ])),
+      null,
+      2,
+    )
+  : 'empty'}
+            </pre>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('flushNative', () => flushNativeOutbox().then(refreshNative))}>
+                Flush native outbox
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('clearNativeHealth', () => clearNativeOutbox('apple-health').then(refreshNative))}>
+                Clear native health
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('clearNativeCal', () => clearNativeOutbox('apple-calendar').then(refreshNative))}>
+                Clear native calendar
+              </Button>
+              <Button size="sm" variant="ghost" disabled={!!busy}
+                onClick={refreshNative}>
+                Refresh native
+              </Button>
+            </div>
           </section>
 
           <section className="flex flex-wrap gap-2 pt-1">
