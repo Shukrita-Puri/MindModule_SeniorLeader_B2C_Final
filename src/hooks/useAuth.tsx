@@ -6,6 +6,7 @@ import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
 import { clearAllLocalData } from '@/services/localDataStore';
 import { clearHealthKitPermission } from '@/services/wearableSyncService';
+import { clear as clearSyncQueue } from '@/services/syncQueue';
 import { clearByPrefixes, cacheKeyPrefixes } from '@/utils/persistentBriefCache';
 import { toast } from 'sonner';
 
@@ -474,6 +475,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearNativeLoginInProgress();
     clearHealthKitPermission();
     clearAllLocalData();
+    try { clearSyncQueue(); } catch { /* */ }
     try {
       localStorage.removeItem('contextConnections');
     } catch (err) {
