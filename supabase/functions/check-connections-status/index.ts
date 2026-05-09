@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     const hasHistoricalData = !!anyWearable;
     const connectionStatus = watchIntegration?.watch_connection_status
-      ?? (watchIntegration?.watch_type ? "connected" : hasHistoricalData ? "connected" : "disconnected");
+      ?? (watchIntegration?.watch_type ? "connected" : "disconnected");
     let syncStatus = watchIntegration?.watch_sync_status ?? "unknown";
 
     if (

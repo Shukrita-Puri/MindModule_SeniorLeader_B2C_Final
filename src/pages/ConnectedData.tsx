@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
-import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
+import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 
 /* ─── Types ─── */
@@ -249,6 +249,7 @@ const ConnectedData = () => {
     if (!isNativeApp() || !user?.id) return;
 
     let cleanup: (() => void) | null = null;
+    let cancelled = false;
     (async () => {
       try {
         const { App } = await import('@capacitor/app');
@@ -271,13 +272,20 @@ const ConnectedData = () => {
             }
           }
         });
+        if (cancelled) {
+          listener.remove();
+          return;
+        }
         cleanup = () => listener.remove();
       } catch (err) {
         console.warn('[ConnectedData] Failed to register app resume refresh:', err);
       }
     })();
 
-    return () => { cleanup?.(); };
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [user?.id, fetchStatus, status?.appleWatch?.connectionStatus, status?.appleWatch?.lastSync]);
 
   // Handle post-OAuth callback: ?calendar_connected=true
@@ -485,8 +493,10 @@ const ConnectedData = () => {
     setConnecting('apple-calendar');
     try {
       const granted = await requestAppleCalendarPermission();
-      const verified = granted && await verifyAppleCalendarPermission();
-      console.log('[ConnectedData] Apple Calendar permission request result:', { granted, verified });
+      const permissionStatus = await getAppleCalendarPermissionStatus();
+      setAppleCalendarPermissionStatus(permissionStatus);
+      const verified = granted && isAppleCalendarAuthorizedStatus(permissionStatus);
+      console.log('[ConnectedData] Apple Calendar permission request result:', { granted, verified, permissionStatus });
       if (!granted) {
         toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
         return;
@@ -748,7 +758,8 @@ const ConnectedData = () => {
     const aw = status?.appleWatch;
     if (!aw) {
       return {
-        showConnected: false,
+        isLinked: false,
+        isHealthyConnected: false,
         statusLabel: 'Disconnected',
         statusNote: undefined as string | undefined,
         showReconnect: false,
@@ -780,7 +791,8 @@ const ConnectedData = () => {
 
       if (aw.syncStatus === 'waiting_for_data') {
         return {
-          showConnected: true,
+          isLinked: true,
+          isHealthyConnected: false,
           statusLabel: 'Syncing',
           statusNote: [ 'Waiting for new data', lastSyncNote ].filter(Boolean).join(' · '),
           showReconnect: false,
@@ -797,7 +809,8 @@ const ConnectedData = () => {
           ? `No data captured ${formatDistanceToNowStrict(new Date(aw.lastSampleAt!), { addSuffix: true })} — wear your watch to resume`
           : 'Health data is not syncing cleanly';
         return {
-          showConnected: true,
+          isLinked: true,
+          isHealthyConnected: false,
           statusLabel: watchNotWorn ? 'Needs attention' : 'Not syncing',
           statusNote: [ gapMessage, lastSampleNote ].filter(Boolean).join(' · '),
           showReconnect: false,
@@ -812,7 +825,8 @@ const ConnectedData = () => {
           : undefined;
 
       return {
-        showConnected: true,
+        isLinked: true,
+        isHealthyConnected: !(isDbStateStale || syncIsOld),
         statusLabel: isDbStateStale || syncIsOld ? 'Needs attention' : 'Connected',
         statusNote: [ lastSyncNote, lastSampleNote, staleHint ].filter(Boolean).join(' · ') || undefined,
         showReconnect: false,
@@ -821,7 +835,8 @@ const ConnectedData = () => {
 
     if (aw.connectionStatus === 'connecting') {
       return {
-        showConnected: false,
+        isLinked: false,
+        isHealthyConnected: false,
         statusLabel: 'Verifying…',
         statusNote: 'Checking HealthKit authorization',
         showReconnect: false,
@@ -830,7 +845,8 @@ const ConnectedData = () => {
 
     if (aw.connectionStatus === 'permission_revoked') {
       return {
-        showConnected: false,
+        isLinked: false,
+        isHealthyConnected: false,
         statusLabel: 'Permission revoked',
         statusNote: 'Go to iOS Settings → Privacy → Health to re-enable, then tap Reconnect',
         showReconnect: true,
@@ -839,7 +855,8 @@ const ConnectedData = () => {
 
     if (aw.connectionStatus === 'error') {
       return {
-        showConnected: false,
+        isLinked: false,
+        isHealthyConnected: false,
         statusLabel: 'Connection issue',
         statusNote: aw.lastError ? 'A HealthKit sync error needs attention' : 'Reconnect may be required to restore sync',
         showReconnect: true,
@@ -847,7 +864,8 @@ const ConnectedData = () => {
     }
 
     return {
-      showConnected: false,
+      isLinked: false,
+      isHealthyConnected: false,
       statusLabel: 'Disconnected',
       statusNote: aw.hasHistoricalData ? 'Historical data is still available' : undefined,
       showReconnect: false,
@@ -856,7 +874,7 @@ const ConnectedData = () => {
 
   const appleHealthState = status
     ? getAppleHealthState()
-    : { showConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
+    : { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
 
   /* ─── Connection Data ─── */
 
@@ -872,9 +890,8 @@ const ConnectedData = () => {
     : false;
   const appleCalendarConnected = appleCalendarDbConnected && appleCalendarPermissionGranted;
   const appleCalendarPermissionDenied = isAppleCalendarSupported()
-    && appleCalendarDbConnected
     && appleCalendarPermissionStatus !== null
-    && !appleCalendarPermissionGranted;
+    && (appleCalendarPermissionStatus === 'denied' || appleCalendarPermissionStatus === 'restricted');
   const googleLastSync = status?.calendar.providers?.google?.lastSync
     ?? (googleConnected ? (status?.calendar.lastSync ?? null) : null);
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
@@ -890,6 +907,7 @@ const ConnectedData = () => {
       description: 'Sync your calendar for contextual recommendations',
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
+      linked: googleConnected,
       lastSync: googleConnected ? formatLastSync(googleLastSync) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
@@ -905,6 +923,7 @@ const ConnectedData = () => {
       description: 'Connect your Outlook calendar to help Mind Module understand meetings, decision load, and recovery windows.',
       logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
+      linked: microsoftConnected,
       lastSync: microsoftConnected ? formatLastSync(microsoftLastSync) : null,
       statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
@@ -924,6 +943,7 @@ const ConnectedData = () => {
         </div>
       ),
       connected: appleCalendarConnected,
+      linked: appleCalendarConnected,
       lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
       statusLabel: appleCalendarPermissionDenied ? 'Permission denied' : appleCalendarConnected ? 'Connected' : 'Disconnected',
       statusNote: appleCalendarPermissionDenied
@@ -940,7 +960,8 @@ const ConnectedData = () => {
       name: 'Apple Health',
       description: 'Connect Apple Health for HRV data',
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
-      connected: appleHealthState.showConnected,
+      connected: appleHealthState.isHealthyConnected,
+      linked: appleHealthState.isLinked,
       lastSync: formatLastSync(status?.appleWatch?.lastSync ?? null),
       statusLabel: appleHealthState.statusLabel,
       statusNote: appleHealthState.statusNote,
@@ -989,7 +1010,7 @@ const ConnectedData = () => {
                   </div>
 
                   {/* Action */}
-                  {conn.connected ? (
+                  {conn.connected || conn.linked ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
