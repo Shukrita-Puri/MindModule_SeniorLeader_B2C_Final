@@ -1148,6 +1148,20 @@ const ConnectedData = () => {
             Terms of Use
           </Button>
         </div>
+
+        {isQaDebugEnabled() && (
+          <AppleIntegrationsDebugPanel
+            derived={{
+              appleHealthLabel: appleHealthState.statusLabel,
+              appleHealthLastSync: status?.appleWatch?.lastSync ?? null,
+              appleHealthSyncStatus: status?.appleWatch?.syncStatus ?? null,
+              appleHealthConnectionStatus: status?.appleWatch?.connectionStatus ?? null,
+              appleCalendarLabel: appleCalendarConnected ? 'Connected' : (appleCalendarPermissionDenied ? 'Permission denied' : 'Disconnected'),
+              appleCalendarLastSync: appleCalendarLastSync,
+              appleCalendarPermissionStatus: appleCalendarPermissionStatus,
+            }}
+          />
+        )}
       </div>
     </div>
   );
