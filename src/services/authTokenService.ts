@@ -216,23 +216,15 @@ function emitTokenRefreshed() {
   } catch { /* */ }
 }
 
-// Hook the refresh signal: any time the cached token is replaced via the
-// refresh paths above, fire a window event so the sync orchestrator can
-// flush its offline queue.
-const _origConsoleLog = console.log;
-(function instrumentTokenAcquired() {
-  // Lightweight indirection: detect successful token acquisition by
-  // patching nothing but emitting on a microtask after cache writes.
-  // We use a MutationObserver-style poll pattern via setInterval to
-  // detect rising-edge changes in cachedTokenExpiresAt. Cheap, self-contained.
-  let lastSeen = 0;
+// Detect successful token acquisitions by polling the cache expiry — when
+// it advances, a fresh token has just landed in the cache. Fires a window
+// event the sync orchestrator subscribes to. Cheap and side-effect free.
+if (typeof window !== 'undefined') {
+  let lastSeenExpiry = 0;
   setInterval(() => {
-    if (cachedTokenExpiresAt > lastSeen) {
-      lastSeen = cachedTokenExpiresAt;
+    if (cachedTokenExpiresAt > lastSeenExpiry) {
+      lastSeenExpiry = cachedTokenExpiresAt;
       emitTokenRefreshed();
     }
   }, 10_000);
-})();
-
-// Silence unused-variable warning from instrumented hook.
-void _origConsoleLog;
+}
