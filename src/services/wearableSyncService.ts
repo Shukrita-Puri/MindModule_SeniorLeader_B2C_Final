@@ -446,6 +446,19 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       // DB persist failed after retry – report as sync_delayed, NOT success
       const errorCode = `persist_failed:${persistRes?.status ?? 'network'}`;
       console.warn('[WearableSync] ⚠️ DB persist failed after retry:', errorCode, persistError);
+      // Offline-first: enqueue payload so the retry orchestrator can flush it later.
+      try {
+        queueEnqueue('apple-health', {
+          samples,
+          raw_data: {
+            synced_at: new Date().toISOString(),
+            total_daily_samples: data.dailySummaries.length,
+            queued_from: 'foreground',
+          },
+        }, errorCode);
+      } catch (qerr) {
+        console.warn('[WearableSync] queue enqueue failed:', qerr);
+      }
       emitIntegrationEvent({
         provider: 'apple-health',
         event: 'sync_partial',
