@@ -6,6 +6,7 @@
 import { isNativeApp, queryHealthKitData, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
 import { getAuthToken } from '@/services/authTokenService';
 import { saveWearableDataLocally } from '@/services/localDataStore';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
 const WEARABLE_PERMISSION_KEY = 'healthkit_permission_granted';
 
@@ -104,34 +105,57 @@ async function persistWatchStatus(payload: PersistWatchStatusPayload): Promise<b
 }
 
 export async function disconnectAppleHealthFromBackend(): Promise<boolean> {
+  emitIntegrationEvent({ provider: 'apple-health', event: 'disconnect_started' });
   const token = await getAuthToken();
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
   if (!token || !projectId) {
     console.warn('[WearableSync] Cannot disconnect watch in backend: missing auth token or project id');
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'disconnect_failed',
+      errorCode: 'missing_auth_or_project',
+    });
     return false;
   }
 
-  const res = await fetch(
-    `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ action: 'disconnect' }),
+  try {
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'disconnect' }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn('[WearableSync] Failed to disconnect watch in backend:', res.status, errText);
+      emitIntegrationEvent({
+        provider: 'apple-health',
+        event: 'disconnect_failed',
+        errorCode: `http_${res.status}`,
+        errorMessage: errText.slice(0, 200),
+      });
+      return false;
     }
-  );
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.warn('[WearableSync] Failed to disconnect watch in backend:', res.status, errText);
+    clearHealthKitPermission();
+    emitIntegrationEvent({ provider: 'apple-health', event: 'disconnect_success' });
+    return true;
+  } catch (err) {
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'disconnect_failed',
+      errorCode: 'network_error',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
-
-  clearHealthKitPermission();
-  return true;
 }
 
 /**
@@ -141,6 +165,7 @@ export async function disconnectAppleHealthFromBackend(): Promise<boolean> {
  */
 export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
   const startedAt = new Date().toISOString();
+  emitIntegrationEvent({ provider: 'apple-health', event: 'sync_started' });
 
   const fail = (
     overrides: Partial<WearableSyncResult>,
@@ -158,6 +183,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
   if (!isNativeApp()) {
     console.log('[WearableSync] Not native app, skipping sync');
+    emitIntegrationEvent({ provider: 'apple-health', event: 'sync_failed', errorCode: 'not_native' });
     return fail({ errorCode: 'not_native' });
   }
 
@@ -174,6 +200,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     if (!hasAccess) {
       console.warn('[WearableSync] HealthKit access verification failed – permission likely revoked');
       clearHealthKitPermission();
+      emitIntegrationEvent({
+        provider: 'apple-health',
+        event: 'permission_revoked_external',
+        nativePermissionState: 'unauthorized',
+      });
       await persistWatchStatus({
         watch_connection_status: 'permission_revoked',
         watch_sync_status: 'error',
@@ -353,7 +384,13 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     if (persistRes?.ok) {
       const result = await persistRes.json();
       console.log('[WearableSync] ✅ DB persist confirmed:', JSON.stringify(result));
-
+      emitIntegrationEvent({
+        provider: 'apple-health',
+        event: 'sync_success',
+        connectionState: 'connected',
+        syncState: 'synced',
+        meta: { samples: samples.length },
+      });
       return {
         success: true,
         permissionGranted: true,
@@ -368,6 +405,14 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       // DB persist failed after retry – report as sync_delayed, NOT success
       const errorCode = `persist_failed:${persistRes?.status ?? 'network'}`;
       console.warn('[WearableSync] ⚠️ DB persist failed after retry:', errorCode, persistError);
+      emitIntegrationEvent({
+        provider: 'apple-health',
+        event: 'sync_partial',
+        connectionState: 'sync_delayed',
+        syncState: 'sync_delayed',
+        errorCode,
+        errorMessage: persistError ?? undefined,
+      });
       await persistWatchStatus({
         watch_connection_status: 'connected',
         watch_sync_status: 'sync_delayed',
@@ -390,6 +435,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
   } catch (err) {
     console.error('[WearableSync] ⚠️ Sync error:', err);
     const errorCode = err instanceof Error ? err.message : 'unknown_sync_error';
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'sync_failed',
+      errorCode,
+    });
     if (isHealthKitPermissionGranted()) {
       await persistWatchStatus({
         watch_connection_status: 'connected',

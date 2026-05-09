@@ -42,6 +42,7 @@ export interface HealthKitWearableData {
 }
 
 import { Capacitor } from '@capacitor/core';
+import { emitIntegrationEvent } from './integrationTelemetry';
 
 const HEALTHKIT_READ_TYPES = [
   'heartRateVariability',
@@ -72,6 +73,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
     console.log('[HealthKit] Not native platform, skipping permission request');
     return false;
   }
+  emitIntegrationEvent({ provider: 'apple-health', event: 'permission_request_started' });
 
   try {
     const { Health } = await import('@capgo/capacitor-health');
@@ -85,10 +87,21 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
 
     const verified = await verifyHealthKitAccess();
     console.log('[HealthKit] Permission verification result:', verified);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: verified ? 'permission_granted' : 'permission_denied',
+      nativePermissionState: verified ? 'authorized' : 'denied_or_unverified',
+    });
     return verified;
   } catch (error) {
     console.error('[HealthKit] Permission request threw error:', error);
     const message = error instanceof Error ? error.message : String(error);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'plugin_call_failed',
+      errorMessage: message,
+      meta: { call: 'requestAuthorization' },
+    });
     if (/entitlement|healthkit|unavailable|not available/i.test(message)) {
       console.error('[HealthKit] Developer configuration issue: HealthKit may be unavailable or the app may be missing the HealthKit entitlement.', {
         error: message,
@@ -141,9 +154,20 @@ export async function verifyHealthKitAccess(): Promise<boolean> {
 
   try {
     const authorization = await getHealthKitAuthorization();
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: authorization.permissionGranted ? 'native_verify_success' : 'native_verify_failure',
+      nativePermissionState: authorization.permissionGranted ? 'authorized' : 'unauthorized',
+      meta: { readAuthorized: authorization.readAuthorized, readDenied: authorization.readDenied },
+    });
     return authorization.permissionGranted;
   } catch (error) {
     console.error('[HealthKit] Verification read failed (permission likely denied):', error);
+    emitIntegrationEvent({
+      provider: 'apple-health',
+      event: 'native_verify_failure',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }
@@ -199,12 +223,15 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
     console.log('[HealthKit] queryHealthKitData: reading 30-day window for all metrics...');
 
-    // Read all metrics in parallel – each one is fault-tolerant
+    // Read all metrics in parallel – each one is fault-tolerant.
+    // Cast through unknown because @capgo/capacitor-health types `dataType`
+    // as a strict union; we centralise validation in `safeReadSamples`.
+    const HealthAny = Health as unknown as HealthReader;
     const [hrvSamples, rhrSamples, hrSamples, sleepSamples] = await Promise.all([
-      safeReadSamples(Health, 'heartRateVariability', startISO, endISO, 'HRV'),
-      safeReadSamples(Health, 'restingHeartRate', startISO, endISO, 'RHR'),
-      safeReadSamples(Health, 'heartRate', startISO, endISO, 'HR'),
-      safeReadSamples(Health, 'sleep', startISO, endISO, 'Sleep'),
+      safeReadSamples(HealthAny, 'heartRateVariability', startISO, endISO, 'HRV'),
+      safeReadSamples(HealthAny, 'restingHeartRate', startISO, endISO, 'RHR'),
+      safeReadSamples(HealthAny, 'heartRate', startISO, endISO, 'HR'),
+      safeReadSamples(HealthAny, 'sleep', startISO, endISO, 'Sleep'),
     ]);
 
     console.log(`[HealthKit] Raw counts – HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
@@ -212,7 +239,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // ---- Group HRV by day ----
     const hrvByDay: Record<string, { value: number; hour: number; timestamp: string }[]> = {};
     for (const s of hrvSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dt = new Date(sDate);
       const dayKey = dt.toISOString().split('T')[0];
@@ -225,7 +252,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // ---- Group RHR by day (average) ----
     const rhrByDay: Record<string, number[]> = {};
     for (const s of rhrSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dayKey = new Date(sDate).toISOString().split('T')[0];
       const value = Number(s.value);
@@ -239,14 +266,14 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     // Per-sample HR for true event-window peaks (used by cause-effect engine).
     const hrSamplesByDay: Record<string, { t: string; v: number }[]> = {};
     for (const s of hrSamples) {
-      const sDate = s.endDate ?? s.date;
+      const sDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!sDate) continue;
       const dayKey = new Date(sDate).toISOString().split('T')[0];
       const value = Number(s.value);
       if (isNaN(value) || value <= 0) continue;
       if (!hrByDay[dayKey]) hrByDay[dayKey] = [];
       hrByDay[dayKey].push(value);
-      const startISO = s.startDate ?? s.date ?? sDate;
+      const startISO = (s.startDate ?? s.date ?? sDate) as string | number;
       if (!hrSamplesByDay[dayKey]) hrSamplesByDay[dayKey] = [];
       hrSamplesByDay[dayKey].push({ t: new Date(startISO).toISOString(), v: Math.round(value) });
     }
@@ -268,8 +295,8 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     }
     const sleepByDay: Record<string, SleepBucket> = {};
     for (const s of sleepSamples) {
-      const startDate = s.startDate ?? s.date;
-      const endDate = s.endDate ?? s.date;
+      const startDate = (s.startDate ?? s.date) as string | number | undefined;
+      const endDate = (s.endDate ?? s.date) as string | number | undefined;
       if (!startDate || !endDate) continue;
       // Attribute to wake-up day (end of sleep block)
       const dayKey = new Date(endDate).toISOString().split('T')[0];

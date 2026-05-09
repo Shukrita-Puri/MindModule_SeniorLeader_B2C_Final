@@ -29,6 +29,14 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import {
+  isQaDebugEnabled,
+  queuePendingDisconnect,
+  clearPendingDisconnect,
+  getPendingDisconnects,
+} from '@/utils/integrationQaHelpers';
+import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 
 /* ─── Types ─── */
 
@@ -245,6 +253,38 @@ const ConnectedData = () => {
     }
   }, [user?.id, fetchStatus, clearIntegrationCaches]);
 
+  // Online-event retry: if a backend disconnect previously failed, retry now.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOnline = async () => {
+      const pending = getPendingDisconnects();
+      if (pending.length === 0) return;
+      emitIntegrationEvent({ provider: 'system', event: 'qa_action', meta: { action: 'retry_pending_disconnects', count: pending.length } });
+      for (const p of pending) {
+        try {
+          if (p.provider === 'apple-health') {
+            const ok = await disconnectAppleHealthFromBackend();
+            if (ok) clearPendingDisconnect('apple-health');
+          } else if (p.provider === 'apple-calendar') {
+            const token = await getAuthToken();
+            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+            const res = await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+            });
+            if (res.ok) clearPendingDisconnect('apple-calendar');
+          }
+        } catch (err) {
+          console.warn('[ConnectedData] retry pending disconnect failed:', err);
+        }
+      }
+      fetchStatus();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [fetchStatus]);
+
   useEffect(() => {
     if (!isNativeApp() || !user?.id) return;
 
@@ -256,6 +296,7 @@ const ConnectedData = () => {
         const listener = await App.addListener('appStateChange', async (state) => {
           if (!state.isActive) return;
           console.log('[ConnectedData] App resumed — refreshing integration statuses');
+          emitIntegrationEvent({ provider: 'system', event: 'app_resume_refresh', userId: user?.id });
           await fetchStatus();
           if (status?.appleWatch?.connectionStatus === 'connected') {
             const hoursSinceSync = status.appleWatch.lastSync
@@ -277,6 +318,7 @@ const ConnectedData = () => {
           return;
         }
         cleanup = () => listener.remove();
+        emitIntegrationEvent({ provider: 'system', event: 'listener_registered', meta: { listener: 'appStateChange' } });
       } catch (err) {
         console.warn('[ConnectedData] Failed to register app resume refresh:', err);
       }
@@ -285,6 +327,7 @@ const ConnectedData = () => {
     return () => {
       cancelled = true;
       cleanup?.();
+      emitIntegrationEvent({ provider: 'system', event: 'listener_unregistered', meta: { listener: 'appStateChange' } });
     };
   }, [user?.id, fetchStatus, status?.appleWatch?.connectionStatus, status?.appleWatch?.lastSync]);
 
@@ -562,20 +605,39 @@ const ConnectedData = () => {
   const handleDisconnectAppleCalendar = async () => {
     try {
       setConnecting('apple-calendar');
+      emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_started', userId: user?.id });
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
-        }
-      );
-      if (!res.ok) throw new Error('Disconnect failed');
+      let backendOk = false;
+      try {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+          }
+        );
+        backendOk = res.ok;
+      } catch (netErr) {
+        console.warn('[ConnectedData] Apple Calendar backend disconnect failed (network):', netErr);
+      }
+      if (!backendOk) {
+        // Backend unreachable: keep local UI truthful, queue retry, do NOT
+        // restore optimistic connected state.
+        queuePendingDisconnect('apple-calendar');
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'disconnect_failed',
+          errorCode: 'backend_unreachable',
+        });
+      } else {
+        emitIntegrationEvent({ provider: 'apple-calendar', event: 'disconnect_success' });
+        clearPendingDisconnect('apple-calendar');
+      }
       clearIntegrationCaches('calendar');
       setStatus(prev => {
         if (!prev) return prev;
@@ -601,6 +663,11 @@ const ConnectedData = () => {
       await fetchStatus();
     } catch (err) {
       console.error('[ConnectedData] Apple Calendar disconnect result:', err);
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'disconnect_failed',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       toast.error('Failed to disconnect Apple Calendar');
     } finally {
       setConnecting(null);
@@ -721,8 +788,12 @@ const ConnectedData = () => {
       clearIntegrationCaches('wearable');
       const backendDisconnected = await disconnectAppleHealthFromBackend();
       if (!backendDisconnected) {
-        toast.error('Failed to disconnect Apple Health');
-        return;
+        // Keep UI truthful (we still flip to disconnected locally) but queue
+        // a server retry. Telemetry already emitted by the service.
+        queuePendingDisconnect('apple-health');
+        toast.warning('Disconnected locally — will retry server sync when online.');
+      } else {
+        clearPendingDisconnect('apple-health');
       }
 
       clearHealthKitPermission();
@@ -1077,6 +1148,20 @@ const ConnectedData = () => {
             Terms of Use
           </Button>
         </div>
+
+        {isQaDebugEnabled() && (
+          <AppleIntegrationsDebugPanel
+            derived={{
+              appleHealthLabel: appleHealthState.statusLabel,
+              appleHealthLastSync: status?.appleWatch?.lastSync ?? null,
+              appleHealthSyncStatus: status?.appleWatch?.syncStatus ?? null,
+              appleHealthConnectionStatus: status?.appleWatch?.connectionStatus ?? null,
+              appleCalendarLabel: appleCalendarConnected ? 'Connected' : (appleCalendarPermissionDenied ? 'Permission denied' : 'Disconnected'),
+              appleCalendarLastSync: appleCalendarLastSync,
+              appleCalendarPermissionStatus: appleCalendarPermissionStatus,
+            }}
+          />
+        )}
       </div>
     </div>
   );
