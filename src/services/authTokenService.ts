@@ -11,6 +11,7 @@
 
 import { DEV_MODE } from '@/config/devMode';
 import { getNativeTokens, isNativeApp, refreshNativeTokens } from '@/utils/nativeAuth';
+import { updateNativeBackgroundAuthToken } from '@/utils/nativeBackgroundSync';
 
 // ─── Token cache with expiry ────────────────────────────────────────
 let cachedToken: string | null = null;
@@ -19,12 +20,27 @@ const TOKEN_EXPIRY_BUFFER_S = 60;
 
 let inflightTokenPromise: Promise<string | null> | null = null;
 
+interface Auth0LikeClient {
+  getAccessTokenSilently(opts?: Record<string, unknown>): Promise<string>;
+}
+
+interface Auth0LikeError {
+  error?: string;
+  message?: string;
+}
+
+function getWindowAuth0Client(): Auth0LikeClient | null {
+  const maybeWindow = window as typeof window & { __auth0Client?: Auth0LikeClient };
+  return maybeWindow.__auth0Client ?? null;
+}
+
 async function getNativeAccessToken(now: number): Promise<string | null> {
   if (!isNativeApp()) return null;
   let tokens = getNativeTokens();
   if (tokens && tokens.expires_at > now + TOKEN_EXPIRY_BUFFER_S) {
     cachedToken = tokens.access_token;
     cachedTokenExpiresAt = tokens.expires_at;
+    updateNativeBackgroundAuthToken(tokens.access_token, tokens.expires_at);
     console.log(`[authTokenService] ✅ Token acquired (TTL: ${tokens.expires_at - now}s, path: native-cache)`);
     return tokens.access_token;
   }
@@ -36,6 +52,7 @@ async function getNativeAccessToken(now: number): Promise<string | null> {
       if (tokens?.access_token) {
         cachedToken = tokens.access_token;
         cachedTokenExpiresAt = tokens.expires_at || now + 300;
+        updateNativeBackgroundAuthToken(tokens.access_token, cachedTokenExpiresAt);
         console.log('[authTokenService] ✅ Token acquired (path: native-refresh)');
         return tokens.access_token;
       }
@@ -75,12 +92,12 @@ export async function getAuthToken(): Promise<string | null> {
       const nativeToken = await getNativeAccessToken(now);
       if (nativeToken) return nativeToken;
 
-      const auth0Client = (window as any).__auth0Client;
+      const auth0Client = getWindowAuth0Client();
       if (!auth0Client) {
         console.warn('[authTokenService] Auth0 client not available yet, waiting 1s...');
         // Brief wait – client may still be initializing
         await new Promise(r => setTimeout(r, 1000));
-        const retryClient = (window as any).__auth0Client;
+        const retryClient = getWindowAuth0Client();
         if (!retryClient) {
           console.warn('[authTokenService] Auth0 client still not available after wait');
           return null;
@@ -90,6 +107,7 @@ export async function getAuthToken(): Promise<string | null> {
           const exp = getJwtExpiry(token);
           cachedToken = token;
           cachedTokenExpiresAt = exp || now + 300;
+          updateNativeBackgroundAuthToken(token, cachedTokenExpiresAt);
           const ttl = (exp || now + 300) - now;
           console.log(`[authTokenService] ✅ Token acquired (TTL: ${ttl}s, path: delayed-refresh)`);
         }
@@ -103,24 +121,27 @@ export async function getAuthToken(): Promise<string | null> {
         if (exp) {
           cachedToken = token;
           cachedTokenExpiresAt = exp;
+          updateNativeBackgroundAuthToken(token, cachedTokenExpiresAt);
           const ttl = exp - now;
           console.log(`[authTokenService] ✅ Token acquired (TTL: ${ttl}s, path: refresh)`);
         } else {
           cachedToken = token;
           cachedTokenExpiresAt = now + 300;
+          updateNativeBackgroundAuthToken(token, cachedTokenExpiresAt);
           console.log('[authTokenService] ✅ Token acquired (opaque, cached 5min)');
         }
       }
 
       return token;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const authError = err as Auth0LikeError;
       // If refresh token is missing, try iframe-based silent auth as fallback
-      if (err?.error === 'missing_refresh_token' || err?.error === 'invalid_grant') {
+      if (authError?.error === 'missing_refresh_token' || authError?.error === 'invalid_grant') {
         try {
           const nativeToken = await getNativeAccessToken(now);
           if (nativeToken) return nativeToken;
 
-          const auth0Client = (window as any).__auth0Client;
+          const auth0Client = getWindowAuth0Client();
           if (auth0Client) {
             console.log('[authTokenService] Attempting iframe fallback (cacheMode: off)');
             const token = await auth0Client.getAccessTokenSilently({ cacheMode: 'off' });
@@ -128,6 +149,7 @@ export async function getAuthToken(): Promise<string | null> {
               const exp = getJwtExpiry(token);
               cachedToken = token;
               cachedTokenExpiresAt = exp || now + 300;
+              updateNativeBackgroundAuthToken(token, cachedTokenExpiresAt);
               console.log('[authTokenService] ✅ Token acquired (path: iframe-fallback)');
             }
             return token;
@@ -138,10 +160,10 @@ export async function getAuthToken(): Promise<string | null> {
       }
 
       // Don't log "login_required" as an error – it's expected when session is truly gone
-      if (err?.error === 'login_required') {
+      if (authError?.error === 'login_required') {
         console.log('[authTokenService] Session expired (login_required) – user will need to re-authenticate');
       } else {
-        console.error('[authTokenService] Token retrieval failed:', err?.error || err?.message || err);
+        console.error('[authTokenService] Token retrieval failed:', authError?.error || authError?.message || err);
       }
 
       cachedToken = null;

@@ -6,6 +6,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { clearNativeBackgroundAuthToken, updateNativeBackgroundAuthToken } from '@/utils/nativeBackgroundSync';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -165,6 +166,7 @@ export function storeNativeTokens(tokens: {
     expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
   };
   localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
+  updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at);
   console.log('[NativeAuth] Tokens stored, expires_at:', entry.expires_at);
 }
 
@@ -219,11 +221,12 @@ export function hasRecoverableNativeSession(): boolean {
 
 export function clearNativeTokens(): void {
   localStorage.removeItem(NATIVE_TOKENS_KEY);
+  clearNativeBackgroundAuthToken();
 }
 
 // ─── JWT helpers ────────────────────────────────────────────────────
 
-export function decodeJwtPayload(token: string): Record<string, any> | null {
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
@@ -343,6 +346,7 @@ export async function refreshNativeTokens(): Promise<boolean> {
           expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
         };
         localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
+        updateNativeBackgroundAuthToken(entry.access_token, entry.expires_at);
         console.log('[NativeAuth] ✅ Native tokens refreshed successfully');
         return true;
       } else {

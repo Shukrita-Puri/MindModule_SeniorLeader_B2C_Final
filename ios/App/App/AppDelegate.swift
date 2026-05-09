@@ -17,13 +17,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // granted (handled by JS layer); if not, observers fire harmlessly.
         WearableSyncBridge.shared.registerBackgroundObservers()
 
+        // Ask iOS to opportunistically wake the app for background fetch.
+        // The actual cadence is controlled by iOS based on usage, battery, and
+        // network conditions.
+        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+
         return true
     }
 
     // MARK: - Background fetch (belt-and-braces)
-    // iOS may also call this on its own schedule. We delegate to the same sync path.
+    // iOS may also call this on its own schedule. We sync HealthKit and Apple
+    // Calendar natively because JS timers do not run while the app is suspended.
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        let group = DispatchGroup()
+
+        group.enter()
         WearableSyncBridge.shared.fetchAndPersist {
+            group.leave()
+        }
+
+        group.enter()
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {
+            group.leave()
+        }
+
+        group.notify(queue: .main) {
             completionHandler(.newData)
         }
     }
