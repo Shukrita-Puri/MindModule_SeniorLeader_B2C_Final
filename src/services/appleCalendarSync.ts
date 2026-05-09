@@ -7,6 +7,7 @@
 
 import { fetchAppleCalendarEvents, isAppleCalendarSupported } from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
 export interface AppleCalendarSyncResult {
   success: boolean;
@@ -30,6 +31,7 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
   if (!isAppleCalendarSupported()) {
     return { success: false, error: 'Apple Calendar is only available on iOS' };
   }
+  emitIntegrationEvent({ provider: 'apple-calendar', event: 'sync_started' });
 
   const { start, end } = defaultSyncWindow();
 
@@ -38,11 +40,18 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
     events = await fetchAppleCalendarEvents(start, end);
   } catch (err) {
     console.error('[appleCalendarSync] fetchEvents failed:', err);
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: 'sync_failed',
+      errorCode: 'fetch_events_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     return { success: false, error: err instanceof Error ? err.message : 'Failed to read Apple Calendar' };
   }
 
   const token = await getAuthToken();
   if (!token) {
+    emitIntegrationEvent({ provider: 'apple-calendar', event: 'sync_failed', errorCode: 'missing_auth_token' });
     return { success: false, error: 'Authentication required' };
   }
 
@@ -65,11 +74,28 @@ export async function syncAppleCalendarToBackend(): Promise<AppleCalendarSyncRes
     );
     const data = await res.json();
     if (data?.success === false) {
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'sync_failed',
+        errorCode: 'backend_returned_error',
+        errorMessage: data.error,
+      });
       return { success: false, error: data.error || 'Sync failed' };
     }
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: 'sync_success',
+      meta: { eventCount: data.eventCount ?? events.length },
+    });
     return { success: true, eventCount: data.eventCount ?? events.length };
   } catch (err) {
     console.error('[appleCalendarSync] sync-apple-calendar failed:', err);
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: 'sync_failed',
+      errorCode: 'network_error',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     return { success: false, error: err instanceof Error ? err.message : 'Sync failed' };
   }
 }
