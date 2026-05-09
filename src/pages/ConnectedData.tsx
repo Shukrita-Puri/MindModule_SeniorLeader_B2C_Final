@@ -29,6 +29,14 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import {
+  isQaDebugEnabled,
+  queuePendingDisconnect,
+  clearPendingDisconnect,
+  getPendingDisconnects,
+} from '@/utils/integrationQaHelpers';
+import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 
 /* ─── Types ─── */
 
@@ -256,6 +264,7 @@ const ConnectedData = () => {
         const listener = await App.addListener('appStateChange', async (state) => {
           if (!state.isActive) return;
           console.log('[ConnectedData] App resumed — refreshing integration statuses');
+          emitIntegrationEvent({ provider: 'system', event: 'app_resume_refresh', userId: user?.id });
           await fetchStatus();
           if (status?.appleWatch?.connectionStatus === 'connected') {
             const hoursSinceSync = status.appleWatch.lastSync
@@ -277,6 +286,7 @@ const ConnectedData = () => {
           return;
         }
         cleanup = () => listener.remove();
+        emitIntegrationEvent({ provider: 'system', event: 'listener_registered', meta: { listener: 'appStateChange' } });
       } catch (err) {
         console.warn('[ConnectedData] Failed to register app resume refresh:', err);
       }
@@ -285,6 +295,7 @@ const ConnectedData = () => {
     return () => {
       cancelled = true;
       cleanup?.();
+      emitIntegrationEvent({ provider: 'system', event: 'listener_unregistered', meta: { listener: 'appStateChange' } });
     };
   }, [user?.id, fetchStatus, status?.appleWatch?.connectionStatus, status?.appleWatch?.lastSync]);
 
