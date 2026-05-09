@@ -7,6 +7,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function logIntegrationEvent(event: string, payload: Record<string, unknown> = {}) {
+  console.log("[IntegrationTelemetry]", JSON.stringify({
+    event,
+    timestamp: new Date().toISOString(),
+    ...payload,
+  }));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,6 +40,13 @@ Deno.serve(async (req) => {
       .eq("is_active", true);
 
     console.log("[check-connections-status] Calendar query result:", JSON.stringify({ calendarConns, calError }));
+    if (calError) {
+      logIntegrationEvent("calendar_connection_status_query_failure", {
+        userId,
+        errorReason: calError.message,
+        errorCode: calError.code,
+      });
+    }
 
     const googleConn = (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
     const microsoftConn = (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
@@ -97,6 +112,18 @@ Deno.serve(async (req) => {
       latestUpdatedAt: anyWearable?.updated_at,
       integration: watchIntegration,
     }));
+    logIntegrationEvent("backend_connection_status_checked", {
+      userId,
+      provider: "apple-health",
+      connectionState: connectionStatus,
+      syncState: syncStatus,
+      metadata: {
+        hasHistoricalData,
+        historicalDataUsedForActiveConnection: false,
+        latestSummaryDate: anyWearable?.summary_date ?? null,
+        latestUpdatedAt: anyWearable?.updated_at ?? null,
+      },
+    });
 
     const result = {
       calendar: {
@@ -144,6 +171,9 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("[check-connections-status] Error:", err);
+    logIntegrationEvent("backend_connection_status_check_failure", {
+      errorReason: err instanceof Error ? err.message : String(err),
+    });
     return new Response(
       JSON.stringify({ error: "Failed to check connections" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -6,6 +6,8 @@ import { clearLocalCalendarData, saveCalendarEventsLocally } from '@/services/lo
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import { isAppleCalendarSupported, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
 
 interface CalendarConnection {
   id: string;
@@ -48,7 +50,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
     try {
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      if (!token || !projectId) return;
+      if (!token || !projectId) {
+        queuePendingDisconnect('apple-calendar');
+        return;
+      }
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
         method: 'POST',
@@ -61,11 +66,25 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
       if (!res.ok) {
         console.warn('[useCalendarSync] Failed to mark Apple Calendar inactive:', res.status);
+        queuePendingDisconnect('apple-calendar');
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'disconnect_failed',
+          userId: user?.id,
+          errorCode: String(res.status),
+        });
       }
     } catch (err) {
       console.warn('[useCalendarSync] Apple Calendar inactive cleanup failed:', err);
+      queuePendingDisconnect('apple-calendar');
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'disconnect_failed',
+        userId: user?.id,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
     }
-  }, []);
+  }, [user?.id]);
 
   const verifyConnectionUsable = useCallback(async (conn: CalendarConnection | null) => {
     if (!conn) return null;
@@ -79,6 +98,13 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
     const permissionGranted = await verifyAppleCalendarPermission();
     console.log('[useCalendarSync] Apple Calendar permission verification:', { permissionGranted });
+    emitIntegrationEvent({
+      provider: 'apple-calendar',
+      event: permissionGranted ? 'native_verify_success' : 'permission_revoked_external',
+      userId: user?.id,
+      connectionState: conn.is_active ? 'db_active' : 'db_inactive',
+      nativePermissionState: permissionGranted ? 'authorized' : 'denied',
+    });
     if (!permissionGranted) {
       resetCalendarState();
       await markAppleCalendarInactive();
@@ -87,7 +113,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     }
 
     return conn;
-  }, [markAppleCalendarInactive, resetCalendarState]);
+  }, [markAppleCalendarInactive, resetCalendarState, user?.id]);
 
   // Fetch calendar connection status
   const fetchConnection = useCallback(async () => {
@@ -190,6 +216,13 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
         const permissionGranted = await verifyAppleCalendarPermission();
         if (!permissionGranted) {
+          emitIntegrationEvent({
+            provider: 'apple-calendar',
+            event: 'permission_revoked_external',
+            userId: user?.id,
+            connectionState: 'sync_blocked',
+            nativePermissionState: 'denied',
+          });
           setError('Apple Calendar permission denied. Reconnect calendar access in iOS Settings.');
           resetCalendarState();
           await markAppleCalendarInactive();
@@ -198,10 +231,26 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
         const result = await syncAppleCalendarToBackend();
         if (!result.success) {
+          emitIntegrationEvent({
+            provider: 'apple-calendar',
+            event: 'sync_failed',
+            userId: user?.id,
+            connectionState: 'connected',
+            syncState: 'sync_failed',
+            errorMessage: result.error || 'Apple Calendar sync failed',
+          });
           setError(result.error || 'Apple Calendar sync failed');
           return;
         }
 
+        emitIntegrationEvent({
+          provider: 'apple-calendar',
+          event: 'sync_success',
+          userId: user?.id,
+          connectionState: 'connected',
+          syncState: 'synced',
+          meta: { eventCount: result.eventCount ?? 0, source: 'useCalendarSync' },
+        });
         setLastSync(new Date());
         await fetchEvents();
         return;
@@ -240,12 +289,31 @@ export function useCalendarSync(): UseCalendarSyncResult {
       }
 
       console.log('[useCalendarSync] Sync complete:', data);
+      emitIntegrationEvent({
+        provider: connection.provider === 'google' ? 'google-calendar' : 'microsoft-calendar',
+        event: 'sync_success',
+        userId: user?.id,
+        connectionState: 'connected',
+        syncState: 'synced',
+        meta: { source: 'useCalendarSync' },
+      });
       setLastSync(new Date());
       
       // Refresh events from database
       await fetchEvents();
     } catch (err) {
       console.error('[useCalendarSync] Sync failed:', err);
+      emitIntegrationEvent({
+        provider: connection.provider === 'apple'
+          ? 'apple-calendar'
+          : connection.provider === 'google'
+            ? 'google-calendar'
+            : 'microsoft-calendar',
+        event: 'sync_failed',
+        userId: user?.id,
+        syncState: 'sync_failed',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setIsSyncing(false);
@@ -259,6 +327,12 @@ export function useCalendarSync(): UseCalendarSyncResult {
     const init = async () => {
       if (!user?.id) {
         resetCalendarState();
+        emitIntegrationEvent({
+          provider: 'system',
+          event: 'qa_action',
+          connectionState: 'cleared',
+          meta: { action: 'logout_calendar_state_cleared' },
+        });
         setIsLoading(false);
         return;
       }
