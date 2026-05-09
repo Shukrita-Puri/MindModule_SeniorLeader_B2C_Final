@@ -50,6 +50,10 @@ const HEALTHKIT_READ_TYPES = [
   'sleep',
 ] as const;
 
+interface HealthReader {
+  readSamples(opts: { dataType: string; startDate: string; endDate: string }): Promise<unknown>;
+}
+
 /** Returns true when running inside the Capacitor native shell */
 export function isNativeApp(): boolean {
   try {
@@ -84,6 +88,12 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
     return verified;
   } catch (error) {
     console.error('[HealthKit] Permission request threw error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (/entitlement|healthkit|unavailable|not available/i.test(message)) {
+      console.error('[HealthKit] Developer configuration issue: HealthKit may be unavailable or the app may be missing the HealthKit entitlement.', {
+        error: message,
+      });
+    }
     return false;
   }
 }
@@ -113,6 +123,12 @@ export async function getHealthKitAuthorization(): Promise<{
     return { permissionGranted, readAuthorized, readDenied };
   } catch (error) {
     console.error('[HealthKit] checkAuthorization failed:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (/entitlement|healthkit|unavailable|not available/i.test(message)) {
+      console.error('[HealthKit] Developer configuration issue: HealthKit authorization check failed because HealthKit may be unavailable or missing entitlement.', {
+        error: message,
+      });
+    }
     return { permissionGranted: false, readAuthorized: [], readDenied: [...HEALTHKIT_READ_TYPES] };
   }
 }
@@ -134,18 +150,18 @@ export async function verifyHealthKitAccess(): Promise<boolean> {
 
 /** Safe read helper – returns empty array if metric is not authorized or read fails */
 async function safeReadSamples(
-  Health: any,
+  Health: HealthReader,
   dataType: string,
   startDate: string,
   endDate: string,
   label: string,
-): Promise<any[]> {
+): Promise<Record<string, unknown>[]> {
   try {
     const res = await Health.readSamples({ dataType, startDate, endDate });
-    const raw = res as any;
+    const raw = res as Record<string, unknown> | null;
     const samples = raw?.samples ?? raw?.data ?? raw?.results ?? raw?.resultData ?? [];
     console.log(`[HealthKit] ${label}: ${Array.isArray(samples) ? samples.length : 0} samples`);
-    return Array.isArray(samples) ? samples : [];
+    return Array.isArray(samples) ? samples as Record<string, unknown>[] : [];
   } catch (err) {
     console.warn(`[HealthKit] ${label} read failed (non-fatal):`, err);
     return [];

@@ -15,10 +15,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
+import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
+import { clearLocalCalendarData, clearLocalWearableData } from '@/services/localDataStore';
 import { openUrl } from '@/utils/openUrl';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
@@ -26,7 +27,7 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
-import { isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
+import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 
 /* ─── Types ─── */
@@ -121,6 +122,82 @@ const ConnectedData = () => {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [appleCalendarPermissionStatus, setAppleCalendarPermissionStatus] = useState<string | null>(null);
+
+  const clearIntegrationCaches = useCallback((scope: 'calendar' | 'wearable' | 'all') => {
+    console.log('[ConnectedData] Clearing integration caches:', scope);
+    try {
+      if (scope === 'calendar' || scope === 'all') {
+        clearLocalCalendarData();
+        localStorage.removeItem('contextConnections');
+      }
+      if (scope === 'wearable' || scope === 'all') {
+        clearLocalWearableData();
+        clearHealthKitPermission();
+        localStorage.removeItem('contextConnections');
+      }
+    } catch (err) {
+      console.warn('[ConnectedData] Failed to clear integration caches:', err);
+    }
+  }, []);
+
+  const verifyNativeConnectionState = useCallback(async (backendStatus: ConnectionStatus): Promise<ConnectionStatus> => {
+    let next = backendStatus;
+
+    if (isNativeApp() && backendStatus.appleWatch?.connectionStatus === 'connected') {
+      const verified = await verifyHealthKitAccess();
+      console.log('[ConnectedData] HealthKit resume/startup verification:', {
+        verified,
+        backendConnectionStatus: backendStatus.appleWatch.connectionStatus,
+        backendSyncStatus: backendStatus.appleWatch.syncStatus,
+      });
+      if (!verified) {
+        next = {
+          ...next,
+          appleWatch: {
+            ...next.appleWatch,
+            connected: false,
+            connectionStatus: 'permission_revoked',
+            syncStatus: 'error',
+            lastError: 'healthkit_authorization_not_verified',
+            statusUpdatedAt: new Date().toISOString(),
+          },
+        };
+      }
+    }
+
+    if (isAppleCalendarSupported()) {
+      const permissionStatus = await getAppleCalendarPermissionStatus();
+      setAppleCalendarPermissionStatus(permissionStatus);
+      const appleDbConnected = !!backendStatus.calendar.providers?.apple?.connected;
+      const applePermissionGranted = isAppleCalendarAuthorizedStatus(permissionStatus);
+      console.log('[ConnectedData] Apple Calendar startup/resume verification:', {
+        permissionStatus,
+        applePermissionGranted,
+        appleDbConnected,
+      });
+
+      if (appleDbConnected && !applePermissionGranted) {
+        const providers = { ...(next.calendar.providers ?? {}) };
+        providers.apple = { connected: false, lastSync: null };
+        const googleConnected = providers.google?.connected ?? false;
+        const microsoftConnected = providers.microsoft?.connected ?? false;
+        const remainingProvider = googleConnected ? 'google' : microsoftConnected ? 'microsoft' : null;
+        next = {
+          ...next,
+          calendar: {
+            ...next.calendar,
+            connected: googleConnected || microsoftConnected,
+            provider: remainingProvider,
+            lastSync: remainingProvider ? providers[remainingProvider]?.lastSync ?? null : null,
+            providers,
+          },
+        };
+      }
+    }
+
+    return next;
+  }, []);
 
   // Fetch connection status from backend – NO localStorage overrides
   const fetchStatus = useCallback(async () => {
@@ -143,9 +220,9 @@ const ConnectedData = () => {
       );
       if (res.ok) {
         const data = await res.json();
-        // Trust backend connection state – do NOT override with localStorage
         console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
-        setStatus(data);
+        const verifiedStatus = await verifyNativeConnectionState(data);
+        setStatus(verifiedStatus);
       } else {
         console.error('[ConnectedData] Status fetch failed:', res.status);
       }
@@ -154,15 +231,54 @@ const ConnectedData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [verifyNativeConnectionState]);
 
   useEffect(() => {
     if (user?.id) {
       fetchStatus();
     } else {
+      console.log('[ConnectedData] No user, clearing user-specific integration state');
+      clearIntegrationCaches('all');
+      setStatus(null);
+      setAppleCalendarPermissionStatus(null);
       setLoading(false);
     }
-  }, [user?.id, fetchStatus]);
+  }, [user?.id, fetchStatus, clearIntegrationCaches]);
+
+  useEffect(() => {
+    if (!isNativeApp() || !user?.id) return;
+
+    let cleanup: (() => void) | null = null;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const listener = await App.addListener('appStateChange', async (state) => {
+          if (!state.isActive) return;
+          console.log('[ConnectedData] App resumed — refreshing integration statuses');
+          await fetchStatus();
+          if (status?.appleWatch?.connectionStatus === 'connected') {
+            const hoursSinceSync = status.appleWatch.lastSync
+              ? (Date.now() - new Date(status.appleWatch.lastSync).getTime()) / (1000 * 60 * 60)
+              : Number.POSITIVE_INFINITY;
+            if (hoursSinceSync > 6) {
+              console.log('[ConnectedData] App resume — Apple Health stale, triggering safe retry sync');
+              syncHealthKitToBackend()
+                .then((result) => {
+                  console.log('[ConnectedData] App resume HealthKit retry result:', JSON.stringify(result));
+                  fetchStatus();
+                })
+                .catch((err) => console.warn('[ConnectedData] App resume HealthKit retry failed:', err));
+            }
+          }
+        });
+        cleanup = () => listener.remove();
+      } catch (err) {
+        console.warn('[ConnectedData] Failed to register app resume refresh:', err);
+      }
+    })();
+
+    return () => { cleanup?.(); };
+  }, [user?.id, fetchStatus, status?.appleWatch?.connectionStatus, status?.appleWatch?.lastSync]);
 
   // Handle post-OAuth callback: ?calendar_connected=true
   useEffect(() => {
@@ -232,7 +348,7 @@ const ConnectedData = () => {
     };
 
     runPostConnectSync();
-  }, [searchParams, setSearchParams, fetchStatus, queryClient]);
+  }, [searchParams, setSearchParams, fetchStatus, queryClient, user?.id]);
 
   const formatLastSync = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -369,11 +485,18 @@ const ConnectedData = () => {
     setConnecting('apple-calendar');
     try {
       const granted = await requestAppleCalendarPermission();
+      const verified = granted && await verifyAppleCalendarPermission();
+      console.log('[ConnectedData] Apple Calendar permission request result:', { granted, verified });
       if (!granted) {
         toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
         return;
       }
+      if (!verified) {
+        toast.error('Apple Calendar permission could not be verified. Enable full calendar access in iOS Settings.');
+        return;
+      }
       const result = await syncAppleCalendarToBackend();
+      console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
         toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
         invalidatePlanCache();
@@ -381,6 +504,22 @@ const ConnectedData = () => {
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         await fetchStatus();
       } else {
+        try {
+          const token = await getAuthToken();
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          await fetch(`https://${projectId}.supabase.co/functions/v1/calendar-auth`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'disconnect', provider: 'apple' }),
+          });
+          clearIntegrationCaches('calendar');
+          await fetchStatus();
+        } catch (cleanupErr) {
+          console.warn('[ConnectedData] Apple Calendar cleanup after failed sync failed:', cleanupErr);
+        }
         toast.error(result.error || 'Apple Calendar connected but initial sync failed.');
       }
     } catch (err) {
@@ -412,6 +551,7 @@ const ConnectedData = () => {
 
   const handleDisconnectAppleCalendar = async () => {
     try {
+      setConnecting('apple-calendar');
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
@@ -426,18 +566,34 @@ const ConnectedData = () => {
         }
       );
       if (!res.ok) throw new Error('Disconnect failed');
+      clearIntegrationCaches('calendar');
       setStatus(prev => {
         if (!prev) return prev;
         const providers = { ...(prev.calendar.providers ?? {}) };
         providers.apple = { connected: false, lastSync: null };
-        return { ...prev, calendar: { ...prev.calendar, providers } };
+        const googleConnected = providers.google?.connected ?? false;
+        const microsoftConnected = providers.microsoft?.connected ?? false;
+        const remainingProvider = googleConnected ? 'google' : microsoftConnected ? 'microsoft' : null;
+        return {
+          ...prev,
+          calendar: {
+            connected: googleConnected || microsoftConnected,
+            provider: remainingProvider,
+            lastSync: remainingProvider ? providers[remainingProvider]?.lastSync ?? null : null,
+            providers,
+          },
+        };
       });
       invalidatePlanCache();
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       toast.success('Apple Calendar disconnected');
-    } catch {
+      await fetchStatus();
+    } catch (err) {
+      console.error('[ConnectedData] Apple Calendar disconnect result:', err);
       toast.error('Failed to disconnect Apple Calendar');
+    } finally {
+      setConnecting(null);
     }
   };
 
@@ -460,7 +616,7 @@ const ConnectedData = () => {
       }
 
       console.log('[ConnectedData] HealthKit permission verified, triggering sync...');
-      toast.success('Apple Health connected');
+      toast.info('Apple Health permission verified. Syncing data…');
 
       // Immediately sync HealthKit data
       const result = await syncHealthKitToBackend();
@@ -547,12 +703,12 @@ const ConnectedData = () => {
   const handleDisconnectAppleHealth = async () => {
     // Confirm — make it clear historical data is preserved
     const confirmed = window.confirm(
-      'Disconnect Apple Health?\n\nYour historical data is preserved. Reconnecting will resume syncing — you won\'t lose anything.'
+      'Disconnect Apple Health?\n\nYour historical data locally available will only be accessed. Reconnecting will resume syncing so your system stays up to date.'
     );
     if (!confirmed) return;
 
     try {
-      localStorage.removeItem('contextConnections');
+      clearIntegrationCaches('wearable');
       const backendDisconnected = await disconnectAppleHealthFromBackend();
       if (!backendDisconnected) {
         toast.error('Failed to disconnect Apple Health');
@@ -579,7 +735,9 @@ const ConnectedData = () => {
       toast.success('Apple Health disconnected');
       clearOuterReadinessCache(user?.id);
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-    } catch {
+      console.log('[ConnectedData] Apple Health disconnect complete');
+    } catch (err) {
+      console.error('[ConnectedData] Apple Health disconnect failed:', err);
       toast.error('Failed to disconnect Apple Health');
     }
   };
@@ -623,7 +781,7 @@ const ConnectedData = () => {
       if (aw.syncStatus === 'waiting_for_data') {
         return {
           showConnected: true,
-          statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
+          statusLabel: 'Syncing',
           statusNote: [ 'Waiting for new data', lastSyncNote ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
@@ -637,10 +795,10 @@ const ConnectedData = () => {
         const watchNotWorn = hoursSinceSample !== null && hoursSinceSample > 24;
         const gapMessage = watchNotWorn
           ? `No data captured ${formatDistanceToNowStrict(new Date(aw.lastSampleAt!), { addSuffix: true })} — wear your watch to resume`
-          : 'Catching up — new data will appear shortly';
+          : 'Health data is not syncing cleanly';
         return {
           showConnected: true,
-          statusLabel: 'Connected',
+          statusLabel: watchNotWorn ? 'Needs attention' : 'Not syncing',
           statusNote: [ gapMessage, lastSampleNote ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
@@ -655,7 +813,7 @@ const ConnectedData = () => {
 
       return {
         showConnected: true,
-        statusLabel: isDbStateStale ? 'Last known: Connected' : 'Connected',
+        statusLabel: isDbStateStale || syncIsOld ? 'Needs attention' : 'Connected',
         statusNote: [ lastSyncNote, lastSampleNote, staleHint ].filter(Boolean).join(' · ') || undefined,
         showReconnect: false,
       };
@@ -708,7 +866,15 @@ const ConnectedData = () => {
   const microsoftConnected = status?.calendar.providers?.microsoft?.connected
     ?? (status?.calendar.connected && status?.calendar.provider === 'microsoft')
     ?? false;
-  const appleCalendarConnected = status?.calendar.providers?.apple?.connected ?? false;
+  const appleCalendarDbConnected = status?.calendar.providers?.apple?.connected ?? false;
+  const appleCalendarPermissionGranted = isAppleCalendarSupported()
+    ? isAppleCalendarAuthorizedStatus(appleCalendarPermissionStatus)
+    : false;
+  const appleCalendarConnected = appleCalendarDbConnected && appleCalendarPermissionGranted;
+  const appleCalendarPermissionDenied = isAppleCalendarSupported()
+    && appleCalendarDbConnected
+    && appleCalendarPermissionStatus !== null
+    && !appleCalendarPermissionGranted;
   const googleLastSync = status?.calendar.providers?.google?.lastSync
     ?? (googleConnected ? (status?.calendar.lastSync ?? null) : null);
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
@@ -759,9 +925,11 @@ const ConnectedData = () => {
       ),
       connected: appleCalendarConnected,
       lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
-      statusLabel: undefined as string | undefined,
-      statusNote: undefined as string | undefined,
-      showReconnect: false,
+      statusLabel: appleCalendarPermissionDenied ? 'Permission denied' : appleCalendarConnected ? 'Connected' : 'Disconnected',
+      statusNote: appleCalendarPermissionDenied
+        ? 'Enable full calendar access in iOS Settings, then reconnect'
+        : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined),
+      showReconnect: appleCalendarPermissionDenied,
       onConnect: handleConnectAppleCalendar,
       onDisconnect: handleDisconnectAppleCalendar,
       onSync: handleSyncAppleCalendar,
@@ -804,7 +972,7 @@ const ConnectedData = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-foreground">{conn.name}</h3>
                     <p className="text-sm text-muted-foreground truncate">{conn.description}</p>
-                    {conn.id === 'apple-health' && (
+                    {conn.statusLabel && (
                       <p className="text-xs text-foreground/80 mt-0.5">{conn.statusLabel}</p>
                     )}
                     {conn.connected && conn.lastSync && (

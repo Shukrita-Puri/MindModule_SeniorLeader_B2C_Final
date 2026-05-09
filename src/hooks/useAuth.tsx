@@ -4,6 +4,8 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain, refreshNativeTokens, hasRecoverableNativeSession } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
+import { clearAllLocalData } from '@/services/localDataStore';
+import { clearHealthKitPermission } from '@/services/wearableSyncService';
 import { clearByPrefixes, cacheKeyPrefixes } from '@/utils/persistentBriefCache';
 import { toast } from 'sonner';
 
@@ -459,6 +461,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Shared cleanup for all logout paths
   const cleanupLocalState = () => {
+    console.log('[useAuth] Clearing user-specific integration caches for logout');
     activateLogoutGuard();
     clearTokenCache();
     syncAttempted.current = false;
@@ -469,6 +472,13 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearNativeTokens();
     clearNativeAuthCompleted();
     clearNativeLoginInProgress();
+    clearHealthKitPermission();
+    clearAllLocalData();
+    try {
+      localStorage.removeItem('contextConnections');
+    } catch (err) {
+      console.warn('[useAuth] Failed to clear integration localStorage keys:', err);
+    }
     setAppUser(null);
     delete window.__auth0Client;
     // Sweep persistent per-user caches so a different user signing in on

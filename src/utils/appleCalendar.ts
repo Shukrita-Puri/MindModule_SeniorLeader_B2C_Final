@@ -34,7 +34,8 @@ export async function requestAppleCalendarPermission(): Promise<boolean> {
   if (!isAppleCalendarSupported()) return false;
   try {
     const res = await AppleCalendar.requestPermission();
-    return !!res.granted;
+    console.log('[appleCalendar] requestPermission result:', JSON.stringify(res));
+    return !!res.granted && isAppleCalendarAuthorizedStatus(res.status);
   } catch (err) {
     console.error('[appleCalendar] requestPermission failed:', err);
     return false;
@@ -45,10 +46,21 @@ export async function getAppleCalendarPermissionStatus(): Promise<string> {
   if (!isAppleCalendarSupported()) return 'unsupported';
   try {
     const res = await AppleCalendar.getPermissionStatus();
+    console.log('[appleCalendar] getPermissionStatus result:', JSON.stringify(res));
     return res.status;
-  } catch {
+  } catch (err) {
+    console.error('[appleCalendar] getPermissionStatus failed:', err);
     return 'unknown';
   }
+}
+
+export function isAppleCalendarAuthorizedStatus(status: string | null | undefined): boolean {
+  return status === 'authorized' || status === 'fullAccess';
+}
+
+export async function verifyAppleCalendarPermission(): Promise<boolean> {
+  const status = await getAppleCalendarPermissionStatus();
+  return isAppleCalendarAuthorizedStatus(status);
 }
 
 export async function fetchAppleCalendarEvents(
