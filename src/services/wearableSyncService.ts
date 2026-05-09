@@ -7,6 +7,8 @@ import { isNativeApp, queryHealthKitData, verifyHealthKitAccess } from '@/utils/
 import { getAuthToken } from '@/services/authTokenService';
 import { saveWearableDataLocally } from '@/services/localDataStore';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { enqueue as queueEnqueue } from '@/services/syncQueue';
+import { isSimulatedOffline, isSimulatedSyncFailure, consumeSimulatedSyncFailure } from '@/utils/integrationQaHelpers';
 
 const WEARABLE_PERMISSION_KEY = 'healthkit_permission_granted';
 
