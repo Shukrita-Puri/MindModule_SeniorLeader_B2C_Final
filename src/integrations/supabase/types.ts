@@ -3054,6 +3054,27 @@ export type Database = {
         }
         Relationships: []
       }
+      processed_outbox_items: {
+        Row: {
+          created_at: string
+          function_name: string
+          outbox_item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          function_name: string
+          outbox_item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          function_name?: string
+          outbox_item_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           alignment_status: string | null
