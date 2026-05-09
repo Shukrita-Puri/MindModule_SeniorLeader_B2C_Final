@@ -82,12 +82,25 @@ import Foundation
         guard let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
         let dir = base.appendingPathComponent("mindmodule/outbox", isDirectory: true)
         if !fm.fileExists(atPath: dir.path) {
-            try? fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
+            // Protected-until-first-user-authentication so the file is encrypted at rest
+            // BUT remains accessible to background processes after the user has unlocked
+            // the device once since boot — which is required for HKObserverQuery /
+            // background fetch to be able to read & write the outbox.
+            let attrs: [FileAttributeKey: Any] = [
+                .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication,
+            ]
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: attrs)
             // Exclude from iCloud backup — these are local-only retry payloads.
             var u = dir
             var rv = URLResourceValues()
             rv.isExcludedFromBackup = true
             try? u.setResourceValues(rv)
+        } else {
+            // Re-apply protection class on existing dir (idempotent).
+            try? fm.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: dir.path
+            )
         }
         return dir
     }
@@ -110,7 +123,15 @@ import Foundation
         guard let url = fileURL(for: provider) else { return }
         let arr = items.map { $0.toJSON() }
         if let data = try? JSONSerialization.data(withJSONObject: arr, options: []) {
-            try? data.write(to: url, options: .atomic)
+            // .atomic = write to temp + rename → no partial-write corruption risk.
+            // .completeFileProtectionUntilFirstUserAuthentication = encrypted at rest,
+            // accessible to background tasks after first unlock since boot.
+            try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            // Also stamp protection on the file (defensive — handles upgrade path).
+            try? fm.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: url.path
+            )
         }
     }
 
@@ -213,6 +234,12 @@ import Foundation
     private let kLastCalendarUpload = "mm.diag.lastCalendarUploadAt"
     private let kLastBackgroundFetch = "mm.diag.lastBackgroundFetchAt"
     private let kLastUploadError = "mm.diag.lastUploadError"
+    private let kAnchorShortCircuits = "mm.diag.anchorShortCircuits"
+    private let kReconnectDrains = "mm.diag.reconnectDrains"
+    private let kDedupHits = "mm.diag.dedupHits"
+    private let kUploadLatencyMs = "mm.diag.lastUploadLatencyMs"
+    private let kUploadSuccessCount = "mm.diag.uploadSuccessCount"
+    private let kUploadFailureCount = "mm.diag.uploadFailureCount"
 
     public func recordHealthObserver() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthObserver) }
     public func recordHealthUpload() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthUpload) }
@@ -221,6 +248,20 @@ import Foundation
     public func recordBackgroundFetch() { defaults.set(Date().timeIntervalSince1970, forKey: kLastBackgroundFetch) }
     public func recordUploadError(_ message: String) {
         defaults.set(["at": Date().timeIntervalSince1970, "message": String(message.prefix(500))], forKey: kLastUploadError)
+        defaults.set(defaults.integer(forKey: kUploadFailureCount) + 1, forKey: kUploadFailureCount)
+    }
+    public func recordAnchorShortCircuit() {
+        defaults.set(defaults.integer(forKey: kAnchorShortCircuits) + 1, forKey: kAnchorShortCircuits)
+    }
+    public func recordReconnectDrain() {
+        defaults.set(defaults.integer(forKey: kReconnectDrains) + 1, forKey: kReconnectDrains)
+    }
+    public func recordDedupHit() {
+        defaults.set(defaults.integer(forKey: kDedupHits) + 1, forKey: kDedupHits)
+    }
+    public func recordUploadLatency(ms: Int) {
+        defaults.set(ms, forKey: kUploadLatencyMs)
+        defaults.set(defaults.integer(forKey: kUploadSuccessCount) + 1, forKey: kUploadSuccessCount)
     }
 
     public func snapshot() -> [String: Any] {
@@ -231,6 +272,12 @@ import Foundation
             "lastCalendarUploadAt": defaults.object(forKey: kLastCalendarUpload) ?? NSNull(),
             "lastBackgroundFetchAt": defaults.object(forKey: kLastBackgroundFetch) ?? NSNull(),
             "lastUploadError": defaults.object(forKey: kLastUploadError) ?? NSNull(),
+            "anchorShortCircuits": defaults.integer(forKey: kAnchorShortCircuits),
+            "reconnectDrains": defaults.integer(forKey: kReconnectDrains),
+            "dedupHits": defaults.integer(forKey: kDedupHits),
+            "lastUploadLatencyMs": defaults.object(forKey: kUploadLatencyMs) ?? NSNull(),
+            "uploadSuccessCount": defaults.integer(forKey: kUploadSuccessCount),
+            "uploadFailureCount": defaults.integer(forKey: kUploadFailureCount),
         ]
     }
 }
