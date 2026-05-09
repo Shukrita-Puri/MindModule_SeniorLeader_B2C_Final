@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:assets": "capacitor-assets generate --ios"
+    "generate:assets": "capacitor-assets generate --ios",
+    "validate:ios-native-sync": "bash ./ios/App/validate-ios-native-sync-target.sh"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.9.0",
