@@ -24,6 +24,46 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ===== IDEMPOTENCY (X-Outbox-Item-Id) =====
+    // Native iOS outbox + JS retry orchestrator both attach an item id.
+    // If we have already processed this id, return success immediately
+    // so retried/duplicate background uploads cannot create duplicate work.
+    const outboxItemId = req.headers.get("x-outbox-item-id") || req.headers.get("X-Outbox-Item-Id");
+    if (outboxItemId) {
+      const { data: existing } = await db
+        .from("processed_outbox_items")
+        .select("outbox_item_id")
+        .eq("outbox_item_id", outboxItemId)
+        .maybeSingle();
+      if (existing) {
+        console.log("[persist-wearable-data] Duplicate outbox item ignored:", outboxItemId);
+        return new Response(
+          JSON.stringify({ success: true, deduplicated: true, outbox_item_id: outboxItemId }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+    const recordProcessed = async () => {
+      if (!outboxItemId) return;
+      try {
+        await db.from("processed_outbox_items").insert({
+          outbox_item_id: outboxItemId,
+          user_id: userId,
+          function_name: "persist-wearable-data",
+        });
+      } catch (e) {
+        // Unique-violation = a concurrent retry already inserted; safe to ignore.
+        console.warn("[persist-wearable-data] processed_outbox_items insert noop:", (e as Error)?.message);
+      }
+      // Best-effort cleanup of rows older than 14 days (low probability per call).
+      if (Math.random() < 0.02) {
+        try {
+          const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+          await db.from("processed_outbox_items").delete().lt("created_at", cutoff);
+        } catch { /* */ }
+      }
+    };
+
     /**
      * Helper: upsert integration status.
      * Preserves watch_connected_at after the first real connection.
@@ -178,6 +218,7 @@ Deno.serve(async (req) => {
       });
 
       console.log(`[persist-wearable-data] Bulk result (${syncSource}):`, results);
+      await recordProcessed();
       return new Response(
         JSON.stringify({ success: true, ...results }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -249,6 +290,7 @@ Deno.serve(async (req) => {
       watch_status_updated_at: new Date().toISOString(),
     });
 
+    await recordProcessed();
     return new Response(
       JSON.stringify({ success: true, summary_date }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
