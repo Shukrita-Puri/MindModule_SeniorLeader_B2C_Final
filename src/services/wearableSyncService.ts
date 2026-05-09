@@ -106,6 +106,45 @@ async function persistWatchStatus(payload: PersistWatchStatusPayload): Promise<b
   return true;
 }
 
+export interface WearablePersistPayload {
+  samples: Array<Record<string, unknown>>;
+  raw_data?: Record<string, unknown>;
+}
+
+/**
+ * Direct POST to persist-wearable-data. Used by both the foreground
+ * sync path and by the retry orchestrator (when draining the offline
+ * queue). Does NOT enqueue on its own — caller handles failure.
+ */
+export async function postWearableDirect(payload: WearablePersistPayload): Promise<{ ok: boolean; status: number; error?: string }> {
+  if (isSimulatedOffline()) {
+    return { ok: false, status: 0, error: 'simulated_offline' };
+  }
+  if (consumeSimulatedSyncFailure()) {
+    return { ok: false, status: 500, error: 'simulated_failure' };
+  }
+  const token = await getAuthToken();
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  if (!token || !projectId) return { ok: false, status: 0, error: 'missing_auth_or_project' };
+  try {
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, status: res.status, error: text || `http_${res.status}` };
+    }
+    return { ok: true, status: res.status };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : 'network_error' };
+  }
+}
+
 export async function disconnectAppleHealthFromBackend(): Promise<boolean> {
   emitIntegrationEvent({ provider: 'apple-health', event: 'disconnect_started' });
   const token = await getAuthToken();
