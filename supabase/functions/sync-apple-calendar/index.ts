@@ -82,6 +82,25 @@ serve(async (req) => {
       );
     }
 
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // ===== IDEMPOTENCY (X-Outbox-Item-Id) =====
+    const outboxItemId = req.headers.get('x-outbox-item-id') || req.headers.get('X-Outbox-Item-Id');
+    if (outboxItemId) {
+      const { data: existing } = await serviceClient
+        .from('processed_outbox_items')
+        .select('outbox_item_id')
+        .eq('outbox_item_id', outboxItemId)
+        .maybeSingle();
+      if (existing) {
+        console.log('[sync-apple-calendar] Duplicate outbox item ignored:', outboxItemId);
+        return jsonOk({ success: true, deduplicated: true, outbox_item_id: outboxItemId });
+      }
+    }
+
     const raw = await req.json();
     const parsed = BodySchema.safeParse(raw);
     if (!parsed.success) {
@@ -91,11 +110,6 @@ serve(async (req) => {
       );
     }
     const { windowStart, windowEnd, events } = parsed.data;
-
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
 
     console.log('[sync-apple-calendar] user:', userId, 'events:', events.length, 'window:', windowStart, '→', windowEnd);
 
@@ -168,6 +182,24 @@ serve(async (req) => {
         .eq('provider', 'apple')
         .gte('start_time', windowStart)
         .lte('start_time', windowEnd);
+    }
+
+    if (outboxItemId) {
+      try {
+        await serviceClient.from('processed_outbox_items').insert({
+          outbox_item_id: outboxItemId,
+          user_id: userId,
+          function_name: 'sync-apple-calendar',
+        });
+      } catch (e) {
+        console.warn('[sync-apple-calendar] processed_outbox_items insert noop:', (e as Error)?.message);
+      }
+      if (Math.random() < 0.02) {
+        try {
+          const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+          await serviceClient.from('processed_outbox_items').delete().lt('created_at', cutoff);
+        } catch { /* */ }
+      }
     }
 
     return jsonOk({ success: true, eventCount: classified.length, lastSync: nowIso });

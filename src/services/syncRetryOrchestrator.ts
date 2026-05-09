@@ -31,11 +31,11 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 async function processItem(item: SyncQueueItem): Promise<{ ok: boolean; error?: string }> {
   if (item.kind === 'apple-health') {
-    const r = await postWearableDirect(item.payload as WearablePersistPayload);
+    const r = await postWearableDirect(item.payload as WearablePersistPayload, item.id);
     return { ok: r.ok, error: r.error };
   }
   if (item.kind === 'apple-calendar') {
-    const r = await postAppleCalendarDirect(item.payload as AppleCalendarSyncPayload);
+    const r = await postAppleCalendarDirect(item.payload as AppleCalendarSyncPayload, item.id);
     return { ok: r.ok, error: r.error };
   }
   return { ok: false, error: 'unknown_kind' };

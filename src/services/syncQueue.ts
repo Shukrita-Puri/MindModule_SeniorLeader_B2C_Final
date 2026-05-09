@@ -27,14 +27,46 @@ export interface SyncQueueItem<P = unknown> {
 
 const STORAGE_KEY = 'mm.syncQueue.v1';
 const PER_KIND_CAP = 50;
+const MAX_PAYLOAD_BYTES = 512 * 1024; // 512 KB per item — protects localStorage budget.
+
+function isValidItem(x: unknown): x is SyncQueueItem {
+  if (!x || typeof x !== 'object') return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o.id === 'string' &&
+    (o.kind === 'apple-health' || o.kind === 'apple-calendar') &&
+    'payload' in o &&
+    typeof o.enqueuedAt === 'string' &&
+    typeof o.attempts === 'number' &&
+    typeof o.nextAttemptAt === 'string'
+  );
+}
 
 function safeRead(): SyncQueueItem[] {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SyncQueueItem[]) : [];
+    if (!Array.isArray(parsed)) {
+      // Corrupt root — reset.
+      try { localStorage?.removeItem(STORAGE_KEY); } catch { /* */ }
+      emitIntegrationEvent({ provider: 'system', event: 'queue_corruption_recovered', meta: { reason: 'non_array_root' } });
+      return [];
+    }
+    const valid = parsed.filter(isValidItem) as SyncQueueItem[];
+    if (valid.length !== parsed.length) {
+      // Drop malformed items and rewrite cleaned queue.
+      try { localStorage?.setItem(STORAGE_KEY, JSON.stringify(valid)); } catch { /* */ }
+      emitIntegrationEvent({
+        provider: 'system',
+        event: 'queue_corruption_recovered',
+        meta: { dropped: parsed.length - valid.length },
+      });
+    }
+    return valid;
   } catch {
+    try { localStorage?.removeItem(STORAGE_KEY); } catch { /* */ }
+    emitIntegrationEvent({ provider: 'system', event: 'queue_corruption_recovered', meta: { reason: 'parse_error' } });
     return [];
   }
 }
@@ -58,6 +90,29 @@ function genId(): string {
 }
 
 export function enqueue<P>(kind: SyncQueueKind, payload: P, lastError?: string | null): SyncQueueItem<P> {
+  // Oversized-payload guard — reject silently and emit telemetry. Foreground
+  // sync paths never produce >512KB payloads, so a payload this large is
+  // almost certainly a bug or runaway accumulation.
+  try {
+    const approxBytes = JSON.stringify(payload).length;
+    if (approxBytes > MAX_PAYLOAD_BYTES) {
+      emitIntegrationEvent({
+        provider: kind === 'apple-health' ? 'apple-health' : 'apple-calendar',
+        event: 'queue_payload_rejected',
+        meta: { reason: 'oversized', bytes: approxBytes, cap: MAX_PAYLOAD_BYTES, lastError },
+      });
+      return {
+        id: 'rejected_' + Date.now(),
+        kind,
+        payload,
+        enqueuedAt: new Date().toISOString(),
+        attempts: 0,
+        lastError: 'oversized_rejected',
+        nextAttemptAt: new Date().toISOString(),
+      } as SyncQueueItem<P>;
+    }
+  } catch { /* serialize failure — fall through and let downstream handle */ }
+
   const items = safeRead();
   const sameKind = items.filter((i) => i.kind === kind);
   if (sameKind.length >= PER_KIND_CAP) {

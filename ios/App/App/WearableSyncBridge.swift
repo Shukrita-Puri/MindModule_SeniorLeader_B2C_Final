@@ -28,6 +28,77 @@ import Security
     private let kKeychainTokenKey = "mindmodule.auth0_token"
     private let kKeychainAnchorKey = "mindmodule.healthkit_anchor"
 
+    // UserDefaults keys for per-type HKQueryAnchor (archived as Data).
+    private func anchorDefaultsKey(for type: HKSampleType) -> String {
+        return "mm.healthkit.anchor.\(type.identifier)"
+    }
+
+    private func loadAnchor(for type: HKSampleType) -> HKQueryAnchor? {
+        guard let data = UserDefaults.standard.data(forKey: anchorDefaultsKey(for: type)) else { return nil }
+        do {
+            return try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
+        } catch {
+            NSLog("[WearableSyncBridge] Anchor decode failed for \(type.identifier): \(error.localizedDescription) — resetting")
+            UserDefaults.standard.removeObject(forKey: anchorDefaultsKey(for: type))
+            return nil
+        }
+    }
+
+    private func saveAnchor(_ anchor: HKQueryAnchor, for type: HKSampleType) {
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+            UserDefaults.standard.set(data, forKey: anchorDefaultsKey(for: type))
+        } catch {
+            NSLog("[WearableSyncBridge] Anchor save failed for \(type.identifier): \(error.localizedDescription)")
+        }
+    }
+
+    /// Anchored "is there anything new since last fetch?" probe.
+    /// Returns true when the observer fire actually corresponds to new sample data.
+    /// Updates the per-type anchor on every successful query so the next probe
+    /// only sees newer samples — incremental and battery-friendly.
+    private func hasNewSamplesSinceAnchor(type: HKSampleType, completion: @escaping (Bool) -> Void) {
+        let anchor = loadAnchor(for: type)
+        let q = HKAnchoredObjectQuery(
+            type: type,
+            predicate: nil,
+            anchor: anchor,
+            limit: HKObjectQueryNoLimit
+        ) { [weak self] _, samples, deleted, newAnchor, error in
+            if let error = error {
+                NSLog("[WearableSyncBridge] Anchored probe failed for \(type.identifier): \(error.localizedDescription)")
+                // Fail-open: assume there might be new data so we don't lose syncs.
+                completion(true)
+                return
+            }
+            if let newAnchor = newAnchor { self?.saveAnchor(newAnchor, for: type) }
+            let added = samples?.count ?? 0
+            let removed = deleted?.count ?? 0
+            completion((added + removed) > 0)
+        }
+        healthStore.execute(q)
+    }
+
+    /// Probes all observed types in parallel; calls completion(true) as soon as
+    /// any type reports new data, otherwise false after all probes finish.
+    private func anyNewSamples(completion: @escaping (Bool) -> Void) {
+        let group = DispatchGroup()
+        var anyNew = false
+        let lock = NSLock()
+        for t in observedTypes {
+            group.enter()
+            hasNewSamplesSinceAnchor(type: t) { isNew in
+                lock.lock()
+                if isNew { anyNew = true }
+                lock.unlock()
+                group.leave()
+            }
+        }
+        group.notify(queue: .global(qos: .background)) {
+            completion(anyNew)
+        }
+    }
+
     // Sample types we observe
     private var observedTypes: [HKSampleType] {
         var types: [HKSampleType] = []
@@ -90,6 +161,23 @@ import Security
             return
         }
 
+        // Anchored short-circuit: ask HealthKit "are there ANY new samples since
+        // last successful read?". If not, skip the heavy 7-day aggregation +
+        // upload entirely and just drain any pending outbox items. This is the
+        // single biggest battery / network reduction for noisy observer fires.
+        anyNewSamples { [weak self] anyNew in
+            guard let self = self else { done(); return }
+            if !anyNew {
+                NSLog("[WearableSyncBridge] Anchored probe — no new samples; draining outbox only")
+                NativeSyncDiagnostics.shared.recordAnchorShortCircuit()
+                self.drainOutbox(token: token, done: done)
+                return
+            }
+            self.fetchAndPersistFull(token: token, done: done)
+        }
+    }
+
+    private func fetchAndPersistFull(token: String, done: @escaping () -> Void) {
         let endDate = Date()
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate
 
@@ -241,7 +329,9 @@ import Security
             return
         }
 
+        let startedAt = Date()
         let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            let latencyMs = Int(Date().timeIntervalSince(startedAt) * 1000.0)
             if let error = error {
                 NSLog("[WearableSyncBridge] outbox POST failed: \(error.localizedDescription)")
                 NativeOutbox.shared.markFailure(id: item.id, provider: .appleHealth, error: error.localizedDescription)
@@ -254,6 +344,7 @@ import Security
                     NSLog("[WearableSyncBridge] outbox POST ok: \(http.statusCode), item \(item.id)")
                     NativeOutbox.shared.remove(id: item.id, provider: .appleHealth)
                     NativeSyncDiagnostics.shared.recordHealthUpload()
+                    NativeSyncDiagnostics.shared.recordUploadLatency(ms: latencyMs)
                 } else {
                     let msg = "http \(http.statusCode)"
                     NSLog("[WearableSyncBridge] outbox POST non-2xx: \(msg), item \(item.id)")

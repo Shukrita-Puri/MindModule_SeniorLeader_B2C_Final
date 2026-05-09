@@ -64,7 +64,14 @@ export type IntegrationEventName =
   | 'native_outbox_cleared'
   | 'native_outbox_overflow'
   | 'native_outbox_upload_success'
-  | 'native_outbox_upload_failure';
+  | 'native_outbox_upload_failure'
+  // resilience / hardening
+  | 'queue_corruption_recovered'
+  | 'queue_payload_rejected'
+  | 'idempotency_dedup_hit'
+  | 'reconnect_drain_triggered'
+  | 'anchor_short_circuit'
+  | 'anchor_state_reset';
 
 export interface IntegrationEvent {
   ts: string;                       // ISO timestamp

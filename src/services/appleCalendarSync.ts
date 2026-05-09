@@ -28,16 +28,18 @@ export interface AppleCalendarSyncPayload {
  * Direct POST to sync-apple-calendar. Used by both foreground sync and the
  * retry orchestrator. Does NOT enqueue on its own.
  */
-export async function postAppleCalendarDirect(payload: AppleCalendarSyncPayload): Promise<{ ok: boolean; status: number; error?: string; eventCount?: number }> {
+export async function postAppleCalendarDirect(payload: AppleCalendarSyncPayload, idempotencyKey?: string): Promise<{ ok: boolean; status: number; error?: string; eventCount?: number }> {
   if (isSimulatedOffline()) return { ok: false, status: 0, error: 'simulated_offline' };
   if (consumeSimulatedSyncFailure()) return { ok: false, status: 500, error: 'simulated_failure' };
   const token = await getAuthToken();
   if (!token) return { ok: false, status: 0, error: 'missing_auth_token' };
   const url = getSupabaseFunctionUrl('sync-apple-calendar');
   try {
+    const headers = getSupabaseFunctionHeaders(token);
+    if (idempotencyKey) (headers as Record<string, string>)['X-Outbox-Item-Id'] = idempotencyKey;
     const res = await fetch(url, {
       method: 'POST',
-      headers: getSupabaseFunctionHeaders(token),
+      headers,
       body: JSON.stringify(payload),
     });
     const bodyText = await readResponseBody(res);

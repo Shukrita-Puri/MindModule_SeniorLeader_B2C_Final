@@ -1,11 +1,20 @@
 import UIKit
 import Capacitor
 import UserNotifications
+import Network
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
+
+    // Network reconnect monitor — drains the native outbox the moment the
+    // device regains connectivity. Debounced + only fires when transitioning
+    // from "no path" → "satisfied" so we don't drain on every Wi-Fi micro-blip.
+    private let networkMonitor = NWPathMonitor()
+    private let networkMonitorQueue = DispatchQueue(label: "mindmodule.networkMonitor")
+    private var lastReconnectDrainAt: TimeInterval = 0
+    private var lastPathStatus: NWPath.Status = .requiresConnection
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Set notification center delegate for foreground notifications
@@ -22,7 +31,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // network conditions.
         application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
 
+        // Start the reconnect monitor.
+        startNetworkMonitor()
+
         return true
+    }
+
+    private func startNetworkMonitor() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            guard let self = self else { return }
+            let prev = self.lastPathStatus
+            self.lastPathStatus = path.status
+            // Only drain on the rising edge: previously not-satisfied → now satisfied.
+            guard path.status == .satisfied, prev != .satisfied else { return }
+            // Debounce: at most once per 10s.
+            let now = Date().timeIntervalSince1970
+            if now - self.lastReconnectDrainAt < 10 { return }
+            self.lastReconnectDrainAt = now
+            NSLog("[AppDelegate] Network reconnected — draining native outbox")
+            NativeSyncDiagnostics.shared.recordReconnectDrain()
+            WearableSyncBridge.shared.flushOutbox {}
+            AppleCalendarBackgroundSyncBridge.shared.flushOutbox {}
+        }
+        networkMonitor.start(queue: networkMonitorQueue)
     }
 
     // MARK: - Background fetch (belt-and-braces)

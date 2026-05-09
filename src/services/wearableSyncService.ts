@@ -116,7 +116,7 @@ export interface WearablePersistPayload {
  * sync path and by the retry orchestrator (when draining the offline
  * queue). Does NOT enqueue on its own — caller handles failure.
  */
-export async function postWearableDirect(payload: WearablePersistPayload): Promise<{ ok: boolean; status: number; error?: string }> {
+export async function postWearableDirect(payload: WearablePersistPayload, idempotencyKey?: string): Promise<{ ok: boolean; status: number; error?: string }> {
   if (isSimulatedOffline()) {
     return { ok: false, status: 0, error: 'simulated_offline' };
   }
@@ -127,11 +127,16 @@ export async function postWearableDirect(payload: WearablePersistPayload): Promi
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   if (!token || !projectId) return { ok: false, status: 0, error: 'missing_auth_or_project' };
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    if (idempotencyKey) headers['X-Outbox-Item-Id'] = idempotencyKey;
     const res = await fetch(
       `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
       {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       },
     );
