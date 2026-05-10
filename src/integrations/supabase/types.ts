@@ -1331,10 +1331,13 @@ export type Database = {
           confidence_level: number | null
           created_at: string
           data_sources: Json | null
+          emotion_level: number | null
           energy_balance: number | null
           id: string
           mental_sharpness_level: number | null
           outcome: string
+          pressure_level: number | null
+          regulation_level: number | null
           skipped: boolean | null
           state_tags: string[] | null
           time_window: string
@@ -1347,10 +1350,13 @@ export type Database = {
           confidence_level?: number | null
           created_at?: string
           data_sources?: Json | null
+          emotion_level?: number | null
           energy_balance?: number | null
           id?: string
           mental_sharpness_level?: number | null
           outcome: string
+          pressure_level?: number | null
+          regulation_level?: number | null
           skipped?: boolean | null
           state_tags?: string[] | null
           time_window?: string
@@ -1363,10 +1369,13 @@ export type Database = {
           confidence_level?: number | null
           created_at?: string
           data_sources?: Json | null
+          emotion_level?: number | null
           energy_balance?: number | null
           id?: string
           mental_sharpness_level?: number | null
           outcome?: string
+          pressure_level?: number | null
+          regulation_level?: number | null
           skipped?: boolean | null
           state_tags?: string[] | null
           time_window?: string
