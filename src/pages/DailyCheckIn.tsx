@@ -1,6 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
-import { AlertTriangle, BatteryLow, Cloud, Minus, ArrowUp } from "lucide-react";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
@@ -14,13 +13,13 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Slider } from "@/components/ui/slider";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS, FIRST_SESSION_TOUR_STARTED_EVENT } from "@/utils/firstSessionTour";
-import { EngravedFill } from "@/components/ui/engraved-fill";
 import { clear as clearPersistent, cacheKeys, localISODate } from "@/utils/persistentBriefCache";
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
 import { clearOuterReadinessCache } from "@/hooks/useOuterReadiness";
@@ -30,114 +29,59 @@ const ACTIVE_TOUR_KEY = 'first_session_guide_active';
 const ACTIVE_TOUR_USER_KEY = 'first_session_guide_user';
 const RETAKE_TOUR_KEY = 'first_session_guide_retake';
 
-// New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
 
-interface CheckInData {
-  outcome: Outcome;
-  timestamp: string;
-  date: string;
-  skipped: boolean;
-  completedFull: boolean;
-}
+const clarityLabels = ['Clouded', 'Obscured', 'Neutral', 'Lucid', 'Crystal'];
+const emotionLabels = ['Reactive', 'Unsettled', 'Balanced', 'Composed', 'Open'];
+const pressureLabels = ['Overloaded', 'Elevated', 'Manageable', 'Light', 'Spacious'];
+const regulationLabels = ['Reactive', 'Low', 'Holding', 'Strong', 'In Control'];
 
-const outcomes = [
-  {
-    value: "overwhelmed" as Outcome,
-    icon: AlertTriangle,
-    title: "Overloaded",
-    accent: "#B8C7F0", // indigo — lightest (sky-indigo)
-  },
-  {
-    value: "drained" as Outcome,
-    icon: BatteryLow,
-    title: "Drained",
-    accent: "#7A93E0", // indigo
-  },
-  {
-    value: "scattered" as Outcome,
-    icon: Cloud,
-    title: "Scattered",
-    accent: "#3F54B8", // indigo
-  },
-  {
-    value: "steady" as Outcome,
-    icon: Minus,
-    title: "Steady",
-    accent: "#16205C", // indigo — deep
-  },
-  {
-    value: "focused" as Outcome,
-    icon: ArrowUp,
-    title: "Focused",
-    accent: "#02061F", // indigo — near-black
-  },
-];
+/**
+ * Derive the legacy `outcome` enum from the 4 slider values so downstream
+ * brief / scoring / pattern code keeps working unchanged. Order matters:
+ * earlier rules win.
+ */
+function deriveOutcome(
+  clarity: number,
+  emotion: number,
+  pressure: number,
+  regulation: number
+): Outcome {
+  const avg = (clarity + emotion + pressure + regulation) / 4;
+  if (pressure === 1 || regulation === 1) return 'overwhelmed';
+  if (emotion <= 2 && pressure <= 2) return 'drained';
+  if (clarity <= 2 && emotion <= 2) return 'scattered';
+  if (avg >= 4 && clarity >= 4) return 'focused';
+  return 'steady';
+}
 
 const DailyCheckIn = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
-  const [selectedOutcome, setSelectedOutcome] = useState<Outcome | null>(null);
+
+  const [clarity, setClarity] = useState(3);
+  const [emotion, setEmotion] = useState(3);
+  const [pressure, setPressure] = useState(3);
+  const [regulation, setRegulation] = useState(3);
+  const [clarityTouched, setClarityTouched] = useState(false);
+  const [emotionTouched, setEmotionTouched] = useState(false);
+  const [pressureTouched, setPressureTouched] = useState(false);
+  const [regulationTouched, setRegulationTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  // Roving-tabindex focus management for the WAI-ARIA radiogroup pattern.
-  // When no option is selected the *first* option is the tab stop; once an
-  // option is selected, that option becomes the only tab stop. Arrow keys
-  // move selection AND focus between options without tabbing out of the
-  // group.
-  const radioRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const focusOption = useCallback((index: number) => {
-    const wrapped = (index + outcomes.length) % outcomes.length;
-    const el = radioRefs.current[wrapped];
-    if (el) {
-      el.focus();
-      // Per ARIA APG: arrow keys move selection in a radio group.
-      setSelectedOutcome(outcomes[wrapped].value);
-    }
-  }, []);
-
-  const handleRadioKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-      switch (e.key) {
-        case 'ArrowDown':
-        case 'ArrowRight':
-          e.preventDefault();
-          focusOption(index + 1);
-          break;
-        case 'ArrowUp':
-        case 'ArrowLeft':
-          e.preventDefault();
-          focusOption(index - 1);
-          break;
-        case 'Home':
-          e.preventDefault();
-          focusOption(0);
-          break;
-        case 'End':
-          e.preventDefault();
-          focusOption(outcomes.length - 1);
-          break;
-        case ' ':
-        case 'Enter':
-          // Native button already activates on Space/Enter. Stop the synthetic
-          // scroll-on-Space side effect and rely on the button's own click.
-          e.preventDefault();
-          setSelectedOutcome(outcomes[index].value);
-          break;
-        default:
-          break;
-      }
-    },
-    [focusOption]
-  );
+  const allFourTouched =
+    clarityTouched && emotionTouched && pressureTouched && regulationTouched;
+  const rClarity = Math.round(clarity);
+  const rEmotion = Math.round(emotion);
+  const rPressure = Math.round(pressure);
+  const rRegulation = Math.round(regulation);
 
   useEffect(() => {
-    // Warm the next route's lazy chunk so Confirm can feel immediate.
-    void import('./CheckInDetail');
+    // No longer auto-navigates to CheckInDetail; Page 2 is reserved for
+    // body sliders in a follow-up. Intentionally no prefetch.
   }, []);
 
   const { recordStep } = useOnboardingProgress();
@@ -260,31 +204,17 @@ const DailyCheckIn = () => {
     };
   }, [location.search, user?.id, user?.onboarding_completed_at]);
 
-  const handleConfirm = async () => {
-    if (!selectedOutcome || isSubmitting) return;
+  const handleSubmit = async () => {
+    if (!allFourTouched || isSubmitting) return;
     setIsSubmitting(true);
-    try {
-      await handleOutcomeSelect(selectedOutcome);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
-  const handleOutcomeSelect = async (outcome: Outcome) => {
+    const outcome = deriveOutcome(rClarity, rEmotion, rPressure, rRegulation);
     // Track check-in engagement
     trackEngagement('check_in');
 
     const now = new Date();
     const timestamp = now.toISOString();
     const checkinDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    const checkInData: CheckInData = {
-      outcome,
-      timestamp,
-      date: now.toDateString(),
-      skipped: false,
-      completedFull: true
-    };
 
     // Save to database (no localStorage for sensitive check-in data)
     const timeWindow = getCurrentTimeWindow();
@@ -305,6 +235,10 @@ const DailyCheckIn = () => {
         skipped: false,
         timestamp,
         state_tags: stateTags,
+        clarity_level: rClarity,
+        emotion_level: rEmotion,
+        pressure_level: rPressure,
+        regulation_level: rRegulation,
         data_sources: { check_in: true }
       });
 
@@ -314,10 +248,53 @@ const DailyCheckIn = () => {
           description: 'Unable to save your check-in. Please sign in and try again.',
           variant: 'destructive',
         });
+        setIsSubmitting(false);
         return;
       }
 
       console.log('[Check-In] Saved to database');
+
+      // Persist all 4 slider levels via the daily-checkins edge function
+      // (UPDATE_CLARITY_CONFIDENCE accepts the new optional fields). We
+      // pass clarity as the `clarity` field and reuse `confidence` to
+      // satisfy the edge function's required-field contract — the new
+      // emotion/pressure/regulation columns are what we care about.
+      try {
+        if (DEV_MODE) {
+          await supabase
+            .from('daily_checkins')
+            .update({
+              clarity_level: rClarity,
+              emotion_level: rEmotion,
+              pressure_level: rPressure,
+              regulation_level: rRegulation,
+            })
+            .eq('id', result.id!);
+        } else {
+          const accessToken = await getAuthToken();
+          if (accessToken) {
+            await supabase.functions.invoke('daily-checkins', {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              body: {
+                action: 'UPDATE_CLARITY_CONFIDENCE',
+                checkinDate,
+                checkinId: result.id,
+                timeWindow,
+                clarity: rClarity,
+                // Confidence is no longer captured on Page 1; pass the
+                // clarity value to satisfy the legacy required field
+                // without overwriting any existing confidence with junk.
+                confidence: rClarity,
+                emotion: rEmotion,
+                pressure: rPressure,
+                regulation: rRegulation,
+              },
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[Check-In] Slider persistence (extra fields) failed:', e);
+      }
 
       // Clear any persisted "awaiting signals" brief payload across all three
       // windows for today — otherwise the synchronous initialData hydrate
@@ -347,8 +324,8 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
-      // Navigate to optional detail screen for clarity/confidence
-      navigate('/check-in-detail', { state: { checkinDate, timeWindow, checkinId: result.id } });
+      // Page 2 (body) is not yet wired into this flow — go straight home.
+      navigate('/executive-home');
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
@@ -356,6 +333,8 @@ const DailyCheckIn = () => {
         description: 'Unable to save your check-in. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
