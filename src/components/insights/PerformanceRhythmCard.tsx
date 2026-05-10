@@ -874,8 +874,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {([
                   { k: 'energy', label: 'Energy' },
                   { k: 'clarity', label: 'Clarity' },
-                  { k: 'sharpness', label: 'Sharpness' },
-                  { k: 'confidence', label: 'Confidence' },
+                  { k: 'emotion', label: 'Emotion' },
+                  { k: 'pressure', label: 'Pressure' },
+                  { k: 'regulation', label: 'Regulation' },
                 ] as const).map(({ k, label }) => (
                   <button
                     key={k}
@@ -1064,26 +1065,37 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 streakLabel="Peak Clarity"
               />
             )}
-            {data.checkInCount >= 5 && activeTrend === 'sharpness' && (
+            {data.checkInCount >= 5 && activeTrend === 'emotion' && (
               <LevelTrendCalendar
                 userId={userId}
-                field="mental_sharpness_level"
-                title="Sharpness Trend"
-                explanation="Each dot is your reported mental sharpness (1–5) at that time of day. Cooler tones mean sharper; empty dots mean no check-in for that slot."
-                vocabulary={{ 5: 'Peak', 4: 'Acute', 3: 'Stable', 2: 'Dull', 1: 'Depleted' }}
-                palette="sharpness"
-                streakLabel="Peak Sharpness"
+                field="emotion_level"
+                title="Emotion Trend"
+                explanation="Each dot is your reported emotional state (1–5) at that time of day. Deeper tones mean more open and composed; empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'Open', 4: 'Composed', 3: 'Balanced', 2: 'Unsettled', 1: 'Reactive' }}
+                palette="emotion"
+                streakLabel="Open Days"
               />
             )}
-            {data.checkInCount >= 5 && activeTrend === 'confidence' && (
+            {data.checkInCount >= 5 && activeTrend === 'pressure' && (
               <LevelTrendCalendar
                 userId={userId}
-                field="confidence_level"
-                title="Confidence Trend"
-                explanation="Each dot is your reported confidence (1–5) at that time of day. Cooler tones mean stronger confidence; empty dots mean no check-in for that slot."
-                vocabulary={{ 5: 'Unshakable', 4: 'Certain', 3: 'Poised', 2: 'Uncertain', 1: 'Reactive' }}
-                palette="confidence"
-                streakLabel="Peak Confidence"
+                field="pressure_level"
+                title="Pressure Trend"
+                explanation="Each dot is your felt pressure (1–5) at that time of day. Deeper tones mean more spacious; lighter tones mean overloaded. Empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'Spacious', 4: 'Light', 3: 'Manageable', 2: 'Elevated', 1: 'Overloaded' }}
+                palette="pressure"
+                streakLabel="Spacious Days"
+              />
+            )}
+            {data.checkInCount >= 5 && activeTrend === 'regulation' && (
+              <LevelTrendCalendar
+                userId={userId}
+                field="regulation_level"
+                title="Regulation Trend"
+                explanation="Each dot is your nervous-system regulation (1–5) at that time of day. Deeper tones mean stronger control; empty dots mean no check-in for that slot."
+                vocabulary={{ 5: 'In Control', 4: 'Strong', 3: 'Holding', 2: 'Low', 1: 'Reactive' }}
+                palette="regulation"
+                streakLabel="In-Control Days"
               />
             )}
 
