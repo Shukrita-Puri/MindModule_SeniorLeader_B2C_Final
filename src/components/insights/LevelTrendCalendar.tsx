@@ -7,7 +7,13 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-type LevelField = 'clarity_level' | 'mental_sharpness_level' | 'confidence_level';
+type LevelField =
+  | 'clarity_level'
+  | 'mental_sharpness_level'
+  | 'confidence_level'
+  | 'emotion_level'
+  | 'pressure_level'
+  | 'regulation_level';
 
 export type LevelVocabulary = {
   5: string;
@@ -17,7 +23,13 @@ export type LevelVocabulary = {
   1: string;
 };
 
-export type LevelPalette = 'sharpness' | 'clarity' | 'confidence';
+export type LevelPalette =
+  | 'sharpness'
+  | 'clarity'
+  | 'confidence'
+  | 'emotion'
+  | 'pressure'
+  | 'regulation';
 
 interface LevelTrendCalendarProps {
   userId?: string;
@@ -110,6 +122,30 @@ const PALETTE_RAMPS: Record<LevelPalette, { color: string; dark: string }[]> = {
     { color: '#7E57C2', dark: '#5E3FA0' }, // 3
     { color: '#3A1B82', dark: '#28115E' }, // 4
     { color: '#080226', dark: '#020010' }, // 5
+  ],
+  // Emotion: light blush → deep burgundy (mirrors /daily-check-in emotion slider)
+  emotion: [
+    { color: '#FBE4E8', dark: '#E8C7CD' }, // 1 Reactive
+    { color: '#F2B8C2', dark: '#D89AA6' }, // 2 Unsettled
+    { color: '#D87A8E', dark: '#B85F73' }, // 3 Balanced
+    { color: '#9B3A52', dark: '#7A2A3E' }, // 4 Composed
+    { color: '#5C1A2E', dark: '#3D0F1E' }, // 5 Open
+  ],
+  // Pressure: light amber → deep amber (heat/tension; light = Overloaded, dark = Spacious)
+  pressure: [
+    { color: '#FFE082', dark: '#E6C975' }, // 1 Overloaded
+    { color: '#FFD54F', dark: '#E6BF47' }, // 2 Elevated
+    { color: '#FFC107', dark: '#E6AE06' }, // 3 Manageable
+    { color: '#FFA000', dark: '#CC8000' }, // 4 Light
+    { color: '#B8860B', dark: '#8E6708' }, // 5 Spacious
+  ],
+  // Regulation: lavender → deep indigo (parasympathetic / calm control)
+  regulation: [
+    { color: '#E0D4F5', dark: '#C4B3E8' }, // 1 Reactive
+    { color: '#B39DDB', dark: '#9685C2' }, // 2 Low
+    { color: '#7E57C2', dark: '#5E3FA0' }, // 3 Holding
+    { color: '#3A1B82', dark: '#28115E' }, // 4 Strong
+    { color: '#080226', dark: '#020010' }, // 5 In Control
   ],
 };
 
