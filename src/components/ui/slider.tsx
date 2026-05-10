@@ -39,6 +39,7 @@ const sliderTrackVariants = cva(
         sharpness: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         clarity: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         confidence: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        emotion: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
       },
     },
     defaultVariants: { variant: "default" },
