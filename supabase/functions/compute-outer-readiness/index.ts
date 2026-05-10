@@ -2331,7 +2331,21 @@ serve(async (req) => {
     let sleepBaseline: number | null = null;
     let rhrBaseline: number | null = null;
     let hrBaseline: number | null = null;
-    const hrValue: number | null = wearableContext?.hr ?? null;
+    let hrValue: number | null = wearableContext?.hr ?? null;
+
+    // ── HR / RHR live-freshness gate ─────────────────────────────────────
+    // HR and RHR are real-time metrics and must never appear as "live" if
+    // the underlying sample is older than ~24h. HRV / sleep retain the
+    // existing tolerance because they are inherently overnight-aggregated.
+    if (wearableSourceAgeDays !== null && wearableSourceAgeDays > 1) {
+      if (hrValue !== null || rhrValue !== null) {
+        console.log('[compute-outer-readiness] HR/RHR stale gate: nullifying live values', {
+          ageDays: wearableSourceAgeDays, sourceRowDate,
+        });
+      }
+      hrValue = null;
+      rhrValue = null;
+    }
     const hasHistoricalData = wearableDaysConnected >= 7;
     try {
       if (hasWearable) {
