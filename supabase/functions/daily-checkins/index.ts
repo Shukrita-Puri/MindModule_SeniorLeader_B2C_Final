@@ -348,8 +348,6 @@ serve(async (req) => {
       }
 
       case 'UPDATE_ENERGY_BALANCE': {
-        // moved below
-        // (kept here as marker — see UPDATE_BODY_CHECKIN above)
         const { checkinDate, energyBalance, timeWindow } = body;
 
         if (!checkinDate || energyBalance == null) {
