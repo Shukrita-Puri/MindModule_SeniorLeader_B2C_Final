@@ -171,6 +171,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // we don't depend on the WebView being alive.
         WearableSyncBridge.shared.flushOutbox {}
         AppleCalendarBackgroundSyncBridge.shared.flushOutbox {}
+
+        // Force a fresh Apple Calendar fetch on resume so the UI reflects any
+        // events the user added in the iOS Calendar app while the app was in
+        // the background. Cheap when nothing changed (idempotent on the server).
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {}
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {}
