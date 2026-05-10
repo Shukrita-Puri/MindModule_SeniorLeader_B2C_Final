@@ -16,6 +16,7 @@ interface RequestBody {
     | 'GET_CHECKIN_RANGE'
     | 'UPDATE_CLARITY_CONFIDENCE'
     | 'UPDATE_ENERGY_BALANCE'
+    | 'UPDATE_BODY_CHECKIN'
     | 'GET_MOST_RECENT_CHECKIN_TODAY'
     | 'GET_CHECKIN_FOR_WINDOW'
     | 'GET_ALL_CHECKINS_TODAY'
@@ -32,6 +33,14 @@ interface RequestBody {
   timeWindow?: 'morning' | 'afternoon' | 'evening';
   checkinId?: string;
   usedFor?: string;
+  // Body Performance Check-in fields
+  sleepHours?: number;
+  sleepQuality?: number;
+  sleepWakeType?: number;
+  tension?: number;
+  energy?: number;
+  recovery?: number;
+  carry?: number;
   checkinData?: {
     checkin_date: string;
     time_window: string;
