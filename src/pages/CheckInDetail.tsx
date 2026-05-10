@@ -204,94 +204,105 @@ const CheckInDetail = () => {
               </span>
             </div>
 
-            {/* Sleep — Hours (stepper) */}
-            <div className="relative space-y-3">
+            {/* Sleep group — Hours, Quality, Wake nested as sub-sections */}
+            <section className="relative space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
-                  Hours
-                  <InsightInfoModal
-                    title="Sleep Hours"
-                    explanation="Sleep duration. Combines with quality and wake type to triangulate how restorative the night actually was."
-                  />
-                </span>
-                <span className="text-[14px] font-medium text-primary font-body tabular-nums">
-                  {sleepHours.toFixed(1)} hrs
+                <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
+                  Sleep
                 </span>
               </div>
-              <div className="flex items-center justify-center gap-4 py-1">
-                <button
-                  onClick={() => adjHours(-0.5)}
-                  className="w-9 h-9 rounded-full border border-border bg-background/70 text-foreground text-lg leading-none hover:bg-muted transition-colors"
-                  aria-label="decrease sleep hours"
-                >
-                  −
-                </button>
-                <span className="text-[22px] font-medium text-foreground tabular-nums min-w-[60px] text-center">
-                  {sleepHours.toFixed(1)}
-                </span>
-                <button
-                  onClick={() => adjHours(0.5)}
-                  className="w-9 h-9 rounded-full border border-border bg-background/70 text-foreground text-lg leading-none hover:bg-muted transition-colors"
-                  aria-label="increase sleep hours"
-                >
-                  +
-                </button>
-              </div>
-            </div>
 
-            {/* Sleep — Quality */}
-            <div className="relative space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
-                  Quality
-                  <InsightInfoModal
-                    title="Sleep Quality"
-                    explanation="Subjective sleep quality — how restorative the night actually felt, independent of hours."
-                  />
-                </span>
-                <span className="text-[14px] font-medium text-primary font-body">{qualityLabels[rQuality - 1]}</span>
-              </div>
-              <Slider
-                value={[sleepQuality]}
-                onValueChange={(v) => { setSleepQuality(v[0]); setQualityTouched(true); }}
-                min={1}
-                max={4}
-                step={1}
-                variant="clarity"
-                className="w-full py-0.5"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground/60">
-                <span>Poor</span>
-                <span>Great</span>
-              </div>
-            </div>
+              <div className="pl-3 border-l border-black/10 space-y-5">
+                {/* Hours (stepper) */}
+                <div className="relative space-y-2">
+                  <div className="flex items-center justify-between pr-1">
+                    <span className="text-[13px] font-medium text-foreground/80 font-body inline-flex items-center gap-1.5">
+                      Hours
+                      <InsightInfoModal
+                        title="Sleep Hours"
+                        explanation="Sleep duration. Combines with quality and wake type to triangulate how restorative the night actually was."
+                      />
+                    </span>
+                    <span className="text-[13px] font-medium text-primary font-body tabular-nums">
+                      {sleepHours.toFixed(1)} hrs
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center gap-4 py-0.5">
+                    <button
+                      onClick={() => adjHours(-0.5)}
+                      className="w-8 h-8 rounded-full border border-border bg-background/70 text-foreground text-lg leading-none hover:bg-muted transition-colors"
+                      aria-label="decrease sleep hours"
+                    >
+                      −
+                    </button>
+                    <span className="text-[20px] font-medium text-foreground tabular-nums min-w-[56px] text-center">
+                      {sleepHours.toFixed(1)}
+                    </span>
+                    <button
+                      onClick={() => adjHours(0.5)}
+                      className="w-8 h-8 rounded-full border border-border bg-background/70 text-foreground text-lg leading-none hover:bg-muted transition-colors"
+                      aria-label="increase sleep hours"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-            {/* Sleep — Wake Type */}
-            <div className="relative space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
-                  Wake
-                  <InsightInfoModal
-                    title="Wake Type"
-                    explanation="How you woke up. Natural waking signals deeper recovery; groggy alarm signals sleep debt or poor sleep depth."
+                {/* Quality */}
+                <div className="relative space-y-2 max-w-[92%]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-medium text-foreground/80 font-body inline-flex items-center gap-1.5">
+                      Quality
+                      <InsightInfoModal
+                        title="Sleep Quality"
+                        explanation="Subjective sleep quality — how restorative the night actually felt, independent of hours."
+                      />
+                    </span>
+                    <span className="text-[13px] font-medium text-primary font-body">{qualityLabels[rQuality - 1]}</span>
+                  </div>
+                  <Slider
+                    value={[sleepQuality]}
+                    onValueChange={(v) => { setSleepQuality(v[0]); setQualityTouched(true); }}
+                    min={1}
+                    max={4}
+                    step={1}
+                    variant="clarity"
+                    className="w-full py-0.5"
                   />
-                </span>
-                <span className="text-[14px] font-medium text-primary font-body">{wakeLabels[rWake - 1]}</span>
+                  <div className="flex justify-between text-[11px] text-muted-foreground/60">
+                    <span>Poor</span>
+                    <span>Great</span>
+                  </div>
+                </div>
+
+                {/* Wake */}
+                <div className="relative space-y-2 max-w-[92%]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-medium text-foreground/80 font-body inline-flex items-center gap-1.5">
+                      Wake
+                      <InsightInfoModal
+                        title="Wake Type"
+                        explanation="How you woke up. Natural waking signals deeper recovery; groggy alarm signals sleep debt or poor sleep depth."
+                      />
+                    </span>
+                    <span className="text-[13px] font-medium text-primary font-body">{wakeLabels[rWake - 1]}</span>
+                  </div>
+                  <Slider
+                    value={[sleepWake]}
+                    onValueChange={(v) => { setSleepWake(v[0]); setWakeTouched(true); }}
+                    min={1}
+                    max={3}
+                    step={1}
+                    variant="confidence"
+                    className="w-full py-0.5"
+                  />
+                  <div className="flex justify-between text-[11px] text-muted-foreground/60">
+                    <span>Groggy</span>
+                    <span>Natural</span>
+                  </div>
+                </div>
               </div>
-              <Slider
-                value={[sleepWake]}
-                onValueChange={(v) => { setSleepWake(v[0]); setWakeTouched(true); }}
-                min={1}
-                max={3}
-                step={1}
-                variant="confidence"
-                className="w-full py-0.5"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground/60">
-                <span>Groggy</span>
-                <span>Natural</span>
-              </div>
-            </div>
+            </section>
 
             {/* Tension */}
             <div className="relative space-y-3">
@@ -338,7 +349,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="sharpness"
+                variant="ember"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -365,7 +376,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={4}
                 step={1}
-                variant="clarity"
+                variant="vitality"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -392,7 +403,7 @@ const CheckInDetail = () => {
                 min={1}
                 max={4}
                 step={1}
-                variant="emotion"
+                variant="sharpness"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -411,7 +422,7 @@ const CheckInDetail = () => {
                   : 'bg-muted text-foreground/60 cursor-not-allowed'
               }`}
             >
-              {saving ? 'Saving...' : "Continue to Today's Performance"}
+              {saving ? 'Saving...' : "Continue to Today's Brief"}
             </button>
           </div>
         </div>
