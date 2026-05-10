@@ -24,6 +24,7 @@ const LUXURY_VARIANTS: readonly LuxuryVariant[] = [
   "sharpness",
   "clarity",
   "confidence",
+  "emotion",
 ]
 const isLuxuryVariant = (v: unknown): v is LuxuryVariant =>
   typeof v === "string" && (LUXURY_VARIANTS as readonly string[]).includes(v)
