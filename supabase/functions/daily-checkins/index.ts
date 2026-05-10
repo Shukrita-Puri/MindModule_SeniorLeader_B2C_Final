@@ -267,7 +267,7 @@ serve(async (req) => {
       }
 
       case 'UPDATE_CLARITY_CONFIDENCE': {
-        const { checkinDate, clarity, confidence, mentalSharpness, timeWindow, checkinId } = body;
+        const { checkinDate, clarity, confidence, mentalSharpness, emotion, pressure, regulation, timeWindow, checkinId } = body;
 
         if (!checkinDate || clarity == null || confidence == null) {
           return new Response(JSON.stringify({ error: 'Missing checkinDate, clarity, or confidence' }), {
@@ -284,6 +284,9 @@ serve(async (req) => {
           updatePayload.mental_sharpness_level = mentalSharpness;
           console.log('[daily-checkins] Persisting mental_sharpness_level:', mentalSharpness);
         }
+        if (emotion != null) updatePayload.emotion_level = emotion;
+        if (pressure != null) updatePayload.pressure_level = pressure;
+        if (regulation != null) updatePayload.regulation_level = regulation;
 
         let targetId = checkinId;
         if (!targetId) {
