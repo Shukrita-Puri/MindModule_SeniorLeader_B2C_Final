@@ -16,6 +16,10 @@ const LUXURY_SPECTRUMS = {
     "linear-gradient(90deg,#E0D4F5 0%,#B39DDB 25%,#7E57C2 50%,#3A1B82 75%,#080226 100%)",
   emotion:
     "linear-gradient(90deg,#FBE4E8 0%,#F4B5C0 25%,#E07A8E 50%,#A83A57 75%,#5C1A2E 100%)",
+  vitality:
+    "linear-gradient(90deg,#DCEDC8 0%,#AED581 25%,#7CB342 50%,#33691E 75%,#1B3A0F 100%)",
+  ember:
+    "linear-gradient(90deg,#FFE0B2 0%,#FFB74D 25%,#FB8C00 50%,#E65100 75%,#7A2A00 100%)",
 } as const
 
 type LuxuryVariant = keyof typeof LUXURY_SPECTRUMS
@@ -25,6 +29,8 @@ const LUXURY_VARIANTS: readonly LuxuryVariant[] = [
   "clarity",
   "confidence",
   "emotion",
+  "vitality",
+  "ember",
 ]
 const isLuxuryVariant = (v: unknown): v is LuxuryVariant =>
   typeof v === "string" && (LUXURY_VARIANTS as readonly string[]).includes(v)
@@ -40,6 +46,8 @@ const sliderTrackVariants = cva(
         clarity: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         confidence: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         emotion: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        vitality: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        ember: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
       },
     },
     defaultVariants: { variant: "default" },
@@ -62,6 +70,10 @@ const sliderRangeVariants = cva("absolute h-full overflow-hidden", {
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
       emotion:
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      vitality:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      ember:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
     },
   },
   defaultVariants: { variant: "default" },
@@ -83,6 +95,10 @@ const sliderThumbVariants = cva(
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
         emotion:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        vitality:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        ember:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
       },
     },
     defaultVariants: { variant: "default" },
@@ -91,7 +107,10 @@ const sliderThumbVariants = cva(
 
 interface SliderProps
   extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>,
-    VariantProps<typeof sliderTrackVariants> {}
+    VariantProps<typeof sliderTrackVariants> {
+  /** Number of tick notches to render on a luxury rail. Defaults to 5. */
+  ticks?: number;
+}
 
 /**
  * LuxuryThumb
@@ -160,32 +179,40 @@ const LuxuryThumb: React.FC = () => {
   );
 };
 
-/** 5 faint vertical pencil notches at the 1-5 stops on the rail. */
-const LuxuryTicks: React.FC = () => (
-  <div
-    aria-hidden="true"
-    className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]"
-  >
-    {[0, 1, 2, 3, 4].map((i) => (
-      <span
-        key={i}
-        className="h-[10px] w-px bg-black/35"
-        style={{ transform: "translateY(0)" }}
-      />
-    ))}
-  </div>
-);
+/** Faint vertical pencil notches at each discrete stop on the rail. */
+const LuxuryTicks: React.FC<{ count?: number }> = ({ count = 5 }) => {
+  const safe = Math.max(2, Math.min(10, count));
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]"
+    >
+      {Array.from({ length: safe }).map((_, i) => (
+        <span key={i} className="h-[10px] w-px bg-black/35" />
+      ))}
+    </div>
+  );
+};
 
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   SliderProps
->(({ className, variant, ...props }, ref) => (
+>(({ className, variant, ticks, min, max, step, ...props }, ref) => {
+  const inferred =
+    typeof min === "number" && typeof max === "number" && (step ?? 1) > 0
+      ? Math.round((max - min) / (step ?? 1)) + 1
+      : 5;
+  const tickCount = ticks ?? inferred;
+  return (
   <SliderPrimitive.Root
     ref={ref}
     className={cn(
       "relative flex w-full touch-none select-none items-center",
       className
     )}
+    min={min}
+    max={max}
+    step={step}
     {...props}
   >
     <SliderPrimitive.Track
@@ -203,7 +230,7 @@ const Slider = React.forwardRef<
             <EngravedFill variant="refined" density={3} opacity={0.3} />
           </div>
           {/* discrete 1-5 tick notches */}
-          <LuxuryTicks />
+          <LuxuryTicks count={tickCount} />
         </>
       )}
       <SliderPrimitive.Range className={sliderRangeVariants({ variant })}>
@@ -218,7 +245,8 @@ const Slider = React.forwardRef<
       {isLuxuryVariant(variant) && <LuxuryThumb />}
     </SliderPrimitive.Thumb>
   </SliderPrimitive.Root>
-))
+  );
+})
 Slider.displayName = SliderPrimitive.Root.displayName
 
 export { Slider }
