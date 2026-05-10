@@ -3098,9 +3098,35 @@ serve(async (req) => {
       if (!isDryRun && apnsJwt) {
         for (const tokenInfo of notif.tokens) {
           if (tokenInfo.platform !== 'ios') continue;
+          const normalizedToken = tokenInfo.token.trim().toLowerCase();
+          if (!isCanonicalIosApnsToken(normalizedToken)) {
+            console.error(`[smart-nudges] Deactivating malformed APNs token user=${notif.userId} len=${tokenInfo.token.length} prefix=${tokenInfo.token.substring(0, 12)}...`);
+            sendFailed++;
+            if (notificationLogId) {
+              await supabase
+                .from('notification_log')
+                .update({
+                  payload: {
+                    ...payload,
+                    apns_status: 0,
+                    apns_reason: 'MalformedDeviceToken',
+                    apns_token_prefix: tokenInfo.token.substring(0, 12),
+                    apns_token_length: tokenInfo.token.length,
+                  },
+                  delivery_state: 'failed',
+                })
+                .eq('id', notificationLogId);
+            }
+            await supabase
+              .from('notification_device_tokens')
+              .update({ is_active: false })
+              .eq('user_id', notif.userId)
+              .eq('device_token', tokenInfo.token);
+            continue;
+          }
           try {
             const result = await sendApnsPush(
-              tokenInfo.token,
+              normalizedToken,
               apnsJwt,
               apnsBundleId,
               notif.copy.title,
