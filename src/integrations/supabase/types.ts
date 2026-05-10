@@ -1326,6 +1326,9 @@ export type Database = {
       }
       daily_checkins: {
         Row: {
+          body_energy_level: number | null
+          body_tension_level: number | null
+          carry_load_level: number | null
           checkin_date: string
           clarity_level: number | null
           confidence_level: number | null
@@ -1337,14 +1340,21 @@ export type Database = {
           mental_sharpness_level: number | null
           outcome: string
           pressure_level: number | null
+          recovery_yesterday_level: number | null
           regulation_level: number | null
           skipped: boolean | null
+          sleep_hours: number | null
+          sleep_quality: number | null
+          sleep_wake_type: number | null
           state_tags: string[] | null
           time_window: string
           timestamp: string
           user_id: string
         }
         Insert: {
+          body_energy_level?: number | null
+          body_tension_level?: number | null
+          carry_load_level?: number | null
           checkin_date: string
           clarity_level?: number | null
           confidence_level?: number | null
@@ -1356,14 +1366,21 @@ export type Database = {
           mental_sharpness_level?: number | null
           outcome: string
           pressure_level?: number | null
+          recovery_yesterday_level?: number | null
           regulation_level?: number | null
           skipped?: boolean | null
+          sleep_hours?: number | null
+          sleep_quality?: number | null
+          sleep_wake_type?: number | null
           state_tags?: string[] | null
           time_window?: string
           timestamp: string
           user_id: string
         }
         Update: {
+          body_energy_level?: number | null
+          body_tension_level?: number | null
+          carry_load_level?: number | null
           checkin_date?: string
           clarity_level?: number | null
           confidence_level?: number | null
@@ -1375,8 +1392,12 @@ export type Database = {
           mental_sharpness_level?: number | null
           outcome?: string
           pressure_level?: number | null
+          recovery_yesterday_level?: number | null
           regulation_level?: number | null
           skipped?: boolean | null
+          sleep_hours?: number | null
+          sleep_quality?: number | null
+          sleep_wake_type?: number | null
           state_tags?: string[] | null
           time_window?: string
           timestamp?: string
