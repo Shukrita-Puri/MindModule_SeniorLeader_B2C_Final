@@ -1,90 +1,91 @@
-# iOS Issue Fix Pass — Calendar, Pills, HR/RHR, Notifications
+# Consolidate Mind Check-In onto Page 1 (Daily Check-In)
 
-Minimal, root-cause fixes only. Existing JS sync queue, native iOS outbox, HealthKit observer, Apple Calendar background bridge, and notification pipeline are preserved.
+Isolated change to `/check-in` and `/check-in-detail`. Visual style, slider component, gradients, typography, and copy chrome all stay exactly as they are today. Only the **content** of Page 1 (sliders instead of icon buttons), the **DB columns** stored, and the **save flow** change. Page 2 is left unchanged in this iteration — body sliders will land in a follow-up.
 
-## 1. Apple Calendar — reconnect + fast event sync
+---
 
-**Symptoms:** After reinstall, permission granted but UI shows disconnected until next app open; manually-added events take a long time to appear.
+## 1. Page 1 — `src/pages/DailyCheckIn.tsx` becomes "Mental Performance State Check"
 
-**Root causes to fix:**
-- After permission grant we enqueue/post to the edge function but do **not** invalidate `calendar_connections` cache / refetch `useCalendarSync` state, so UI stays "not connected" until next mount.
-- EventKit changes only trigger sync on the next iOS background-fetch slot — no `EKEventStoreChangedNotification` observer is wired into `AppleCalendarBackgroundSyncBridge`.
-- Foreground resume already flushes the outbox, but does not force a fresh fetch when the app has been backgrounded > 2 min.
+Replace the current 5 vertical icon buttons (Overloaded / Drained / Scattered / Steady / Focused) with **4 sliders** rendered in the same glass card and same `Slider` component used today on Page 2 (so visuals are identical to the screenshot).
 
-**Changes:**
-- `AppleCalendarBackgroundSyncBridge.swift`: subscribe to `EKEventStoreChangedNotification`; on fire, debounce 5s then run `fetchAndPersist`. Also expose `forceSyncNow()` for JS.
-- `NativeBackgroundSyncPlugin.swift` + `src/utils/nativeBackgroundSync.ts`: expose `forceCalendarSync()`.
-- `src/components/CalendarConnectionSettings.tsx` (or the Apple connect flow): after permission grant + first successful POST, call `forceCalendarSync()` then `queryClient.invalidateQueries(['calendar-connections'])` / refetch the connection hook so the UI flips immediately.
-- `AppDelegate.swift`: on `applicationWillEnterForeground`, if last calendar sync > 2 min old, call `AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist`.
+Eyebrow row inside the card (unchanged styling):
+- Left: `Performance Readiness Assessment`
+- Right: `Mental Performance State Check`
 
-## 2. Connect-Calendar signal pill always visible when disconnected
+Sliders (top → bottom), all 1–5 step 1, reusing existing `variant` gradients so colour ramps stay neutral:
 
-**Symptom:** Pill never appears, even after disconnect.
+| # | Slider     | Variant (existing) | Min label | Mid labels                                 | Max label |
+|---|------------|--------------------|-----------|--------------------------------------------|-----------|
+| 1 | Clarity    | `clarity`          | Clouded   | Obscured, Neutral, Lucid                    | Crystal   |
+| 2 | Emotion    | `confidence`*      | Reactive  | Unsettled, Balanced, Composed               | Open      |
+| 3 | Pressure   | `sharpness`*       | Overloaded| Elevated, Manageable, Light                 | Spacious  |
+| 4 | Regulation | `clarity`*         | Reactive  | Low, Holding, Strong                        | In Control|
 
-**Root cause:** Pill derivation only checks `calendarState === 'not_connected'` from the readiness payload, but on iOS the Apple connection row remains in `calendar_connections` with `is_active=false` after disconnect — and `compute-outer-readiness` treats absence of *recent events* as "connected_no_events" rather than "not_connected".
+\* Reusing existing variants so no new design tokens are introduced. (We can swap which variant goes with which slider during implementation if a different gradient reads more clearly — purely a visual tweak, no new colours.)
 
-**Changes (server-side, lightweight):**
-- `supabase/functions/compute-outer-readiness/index.ts`: change `calendarState` derivation to require `is_active=true` AND a `last_sync` within 7 days; otherwise `not_connected`.
-- Brief client/derivation: ensure the "Connect Calendar" pill is emitted whenever `calendarState === 'not_connected'` regardless of other context. Verify in `signal_pills` builder.
+Inline CTA at the bottom of the card replaces the icon-tap auto-submit:
+- Disabled until **all 4 sliders are touched** (mirrors Page 2's `allThreeTouched` pattern).
+- Active label: **Continue to Today's Performance**.
+- On Save → write all 4 levels + a derived `outcome` to `daily_checkins`, clear caches, navigate **straight to `/executive-home`** (skips Page 2 for this iteration since Page 2 still holds Sharpness/Clarity/Confidence and we don't want to double-prompt).
 
-## 3. HR / RHR stale-data hardening
+Removed from Page 1: the `outcomes` array, the radiogroup, `EngravedFill`, arrow-key handlers, and the auto-navigate-to-`/check-in-detail` flow.
 
-**Symptom:** 4-day-old HR / RHR shown as live.
+Kept on Page 1: `TodayHero`, `TodayGreeting`, `TodayStepper current={1}`, `FirstSessionGuide`, sidebar layout, skip-to-home, all engagement tracking and cache-invalidation logic.
 
-**Changes:**
-- `src/utils/wearableContextAnalyzer.ts` (or equivalent freshness gate): introduce `LIVE_METRIC_MAX_AGE_HOURS = 24` for HR + RHR specifically (HRV / readiness retain existing 7-day tolerance).
-- Anywhere HR / RHR is read for the brief or UI, check sample timestamp; if older than 24h, set value to `null` and mark `wearableStatus.heartRateStale = true`.
-- Brief / UI components: when stale, hide "live" pill and fall back to felt-state indicators. No change to scoring weights.
+## 2. Page 2 — `src/pages/CheckInDetail.tsx` left as-is
 
-## 4. Notifications not firing — full pipeline audit
+No code changes this iteration. It still renders Sharpness/Clarity/Confidence but is no longer reached from Page 1 in normal flow. Body slider replacement comes in your follow-up brief. (Existing direct links / deep links keep working.)
 
-**Likely root causes:**
-- After reinstall, APNs token rotates but `register-device-token` is only called once at first auth; if registration races with sign-in it silently no-ops.
-- `smart-nudges` scheduling uses stored device tokens; previous tokens may still be marked active for the user, so APNs returns `Unregistered` and the nudge is dropped without fallback.
-- Permission state isn't re-checked on app resume.
+## 3. DB — additive only
 
-**Changes:**
-- `src/hooks/useDeviceTokenRegistration.ts`: on every app resume + on auth state change, call `PushNotifications.register()` and re-POST the token; on `registrationError`, surface a toast / debug log.
-- `cleanup_device_tokens` already deactivates dupes — extend `register-device-token` to mark previous tokens for the same user/platform inactive immediately on register.
-- `smart-nudges` send loop: when APNs returns `Unregistered` / `BadDeviceToken`, mark the token inactive in DB and continue (already partially done — verify).
-- Add structured logging: every nudge attempt logs `{ user_id, nudge_type, scheduled_for, token_count, send_result }` to `notification_log` (already exists — ensure all paths write).
-- Debug panel: show notification permission state, active device-token count, last successful send timestamp.
+New nullable columns on `daily_checkins` (no drops, no NOT-NULL changes):
 
-## 5. Diagnostics
+```
+emotion_level      integer  CHECK (NULL OR 1..5)
+pressure_level     integer  CHECK (NULL OR 1..5)
+regulation_level   integer  CHECK (NULL OR 1..5)
+```
 
-Extend `AppleIntegrationsDebugPanel`:
-- Calendar: last sync timestamp, EventKit-change observer fire count.
-- Wearable: HR / RHR sample age + `isStale` flag.
-- Notifications: permission status, active token count, last delivered notification time.
+`mental_sharpness_level`, `clarity_level`, `confidence_level`, `outcome`, `state_tags`, `energy_balance` all stay. Existing RLS policies cover the new columns automatically.
 
-## Files to modify
+## 4. Outcome derivation (keeps `outcome` NOT NULL satisfied)
 
-Swift:
-- `ios/App/App/AppleCalendarBackgroundSyncBridge.swift`
-- `ios/App/App/AppDelegate.swift`
-- `ios/App/App/NativeBackgroundSyncPlugin.swift`
+`outcome` stays NOT NULL so downstream brief / scoring / pattern code keeps working unchanged. We derive it client-side at save time from the 4 sliders so behaviour is identical to today's selection of one of: `overwhelmed | drained | scattered | steady | focused`.
 
-TS:
-- `src/utils/nativeBackgroundSync.ts`
-- `src/components/CalendarConnectionSettings.tsx`
-- `src/hooks/useCalendarSync.ts`
-- `src/hooks/useDeviceTokenRegistration.ts`
-- `src/utils/wearableContextAnalyzer.ts` (+ any HR display sites)
-- `src/components/debug/AppleIntegrationsDebugPanel.tsx`
+Mapping (deterministic, used only to populate `outcome`):
 
-Edge functions:
-- `supabase/functions/compute-outer-readiness/index.ts`
-- `supabase/functions/register-device-token/index.ts`
-- `supabase/functions/smart-nudges/index.ts` (logging + token-invalidate path only)
+```
+avg = mean(clarity, emotion, pressure, regulation)   // 1..5
+pressure==1 OR regulation==1            → overwhelmed
+emotion<=2 AND pressure<=2              → drained
+clarity<=2 AND emotion<=2               → scattered
+avg >= 4 AND clarity>=4                 → focused
+otherwise                                → steady
+```
 
-## Out of scope
-- No rewrite of sync queue, native outbox, or notification scheduler.
-- No DB schema changes (existing tables sufficient).
-- No UI redesign — only state-binding fixes for the pill.
+`state_tags` are still derived via the existing `mapCheckInToTags(outcome)` helper using the derived outcome, so the brief / energy state engine sees the same shape of input it sees today.
 
-## Confirmation needed
+## 5. Save flow
 
-Please confirm before I implement, or tell me to skip / re-prioritise any section. In particular:
-1. OK to set HR/RHR live freshness threshold to **24h** (HRV/readiness untouched at 7d)?
-2. OK to change `calendarState` to require `last_sync < 7 days` (vs current logic that may classify stale connections as "connected_no_events")?
-3. OK to re-register APNs token on every app resume (very low cost, tiny battery impact)?
+`saveCheckin({ outcome: derivedOutcome, ... })` first (unchanged), then call the existing `daily-checkins` edge function action `UPDATE_CLARITY_CONFIDENCE` with three new optional fields (`emotion`, `pressure`, `regulation`) so all 4 slider values persist on the same row in one round-trip. Edge function gains pass-through writes for the new columns; existing fields stay intact for back-compat with Page 2.
+
+## 6. Files touched
+
+- `src/pages/DailyCheckIn.tsx` — replace icon list with 4 sliders + CTA + derived-outcome save.
+- `src/utils/dailyCheckins.ts` — extend `CheckinData` type with 3 optional level fields (additive).
+- `supabase/functions/daily-checkins/index.ts` — extend `UPDATE_CLARITY_CONFIDENCE` to accept `emotion / pressure / regulation` and write them when present (additive, fully back-compat).
+- New migration — add 3 nullable integer columns + check constraints.
+
+## 7. Explicitly NOT changed
+
+- `CheckInDetail.tsx` (Page 2)
+- Brief logic, scoring, energy state engine, mastery plan
+- `outcome` enum values, NOT NULL constraint, `state_tags` mapping
+- Slider component, gradients, typography, glass card styling, hero, greeting, stepper
+- Any historical `daily_checkins` rows
+
+## Out of scope (for the follow-up)
+
+- Body sliders for Page 2 (awaiting your spec).
+- Removing `outcome` / `mental_sharpness_level` / `confidence_level` columns (post-beta cleanup).
+- Updating insights / brief surfaces to display the new emotion / pressure / regulation values directly.

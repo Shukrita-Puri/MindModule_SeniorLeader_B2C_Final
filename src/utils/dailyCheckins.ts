@@ -15,6 +15,9 @@ export interface CheckinData {
   clarity_level?: number | null;
   confidence_level?: number | null;
   mental_sharpness_level?: number | null;
+  emotion_level?: number | null;
+  pressure_level?: number | null;
+  regulation_level?: number | null;
   time_window?: string | null;
 }
 
