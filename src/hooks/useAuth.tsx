@@ -46,6 +46,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateDisplayName: (name: string) => Promise<{ success: boolean; error?: string }>;
   isAuthenticated: boolean;
 }
 
@@ -59,6 +60,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading: false, 
         signOut: async () => console.log('[DEV MODE] Sign out called'),
         refreshProfile: async () => console.log('[DEV MODE] Refresh profile called'),
+        updateDisplayName: async (name: string) => {
+          console.log('[DEV MODE] updateDisplayName called with:', name);
+          return { success: true };
+        },
         isAuthenticated: true 
       }}>
         {children}
@@ -460,6 +465,45 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updateDisplayName = async (name: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      let token: string;
+      if (window.__auth0Client) {
+        token = await window.__auth0Client.getAccessTokenSilently();
+      } else {
+        token = await getAccessTokenSilently();
+      }
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/update-display-name`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ display_name: name }),
+        }
+      );
+
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errorMsg = (json as { error?: string })?.error || `Request failed (${response.status})`;
+        console.warn('[useAuth] updateDisplayName failed:', errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      const effectiveName = (json as { effective_name?: string | null })?.effective_name || undefined;
+      setAppUser(prev => prev ? { ...prev, name: effectiveName ?? prev.name } : prev);
+      return { success: true };
+    } catch (err) {
+      const msg = (err as Error)?.message || 'Unknown error';
+      console.warn('[useAuth] updateDisplayName error:', msg);
+      return { success: false, error: msg };
+    }
+  };
+
   // Shared cleanup for all logout paths
   const cleanupLocalState = () => {
     console.log('[useAuth] Clearing user-specific integration caches for logout');
@@ -552,6 +596,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading: effectiveLoading, 
       signOut,
       refreshProfile,
+      updateDisplayName,
       isAuthenticated: effectiveAuthenticated
     }}>
       {children}
