@@ -46,6 +46,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateDisplayName: (name: string) => Promise<{ success: boolean; error?: string }>;
   isAuthenticated: boolean;
 }
 
@@ -59,6 +60,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading: false, 
         signOut: async () => console.log('[DEV MODE] Sign out called'),
         refreshProfile: async () => console.log('[DEV MODE] Refresh profile called'),
+        updateDisplayName: async (name: string) => {
+          console.log('[DEV MODE] updateDisplayName called with:', name);
+          return { success: true };
+        },
         isAuthenticated: true 
       }}>
         {children}
