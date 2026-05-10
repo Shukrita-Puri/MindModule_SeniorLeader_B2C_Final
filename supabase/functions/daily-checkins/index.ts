@@ -16,6 +16,7 @@ interface RequestBody {
     | 'GET_CHECKIN_RANGE'
     | 'UPDATE_CLARITY_CONFIDENCE'
     | 'UPDATE_ENERGY_BALANCE'
+    | 'UPDATE_BODY_CHECKIN'
     | 'GET_MOST_RECENT_CHECKIN_TODAY'
     | 'GET_CHECKIN_FOR_WINDOW'
     | 'GET_ALL_CHECKINS_TODAY'
@@ -32,6 +33,14 @@ interface RequestBody {
   timeWindow?: 'morning' | 'afternoon' | 'evening';
   checkinId?: string;
   usedFor?: string;
+  // Body Performance Check-in fields
+  sleepHours?: number;
+  sleepQuality?: number;
+  sleepWakeType?: number;
+  tension?: number;
+  energy?: number;
+  recovery?: number;
+  carry?: number;
   checkinData?: {
     checkin_date: string;
     time_window: string;
@@ -383,6 +392,79 @@ serve(async (req) => {
 
         if (error) {
           console.error('[daily-checkins] UPDATE_ENERGY_BALANCE error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'UPDATE_BODY_CHECKIN': {
+        const {
+          checkinDate, timeWindow, checkinId,
+          sleepHours, sleepQuality, sleepWakeType,
+          tension, energy, recovery, carry,
+        } = body;
+
+        if (!checkinDate && !checkinId) {
+          return new Response(JSON.stringify({ error: 'Missing checkinDate or checkinId' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const updatePayload: Record<string, unknown> = {};
+        if (sleepHours != null) updatePayload.sleep_hours = sleepHours;
+        if (sleepQuality != null) updatePayload.sleep_quality = sleepQuality;
+        if (sleepWakeType != null) updatePayload.sleep_wake_type = sleepWakeType;
+        if (tension != null) updatePayload.body_tension_level = tension;
+        if (energy != null) updatePayload.body_energy_level = energy;
+        if (recovery != null) updatePayload.recovery_yesterday_level = recovery;
+        if (carry != null) updatePayload.carry_load_level = carry;
+
+        if (Object.keys(updatePayload).length === 0) {
+          return new Response(JSON.stringify({ error: 'No body fields provided' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        let targetId = checkinId;
+        if (!targetId) {
+          let latestQuery = supabase
+            .from('daily_checkins')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('checkin_date', checkinDate);
+          if (timeWindow) latestQuery = latestQuery.eq('time_window', timeWindow);
+          const { data: latestRow, error: latestErr } = await latestQuery
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (latestErr) {
+            console.error('[daily-checkins] UPDATE_BODY_CHECKIN latest lookup error:', latestErr);
+            throw latestErr;
+          }
+          targetId = latestRow?.id;
+        }
+
+        if (!targetId) {
+          return new Response(JSON.stringify({ data: null }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await supabase
+          .from('daily_checkins')
+          .update(updatePayload)
+          .eq('id', targetId)
+          .eq('user_id', userId)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('[daily-checkins] UPDATE_BODY_CHECKIN error:', error);
           throw error;
         }
 
