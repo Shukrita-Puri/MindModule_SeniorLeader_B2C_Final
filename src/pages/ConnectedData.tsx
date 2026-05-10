@@ -29,6 +29,7 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import {
   isQaDebugEnabled,
