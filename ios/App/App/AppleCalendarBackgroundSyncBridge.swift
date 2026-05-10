@@ -23,6 +23,39 @@ import Security
     private let tokenKey = "mindmodule.auth0_token"
     private let tokenExpiryKey = "mindmodule.auth0_token_expires_at"
 
+    // EventKit change observer — fires whenever the user adds/edits/deletes an
+    // event in any app on the device. Debounced so a batch of changes (e.g.
+    // syncing iCloud) only triggers one sync.
+    private var eventStoreObserver: NSObjectProtocol?
+    private var debounceWorkItem: DispatchWorkItem?
+    private var lastObserverFireAt: TimeInterval = 0
+
+    override init() {
+        super.init()
+        registerEventStoreObserver()
+    }
+
+    private func registerEventStoreObserver() {
+        if eventStoreObserver != nil { return }
+        eventStoreObserver = NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged,
+            object: store,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.lastObserverFireAt = Date().timeIntervalSince1970
+            NSLog("[AppleCalendarBackgroundSync] EKEventStoreChanged fired — debounced sync queued")
+            self.debounceWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.fetchAndPersist {}
+            }
+            self.debounceWorkItem = work
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5, execute: work)
+        }
+    }
+
+    @objc public var lastEventStoreChangeAt: TimeInterval { return lastObserverFireAt }
+
     public func fetchAndPersist(done: @escaping () -> Void) {
         NativeSyncDiagnostics.shared.recordCalendarBackground()
         guard isCalendarAuthorized() else {
