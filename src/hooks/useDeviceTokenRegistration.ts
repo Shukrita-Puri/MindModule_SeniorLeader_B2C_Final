@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE } from '@/config/devMode';
@@ -153,6 +154,25 @@ export function useDeviceTokenRegistration() {
         // Register with APNs
         await PushNotifications.register();
         console.log('[PushReg] APNs registration initiated');
+
+        // Re-register on every resume so a rotated APNs token (common after
+        // reinstall, OS upgrade, or long background) gets persisted to the
+        // backend and nudges keep firing.
+        try {
+          await CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+            if (!isActive) return;
+            try {
+              const perm = await PushNotifications.checkPermissions();
+              if (perm.receive !== 'granted') return;
+              await PushNotifications.register();
+              console.log('[PushReg] Resume: APNs re-registration initiated');
+            } catch (e) {
+              console.warn('[PushReg] Resume re-register failed:', e);
+            }
+          });
+        } catch (e) {
+          console.warn('[PushReg] appStateChange listener failed:', e);
+        }
       } catch (err) {
         console.error('[PushReg] Setup error:', err);
       }

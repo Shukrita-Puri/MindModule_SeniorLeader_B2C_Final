@@ -257,7 +257,7 @@ async function getServerCalendarMetrics(
 
   const { data: activeConnections, error: connError } = await db
     .from('calendar_connections')
-    .select('provider')
+    .select('provider, last_sync')
     .eq('user_id', userId)
     .eq('is_active', true)
     .limit(1);
@@ -268,6 +268,18 @@ async function getServerCalendarMetrics(
 
   if (!activeConnections || activeConnections.length === 0) {
     return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+  }
+
+  // Treat a connection that hasn't synced in > 7 days as effectively
+  // disconnected so the "Connect Calendar" pill reappears and we don't
+  // present users with stale event data as if it were live.
+  const lastSyncRaw = (activeConnections[0] as any)?.last_sync as string | null | undefined;
+  if (lastSyncRaw) {
+    const lastSyncMs = new Date(lastSyncRaw).getTime();
+    if (Number.isFinite(lastSyncMs) && (Date.now() - lastSyncMs) > 7 * 86400000) {
+      console.log('[compute-outer-readiness] Calendar connection stale (>7d), treating as not_connected', { lastSyncRaw });
+      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+    }
   }
 
   const { data: events, error } = await db
@@ -2331,7 +2343,21 @@ serve(async (req) => {
     let sleepBaseline: number | null = null;
     let rhrBaseline: number | null = null;
     let hrBaseline: number | null = null;
-    const hrValue: number | null = wearableContext?.hr ?? null;
+    let hrValue: number | null = wearableContext?.hr ?? null;
+
+    // ── HR / RHR live-freshness gate ─────────────────────────────────────
+    // HR and RHR are real-time metrics and must never appear as "live" if
+    // the underlying sample is older than ~24h. HRV / sleep retain the
+    // existing tolerance because they are inherently overnight-aggregated.
+    if (wearableSourceAgeDays !== null && wearableSourceAgeDays > 1) {
+      if (hrValue !== null || rhrValue !== null) {
+        console.log('[compute-outer-readiness] HR/RHR stale gate: nullifying live values', {
+          ageDays: wearableSourceAgeDays, sourceRowDate,
+        });
+      }
+      hrValue = null;
+      rhrValue = null;
+    }
     const hasHistoricalData = wearableDaysConnected >= 7;
     try {
       if (hasWearable) {

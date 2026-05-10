@@ -33,6 +33,7 @@ interface NativeBackgroundSyncPlugin {
   updateAuthToken(opts: { token: string; expiresAt?: number }): Promise<{ success: boolean }>;
   clearAuthToken(): Promise<{ success: boolean }>;
   runNow(): Promise<{ success: boolean; wearableDone?: boolean; calendarDone?: boolean }>;
+  forceCalendarSync(): Promise<{ success: boolean }>;
   getDiagnostics(): Promise<NativeOutboxDiagnostics>;
   getPendingOutboxItems(): Promise<{ items: Record<string, NativeOutboxItem[]> }>;
   flushOutbox(): Promise<{ success: boolean; remaining?: Record<string, number> }>;
@@ -75,6 +76,20 @@ export async function runNativeBackgroundSyncNow(): Promise<void> {
     console.log('[NativeBackgroundSync] Manual native sync result:', result);
   } catch (err) {
     console.warn('[NativeBackgroundSync] Manual native sync failed:', err);
+  }
+}
+
+/**
+ * Force a native Apple Calendar fetch + POST. Used after a permission grant
+ * or manual reconnect so the UI reflects the new connection state without
+ * waiting for the next background-fetch slot.
+ */
+export async function forceNativeCalendarSync(): Promise<void> {
+  if (!isNativeIos()) return;
+  try {
+    await NativeBackgroundSync.forceCalendarSync();
+  } catch (err) {
+    console.warn('[NativeBackgroundSync] forceCalendarSync failed:', err);
   }
 }
 

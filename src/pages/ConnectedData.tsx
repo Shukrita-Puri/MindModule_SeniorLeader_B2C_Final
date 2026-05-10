@@ -29,6 +29,7 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import {
   isQaDebugEnabled,
@@ -565,6 +566,9 @@ const ConnectedData = () => {
       const result = await syncAppleCalendarToBackend();
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
+        // Belt-and-braces: also trigger a native fetch so the iOS background
+        // observer is primed and the next event change is picked up instantly.
+        void forceNativeCalendarSync();
         toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
         invalidatePlanCache();
         clearOuterReadinessCache(user?.id);

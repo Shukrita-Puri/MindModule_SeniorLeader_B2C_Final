@@ -1460,7 +1460,10 @@ function CalendarPills({ outerBrief }: { outerBrief: any }) {
       : '0 meetings';
 
   // Connect-calendar prompt
-  if (!hasCalendar && calendarState === 'not_connected') {
+  // Show whenever the calendar is not actively connected. Includes the case
+  // where calendarState is undefined (e.g. cached brief from before the user
+  // disconnected) so the pill reappears immediately on disconnect/revoke.
+  if (!hasCalendar && calendarState !== 'connected_no_events' && calendarState !== 'active') {
     return (
       <>
         <CalendarPillCapsule
