@@ -46,6 +46,14 @@ import {
   subscribeIntegrationEvents,
   type IntegrationEvent,
 } from '@/utils/integrationTelemetry';
+import {
+  clearAllScheduledLocalNotifications,
+  dumpPendingLocalNotifications,
+  getNotificationDiagnostics,
+  refreshNotificationPermissions,
+  sendLocalTestNotificationNow,
+  type NotificationDiagnostics,
+} from '@/utils/notificationDiagnostics';
 
 interface DerivedSnapshot {
   appleHealthLabel?: string;
@@ -66,15 +74,17 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
   const [, force] = useState(0);
   const [nativeDiag, setNativeDiag] = useState<NativeOutboxDiagnostics | null>(null);
   const [nativeOutbox, setNativeOutbox] = useState<Record<string, NativeOutboxItem[]>>({});
+  const [notificationDiag, setNotificationDiag] = useState<NotificationDiagnostics | null>(null);
 
   useEffect(() => {
     return subscribeIntegrationEvents((evts) => setEvents([...evts]));
   }, []);
 
   const refreshNative = async () => {
-    const [d, items] = await Promise.all([getNativeSyncDiagnostics(), getNativeOutboxItems()]);
+    const [d, items, notif] = await Promise.all([getNativeSyncDiagnostics(), getNativeOutboxItems(), getNotificationDiagnostics()]);
     setNativeDiag(d);
     setNativeOutbox(items);
+    setNotificationDiag(notif);
   };
 
   useEffect(() => {
