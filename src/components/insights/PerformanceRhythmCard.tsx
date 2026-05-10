@@ -132,7 +132,7 @@ const stateColors: Record<string, { color: string; dark: string; glow: string; l
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTrend, setActiveTrend] = useState<'energy' | 'clarity' | 'sharpness' | 'confidence'>('energy');
+  const [activeTrend, setActiveTrend] = useState<'energy' | 'clarity' | 'emotion' | 'pressure' | 'regulation'>('energy');
   const isMobile = useIsMobile();
 
   useEffect(() => {
