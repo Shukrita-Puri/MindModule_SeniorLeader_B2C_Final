@@ -132,7 +132,7 @@ const stateColors: Record<string, { color: string; dark: string; glow: string; l
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTrend, setActiveTrend] = useState<'energy' | 'clarity' | 'emotion' | 'pressure' | 'regulation'>('energy');
+  const [activeTrend, setActiveTrend] = useState<'clarity' | 'emotion' | 'pressure' | 'regulation'>('clarity');
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -872,7 +872,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {data.checkInCount >= 5 && (
               <div className="flex flex-wrap gap-1.5">
                 {([
-                  { k: 'energy', label: 'Energy' },
                   { k: 'clarity', label: 'Clarity' },
                   { k: 'emotion', label: 'Emotion' },
                   { k: 'pressure', label: 'Pressure' },
@@ -894,8 +893,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 – Energy Trend (only when Energy tab is active) */}
-            {data.checkInCount >= 5 && data.weekRows && activeTrend === 'energy' && (() => {
+            {/* Energy Trend removed — mind dimensions only */}
+            {false && data.checkInCount >= 5 && data.weekRows && (() => {
               const allDays = data.weekRows.flatMap(w => w.days);
               const todayIdx = allDays.findIndex(d => d.isToday);
 
