@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { rememberPushTokenMeta } from '@/utils/notificationDiagnostics';
 
 interface NormalizedApnsToken {
   token: string | null;
@@ -114,6 +115,7 @@ export function useDeviceTokenRegistration() {
             );
             return;
           }
+          rememberPushTokenMeta({ userId: user.id, tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length, source: normalized.source });
           try {
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             if (!projectId) {
