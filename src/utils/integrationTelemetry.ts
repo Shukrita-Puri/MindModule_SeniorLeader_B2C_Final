@@ -16,6 +16,7 @@ export type IntegrationProvider =
   | 'apple-calendar'
   | 'google-calendar'
   | 'microsoft-calendar'
+  | 'notification'
   | 'system';
 
 export type IntegrationEventName =
@@ -71,7 +72,23 @@ export type IntegrationEventName =
   | 'idempotency_dedup_hit'
   | 'reconnect_drain_triggered'
   | 'anchor_short_circuit'
-  | 'anchor_state_reset';
+  | 'anchor_state_reset'
+  // notifications
+  | 'notification_permission_state'
+  | 'notification_permission_denied'
+  | 'notification_apns_registration_started'
+  | 'notification_apns_registration_success'
+  | 'notification_apns_registration_failed'
+  | 'notification_token_persist_started'
+  | 'notification_token_persist_success'
+  | 'notification_token_persist_failed'
+  | 'notification_local_schedule_started'
+  | 'notification_local_schedule_success'
+  | 'notification_local_schedule_failed'
+  | 'notification_pending_dump'
+  | 'notification_scheduled_cleared'
+  | 'notification_received_foreground'
+  | 'notification_action_performed';
 
 export interface IntegrationEvent {
   ts: string;                       // ISO timestamp
