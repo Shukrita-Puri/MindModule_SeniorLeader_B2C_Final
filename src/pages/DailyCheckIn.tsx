@@ -324,8 +324,8 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
-      // Page 2 (body) is not yet wired into this flow — go straight home.
-      navigate('/executive-home');
+      // Continue into Page 2 (Body Performance Check-in).
+      navigate('/check-in-detail');
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
@@ -441,7 +441,7 @@ const DailyCheckIn = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="confidence"
+                variant="luxury"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -483,7 +483,7 @@ const DailyCheckIn = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="clarity"
+                variant="confidence"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
@@ -502,7 +502,7 @@ const DailyCheckIn = () => {
                   : 'bg-muted text-foreground/60 cursor-not-allowed'
               }`}
             >
-              {isSubmitting ? 'Saving...' : "Continue to Today's Performance"}
+              {isSubmitting ? 'Saving...' : 'Continue to Body Performance Check-in'}
             </button>
           </div>
         </div>
