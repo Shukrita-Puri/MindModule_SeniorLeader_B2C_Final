@@ -14,6 +14,8 @@ const LUXURY_SPECTRUMS = {
     "linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)",
   confidence:
     "linear-gradient(90deg,#E0D4F5 0%,#B39DDB 25%,#7E57C2 50%,#3A1B82 75%,#080226 100%)",
+  emotion:
+    "linear-gradient(90deg,#FBE4E8 0%,#F4B5C0 25%,#E07A8E 50%,#A83A57 75%,#5C1A2E 100%)",
 } as const
 
 type LuxuryVariant = keyof typeof LUXURY_SPECTRUMS
@@ -22,6 +24,7 @@ const LUXURY_VARIANTS: readonly LuxuryVariant[] = [
   "sharpness",
   "clarity",
   "confidence",
+  "emotion",
 ]
 const isLuxuryVariant = (v: unknown): v is LuxuryVariant =>
   typeof v === "string" && (LUXURY_VARIANTS as readonly string[]).includes(v)
@@ -36,6 +39,7 @@ const sliderTrackVariants = cva(
         sharpness: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         clarity: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
         confidence: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
+        emotion: "h-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]",
       },
     },
     defaultVariants: { variant: "default" },
@@ -56,6 +60,8 @@ const sliderRangeVariants = cva("absolute h-full overflow-hidden", {
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
       confidence:
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      emotion:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
     },
   },
   defaultVariants: { variant: "default" },
@@ -74,6 +80,8 @@ const sliderThumbVariants = cva(
         clarity:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
         confidence:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        emotion:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
       },
     },

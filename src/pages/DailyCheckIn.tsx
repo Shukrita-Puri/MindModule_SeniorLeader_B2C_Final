@@ -441,7 +441,7 @@ const DailyCheckIn = () => {
                 min={1}
                 max={5}
                 step={1}
-                variant="luxury"
+                variant="emotion"
                 className="w-full py-0.5"
               />
               <div className="flex justify-between text-xs text-muted-foreground/60">
