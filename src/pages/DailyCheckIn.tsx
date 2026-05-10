@@ -324,8 +324,8 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
-      // Page 2 (body) is not yet wired into this flow — go straight home.
-      navigate('/executive-home');
+      // Continue into Page 2 (Body Performance Check-in).
+      navigate('/check-in-detail');
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
