@@ -566,6 +566,9 @@ const ConnectedData = () => {
       const result = await syncAppleCalendarToBackend();
       console.log('[ConnectedData] Apple Calendar initial sync result:', JSON.stringify(result));
       if (result.success) {
+        // Belt-and-braces: also trigger a native fetch so the iOS background
+        // observer is primed and the next event change is picked up instantly.
+        void forceNativeCalendarSync();
         toast.success(`Apple Calendar connected — synced ${result.eventCount ?? 0} events`);
         invalidatePlanCache();
         clearOuterReadinessCache(user?.id);
