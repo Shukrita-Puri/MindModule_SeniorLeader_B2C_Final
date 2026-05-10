@@ -893,8 +893,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 – Energy Trend (only when Energy tab is active) */}
-            {data.checkInCount >= 5 && data.weekRows && activeTrend === 'energy' && (() => {
+            {/* Energy Trend removed — mind dimensions only */}
+            {false && data.checkInCount >= 5 && data.weekRows && (() => {
               const allDays = data.weekRows.flatMap(w => w.days);
               const todayIdx = allDays.findIndex(d => d.isToday);
 
