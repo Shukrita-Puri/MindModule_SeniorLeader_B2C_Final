@@ -18,6 +18,7 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "updateAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearAuthToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "runNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "forceCalendarSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDiagnostics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPendingOutboxItems", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "flushOutbox", returnType: CAPPluginReturnPromise),
@@ -77,6 +78,12 @@ public class NativeBackgroundSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                 "wearableDone": wearableDone,
                 "calendarDone": calendarDone,
             ])
+        }
+    }
+
+    @objc func forceCalendarSync(_ call: CAPPluginCall) {
+        AppleCalendarBackgroundSyncBridge.shared.fetchAndPersist {
+            call.resolve(["success": true])
         }
     }
 
