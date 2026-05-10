@@ -17,6 +17,9 @@ const ALLOWED_FIELDS = new Set([
   "clarity_level",
   "mental_sharpness_level",
   "confidence_level",
+  "emotion_level",
+  "pressure_level",
+  "regulation_level",
 ]);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
