@@ -203,6 +203,10 @@ const APP_OPEN_COOLDOWN_MS = 60 * 60 * 1000; // 60 min (was 30)
 // Per-user, per-cron-tick: at most one notification regardless of evaluators.
 const INTRA_TICK_MAX = 1;
 
+function isCanonicalIosApnsToken(token: string): boolean {
+  return /^[0-9a-f]+$/.test(token) && [64, 72, 128].includes(token.length);
+}
+
 // Noise filter (aligned with JIT pipeline)
 const NOISE_KEYWORDS = [
   'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
