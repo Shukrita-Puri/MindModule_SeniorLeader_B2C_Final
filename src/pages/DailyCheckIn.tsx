@@ -17,6 +17,7 @@ import { Slider } from "@/components/ui/slider";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
+import InsightInfoModal from "@/components/insights/InsightInfoModal";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { fetchOnboardingProgressSnapshot, hasCompletedFirstSessionWalkthrough, isOnboardingCompleteSnapshot } from "@/utils/onboardingCompletion";
 import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS, FIRST_SESSION_TOUR_STARTED_EVENT } from "@/utils/firstSessionTour";
@@ -411,7 +412,13 @@ const DailyCheckIn = () => {
             {/* 1. Clarity */}
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
+                  Clarity
+                  <InsightInfoModal
+                    title="Mental Clarity"
+                    explanation="What it measures: How cleanly your thinking is landing right now — focus, signal-to-noise, cognitive precision. Why it matters: Clarity degradation is the earliest sign of cognitive overload. When it drops, decision quality follows — usually before you notice."
+                  />
+                </span>
                 <span className="text-[14px] font-medium text-primary font-body">{clarityLabels[rClarity - 1]}</span>
               </div>
               <Slider
@@ -432,7 +439,13 @@ const DailyCheckIn = () => {
             {/* 2. Emotion */}
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body">Emotion</span>
+                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
+                  Emotion
+                  <InsightInfoModal
+                    title="Emotional State"
+                    explanation="What it measures: Your current activation level — how reactive or open you are to what's coming at you. Why it matters: Low emotional state doesn't affect your IQ. It affects your interpersonal judgment — tone, read of the room, decisions involving people. That's where leadership errors live."
+                  />
+                </span>
                 <span className="text-[14px] font-medium text-primary font-body">{emotionLabels[rEmotion - 1]}</span>
               </div>
               <Slider
@@ -453,7 +466,13 @@ const DailyCheckIn = () => {
             {/* 3. Pressure */}
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body">Pressure</span>
+                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
+                  Pressure
+                  <InsightInfoModal
+                    title="Internal Pressure"
+                    explanation="What it measures: How much you are carrying right now — unresolved decisions, accumulated load, background weight. Why it matters: Pressure builds invisibly. By the time it shows up as behaviour — short temper, poor sleep, flat affect — it has been compounding for days. This catches it earlier."
+                  />
+                </span>
                 <span className="text-[14px] font-medium text-primary font-body">{pressureLabels[rPressure - 1]}</span>
               </div>
               <Slider
@@ -474,7 +493,13 @@ const DailyCheckIn = () => {
             {/* 4. Regulation */}
             <div className="relative space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-foreground font-body">Regulation</span>
+                <span className="text-[14px] font-medium text-foreground font-body inline-flex items-center gap-1.5">
+                  Regulation
+                  <InsightInfoModal
+                    title="Regulation Capacity"
+                    explanation="What it measures: Your ability to stay deliberate rather than reactive when pressure, emotion, or load increases. Why it matters: This is the meta-skill the app is building. Every other dimension tells you your state today. Regulation tells you whether you are developing the capacity to perform regardless of state — and whether it is actually improving over time."
+                  />
+                </span>
                 <span className="text-[14px] font-medium text-primary font-body">{regulationLabels[rRegulation - 1]}</span>
               </div>
               <Slider
