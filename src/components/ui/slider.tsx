@@ -60,6 +60,8 @@ const sliderRangeVariants = cva("absolute h-full overflow-hidden", {
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
       confidence:
         "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
+      emotion:
+        "bg-transparent shadow-[inset_-2px_0_4px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(0,0,0,0.22)]",
     },
   },
   defaultVariants: { variant: "default" },
@@ -78,6 +80,8 @@ const sliderThumbVariants = cva(
         clarity:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
         confidence:
+          "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
+        emotion:
           "relative h-[22px] w-[22px] border-0 bg-transparent p-0 shadow-none",
       },
     },
