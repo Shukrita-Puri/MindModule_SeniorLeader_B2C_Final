@@ -402,78 +402,108 @@ const DailyCheckIn = () => {
               Performance Readiness Assessment
             </span>
             <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
-              Mental Energy State Check
+              Mental Performance State Check
             </span>
           </div>
 
-          {/* Vertical state list – compact gaps */}
-          <div data-tour="check-in-carousel" role="radiogroup" aria-label="Select your current state" className="flex flex-col gap-2 w-full pt-0.5">
-          {outcomes.map((outcome, index) => {
-            const IconComponent = outcome.icon;
-            const isSelected = selectedOutcome === outcome.value;
-            // Roving tabindex: only one option is in the tab order at a time.
-            // If nothing is selected yet, the first option is the entry point.
-            const isTabStop = selectedOutcome
-              ? isSelected
-              : index === 0;
-            return (
-              <button
-                key={outcome.value}
-                ref={(el) => {
-                  radioRefs.current[index] = el;
-                }}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                aria-label={outcome.title}
-                tabIndex={isTabStop ? 0 : -1}
-                onKeyDown={(e) => handleRadioKeyDown(e, index)}
-                onClick={() => {
-                  if (isSubmitting) return;
-                  setSelectedOutcome(outcome.value);
-                  setIsSubmitting(true);
-                  void handleOutcomeSelect(outcome.value).finally(() => setIsSubmitting(false));
-                }}
-                className={`
-                  w-full block text-left
-                  rounded-2xl
-                  min-h-[52px] flex items-center gap-3.5 px-4 py-2
-                  touch-manipulation select-none
-                  transition-all duration-200
-                  relative overflow-hidden
-                  ring-1 ring-inset ring-black/[0.12]
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron focus-visible:ring-offset-2
-                  active:scale-[0.99]
-                  ${isSelected
-                    ? 'scale-[1.02] shadow-[0_10px_32px_rgba(0,0,0,0.20)]'
-                    : 'shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.10)]'}
-                `}
-                style={{
-                  backgroundColor: outcome.accent,
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <span className="pointer-events-none absolute inset-0" aria-hidden="true">
-                  <EngravedFill
-                    variant="refined"
-                    density={4}
-                    opacity={isSelected ? 0.30 : 0.22}
-                  />
-                </span>
-                <span className="relative z-10 w-10 h-10 flex items-center justify-center shrink-0">
-                  <IconComponent
-                    className="w-6 h-6 text-white"
-                    strokeWidth={outcome.value === 'scattered' ? 1.75 : 2.25}
-                  />
-                </span>
-                <span className="relative z-10 flex flex-col min-w-0">
-                  <span className="text-[15px] font-medium font-body text-white tracking-[0.01em] leading-tight">
-                    {outcome.title}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
+          {/* Four mind sliders — same component / variants as Page 2 */}
+          <div data-tour="check-in-carousel" className="flex flex-col gap-5 w-full pt-1">
+            {/* 1. Clarity */}
+            <div className="relative space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-foreground font-body">Clarity</span>
+                <span className="text-[14px] font-medium text-primary font-body">{clarityLabels[rClarity - 1]}</span>
+              </div>
+              <Slider
+                value={[clarity]}
+                onValueChange={(v) => { setClarity(v[0]); setClarityTouched(true); }}
+                min={1}
+                max={5}
+                step={1}
+                variant="clarity"
+                className="w-full py-0.5"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground/60">
+                <span>Clouded</span>
+                <span>Crystal</span>
+              </div>
+            </div>
+
+            {/* 2. Emotion */}
+            <div className="relative space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-foreground font-body">Emotion</span>
+                <span className="text-[14px] font-medium text-primary font-body">{emotionLabels[rEmotion - 1]}</span>
+              </div>
+              <Slider
+                value={[emotion]}
+                onValueChange={(v) => { setEmotion(v[0]); setEmotionTouched(true); }}
+                min={1}
+                max={5}
+                step={1}
+                variant="confidence"
+                className="w-full py-0.5"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground/60">
+                <span>Reactive</span>
+                <span>Open</span>
+              </div>
+            </div>
+
+            {/* 3. Pressure */}
+            <div className="relative space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-foreground font-body">Pressure</span>
+                <span className="text-[14px] font-medium text-primary font-body">{pressureLabels[rPressure - 1]}</span>
+              </div>
+              <Slider
+                value={[pressure]}
+                onValueChange={(v) => { setPressure(v[0]); setPressureTouched(true); }}
+                min={1}
+                max={5}
+                step={1}
+                variant="sharpness"
+                className="w-full py-0.5"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground/60">
+                <span>Overloaded</span>
+                <span>Spacious</span>
+              </div>
+            </div>
+
+            {/* 4. Regulation */}
+            <div className="relative space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-foreground font-body">Regulation</span>
+                <span className="text-[14px] font-medium text-primary font-body">{regulationLabels[rRegulation - 1]}</span>
+              </div>
+              <Slider
+                value={[regulation]}
+                onValueChange={(v) => { setRegulation(v[0]); setRegulationTouched(true); }}
+                min={1}
+                max={5}
+                step={1}
+                variant="clarity"
+                className="w-full py-0.5"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground/60">
+                <span>Reactive</span>
+                <span>In Control</span>
+              </div>
+            </div>
+
+            {/* Inline CTA — matches Page 2's saffron pattern */}
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !allFourTouched}
+              className={`mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
+                allFourTouched
+                  ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
+                  : 'bg-muted text-foreground/60 cursor-not-allowed'
+              }`}
+            >
+              {isSubmitting ? 'Saving...' : "Continue to Today's Performance"}
+            </button>
           </div>
         </div>
       </div>
