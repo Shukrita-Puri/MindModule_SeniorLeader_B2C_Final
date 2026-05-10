@@ -14,6 +14,8 @@ const LUXURY_SPECTRUMS = {
     "linear-gradient(90deg,#B2EBF2 0%,#80DEEA 25%,#26C6DA 50%,#0097A7 75%,#006064 100%)",
   confidence:
     "linear-gradient(90deg,#E0D4F5 0%,#B39DDB 25%,#7E57C2 50%,#3A1B82 75%,#080226 100%)",
+  emotion:
+    "linear-gradient(90deg,#FBE4E8 0%,#F4B5C0 25%,#E07A8E 50%,#A83A57 75%,#5C1A2E 100%)",
 } as const
 
 type LuxuryVariant = keyof typeof LUXURY_SPECTRUMS
