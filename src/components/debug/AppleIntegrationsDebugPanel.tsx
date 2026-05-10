@@ -205,6 +205,31 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
             </div>
           </section>
 
+          <section>
+            <div className="font-semibold text-foreground">Notifications</div>
+            <pre className="mt-1 whitespace-pre-wrap break-all max-h-48 overflow-auto">
+{notificationDiag ? JSON.stringify(notificationDiag, null, 2) : '— unavailable —'}
+            </pre>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('localTest', async () => setNotificationDiag(await sendLocalTestNotificationNow()))}>
+                Send local test now
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('notifPerm', async () => setNotificationDiag(await refreshNotificationPermissions()))}>
+                Refresh notification permission
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('pendingNotif', async () => setNotificationDiag(await dumpPendingLocalNotifications()))}>
+                Dump pending notifications
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('clearNotif', async () => setNotificationDiag(await clearAllScheduledLocalNotifications()))}>
+                Clear scheduled notifications
+              </Button>
+            </div>
+          </section>
+
           <section className="flex flex-wrap gap-2 pt-1">
             <Button size="sm" variant="outline" disabled={!!busy}
               onClick={() => run('verify', async () => setVerifyResult(await qaReverifyAppleNative()))}>
