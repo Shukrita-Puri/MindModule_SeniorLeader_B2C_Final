@@ -46,6 +46,14 @@ import {
   subscribeIntegrationEvents,
   type IntegrationEvent,
 } from '@/utils/integrationTelemetry';
+import {
+  clearAllScheduledLocalNotifications,
+  dumpPendingLocalNotifications,
+  getNotificationDiagnostics,
+  refreshNotificationPermissions,
+  sendLocalTestNotificationNow,
+  type NotificationDiagnostics,
+} from '@/utils/notificationDiagnostics';
 
 interface DerivedSnapshot {
   appleHealthLabel?: string;
@@ -66,15 +74,17 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
   const [, force] = useState(0);
   const [nativeDiag, setNativeDiag] = useState<NativeOutboxDiagnostics | null>(null);
   const [nativeOutbox, setNativeOutbox] = useState<Record<string, NativeOutboxItem[]>>({});
+  const [notificationDiag, setNotificationDiag] = useState<NotificationDiagnostics | null>(null);
 
   useEffect(() => {
     return subscribeIntegrationEvents((evts) => setEvents([...evts]));
   }, []);
 
   const refreshNative = async () => {
-    const [d, items] = await Promise.all([getNativeSyncDiagnostics(), getNativeOutboxItems()]);
+    const [d, items, notif] = await Promise.all([getNativeSyncDiagnostics(), getNativeOutboxItems(), getNotificationDiagnostics()]);
     setNativeDiag(d);
     setNativeOutbox(items);
+    setNotificationDiag(notif);
   };
 
   useEffect(() => {
@@ -191,6 +201,31 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
               <Button size="sm" variant="ghost" disabled={!!busy}
                 onClick={refreshNative}>
                 Refresh native
+              </Button>
+            </div>
+          </section>
+
+          <section>
+            <div className="font-semibold text-foreground">Notifications</div>
+            <pre className="mt-1 whitespace-pre-wrap break-all max-h-48 overflow-auto">
+{notificationDiag ? JSON.stringify(notificationDiag, null, 2) : '— unavailable —'}
+            </pre>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('localTest', async () => setNotificationDiag(await sendLocalTestNotificationNow()))}>
+                Send local test now
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('notifPerm', async () => setNotificationDiag(await refreshNotificationPermissions()))}>
+                Refresh notification permission
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('pendingNotif', async () => setNotificationDiag(await dumpPendingLocalNotifications()))}>
+                Dump pending notifications
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('clearNotif', async () => setNotificationDiag(await clearAllScheduledLocalNotifications()))}>
+                Clear scheduled notifications
               </Button>
             </div>
           </section>

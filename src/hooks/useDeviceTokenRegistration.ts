@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE } from '@/config/devMode';
 import { getAuthToken } from '@/services/authTokenService';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { rememberPushTokenMeta } from '@/utils/notificationDiagnostics';
 
 interface NormalizedApnsToken {
   token: string | null;
@@ -18,11 +20,17 @@ function normalizeApnsToken(value: unknown): NormalizedApnsToken {
   const raw = typeof value === 'string' ? value : String(value ?? '');
   const trimmed = raw.trim();
 
+  // Some broken native bridges return a comma-separated byte array or an
+  // NSData-style description that can be accidentally converted into 160 hex
+  // chars. APNs rejects those as BadDeviceToken. Only accept canonical token
+  // byte lengths (32/36/64 bytes => 64/72/128 hex chars).
+  const allowedHexLengths = new Set([64, 72, 128]);
+
   // Capacitor normally returns an APNs hex token. Older/native paths can
   // include Data.description wrappers like "<ab cd ...>", so strip only those.
   // Do not hardcode 64 chars: Apple treats device-token size as variable.
   const hexCandidate = trimmed.replace(/[<>\s]/g, '').toLowerCase();
-  if (/^[0-9a-f]+$/.test(hexCandidate) && hexCandidate.length >= 64 && hexCandidate.length <= 256 && hexCandidate.length % 2 === 0) {
+  if (/^[0-9a-f]+$/.test(hexCandidate) && allowedHexLengths.has(hexCandidate.length)) {
     return { token: hexCandidate, source: 'hex' };
   }
 
@@ -73,11 +81,14 @@ export function useDeviceTokenRegistration() {
 
         // Check / request permission
         let permStatus = await PushNotifications.checkPermissions();
+        emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: permStatus.receive } });
         if (permStatus.receive === 'prompt') {
           permStatus = await PushNotifications.requestPermissions();
+          emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: permStatus.receive, afterRequest: true } });
         }
         if (permStatus.receive !== 'granted') {
           console.log('[PushReg] Permission not granted:', permStatus.receive);
+          emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_denied', userId: user.id, meta: { receive: permStatus.receive } });
           return;
         }
 
@@ -90,6 +101,12 @@ export function useDeviceTokenRegistration() {
             `[PushReg] Device token received: type=${typeof raw} len=${String(raw).length} ` +
             `source=${normalized.source} valid=${!!cleaned} prefix=${cleaned?.substring(0, 12) ?? 'n/a'}...`
           );
+          emitIntegrationEvent({
+            provider: 'notification',
+            event: cleaned ? 'notification_apns_registration_success' : 'notification_apns_registration_failed',
+            userId: user.id,
+            meta: { rawLength: String(raw).length, normalizedLength: cleaned?.length ?? 0, source: normalized.source, tokenPrefix: cleaned?.substring(0, 12) ?? null },
+          });
           if (!cleaned) {
             registered.current = false;
             console.error(
@@ -98,6 +115,7 @@ export function useDeviceTokenRegistration() {
             );
             return;
           }
+          rememberPushTokenMeta({ userId: user.id, tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length, source: normalized.source });
           try {
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             if (!projectId) {
@@ -113,6 +131,7 @@ export function useDeviceTokenRegistration() {
               return;
             }
 
+            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_started', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
             const response = await fetch(
               `https://${projectId}.supabase.co/functions/v1/register-device-token`,
               {
@@ -131,12 +150,15 @@ export function useDeviceTokenRegistration() {
             if (!response.ok) {
               registered.current = false;
               console.error('[PushReg] Backend rejected token:', response.status, responseText);
+              emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorCode: String(response.status), errorMessage: responseText, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
               return;
             }
             console.log('[PushReg] Token persisted to backend');
+            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_success', userId: user.id, meta: { tokenPrefix: cleaned.substring(0, 12), tokenLength: cleaned.length } });
           } catch (err) {
             registered.current = false;
             console.error('[PushReg] Failed to persist token:', err);
+            emitIntegrationEvent({ provider: 'notification', event: 'notification_token_persist_failed', userId: user.id, errorMessage: err instanceof Error ? err.message : String(err) });
           }
         });
 
@@ -154,6 +176,7 @@ export function useDeviceTokenRegistration() {
         // Register with APNs
         await PushNotifications.register();
         console.log('[PushReg] APNs registration initiated');
+        emitIntegrationEvent({ provider: 'notification', event: 'notification_apns_registration_started', userId: user.id });
 
         // Re-register on every resume so a rotated APNs token (common after
         // reinstall, OS upgrade, or long background) gets persisted to the
@@ -163,6 +186,7 @@ export function useDeviceTokenRegistration() {
             if (!isActive) return;
             try {
               const perm = await PushNotifications.checkPermissions();
+              emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_state', userId: user.id, meta: { receive: perm.receive, reason: 'resume' } });
               if (perm.receive !== 'granted') return;
               await PushNotifications.register();
               console.log('[PushReg] Resume: APNs re-registration initiated');

@@ -24,20 +24,20 @@ serve(async (req) => {
       });
     }
 
-    // Validate APNs token shape. Apple treats device-token length as variable,
-    // so require only a reasonable even-length hex string instead of hardcoding
-    // the older 64-char value.
+    // Validate APNs token shape. In production we observed malformed 160-char
+    // hex strings being persisted and later rejected by APNs as BadDeviceToken.
+    // Accept only canonical APNs byte lengths exposed as hex.
+    const normalizedToken = typeof device_token === 'string' ? device_token.trim().toLowerCase() : device_token;
     if (platform === 'ios') {
+      const allowedHexLengths = new Set([64, 72, 128]);
       const isValid =
-        typeof device_token === 'string' &&
-        /^[0-9a-fA-F]+$/.test(device_token) &&
-        device_token.length >= 64 &&
-        device_token.length <= 256 &&
-        device_token.length % 2 === 0;
+        typeof normalizedToken === 'string' &&
+        /^[0-9a-f]+$/.test(normalizedToken) &&
+        allowedHexLengths.has(normalizedToken.length);
       if (!isValid) {
         console.warn(`[register-device-token] Rejected malformed iOS token for ${userId}: length=${device_token?.length}`);
         return new Response(JSON.stringify({
-          error: 'Invalid iOS device token format (expected even-length APNs hex token)',
+          error: 'Invalid iOS device token format (expected canonical APNs hex token)',
           length: typeof device_token === 'string' ? device_token.length : null,
         }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -57,7 +57,7 @@ serve(async (req) => {
       .update({ is_active: false })
       .eq('user_id', userId)
       .eq('platform', platform)
-      .neq('device_token', device_token);
+      .neq('device_token', normalizedToken);
 
     // 2. Upsert the current token as the active one
     const { error } = await supabase
@@ -65,7 +65,7 @@ serve(async (req) => {
       .upsert(
         {
           user_id: userId,
-          device_token,
+          device_token: normalizedToken,
           platform,
           is_active: true,
           updated_at: new Date().toISOString(),

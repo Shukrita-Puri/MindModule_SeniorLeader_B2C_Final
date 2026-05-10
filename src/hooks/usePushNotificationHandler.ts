@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationEngagement } from '@/hooks/useNotificationEngagement';
 import { supabase } from '@/integrations/supabase/client';
+import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { registerLocalNotificationTelemetryListeners } from '@/utils/notificationDiagnostics';
 
 /**
  * Deep link routing for smart nudges.
@@ -42,6 +44,7 @@ export function usePushNotificationHandler() {
     if (!Capacitor.isNativePlatform()) return;
 
     listenerAdded.current = true;
+    registerLocalNotificationTelemetryListeners();
 
     (async () => {
       try {
@@ -54,6 +57,7 @@ export function usePushNotificationHandler() {
           const deepLinkRoute = data.deep_link_route as string | undefined;
 
           console.log('[PushHandler] Notification tapped:', notificationType, notificationLogId);
+          emitIntegrationEvent({ provider: 'notification', event: 'notification_action_performed', meta: { notificationType, notificationLogId, deepLinkRoute } });
 
           // Track engagement
           if (notificationLogId) {
