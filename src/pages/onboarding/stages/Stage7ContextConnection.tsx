@@ -102,6 +102,9 @@ export default function Stage7ContextConnection() {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
   const [watchSyncStatus, setWatchSyncStatus] = useState<string | null>(null);
+  // When a wearable is connected we ask whether the user also wants self check-ins.
+  // Default = true (no surprise data loss for users who don't actively choose).
+  const [selfCheckInsEnabled, setSelfCheckInsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
@@ -291,6 +294,7 @@ export default function Stage7ContextConnection() {
     await recordStep("context_connection", {
       context_calendar_enabled: calendarEnabled,
       context_watch_enabled: watchEnabled,
+      context_self_check_ins_enabled: watchEnabled ? selfCheckInsEnabled : true,
       completed: true,
     });
 
@@ -309,6 +313,8 @@ export default function Stage7ContextConnection() {
         const body = JSON.stringify({
           calendar_provider: calendarEnabled ? "google" : null,
           watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
+          // No wearable → self check-ins always enabled (Mode C). With a wearable, honour the toggle.
+          self_check_ins_enabled: watchEnabled ? selfCheckInsEnabled : true,
         });
         const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
