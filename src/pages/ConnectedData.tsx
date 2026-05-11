@@ -1167,6 +1167,28 @@ const ConnectedData = () => {
           ))
         )}
 
+        {/* Daily self check-ins toggle — only visible to users who opted out during onboarding (wearable-only mode). */}
+        {showSelfCheckInToggle && (
+          <Card>
+            <CardContent className="py-4 px-5">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-foreground">Daily self check-ins</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Adds a short morning check-in for a more rounded assessment alongside your wearable.
+                  </p>
+                </div>
+                <Switch
+                  checked={false}
+                  disabled={enablingSelfCheckIns}
+                  onCheckedChange={(checked) => { if (checked) handleEnableSelfCheckIns(); }}
+                  aria-label="Enable daily self check-ins"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Legal Links */}
         <div className="flex items-center gap-4">
           <Button
