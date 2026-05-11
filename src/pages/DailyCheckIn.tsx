@@ -398,12 +398,12 @@ const DailyCheckIn = () => {
           shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
           {/* Eyebrow row inside card (matches Brief card) */}
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
+          <div className="mb-3 flex items-center justify-between gap-2 whitespace-nowrap">
+            <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))] truncate">
               Performance Readiness Assessment
             </span>
-            <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
-              Mental Performance State Check
+            <span className="text-caption text-[hsl(var(--muted-foreground-v2))] shrink-0">
+              Mind State Check
             </span>
           </div>
 
@@ -527,7 +527,7 @@ const DailyCheckIn = () => {
                   : 'bg-muted text-foreground/60 cursor-not-allowed'
               }`}
             >
-              {isSubmitting ? 'Saving...' : 'Continue to Body Performance Check-in'}
+              {isSubmitting ? 'Saving...' : 'Continue to Body State Check in'}
             </button>
           </div>
         </div>
