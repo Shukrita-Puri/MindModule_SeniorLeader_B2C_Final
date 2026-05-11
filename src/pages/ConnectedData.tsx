@@ -127,7 +127,7 @@ const ConnectedData = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { wearableConnected, selfCheckInsEnabled, mode } = useCheckInMode();
+  const { wearableConnected, selfCheckInsEnabled } = useCheckInMode();
   const [enablingSelfCheckIns, setEnablingSelfCheckIns] = useState(false);
 
   // Per spec: only the wearable-only opt-out cohort sees the re-enable affordance.
