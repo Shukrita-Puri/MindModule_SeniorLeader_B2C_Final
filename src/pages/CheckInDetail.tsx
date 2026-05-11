@@ -195,12 +195,12 @@ const CheckInDetail = () => {
             shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
             {/* Eyebrow row — matches Page 1 */}
-            <div className="-mt-1 mb-1 flex items-center justify-between">
-              <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
+            <div className="-mt-1 mb-1 flex items-center justify-between gap-2 whitespace-nowrap">
+              <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))] truncate">
                 Performance Readiness Assessment
               </span>
-              <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
-                Body Performance State Check
+              <span className="text-caption text-[hsl(var(--muted-foreground-v2))] shrink-0">
+                Body State Check
               </span>
             </div>
 
