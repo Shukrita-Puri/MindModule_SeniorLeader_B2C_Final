@@ -1098,8 +1098,8 @@ const ConnectedData = () => {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-foreground">{conn.name}</h3>
-                    <p className="text-sm text-muted-foreground truncate">{conn.description}</p>
+                    <h3 className="text-base font-semibold text-foreground">{conn.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug break-words">{conn.description}</p>
                     {conn.statusLabel && (
                       <p className="text-xs text-foreground/80 mt-0.5">{conn.statusLabel}</p>
                     )}
