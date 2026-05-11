@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       onboarding_insight,
       archetype_description,
       archetype_title,
+      self_check_ins_enabled,
     } = body;
 
     const supabaseAdmin = createClient(
@@ -84,6 +85,9 @@ Deno.serve(async (req) => {
     if (onboarding_insight !== undefined) updateData.onboarding_insight = onboarding_insight;
     if (archetype_description !== undefined) updateData.archetype_description = archetype_description;
     if (archetype_title !== undefined) updateData.archetype_title = archetype_title;
+    if (typeof self_check_ins_enabled === "boolean") {
+      updateData.self_check_ins_enabled = self_check_ins_enabled;
+    }
 
     // Persist user_integrations if calendar/watch data provided
     const { calendar_provider, watch_type } = body;
