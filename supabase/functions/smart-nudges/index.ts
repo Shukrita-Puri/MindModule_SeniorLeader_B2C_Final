@@ -1540,6 +1540,14 @@ function buildV8CtxForCheck(ctx: NudgeContext): { eventTitles: string[]; checkin
   };
 }
 
+function isLowContextStaticFallbackVariant(variantId: string): boolean {
+  return variantId.endsWith('-light');
+}
+
+function isNamedContextViolation(violation: string): boolean {
+  return violation.includes('no named context token');
+}
+
 // V8 — validate any static fallback copy through the same contract used for
 // AI output. If the fallback violates V8, we drop it so the cron tick simply
 // sends nothing rather than ship V7 phrasing.
@@ -1551,11 +1559,16 @@ function validateStaticFallbackCopy(
   if (!copy) return null;
   const v8Ctx = buildV8CtxForCheck(ctx);
   const violation = violatesCopyContractV8(copy.body, v8Ctx);
-  if (violation) {
+  if (violation && !(isLowContextStaticFallbackVariant(copy.variantId) && isNamedContextViolation(violation))) {
     console.warn(
       `[smart-nudges v8] Suppressed static fallback ${copy.variantId} for ${nudgeType}: ${violation} | "${copy.body}"`,
     );
     return null;
+  }
+  if (violation) {
+    console.log(
+      `[smart-nudges v8] Allowed low-context static fallback ${copy.variantId} for ${nudgeType}: ${violation}`,
+    );
   }
   // V8 telemetry — stamp the provider so the insert payload can record
   // which path actually produced the shipped copy (claude / gemini / static).
@@ -3022,6 +3035,7 @@ serve(async (req) => {
 
     let sendSuccess = 0;
     let sendFailed = 0;
+    let sendAttempted = 0;
 
     let apnsJwt: string | null = null;
     if (!isDryRun) {
@@ -3043,11 +3057,16 @@ serve(async (req) => {
       // trailing verb; if anything in the chain produces a non-V8 body we
       // suppress the send rather than ship V7 phrasing.
       const finalViolation = violatesCopyContractV8(notif.copy.body);
-      if (finalViolation) {
+      if (finalViolation && !(isLowContextStaticFallbackVariant(notif.copy.variantId) && isNamedContextViolation(finalViolation))) {
         console.warn(
           `[smart-nudges v8] SUPPRESSED post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation} body="${notif.copy.body}"`,
         );
         continue;
+      }
+      if (finalViolation) {
+        console.log(
+          `[smart-nudges v8] Allowed low-context post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation}`,
+        );
       }
 
       const payload: Record<string, unknown> = {
@@ -3100,6 +3119,7 @@ serve(async (req) => {
       if (!isDryRun && apnsJwt) {
         for (const tokenInfo of notif.tokens) {
           if (tokenInfo.platform !== 'ios') continue;
+          sendAttempted++;
           const normalizedToken = tokenInfo.token.trim().toLowerCase();
           if (!isCanonicalIosApnsToken(normalizedToken)) {
             console.error(`[smart-nudges] Deactivating malformed APNs token user=${notif.userId} len=${tokenInfo.token.length} prefix=${tokenInfo.token.substring(0, 12)}...`);
@@ -3195,9 +3215,15 @@ serve(async (req) => {
       console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.copy.variantId} → ${notif.userId} | "${notif.copy.body}"`);
     }
 
+    console.log(
+      `[smart-nudges] summary qualified=${allNotifications.length} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
+    );
+
     return new Response(JSON.stringify({
       processed: userIds.length,
       notifications: allNotifications.length,
+      qualified_notifications: allNotifications.length,
+      apns_attempted: sendAttempted,
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
