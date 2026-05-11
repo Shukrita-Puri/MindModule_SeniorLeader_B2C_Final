@@ -1011,7 +1011,7 @@ const ConnectedData = () => {
     ...(showWebCalendars ? [{
       id: 'google-calendar',
       name: 'Google Calendar',
-      description: 'Sync your calendar for contextual recommendations',
+      description: 'Sync your Google Calendar so Mind Module can read meeting load, decision density, and recovery windows to tailor your daily brief and nudges.',
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
       linked: googleConnected,
@@ -1027,7 +1027,7 @@ const ConnectedData = () => {
     {
       id: 'microsoft-calendar',
       name: 'Microsoft Calendar',
-      description: 'Connect your Outlook calendar to help Mind Module understand meetings, decision load, and recovery windows.',
+      description: 'Connect your Outlook calendar so Mind Module can read meeting load, decision density, and recovery windows to tailor your daily brief and nudges.',
       logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
       linked: microsoftConnected,
@@ -1043,7 +1043,7 @@ const ConnectedData = () => {
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
       name: 'Apple Calendar',
-      description: 'Read your iOS calendar on-device to tailor readiness and nudges.',
+      description: 'Read your iOS calendar on-device so Mind Module can factor meeting load and recovery windows into your readiness and nudges — nothing leaves your phone.',
       logo: (
         <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
           <CalendarDays className="h-4 w-4 text-foreground/70" />
@@ -1065,7 +1065,7 @@ const ConnectedData = () => {
     {
       id: 'apple-health',
       name: 'Apple Health',
-      description: 'Connect Apple Health for HRV data',
+      description: 'Connect Apple Health to share HRV, resting heart rate, sleep stages, respiratory rate, and activity — the full physiological picture behind your readiness.',
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.isHealthyConnected,
       linked: appleHealthState.isLinked,
@@ -1098,8 +1098,8 @@ const ConnectedData = () => {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-foreground">{conn.name}</h3>
-                    <p className="text-sm text-muted-foreground truncate">{conn.description}</p>
+                    <h3 className="text-base font-semibold text-foreground">{conn.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug break-words">{conn.description}</p>
                     {conn.statusLabel && (
                       <p className="text-xs text-foreground/80 mt-0.5">{conn.statusLabel}</p>
                     )}
