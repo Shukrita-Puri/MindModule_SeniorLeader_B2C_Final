@@ -1541,7 +1541,9 @@ function buildV8CtxForCheck(ctx: NudgeContext): { eventTitles: string[]; checkin
 }
 
 function isLowContextStaticFallbackVariant(variantId: string): boolean {
-  return variantId.endsWith('-light');
+  // Strip A/B CTA arm suffix (e.g. "FB-N3-light::D") before checking,
+  // because applyCtaVariant mutates variantId after the pre-AB validator runs.
+  return variantId.replace(/::[ABCD]$/, '').endsWith('-light');
 }
 
 function isNamedContextViolation(violation: string): boolean {
