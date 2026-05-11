@@ -3228,19 +3228,21 @@ serve(async (req) => {
     }
 
     console.log(
-      `[smart-nudges] summary qualified=${allNotifications.length} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
+      `[smart-nudges] summary qualified=${allNotifications.length} shipped=${shippedNotifications.length} suppressed_post_cta=${suppressedPostCta} attempted=${sendAttempted} sent=${sendSuccess} failed=${sendFailed} dry_run=${isDryRun}`,
     );
 
     return new Response(JSON.stringify({
       processed: userIds.length,
-      notifications: allNotifications.length,
+      notifications: shippedNotifications.length,
       qualified_notifications: allNotifications.length,
+      shipped_notifications: shippedNotifications.length,
+      suppressed_post_cta: suppressedPostCta,
       apns_attempted: sendAttempted,
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
       architecture: 'cos-mind-v8-meaning-forward',
-      details: allNotifications.map(n => ({
+      details: shippedNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
         variant: n.copy.variantId,
