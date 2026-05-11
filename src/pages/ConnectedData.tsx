@@ -1011,7 +1011,7 @@ const ConnectedData = () => {
     ...(showWebCalendars ? [{
       id: 'google-calendar',
       name: 'Google Calendar',
-      description: 'Get a daily brief and nudges tuned to your real meeting load, decision density, and high stakes events - so practices land when they matter.',
+      description: 'Tune your brief and nudges to your meeting load and high-stakes events.',
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
       linked: googleConnected,
@@ -1027,7 +1027,7 @@ const ConnectedData = () => {
     {
       id: 'microsoft-calendar',
       name: 'Microsoft Calendar',
-      description: 'Tune your brief and nudges to your Outlook meeting load, decision density and high pressure events - so practices land before high-stakes moments.',
+      description: 'Tune your brief and nudges to your Outlook load and high-stakes days.',
       logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
       linked: microsoftConnected,
@@ -1043,7 +1043,7 @@ const ConnectedData = () => {
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
       name: 'Apple Calendar',
-      description: 'Tune your brief and nudges to your real meeting load, decision density, and high pressure events - so practices land before high-stakes moments.',
+      description: 'Tune your brief and nudges to your meeting load and high-pressure days.',
       logo: (
         <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
           <CalendarDays className="h-4 w-4 text-foreground/70" />
@@ -1065,7 +1065,7 @@ const ConnectedData = () => {
     {
       id: 'apple-health',
       name: 'Apple Health',
-      description: 'Share HRV, resting HR, sleep, and HR so your readiness reflects your real physiology.',
+      description: 'Share HRV, resting HR, and sleep so readiness reflects real physiology.',
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.isHealthyConnected,
       linked: appleHealthState.isLinked,
