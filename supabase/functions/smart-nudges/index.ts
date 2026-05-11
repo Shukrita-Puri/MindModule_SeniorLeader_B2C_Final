@@ -1146,7 +1146,8 @@ const ALLOWED_CTA_VERBS_V6 = [
 function violatesCopyContractV6(body: string): string | null {
   const lower = body.toLowerCase();
   for (const w of FORBIDDEN_WORDS_V6) {
-    if (lower.includes(w)) return `forbidden word: "${w}"`;
+    const rx = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (rx.test(lower)) return `forbidden word: "${w}"`;
   }
   if (!ALLOWED_CTA_VERBS_V6.some(v => lower.includes(v))) {
     return 'no allowed CTA verb';
@@ -1231,7 +1232,8 @@ function violatesCopyContractV8(
 ): string | null {
   const lower = body.toLowerCase().trim();
   for (const w of FORBIDDEN_WORDS_V6) {
-    if (lower.includes(w)) return `forbidden word: "${w}"`;
+    const rx = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (rx.test(lower)) return `forbidden word: "${w}"`;
   }
   // Must end with a V8 qualified mind-prep verb (allow trailing punctuation).
   const trailing = lower.replace(/[.!?\s]+$/, '');
