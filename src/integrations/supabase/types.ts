@@ -3149,6 +3149,7 @@ export type Database = {
           q4_self_assessed_strength: string | null
           referral_code_entered_at: string | null
           referral_code_used: string | null
+          self_check_ins_enabled: boolean
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_cancel_at: string | null
@@ -3209,6 +3210,7 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           referral_code_entered_at?: string | null
           referral_code_used?: string | null
+          self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_cancel_at?: string | null
@@ -3269,6 +3271,7 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           referral_code_entered_at?: string | null
           referral_code_used?: string | null
+          self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_cancel_at?: string | null

@@ -39,6 +39,8 @@ import {
 } from '@/utils/integrationQaHelpers';
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
+import { Switch } from '@/components/ui/switch';
+import { useCheckInMode } from '@/hooks/useCheckInMode';
 
 /* ─── Types ─── */
 
@@ -125,6 +127,31 @@ const ConnectedData = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { wearableConnected, selfCheckInsEnabled } = useCheckInMode();
+  const [enablingSelfCheckIns, setEnablingSelfCheckIns] = useState(false);
+
+  // Per spec: only the wearable-only opt-out cohort sees the re-enable affordance.
+  const showSelfCheckInToggle = wearableConnected && !selfCheckInsEnabled;
+
+  const handleEnableSelfCheckIns = useCallback(async () => {
+    if (!user?.id) return;
+    setEnablingSelfCheckIns(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        // Cast until generated types include the new column.
+        .update({ self_check_ins_enabled: true } as unknown as never)
+        .eq('id', user.id);
+      if (error) throw error;
+      toast.success('Daily self check-ins enabled');
+      queryClient.invalidateQueries({ queryKey: ['check-in-mode', user.id] });
+    } catch (err) {
+      console.error('[ConnectedData] Failed to enable self check-ins:', err);
+      toast.error('Could not update preference');
+    } finally {
+      setEnablingSelfCheckIns(false);
+    }
+  }, [user?.id, queryClient]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -1138,6 +1165,28 @@ const ConnectedData = () => {
               </CardContent>
             </Card>
           ))
+        )}
+
+        {/* Daily self check-ins toggle — only visible to users who opted out during onboarding (wearable-only mode). */}
+        {showSelfCheckInToggle && (
+          <Card>
+            <CardContent className="py-4 px-5">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-foreground">Daily self check-ins</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Adds a short morning check-in for a more rounded assessment alongside your wearable.
+                  </p>
+                </div>
+                <Switch
+                  checked={false}
+                  disabled={enablingSelfCheckIns}
+                  onCheckedChange={(checked) => { if (checked) handleEnableSelfCheckIns(); }}
+                  aria-label="Enable daily self check-ins"
+                />
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Legal Links */}

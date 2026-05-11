@@ -102,6 +102,9 @@ export default function Stage7ContextConnection() {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
   const [watchSyncStatus, setWatchSyncStatus] = useState<string | null>(null);
+  // When a wearable is connected we ask whether the user also wants self check-ins.
+  // Default = true (no surprise data loss for users who don't actively choose).
+  const [selfCheckInsEnabled, setSelfCheckInsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
@@ -291,6 +294,7 @@ export default function Stage7ContextConnection() {
     await recordStep("context_connection", {
       context_calendar_enabled: calendarEnabled,
       context_watch_enabled: watchEnabled,
+      context_self_check_ins_enabled: watchEnabled ? selfCheckInsEnabled : true,
       completed: true,
     });
 
@@ -309,6 +313,8 @@ export default function Stage7ContextConnection() {
         const body = JSON.stringify({
           calendar_provider: calendarEnabled ? "google" : null,
           watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
+          // No wearable → self check-ins always enabled (Mode C). With a wearable, honour the toggle.
+          self_check_ins_enabled: watchEnabled ? selfCheckInsEnabled : true,
         });
         const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -436,6 +442,44 @@ export default function Stage7ContextConnection() {
                 onCheckedChange={handleWatchToggle}
               />
             </div>
+
+            {/* Self check-in preference — only when a wearable is connected */}
+            {watchEnabled && (
+              <div className="p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)] space-y-3">
+                <div>
+                  <p className="font-medium text-sm text-foreground leading-snug">
+                    Would you also like to complete daily self check-ins for a more rounded assessment?
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelfCheckInsEnabled(true)}
+                    className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
+                      selfCheckInsEnabled
+                        ? "border-saffron bg-saffron/10 text-foreground"
+                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                    }`}
+                    aria-pressed={selfCheckInsEnabled}
+                  >
+                    Yes — I'm happy to complete short daily self check-ins.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelfCheckInsEnabled(false)}
+                    className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
+                      !selfCheckInsEnabled
+                        ? "border-saffron bg-saffron/10 text-foreground"
+                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                    }`}
+                    aria-pressed={!selfCheckInsEnabled}
+                  >
+                    No — I'd prefer the wearable to do the heavy lifting.
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground/70">You can change this later in settings.</p>
+              </div>
+            )}
           </div>
 
           {/* Coming soon note */}

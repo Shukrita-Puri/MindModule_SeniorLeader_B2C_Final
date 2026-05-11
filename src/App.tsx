@@ -15,6 +15,7 @@ import PlayerErrorBoundary from "./components/PlayerErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGuard";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
+import { CheckInVisibilityGuard } from "./components/CheckInVisibilityGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
 import DelayedFallback from "./components/ui/delayed-fallback";
@@ -164,7 +165,7 @@ const router = createBrowserRouter([
       },
       {
         path: "daily-check-in",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><DailyCheckIn /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><CheckInVisibilityGuard page="daily-check-in"><DailyCheckIn /></CheckInVisibilityGuard></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "executive-home",
@@ -192,7 +193,7 @@ const router = createBrowserRouter([
       },
       {
         path: "check-in-detail",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><CheckInDetail /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><CheckInVisibilityGuard page="check-in-detail"><CheckInDetail /></CheckInVisibilityGuard></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "refer",

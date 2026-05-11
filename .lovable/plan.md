@@ -1,61 +1,87 @@
 ## Goal
-Redesign `/check-in-detail` (Page 2 — Body Performance Check-in) so it visually matches Page 1 (Mental Performance State Check) and uses one-word labels, the same luxury sliders, tooltip-driven explanations, and no icons or signal output. Persist all body fields into the existing `daily_checkins` table.
 
-## Scope
-- Replace the current Page 2 (Sharpness / Clarity / Confidence sliders) with a new Body Performance card.
-- Remove the legacy Page 2 fields from this UI (the underlying columns stay in DB; brief logic untouched).
-- Match Page 1 design exactly: same glass card, eyebrow row, font tokens, slider component, tooltip pattern, saffron CTA.
+Introduce three experience modes driven by two flags — `wearable_connected` and `self_check_ins_enabled` — and gate visibility/routing of `/daily-check-in` and `/check-in-detail` accordingly. **No scoring, brief, plan, signal, or backend logic changes.**
 
-## Header (matches Page 1 eyebrow row)
-- Left: eyebrow "Performance Readiness Assessment"
-- Right: caption "Body Performance State Check"
+Derived mode:
+- Wearable + Self → both flags true
+- Wearable Only → wearable true, self false
+- Self-Declared Only → wearable false (self defaults true)
 
-## Sections (one-word labels, top → bottom)
-Each section uses the same row layout as Page 1: label (with `InsightInfoModal` info icon) on the left, current state word on the right, then the slider, then end-labels.
+## Visibility Matrix
 
-1. **Sleep — Hours** — stepper (3.0–12.0, 0.5h step). Tooltip: "Sleep duration · combines with quality and wake type to triangulate sleep depth."
-2. **Sleep — Quality** — 4-step luxury slider (Poor / OK / Good / Great). Tooltip: "Subjective sleep quality — how restorative the night actually felt."
-3. **Sleep — Wake Type** — 3-step slider (Alarm groggy / Alarm / Natural). Tooltip: "How you woke up — natural waking signals deeper recovery; groggy alarm signals sleep debt."
-4. **Tension** — 5-step luxury slider, ends Tight ↔ Loose. Tooltip: "Somatic stress signature — tight chest, jaw, shoulders. Earliest physical stress signal."
-5. **Energy** — 5-step luxury slider, ends Depleted ↔ Peak. Tooltip: "Body fuel available right now · recovery readiness signal."
-6. **Recovery** — 4-step luxury slider, ends None ↔ Active. Tooltip: "What you actually did yesterday — determines whether carry-over load is resilient or compounding."
-7. **Carry** — 4-step luxury slider, ends Fresh ↔ Fumes. Tooltip: "Allostatic load — cumulative stress debt · primary burnout signal."
+| Mode | /daily-check-in | /check-in-detail | Daily CTA target |
+|------|-----------------|------------------|------------------|
+| Wearable + Self | Visible | Hidden | Today's Brief (`/executive-home`) |
+| Wearable Only | Hidden (redirect) | Hidden (redirect) | n/a |
+| Self-Declared Only | Visible | Visible | Body State Check (`/check-in-detail`) — current behaviour |
 
-Removed from upload: signal output pills, readiness summary block, inline warnings, all icons, the per-section "why" subtitles (moved into tooltip text).
+## Changes
 
-## CTA
-Saffron button at bottom of card: "Continue to Today's Performance" — disabled until all 7 inputs touched. Same disabled/enabled styling as Page 1.
+### 1. Persistence (new profile flag)
 
-## DB strategy — recommendation
-**Extend `daily_checkins`. Do NOT create a new table.**
+Add `self_check_ins_enabled boolean` to `public.profiles`, default `true` (preserves current behaviour for existing users). New migration only; no edits to existing migrations or scoring tables.
 
-Reasons:
-- A single check-in (date + time_window) already represents one full readiness snapshot. Mental + body belong to the same row so the brief, scoring, energyState, RLS, and snapshot reads keep working unchanged (no joins, no new edge actions, no new caches).
-- `daily_checkins` already grew this way (clarity / confidence / mental_sharpness / emotion / pressure / regulation are columns, not a sibling table).
-- Per-row size is tiny; a separate `body_checkins` table would add an extra round-trip to every brief generation and every Insights query for zero benefit.
+### 2. Onboarding — `Stage7ContextConnection.tsx`
 
-New columns to add (all nullable, ints unless noted):
-- `sleep_hours numeric(3,1)` (3.0–12.0)
-- `sleep_quality smallint` (1–4)
-- `sleep_wake_type smallint` (1–3)
-- `body_tension_level smallint` (1–5)
-- `body_energy_level smallint` (1–5)
-- `recovery_yesterday_level smallint` (1–4)
-- `carry_load_level smallint` (1–4)
+- Keep wearable connection optional (no change).
+- When `watchEnabled === true`, render a new sub-section beneath the wearable card:
+  - Question: "Would you also like to complete daily self check-ins for a more rounded assessment?"
+  - 2-option segmented selector:
+    - "Yes — I'm happy to complete short daily self check-ins." → `selfCheckIns = true`
+    - "No — I'd prefer the wearable to do the heavy lifting." → `selfCheckIns = false`
+  - Helper copy: "You can change this later in settings."
+  - Default selection: Yes.
+- When `watchEnabled === false`, hide the sub-section and force `selfCheckIns = true` on submit.
+- On submit, include `self_check_ins_enabled` in the `complete-onboarding` payload.
 
-Validation via a small trigger (mirrors `validate_time_window`) — no CHECK constraints (per project convention).
+### 3. Backend — `complete-onboarding` edge function
 
-Edge function `daily-checkins` gains a new action `UPDATE_BODY_CHECKIN` that accepts `{checkinId | (checkinDate+timeWindow), sleepHours, sleepQuality, sleepWakeType, tension, energy, recovery, carry}` and writes those columns. Page 2 calls it on Save (same auth/dev-mode branching as today). Cache invalidation (energy state, brief, plan, outer readiness) reuses the existing block from `CheckInDetail.handleSave`.
+Accept and persist `self_check_ins_enabled` onto `profiles`. No other logic touched.
 
-## Files to change
-- `src/pages/CheckInDetail.tsx` — full rewrite of card body; reuse `Slider` (luxury variants), `InsightInfoModal`, glass-card classes, eyebrow row, saffron CTA from Page 1.
-- `supabase/functions/daily-checkins/index.ts` — add `UPDATE_BODY_CHECKIN` action.
-- One new migration — add the 7 columns + trigger.
-- (Optional follow-up, not in this plan) `src/utils/dailyCheckins.ts` `CheckinData` typing extension once the columns exist.
+### 4. Routing & visibility helpers
 
-## Out of scope
-- Brief / scoring / Insights consumption of the new fields (separate task once data starts flowing).
-- Removing the legacy `mental_sharpness_level` / `confidence_level` columns.
-- Any change to Page 1.
+Add a tiny client helper `src/utils/checkInMode.ts` that derives the mode from `profile.watch_type`/integration state + `profile.self_check_ins_enabled`, exposing:
+- `useCheckInMode()` hook returning `{ mode, showDailyCheckIn, showCheckInDetail, dailyCtaTarget }`.
 
-Ready to implement on approval.
+Wire it in:
+- **`src/App.tsx`** — wrap `/daily-check-in` and `/check-in-detail` route elements with a guard that redirects to `/executive-home` when the mode hides them. (Keeps file-level changes minimal.)
+- **`src/pages/DailyCheckIn.tsx`** — CTA label & navigation derived from `dailyCtaTarget`:
+  - Wearable + Self → label "Continue to Today's Brief", navigate `/executive-home`.
+  - Self-Declared Only → keep current "Continue to Body State Check in" → `/check-in-detail`.
+- **`src/pages/ExecutiveHome.tsx`** — any existing "start check-in" entry uses the same helper so Wearable-Only users land straight on Brief (no link to hidden pages).
+
+### 5. Connected Data page (`src/pages/ConnectedData.tsx`)
+
+Add a "Daily self check-ins" row inside the existing wearable section:
+- Visible **only** when wearable is connected AND `self_check_ins_enabled === false` (i.e. user opted out during onboarding). Per spec, all other users keep current UI.
+- A Switch labelled "Enable daily self check-ins" with helper "Adds a short morning check-in for a more rounded assessment."
+- Toggling on calls existing profile-update path to set `self_check_ins_enabled = true`; afterwards the row disappears (now matches default state).
+- No path to disable from this page in MVP (keeps surface minimal; matches "only visible to users who opted out").
+
+### 6. Returning user behaviour
+
+No bespoke landing logic needed — `ExecutiveHome` remains the post-onboarding entry. The route guards + CTA helper enforce the matrix on every visit, using the persisted flags.
+
+## Out of Scope (explicitly untouched)
+
+- Readiness/triangulation engine, brief generation, signal pills, plan generation, smart nudges, AI prompts.
+- Wearable upsell entry points elsewhere in the app.
+- `CheckInDetail` internal UI (only its route-level visibility changes).
+
+## Acceptance
+
+- Mode A: `/daily-check-in` reachable, `/check-in-detail` redirects to `/executive-home`, CTA reads "Continue to Today's Brief" and routes there.
+- Mode B: both check-in routes redirect to `/executive-home`; user lands on Brief.
+- Mode C: both pages visible; current CTA preserved.
+- Existing users (no new flag value) behave as Mode C or A depending on wearable — default `true` keeps parity.
+- Connected Data shows the re-enable toggle only for opted-out wearable users.
+
+## Files touched
+
+- `supabase/migrations/<new>.sql` (add column)
+- `supabase/functions/complete-onboarding/index.ts` (persist new field)
+- `src/pages/onboarding/stages/Stage7ContextConnection.tsx`
+- `src/utils/checkInMode.ts` (new)
+- `src/App.tsx` (route guards)
+- `src/pages/DailyCheckIn.tsx` (CTA label + target)
+- `src/pages/ConnectedData.tsx` (conditional re-enable toggle)
