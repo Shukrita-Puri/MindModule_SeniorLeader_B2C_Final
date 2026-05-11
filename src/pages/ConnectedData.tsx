@@ -128,28 +128,27 @@ const ConnectedData = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { wearableConnected, selfCheckInsEnabled } = useCheckInMode();
-  const [enablingSelfCheckIns, setEnablingSelfCheckIns] = useState(false);
+  const [updatingSelfCheckIns, setUpdatingSelfCheckIns] = useState(false);
 
-  // Per spec: only the wearable-only opt-out cohort sees the re-enable affordance.
-  const showSelfCheckInToggle = wearableConnected && !selfCheckInsEnabled;
+  // Visible to ALL wearable-connected users so they can toggle the preference either way.
+  const showSelfCheckInToggle = wearableConnected;
 
-  const handleEnableSelfCheckIns = useCallback(async () => {
+  const handleToggleSelfCheckIns = useCallback(async (next: boolean) => {
     if (!user?.id) return;
-    setEnablingSelfCheckIns(true);
+    setUpdatingSelfCheckIns(true);
     try {
       const { error } = await supabase
         .from('profiles')
-        // Cast until generated types include the new column.
-        .update({ self_check_ins_enabled: true } as unknown as never)
+        .update({ self_check_ins_enabled: next })
         .eq('id', user.id);
       if (error) throw error;
-      toast.success('Daily self check-ins enabled');
+      toast.success(next ? 'Daily self check-ins enabled' : 'Daily self check-ins disabled');
       queryClient.invalidateQueries({ queryKey: ['check-in-mode', user.id] });
     } catch (err) {
-      console.error('[ConnectedData] Failed to enable self check-ins:', err);
+      console.error('[ConnectedData] Failed to update self check-ins preference:', err);
       toast.error('Could not update preference');
     } finally {
-      setEnablingSelfCheckIns(false);
+      setUpdatingSelfCheckIns(false);
     }
   }, [user?.id, queryClient]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
@@ -1179,9 +1178,9 @@ const ConnectedData = () => {
                   </p>
                 </div>
                 <Switch
-                  checked={false}
-                  disabled={enablingSelfCheckIns}
-                  onCheckedChange={(checked) => { if (checked) handleEnableSelfCheckIns(); }}
+                  checked={selfCheckInsEnabled}
+                  disabled={updatingSelfCheckIns}
+                  onCheckedChange={handleToggleSelfCheckIns}
                   aria-label="Enable daily self check-ins"
                 />
               </div>
