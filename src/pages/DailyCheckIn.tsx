@@ -24,6 +24,7 @@ import { ensureTourBoundToUser, hasIntroBeenSeen, FST_KEYS, FIRST_SESSION_TOUR_S
 import { clear as clearPersistent, cacheKeys, localISODate } from "@/utils/persistentBriefCache";
 import { clearEnergyStateCache } from "@/utils/energyStateEngine";
 import { clearOuterReadinessCache } from "@/hooks/useOuterReadiness";
+import { useCheckInMode } from "@/hooks/useCheckInMode";
 
 const ACTIVE_TOUR_STEP_KEY = 'first_session_guide_step';
 const ACTIVE_TOUR_KEY = 'first_session_guide_active';
