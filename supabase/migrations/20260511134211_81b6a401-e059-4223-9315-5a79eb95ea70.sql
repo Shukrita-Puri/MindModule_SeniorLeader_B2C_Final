@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS self_check_ins_enabled boolean NOT NULL DEFAULT true;
