@@ -6,6 +6,7 @@ interface StepMetadata {
   selected_plan?: string;
   context_calendar_enabled?: boolean;
   context_watch_enabled?: boolean;
+  context_self_check_ins_enabled?: boolean;
   completed?: boolean;
   skipped?: boolean;
   reason?: string;
