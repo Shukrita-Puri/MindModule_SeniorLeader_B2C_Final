@@ -442,6 +442,44 @@ export default function Stage7ContextConnection() {
                 onCheckedChange={handleWatchToggle}
               />
             </div>
+
+            {/* Self check-in preference — only when a wearable is connected */}
+            {watchEnabled && (
+              <div className="p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)] space-y-3">
+                <div>
+                  <p className="font-medium text-sm text-foreground leading-snug">
+                    Would you also like to complete daily self check-ins for a more rounded assessment?
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelfCheckInsEnabled(true)}
+                    className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
+                      selfCheckInsEnabled
+                        ? "border-saffron bg-saffron/10 text-foreground"
+                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                    }`}
+                    aria-pressed={selfCheckInsEnabled}
+                  >
+                    Yes — I'm happy to complete short daily self check-ins.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelfCheckInsEnabled(false)}
+                    className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
+                      !selfCheckInsEnabled
+                        ? "border-saffron bg-saffron/10 text-foreground"
+                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                    }`}
+                    aria-pressed={!selfCheckInsEnabled}
+                  >
+                    No — I'd prefer the wearable to do the heavy lifting.
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground/70">You can change this later in settings.</p>
+              </div>
+            )}
           </div>
 
           {/* Coming soon note */}
