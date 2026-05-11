@@ -39,6 +39,8 @@ import {
 } from '@/utils/integrationQaHelpers';
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
+import { Switch } from '@/components/ui/switch';
+import { useCheckInMode } from '@/hooks/useCheckInMode';
 
 /* ─── Types ─── */
 
