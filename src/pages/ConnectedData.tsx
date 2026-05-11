@@ -127,6 +127,31 @@ const ConnectedData = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { wearableConnected, selfCheckInsEnabled, mode } = useCheckInMode();
+  const [enablingSelfCheckIns, setEnablingSelfCheckIns] = useState(false);
+
+  // Per spec: only the wearable-only opt-out cohort sees the re-enable affordance.
+  const showSelfCheckInToggle = wearableConnected && !selfCheckInsEnabled;
+
+  const handleEnableSelfCheckIns = useCallback(async () => {
+    if (!user?.id) return;
+    setEnablingSelfCheckIns(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        // Cast until generated types include the new column.
+        .update({ self_check_ins_enabled: true } as unknown as never)
+        .eq('id', user.id);
+      if (error) throw error;
+      toast.success('Daily self check-ins enabled');
+      queryClient.invalidateQueries({ queryKey: ['check-in-mode', user.id] });
+    } catch (err) {
+      console.error('[ConnectedData] Failed to enable self check-ins:', err);
+      toast.error('Could not update preference');
+    } finally {
+      setEnablingSelfCheckIns(false);
+    }
+  }, [user?.id, queryClient]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
