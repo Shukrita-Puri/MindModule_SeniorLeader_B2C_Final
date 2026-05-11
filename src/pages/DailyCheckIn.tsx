@@ -62,6 +62,7 @@ const DailyCheckIn = () => {
   const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { dailyCtaTarget, dailyCtaLabel } = useCheckInMode();
 
   const [clarity, setClarity] = useState(3);
   const [emotion, setEmotion] = useState(3);
@@ -326,8 +327,10 @@ const DailyCheckIn = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
 
-      // Continue into Page 2 (Body Performance Check-in).
-      navigate('/check-in-detail');
+      // Route to the next step based on the user's check-in mode:
+      // - Wearable + Self → straight to Today's Brief (wearable supplies body data)
+      // - Self-Declared Only → continue to Body State Check-in
+      navigate(dailyCtaTarget);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
       toast({
@@ -528,7 +531,7 @@ const DailyCheckIn = () => {
                   : 'bg-muted text-foreground/60 cursor-not-allowed'
               }`}
             >
-              {isSubmitting ? 'Saving...' : 'Continue to Body State Check in'}
+              {isSubmitting ? 'Saving...' : dailyCtaLabel}
             </button>
           </div>
         </div>
