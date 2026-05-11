@@ -3074,6 +3074,26 @@ serve(async (req) => {
           `[smart-nudges v8] SUPPRESSED post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation} body="${notif.copy.body}"`,
         );
         suppressedPostCta++;
+        // Audit-log the suppression so SQL dashboards can see why a qualified
+        // notification never shipped. Without this row, finding why the cron
+        // run is silent requires scraping function logs.
+        await supabase.from('notification_log').insert({
+          user_id: notif.userId,
+          notification_type: notif.type,
+          variant_id: notif.copy.variantId,
+          event_reference: notif.eventReference || null,
+          delivery_state: 'suppressed',
+          payload: {
+            title: notif.copy.title,
+            body: notif.copy.body,
+            notification_type: notif.type,
+            variant_id: notif.copy.variantId,
+            architecture: 'cos-mind-v8-meaning-forward',
+            suppression_reason: finalViolation,
+            suppression_stage: 'post_cta',
+            ai_provider_used: notif.copy.aiProvider ?? 'static',
+          },
+        });
         continue;
       }
       if (finalViolation) {
@@ -3125,6 +3145,7 @@ serve(async (req) => {
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
         event_reference: notif.eventReference || null,
+        delivery_state: 'pending',
         payload,
       }).select('id').single();
 
@@ -3222,6 +3243,23 @@ serve(async (req) => {
           } catch (e) {
             console.error(`[smart-nudges] APNs send error for ${notif.userId}:`, e);
             sendFailed++;
+            // Persist the throw so the row doesn't stay 'pending' forever and
+            // network/JWT failures are queryable from SQL.
+            if (notificationLogId) {
+              await supabase
+                .from('notification_log')
+                .update({
+                  payload: {
+                    ...payload,
+                    apns_status: 0,
+                    apns_reason: 'send_threw',
+                    apns_error: String(e),
+                    apns_token_prefix: tokenInfo.token.substring(0, 12),
+                  },
+                  delivery_state: 'failed',
+                })
+                .eq('id', notificationLogId);
+            }
           }
         }
       }
