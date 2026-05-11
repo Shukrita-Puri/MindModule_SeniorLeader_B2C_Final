@@ -2781,6 +2781,7 @@ serve(async (req) => {
       isTravel: boolean;
       todayStr: string;
       qualificationWarnings: string[];
+      v8Ctx: { eventTitles: string[]; checkinWord: string | null };
     }> = [];
 
     // 3. Evaluate each user
@@ -3006,6 +3007,10 @@ serve(async (req) => {
             isTravel,
             todayStr,
             qualificationWarnings,
+            // V8 — capture per-user named-context tokens so the post-CTA
+            // recheck can satisfy requiresNamedContextToken() for AI bodies
+            // anchored on event titles or the morning check-in word.
+            v8Ctx: buildV8CtxForCheck(ctx),
           });
         }
       }
@@ -3036,6 +3041,8 @@ serve(async (req) => {
     let sendSuccess = 0;
     let sendFailed = 0;
     let sendAttempted = 0;
+    let suppressedPostCta = 0;
+    const shippedNotifications: typeof allNotifications = [];
 
     let apnsJwt: string | null = null;
     if (!isDryRun) {
@@ -3056,11 +3063,15 @@ serve(async (req) => {
       // V8 — final post-rewrite check. The CTA variant rewriter mutates the
       // trailing verb; if anything in the chain produces a non-V8 body we
       // suppress the send rather than ship V7 phrasing.
-      const finalViolation = violatesCopyContractV8(notif.copy.body);
+      // Pass the per-notification ctx so AI bodies anchored on real event
+      // titles or the morning check-in word satisfy requiresNamedContextToken
+      // (was previously dropped because ctx was missing).
+      const finalViolation = violatesCopyContractV8(notif.copy.body, notif.v8Ctx);
       if (finalViolation && !(isLowContextStaticFallbackVariant(notif.copy.variantId) && isNamedContextViolation(finalViolation))) {
         console.warn(
           `[smart-nudges v8] SUPPRESSED post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation} body="${notif.copy.body}"`,
         );
+        suppressedPostCta++;
         continue;
       }
       if (finalViolation) {
@@ -3068,6 +3079,7 @@ serve(async (req) => {
           `[smart-nudges v8] Allowed low-context post-CTA send: type=${notif.type} variant=${notif.copy.variantId} reason=${finalViolation}`,
         );
       }
+      shippedNotifications.push(notif);
 
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
