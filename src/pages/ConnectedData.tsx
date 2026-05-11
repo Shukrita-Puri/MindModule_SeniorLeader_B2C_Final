@@ -1166,7 +1166,7 @@ const ConnectedData = () => {
           ))
         )}
 
-        {/* Daily self check-ins toggle — only visible to users who opted out during onboarding (wearable-only mode). */}
+        {/* Daily self check-ins toggle — visible to ALL wearable-connected users so they can toggle either direction. */}
         {showSelfCheckInToggle && (
           <Card>
             <CardContent className="py-4 px-5">
