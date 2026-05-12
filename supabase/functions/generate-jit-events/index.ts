@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { isNoiseTitle, classifyEvent, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,20 +11,10 @@ const corsHeaders = {
 const IS_DEV = (Deno.env.get('ENVIRONMENT') || '') !== 'production';
 
 // ─── Stage 0: Noise Filter ─────────────────────────────────────────
-const NOISE_KEYWORDS = [
-  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
-  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
-  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
-  'car service', 'mot', 'oil change', 'dentist', 'optician',
-  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
-  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
-];
-const NOISE_PATTERN = /\[\d{6,}\]/;
-
+// Delegates to the shared executive-state taxonomy so noise rules stay
+// identical across smart-nudges, JIT, brief, mastery-plan, and cause-effect.
 function isNoiseEvent(title: string): boolean {
-  const lower = (title || '').toLowerCase();
-  if (NOISE_PATTERN.test(title || '')) return true;
-  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+  return isNoiseTitle(title);
 }
 
 // ─── Stage 2: Dimension Scoring ─────────────────────────────────────
@@ -79,6 +70,20 @@ const CLUSTER_KEYWORDS: Record<string, { keywords: string[]; scoreRange: [number
   },
 };
 
+// Canonical-category → JIT cluster mapping (used as a fallback when the
+// local CLUSTER_KEYWORDS table misses but the shared taxonomy still
+// classifies the event). Keeps Dim-B coverage in sync with EVENT_TYPES.
+const GROUP_TO_CLUSTER: Record<EventGroup, { cluster: string; bucket: string; score: number }> = {
+  A_governance:  { cluster: 'pressure',     bucket: 'recalibrate', score: 32 },
+  B_investor:    { cluster: 'pressure',     bucket: 'recalibrate', score: 32 },
+  D_visibility:  { cluster: 'pressure',     bucket: 'recalibrate', score: 30 },
+  E_leadership:  { cluster: 'relationship', bucket: 'clarity',     score: 25 },
+  C_strategic:   { cluster: 'decision',     bucket: 'clarity',     score: 21 },
+  F_operational: { cluster: 'pressure',     bucket: 'recalibrate', score: 22 },
+  G_travel:      { cluster: 'transition',   bucket: 'renewal',     score: 18 },
+  H_recovery:    { cluster: 'transition',   bucket: 'renewal',     score: 15 },
+};
+
 function scoreDimensionB(title: string, coachSignalScore: number, coachSignalBucket: string | null): DimBResult {
   const lower = (title || '').toLowerCase();
   const matches: { cluster: string; score: number; bucket: string }[] = [];
@@ -89,6 +94,16 @@ function scoreDimensionB(title: string, coachSignalScore: number, coachSignalBuc
       // Use midpoint of range
       const score = Math.round((config.scoreRange[0] + config.scoreRange[1]) / 2);
       matches.push({ cluster: clusterName, score, bucket: config.bucket });
+    }
+  }
+
+  // Canonical-taxonomy fallback: if the local table missed but the shared
+  // EVENT_TYPES classifier identifies the event, contribute that cluster.
+  if (matches.length === 0) {
+    const canon = classifyEvent(title);
+    if (canon) {
+      const mapped = GROUP_TO_CLUSTER[canon.group];
+      if (mapped) matches.push({ cluster: mapped.cluster, score: mapped.score, bucket: mapped.bucket });
     }
   }
 
