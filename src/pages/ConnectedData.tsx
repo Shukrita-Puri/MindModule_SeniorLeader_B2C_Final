@@ -1132,6 +1132,7 @@ const ConnectedData = () => {
 
                   {/* Action */}
                   {conn.connected || conn.linked ? (
+                    (conn.canSync || conn.onDisconnect) ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -1148,14 +1149,17 @@ const ConnectedData = () => {
                             Sync Now
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={conn.onDisconnect}
-                        >
-                          Remove
-                        </DropdownMenuItem>
+                        {conn.onDisconnect && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={conn.onDisconnect}
+                          >
+                            Remove
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    ) : null
                   ) : conn.showReconnect ? (
                     <Button
                       size="sm"
