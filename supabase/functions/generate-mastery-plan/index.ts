@@ -1188,13 +1188,13 @@ async function getPreScoredEvents(
         const contextDescription = buildEnrichedContextDescription(row, minutesUntil, matchingEvent, hrvCorrelations);
 
         // Find matching scenario for module selection
-        const titleLower = (row.event_title || '').toLowerCase();
+        // Scenario lookup goes through the shared taxonomy: classifyEvent →
+        // EVENT_TYPE_TO_SCENARIO_ID → ExecutiveScenario.id. Single source of
+        // truth for keywords; bespoke ModuleSpecs stay here.
         let matchedScenario: ExecutiveScenario | null = null;
-        for (const scenario of EXECUTIVE_SCENARIOS) {
-          if (scenario.triggers.calendarKeywords?.some(kw => titleLower.includes(kw.toLowerCase()))) {
-            matchedScenario = scenario;
-            break;
-          }
+        const sid = scenarioIdFor(row.event_title);
+        if (sid) {
+          matchedScenario = EXECUTIVE_SCENARIOS.find(s => s.id === sid) || null;
         }
 
         // Build HRV correlation from existing correlations
