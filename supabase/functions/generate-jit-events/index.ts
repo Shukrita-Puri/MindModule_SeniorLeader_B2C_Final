@@ -416,7 +416,7 @@ serve(async (req) => {
     const [eventsRes, cancellationRes, scenariosRes, pendingToolsRes, completedPlansRes, readinessAmpResult] = await Promise.all([
       calConn
         ? supabase
-            .from('calendar_events')
+            .from('primary_calendar_events')
             .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
             .eq('user_id', userId)
             .gte('start_time', now.toISOString())

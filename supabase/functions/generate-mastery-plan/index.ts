@@ -966,7 +966,7 @@ async function getHRVEventCorrelations(
 
     const [eventsRes, hrvRes] = await Promise.all([
       supabaseClient
-        .from('calendar_events')
+        .from('primary_calendar_events')
         .select('start_time, title')
         .eq('user_id', userId)
         .gte('start_time', thirtyDaysAgo.toISOString())
@@ -1838,7 +1838,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   // ── Calendar events ──
   if (calConnRes.data) {
     const { data: events } = await supabaseClient
-      .from('calendar_events')
+      .from('primary_calendar_events')
       .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
       .eq('user_id', req.userId)
       .gte('start_time', now.toISOString())

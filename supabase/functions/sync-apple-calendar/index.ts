@@ -133,12 +133,18 @@ serve(async (req) => {
         .insert({ user_id: userId, provider: 'apple', is_active: true, last_sync: nowIso });
     }
 
-    const classified = events.map(e => {
+    const classifiedRaw = events.map(e => {
       const { eventType, isHighStakes } = classify(e.title, e.attendees_count);
+      // Apple EventKit returns recurring instances sharing the same eventIdentifier;
+      // append start_time so each occurrence has a unique external_id and the
+      // composite-key upsert does not collide within a single batch.
+      const externalId = e.is_recurring
+        ? `${e.external_id}::${e.start_time}`
+        : e.external_id;
       return {
         user_id: userId,
         provider: 'apple',
-        external_id: e.external_id,
+        external_id: externalId,
         title: e.title || 'Untitled Event',
         start_time: e.start_time,
         end_time: e.end_time,
@@ -148,6 +154,11 @@ serve(async (req) => {
         event_metadata: { ...e.event_metadata, eventType, isHighStakes },
       };
     });
+
+    // Defensive dedupe by final composite key in case of any residual duplicates.
+    const byKey = new Map<string, typeof classifiedRaw[number]>();
+    for (const row of classifiedRaw) byKey.set(row.external_id, row);
+    const classified = Array.from(byKey.values());
 
     if (classified.length > 0) {
       const { error: upsertError } = await serviceClient
