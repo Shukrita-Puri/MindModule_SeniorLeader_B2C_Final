@@ -228,14 +228,36 @@ export interface ScoredEvent<E extends CalendarEventLite = CalendarEventLite> {
 const STAKES_THRESHOLD = 60;
 
 export function survivesAttendeeOrDurationFloor(e: CalendarEventLite): boolean {
+  // Keyword-first gate (per CEO-block reality):
+  //   - Personal/admin blocks (lunch, commute, travel-time placeholder) drop.
+  //   - Any title that classifies to a canonical EVENT_TYPE survives, regardless
+  //     of attendee count or duration. A 0-attendee 60-min "Media Interview – CNN"
+  //     or an 8-hour "Travel – LHR→JFK" still counts; attendee count is reserved
+  //     for future relational features (role-play), not selection gating.
+  //   - Otherwise apply a soft floor: drop only obvious micro-noise.
+  const title = e.title || '';
+  if (PERSONAL_BLOCK_PATTERN.test(title)) return false;
+  if (classifyEvent(title)) return true;
   const att = e.attendees_count ?? 0;
   const start = new Date(e.start_time);
   const end = e.end_time ? new Date(e.end_time) : new Date(start.getTime() + 30 * 60000);
   const dur = (end.getTime() - start.getTime()) / 60000;
-  if (PERSONAL_BLOCK_PATTERN.test(e.title || '')) return false;
-  if (dur > 240 && att <= 1) return false; // calendar blocker, not a meeting
-  if (e.is_recurring && att <= 2 && dur < 45) return false; // routine recurring
-  return att >= 2 || dur >= 30;
+  if (dur < 15 && att === 0) return false; // micro-block, almost certainly noise
+  return true;
+}
+
+/**
+ * Soft attendee tier — NOT used for selection gating today. Surfaced on
+ * ScoredEvent so future relational features (role-play, navigation drills)
+ * can consume it without re-deriving from attendees_count.
+ */
+export type AttendeeTier = 'solo' | 'small' | 'group' | 'broadcast';
+export function attendeeTier(e: Pick<CalendarEventLite, 'attendees_count'>): AttendeeTier {
+  const att = e.attendees_count ?? 0;
+  if (att <= 1) return 'solo';
+  if (att <= 5) return 'small';
+  if (att <= 20) return 'group';
+  return 'broadcast';
 }
 
 export function scoreEvents<E extends CalendarEventLite>(events: E[], flags?: EngineFlags): ScoredEvent<E>[] {
