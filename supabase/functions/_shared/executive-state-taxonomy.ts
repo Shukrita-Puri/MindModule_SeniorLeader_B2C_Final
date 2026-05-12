@@ -129,6 +129,7 @@ export const PERSONAL_BLOCK_PATTERN = /\b(day\s*block|focus\s*time|block\s*time|
 export function isNoiseTitle(title: string | null | undefined): boolean {
   if (!title) return false;
   if (NOISE_PATTERN.test(title)) return true;
+  if (PERSONAL_BLOCK_PATTERN.test(title)) return true;
   const lower = title.toLowerCase();
   return NOISE_KEYWORDS.some((kw) => lower.includes(kw));
 }
