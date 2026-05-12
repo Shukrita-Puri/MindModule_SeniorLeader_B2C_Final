@@ -609,10 +609,14 @@ export type DedupableEvent = {
  * Key = `${normalizedTitle}|${startMs}`. Falls back to (title|startMs) only.
  * Empty title events are kept as-is (cannot dedupe without a name).
  */
-export function dedupeCalendarEvents<T extends DedupableEvent>(events: T[]): T[] {
+export function dedupeCalendarEvents<T extends DedupableEvent>(
+  events: T[],
+  opts?: { platform?: 'ios' | 'web' | 'unknown' },
+): T[] {
   if (!Array.isArray(events) || events.length === 0) return [];
   const buckets = new Map<string, T>();
   const untitled: T[] = [];
+  const rank = PROVIDER_RANK_BY_PLATFORM[opts?.platform ?? 'unknown'] ?? PROVIDER_RANK;
 
   for (const e of events) {
     const title = normalizeTitle(e.title);
@@ -627,13 +631,17 @@ export function dedupeCalendarEvents<T extends DedupableEvent>(events: T[]): T[]
       buckets.set(key, e);
       continue;
     }
-    if (preferEvent(e, existing)) buckets.set(key, e);
+    if (preferEvent(e, existing, rank)) buckets.set(key, e);
   }
 
   return [...buckets.values(), ...untitled];
 }
 
-function preferEvent<T extends DedupableEvent>(candidate: T, current: T): boolean {
+function preferEvent<T extends DedupableEvent>(
+  candidate: T,
+  current: T,
+  rank: Record<string, number> = PROVIDER_RANK,
+): boolean {
   const cAtt = candidate.attendees_count ?? 0;
   const eAtt = current.attendees_count ?? 0;
   if (cAtt !== eAtt) return cAtt > eAtt;
@@ -642,8 +650,8 @@ function preferEvent<T extends DedupableEvent>(candidate: T, current: T): boolea
   const eOrg = current.is_organizer ? 1 : 0;
   if (cOrg !== eOrg) return cOrg > eOrg;
 
-  const cRank = PROVIDER_RANK[(candidate.provider || '').toLowerCase()] ?? 0;
-  const eRank = PROVIDER_RANK[(current.provider || '').toLowerCase()] ?? 0;
+  const cRank = rank[(candidate.provider || '').toLowerCase()] ?? 0;
+  const eRank = rank[(current.provider || '').toLowerCase()] ?? 0;
   if (cRank !== eRank) return cRank > eRank;
 
   const cCreated = toMs(candidate.created_at);
@@ -651,4 +659,48 @@ function preferEvent<T extends DedupableEvent>(candidate: T, current: T): boolea
   if (cCreated && eCreated && cCreated !== eCreated) return cCreated < eCreated;
 
   return false;
+}
+
+// ── EVENT_TYPE → mastery scenarioId ───────────────────────────────────
+//
+// One-way mapping consumed by generate-mastery-plan to look up its bespoke
+// ExecutiveScenario (which carries ModuleSpecs) deterministically off the
+// shared taxonomy. Multiple EVENT_TYPE ids may fold into one scenario.
+// `null` is intentional — no prep scenario applies (e.g. deep work, 1:1).
+export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string | null> = {
+  'gov.board_meeting':           'pre-board-meeting',
+  'gov.board_committee':         'pre-board-meeting',
+  'gov.board_prep':              'pre-board-meeting',
+  'inv.investor_meeting':        'pre-investor-meeting',
+  'inv.fundraising':             'pre-investor-meeting',
+  'inv.earnings_call':           'pre-budget-review',
+  'inv.budget_review':           'pre-budget-review',
+  'inv.ma_discussion':           'pre-negotiations',
+  'str.strategy_planning':       'pre-strategic-planning',
+  'str.qbr':                     'pre-quarterly-review',
+  'str.deep_work':               null,
+  'vis.keynote':                 'pre-investor-meeting',
+  'vis.speaking':                'pre-media',
+  'vis.media':                   'pre-media',
+  'vis.all_hands':               'pre-all-hands',
+  'vis.client_presentation':     'pre-client-presentation',
+  'lead.executive_1on1':         null,
+  'lead.leadership_sync':        'pre-all-hands',
+  'lead.performance_review':     'pre-performance-review',
+  'lead.difficult_conversation': 'pre-difficult-conversation',
+  'lead.layoff':                 'pre-difficult-conversation',
+  'lead.hiring_committee':       'pre-hiring-decision',
+  'lead.negotiation':            'pre-negotiations',
+  'ops.crisis':                  'pre-crisis-response',
+  'ops.product_launch':          'pre-strategic-planning',
+  'ops.catchup':                 null,
+  'trv.long_haul':               null,
+  'trv.flight':                  null,
+  'rec.pto':                     null,
+};
+
+export function scenarioIdFor(title: string | null | undefined): string | null {
+  const et = classifyEvent(title);
+  if (!et) return null;
+  return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
 }
