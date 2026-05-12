@@ -1368,12 +1368,14 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     if (!event.isRecurring) score += 10;
 
     let matchedScenario: ExecutiveScenario | null = null;
-    for (const scenario of EXECUTIVE_SCENARIOS) {
-      if (!scenario.triggers.calendarKeywords) continue;
-      if (scenario.triggers.calendarKeywords.some(kw => titleLower.includes(kw.toLowerCase()))) {
-        score += 25;
-        matchedScenario = scenario;
-        break;
+    {
+      const sid = scenarioIdFor(event.title);
+      if (sid) {
+        const found = EXECUTIVE_SCENARIOS.find(s => s.id === sid) || null;
+        if (found) {
+          score += 25;
+          matchedScenario = found;
+        }
       }
     }
 
