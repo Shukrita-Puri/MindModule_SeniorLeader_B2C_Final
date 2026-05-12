@@ -2446,19 +2446,25 @@ serve(async (req) => {
         // Re-check calendar events for timing
         const { data: upcoming } = await db
           .from('primary_calendar_events')
-          .select('title, start_time')
+          .select('title, start_time, end_time, attendees_count, is_organizer, is_recurring')
           .eq('user_id', userId)
           .gte('start_time', now.toISOString())
           .lte('start_time', ninetyMinsLater.toISOString())
           .order('start_time', { ascending: true })
           .limit(5);
-        if (upcoming) {
-          for (const ev of upcoming) {
-            if (todayHighStakes.includes(ev.title)) {
-              const mins = Math.round((new Date(ev.start_time).getTime() - now.getTime()) / 60000);
-              nextHighStakesEvent = { title: ev.title, minutesUntil: mins, startTimeUTC: new Date(ev.start_time).toISOString() };
-              break;
-            }
+        if (upcoming && upcoming.length > 0) {
+          // Restrict to the day's high-stakes set, then let selectLeadEvent rank
+          // by canonical stakesScore (Board > Leadership 1:1) — chronological
+          // tie-break only when stakes are equal.
+          const candidates = upcoming.filter((ev: any) => todayHighStakes.includes(ev.title));
+          const lead = selectLeadEvent(candidates as any);
+          if (lead) {
+            const mins = Math.round((new Date(lead.event.start_time).getTime() - now.getTime()) / 60000);
+            nextHighStakesEvent = {
+              title: lead.event.title as string,
+              minutesUntil: mins,
+              startTimeUTC: new Date(lead.event.start_time).toISOString(),
+            };
           }
         }
       }
