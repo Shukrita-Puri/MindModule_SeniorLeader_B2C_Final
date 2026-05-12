@@ -30,9 +30,19 @@ export function detectClientPlatform(req: Request | { headers: Headers } | null 
   if (!req) return 'unknown';
   const headers = (req as any).headers as Headers | undefined;
   if (!headers) return 'unknown';
-  const explicit = (headers.get('x-client-platform') || headers.get('X-Client-Platform') || '').toLowerCase();
-  if (explicit === 'ios') return 'ios';
-  if (explicit === 'web') return 'web';
+  // Prefer explicit headers — `x-client-platform` is our app-set hint, while
+  // `x-supabase-client-platform` is auto-set by @supabase/supabase-js. The iOS
+  // Capacitor wrapper overrides the latter via fetch headers in nativeAuth.
+  const hints = [
+    headers.get('x-client-platform'),
+    headers.get('X-Client-Platform'),
+    headers.get('x-supabase-client-platform'),
+    headers.get('X-Supabase-Client-Platform'),
+  ].filter(Boolean).map((v) => String(v).toLowerCase());
+  for (const h of hints) {
+    if (h === 'ios' || h === 'capacitor-ios' || h === 'native-ios') return 'ios';
+    if (h === 'web' || h === 'browser') return 'web';
+  }
   const ua = (headers.get('user-agent') || headers.get('User-Agent') || '').toLowerCase();
   if (!ua) return 'unknown';
   if (ua.includes('capacitor') || ua.includes('cfnetwork')) return 'ios';
