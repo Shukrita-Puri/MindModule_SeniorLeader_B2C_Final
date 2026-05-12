@@ -217,6 +217,7 @@ import {
   highStakesScore,
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
+import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 
 function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
@@ -2647,9 +2648,13 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const platform = detectClientPlatform(req);
+    const supabase = wrapDbWithCalendarPrimacy(
+      createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      ),
+      platform,
     );
 
     console.log('[smart-nudges] Starting evaluation run (v7 JIT-or-State, prep CTA, unified pattern store)...');

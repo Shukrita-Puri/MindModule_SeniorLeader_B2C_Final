@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
 import { isNoiseTitle } from '../_shared/executive-state-taxonomy.ts';
+import { scenarioIdFor } from '../_shared/executive-state-taxonomy.ts';
+import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1186,13 +1188,13 @@ async function getPreScoredEvents(
         const contextDescription = buildEnrichedContextDescription(row, minutesUntil, matchingEvent, hrvCorrelations);
 
         // Find matching scenario for module selection
-        const titleLower = (row.event_title || '').toLowerCase();
+        // Scenario lookup goes through the shared taxonomy: classifyEvent →
+        // EVENT_TYPE_TO_SCENARIO_ID → ExecutiveScenario.id. Single source of
+        // truth for keywords; bespoke ModuleSpecs stay here.
         let matchedScenario: ExecutiveScenario | null = null;
-        for (const scenario of EXECUTIVE_SCENARIOS) {
-          if (scenario.triggers.calendarKeywords?.some(kw => titleLower.includes(kw.toLowerCase()))) {
-            matchedScenario = scenario;
-            break;
-          }
+        const sid = scenarioIdFor(row.event_title);
+        if (sid) {
+          matchedScenario = EXECUTIVE_SCENARIOS.find(s => s.id === sid) || null;
         }
 
         // Build HRV correlation from existing correlations
@@ -1366,12 +1368,14 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     if (!event.isRecurring) score += 10;
 
     let matchedScenario: ExecutiveScenario | null = null;
-    for (const scenario of EXECUTIVE_SCENARIOS) {
-      if (!scenario.triggers.calendarKeywords) continue;
-      if (scenario.triggers.calendarKeywords.some(kw => titleLower.includes(kw.toLowerCase()))) {
-        score += 25;
-        matchedScenario = scenario;
-        break;
+    {
+      const sid = scenarioIdFor(event.title);
+      if (sid) {
+        const found = EXECUTIVE_SCENARIOS.find(s => s.id === sid) || null;
+        if (found) {
+          score += 25;
+          matchedScenario = found;
+        }
       }
     }
 
@@ -4097,7 +4101,11 @@ Deno.serve(async (req) => {
     // Build state fingerprint from latest check-in + completions for cache key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    const platform = detectClientPlatform(req);
+    const supabaseClient = wrapDbWithCalendarPrimacy(
+      createClient(supabaseUrl, supabaseKey),
+      platform,
+    );
 
     let stateFingerprint = `${userId}:${currentPeriod}`;
     try {
