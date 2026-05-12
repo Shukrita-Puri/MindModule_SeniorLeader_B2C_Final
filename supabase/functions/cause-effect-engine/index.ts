@@ -24,6 +24,13 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import {
+  EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
+  classifyByLegacyTable,
+  classifyEvent as classifyEventCanonical,
+  PILLAR_META,
+  type Pillar,
+} from "../_shared/executive-state-taxonomy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
