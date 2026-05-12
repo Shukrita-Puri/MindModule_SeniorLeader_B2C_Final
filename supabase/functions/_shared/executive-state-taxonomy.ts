@@ -568,6 +568,16 @@ const PROVIDER_RANK: Record<string, number> = {
   apple: 1,
 };
 
+// Platform-aware provider ranks. iOS native treats Apple as the source of
+// truth (it already aggregates Google/MS calendars on the device). Web has
+// no aggregation layer, so Google/MS win and Apple is shown as connected
+// but de-prioritised in selection.
+const PROVIDER_RANK_BY_PLATFORM: Record<string, Record<string, number>> = {
+  ios:     { apple: 3, google: 2, microsoft: 1, outlook: 1 },
+  web:     { google: 3, microsoft: 2, outlook: 2, apple: 1 },
+  unknown: { google: 3, microsoft: 2, outlook: 2, apple: 1 },
+};
+
 function normalizeTitle(t: string | null | undefined): string {
   return (t || '')
     .toLowerCase()
