@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
 import { isNoiseTitle } from '../_shared/executive-state-taxonomy.ts';
+import { scenarioIdFor } from '../_shared/executive-state-taxonomy.ts';
+import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -4097,7 +4099,11 @@ Deno.serve(async (req) => {
     // Build state fingerprint from latest check-in + completions for cache key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    const platform = detectClientPlatform(req);
+    const supabaseClient = wrapDbWithCalendarPrimacy(
+      createClient(supabaseUrl, supabaseKey),
+      platform,
+    );
 
     let stateFingerprint = `${userId}:${currentPeriod}`;
     try {
