@@ -63,3 +63,15 @@ export async function getPrimaryCalendarProvider(
   }
   return null;
 }
+
+/**
+ * Returns the database view name that already enforces calendar primacy
+ * for the calling client platform. Edge functions should swap their
+ * `.from('primary_calendar_events')` call for `.from(primaryCalendarEventsView(platform))`.
+ *
+ *   ios / unknown → primary_calendar_events     (apple > google > microsoft)
+ *   web           → web_primary_calendar_events (google > microsoft > apple)
+ */
+export function primaryCalendarEventsView(platform: ClientPlatform = 'unknown'): string {
+  return platform === 'web' ? 'web_primary_calendar_events' : 'primary_calendar_events';
+}
