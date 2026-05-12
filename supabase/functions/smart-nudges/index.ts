@@ -2339,24 +2339,33 @@ async function evaluateNudgeTwo(
  * Gate: Exempt from signal richness (drive check-in KPI)
  */
 async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) return null;
+  const log = (reason: string, extra?: unknown) =>
+    console.log(`[nudge_three] user=${ctx.userId} reason=${reason}${extra !== undefined ? ' ' + JSON.stringify(extra) : ''}`);
+
+  if (alreadySentTypes.has('nudge_three') || alreadySentTypes.has('evening_close')) {
+    log('already_sent_today');
+    return null;
+  }
 
   // ── v5.3 — PTO collapse: no evening close on PTO days ──
-  if (ctx.dayContext.ptoMode) return null;
+  if (ctx.dayContext.ptoMode) {
+    log('pto_mode');
+    return null;
+  }
 
   // Saturday: NO evening nudge
   if (ctx.dayOfWeek === 6) {
-    console.log(`[smart-nudges] User ${ctx.userId}, Saturday, no evening nudge`);
+    log('saturday_skip');
     return null;
   }
 
   // Skip if user already reflected today
   if (ctx.checkinCountToday >= 2) {
-    console.log(`[smart-nudges] User ${ctx.userId} has ${ctx.checkinCountToday} check-ins, skipping evening close`);
+    log('checkin_count_ge_2', { count: ctx.checkinCountToday });
     return null;
   }
   if (ctx.afternoonCheckinOutcome !== null) {
-    console.log(`[smart-nudges] User ${ctx.userId} has afternoon check-in, skipping evening close`);
+    log('afternoon_checkin_present');
     return null;
   }
 
@@ -2377,7 +2386,10 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
   eveningStart = Math.max(eveningStart, GLOBAL_EARLIEST_LOCAL);
   eveningEnd = Math.min(eveningEnd, GLOBAL_LATEST_LOCAL);
 
-  if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
+  if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) {
+    log('outside_evening_window', { localTime: ctx.localTime, eveningStart, eveningEnd });
+    return null;
+  }
 
   // ── v5.3 — Look-ahead overlay: any evening (not just Sunday) where
   // tomorrow has a high-stakes event in the next 18 h gets a forward-set.
@@ -2389,10 +2401,8 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
     return hours >= 0 && hours <= 18;
   });
   if (lookaheadStakes && ctx.dayOfWeek !== 0) {
-    const copy = validateStaticFallbackCopy(
-      getFallbackNudgeThreeLookaheadCopy(lookaheadStakes.title || 'a high-stakes meeting'),
-      ctx, 'nudge_three',
-    );
+    const rawLookahead = getFallbackNudgeThreeLookaheadCopy(lookaheadStakes.title || 'a high-stakes meeting');
+    const copy = validateStaticFallbackCopy(rawLookahead, ctx, 'nudge_three');
     if (copy) {
       return {
         type: 'nudge_three',
@@ -2403,12 +2413,22 @@ async function evaluateNudgeThree(ctx: NudgeContext, alreadySentTypes: Set<strin
         slot: 'evening',
         signalStrength: 3,
       };
+    } else {
+      log('lookahead_copy_rejected', { title: lookaheadStakes.title, raw: rawLookahead });
     }
+  } else {
+    log('no_lookahead_match', { tomorrowEventCount: ctx.tomorrowEvents.length, dayOfWeek: ctx.dayOfWeek });
   }
 
   const aiCopy = await generateNudgeCopy(ctx, 'nudge_three');
-  const copy = aiCopy || validateStaticFallbackCopy(getFallbackNudgeThreeCopy(ctx), ctx, 'nudge_three');
-  if (!copy) return null;
+  const rawFallback = getFallbackNudgeThreeCopy(ctx);
+  const validatedFallback = validateStaticFallbackCopy(rawFallback, ctx, 'nudge_three');
+  const copy = aiCopy || validatedFallback;
+  if (!copy) {
+    log('all_copy_paths_failed', { aiCopyOk: !!aiCopy, fallbackOk: !!validatedFallback, rawFallback });
+    return null;
+  }
+  log('emitted', { source: aiCopy ? 'ai' : 'fallback' });
 
   // v7 — evening anchors to JIT when tomorrow has a non-noise first meeting,
   // otherwise to STATE (today's load / wearable / Sunday week prep).
