@@ -8,6 +8,7 @@ import {
   selectLeadEvent,
   survivesAttendeeOrDurationFloor,
 } from "../_shared/executive-state-taxonomy.ts";
+import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1833,7 +1834,8 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const db = createClient(supabaseUrl, supabaseKey);
+    const platform = detectClientPlatform(req);
+    const db = wrapDbWithCalendarPrimacy(createClient(supabaseUrl, supabaseKey), platform);
 
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
     // Fetch tomorrow's calendar for any evening (≥18:00), not just late evening
