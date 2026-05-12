@@ -10,6 +10,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -291,7 +292,7 @@ Return ONLY the JSON object.`
 
         if (allPendingCommitments.length > 0) {
           // Query upcoming calendar events (next 24hrs)
-          const { data: upcomingEvents } = await supabase
+          const { data: upcomingEventsRaw } = await supabase
             .from('calendar_events')
             .select('title, start_time')
             .eq('user_id', userId)
@@ -299,6 +300,8 @@ Return ONLY the JSON object.`
             .lte('start_time', new Date(Date.now() + 24 * 3600000).toISOString())
             .order('start_time', { ascending: true })
             .limit(10);
+          // Cross-provider dedupe — same meeting can land twice (Apple + Google)
+          const upcomingEvents = dedupeCalendarEvents(upcomingEventsRaw || []);
 
           if (upcomingEvents && upcomingEvents.length > 0) {
             // Keyword-match commitments against event titles

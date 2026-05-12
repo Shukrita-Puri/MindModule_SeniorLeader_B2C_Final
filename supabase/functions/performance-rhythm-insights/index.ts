@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,7 +118,9 @@ serve(async (req) => {
 
     const checkIns = checkInsRes.data || [];
     const hasCalendar = !!calConnRes.data?.is_active;
-    const calendarEvents = calEventsRes.data || [];
+    // Cross-provider dedupe: same logical meeting can land once per provider
+    // (e.g. Apple-mirrored Google). Collapse on (start_time, normalized_title).
+    const calendarEvents = dedupeCalendarEvents(calEventsRes.data || []);
     const behaviorLogs = behaviorRes.data || [];
     const readinessScores = readinessRes.data || [];
     const rituals = ritualsRes.data || [];

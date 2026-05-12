@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeWithTools, streamClaudeAsOpenAI, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1837,7 +1838,8 @@ async function buildServerContext(
 
   // Upcoming calendar events
   if (upcomingCalendarResult.data && upcomingCalendarResult.data.length > 0) {
-    context.upcomingCalendarEvents = upcomingCalendarResult.data.map((e: any) => ({
+    // Cross-provider dedupe (Apple/Google/Microsoft mirrors collapse to one)
+    context.upcomingCalendarEvents = dedupeCalendarEvents(upcomingCalendarResult.data).map((e: any) => ({
       title: e.title,
       start_time: e.start_time,
       attendees_count: e.attendees_count,
@@ -2217,7 +2219,7 @@ async function fetchCalendarStateCorrelations(
         .gte('checkin_date', thirtyDaysAgo.toISOString().split('T')[0]),
     ]);
 
-    const events = eventsResult.data || [];
+    const events = dedupeCalendarEvents(eventsResult.data || []);
     const checkIns = checkInsResult.data || [];
     if (events.length < 5 || checkIns.length < 5) return [];
 
@@ -2372,7 +2374,7 @@ async function fetchUpcomingEventHRV(
         .not('hrv', 'is', null),
     ]);
 
-    const upcoming = upcomingResult.data || [];
+    const upcoming = dedupeCalendarEvents(upcomingResult.data || []);
     const physioEvents = physioResult.data || [];
     if (upcoming.length === 0 || physioEvents.length === 0) return [];
 
