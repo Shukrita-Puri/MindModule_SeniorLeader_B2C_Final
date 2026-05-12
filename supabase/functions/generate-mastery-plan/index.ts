@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
+import { isNoiseTitle } from '../_shared/executive-state-taxonomy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1040,22 +1041,11 @@ function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'selection
   return 'selection_only';                              // >48h: scored but not surfaced
 }
 
-// ==================== NOISE FILTER (mirrors generate-jit-events Stage 0) ====================
-
-const NOISE_KEYWORDS = [
-  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
-  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
-  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
-  'car service', 'mot', 'oil change', 'dentist', 'optician',
-  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
-  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
-];
-const NOISE_PATTERN = /\[\d{6,}\]/;
-
+// ==================== NOISE FILTER ====================
+// Delegates to the shared executive-state taxonomy so noise rules stay
+// identical across smart-nudges, JIT, brief, mastery-plan, and cause-effect.
 function isNoiseEvent(title: string): boolean {
-  const lower = (title || '').toLowerCase();
-  if (NOISE_PATTERN.test(title || '')) return true;
-  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+  return isNoiseTitle(title);
 }
 
 // ==================== LEGACY DIM A/B FLOOR GUARDS ====================
