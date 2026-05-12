@@ -29,6 +29,7 @@ import {
   classifyByLegacyTable,
   classifyEvent as classifyEventCanonical,
   PILLAR_META,
+  dedupeCalendarEvents,
   type Pillar,
 } from "../_shared/executive-state-taxonomy.ts";
 
@@ -357,7 +358,10 @@ serve(async (req) => {
         .maybeSingle(),
     ]);
 
-    const events = eventsRes.data || [];
+    // Cross-provider dedupe (Apple mirrors Google etc.). Must run before any
+    // event-type bucketing or load tertile math, otherwise duplicates would
+    // double-count load.
+    const events = dedupeCalendarEvents(eventsRes.data || []);
     const wearable = wearableRes.data || [];
     const checkins = checkinsRes.data || [];
     const briefs = briefsRes.data || [];
