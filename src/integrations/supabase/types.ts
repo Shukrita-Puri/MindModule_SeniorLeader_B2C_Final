@@ -2499,6 +2499,13 @@ export type Database = {
             referencedRelation: "primary_calendar_events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "mastery_plan_completions_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "web_primary_calendar_events"
+            referencedColumns: ["id"]
+          },
         ]
       }
       mental_fitness_scores: {
@@ -4383,6 +4390,51 @@ export type Database = {
         Relationships: []
       }
       primary_calendar_events: {
+        Row: {
+          attendees_count: number | null
+          created_at: string | null
+          end_time: string | null
+          event_metadata: Json | null
+          external_id: string | null
+          id: string | null
+          is_organizer: boolean | null
+          is_recurring: boolean | null
+          provider: string | null
+          start_time: string | null
+          title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attendees_count?: number | null
+          created_at?: string | null
+          end_time?: string | null
+          event_metadata?: Json | null
+          external_id?: string | null
+          id?: string | null
+          is_organizer?: boolean | null
+          is_recurring?: boolean | null
+          provider?: string | null
+          start_time?: string | null
+          title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attendees_count?: number | null
+          created_at?: string | null
+          end_time?: string | null
+          event_metadata?: Json | null
+          external_id?: string | null
+          id?: string | null
+          is_organizer?: boolean | null
+          is_recurring?: boolean | null
+          provider?: string | null
+          start_time?: string | null
+          title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      web_primary_calendar_events: {
         Row: {
           attendees_count: number | null
           created_at: string | null
