@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import {
+  isNoiseTitle,
+  rankByStakes,
+  selectLeadEvent,
+  survivesAttendeeOrDurationFloor,
+} from "../_shared/executive-state-taxonomy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -298,64 +304,29 @@ async function getServerCalendarMetrics(
   if (eventList.length > 0) {
     const metrics = computeCalendarMetrics(eventList);
 
-    // Identify high-stakes events by title
-    // RELEVANCE RULE: Personal blocks (Day Block, Focus Time, Prep, Hold, etc.) are NOT high-stakes.
-    // All-day events (>4h with ≤1 attendee) are NOT high-stakes – they're calendar blockers.
-    // High-stakes = real meetings/presentations with multiple attendees or significant duration,
-    // NOT personal calendar blocks used for preparation or focus.
-    const personalBlockPatterns = /\b(day\s*block|focus\s*time|block\s*time|prep\s*block|prep\b|hold|blocked|do\s*not\s*book|dnb|no\s*meetings|lunch|break|commute|travel\s*time|personal|buffer)\b/i;
-    // Filter highStakesEvents to future-only so LLM prompt and client both reference upcoming events
-    const highStakesEvents: string[] = [];
-    for (const e of eventList) {
-      const att = e.attendees_count || 0;
-      const start = new Date(e.start_time);
-      const end = new Date(e.end_time);
-      const dur = (end.getTime() - start.getTime()) / 60000;
-
-      // Skip past events — only surface events that haven't started yet
-      if (start <= now) continue;
-
-      // Skip personal blocks: title matches a block/prep pattern (regardless of attendees)
-      if (e.title && personalBlockPatterns.test(e.title)) continue;
-
-      // Skip all-day or very long events (>4h) with few attendees – calendar blockers, not meetings
-      if (dur > 240 && att <= 1) continue;
-
-      const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att >= 2) || dur >= 60);
-      if (isHighStakes && e.title) {
-        highStakesEvents.push(e.title);
-      }
-      if (highStakesEvents.length >= 2) break;
-    }
+    // Identify high-stakes events using the shared executive-state taxonomy.
+    // RELEVANCE RULE: noise (personal blocks, errands, travel placeholders) is dropped
+    // via shared isNoiseTitle(); ranking uses canonical stakesScore(category) so a
+    // Board Meeting outranks a Leadership 1:1 even if the 1:1 starts earlier.
+    const futureEvents = eventList.filter((e: any) => new Date(e.start_time) > now);
+    const futureRanked = rankByStakes(futureEvents as any, 5);
+    const highStakesEvents: string[] = futureRanked
+      .filter((s) => s.stakes >= 60 && s.event.title)
+      .map((s) => s.event.title as string)
+      .slice(0, 2);
 
     // Compute remaining events (events that haven't started yet relative to user's local time)
-    const remainingEventsList = eventList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime()));
+    const remainingEventsList = futureEvents;
     const remainingEvents = remainingEventsList.length;
 
-    // Remaining high-stakes events
-    const remainingHighStakes: string[] = [];
-    for (const e of remainingEventsList) {
-      const att = e.attendees_count || 0;
-      const start = new Date(e.start_time);
-      const end = new Date(e.end_time);
-      const dur = (end.getTime() - start.getTime()) / 60000;
-      if (e.title && personalBlockPatterns.test(e.title)) continue;
-      if (dur > 240 && att <= 1) continue;
-      const isHS = !e.is_recurring && (att > 5 || (e.is_organizer && att >= 2) || dur >= 60);
-      if (isHS && e.title) remainingHighStakes.push(e.title);
-      if (remainingHighStakes.length >= 2) break;
-    }
+    // Remaining high-stakes events — ranked by stakes (matches highStakesEvents above)
+    const remainingHighStakes: string[] = highStakesEvents.slice(0, 2);
 
-    // ── Filtered meeting count: excludes all-day blocks and personal blocks ──
+    // ── Filtered meeting count: excludes all-day blocks and personal blocks via shared helpers ──
     // Used for user-facing text ("You've navigated X meetings") – raw eventCount stays for load/pressure scoring
     const isMeeting = (e: any): boolean => {
-      const att = e.attendees_count || 0;
-      const start = new Date(e.start_time);
-      const end = new Date(e.end_time);
-      const dur = (end.getTime() - start.getTime()) / 60000;
-      if (e.title && personalBlockPatterns.test(e.title)) return false;
-      if (dur > 240 && att <= 1) return false;
-      return true;
+      if (isNoiseTitle(e.title)) return false;
+      return survivesAttendeeOrDurationFloor(e);
     };
     const meetingList = eventList.filter(isMeeting);
     const meetingCount = meetingList.length;
