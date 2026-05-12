@@ -525,3 +525,97 @@ export function highStakesScore(title: string | null | undefined): number {
   if (!t) return 0;
   return Math.min(100, Math.round((stakesScore(t) / 150) * 100));
 }
+
+// ── Cross-provider dedupe ────────────────────────────────────────────
+//
+// The same logical meeting can land in `calendar_events` once per provider
+// (e.g. an Apple-mirrored Google meeting). All downstream selectors —
+// brief, signal pills, plan, nudges, JIT, cause/effect — must operate on
+// a single canonical event per (start_time, normalized_title).
+//
+// Preference order when collapsing duplicates:
+//   1. richer metadata (more attendees, organizer flag)
+//   2. Google > Microsoft > Apple (Apple is usually a mirror)
+//   3. earliest created_at (stable tiebreak)
+
+const PROVIDER_RANK: Record<string, number> = {
+  google: 3,
+  microsoft: 2,
+  outlook: 2,
+  apple: 1,
+};
+
+function normalizeTitle(t: string | null | undefined): string {
+  return (t || '')
+    .toLowerCase()
+    .replace(/[\s\-_/\\.,:;!?'"()\[\]]+/g, ' ')
+    .trim();
+}
+
+function toMs(v: unknown): number {
+  if (!v) return 0;
+  if (v instanceof Date) return v.getTime();
+  const d = new Date(v as string);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+export type DedupableEvent = {
+  id?: string;
+  title?: string | null;
+  start_time?: string | Date | null;
+  end_time?: string | Date | null;
+  provider?: string | null;
+  attendees_count?: number | null;
+  is_organizer?: boolean | null;
+  created_at?: string | Date | null;
+  [k: string]: unknown;
+};
+
+/**
+ * Collapse cross-provider duplicate calendar events.
+ * Key = `${normalizedTitle}|${startMs}`. Falls back to (title|startMs) only.
+ * Empty title events are kept as-is (cannot dedupe without a name).
+ */
+export function dedupeCalendarEvents<T extends DedupableEvent>(events: T[]): T[] {
+  if (!Array.isArray(events) || events.length === 0) return [];
+  const buckets = new Map<string, T>();
+  const untitled: T[] = [];
+
+  for (const e of events) {
+    const title = normalizeTitle(e.title);
+    const startMs = toMs(e.start_time);
+    if (!title || !startMs) {
+      untitled.push(e);
+      continue;
+    }
+    const key = `${title}|${startMs}`;
+    const existing = buckets.get(key);
+    if (!existing) {
+      buckets.set(key, e);
+      continue;
+    }
+    if (preferEvent(e, existing)) buckets.set(key, e);
+  }
+
+  return [...buckets.values(), ...untitled];
+}
+
+function preferEvent<T extends DedupableEvent>(candidate: T, current: T): boolean {
+  const cAtt = candidate.attendees_count ?? 0;
+  const eAtt = current.attendees_count ?? 0;
+  if (cAtt !== eAtt) return cAtt > eAtt;
+
+  const cOrg = candidate.is_organizer ? 1 : 0;
+  const eOrg = current.is_organizer ? 1 : 0;
+  if (cOrg !== eOrg) return cOrg > eOrg;
+
+  const cRank = PROVIDER_RANK[(candidate.provider || '').toLowerCase()] ?? 0;
+  const eRank = PROVIDER_RANK[(current.provider || '').toLowerCase()] ?? 0;
+  if (cRank !== eRank) return cRank > eRank;
+
+  const cCreated = toMs(candidate.created_at);
+  const eCreated = toMs(current.created_at);
+  if (cCreated && eCreated && cCreated !== eCreated) return cCreated < eCreated;
+
+  return false;
+}
