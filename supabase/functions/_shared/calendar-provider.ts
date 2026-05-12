@@ -85,3 +85,29 @@ export async function getPrimaryCalendarProvider(
 export function primaryCalendarEventsView(platform: ClientPlatform = 'unknown'): string {
   return platform === 'web' ? 'web_primary_calendar_events' : 'primary_calendar_events';
 }
+
+/**
+ * Wrap a Supabase client so that any `.from('primary_calendar_events')`
+ * call is transparently rewritten to the platform-correct view. Lets edge
+ * functions thread platform once at the serve() entry without touching
+ * every helper that already references the iOS-default view name.
+ */
+export function wrapDbWithCalendarPrimacy<T extends { from: (table: string) => any }>(
+  db: T,
+  platform: ClientPlatform,
+): T {
+  if (platform !== 'web') return db; // iOS / unknown keep the default view
+  const targetView = primaryCalendarEventsView(platform);
+  const handler: ProxyHandler<any> = {
+    get(target, prop, receiver) {
+      if (prop === 'from') {
+        return (table: string) =>
+          table === 'primary_calendar_events'
+            ? target.from(targetView)
+            : target.from(table);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  };
+  return new Proxy(db, handler) as T;
+}
