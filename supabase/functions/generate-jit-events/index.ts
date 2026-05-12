@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
 import { isNoiseTitle, classifyEvent, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
+import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -403,9 +404,13 @@ serve(async (req) => {
       userId = auth.userId;
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const platform = detectClientPlatform(req);
+    const supabase = wrapDbWithCalendarPrimacy(
+      createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      ),
+      platform,
     );
 
     const { timezoneOffset = 0 } = await req.json();
