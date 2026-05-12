@@ -1838,7 +1838,8 @@ async function buildServerContext(
 
   // Upcoming calendar events
   if (upcomingCalendarResult.data && upcomingCalendarResult.data.length > 0) {
-    context.upcomingCalendarEvents = upcomingCalendarResult.data.map((e: any) => ({
+    // Cross-provider dedupe (Apple/Google/Microsoft mirrors collapse to one)
+    context.upcomingCalendarEvents = dedupeCalendarEvents(upcomingCalendarResult.data).map((e: any) => ({
       title: e.title,
       start_time: e.start_time,
       attendees_count: e.attendees_count,
@@ -2218,7 +2219,7 @@ async function fetchCalendarStateCorrelations(
         .gte('checkin_date', thirtyDaysAgo.toISOString().split('T')[0]),
     ]);
 
-    const events = eventsResult.data || [];
+    const events = dedupeCalendarEvents(eventsResult.data || []);
     const checkIns = checkInsResult.data || [];
     if (events.length < 5 || checkIns.length < 5) return [];
 
@@ -2373,7 +2374,7 @@ async function fetchUpcomingEventHRV(
         .not('hrv', 'is', null),
     ]);
 
-    const upcoming = upcomingResult.data || [];
+    const upcoming = dedupeCalendarEvents(upcomingResult.data || []);
     const physioEvents = physioResult.data || [];
     if (upcoming.length === 0 || physioEvents.length === 0) return [];
 
