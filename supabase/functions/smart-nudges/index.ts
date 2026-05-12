@@ -207,74 +207,24 @@ function isCanonicalIosApnsToken(token: string): boolean {
   return /^[0-9a-f]+$/.test(token) && [64, 72, 128].includes(token.length);
 }
 
-// Noise filter (aligned with JIT pipeline)
-const NOISE_KEYWORDS = [
-  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
-  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
-  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
-  'car service', 'mot', 'oil change', 'dentist', 'optician',
-  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
-  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
-];
-const NOISE_PATTERN = /\[\d{6,}\]/;
+// Noise filter, day-kind detection, and high-stakes scoring all live in
+// the shared executive-state-taxonomy module so every surface uses the
+// same vocabulary (Section L of the taxonomy plan).
+import {
+  isNoiseTitle,
+  detectDayKindFromEvents,
+  isHighStakesTitle,
+  highStakesScore,
+  classifyEventBucket,
+} from '../_shared/executive-state-taxonomy.ts';
 
-function isNoiseEvent(title: string): boolean {
-  const lower = (title || '').toLowerCase();
-  if (NOISE_PATTERN.test(title || '')) return true;
-  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
-}
+function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
+function scoreEvent(title: string | null): number { return highStakesScore(title); }
+function isHighStakes(title: string | null): boolean { return isHighStakesTitle(title); }
 
-// V8 — Day-context awareness (copy-only, no scheduling/scoring impact).
-// "travel" is named verbatim — no long/short-haul distinction.
-const TRAVEL_KEYWORDS = ['flight', 'airport', 'boarding', 'departure', 'arrival', 'layover', 'transit', 'train'];
-const AWAY_KEYWORDS = ['annual leave', 'holiday', 'vacation', 'pto', 'away', 'day off'];
-const OOO_KEYWORDS = ['out of office', 'ooo'];
-
-function detectDayKindFromEvents(
-  events: Array<{ title?: string | null }>,
-): { kind: 'normal' | 'travel-day' | 'away-day' | 'ooo'; signalToken?: string } {
-  for (const e of events) {
-    const lower = (e.title || '').toLowerCase();
-    if (!lower) continue;
-    for (const kw of TRAVEL_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'travel-day', signalToken: 'travel' };
-    }
-  }
-  for (const e of events) {
-    const lower = (e.title || '').toLowerCase();
-    if (!lower) continue;
-    for (const kw of OOO_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'ooo', signalToken: 'out of office' };
-    }
-    for (const kw of AWAY_KEYWORDS) {
-      if (lower.includes(kw)) return { kind: 'away-day', signalToken: kw };
-    }
-  }
-  return { kind: 'normal' };
-}
-
-const HIGH_STAKES_KEYWORDS = [
-  'board', 'investor', 'presentation', 'negotiation', 'pitch',
-  'review', 'performance', 'strategy', 'stakeholder',
-  'crisis', 'conflict', 'termination', 'layoff', 'restructure',
-  'merger', 'acquisition', 'due diligence', 'fundraise', 'ipo',
-  'media', 'press', 'interview', 'keynote', 'panel', 'town hall',
-  'all-hands', 'offsite', 'retreat',
-];
-
-function scoreEvent(title: string | null): number {
-  if (!title) return 0;
-  const lower = title.toLowerCase();
-  let score = 0;
-  for (const kw of HIGH_STAKES_KEYWORDS) {
-    if (lower.includes(kw)) score += 25;
-  }
-  return Math.min(score, 100);
-}
-
-function isHighStakes(title: string | null): boolean {
-  return scoreEvent(title) >= 25;
-}
+// Local travel-keyword list retained for the v5.3 pre-flight / in-flight sub-arc
+// detection (a more specific concern than the shared day-kind detector).
+const TRAVEL_KEYWORDS = ['flight','airport','boarding','departure','arrival','layover','transit','train','red-eye','redeye'];
 
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
