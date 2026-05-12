@@ -672,19 +672,19 @@ async function buildNudgeContext(
     { data: practiceSessions30d },
     { data: checkins30d },
   ] = await Promise.all([
-    supabase.from('calendar_events')
+    supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
       .gte('start_time', `${todayStr}T00:00:00`)
       .lte('start_time', `${todayStr}T23:59:59`)
       .order('start_time', { ascending: true }),
-    supabase.from('calendar_events')
+    supabase.from('primary_calendar_events')
       .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
       .eq('user_id', userId)
       .gte('start_time', `${tomorrowStr}T00:00:00`)
       .lte('start_time', `${tomorrowStr}T23:59:59`)
       .order('start_time', { ascending: true }),
-    supabase.from('calendar_events')
+    supabase.from('primary_calendar_events')
       .select('id, title, start_time')
       .eq('user_id', userId)
       .gte('start_time', `${yesterdayStr}T00:00:00`)

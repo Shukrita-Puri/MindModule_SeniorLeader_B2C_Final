@@ -283,7 +283,7 @@ async function getServerCalendarMetrics(
   }
 
   const { data: events, error } = await db
-    .from('calendar_events')
+    .from('primary_calendar_events')
     .select('start_time, end_time, is_organizer, attendees_count, is_recurring, title')
     .eq('user_id', userId)
     .gte('start_time', startUTC.toISOString())
@@ -2474,7 +2474,7 @@ serve(async (req) => {
       if (todayHighStakes.length > 0) {
         // Re-check calendar events for timing
         const { data: upcoming } = await db
-          .from('calendar_events')
+          .from('primary_calendar_events')
           .select('title, start_time')
           .eq('user_id', userId)
           .gte('start_time', now.toISOString())
@@ -2696,7 +2696,7 @@ serve(async (req) => {
           const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
           const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
           const { data: tomorrowEvents } = await db
-            .from('calendar_events')
+            .from('primary_calendar_events')
             .select('title, start_time, end_time')
             .eq('user_id', userId)
             .gte('start_time', tStartUTC.toISOString())
@@ -2737,7 +2737,7 @@ serve(async (req) => {
           // 1. Yesterday's score
           Promise.resolve(db.from('daily_checkins').select('energy_balance').eq('user_id', userId).eq('checkin_date', yesterdayDate).order('created_at', { ascending: false }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 3. Next event (any)
-          Promise.resolve(db.from('calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
+          Promise.resolve(db.from('primary_calendar_events').select('title, start_time').eq('user_id', userId).gt('start_time', nowISO).order('start_time', { ascending: true }).limit(1).maybeSingle()).then(r => r, () => ({ data: null })),
           // 4. Practice completion this week
           Promise.resolve(db.from('sanctuary_events').select('id, content_id').eq('user_id', userId).eq('event_type', 'completed').gte('created_at', sevenAgo)).then(r => r, () => ({ data: null })),
           // 5. Coach session recency
@@ -2774,7 +2774,7 @@ serve(async (req) => {
             const startUTC2 = new Date(dayStart.getTime() + timezoneOffset * 60000);
             const endUTC2 = new Date(dayEnd.getTime() + timezoneOffset * 60000);
             const { data: sortedEvts } = await db
-              .from('calendar_events')
+              .from('primary_calendar_events')
               .select('start_time, end_time, title')
               .eq('user_id', userId)
               .gte('start_time', startUTC2.toISOString())
@@ -2922,7 +2922,7 @@ serve(async (req) => {
             const todayDayEnd = new Date(Date.UTC(userTime.getUTCFullYear(), userTime.getUTCMonth(), userTime.getUTCDate(), 23, 59, 59));
             const tStartUTCToday = new Date(todayDayStart.getTime() + timezoneOffset * 60000);
             const tEndUTCToday = new Date(todayDayEnd.getTime() + timezoneOffset * 60000);
-            const { data: todayEvts } = await db.from('calendar_events')
+            const { data: todayEvts } = await db.from('primary_calendar_events')
               .select('title, start_time, end_time')
               .eq('user_id', userId)
               .gte('start_time', tStartUTCToday.toISOString())
@@ -2980,7 +2980,7 @@ serve(async (req) => {
             const tEnd = new Date(Date.UTC(tomorrowDateObj.getUTCFullYear(), tomorrowDateObj.getUTCMonth(), tomorrowDateObj.getUTCDate(), 23, 59, 59));
             const tStartUTC = new Date(tStart.getTime() + timezoneOffset * 60000);
             const tEndUTC = new Date(tEnd.getTime() + timezoneOffset * 60000);
-            const { data: tEvts } = await db.from('calendar_events')
+            const { data: tEvts } = await db.from('primary_calendar_events')
               .select('title, start_time, end_time, attendees_count')
               .eq('user_id', userId)
               .gte('start_time', tStartUTC.toISOString())
@@ -3055,7 +3055,7 @@ serve(async (req) => {
               const mEnd = new Date(Date.UTC(monDate.getUTCFullYear(), monDate.getUTCMonth(), monDate.getUTCDate(), 23, 59, 59));
               const mStartUTC = new Date(mStart.getTime() + timezoneOffset * 60000);
               const mEndUTC = new Date(mEnd.getTime() + timezoneOffset * 60000);
-              const { data: monFirst } = await db.from('calendar_events').select('title, start_time')
+              const { data: monFirst } = await db.from('primary_calendar_events').select('title, start_time')
                 .eq('user_id', userId).gte('start_time', mStartUTC.toISOString()).lte('start_time', mEndUTC.toISOString())
                 .order('start_time', { ascending: true }).limit(1).maybeSingle();
               if (monFirst) {
@@ -3084,7 +3084,7 @@ serve(async (req) => {
           try {
             const keyword = todayHighStakes[0].split(/\s+/).filter(w => w.length > 3 && !/^(the|and|for|with|from)$/i.test(w))[0];
             if (keyword) {
-              const { data: similarEvents } = await db.from('calendar_events')
+              const { data: similarEvents } = await db.from('primary_calendar_events')
                 .select('start_time').eq('user_id', userId)
                 .ilike('title', `%${keyword}%`)
                 .gte('start_time', thirtyAgo)
