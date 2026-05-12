@@ -222,6 +222,10 @@ function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
 function isHighStakes(title: string | null): boolean { return isHighStakesTitle(title); }
 
+// Local travel-keyword list retained for the v5.3 pre-flight / in-flight sub-arc
+// detection (a more specific concern than the shared day-kind detector).
+const TRAVEL_KEYWORDS = ['flight','airport','boarding','departure','arrival','layover','transit','train','red-eye','redeye'];
+
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
