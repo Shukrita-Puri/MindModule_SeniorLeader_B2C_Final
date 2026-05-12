@@ -224,34 +224,23 @@ function impactScore(f: Finding): number {
   return Math.abs(f.deltaPct) * Math.log2(1 + f.n) * tierBoost;
 }
 
-// Calendar event → coarse type label (broadened buckets)
-const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
-  // ── Specific intent buckets first so "School Governor" doesn't fall
-  //    into the broader "governance" or "Networking" matches. Order matters.
-  { label: "School & family",        words: ["school", "parents evening", "open evening", "parents", "governor"] },
-  { label: "Board / governance",     words: ["board", "governance"] },
-  { label: "Investor calls",         words: ["investor", "vc ", " vc", "fundraise", "raise", "pitch deck"] },
-  { label: "Reviews",                words: ["review", "qbr", "quarterly"] },
-  { label: "1:1s",                   words: ["1:1", "1-1", "one on one", "1on1"] },
-  { label: "All-hands",              words: ["all-hands", "all hands", "town hall", "townhall"] },
-  { label: "Client meetings",        words: ["client", "customer", "stakeholder"] },
-  { label: "Interviews",             words: ["interview", "candidate"] },
-  { label: "Deep work blocks",       words: ["deep work", "focus block", "writing time"] },
-  { label: "Exec / leadership",      words: ["exec", "executive", "leadership", "ceo ", " ceo", "cto ", " cto"] },
-  // ── Broader catch-alls evaluated last ───────────────────────────────
-  { label: "Networking & community", words: ["meetup", "summit", "expo", "conference", "info session", "community", "rise ai", "scale", "ai thursday", "connects"] },
-  { label: "Intro / discovery calls", words: ["intro", "discovery", "chemistry"] },
-  { label: "Catch-ups & syncs",       words: ["catchup", "catch-up", "catch up", "sync", "check-in", "check in", "weekly", "standup", "stand-up"] },
-  { label: "Internal builds",         words: ["debug", "dashboard", "engineering", "sprint", "planning", "db ", " db"] },
-];
+// Calendar event → coarse type label (now imported from shared taxonomy).
+// Local re-export keeps downstream readers stable.
+const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
 function classifyEvent(title: string | null | undefined): string | null {
-  if (!title) return null;
-  const t = title.toLowerCase();
-  for (const ec of EVENT_TYPE_KEYWORDS) {
-    if (ec.words.some((w) => t.includes(w))) return ec.label;
-  }
-  return null;
+  return classifyByLegacyTable(title);
+}
+
+// Pillar swim-lane projection (Section K) — exposed so the Insights
+// "Performance Causality" card can group findings by executive pillar
+// instead of just one flat "Stress Load" lane.
+function pillarOfTitle(title: string | null | undefined): Pillar | null {
+  return classifyEventCanonical(title)?.primaryPillar ?? null;
+}
+function pillarLabelOfTitle(title: string | null | undefined): string | null {
+  const p = pillarOfTitle(title);
+  return p ? PILLAR_META[p].name : null;
 }
 
 /** Final fallback: classify by attendee count so every event lands in a bucket. */
