@@ -1004,14 +1004,22 @@ const ConnectedData = () => {
   const microsoftLastSync = status?.calendar.providers?.microsoft?.lastSync
     ?? (microsoftConnected ? (status?.calendar.lastSync ?? null) : null);
   const appleCalendarLastSync = status?.calendar.providers?.apple?.lastSync ?? null;
-  const showAppleCalendar = isAppleCalendarSupported();
-  const showWebCalendars = !showAppleCalendar;
+  // Apple-as-primary precedence:
+  // - On iOS: only Apple Calendar shows (native source).
+  // - On web: Google + Microsoft always show as options. If the user has an
+  //   active Apple connection (synced from their iOS device), also show the
+  //   Apple card as read-only — Apple is the primary source for the brief and
+  //   nudges, so layering Google/Microsoft won't double-count.
+  const isOnIOS = isAppleCalendarSupported();
+  const showAppleCalendar = isOnIOS || appleCalendarDbConnected;
+  const showWebCalendars = !isOnIOS;
+  const appleCalendarReadOnly = !isOnIOS && appleCalendarDbConnected;
 
   const connections = [
     ...(showWebCalendars ? [{
       id: 'google-calendar',
       name: 'Google Calendar',
-      description: 'Tune your brief and nudges to your meeting load and high-stakes events.',
+      description: 'Get a daily brief and nudges tuned to your real meeting load, decision density, and high stakes events - so practices land when they matter.',
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
       linked: googleConnected,
@@ -1027,7 +1035,7 @@ const ConnectedData = () => {
     {
       id: 'microsoft-calendar',
       name: 'Microsoft Calendar',
-      description: 'Tune your brief and nudges to your Outlook load and high-stakes days.',
+      description: 'Tune your brief and nudges to your Outlook meeting load, decision density and high pressure events - so practices land before high-stakes moments.',
       logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
       linked: microsoftConnected,
@@ -1043,29 +1051,35 @@ const ConnectedData = () => {
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
       name: 'Apple Calendar',
-      description: 'Tune your brief and nudges to your meeting load and high-pressure days.',
+      description: 'Tune your brief and nudges to your real meeting load, decision density, and high pressure events - so practices land before high-stakes moments.',
       logo: (
         <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
           <CalendarDays className="h-4 w-4 text-foreground/70" />
         </div>
       ),
-      connected: appleCalendarConnected,
-      linked: appleCalendarConnected,
-      lastSync: appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null,
-      statusLabel: appleCalendarPermissionDenied ? 'Permission denied' : appleCalendarConnected ? 'Connected' : 'Disconnected',
-      statusNote: appleCalendarPermissionDenied
-        ? 'Enable full calendar access in iOS Settings, then reconnect'
-        : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined),
-      showReconnect: appleCalendarPermissionDenied,
-      onConnect: handleConnectAppleCalendar,
-      onDisconnect: handleDisconnectAppleCalendar,
-      onSync: handleSyncAppleCalendar,
-      canSync: true,
+      connected: appleCalendarReadOnly ? true : appleCalendarConnected,
+      linked: appleCalendarReadOnly ? true : appleCalendarConnected,
+      lastSync: appleCalendarReadOnly
+        ? formatLastSync(appleCalendarLastSync)
+        : (appleCalendarConnected ? formatLastSync(appleCalendarLastSync) : null),
+      statusLabel: appleCalendarReadOnly
+        ? 'Connected via iOS app'
+        : (appleCalendarPermissionDenied ? 'Permission denied' : appleCalendarConnected ? 'Connected' : 'Disconnected'),
+      statusNote: appleCalendarReadOnly
+        ? 'Primary calendar source. Manage in the iOS app.'
+        : (appleCalendarPermissionDenied
+          ? 'Enable full calendar access in iOS Settings, then reconnect'
+          : (appleCalendarDbConnected && !appleCalendarConnected ? 'Stored connection is inactive until permission is verified' : undefined)),
+      showReconnect: !appleCalendarReadOnly && appleCalendarPermissionDenied,
+      onConnect: appleCalendarReadOnly ? undefined : handleConnectAppleCalendar,
+      onDisconnect: appleCalendarReadOnly ? undefined : handleDisconnectAppleCalendar,
+      onSync: appleCalendarReadOnly ? undefined : handleSyncAppleCalendar,
+      canSync: !appleCalendarReadOnly,
     }] : []),
     {
       id: 'apple-health',
       name: 'Apple Health',
-      description: 'Share HRV, resting HR, and sleep so readiness reflects real physiology.',
+      description: 'Share HRV, resting HR, sleep, and HR so your readiness reflects your real physiology.',
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.isHealthyConnected,
       linked: appleHealthState.isLinked,
