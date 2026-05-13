@@ -736,39 +736,106 @@ function preferEvent<T extends DedupableEvent>(
 // shared taxonomy. Multiple EVENT_TYPE ids may fold into one scenario.
 // `null` is intentional — no prep scenario applies (e.g. deep work, 1:1).
 export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string | null> = {
+  // Pillar A
   'gov.board_meeting':           'pre-board-meeting',
   'gov.board_committee':         'pre-board-meeting',
   'gov.board_prep':              'pre-board-meeting',
-  'inv.investor_meeting':        'pre-investor-meeting',
-  'inv.fundraising':             'pre-investor-meeting',
-  'inv.earnings_call':           'pre-budget-review',
-  'inv.budget_review':           'pre-budget-review',
-  'inv.ma_discussion':           'pre-negotiations',
-  'str.strategy_planning':       'pre-strategic-planning',
-  'str.qbr':                     'pre-quarterly-review',
-  'str.deep_work':               null,
-  'vis.keynote':                 'pre-investor-meeting',
-  'vis.speaking':                'pre-media',
+  'gov.investor_meeting':        'pre-investor-meeting',
+  'gov.earnings_call':           'pre-budget-review',
+  'gov.qbr':                     'pre-quarterly-review',
+  'gov.budget_review':           'pre-budget-review',
+  'gov.ma_discussion':           'pre-negotiations',
+  'gov.crisis':                  'pre-crisis-response',
+  // Pillar B
+  'inf.fundraising':             'pre-investor-meeting',
+  'inf.negotiation':             'pre-negotiations',
+  'inf.client_presentation':     'pre-client-presentation',
+  // Pillar C
   'vis.media':                   'pre-media',
   'vis.all_hands':               'pre-all-hands',
-  'vis.client_presentation':     'pre-client-presentation',
+  // Pillar D
   'lead.executive_1on1':         null,
   'lead.leadership_sync':        'pre-all-hands',
   'lead.performance_review':     'pre-performance-review',
   'lead.difficult_conversation': 'pre-difficult-conversation',
   'lead.layoff':                 'pre-difficult-conversation',
   'lead.hiring_committee':       'pre-hiring-decision',
-  'lead.negotiation':            'pre-negotiations',
-  'ops.crisis':                  'pre-crisis-response',
-  'ops.product_launch':          'pre-strategic-planning',
-  'ops.catchup':                 null,
+  // Pillar E
+  'str.strategy_planning':       'pre-strategic-planning',
+  'str.deep_work':               null,
+  'str.product_launch':          'pre-strategic-planning',
+  // Pillar F — Conferences & External Events
+  'conf.keynote':                'pre-speaking-engagement',
+  'conf.speaking':                'pre-speaking-engagement',
+  'conf.offsite':                 'pre-strategic-planning',
+  'conf.award':                   'pre-speaking-engagement',
+  'conf.customer_summit':         'pre-speaking-engagement',
+  'conf.networking':              null, // classification-only — no JIT/scenario
+  // Pillar G
   'trv.long_haul':               null,
   'trv.flight':                  null,
-  'rec.pto':                     null,
+  // Pillar H
+  'rhy.catchup':                 null,
+  'rhy.pto':                     null,
 };
 
 export function scenarioIdFor(title: string | null | undefined): string | null {
   const et = classifyEvent(title);
   if (!et) return null;
   return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
+}
+
+// ── Stacking: consolidate adjacent high-stakes events ─────────────────
+//
+// MVP rule (self-regulation only):
+//   When two pillar A or D high-stakes events sit back-to-back (gap < 90
+//   minutes), surface ONE consolidated JIT covering both rather than two
+//   separate protocols. Caller is expected to render one Pause+Flow
+//   practice that names both events.
+//
+// When a future feature set introduces other meta-skills, this rule should
+// be revisited so distinct features can drive separate JITs.
+
+export interface StackedEventGroup<E extends CalendarEventLite = CalendarEventLite> {
+  events: ScoredEvent<E>[];
+  consolidated: boolean;
+  primaryPillar: FrameworkPillar | null;
+}
+
+const HIGH_STAKES_PILLARS: FrameworkPillar[] = ['A', 'D'];
+const STACK_GAP_MINUTES = 90;
+
+export function consolidateAdjacentHighStakes<E extends CalendarEventLite>(
+  events: E[],
+  flags?: EngineFlags,
+): StackedEventGroup<E>[] {
+  const scored = scoreEvents(
+    events.filter((e) => !isNoiseTitle(e.title)).filter(survivesAttendeeOrDurationFloor),
+    flags,
+  )
+    .filter((s) => s.type && !s.type.classificationOnly)
+    .sort((a, b) => new Date(a.event.start_time).getTime() - new Date(b.event.start_time).getTime());
+
+  const groups: StackedEventGroup<E>[] = [];
+  for (const s of scored) {
+    const pillar = s.type!.frameworkPillar;
+    const isHighStakes = HIGH_STAKES_PILLARS.includes(pillar);
+    const last = groups[groups.length - 1];
+    if (!last || !isHighStakes) {
+      groups.push({ events: [s], consolidated: false, primaryPillar: pillar });
+      continue;
+    }
+    const lastEv = last.events[last.events.length - 1];
+    const lastEnd = new Date(lastEv.event.end_time || lastEv.event.start_time).getTime();
+    const curStart = new Date(s.event.start_time).getTime();
+    const gapMin = (curStart - lastEnd) / 60000;
+    const lastIsHighStakes = last.primaryPillar && HIGH_STAKES_PILLARS.includes(last.primaryPillar);
+    if (lastIsHighStakes && gapMin < STACK_GAP_MINUTES) {
+      last.events.push(s);
+      last.consolidated = true;
+      continue;
+    }
+    groups.push({ events: [s], consolidated: false, primaryPillar: pillar });
+  }
+  return groups;
 }
