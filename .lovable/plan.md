@@ -1,155 +1,80 @@
+
 ## Goal
 
-Three related fixes inside `supabase/functions/_shared/executive-state-taxonomy.ts` and consumers:
+Make `executive-state-taxonomy.ts` the single source of truth for the 8-pillar CEO Self-Regulation Framework, and apply only the protocol/JIT/copy implications that fall out of it. MVP scope = Self-Regulation only. No changes to: weekend nudge cadence (Sat AM, Sun AM, Sun PM stay), DND/quiet-hours behaviour, multi-calendar load logic, wearable-less logic, attendee-count gating (already removed), long-haul wifi handling.
 
-1. Stop attendee count from filtering out genuinely high-stakes events that happen to be calendar blocks (Media/CNN, travel, board prep, deep work blocks the user has elevated to a real commitment, etc.).
-2. Make calendar provider primacy **platform-aware**: iOS → Apple wins; Web → Google / Microsoft win and Apple is shown as connected but de-prioritised. Cross-provider title dedupe stays on.
-3. Close the deferred Gap 3b in `generate-mastery-plan`: replace the two title-rescan loops with a deterministic `EVENT_TYPE.id → scenarioId` mapping so mastery scenario lookup goes through the shared taxonomy.
+## In scope
 
-No UI changes. No DB schema changes. Attendee data is *kept* on each event so future role-play / relational-navigation features can read it as a tag.
+### 1. Taxonomy alignment (`supabase/functions/_shared/executive-state-taxonomy.ts`)
 
----
+Re-label the 8 EventGroups to match the framework's pillars A–H exactly:
 
-## 1. Attendee gate — keyword-first, attendees as a soft signal
-
-**File:** `supabase/functions/_shared/executive-state-taxonomy.ts`
-
-Today `survivesAttendeeOrDurationFloor()` (line 230) drops:
-- any event where `dur > 240 && att <= 1` (kills Travel / Media / long Focus blocks)
-- any recurring event with `att <= 2 && dur < 45`
-- any event with `att < 2 && dur < 30`
-
-Replacement rule:
-- If the title classifies to an `EventType` (i.e. `classifyEvent(title) !== null`) → **always survives**, regardless of attendee count or duration. Keyword wins.
-- Else fall back to a *softer* gate: drop only obvious noise (already handled by `isNoiseTitle()` upstream) plus `dur < 15 && att === 0` micro-blocks.
-- Personal-block pattern stays an automatic drop (already handled by `isNoiseTitle()` patch).
-
-Add a new helper `attendeeTier(e)` returning `'solo' | 'small' | 'group' | 'broadcast'` based on attendee count. **Not used for gating today**, but exported and attached to `ScoredEvent` so future role-play prioritisation can consume it without re-deriving.
-
-`stakesScore()` stays unchanged (already title-driven via `EventType.demandProfile` + pillar weight). No engine math changes.
-
-**Smoke check:** "Media interview - CNN" (0 attendees, 60min block) and "Travel - LHR→JFK" (0 attendees, 8h) must both pass `survivesAttendeeOrDurationFloor()` and be picked by `selectLeadEvent()` over a 1:1.
-
----
-
-## 2. Platform-aware calendar primacy
-
-**File:** `supabase/functions/_shared/calendar-provider.ts`
-
-Today `PRECEDENCE = ['apple','google','microsoft']` is global. We need it to flip by client platform:
-
-```ts
-type ClientPlatform = 'ios' | 'web' | 'unknown';
-const PRECEDENCE_BY_PLATFORM = {
-  ios:     ['apple','google','microsoft'],
-  web:     ['google','microsoft','apple'],
-  unknown: ['apple','google','microsoft'], // safe default = current behaviour
-};
+```text
+A_governance         → High-Stakes Governance
+B_influence          → Influence & Persuasion          (renamed from B_investor; investor stays inside)
+C_visibility         → Visibility & Communication      (renamed from D_visibility)
+D_people             → People & Difficult Conversations (renamed from E_leadership)
+E_deepwork           → Deep Work & Strategy            (renamed from C_strategic)
+F_conferences        → Conferences & External Events   (NEW pillar; absorbs vis.speaking, keynote, off-site, awards, multi-day customer summit, networking event)
+G_travel             → Travel
+H_rhythm             → Daily Rhythm & Baseline         (renamed from H_recovery; PTO + baseline live here)
 ```
 
-Update `getPrimaryCalendarProvider(db, userId, platform)` to take the new arg. Callers detect platform from the request (header `x-client-platform` set by the iOS Capacitor wrapper, falling back to `User-Agent` sniff for `CFNetwork`/`Capacitor`/iOS, otherwise `web`).
+Event-level updates:
 
-Add a tiny `detectClientPlatform(req: Request): ClientPlatform` helper in the same file so every consumer can call it consistently.
+- Move `vis.keynote`, `vis.speaking` (conference/summit/panel/roundtable/webinar), off-sites/retreats, award events, multi-day customer summit into pillar F. Keynote remains visibility-flavoured but its protocol map switches to the conference template (see §2).
+- Add `conf.networking_event` to pillar F BUT mark it as classification-only: `timingMatrix:{pre:false,during:false,post:false}`, `regulationObjective:'PROTECT'`, no JIT, no nudges, no mastery modules. It will surface in Insights cause-effect cards but never trigger a protocol/notification.
+- Add new keywords for roundtables/panels/summits already covered by `vis.speaking`; ensure `roundtable`, `panel discussion`, `fireside` are present.
+- Job interviews (giving or attending one's own — explicitly NOT media): keep classified under pillar D (`lead.hiring_committee`) and broaden keywords (`job interview`, `final round interview`, `screening interview`). Self-regulation focus = pre-event Pause for composure. No new pillar.
+- 1:1 detection improvements are explicitly out of scope (no reliable boss/peer/junior signal, titles often just names) — leave `lead.executive_1on1` keywords as-is and document in a code comment.
+- Pillar F (Conferences & External) protocol contract:
+  - PRE (morning of): Mindset Pause for social/emotional load priming.
+  - DURING: notification-only micro-reframe (no in-app exercise; user is between chats).
+  - POST: Somatic Reenergise for social-depletion recovery.
 
-**Consumers to thread the platform through** (one-line edits each):
-- `compute-outer-readiness/index.ts`
-- `smart-nudges/index.ts`
-- `generate-mastery-plan/index.ts`
-- `generate-jit-events/index.ts`
-- `performance-rhythm-insights/index.ts`
-- `cause-effect-engine/index.ts`
-- `generate-coach-summary/index.ts`
-- `self-mastery-coach/index.ts`
+### 2. Protocol orchestration (`supabase/functions/generate-jit-events/index.ts`, `supabase/functions/generate-mastery-plan/index.ts`, `supabase/functions/smart-nudges/index.ts`)
 
-**Dedupe behaviour:** `dedupeCalendarEvents()` already collapses by `normalizedTitle|startMs`. Keep it — but flip `PROVIDER_RANK` inside the dedupe tiebreak to be **platform-aware too** (when web context, Google/MS wins the tie; when iOS, Apple wins). Easiest: pass an optional `platform` arg into `dedupeCalendarEvents(events, { platform })` and rebuild PROVIDER_RANK accordingly. Default = current behaviour for backward compat.
+- Read pillar/group from the taxonomy and switch protocol templates by pillar instead of inline keyword maps where this is still happening.
+- For pillar F events:
+  - Morning Plan slot 1 = Pause variant tagged `social_load_prep`.
+  - Generated JIT slot is suppressed; emit `nudge_two` only (notification = the intervention, deep_link omitted or pointed at `/executive-home` informational).
+  - Evening Plan slot 3 = Reenergise variant tagged `post_event_recovery`.
+- Stacking rule (Board + Layoff or any two pillar A/D high-stakes events same day):
+  - If start-time gap ≥ 90 min → keep two independent JIT protocols (current behaviour).
+  - If gap < 90 min OR back-to-back → emit ONE consolidated JIT covering both, with copy that names both events and uses a single combined Pause+Flow practice. Add helper `consolidateAdjacentHighStakes(events)` in `generate-jit-events`. MVP comment: revisit when other meta-skills exist.
+- `findEventPattern` and pillar-aware copy in `smart-nudges` already pull from the taxonomy; only update the small switch that hard-codes group ids.
 
-iOS app (Capacitor) already sets a stable header in `nativeBackgroundSync.ts`-style fetches; we'll add `x-client-platform: ios` there so the edge functions detect it deterministically. Web fetches don't need to send anything.
+### 3. Insights cause-effect labels
 
-**Net effect:**
-- iOS user with all 3 connected → Apple feeds the brief/nudges/plan; Google/MS rows in `calendar_events` are deduped away by title+start.
-- Web user with all 3 connected → Google (or MS) feeds the brief/nudges/plan; Apple rows are deduped away. Apple still shows as "connected" in the connections UI (no change there).
+`bucket` strings on EventType already feed `causality_findings.signal_summary`. Re-map buckets so the eight pillar names show through verbatim in the Insights cause-effect card (e.g. `Conferences & External Events`, `People & Difficult Conversations`). No DB migration — values are stored as text on write going forward; historical rows keep their old labels.
 
----
+### 4. Confirmations on already-correct behaviour (no code change)
 
-## 3. Mastery-plan scenario lookup via shared taxonomy
-
-**Files:**
-- `supabase/functions/_shared/executive-state-taxonomy.ts` — add an exported map.
-- `supabase/functions/generate-mastery-plan/index.ts` — consume it.
-
-### 3a. New shared export
-
-```ts
-// EVENT_TYPE.id → mastery scenarioId
-// One-way mapping. Multiple EVENT_TYPE ids can fold into one scenario.
-export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string> = {
-  'gov.board_meeting':           'pre-board-meeting',
-  'gov.board_committee':         'pre-board-meeting',
-  'gov.board_prep':              'pre-board-meeting',
-  'inv.investor_meeting':        'pre-investor-meeting',
-  'inv.fundraising':             'pre-investor-meeting',
-  'inv.earnings_call':           'pre-budget-review',
-  'inv.budget_review':           'pre-budget-review',
-  'inv.ma_discussion':           'pre-negotiations',
-  'str.strategy_planning':       'pre-strategic-planning',
-  'str.qbr':                     'pre-quarterly-review',
-  'str.deep_work':               null as any, // intentionally no scenario (PROTECT, no prep)
-  'vis.keynote':                 'pre-investor-meeting',
-  'vis.speaking':                'pre-media',
-  'vis.media':                   'pre-media',
-  'vis.all_hands':               'pre-all-hands',
-  'vis.client_presentation':     'pre-client-presentation',
-  'lead.executive_1on1':         null as any,
-  'lead.leadership_sync':        'pre-all-hands',
-  'lead.performance_review':     'pre-performance-review',
-  'lead.difficult_conversation': 'pre-difficult-conversation',
-  'lead.layoff':                 'pre-difficult-conversation',
-  // ... fill remainder by inspecting EVENT_TYPES rows
-};
-
-export function scenarioIdFor(title: string | null | undefined): string | null {
-  const et = classifyEvent(title);
-  if (!et) return null;
-  return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
-}
-```
-
-The mapping table lives next to `EVENT_TYPES` so any future scenario / event-type addition is a one-line update in one file. Entries with `null` are intentional (no prep scenario applies — e.g. deep work, 1:1).
-
-### 3b. Consume it in `generate-mastery-plan`
-
-Replace both `for (const scenario of EXECUTIVE_SCENARIOS) { /* keyword scan */ }` blocks (lines 1191 and 1369) with:
-
-```ts
-const scenarioId = scenarioIdFor(evt.title);
-if (!scenarioId) continue;
-const scenario = EXECUTIVE_SCENARIOS.find(s => s.id === scenarioId);
-if (!scenario) continue;
-// existing hoursAhead / module logic stays exactly as-is
-```
-
-`EXECUTIVE_SCENARIOS` and its bespoke `ModuleSpecs` stay in `generate-mastery-plan` — only the *match step* moves to the shared taxonomy. This unblocks Gap 3b without forcing the bespoke ModuleSpec table into the shared module.
-
-Drop the inline `NOISE_KEYWORDS` constant (line 1045) and call `isNoiseTitle()` instead — closes the last bit of Gap 3.
-
----
-
-## 4. Validation
-
-1. Write a Deno test in `_shared/executive-state-taxonomy.test.ts` covering:
-   - "Media Interview – CNN" with 0 attendees, 60min, non-recurring → survives, `selectLeadEvent` picks it over a 5-attendee 1:1.
-   - "Travel – LHR → JFK" 8h, 0 attendees → survives.
-   - "Lunch" personal block → still drops.
-   - `dedupeCalendarEvents` with same Apple+Google "Board Meeting AXA" → on `platform:'web'`, Google wins; on `platform:'ios'`, Apple wins.
-   - `scenarioIdFor('Board meeting with AXA')` → `'pre-board-meeting'`.
-2. Tail logs for `compute-outer-readiness`, `generate-mastery-plan`, `generate-jit-events`, `smart-nudges` for one cycle after deploy. Confirm no TypeScript errors and no regressions in event counts.
-3. Manual check on `/`: brief NEXT UP for an iOS user with a CNN media block today shows "Media Interview – CNN", not the next 1:1.
-
----
+- DND/quiet-hours: confirmed via `apns-expiration` + `apns-collapse-id` per family — stale nudges expire and only the next family-fresh one is delivered after DND ends. Add a one-line code comment in `smart-nudges/index.ts` referencing this contract.
+- Weekend cadence (Sat AM, Sun AM, Sun PM week-prep) — unchanged.
+- Long-haul wifi — explicitly not engineered.
+- Attendee-count gating — confirmed removed; re-deferred to relational-navigation feature.
 
 ## Out of scope
 
-- No UI changes to pills, brief, plan cards, or connections page.
-- No DB / schema changes — `calendar_events.attendees_count` stays on every row for future role-play features.
-- No new `EVENT_TYPES` entries; only the EVENT_TYPE → scenarioId mapping is new.
-- No changes to scoring math, JIT bucket math, or signal-summary store.
+- 1:1 boss/peer/junior detection (no reliable signal).
+- Multi-calendar load distortion changes.
+- Wearable-less behavioural rules.
+- Long-haul wifi during-flight prompts.
+- New mastery scenarios for new event types (still deferred — no `EVENT_TYPE → scenarioId` table).
+
+## Verification
+
+- Unit: classify representative titles (`Q4 Board Meeting`, `Layoff comms`, `SaaStr Summit`, `Final round interview — Priya`, `Networking dinner`) → expect correct pillar.
+- Manual: simulate same-day Board 09:00 + Layoff 10:00 → expect single consolidated JIT; Board 09:00 + Layoff 16:00 → two JITs.
+- Smoke: run `generate-mastery-plan` for a fixture user with a conference day → morning Pause, no JIT, evening Reenergise.
+- Insights cause-effect card: spot-check that new pillar names render.
+
+## Files touched
+
+- `supabase/functions/_shared/executive-state-taxonomy.ts`
+- `supabase/functions/generate-jit-events/index.ts`
+- `supabase/functions/generate-mastery-plan/index.ts`
+- `supabase/functions/smart-nudges/index.ts`
+- `.lovable/plan.md` (changelog entry only)
+- `mem/features/notifications/smart-nudges-mvp-framework.md` (one-line note: pillar F protocol contract; weekend cadence unchanged)
