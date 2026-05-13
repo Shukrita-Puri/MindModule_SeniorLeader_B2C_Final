@@ -54,6 +54,13 @@ export interface EventType {
   label: string;
   bucket: string;            // legacy bucket label (causality_findings.signal_summary)
   group: EventGroup;
+  /**
+   * CEO Self-Regulation Framework pillar (A–H). Single source of truth used by
+   * Smart Nudges, Mastery Plan, JIT, and the Insights cause-effect card.
+   * Existing `group` codes are preserved for backwards-compat with downstream
+   * mappings; `frameworkPillar` is the canonical taxonomy going forward.
+   */
+  frameworkPillar: FrameworkPillar;
   primaryPillar: Pillar;
   secondaryPillar?: Pillar;
   demandProfile: DemandProfile;
@@ -63,48 +70,109 @@ export interface EventType {
   keywords: string[];
   masteryModules?: string[];
   jitLeadTimeMinutes?: number;
+  /**
+   * If true, the event is classified for visibility (Insights labels) but
+   * never triggers JIT, nudges, or mastery slots. Used for Networking events
+   * — the user is between chats; no in-app exercise is appropriate.
+   */
+  classificationOnly?: boolean;
+}
+
+// ── Framework Pillars (CEO Self-Regulation Framework v1) ──────────────
+// Eight pillars that drive the single-source taxonomy. Bucket labels on
+// EventType match these names so the Insights cause-effect card surfaces
+// them verbatim.
+
+export type FrameworkPillar = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
+
+export interface FrameworkPillarMeta {
+  id: FrameworkPillar;
+  name: string;
+  focus: string;
+  /** Pre/During/Post protocol contract for this pillar (MVP, self-regulation). */
+  protocol: {
+    pre: InterventionType | null;
+    during: InterventionType | null;
+    post: InterventionType | null;
+    /** True when DURING is delivered as a notification reminder only — no in-app exercise. */
+    duringNotificationOnly?: boolean;
+  };
+}
+
+export const FRAMEWORK_PILLARS: Record<FrameworkPillar, FrameworkPillarMeta> = {
+  A: { id: 'A', name: 'High-Stakes Governance',           focus: 'Emotional regulation + cognitive sharpness',         protocol: { pre: 'Flow',       during: null,    post: 'Pause' } },
+  B: { id: 'B', name: 'Influence & Persuasion',           focus: 'Focus activation + post-persuasion recharge',         protocol: { pre: 'Flow',       during: null,    post: 'Reenergise' } },
+  C: { id: 'C', name: 'Visibility & Communication',       focus: 'Presence + composure',                                protocol: { pre: 'Pause',      during: null,    post: 'Reenergise' } },
+  D: { id: 'D', name: 'People & Difficult Conversations', focus: 'Emotional labour + post-conversation offload',        protocol: { pre: 'Pause',      during: null,    post: 'Pause' } },
+  E: { id: 'E', name: 'Deep Work & Strategy',             focus: 'Flow activation + clean exit',                        protocol: { pre: 'Flow',       during: 'Flow',  post: 'Pause' } },
+  F: { id: 'F', name: 'Conferences & External Events',    focus: 'Pre-event social/emotional load priming; during = notification reminder only; post = depletion recovery', protocol: { pre: 'Pause', during: 'Pause', post: 'Reenergise', duringNotificationOnly: true } },
+  G: { id: 'G', name: 'Travel',                            focus: 'Circadian regulation + pre-event readiness',          protocol: { pre: 'Pause',      during: 'Pause', post: 'Reenergise' } },
+  H: { id: 'H', name: 'Daily Rhythm & Baseline',           focus: 'Habit anchoring + recovery-to-build',                 protocol: { pre: 'Pause',      during: null,    post: 'Pause' } },
+};
+
+/** Convenience accessor used by callers that want the pillar's protocol contract. */
+export function getFrameworkPillarProtocol(p: FrameworkPillar): FrameworkPillarMeta['protocol'] {
+  return FRAMEWORK_PILLARS[p].protocol;
 }
 
 // ── Master Taxonomy Table ─────────────────────────────────────────────
 
 export const EVENT_TYPES: EventType[] = [
-  // A. Governance & Board
-  { id:'gov.board_meeting', label:'Board meeting', bucket:'Board / governance', group:'A_governance', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,1,3,3,1,2,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['board meeting','board of directors','board'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'gov.board_committee', label:'Board committee', bucket:'Board / governance', group:'A_governance', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,1,2,3,1,1,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['audit committee','remco','nomco','board committee','governance'] },
-  { id:'gov.board_prep', label:'Board prep', bucket:'Board / governance', group:'A_governance', primaryPillar:1, demandProfile:D(3,0,1,2,0,1,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['board deck','board prep','board presentation','board materials'], masteryModules:['align','prepare'], jitLeadTimeMinutes:2880 },
-  // B. Investor & Financial Pressure
-  { id:'inv.investor_meeting', label:'Investor meeting', bucket:'Investor calls', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,2,3,2,1,2,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['investor','vc ',' vc','lp meeting','limited partner'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'inv.fundraising', label:'Fundraising', bucket:'Investor calls', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,2,3,2,1,3,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['fundraise','fundraising','raise','pitch deck','pitch','funding'] },
-  { id:'inv.earnings_call', label:'Earnings call', bucket:'Investor calls', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(3,1,3,2,0,2,0,3), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['earnings call','earnings'] },
-  { id:'inv.budget_review', label:'Budget / forecast review', bucket:'Reviews', group:'B_investor', primaryPillar:1, demandProfile:D(3,1,1,2,1,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['budget','finance review','forecast','financial planning'], masteryModules:['align','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'inv.ma_discussion', label:'M&A discussion', bucket:'Investor calls', group:'B_investor', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,2,2,3,1,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['m&a','merger','acquisition','due diligence','acqui-hire'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:2880 },
-  // C. Strategic & Cognitive Load
-  { id:'str.strategy_planning', label:'Strategy planning', bucket:'Internal builds', group:'C_strategic', primaryPillar:1, demandProfile:D(3,0,1,1,1,1,0,1), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['strategy','strategic planning','vision','roadmap'], masteryModules:['align','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'str.deep_work', label:'Deep work block', bucket:'Deep work blocks', group:'C_strategic', primaryPillar:1, demandProfile:D(3,0,0,0,0,1,0,0), timingMatrix:{pre:false,during:true,post:false}, regulationObjective:'PROTECT', interventionType:'Flow', keywords:['deep work','focus block','writing time'] },
-  { id:'str.qbr', label:'QBR / Quarterly review', bucket:'Reviews', group:'C_strategic', primaryPillar:1, secondaryPillar:4, demandProfile:D(3,1,2,2,2,2,0,2), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['quarterly','qbr','q1 review','q2 review','q3 review','q4 review'], masteryModules:['align','prepare'], jitLeadTimeMinutes:2880 },
-  // D. Executive Influence & Visibility
-  { id:'vis.keynote', label:'Keynote', bucket:'Networking & community', group:'D_visibility', primaryPillar:2, demandProfile:D(1,1,3,1,0,3,0,3), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['keynote'] },
-  { id:'vis.speaking', label:'Conference speaking / Panel', bucket:'Networking & community', group:'D_visibility', primaryPillar:2, demandProfile:D(1,1,3,1,0,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['conference','summit','panel','speaking','webinar'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:720 },
-  { id:'vis.media', label:'Media / Press / Podcast', bucket:'Networking & community', group:'D_visibility', primaryPillar:2, demandProfile:D(2,1,3,1,1,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['interview','podcast','media','press','journalist','pr '], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:360 },
-  { id:'vis.all_hands', label:'All-hands / Town hall', bucket:'All-hands', group:'D_visibility', primaryPillar:2, secondaryPillar:3, demandProfile:D(1,2,3,1,2,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['all-hands','all hands','town hall','townhall','company meeting'], masteryModules:['regulate','align'], jitLeadTimeMinutes:240 },
-  { id:'vis.client_presentation', label:'Client / customer presentation', bucket:'Client meetings', group:'D_visibility', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,1,2,1,2,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['client','customer','demo','proposal','account review','stakeholder'], masteryModules:['align','prepare'], jitLeadTimeMinutes:480 },
-  // E. Leadership & People
-  { id:'lead.executive_1on1', label:'Executive 1:1', bucket:'1:1s', group:'E_leadership', primaryPillar:3, demandProfile:D(1,2,1,1,3,1,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['1:1','1-1','one on one','1on1'] },
-  { id:'lead.leadership_sync', label:'Leadership / Exec team sync', bucket:'Exec / leadership', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,1,1,2,2,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['leadership team','exec team','c-suite','slt','management meeting','leadership','exec ',' exec','executive','ceo ',' ceo','cto ',' cto'], masteryModules:['regulate','align'], jitLeadTimeMinutes:240 },
-  { id:'lead.performance_review', label:'Performance review', bucket:'Reviews', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,3,1,2,3,2,0,2), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['performance review','annual review','mid-year review','360 feedback','360 review'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:480 },
-  { id:'lead.difficult_conversation', label:'Difficult conversation / Escalation', bucket:'Exec / leadership', group:'E_leadership', primaryPillar:3, demandProfile:D(1,3,1,2,3,2,0,1), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['difficult','feedback','pip','conflict','dispute','tension','confrontation','escalation'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:240 },
-  { id:'lead.layoff', label:'Layoff / Restructure', bucket:'Exec / leadership', group:'E_leadership', primaryPillar:3, secondaryPillar:2, demandProfile:D(1,3,2,2,3,2,0,2), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['layoff','restructuring','restructure','reduction','rif','downsizing','termination'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'lead.hiring_committee', label:'Hiring committee / Interview', bucket:'Interviews', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,1,1,1,2,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['interview','candidate','final round','hiring committee','offer discussion','executive hire'], masteryModules:['align','prepare'], jitLeadTimeMinutes:240 },
-  { id:'lead.negotiation', label:'Negotiation', bucket:'Exec / leadership', group:'E_leadership', primaryPillar:2, secondaryPillar:3, demandProfile:D(2,2,1,3,2,2,0,1), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['negotiation','contract','deal terms','partnership terms'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:720 },
-  // F. Operational Pressure
-  { id:'ops.crisis', label:'Crisis / Incident', bucket:'Exec / leadership', group:'F_operational', primaryPillar:4, secondaryPillar:3, demandProfile:D(3,3,2,2,2,3,0,2), timingMatrix:{pre:false,during:true,post:true,postMandatory:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['crisis','urgent','emergency','incident','escalation'], masteryModules:['regulate'], jitLeadTimeMinutes:120 },
-  { id:'ops.product_launch', label:'Product launch / Go-live', bucket:'Internal builds', group:'F_operational', primaryPillar:4, secondaryPillar:2, demandProfile:D(2,2,2,1,2,3,0,2), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['launch','go live','release','ship','product launch'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:1440 },
-  { id:'ops.catchup', label:'Catch-up / Sync', bucket:'Catch-ups & syncs', group:'F_operational', primaryPillar:4, demandProfile:D(1,1,0,0,2,1,0,0), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['catchup','catch-up','catch up','sync','check-in','check in','weekly','standup','stand-up'] },
-  // G. Travel & Circadian Disruption
-  { id:'trv.long_haul', label:'Long-haul flight', bucket:'Internal builds', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(1,1,0,0,0,3,3,0), timingMatrix:{pre:true,during:true,post:true,postMandatory:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['long-haul','long haul','red-eye','redeye','overnight flight'] },
-  { id:'trv.flight', label:'Flight / Travel', bucket:'Internal builds', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(1,1,0,0,0,2,2,0), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['flight','airport','boarding','departure','arrival','layover','transit'] },
-  // H. Recovery
-  { id:'rec.pto', label:'PTO / Time off', bucket:'Deep work blocks', group:'H_recovery', primaryPillar:5, demandProfile:D(0,0,0,0,0,0,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'RECOVER', interventionType:'Pause', keywords:['out of office','ooo','annual leave','holiday','vacation','pto','day off','away'] },
+  // ── Pillar A · High-Stakes Governance ──
+  { id:'gov.board_meeting',    label:'Board meeting',         bucket:'High-Stakes Governance', frameworkPillar:'A', group:'A_governance', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,1,3,3,1,2,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['board meeting','board of directors','board'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:1440 },
+  { id:'gov.board_committee',  label:'Board committee',       bucket:'High-Stakes Governance', frameworkPillar:'A', group:'A_governance', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,1,2,3,1,1,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['audit committee','remco','nomco','board committee','governance'] },
+  { id:'gov.board_prep',       label:'Board prep',            bucket:'High-Stakes Governance', frameworkPillar:'A', group:'A_governance', primaryPillar:1, demandProfile:D(3,0,1,2,0,1,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['board deck','board prep','board presentation','board materials'], masteryModules:['align','prepare'], jitLeadTimeMinutes:2880 },
+  { id:'gov.investor_meeting', label:'Investor meeting',      bucket:'High-Stakes Governance', frameworkPillar:'A', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,2,3,2,1,2,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['investor','vc ',' vc','lp meeting','limited partner'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:1440 },
+  { id:'gov.earnings_call',    label:'Earnings call',         bucket:'High-Stakes Governance', frameworkPillar:'A', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(3,1,3,2,0,2,0,3), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['earnings call','earnings'] },
+  { id:'gov.qbr',              label:'QBR / Quarterly review',bucket:'High-Stakes Governance', frameworkPillar:'A', group:'C_strategic', primaryPillar:1, secondaryPillar:4, demandProfile:D(3,1,2,2,2,2,0,2), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['quarterly','qbr','q1 review','q2 review','q3 review','q4 review'], masteryModules:['align','prepare'], jitLeadTimeMinutes:2880 },
+  { id:'gov.budget_review',    label:'Budget / forecast review', bucket:'High-Stakes Governance', frameworkPillar:'A', group:'B_investor', primaryPillar:1, demandProfile:D(3,1,1,2,1,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['budget','finance review','forecast','financial planning'], masteryModules:['align','prepare'], jitLeadTimeMinutes:1440 },
+  { id:'gov.ma_discussion',    label:'M&A discussion',        bucket:'High-Stakes Governance', frameworkPillar:'A', group:'B_investor', primaryPillar:1, secondaryPillar:2, demandProfile:D(3,2,2,3,1,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['m&a','merger','acquisition','due diligence','acqui-hire'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:2880 },
+  { id:'gov.crisis',           label:'Crisis / Incident',     bucket:'High-Stakes Governance', frameworkPillar:'A', group:'F_operational', primaryPillar:4, secondaryPillar:3, demandProfile:D(3,3,2,2,2,3,0,2), timingMatrix:{pre:false,during:true,post:true,postMandatory:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['crisis','urgent','emergency','incident','escalation'], masteryModules:['regulate'], jitLeadTimeMinutes:120 },
+
+  // ── Pillar B · Influence & Persuasion ──
+  { id:'inf.fundraising',      label:'Fundraising / Pitch',   bucket:'Influence & Persuasion', frameworkPillar:'B', group:'B_investor', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,2,3,2,1,3,0,3), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['fundraise','fundraising','raise','pitch deck','pitch','funding'] },
+  { id:'inf.negotiation',      label:'Negotiation',           bucket:'Influence & Persuasion', frameworkPillar:'B', group:'E_leadership', primaryPillar:2, secondaryPillar:3, demandProfile:D(2,2,1,3,2,2,0,1), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['negotiation','contract','deal terms','partnership terms'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:720 },
+  { id:'inf.client_presentation', label:'Client / customer presentation', bucket:'Influence & Persuasion', frameworkPillar:'B', group:'D_visibility', primaryPillar:2, secondaryPillar:1, demandProfile:D(2,1,2,1,2,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['client','customer','demo','proposal','account review','stakeholder'], masteryModules:['align','prepare'], jitLeadTimeMinutes:480 },
+
+  // ── Pillar C · Visibility & Communication (internal-comms; external speaking moves to F) ──
+  { id:'vis.media',            label:'Media / Press / Podcast', bucket:'Visibility & Communication', frameworkPillar:'C', group:'D_visibility', primaryPillar:2, demandProfile:D(2,1,3,1,1,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['media interview','press interview','podcast interview','podcast','media','press','journalist','pr '], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:360 },
+  { id:'vis.all_hands',        label:'All-hands / Town hall', bucket:'Visibility & Communication', frameworkPillar:'C', group:'D_visibility', primaryPillar:2, secondaryPillar:3, demandProfile:D(1,2,3,1,2,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Reenergise', keywords:['all-hands','all hands','town hall','townhall','company meeting'], masteryModules:['regulate','align'], jitLeadTimeMinutes:240 },
+
+  // ── Pillar D · People & Difficult Conversations ──
+  // NOTE: 1:1 with boss/peer/junior cannot be reliably detected from titles
+  // (titles are often just attendee names). Out of scope for MVP — see plan.
+  { id:'lead.executive_1on1',  label:'Executive 1:1',         bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, demandProfile:D(1,2,1,1,3,1,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['1:1','1-1','one on one','1on1'] },
+  { id:'lead.leadership_sync', label:'Leadership / Exec team sync', bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,1,1,2,2,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['leadership team','exec team','c-suite','slt','management meeting','leadership','exec ',' exec','executive','ceo ',' ceo','cto ',' cto'], masteryModules:['regulate','align'], jitLeadTimeMinutes:240 },
+  { id:'lead.performance_review', label:'Performance review', bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,3,1,2,3,2,0,2), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['performance review','annual review','mid-year review','360 feedback','360 review'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:480 },
+  { id:'lead.difficult_conversation', label:'Difficult conversation / Escalation', bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, demandProfile:D(1,3,1,2,3,2,0,1), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['difficult','feedback','pip','conflict','dispute','tension','confrontation','escalation'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:240 },
+  { id:'lead.layoff',          label:'Layoff / Restructure',  bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, secondaryPillar:2, demandProfile:D(1,3,2,2,3,2,0,2), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['layoff','restructuring','restructure','reduction','rif','downsizing','termination'], masteryModules:['regulate','prepare'], jitLeadTimeMinutes:1440 },
+  // Job interviews — own interview OR conducting one. NOT media interviews.
+  { id:'lead.hiring_committee',label:'Job interview / Hiring committee', bucket:'People & Difficult Conversations', frameworkPillar:'D', group:'E_leadership', primaryPillar:3, secondaryPillar:1, demandProfile:D(2,1,1,1,2,1,0,1), timingMatrix:{pre:true,during:false,post:false}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['job interview','final round interview','screening interview','final round','hiring committee','offer discussion','executive hire','candidate','interview'], masteryModules:['align','prepare'], jitLeadTimeMinutes:240 },
+
+  // ── Pillar E · Deep Work & Strategy ──
+  { id:'str.strategy_planning',label:'Strategy planning',     bucket:'Deep Work & Strategy', frameworkPillar:'E', group:'C_strategic', primaryPillar:1, demandProfile:D(3,0,1,1,1,1,0,1), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['strategy','strategic planning','vision','roadmap','annual operating plan','3-year plan','3 year plan'], masteryModules:['align','prepare'], jitLeadTimeMinutes:1440 },
+  { id:'str.deep_work',        label:'Deep work block',       bucket:'Deep Work & Strategy', frameworkPillar:'E', group:'C_strategic', primaryPillar:1, demandProfile:D(3,0,0,0,0,1,0,0), timingMatrix:{pre:false,during:true,post:false}, regulationObjective:'PROTECT', interventionType:'Flow', keywords:['deep work','focus block','writing time'] },
+  { id:'str.product_launch',   label:'Product launch / Go-live', bucket:'Deep Work & Strategy', frameworkPillar:'E', group:'F_operational', primaryPillar:4, secondaryPillar:2, demandProfile:D(2,2,2,1,2,3,0,2), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PREPARE', interventionType:'Flow', keywords:['launch','go live','release','ship','product launch'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:1440 },
+
+  // ── Pillar F · Conferences & External Events ──
+  // Protocol contract: PRE = Pause (social/emotional load priming).
+  // DURING = notification reminder only (no in-app exercise — user is between
+  // chats). POST = Reenergise (social-depletion recovery). See FRAMEWORK_PILLARS.F.
+  { id:'conf.keynote',         label:'Keynote',               bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, demandProfile:D(1,1,3,1,0,3,0,3), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['keynote'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:720 },
+  { id:'conf.speaking',        label:'Conference speaking / Panel', bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, demandProfile:D(1,1,3,1,0,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['conference','summit','panel discussion','panel','roundtable','fireside','speaking','webinar'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:720 },
+  { id:'conf.offsite',         label:'Off-site / Retreat',    bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, secondaryPillar:3, demandProfile:D(2,2,2,1,3,3,0,1), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['offsite','off-site','retreat'], masteryModules:['regulate','align'], jitLeadTimeMinutes:720 },
+  { id:'conf.award',           label:'Award / Recognition event', bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, demandProfile:D(1,1,3,0,1,2,0,2), timingMatrix:{pre:true,during:false,post:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['award','recognition event','awards ceremony','gala'] },
+  { id:'conf.customer_summit', label:'Customer / partner summit', bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, secondaryPillar:3, demandProfile:D(2,1,2,1,3,3,0,2), timingMatrix:{pre:true,during:false,post:true,postMandatory:true}, regulationObjective:'PREPARE', interventionType:'Pause', keywords:['customer summit','partner summit','user conference'], masteryModules:['regulate','align','prepare'], jitLeadTimeMinutes:720 },
+  // Networking event — classification-only. No JIT, no nudges, no mastery.
+  { id:'conf.networking',      label:'Networking event',      bucket:'Conferences & External Events', frameworkPillar:'F', group:'D_visibility', primaryPillar:2, demandProfile:D(0,1,1,0,2,1,0,0), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['networking event','networking dinner','networking drinks','meetup','mixer'], classificationOnly:true },
+
+  // ── Pillar G · Travel ──
+  { id:'trv.long_haul',        label:'Long-haul flight',      bucket:'Travel', frameworkPillar:'G', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(1,1,0,0,0,3,3,0), timingMatrix:{pre:true,during:true,post:true,postMandatory:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['long-haul','long haul','red-eye','redeye','overnight flight'] },
+  { id:'trv.flight',           label:'Flight / Travel',       bucket:'Travel', frameworkPillar:'G', group:'G_travel', primaryPillar:4, secondaryPillar:5, demandProfile:D(1,1,0,0,0,2,2,0), timingMatrix:{pre:true,during:true,post:true}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['flight','airport','boarding','departure','arrival','layover','transit'] },
+
+  // ── Pillar H · Daily Rhythm & Baseline ──
+  { id:'rhy.catchup',          label:'Catch-up / Sync',       bucket:'Daily Rhythm & Baseline', frameworkPillar:'H', group:'F_operational', primaryPillar:4, demandProfile:D(1,1,0,0,2,1,0,0), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'PROTECT', interventionType:'Pause', keywords:['catchup','catch-up','catch up','sync','check-in','check in','weekly','standup','stand-up'] },
+  { id:'rhy.pto',              label:'PTO / Time off',        bucket:'Daily Rhythm & Baseline', frameworkPillar:'H', group:'H_recovery', primaryPillar:5, demandProfile:D(0,0,0,0,0,0,0,1), timingMatrix:{pre:false,during:false,post:false}, regulationObjective:'RECOVER', interventionType:'Pause', keywords:['out of office','ooo','annual leave','holiday','vacation','pto','day off','away'] },
 ];
 
 // ── Noise Filter (Section H, pruned) ──────────────────────────────────
@@ -668,39 +736,106 @@ function preferEvent<T extends DedupableEvent>(
 // shared taxonomy. Multiple EVENT_TYPE ids may fold into one scenario.
 // `null` is intentional — no prep scenario applies (e.g. deep work, 1:1).
 export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string | null> = {
+  // Pillar A
   'gov.board_meeting':           'pre-board-meeting',
   'gov.board_committee':         'pre-board-meeting',
   'gov.board_prep':              'pre-board-meeting',
-  'inv.investor_meeting':        'pre-investor-meeting',
-  'inv.fundraising':             'pre-investor-meeting',
-  'inv.earnings_call':           'pre-budget-review',
-  'inv.budget_review':           'pre-budget-review',
-  'inv.ma_discussion':           'pre-negotiations',
-  'str.strategy_planning':       'pre-strategic-planning',
-  'str.qbr':                     'pre-quarterly-review',
-  'str.deep_work':               null,
-  'vis.keynote':                 'pre-investor-meeting',
-  'vis.speaking':                'pre-media',
+  'gov.investor_meeting':        'pre-investor-meeting',
+  'gov.earnings_call':           'pre-budget-review',
+  'gov.qbr':                     'pre-quarterly-review',
+  'gov.budget_review':           'pre-budget-review',
+  'gov.ma_discussion':           'pre-negotiations',
+  'gov.crisis':                  'pre-crisis-response',
+  // Pillar B
+  'inf.fundraising':             'pre-investor-meeting',
+  'inf.negotiation':             'pre-negotiations',
+  'inf.client_presentation':     'pre-client-presentation',
+  // Pillar C
   'vis.media':                   'pre-media',
   'vis.all_hands':               'pre-all-hands',
-  'vis.client_presentation':     'pre-client-presentation',
+  // Pillar D
   'lead.executive_1on1':         null,
   'lead.leadership_sync':        'pre-all-hands',
   'lead.performance_review':     'pre-performance-review',
   'lead.difficult_conversation': 'pre-difficult-conversation',
   'lead.layoff':                 'pre-difficult-conversation',
   'lead.hiring_committee':       'pre-hiring-decision',
-  'lead.negotiation':            'pre-negotiations',
-  'ops.crisis':                  'pre-crisis-response',
-  'ops.product_launch':          'pre-strategic-planning',
-  'ops.catchup':                 null,
+  // Pillar E
+  'str.strategy_planning':       'pre-strategic-planning',
+  'str.deep_work':               null,
+  'str.product_launch':          'pre-strategic-planning',
+  // Pillar F — Conferences & External Events
+  'conf.keynote':                'pre-speaking-engagement',
+  'conf.speaking':                'pre-speaking-engagement',
+  'conf.offsite':                 'pre-strategic-planning',
+  'conf.award':                   'pre-speaking-engagement',
+  'conf.customer_summit':         'pre-speaking-engagement',
+  'conf.networking':              null, // classification-only — no JIT/scenario
+  // Pillar G
   'trv.long_haul':               null,
   'trv.flight':                  null,
-  'rec.pto':                     null,
+  // Pillar H
+  'rhy.catchup':                 null,
+  'rhy.pto':                     null,
 };
 
 export function scenarioIdFor(title: string | null | undefined): string | null {
   const et = classifyEvent(title);
   if (!et) return null;
   return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
+}
+
+// ── Stacking: consolidate adjacent high-stakes events ─────────────────
+//
+// MVP rule (self-regulation only):
+//   When two pillar A or D high-stakes events sit back-to-back (gap < 90
+//   minutes), surface ONE consolidated JIT covering both rather than two
+//   separate protocols. Caller is expected to render one Pause+Flow
+//   practice that names both events.
+//
+// When a future feature set introduces other meta-skills, this rule should
+// be revisited so distinct features can drive separate JITs.
+
+export interface StackedEventGroup<E extends CalendarEventLite = CalendarEventLite> {
+  events: ScoredEvent<E>[];
+  consolidated: boolean;
+  primaryPillar: FrameworkPillar | null;
+}
+
+const HIGH_STAKES_PILLARS: FrameworkPillar[] = ['A', 'D'];
+const STACK_GAP_MINUTES = 90;
+
+export function consolidateAdjacentHighStakes<E extends CalendarEventLite>(
+  events: E[],
+  flags?: EngineFlags,
+): StackedEventGroup<E>[] {
+  const scored = scoreEvents(
+    events.filter((e) => !isNoiseTitle(e.title)).filter(survivesAttendeeOrDurationFloor),
+    flags,
+  )
+    .filter((s) => s.type && !s.type.classificationOnly)
+    .sort((a, b) => new Date(a.event.start_time).getTime() - new Date(b.event.start_time).getTime());
+
+  const groups: StackedEventGroup<E>[] = [];
+  for (const s of scored) {
+    const pillar = s.type!.frameworkPillar;
+    const isHighStakes = HIGH_STAKES_PILLARS.includes(pillar);
+    const last = groups[groups.length - 1];
+    if (!last || !isHighStakes) {
+      groups.push({ events: [s], consolidated: false, primaryPillar: pillar });
+      continue;
+    }
+    const lastEv = last.events[last.events.length - 1];
+    const lastEnd = new Date(lastEv.event.end_time || lastEv.event.start_time).getTime();
+    const curStart = new Date(s.event.start_time).getTime();
+    const gapMin = (curStart - lastEnd) / 60000;
+    const lastIsHighStakes = last.primaryPillar && HIGH_STAKES_PILLARS.includes(last.primaryPillar);
+    if (lastIsHighStakes && gapMin < STACK_GAP_MINUTES) {
+      last.events.push(s);
+      last.consolidated = true;
+      continue;
+    }
+    groups.push({ events: [s], consolidated: false, primaryPillar: pillar });
+  }
+  return groups;
 }
