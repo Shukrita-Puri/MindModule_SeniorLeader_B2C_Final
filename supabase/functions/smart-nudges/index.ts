@@ -1478,11 +1478,13 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
   // notificationIsProduct, the nudge-only rule).
   try {
     const backToBackHoursToday = computeBackToBackHours(ctx);
-    const eventsForCtx = ctx.nonNoiseEvents.map((e) => ({
-      title: e.title,
-      startTime: e.start_time,
-      stakesLevel: isHighStakes(e.title) ? "external" : null,
-    }));
+    const eventsForCtx = ctx.nonNoiseEvents
+      .filter((e) => !!e.title)
+      .map((e) => ({
+        title: e.title as string,
+        startTime: e.start_time,
+        stakesLevel: isHighStakes(e.title) ? "external" : null,
+      }));
     const wiring = evaluateForScope(
       {
         wearable: ctx.hasWearableData
