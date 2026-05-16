@@ -2462,6 +2462,68 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     if (!hasNearEvent) delete moduleMapping.prepare;
   }
 
+  // ── CEO behaviour wiring (Phase 2, behind SHARED_MODULES_ENABLED) ──
+  // Adapter is a no-op when the flag is off. When on, deterministic §2 / §5.2
+  // rules bump module priorities for the current time-of-day. PRACTICE_TYPE_TO_COMBO
+  // (single source of truth) translates SlotBoost.practiceType → §2 protocol/mode.
+  try {
+    const wearableForCtx = req.wearableContext?.hasData
+      ? {
+          hrvDeviationPct: req.wearableContext.hrvDeviation ?? null,
+          sleepHours: req.wearableContext.sleepScore != null
+            ? null  // sleepScore is 0-100, not hours; leave hours null
+            : null,
+          sleepDeviationPct: null,
+          rhrDeviationPct: null,
+        }
+      : null;
+    const planEvents = (req.calendarEvents || [])
+      .filter((e) => e.title && e.startTime)
+      .map((e) => ({
+        title: e.title,
+        startTime: e.startTime,
+        stakesLevel: null as string | null,
+      }));
+    const now = new Date();
+    const wiring = evaluateForScope(
+      {
+        wearable: wearableForCtx,
+        checkIn: {
+          emotionalSelfDeclared: req.checkInOutcome ?? null,
+          mentalSharpness: null,
+          confidence: req.confidenceLevel ?? null,
+          clarity: req.clarityLevel ?? null,
+        },
+        scoreToday: req.innerReadinessScore ?? null,
+        scoreYesterday: null,
+        timezone: {
+          offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
+          shift48hHours: null,
+          travelDay: false,
+        },
+        events: planEvents,
+        now,
+      },
+      "plan",
+      { dayOfWeek: now.getDay() },
+    );
+    if (wiring && wiring.slotBoosts.length > 0) {
+      const { applied } = applySlotBoostsToMapping(
+        moduleMapping as any,
+        wiring.slotBoosts,
+        timeOfDay as 'morning' | 'afternoon' | 'evening',
+      );
+      if (applied.length > 0) {
+        console.log(
+          `[generate-mastery-plan] behaviour boosts applied (${timeOfDay}):`,
+          JSON.stringify(applied),
+        );
+      }
+    }
+  } catch (e) {
+    console.warn('[generate-mastery-plan] behaviour-wiring skipped:', e);
+  }
+
   const todModules: any[] = [];
   const moduleOrder: ('regulate' | 'align' | 'prepare' | 'integrate')[] = ['regulate', 'align', 'prepare', 'integrate'];
 
