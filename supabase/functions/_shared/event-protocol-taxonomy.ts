@@ -123,7 +123,7 @@ export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory> = {
   },
   B: {
     id: "B", name: "PEOPLE & EMOTIONAL LABOUR",
-    triggers: ["1:1", "one on one", "performance review", "layoff", "termination", "hr"],
+    triggers: ["1:1", "one on one", "performance review", "layoff", "termination", "hr review", "hr meeting"],
     selfRegulationFocus: "Internal Buffer — emotional regulation under empathy load",
     phases: {
       pre:    { timing: "T-15min",  combo: "somatic.pause",
