@@ -11,6 +11,7 @@
 import type {
   BehaviourFlag,
   RuleContext,
+  ScopedRule,
   Severity,
 } from "./brief-context.ts";
 
@@ -213,14 +214,77 @@ export function boardLevelOutcome(ctx: RuleContext): BehaviourFlag | null {
   };
 }
 
-/** All rules in canonical evaluation order. Order does NOT imply priority — */
-/** severity does. behaviour-evaluator sorts the output. */
-export const ALL_RULES: ((ctx: RuleContext) => BehaviourFlag | null)[] = [
-  vetoRisk,
-  secondWind,
-  circadianPriority,
-  decisionLeakageGuard,
-  postPeakHangover,
-  personalFrictionInference,
-  boardLevelOutcome,
+// --- §5.2 Sunday Reset Non-Negotiable ---------------------------------------
+// Fires Sun 18:00–21:00 local. Orients to week-ahead as a readiness asset,
+// not an anxiety vector. Surfaces on brief, nudges, and plan.
+export function sundayReset(ctx: RuleContext): BehaviourFlag | null {
+  if (ctx.dayOfWeek !== 0) return null;
+  if (ctx.localHour < 18 || ctx.localHour >= 21) return null;
+  return {
+    rule: "sundayReset",
+    severity: "medium",
+    evidence: ["Sunday evening reset window"],
+    stake: "Operational Drive",
+    copyHint:
+      "orient to week-ahead as a readiness asset; prime Monday, do not invite Sunday-anxiety spiral",
+  };
+}
+
+// --- §5.2 Notification IS the Product ---------------------------------------
+// Fires when today is ≥4h back-to-back AND the user's 7-day app-open rate is
+// low. Nudge-only: instructs the copy layer to ship the entire micro-reframe
+// in the notification body rather than inviting an app open the user won't do.
+export function notificationIsProduct(ctx: RuleContext): BehaviourFlag | null {
+  const dense = (ctx.backToBackHoursToday ?? 0) >= 4;
+  if (!dense || !ctx.historicalAppOpenRateLow) return null;
+  return {
+    rule: "notificationIsProduct",
+    severity: "medium",
+    evidence: [
+      `back-to-back ${ctx.backToBackHoursToday}h`,
+      "low historical open rate",
+    ],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "the nudge IS the value — write a complete micro-reframe in the body; do not invite app open",
+  };
+}
+
+// --- Conference Depletion (multi-day stage time) — STUB ---------------------
+// Returns null until ctx.conferenceDayNumber is populated. Same pattern as
+// personalFrictionInference. When the `conference_day_number` schema field
+// lands, only brief-signal-coverage.ts changes — this rule, the flag shape,
+// and every downstream consumer remain identical.
+export function conferenceDepletion(ctx: RuleContext): BehaviourFlag | null {
+  const day = ctx.conferenceDayNumber;
+  if (typeof day !== "number" || day < 2) return null;
+  const severity: Severity = day >= 3 ? "high" : "medium";
+  return {
+    rule: "conferenceDepletion",
+    severity,
+    evidence: [`conference day ${day}`],
+    stake: "Physical Recovery",
+    copyHint:
+      "name the cumulative cost of multi-day on-stage time; orient to recovery protection, not output expansion",
+  };
+}
+
+/**
+ * All rules + the surfaces each is allowed to fire on. Order does NOT imply
+ * priority — severity does. behaviour-evaluator sorts the output.
+ *
+ * Add new behaviours by tagging scopes here, not by creating new rule files
+ * per surface.
+ */
+export const ALL_RULES: ScopedRule[] = [
+  { scopes: ["brief", "plan", "nudge"], fn: vetoRisk },
+  { scopes: ["brief", "plan"],          fn: secondWind },
+  { scopes: ["brief", "plan", "nudge"], fn: circadianPriority },
+  { scopes: ["brief", "plan", "nudge"], fn: decisionLeakageGuard },
+  { scopes: ["brief", "plan"],          fn: postPeakHangover },
+  { scopes: ["brief"],                  fn: personalFrictionInference },
+  { scopes: ["brief", "plan", "nudge"], fn: boardLevelOutcome },
+  { scopes: ["brief", "plan", "nudge"], fn: sundayReset },
+  { scopes: ["nudge"],                  fn: notificationIsProduct },
+  { scopes: ["brief", "plan", "nudge"], fn: conferenceDepletion },
 ];
