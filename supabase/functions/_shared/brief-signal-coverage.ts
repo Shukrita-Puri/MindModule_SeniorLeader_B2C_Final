@@ -165,7 +165,18 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
 }
 
 /** Build a RuleContext from raw input + computed signals. Convenience wrapper. */
-export function buildRuleContext(input: SignalCoverageInput): RuleContext {
+export function buildRuleContext(
+  input: SignalCoverageInput,
+  extras: Partial<
+    Pick<
+      RuleContext,
+      | "dayOfWeek"
+      | "backToBackHoursToday"
+      | "historicalAppOpenRateLow"
+      | "conferenceDayNumber"
+    >
+  > = {},
+): RuleContext {
   const signals = buildSignalMatrix(input);
   const localHour = input.now.getHours();
   return {
@@ -180,5 +191,6 @@ export function buildRuleContext(input: SignalCoverageInput): RuleContext {
       .filter((e) => e.minutesUntil >= 0)
       .sort((a, b) => a.minutesUntil - b.minutesUntil),
     localHour,
+    ...extras,
   };
 }
