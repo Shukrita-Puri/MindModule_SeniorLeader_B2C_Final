@@ -27,7 +27,7 @@ Deno.test("classifyEvent maps canonical titles to categories", () => {
   assertEquals(classifyEvent("1:1 with Sara"), "B");
   assertEquals(classifyEvent("Term sheet negotiation"), "C");
   assertEquals(classifyEvent("Keynote at Money2020"), "D");
-  assertEquals(classifyEvent("Deep work — strategy doc"), "E");
+  assertEquals(classifyEvent("Deep work block"), "E");
   assertEquals(classifyEvent("Flight LHR→JFK"), "F");
   assertEquals(classifyEvent("Weekly team meeting"), "G");
   assertEquals(classifyEvent("Lunch"), "H");
