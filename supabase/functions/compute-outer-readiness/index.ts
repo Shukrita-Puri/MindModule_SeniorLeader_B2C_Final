@@ -3771,6 +3771,62 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\nLead with: ${dominantHorizon}`;
           }
 
+          // === CEO BEHAVIOUR FLAGS (Phase 2 wiring, behind SHARED_MODULES_ENABLED) ===
+          // Adapter is a no-op when the flag is off. When on, appends a deterministic
+          // advisory block to userPrompt so the LLM stops re-evaluating §2.11–§2.17
+          // booleans under generation pressure.
+          try {
+            const wearableForCtx = hasWearable
+              ? {
+                  hrvDeviationPct: hrvDeviation ?? null,
+                  hrvUnusual: !!hrvUnusual,
+                  sleepHours:
+                    sleepDuration != null ? sleepDuration / 60 : null,
+                  sleepDeviationPct: sleepDeviation ?? null,
+                  rhrDeviationPct: rhrDeviation ?? null,
+                  hrElevatedProxy: (wearableContext as any)?.hrElevated === true,
+                }
+              : null;
+            const eventsForCtx = nextHighStakesEvent
+              ? [
+                  {
+                    title: nextHighStakesEvent.title as string,
+                    startTime: new Date(
+                      Date.now() + (nextHighStakesEvent.minutesUntil ?? 0) * 60_000,
+                    ),
+                    stakesLevel: "external" as string,
+                  },
+                ]
+              : [];
+            const briefWiring = evaluateForScope(
+              {
+                wearable: wearableForCtx,
+                checkIn: {
+                  emotionalSelfDeclared: checkInOutcome ?? null,
+                  mentalSharpness: mentalSharpnessLevel ?? null,
+                  confidence: confidenceLevel ?? null,
+                  clarity: clarityLevel ?? null,
+                },
+                scoreToday: innerReadinessScore ?? null,
+                scoreYesterday: yesterdayScore ?? null,
+                trailingClarityAvg: null,
+                timezone: {
+                  offsetMinutes: -timezoneOffset,
+                  shift48hHours: null,
+                  travelDay:
+                    !!(effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz),
+                },
+                events: eventsForCtx,
+                now: new Date(),
+              },
+              "brief",
+              { dayOfWeek },
+            );
+            if (briefWiring?.promptBlock) userPrompt += briefWiring.promptBlock;
+          } catch (e) {
+            console.warn("[compute-outer-readiness] behaviour-wiring skipped:", e);
+          }
+
           const sysPromptLen = systemPrompt.length;
           const userPromptLen = userPrompt.length;
           console.log(`[compute-outer-readiness] [LLM] Prompt sizes: system=${sysPromptLen} user=${userPromptLen} total=${sysPromptLen + userPromptLen} chars`);
