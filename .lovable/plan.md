@@ -1,80 +1,173 @@
-
 ## Goal
 
-Make `executive-state-taxonomy.ts` the single source of truth for the 8-pillar CEO Self-Regulation Framework, and apply only the protocol/JIT/copy implications that fall out of it. MVP scope = Self-Regulation only. No changes to: weekend nudge cadence (Sat AM, Sun AM, Sun PM stay), DND/quiet-hours behaviour, multi-calendar load logic, wearable-less logic, attendee-count gating (already removed), long-haul wifi handling.
+Make `supabase/functions/_shared/` the single source of truth for the CEO Self-Regulation rules (§2.11–§2.17), signal coverage (§3.x), Elastic Lexicon (§2.20), and validators (§5). Slim the brief / nudge / plan prompts so the LLM does only what an LLM is good at — voice, synthesis, constraint — and reads pre-evaluated `behaviourFlags` from code. Done in three phases behind a feature flag, with the current prompts captured as ground truth before any slim.
 
-## In scope
+## Pre-flight (mandatory, no code yet)
 
-### 1. Taxonomy alignment (`supabase/functions/_shared/executive-state-taxonomy.ts`)
+- Snapshot the current prompts verbatim into `mem/features/performance-readiness/` as `prompt-snapshot-brief.md`, `prompt-snapshot-nudges.md`, `prompt-snapshot-plan.md`. These are the rollback reference.
+- Diff each snapshot against the framework spec doc (v6.1 for the brief). Log every gap in the snapshot file under a `### Spec gaps found` heading. Do not fix gaps in pre-flight — fix them in the right phase below.
+- Add a top-of-file ownership banner to each new `_shared/` module (Phase 1):
+  ```ts
+  // OWNERSHIP: engineering. Trigger logic / thresholds change via code review only.
+  // Do not edit in a chat-driven session without an explicit human request.
+  ```
 
-Re-label the 8 EventGroups to match the framework's pillars A–H exactly:
+## Architecture
 
 ```text
-A_governance         → High-Stakes Governance
-B_influence          → Influence & Persuasion          (renamed from B_investor; investor stays inside)
-C_visibility         → Visibility & Communication      (renamed from D_visibility)
-D_people             → People & Difficult Conversations (renamed from E_leadership)
-E_deepwork           → Deep Work & Strategy            (renamed from C_strategic)
-F_conferences        → Conferences & External Events   (NEW pillar; absorbs vis.speaking, keynote, off-site, awards, multi-day customer summit, networking event)
-G_travel             → Travel
-H_rhythm             → Daily Rhythm & Baseline         (renamed from H_recovery; PTO + baseline live here)
+supabase/functions/_shared/
+  executive-state-taxonomy.ts        already canonical
+  ceo-behaviour-rules.ts             NEW — one pure fn per §2.11–§2.17
+  behaviour-evaluator.ts             NEW — evaluate(ctx) → BehaviourFlags[]
+  brief-signal-coverage.ts           NEW — §3 matrix incl. §3.11/§3.12/§3.13
+  copy-vocabulary.ts                 NEW — Elastic Lexicon + forbidden words
+  brief-validators.ts                NEW — §5.1 / §5.2 validators
+  brief-context.ts                   NEW — BriefContext interface (the API contract)
 ```
 
-Event-level updates:
+`BriefContext` is the typed contract every consumer reads from and the LLM sees as JSON:
 
-- Move `vis.keynote`, `vis.speaking` (conference/summit/panel/roundtable/webinar), off-sites/retreats, award events, multi-day customer summit into pillar F. Keynote remains visibility-flavoured but its protocol map switches to the conference template (see §2).
-- Add `conf.networking_event` to pillar F BUT mark it as classification-only: `timingMatrix:{pre:false,during:false,post:false}`, `regulationObjective:'PROTECT'`, no JIT, no nudges, no mastery modules. It will surface in Insights cause-effect cards but never trigger a protocol/notification.
-- Add new keywords for roundtables/panels/summits already covered by `vis.speaking`; ensure `roundtable`, `panel discussion`, `fireside` are present.
-- Job interviews (giving or attending one's own — explicitly NOT media): keep classified under pillar D (`lead.hiring_committee`) and broaden keywords (`job interview`, `final round interview`, `screening interview`). Self-regulation focus = pre-event Pause for composure. No new pillar.
-- 1:1 detection improvements are explicitly out of scope (no reliable boss/peer/junior signal, titles often just names) — leave `lead.executive_1on1` keywords as-is and document in a code comment.
-- Pillar F (Conferences & External) protocol contract:
-  - PRE (morning of): Mindset Pause for social/emotional load priming.
-  - DURING: notification-only micro-reframe (no in-app exercise; user is between chats).
-  - POST: Somatic Reenergise for social-depletion recovery.
+```ts
+export interface BriefContext {
+  signals: SignalMatrix;                  // §3 + §3.11–§3.13
+  behaviourFlags: BehaviourFlag[];        // sorted by severity desc
+  lexiconClusters: PillarCluster[];       // resilience | cognition | physiology
+  forbiddenWords: string[];
+  allowedPatternKeywords: string[];
+  suggestedSlotBoosts?: SlotBoost[];      // consumed by Plan, ignored by Brief
+}
 
-### 2. Protocol orchestration (`supabase/functions/generate-jit-events/index.ts`, `supabase/functions/generate-mastery-plan/index.ts`, `supabase/functions/smart-nudges/index.ts`)
+export interface BehaviourFlag {
+  rule: "vetoRisk" | "secondWind" | "circadianPriority"
+      | "decisionLeakageGuard" | "postPeakHangover"
+      | "personalFrictionInference" | "boardLevelOutcome";
+  severity: "low" | "medium" | "high";
+  evidence: string[];
+  anchorEvent?: string;
+  stake?: string;
+  copyHint: string;
+}
+```
 
-- Read pillar/group from the taxonomy and switch protocol templates by pillar instead of inline keyword maps where this is still happening.
-- For pillar F events:
-  - Morning Plan slot 1 = Pause variant tagged `social_load_prep`.
-  - Generated JIT slot is suppressed; emit `nudge_two` only (notification = the intervention, deep_link omitted or pointed at `/executive-home` informational).
-  - Evening Plan slot 3 = Reenergise variant tagged `post_event_recovery`.
-- Stacking rule (Board + Layoff or any two pillar A/D high-stakes events same day):
-  - If start-time gap ≥ 90 min → keep two independent JIT protocols (current behaviour).
-  - If gap < 90 min OR back-to-back → emit ONE consolidated JIT covering both, with copy that names both events and uses a single combined Pause+Flow practice. Add helper `consolidateAdjacentHighStakes(events)` in `generate-jit-events`. MVP comment: revisit when other meta-skills exist.
-- `findEventPattern` and pillar-aware copy in `smart-nudges` already pull from the taxonomy; only update the small switch that hard-codes group ids.
+`copyHint` is the load-bearing field: it replaces the §2.11–§2.17 prose in the prompt. The LLM stops re-evaluating booleans under generation pressure and just executes craft + constraint.
 
-### 3. Insights cause-effect labels
+## Phase 1 — Shared modules (no behaviour change)
 
-`bucket` strings on EventType already feed `causality_findings.signal_summary`. Re-map buckets so the eight pillar names show through verbatim in the Insights cause-effect card (e.g. `Conferences & External Events`, `People & Difficult Conversations`). No DB migration — values are stored as text on write going forward; historical rows keep their old labels.
+Scope of the Lovable session: "Add these files. Do not edit any existing function files. Do not change any prompt strings."
 
-### 4. Confirmations on already-correct behaviour (no code change)
+1. `brief-context.ts` — interfaces only.
+2. `ceo-behaviour-rules.ts` — pure functions, one export per §2.11–§2.17 rule. Each returns `BehaviourFlag | null`. §2.16 Personal Friction stays a stub returning `null` until ≥3 weeks of data is available.
+3. `behaviour-evaluator.ts` — `evaluate(ctx)` runs all rules, returns flags sorted by severity, deduped.
+4. `brief-signal-coverage.ts` — assembles the §3 matrix from existing inputs (wearable, check-in, calendar, profile, pattern store), §3.11 emotional triangulation (self-decl carries when wearable null), §3.12 timezone-only globalLoad (others null), §3.13 `postPeakWindow` + `isHighVisibilityToday`.
+5. `copy-vocabulary.ts` — three pillar clusters (Cognition / Physiology / Resilience), forbidden words, allowed pattern-reference keywords. Migrate `smart-nudges` `FORBIDDEN_WORDS_V6` to import from here in Phase 3 — do not edit nudges in Phase 1.
+6. `brief-validators.ts` — §5.1 phrase + §5.2 body validators. Pure, unit-testable.
 
-- DND/quiet-hours: confirmed via `apns-expiration` + `apns-collapse-id` per family — stale nudges expire and only the next family-fresh one is delivered after DND ends. Add a one-line code comment in `smart-nudges/index.ts` referencing this contract.
-- Weekend cadence (Sat AM, Sun AM, Sun PM week-prep) — unchanged.
-- Long-haul wifi — explicitly not engineered.
-- Attendee-count gating — confirmed removed; re-deferred to relational-navigation feature.
+Deno tests per rule covering the trigger truth tables, plus snapshot tests for `evaluate(ctx)` on five fixtures: Board day + masked fatigue, midday recovery on a compressed morning, ≥3h TZ drift, emotional drain + low self-decl, post-peak hangover.
+
+**Exit criteria:** `deno test` green, zero edits outside `_shared/`, no prompt strings touched.
+
+## Phase 2 — Brief wiring (separate session, behind feature flag)
+
+Scope: only `compute-outer-readiness/index.ts`.
+
+1. Add env flag `SHARED_MODULES_ENABLED` (default `false`).
+2. When the flag is on:
+   - Build `BriefContext` from `behaviour-evaluator` + `brief-signal-coverage`.
+   - Replace inline §2.11–§2.17, §3.11–§3.13, §5 prose with the slim 3-block prompt:
+     - **Block 1 — Role + Contract** (~150 tokens, never changes)
+     - **Block 2 — `briefContext` JSON** (~200–350 tokens, variable)
+     - **Block 3 — Generation rules** (~200 tokens, §2.1–§2.2, §2.18–§2.22 only)
+   - The LLM's instruction for behaviour-driven copy is: "If `behaviourFlags` is non-empty, the highest-severity flag drives the directive. `copyHint` is your framing instruction — use it, do not quote it."
+3. After LLM returns, run `brief-validators` in code. On failure, retry once with an explicit corrective message ("you produced X, the validator rejected it because Y, regenerate honouring constraint Z"), then fall through to next provider, then deterministic `getTheme()`. Atomic Brief Contract preserved.
+4. Stamp telemetry: `brief_snapshots.prompt_version = 'v6.1-shared-modules'` when flag on; legacy value otherwise. Never pool the two for analysis.
+
+**Exit criteria:**
+- Flag off in production at merge time.
+- Three consecutive passing runs in staging against the canonical fixture (Board day, HRV −22%, sleep 5h40m, sharpness 4/5) → output references "Board" and a Resilience-cluster word.
+- Existing `compute-outer-readiness` `index.test.ts`, `body_copy.test.ts`, `redundancy.test.ts` still pass with flag off.
+- Per `mem://reliability/brief-prompt-variable-scoping.md`, every variable interpolated into the new prompt is declared in the same outer scope as `userPrompt`.
+
+Flip the flag on only after staging checks pass. Monitor validator failure rate for 48h; rollback by flipping flag off.
+
+## Phase 3 — Nudges + Plan (additive, lowest risk)
+
+Two separate sessions. Nudge first (smaller surface), then plan.
+
+### 3a. `smart-nudges/index.ts`
+
+- Replace inline `FORBIDDEN_WORDS_V6` with import from `copy-vocabulary.ts` (single source of truth). Keep V8 CTA verbs in a separate `cta-vocabulary` export — do NOT couple them to the forbidden list.
+- Call `evaluate(ctx)` once per nudge build. When a high-severity flag exists for the nudge's anchor:
+  - Pass `copyHint` + `anchorEvent` + `stake` into the existing AI copy prompt.
+  - No new slot, no comparator change, no scheduling change.
+- For the JIT-nudge path only, evaluate whether Haiku reliably honours `copyHint`. If degraded, swap that path to Sonnet; Nudge 1 / Nudge 3 stay on Haiku.
+
+### 3b. `generate-mastery-plan/index.ts`
+
+- Read `behaviourFlags` (severity + stake only — no `copyHint`, the Plan does not write LLM copy at the same scale).
+- `vetoRisk.high` → boost a Pause module into slot 1.
+- `postPeakHangover.high` → boost a Reenergise module into slot 3.
+- `composeWhyLine` receives `stake` so the deterministic Why line names the leadership variable.
+- `generate-jit-events`: when `boardLevelOutcome` fires for a JIT's anchor event, force `signalStrength = 3` (existing pattern-promotion mechanism).
+
+**Exit criteria:**
+- Same fixture run through brief + nudge + plan produces consistent anchor event + stake language across all three surfaces.
+- No regression in existing nudge / plan tests.
+
+## What the LLM still owns
+
+- §2.1–§2.2 Persona + Strategic Register (DO/DON'T)
+- §2.18 Phrase craft target ("high-velocity 2–3 word")
+- §2.19 synthesis of Signal Evidence + Pillar + Stake into 2–3 sentences
+- §2.19.1 *how* to weave a pattern reference (the relevance gate is enforced by `brief-validators`, not by the LLM)
+- §2.21 generative-not-verbatim
+- §2.22 Baseline Intelligence pivot copy direction
+
+Everything else moves to code.
 
 ## Out of scope
 
-- 1:1 boss/peer/junior detection (no reliable signal).
-- Multi-calendar load distortion changes.
-- Wearable-less behavioural rules.
-- Long-haul wifi during-flight prompts.
-- New mastery scenarios for new event types (still deferred — no `EVENT_TYPE → scenarioId` table).
-
-## Verification
-
-- Unit: classify representative titles (`Q4 Board Meeting`, `Layoff comms`, `SaaStr Summit`, `Final round interview — Priya`, `Networking dinner`) → expect correct pillar.
-- Manual: simulate same-day Board 09:00 + Layoff 10:00 → expect single consolidated JIT; Board 09:00 + Layoff 16:00 → two JITs.
-- Smoke: run `generate-mastery-plan` for a fixture user with a conference day → morning Pause, no JIT, evening Reenergise.
-- Insights cause-effect card: spot-check that new pillar names render.
+- A dedicated "behaviour" edge function (rejected — adds HTTP latency + failure surface; the shared-module pattern is already proven across 7 functions).
+- §2.16 Personal Friction beyond a stub (needs ≥3 weeks of per-user history).
+- Multi-Calendar Load Distortion, conference day-counter, good-vs-bad-stress (deferred per framework doc).
+- Changes to the Atomic Brief Contract, fallback chain order, or JSON output shape.
+- Changes to nudge slot model, comparator, scheduling, DND/quiet-hours, or weekend cadence.
 
 ## Files touched
 
-- `supabase/functions/_shared/executive-state-taxonomy.ts`
-- `supabase/functions/generate-jit-events/index.ts`
-- `supabase/functions/generate-mastery-plan/index.ts`
+NEW (Phase 1):
+- `supabase/functions/_shared/brief-context.ts`
+- `supabase/functions/_shared/ceo-behaviour-rules.ts`
+- `supabase/functions/_shared/behaviour-evaluator.ts`
+- `supabase/functions/_shared/brief-signal-coverage.ts`
+- `supabase/functions/_shared/copy-vocabulary.ts`
+- `supabase/functions/_shared/brief-validators.ts`
+- Deno tests for each (one `_test.ts` per module)
+
+EDIT (Phase 2):
+- `supabase/functions/compute-outer-readiness/index.ts`
+
+EDIT (Phase 3):
 - `supabase/functions/smart-nudges/index.ts`
-- `.lovable/plan.md` (changelog entry only)
-- `mem/features/notifications/smart-nudges-mvp-framework.md` (one-line note: pillar F protocol contract; weekend cadence unchanged)
+- `supabase/functions/generate-mastery-plan/index.ts`
+- `supabase/functions/generate-jit-events/index.ts`
+
+DOCS:
+- `mem/features/performance-readiness/prompt-snapshot-brief.md` (NEW, pre-flight)
+- `mem/features/performance-readiness/prompt-snapshot-nudges.md` (NEW, pre-flight)
+- `mem/features/performance-readiness/prompt-snapshot-plan.md` (NEW, pre-flight)
+- `mem/features/performance-readiness/brief-logic.md` (EDIT — note shared-module split)
+- `mem/architecture/ceo-behaviour-shared-module-ownership.md` (NEW — codifies "engineering-owned, no chat-driven trigger edits")
+- `.lovable/plan.md` (EDIT — changelog)
+
+## Verification
+
+- Phase 1: Deno unit tests for each rule's truth table; snapshot test for `evaluate()` on five fixtures.
+- Phase 2 staging: canonical fixture produces brief containing "Board" + Resilience-cluster word, three runs in a row. `prompt_version` telemetry confirms the new path executed.
+- Phase 2 production rollout: flag on for 10% of users for 24h; compare validator-failure rate and `delivery_state` distribution against the prior 7-day baseline before going to 100%.
+- Phase 3: end-to-end fixture run — same anchor event + stake language surfaces in brief, JIT nudge, and morning plan slot 1.
+- Regression: all existing `compute-outer-readiness`, `smart-nudges`, `generate-mastery-plan` tests pass.
+
+## Rollback
+
+- Phase 2: flip `SHARED_MODULES_ENABLED=false`; brief returns to legacy prompt with zero code revert.
+- Phase 3: nudge + plan changes are additive; remove the `behaviourFlags` read to revert. Forbidden-list source-of-truth move is the only non-additive change — keep a one-commit revert tagged.
