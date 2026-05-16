@@ -8,21 +8,30 @@
 import type {
   BehaviourFlag,
   RuleContext,
+  RuleScope,
   Severity,
   SlotBoost,
 } from "./brief-context.ts";
 import { ALL_RULES } from "./ceo-behaviour-rules.ts";
+import { PRACTICE_TYPE_TO_COMBO } from "./event-protocol-taxonomy.ts";
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
 
 /**
  * Run all CEO behaviour rules over the context. Returns flags sorted by
  * severity (high → low), with at most one flag per rule (rule is the dedup key).
+ *
+ * Pass `{ scope }` to restrict to rules tagged for that surface — `"brief"`,
+ * `"nudge"`, or `"plan"`. Omit to run every rule.
  */
-export function evaluate(ctx: RuleContext): BehaviourFlag[] {
+export function evaluate(
+  ctx: RuleContext,
+  opts: { scope?: RuleScope } = {},
+): BehaviourFlag[] {
   const flags: BehaviourFlag[] = [];
   for (const rule of ALL_RULES) {
-    const flag = rule(ctx);
+    if (opts.scope && !rule.scopes.includes(opts.scope)) continue;
+    const flag = rule.fn(ctx);
     if (flag) flags.push(flag);
   }
   return flags.sort(
@@ -43,29 +52,35 @@ export function deriveSlotBoosts(flags: BehaviourFlag[]): SlotBoost[] {
   const boosts: SlotBoost[] = [];
   for (const f of flags) {
     if (f.rule === "vetoRisk" && f.severity === "high") {
-      boosts.push({
+      boosts.push(withCombo({
         slot: "start_of_day",
         practiceType: "regulate",
         reason: "vetoRisk",
         severity: "high",
-      });
+      }));
     } else if (f.rule === "postPeakHangover" && f.severity === "high") {
-      boosts.push({
+      boosts.push(withCombo({
         slot: "end_of_day",
         practiceType: "integrate",
         reason: "postPeakHangover",
         severity: "high",
-      });
+      }));
     } else if (f.rule === "circadianPriority" && f.severity === "high") {
-      boosts.push({
+      boosts.push(withCombo({
         slot: "start_of_day",
         practiceType: "regulate",
         reason: "circadianPriority",
         severity: "high",
-      });
+      }));
     }
   }
   return boosts;
+}
+
+/** Attach §2 protocol+mode via PRACTICE_TYPE_TO_COMBO (single source of truth). */
+function withCombo(b: SlotBoost): SlotBoost {
+  const combo = PRACTICE_TYPE_TO_COMBO[b.practiceType];
+  return { ...b, protocol: combo.protocol, mode: combo.mode };
 }
 
 /** Convenience: highest-severity flag for a given anchor event title, or null. */
