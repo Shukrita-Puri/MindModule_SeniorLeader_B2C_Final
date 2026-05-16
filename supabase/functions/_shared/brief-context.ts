@@ -8,6 +8,8 @@
 
 export type PillarCluster = "cognition" | "physiology" | "resilience";
 
+import type { Protocol, ProtocolMode } from "./event-protocol-taxonomy.ts";
+
 export type BehaviourRule =
   | "vetoRisk"
   | "secondWind"
@@ -15,9 +17,21 @@ export type BehaviourRule =
   | "decisionLeakageGuard"
   | "postPeakHangover"
   | "personalFrictionInference"
-  | "boardLevelOutcome";
+  | "boardLevelOutcome"
+  | "sundayReset"            // §5.2 — all three surfaces
+  | "notificationIsProduct"  // §5.2 — nudge only
+  | "conferenceDepletion";   // stub now, lights up when schema lands
 
 export type Severity = "low" | "medium" | "high";
+
+/** Which surface a rule is allowed to fire on. */
+export type RuleScope = "brief" | "nudge" | "plan";
+
+/** A rule + the surfaces it applies to. Used by behaviour-evaluator. */
+export interface ScopedRule {
+  scopes: readonly RuleScope[];
+  fn: (ctx: RuleContext) => BehaviourFlag | null;
+}
 
 /**
  * Output of a single rule in ceo-behaviour-rules.ts.
@@ -51,6 +65,10 @@ export interface SlotBoost {
   practiceType: "regulate" | "align" | "prepare" | "integrate";
   reason: BehaviourRule;
   severity: Severity;
+  /** Preferred §2 protocol — derived from practiceType via PRACTICE_TYPE_TO_COMBO. */
+  protocol?: Protocol;
+  /** Preferred §2 mode — derived from practiceType via PRACTICE_TYPE_TO_COMBO. */
+  mode?: ProtocolMode;
 }
 
 /**
@@ -127,4 +145,12 @@ export interface RuleContext {
   }>;
   // Local hour at the user's timezone, used by §2.12 (midday window).
   localHour: number;
+  /** 0 = Sunday … 6 = Saturday, in user's local timezone. */
+  dayOfWeek?: number;
+  /** Total hours of back-to-back meetings scheduled today. */
+  backToBackHoursToday?: number;
+  /** Trailing 7-day app-open rate falls below threshold (set upstream). */
+  historicalAppOpenRateLow?: boolean;
+  /** Day number within a multi-day conference (1 = day 1). Undefined until schema lands. */
+  conferenceDayNumber?: number;
 }
