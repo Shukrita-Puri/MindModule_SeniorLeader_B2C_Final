@@ -1,173 +1,256 @@
-## Goal
 
-Make `supabase/functions/_shared/` the single source of truth for the CEO Self-Regulation rules (§2.11–§2.17), signal coverage (§3.x), Elastic Lexicon (§2.20), and validators (§5). Slim the brief / nudge / plan prompts so the LLM does only what an LLM is good at — voice, synthesis, constraint — and reads pre-evaluated `behaviourFlags` from code. Done in three phases behind a feature flag, with the current prompts captured as ground truth before any slim.
+## Scope
 
-## Pre-flight (mandatory, no code yet)
+Two-file taxonomy split (state vs event-protocol), three new behaviour rules in the existing rules module, scope-tagged rule registry, plus a `PRACTICE_TYPE_TO_COMBO` migration note and a Phase 2 classification-path audit captured in the ownership memory doc. Phase 1 only — no edge function wiring.
 
-- Snapshot the current prompts verbatim into `mem/features/performance-readiness/` as `prompt-snapshot-brief.md`, `prompt-snapshot-nudges.md`, `prompt-snapshot-plan.md`. These are the rollback reference.
-- Diff each snapshot against the framework spec doc (v6.1 for the brief). Log every gap in the snapshot file under a `### Spec gaps found` heading. Do not fix gaps in pre-flight — fix them in the right phase below.
-- Add a top-of-file ownership banner to each new `_shared/` module (Phase 1):
-  ```ts
-  // OWNERSHIP: engineering. Trigger logic / thresholds change via code review only.
-  // Do not edit in a chat-driven session without an explicit human request.
-  ```
+## Files
 
-## Architecture
+NEW:
+- `supabase/functions/_shared/event-protocol-taxonomy.ts`
+- `supabase/functions/_shared/event-protocol-taxonomy.test.ts`
 
-```text
-supabase/functions/_shared/
-  executive-state-taxonomy.ts        already canonical
-  ceo-behaviour-rules.ts             NEW — one pure fn per §2.11–§2.17
-  behaviour-evaluator.ts             NEW — evaluate(ctx) → BehaviourFlags[]
-  brief-signal-coverage.ts           NEW — §3 matrix incl. §3.11/§3.12/§3.13
-  copy-vocabulary.ts                 NEW — Elastic Lexicon + forbidden words
-  brief-validators.ts                NEW — §5.1 / §5.2 validators
-  brief-context.ts                   NEW — BriefContext interface (the API contract)
-```
+EDIT:
+- `supabase/functions/_shared/brief-context.ts` — extend `BehaviourRule` union; add `RuleScope`, `ScopedRule`; add optional `dayOfWeek`, `backToBackHoursToday`, `historicalAppOpenRateLow`, `conferenceDayNumber` to `RuleContext`; add optional `protocol` + `mode` to `SlotBoost`.
+- `supabase/functions/_shared/ceo-behaviour-rules.ts` — add `sundayReset`, `notificationIsProduct`, `conferenceDepletion`; convert `ALL_RULES` to `ScopedRule[]` with `scopes` metadata.
+- `supabase/functions/_shared/ceo-behaviour-rules.test.ts` — tests for the three new rules + scope filtering.
+- `supabase/functions/_shared/behaviour-evaluator.ts` — `evaluate(ctx, { scope? })` filters by `ScopedRule.scopes`.
+- `mem/architecture/ceo-behaviour-shared-module-ownership.md` — document the two-file taxonomy split, the `PRACTICE_TYPE_TO_COMBO` migration rule, and the Phase 2 classification-path audit.
 
-`BriefContext` is the typed contract every consumer reads from and the LLM sees as JSON:
+NOT TOUCHED in Phase 1:
+- `executive-state-taxonomy.ts` — zero edits. Audit deferred to Phase 2.
+- All edge functions. Phase 2 owns wiring.
+
+## 1. `event-protocol-taxonomy.ts` (new file)
+
+Different change pressure from `executive-state-taxonomy.ts`: this file moves on coaching/clinical decisions (new protocol, new event category, new trigger keyword), not on product copy decisions (pillar names, stakes vocabulary). Co-located internally because the §3 matrix is typed against §2 combo keys — that's a compile-time safety net.
 
 ```ts
-export interface BriefContext {
-  signals: SignalMatrix;                  // §3 + §3.11–§3.13
-  behaviourFlags: BehaviourFlag[];        // sorted by severity desc
-  lexiconClusters: PillarCluster[];       // resilience | cognition | physiology
-  forbiddenWords: string[];
-  allowedPatternKeywords: string[];
-  suggestedSlotBoosts?: SlotBoost[];      // consumed by Plan, ignored by Brief
+// OWNERSHIP: engineering + coaching. Trigger logic / phase prescriptions
+// change via code review only. Do not edit in a chat-driven session without
+// an explicit human request.
+//
+// §2 Six protocol combinations + §3 Eight CEO Event Categories from the
+// CEO Self-Regulation Framework v1.0. Pure data + pure deterministic
+// classifiers. No IO, no fetches.
+
+// --- §2 Protocol combinations -------------------------------------------
+export type Protocol = "mindset" | "somatic";
+export type ProtocolMode = "pause" | "flow" | "reenergise";
+export type ComboKey = `${Protocol}.${ProtocolMode}`;
+
+export interface ProtocolCombo {
+  protocol: Protocol;
+  mode: ProtocolMode;
+  whenToUse: string;   // doc §2 verbatim
+  outcome: string;     // doc §2 verbatim
 }
 
-export interface BehaviourFlag {
-  rule: "vetoRisk" | "secondWind" | "circadianPriority"
-      | "decisionLeakageGuard" | "postPeakHangover"
-      | "personalFrictionInference" | "boardLevelOutcome";
-  severity: "low" | "medium" | "high";
-  evidence: string[];
-  anchorEvent?: string;
-  stake?: string;
-  copyHint: string;
+export const PROTOCOL_COMBOS: Record<ComboKey, ProtocolCombo>;
+
+// Legacy SlotBoost.practiceType → preferred (protocol, mode).
+// SINGLE SOURCE OF TRUTH for this mapping. generate-mastery-plan must
+// import from here in Phase 2 — do not duplicate the mapping anywhere.
+export const PRACTICE_TYPE_TO_COMBO = {
+  regulate:  { protocol: "somatic",  mode: "pause"      },
+  align:     { protocol: "mindset",  mode: "pause"      },
+  prepare:   { protocol: "mindset",  mode: "flow"       },
+  integrate: { protocol: "mindset",  mode: "reenergise" },
+} as const satisfies Record<string, { protocol: Protocol; mode: ProtocolMode }>;
+
+export function comboFor(
+  practiceType: keyof typeof PRACTICE_TYPE_TO_COMBO,
+): ProtocolCombo;
+
+// --- §3 Eight CEO Event Categories --------------------------------------
+export type EventCategoryId = "A"|"B"|"C"|"D"|"E"|"F"|"G"|"H";
+
+export interface EventPhase {
+  timing: string;
+  combo: ComboKey;
+  goal: string;
+  prevents: string;
+}
+
+export interface EventCategory {
+  id: EventCategoryId;
+  name: string;                     // "HIGH-STAKES GOVERNANCE", …
+  triggers: string[];               // doc §3 title keywords
+  selfRegulationFocus: string;
+  phases: {
+    pre?:    EventPhase;
+    during?: EventPhase;
+    post?:   EventPhase;
+  };
+}
+
+export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory>;
+
+export function classifyEvent(
+  title: string,
+  stakesLevel?: string,
+): EventCategoryId | null;
+
+export function protocolsForEvent(
+  title: string,
+  phase: "pre" | "during" | "post",
+): ProtocolCombo | null;
+```
+
+Tests in `event-protocol-taxonomy.test.ts`:
+- Every `practiceType` round-trips to a valid `ProtocolCombo` via `comboFor`.
+- One canonical title per category (A–H) classifies correctly.
+- `protocolsForEvent("Board meeting", "pre")` returns the §3 PRE combo for category A.
+- Unknown title returns `null` for both classifiers.
+
+## 2. Rule scoping in `brief-context.ts`
+
+```ts
+export type RuleScope = "brief" | "nudge" | "plan";
+
+export interface ScopedRule {
+  scopes: readonly RuleScope[];
+  fn: (ctx: RuleContext) => BehaviourFlag | null;
+}
+
+export type BehaviourRule =
+  | "vetoRisk" | "secondWind" | "circadianPriority"
+  | "decisionLeakageGuard" | "postPeakHangover"
+  | "personalFrictionInference" | "boardLevelOutcome"
+  | "sundayReset"            // NEW — all three surfaces
+  | "notificationIsProduct"  // NEW — nudge only
+  | "conferenceDepletion";   // NEW — stub now, lights up when schema lands
+
+export interface RuleContext {
+  // …existing fields…
+  dayOfWeek?: number;                  // 0 = Sun … 6 = Sat (local)
+  backToBackHoursToday?: number;
+  historicalAppOpenRateLow?: boolean;
+  conferenceDayNumber?: number;        // undefined until schema lands
+}
+
+export interface SlotBoost {
+  // …existing fields…
+  protocol?: Protocol;
+  mode?: ProtocolMode;
 }
 ```
 
-`copyHint` is the load-bearing field: it replaces the §2.11–§2.17 prose in the prompt. The LLM stops re-evaluating booleans under generation pressure and just executes craft + constraint.
+## 3. Three new rules in `ceo-behaviour-rules.ts`
 
-## Phase 1 — Shared modules (no behaviour change)
+```ts
+// §5.2 Sunday Reset Non-Negotiable — shared across brief/plan/nudge
+export function sundayReset(ctx: RuleContext): BehaviourFlag | null {
+  if (ctx.dayOfWeek !== 0) return null;
+  if (ctx.localHour < 18 || ctx.localHour >= 21) return null;
+  return {
+    rule: "sundayReset",
+    severity: "medium",
+    evidence: ["Sunday evening reset window"],
+    stake: "Operational Drive",
+    copyHint:
+      "orient to week-ahead as a readiness asset; prime Monday, do not invite Sunday-anxiety spiral",
+  };
+}
 
-Scope of the Lovable session: "Add these files. Do not edit any existing function files. Do not change any prompt strings."
+// §5.2 Notification IS the Product — nudge only
+export function notificationIsProduct(ctx: RuleContext): BehaviourFlag | null {
+  const dense = (ctx.backToBackHoursToday ?? 0) >= 4;
+  if (!dense || !ctx.historicalAppOpenRateLow) return null;
+  return {
+    rule: "notificationIsProduct",
+    severity: "medium",
+    evidence: [`back-to-back ${ctx.backToBackHoursToday}h`, "low historical open rate"],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "the nudge IS the value — write a complete micro-reframe in the body; do not invite app open",
+  };
+}
 
-1. `brief-context.ts` — interfaces only.
-2. `ceo-behaviour-rules.ts` — pure functions, one export per §2.11–§2.17 rule. Each returns `BehaviourFlag | null`. §2.16 Personal Friction stays a stub returning `null` until ≥3 weeks of data is available.
-3. `behaviour-evaluator.ts` — `evaluate(ctx)` runs all rules, returns flags sorted by severity, deduped.
-4. `brief-signal-coverage.ts` — assembles the §3 matrix from existing inputs (wearable, check-in, calendar, profile, pattern store), §3.11 emotional triangulation (self-decl carries when wearable null), §3.12 timezone-only globalLoad (others null), §3.13 `postPeakWindow` + `isHighVisibilityToday`.
-5. `copy-vocabulary.ts` — three pillar clusters (Cognition / Physiology / Resilience), forbidden words, allowed pattern-reference keywords. Migrate `smart-nudges` `FORBIDDEN_WORDS_V6` to import from here in Phase 3 — do not edit nudges in Phase 1.
-6. `brief-validators.ts` — §5.1 phrase + §5.2 body validators. Pure, unit-testable.
+// Conference depletion — STUB. Returns null until conferenceDayNumber is
+// populated. Same pattern as personalFrictionInference.
+// When the schema field arrives, only brief-signal-coverage.ts needs to
+// populate ctx.conferenceDayNumber. This rule, the flag shape, and every
+// downstream consumer remain unchanged.
+export function conferenceDepletion(ctx: RuleContext): BehaviourFlag | null {
+  const day = ctx.conferenceDayNumber;
+  if (typeof day !== "number" || day < 2) return null;
+  const severity: Severity = day >= 3 ? "high" : "medium";
+  return {
+    rule: "conferenceDepletion",
+    severity,
+    evidence: [`conference day ${day}`],
+    stake: "Physical Recovery",
+    copyHint:
+      "name the cumulative cost of multi-day on-stage time; orient to recovery protection, not output expansion",
+  };
+}
+```
 
-Deno tests per rule covering the trigger truth tables, plus snapshot tests for `evaluate(ctx)` on five fixtures: Board day + masked fatigue, midday recovery on a compressed morning, ≥3h TZ drift, emotional drain + low self-decl, post-peak hangover.
+Scoped registry:
 
-**Exit criteria:** `deno test` green, zero edits outside `_shared/`, no prompt strings touched.
+```ts
+export const ALL_RULES: ScopedRule[] = [
+  { scopes: ["brief","plan","nudge"], fn: vetoRisk },
+  { scopes: ["brief","plan"],         fn: secondWind },
+  { scopes: ["brief","plan","nudge"], fn: circadianPriority },
+  { scopes: ["brief","plan","nudge"], fn: decisionLeakageGuard },
+  { scopes: ["brief","plan"],         fn: postPeakHangover },
+  { scopes: ["brief"],                fn: personalFrictionInference },
+  { scopes: ["brief","plan","nudge"], fn: boardLevelOutcome },
+  { scopes: ["brief","plan","nudge"], fn: sundayReset },          // NEW
+  { scopes: ["nudge"],                fn: notificationIsProduct },// NEW
+  { scopes: ["brief","plan","nudge"], fn: conferenceDepletion },  // NEW (stub)
+];
+```
 
-## Phase 2 — Brief wiring (separate session, behind feature flag)
+## 4. `behaviour-evaluator.ts`
 
-Scope: only `compute-outer-readiness/index.ts`.
+```ts
+export function evaluate(
+  ctx: RuleContext,
+  opts: { scope?: RuleScope } = {},
+): BehaviourFlag[] {
+  const flags: BehaviourFlag[] = [];
+  for (const r of ALL_RULES) {
+    if (opts.scope && !r.scopes.includes(opts.scope)) continue;
+    const f = r.fn(ctx);
+    if (f) flags.push(f);
+  }
+  return flags.sort((a,b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+}
+```
 
-1. Add env flag `SHARED_MODULES_ENABLED` (default `false`).
-2. When the flag is on:
-   - Build `BriefContext` from `behaviour-evaluator` + `brief-signal-coverage`.
-   - Replace inline §2.11–§2.17, §3.11–§3.13, §5 prose with the slim 3-block prompt:
-     - **Block 1 — Role + Contract** (~150 tokens, never changes)
-     - **Block 2 — `briefContext` JSON** (~200–350 tokens, variable)
-     - **Block 3 — Generation rules** (~200 tokens, §2.1–§2.2, §2.18–§2.22 only)
-   - The LLM's instruction for behaviour-driven copy is: "If `behaviourFlags` is non-empty, the highest-severity flag drives the directive. `copyHint` is your framing instruction — use it, do not quote it."
-3. After LLM returns, run `brief-validators` in code. On failure, retry once with an explicit corrective message ("you produced X, the validator rejected it because Y, regenerate honouring constraint Z"), then fall through to next provider, then deterministic `getTheme()`. Atomic Brief Contract preserved.
-4. Stamp telemetry: `brief_snapshots.prompt_version = 'v6.1-shared-modules'` when flag on; legacy value otherwise. Never pool the two for analysis.
+`deriveSlotBoosts` continues populating `SlotBoost.practiceType` and additionally sets `protocol` + `mode` via `PRACTICE_TYPE_TO_COMBO`. Non-breaking: existing consumers ignore the new fields.
 
-**Exit criteria:**
-- Flag off in production at merge time.
-- Three consecutive passing runs in staging against the canonical fixture (Board day, HRV −22%, sleep 5h40m, sharpness 4/5) → output references "Board" and a Resilience-cluster word.
-- Existing `compute-outer-readiness` `index.test.ts`, `body_copy.test.ts`, `redundancy.test.ts` still pass with flag off.
-- Per `mem://reliability/brief-prompt-variable-scoping.md`, every variable interpolated into the new prompt is declared in the same outer scope as `userPrompt`.
+## 5. Tests (extend `ceo-behaviour-rules.test.ts`)
 
-Flip the flag on only after staging checks pass. Monitor validator failure rate for 48h; rollback by flipping flag off.
+- `sundayReset` fires Sun 19:00; null Sun 12:00; null Mon 19:00.
+- `notificationIsProduct` fires with `backToBackHoursToday: 5 + historicalAppOpenRateLow: true`; null when either missing or false.
+- `conferenceDepletion`: null when undefined; medium on day 2; high on day 3+.
+- `evaluate(ctx, { scope: "nudge" })` includes `notificationIsProduct`.
+- `evaluate(ctx, { scope: "brief" })` excludes `notificationIsProduct`.
+- `evaluate(ctx, { scope: "plan" })` excludes `personalFrictionInference` (scoped brief-only).
+- Sunday-window context with `scope: "nudge"` returns `sundayReset`.
 
-## Phase 3 — Nudges + Plan (additive, lowest risk)
+## 6. Memory doc — `mem/architecture/ceo-behaviour-shared-module-ownership.md`
 
-Two separate sessions. Nudge first (smaller surface), then plan.
+Append:
 
-### 3a. `smart-nudges/index.ts`
+- **Two-file taxonomy split.** `executive-state-taxonomy.ts` owns pillar/stakes/keyword vocabulary (product/copy cadence). `event-protocol-taxonomy.ts` owns §2 combos + §3 event matrix + `classifyEvent` (coaching/clinical cadence). Consumers never import from either directly for behaviour decisions — they call `behaviour-evaluator.evaluate(ctx, { scope })`.
+- **`PRACTICE_TYPE_TO_COMBO` is the single source of truth** for the legacy practiceType → (protocol, mode) mapping. In Phase 2, `generate-mastery-plan` must import this constant and stop using string literals. Do not duplicate the mapping in plan-side code. If a second copy appears in review, reject the PR.
+- **Phase 2 audit (write down now, execute later).** Before wiring `compute-outer-readiness`, `smart-nudges`, and `generate-mastery-plan` to `event-protocol-taxonomy`, grep consumer edge functions for direct imports of `executive-state-taxonomy.ts`. Any consumer using stakes/keyword lookups to make event classification decisions that `classifyEvent()` now handles must migrate to the new function. Do not leave two classification paths running in parallel — that's how silent drift starts.
+- **Stub-rule pattern.** `personalFrictionInference` and `conferenceDepletion` return `null` today. They reserve the BehaviourFlag API surface so Phase 2 wiring is reviewed once. When the underlying data lands (≥3 weeks per-user history; `conference_day_number` field), only `brief-signal-coverage.ts` changes — the rules, flags, and consumers do not.
+- **Scoped rules.** Every entry in `ALL_RULES` declares `scopes: RuleScope[]`. Add behaviours by tagging existing files, not by creating new rule files per surface.
 
-- Replace inline `FORBIDDEN_WORDS_V6` with import from `copy-vocabulary.ts` (single source of truth). Keep V8 CTA verbs in a separate `cta-vocabulary` export — do NOT couple them to the forbidden list.
-- Call `evaluate(ctx)` once per nudge build. When a high-severity flag exists for the nudge's anchor:
-  - Pass `copyHint` + `anchorEvent` + `stake` into the existing AI copy prompt.
-  - No new slot, no comparator change, no scheduling change.
-- For the JIT-nudge path only, evaluate whether Haiku reliably honours `copyHint`. If degraded, swap that path to Sonnet; Nudge 1 / Nudge 3 stay on Haiku.
+## Out of scope (deferred per doc)
 
-### 3b. `generate-mastery-plan/index.ts`
-
-- Read `behaviourFlags` (severity + stake only — no `copyHint`, the Plan does not write LLM copy at the same scale).
-- `vetoRisk.high` → boost a Pause module into slot 1.
-- `postPeakHangover.high` → boost a Reenergise module into slot 3.
-- `composeWhyLine` receives `stake` so the deterministic Why line names the leadership variable.
-- `generate-jit-events`: when `boardLevelOutcome` fires for a JIT's anchor event, force `signalStrength = 3` (existing pattern-promotion mechanism).
-
-**Exit criteria:**
-- Same fixture run through brief + nudge + plan produces consistent anchor event + stake language across all three surfaces.
-- No regression in existing nudge / plan tests.
-
-## What the LLM still owns
-
-- §2.1–§2.2 Persona + Strategic Register (DO/DON'T)
-- §2.18 Phrase craft target ("high-velocity 2–3 word")
-- §2.19 synthesis of Signal Evidence + Pillar + Stake into 2–3 sentences
-- §2.19.1 *how* to weave a pattern reference (the relevance gate is enforced by `brief-validators`, not by the LLM)
-- §2.21 generative-not-verbatim
-- §2.22 Baseline Intelligence pivot copy direction
-
-Everything else moves to code.
-
-## Out of scope
-
-- A dedicated "behaviour" edge function (rejected — adds HTTP latency + failure surface; the shared-module pattern is already proven across 7 functions).
-- §2.16 Personal Friction beyond a stub (needs ≥3 weeks of per-user history).
-- Multi-Calendar Load Distortion, conference day-counter, good-vs-bad-stress (deferred per framework doc).
-- Changes to the Atomic Brief Contract, fallback chain order, or JSON output shape.
-- Changes to nudge slot model, comparator, scheduling, DND/quiet-hours, or weekend cadence.
-
-## Files touched
-
-NEW (Phase 1):
-- `supabase/functions/_shared/brief-context.ts`
-- `supabase/functions/_shared/ceo-behaviour-rules.ts`
-- `supabase/functions/_shared/behaviour-evaluator.ts`
-- `supabase/functions/_shared/brief-signal-coverage.ts`
-- `supabase/functions/_shared/copy-vocabulary.ts`
-- `supabase/functions/_shared/brief-validators.ts`
-- Deno tests for each (one `_test.ts` per module)
-
-EDIT (Phase 2):
-- `supabase/functions/compute-outer-readiness/index.ts`
-
-EDIT (Phase 3):
-- `supabase/functions/smart-nudges/index.ts`
-- `supabase/functions/generate-mastery-plan/index.ts`
-- `supabase/functions/generate-jit-events/index.ts`
-
-DOCS:
-- `mem/features/performance-readiness/prompt-snapshot-brief.md` (NEW, pre-flight)
-- `mem/features/performance-readiness/prompt-snapshot-nudges.md` (NEW, pre-flight)
-- `mem/features/performance-readiness/prompt-snapshot-plan.md` (NEW, pre-flight)
-- `mem/features/performance-readiness/brief-logic.md` (EDIT — note shared-module split)
-- `mem/architecture/ceo-behaviour-shared-module-ownership.md` (NEW — codifies "engineering-owned, no chat-driven trigger edits")
-- `.lovable/plan.md` (EDIT — changelog)
+- Multi-Calendar Load Distortion.
+- Good Stress vs Bad Stress.
+- The `conference_day_number` schema migration itself (rule ships as stub; schema lands in a separate, focused PR).
+- All Phase 2 edge-function wiring behind `SHARED_MODULES_ENABLED`.
 
 ## Verification
 
-- Phase 1: Deno unit tests for each rule's truth table; snapshot test for `evaluate()` on five fixtures.
-- Phase 2 staging: canonical fixture produces brief containing "Board" + Resilience-cluster word, three runs in a row. `prompt_version` telemetry confirms the new path executed.
-- Phase 2 production rollout: flag on for 10% of users for 24h; compare validator-failure rate and `delivery_state` distribution against the prior 7-day baseline before going to 100%.
-- Phase 3: end-to-end fixture run — same anchor event + stake language surfaces in brief, JIT nudge, and morning plan slot 1.
-- Regression: all existing `compute-outer-readiness`, `smart-nudges`, `generate-mastery-plan` tests pass.
-
-## Rollback
-
-- Phase 2: flip `SHARED_MODULES_ENABLED=false`; brief returns to legacy prompt with zero code revert.
-- Phase 3: nudge + plan changes are additive; remove the `behaviourFlags` read to revert. Forbidden-list source-of-truth move is the only non-additive change — keep a one-commit revert tagged.
+- `deno test` green on `ceo-behaviour-rules.test.ts` (extended) and `event-protocol-taxonomy.test.ts` (new).
+- Type-check clean across `_shared/`. `ScopedRule` is the only structural change; everything else is additive.
+- Zero edits to `executive-state-taxonomy.ts`. Zero edits to consumer edge functions.
