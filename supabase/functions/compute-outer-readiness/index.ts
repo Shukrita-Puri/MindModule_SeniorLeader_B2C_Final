@@ -9,6 +9,7 @@ import {
   survivesAttendeeOrDurationFloor,
 } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
+import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3768,6 +3769,62 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (strategicSignal) userPrompt += `\nDevelopment: ${strategicSignal}`;
             userPrompt += `\nConnection: ${crossHorizonConnection}, ${connectionFraming}`;
             userPrompt += `\nLead with: ${dominantHorizon}`;
+          }
+
+          // === CEO BEHAVIOUR FLAGS (Phase 2 wiring, behind SHARED_MODULES_ENABLED) ===
+          // Adapter is a no-op when the flag is off. When on, appends a deterministic
+          // advisory block to userPrompt so the LLM stops re-evaluating §2.11–§2.17
+          // booleans under generation pressure.
+          try {
+            const wearableForCtx = hasWearable
+              ? {
+                  hrvDeviationPct: hrvDeviation ?? null,
+                  hrvUnusual: !!hrvUnusual,
+                  sleepHours:
+                    sleepDuration != null ? sleepDuration / 60 : null,
+                  sleepDeviationPct: sleepDeviation ?? null,
+                  rhrDeviationPct: rhrDeviation ?? null,
+                  hrElevatedProxy: (wearableContext as any)?.hrElevated === true,
+                }
+              : null;
+            const eventsForCtx = nextHighStakesEvent
+              ? [
+                  {
+                    title: nextHighStakesEvent.title as string,
+                    startTime: new Date(
+                      Date.now() + (nextHighStakesEvent.minutesUntil ?? 0) * 60_000,
+                    ),
+                    stakesLevel: "external" as string,
+                  },
+                ]
+              : [];
+            const briefWiring = evaluateForScope(
+              {
+                wearable: wearableForCtx,
+                checkIn: {
+                  emotionalSelfDeclared: checkInOutcome ?? null,
+                  mentalSharpness: mentalSharpnessLevel ?? null,
+                  confidence: confidenceLevel ?? null,
+                  clarity: clarityLevel ?? null,
+                },
+                scoreToday: innerReadinessScore ?? null,
+                scoreYesterday: yesterdayScore ?? null,
+                trailingClarityAvg: null,
+                timezone: {
+                  offsetMinutes: -timezoneOffset,
+                  shift48hHours: null,
+                  travelDay:
+                    !!(effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz),
+                },
+                events: eventsForCtx,
+                now: new Date(),
+              },
+              "brief",
+              { dayOfWeek },
+            );
+            if (briefWiring?.promptBlock) userPrompt += briefWiring.promptBlock;
+          } catch (e) {
+            console.warn("[compute-outer-readiness] behaviour-wiring skipped:", e);
           }
 
           const sysPromptLen = systemPrompt.length;

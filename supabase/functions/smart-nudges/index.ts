@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 
 // ── APNs Helper Functions ──
 
@@ -1471,11 +1472,96 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
 
   // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
   // Both providers are validated through the identical V8 gate.
+  // ── CEO behaviour wiring (Phase 2, behind SHARED_MODULES_ENABLED) ──
+  // No-op when the flag is off. When on, appends an advisory block so the
+  // nudge LLM gets the deterministic §2 / §5.2 reads (including
+  // notificationIsProduct, the nudge-only rule).
+  try {
+    const backToBackHoursToday = computeBackToBackHours(ctx);
+    const eventsForCtx = ctx.nonNoiseEvents
+      .filter((e) => !!e.title)
+      .map((e) => ({
+        title: e.title as string,
+        startTime: e.start_time,
+        stakesLevel: isHighStakes(e.title) ? "external" : null,
+      }));
+    const wiring = evaluateForScope(
+      {
+        wearable: ctx.hasWearableData
+          ? {
+              hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
+              sleepHours:
+                ctx.wearable.totalSleepMinutes != null
+                  ? ctx.wearable.totalSleepMinutes / 60
+                  : null,
+              sleepDeviationPct: null,
+              rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
+              hrElevatedProxy: ctx.wearable.rhrElevated,
+            }
+          : null,
+        checkIn: {
+          emotionalSelfDeclared:
+            ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
+          mentalSharpness: null,
+          confidence: null,
+          clarity: null,
+        },
+        scoreToday: null,
+        scoreYesterday: null,
+        timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+        events: eventsForCtx,
+        now: new Date(),
+      },
+      "nudge",
+      {
+        dayOfWeek: ctx.dayOfWeek,
+        backToBackHoursToday,
+        historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+      },
+    );
+    if (wiring?.promptBlock) userPrompt += wiring.promptBlock;
+  } catch (e) {
+    console.warn("[smart-nudges] behaviour-wiring skipped:", e);
+  }
+
   const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
   if (claudeCopy) return claudeCopy;
   const geminiCopy = await tryAIProvider('gemini', ctx, nudgeType, systemPrompt, userPrompt);
   if (geminiCopy) return geminiCopy;
   return null;
+}
+
+// Estimate today's back-to-back meeting hours from ctx events (≤15 min gaps).
+function computeBackToBackHours(ctx: NudgeContext): number {
+  const events = [...ctx.todayEvents]
+    .filter((e) => e.start_time && (e as any).end_time)
+    .sort(
+      (a, b) =>
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+    );
+  if (events.length < 2) return 0;
+  let totalMs = 0;
+  let runStart = new Date(events[0].start_time).getTime();
+  let runEnd = new Date((events[0] as any).end_time).getTime();
+  for (let i = 1; i < events.length; i++) {
+    const s = new Date(events[i].start_time).getTime();
+    const e = new Date((events[i] as any).end_time).getTime();
+    if (s - runEnd <= 15 * 60_000) {
+      runEnd = Math.max(runEnd, e);
+    } else {
+      totalMs += runEnd - runStart;
+      runStart = s;
+      runEnd = e;
+    }
+  }
+  totalMs += runEnd - runStart;
+  return Math.round((totalMs / 3_600_000) * 10) / 10;
+}
+
+// Crude 7-day open-rate proxy: if last app open > 72h ago (or null), treat as low.
+function isAppOpenRateLow(lastAppOpen: Date | null): boolean {
+  if (!lastAppOpen) return true;
+  return Date.now() - lastAppOpen.getTime() > 72 * 3_600_000;
 }
 
 // V8 — shared real-context tokens for requiresNamedContextToken().
