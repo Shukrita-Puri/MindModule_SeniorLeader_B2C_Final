@@ -9,6 +9,7 @@ import {
   survivesAttendeeOrDurationFloor,
 } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
+import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
