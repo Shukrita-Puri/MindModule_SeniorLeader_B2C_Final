@@ -44,7 +44,33 @@ export interface SignalCoverageInput {
   events: Array<{
     title: string;
     startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
     stakesLevel?: string | null;
+  }>;
+  /** Optional trailing 4 days of events (1..4 days ago) used by the
+   *  conference cluster's trailing-fatigue computation. Omit and trailing
+   *  signals stay 0 / null — rules silently no-op. */
+  trailingEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+    daysAgo: number;
+  }>;
+  /** Tomorrow's events. Drives `conferenceStartsTomorrow`. */
+  tomorrowEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+  }>;
+  /** Next 3 days of events (excluding today). Drives `nextThreeDaysMeetingCount`
+   *  used by `postConferenceReentry` and `trailingConferenceLoad`. */
+  nextThreeDaysEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    isAllDay?: boolean;
   }>;
   /** Now reference, used for minutesUntil. Pass user's local now. */
   now: Date;
