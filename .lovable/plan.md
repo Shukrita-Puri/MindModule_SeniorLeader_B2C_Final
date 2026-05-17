@@ -1,105 +1,114 @@
 
-# Recommendation: Split into 3 layered modules (not 2)
+# Unify event taxonomy: one A–H, three layered modules
 
-Senior-engineer take: yes, split — but two files isn't quite the right cut. The doc actually contains **three distinct concepts at three different rates of change**, and conflating any pair will hurt you later. Keep CEO behaviour logic where it already lives.
+## The real problem
 
-## The three concerns hiding in one file today
+You now have **three independent A–H pillar definitions** in three files. They will drift.
 
-| Doc section | Concept | Rate of change | Owner |
-|---|---|---|---|
-| §2 | Protocol vocabulary (mindset/somatic × pause/flow/reenergise) | Almost never — clinical primitive | Coaching |
-| §3 | Event categories A–H + triggers + Self-Regulation Focus | Rare — taxonomy | Coaching + Eng |
-| §4 | Phase map (per category: Pre/During/Post × timing × goal × prevents/builds) | Frequent — coaching tunes prescriptions per event | Coaching |
-| §5 | CEO Behaviour rules (detect & respond) | Frequent — engineering | Engineering (`ceo-behaviour/*.ts`) |
-| §6 | What Framework Prevents/Builds (system-level rationale) | Rare — narrative | Docs (md, not ts) |
+| File | A–H definition | What else lives there |
+|---|---|---|
+| `executive-state-taxonomy.ts` | `FRAMEWORK_PILLARS` (id, name, focus, **pre/during/post protocol**) | `EVENT_TYPES` (30 granular subtypes), `classifyEvent`, scoring, dedupe, engines, morning/evening context |
+| `events/event-categories.ts` | `EVENT_CATEGORIES` (id, name, triggers, `selfRegulationFocus`) | `classifyEvent` (different, title-keyword only) |
+| `events/event-phase-map.ts` | `EVENT_PHASE_MAP` (id → Pre/During/Post `EventPhase`) | `protocolsForEvent`, `phaseForEvent` |
 
-Today §2 + §3 + (partial) §4 are all in `event-protocol-taxonomy.ts`, and §4's `Goal` / `Prevents/Builds` columns are **lost** — only `timing` and `combo` survive.
+Two `classifyEvent` functions. Two pillar-name lists with different copy. Two protocol contracts (one in `FRAMEWORK_PILLARS.protocol`, one in `EVENT_PHASE_MAP`). The new `events/*` folder is thinner and *less* accurate (8 generic triggers vs 30 keyword-rich subtypes), so 11 downstream callers still depend on `executive-state-taxonomy.ts`. Nothing has actually been replaced — it's been duplicated.
 
-## Proposed structure
+## CTO recommendation
+
+Promote `events/` to the single source. Split `executive-state-taxonomy.ts` along its real seams (taxonomy / classifier / engines), fold its `FRAMEWORK_PILLARS` into `event-categories.ts`, and lift its `EVENT_TYPES` (the genuinely valuable part) into a new `event-subtypes.ts`. Delete `executive-state-taxonomy.ts` behind a re-export shim.
+
+### Target layout
 
 ```text
 supabase/functions/_shared/
 ├── protocols/
-│   └── protocol-combos.ts          §2 only — 6 ProtocolCombo primitives
-├── events/
-│   ├── event-categories.ts         §3 — A–H + triggers + selfRegulationFocus + classifyEvent()
-│   └── event-phase-map.ts          §4 — per-category Pre/During/Post w/ timing, comboKey, goal, preventsBuilds[]
-├── ceo-behaviour/
-│   └── *.ts                        §5 — unchanged. Rules import from events/ + protocols/
-└── docs/
-    └── framework-prevents-builds.md §6 — narrative, not code
+│   └── protocol-combos.ts          §2 — unchanged
+└── events/
+    ├── event-categories.ts         §3 — SINGLE A–H definition
+    │                                 (merges FRAMEWORK_PILLARS:
+    │                                  id, name, focus, protocol contract,
+    │                                  triggers, selfRegulationFocus)
+    ├── event-phase-map.ts          §4 — rich Pre/During/Post detail
+    │                                 (timing, goal, preventsBuilds, severityHint)
+    ├── event-subtypes.ts           NEW — 30 granular EVENT_TYPES from
+    │                                 executive-state-taxonomy, each tagged
+    │                                 with categoryId from event-categories
+    │                                 (keywords, demandProfile, jitLeadTime,
+    │                                  interventionType, scenarioId map)
+    ├── event-classifier.ts         classifyEvent (canonical, subtype-aware),
+    │                                 scoreEvents, selectLeadEvent,
+    │                                 rankByStakes, dedupeCalendarEvents,
+    │                                 detectDayKindFromEvents
+    └── state-engines.ts            detectCognitiveFragmentation,
+                                       detectVisibilityAccumulation,
+                                       detectEmotionalCarryover,
+                                       buildMorningContext,
+                                       buildEveningContext,
+                                       consolidateAdjacentHighStakes
 ```
 
-### Why three files, not two
+Then: `executive-state-taxonomy.ts` becomes a one-line re-export shim for one release, then is deleted.
 
-- **Protocols (§2) deserve their own file** because non-event features will use them too (e.g. circadian nudges, free-form recovery suggestions). Coupling them to event taxonomy makes future non-event features import event code for no reason.
-- **Phase map (§4) must be separate from categories (§3)** because §4 is where coaching iterates most (timing windows, goals, prevents/builds copy). Keeping §3 thin and stable lets the classifier remain trustworthy while §4 churns.
-- **Behaviour rules (§5) stay in `ceo-behaviour/`** — they are *opinions over signals*, not taxonomy. They read from §3/§4 but should never be defined alongside them. Putting phase prescriptions into a behaviour-rule file would re-create the overlap problem you flagged.
+### Why this is the right cut
 
-## What each new file owns
+- **One A–H, one place.** `event-categories.ts` becomes the *only* file defining pillar id, name, focus, and pre/during/post protocol contract. `event-phase-map.ts` adds the rich coaching detail (timing window, goal, prevents/builds). Both reference the same enum.
+- **Subtypes survive.** `EVENT_TYPES` is the highest-value asset in `executive-state-taxonomy.ts` — it powers JIT lead times, mastery scenarios, demand-dimension scoring, intervention type per subtype, and the dedupe layer. It moves intact into `event-subtypes.ts` and each row simply gains `categoryId: EventCategoryId` referencing `event-categories.ts`.
+- **Engines are not taxonomy.** Morning/Evening context, fragmentation/carryover detection, and high-stakes consolidation are *runtime derivations over signals*. They move to `state-engines.ts` so the taxonomy files stay pure data.
+- **Classifier is its own seam.** A single `classifyEvent` lives in `event-classifier.ts`, subtype-aware (returns `{ subtype: EventType, category: EventCategoryId }`) so older callers that expected the subtype object keep working and newer callers can ask only for the category.
+- **Names: user-friendly wins.** Adopt the executive-state pillar names ("High-Stakes Governance, Influence & Persuasion, Visibility & Communication, People & Difficult Conversations, Deep Work & Strategy, Conferences & External Events, Travel, Daily Rhythm & Baseline") — they read better than the new `event-categories.ts` SCREAMING_CASE strings and are already what `causality_findings.signal_summary` bucket labels expect (don't break Insights).
+- **Future features keep one import path.** Brief, Nudges, Plan, JIT, Insights cause-effect, Coach summary — all six already import `executive-state-taxonomy.ts`. They re-point to `events/*` once, then any new feature does the same. Feature-specific timing overlays still go inside the feature folder per the existing `mem/architecture/ceo-behaviour-shared-module-ownership.md` rule.
 
-### `protocols/protocol-combos.ts`  (§2)
-- `Protocol`, `ProtocolMode`, `ComboKey`, `ProtocolCombo` types
-- `PROTOCOL_COMBOS` constant (the 6 combos with whenToUse + outcome)
-- `PRACTICE_TYPE_TO_COMBO` + `comboFor()` (legacy bridge)
-- Zero knowledge of events or rules
+### Concretely what merges
 
-### `events/event-categories.ts`  (§3)
-- `EventCategoryId`, `EventCategory` types
-- `EVENT_CATEGORIES` (id, name, triggers, **selfRegulationFocus** — full doc copy, not truncated)
-- `classifyEvent(title, stakesLevel?)`
-- No phase data here
+**`event-categories.ts` (rewritten)** owns one canonical `EventCategory`:
+```ts
+interface EventCategory {
+  id: 'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H';
+  name: string;                  // user-friendly, matches Insights buckets
+  selfRegulationFocus: string;   // from §3
+  protocol: {                    // from FRAMEWORK_PILLARS.protocol
+    pre: 'Pause'|'Flow'|'Reenergise'|null;
+    during: 'Pause'|'Flow'|'Reenergise'|null;
+    post: 'Pause'|'Flow'|'Reenergise'|null;
+    duringNotificationOnly?: boolean;
+  };
+}
+```
+Triggers move OUT (subtype keywords are richer and replace them).
 
-### `events/event-phase-map.ts`  (§4 — the file you correctly intuited should exist)
-- New `EventPhase` shape that captures **everything** the doc currently drops:
-  ```ts
-  interface EventPhase {
-    timing: string;           // "T-60 to T-15min"
-    combo: ComboKey;          // → PROTOCOL_COMBOS
-    goal: string;             // §4 "Goal" column
-    preventsBuilds: string[]; // §4 "Prevents / Builds" — array so we can render bullet lists
-    severityHint?: "low"|"medium"|"high";
-  }
-  ```
-- `EVENT_PHASE_MAP: Record<EventCategoryId, { pre?, during?, post?: EventPhase }>`
-- `protocolsForEvent(title, phase)` lives here (it joins §3 + §4)
-- Open per-category so coaching can edit one category without touching others
+**`event-phase-map.ts` (kept)** unchanged structurally but its `combo` field is now validated against `event-categories.protocol` at module load to fail fast on drift.
 
-### `ceo-behaviour/*.ts`  (§5 — no change)
-- Rules continue to import from `events/` and `protocols/` as needed
-- We do **not** push phase prescriptions into `conference.ts`/`travel.ts` etc. Behaviour files decide *when/whether* to nudge; phase map decides *what protocol* the nudge prescribes. Different jobs.
+**`event-subtypes.ts` (new)** is the verbatim `EVENT_TYPES` array plus `EVENT_TYPE_TO_SCENARIO_ID`, each row carrying `categoryId` (= old `frameworkPillar`). `primaryPillar` / `secondaryPillar` (1–5 priority states) stay because the engines consume them.
 
-### `docs/ceo-framework-prevents-builds.md`  (§6)
-- System-level narrative ("prevents burnout, decision leakage…") stays as docs, not code. No runtime consumer needs it.
+### Migration steps (low risk, mechanical, behaviour-preserving)
 
-## Future-feature angle (your question about each feature having its own mapping)
+1. **Create `events/event-subtypes.ts`** — copy `EVENT_TYPES`, `EVENT_TYPE_TO_SCENARIO_ID`, `scenarioIdFor`, `EventType`, demand/pillar types from `executive-state-taxonomy.ts`. Rename `frameworkPillar` → `categoryId` (alias both for one release).
+2. **Rewrite `events/event-categories.ts`** — merge `FRAMEWORK_PILLARS` content (name, focus, protocol) with current `selfRegulationFocus`. Drop the standalone trigger list (subtype keywords supersede it). Export `EVENT_CATEGORIES`, `EventCategoryId`.
+3. **Create `events/event-classifier.ts`** — move `classifyEvent`, `isHighStakesTitle`, `highStakesScore`, `scoreEvents`, `selectLeadEvent`, `rankByStakes`, `dedupeCalendarEvents`, `detectDayKindFromEvents`, `isNoiseTitle`, `survivesAttendeeOrDurationFloor`, `stakesScore`. Single `classifyEvent` returns `{ subtype, categoryId }`.
+4. **Create `events/state-engines.ts`** — move all `detect*` functions, `evaluateAllEngines`, `buildMorningContext`, `buildEveningContext`, `consolidateAdjacentHighStakes`, related types.
+5. **Add validation tests** — module-load assert that every `EVENT_TYPES.categoryId` ∈ `EVENT_CATEGORIES`, every `EVENT_PHASE_MAP` combo matches `EVENT_CATEGORIES[id].protocol`, and `event-categories.test.ts` is updated to the merged shape.
+6. **Re-point 11 consumers** in one PR — pure import-path change, no logic:
+    - `brief-signal-coverage.ts`, `ceo-behaviour/{back-to-back,calendar-dedupe,interpersonal,pto-holiday,weekend}.ts`
+    - `cause-effect-engine`, `compute-outer-readiness`, `generate-coach-summary`, `generate-jit-events`, `generate-mastery-plan`, `performance-rhythm-insights`, `self-mastery-coach`, `smart-nudges`
+    - `src/utils/momentDetectionEngine.ts`
+7. **Shim** — leave `executive-state-taxonomy.ts` as `export * from './events/event-classifier'; export * from './events/event-subtypes'; ...` for one release.
+8. **Update `mem/architecture/ceo-behaviour-shared-module-ownership.md`** with the new layering and the rule: *one A–H, one classifier, subtype rows reference category id by enum, never by string*.
+9. **Delete `executive-state-taxonomy.ts`** in the following release.
 
-Two patterns will emerge — be ready for both:
+### What I explicitly will NOT do
 
-1. **Feature reads the shared phase map** (most common). E.g. smart-nudges, brief, plan all ask "what's the Pre protocol for a Board event?" → one source of truth in `event-phase-map.ts`.
-2. **Feature needs its own overlay** (specialised, e.g. a future Sparring-Partner feature wants pre-event prep 7 days out). Create `features/sparring-partner/phase-overlay.ts` that *extends* `EVENT_PHASE_MAP` rather than duplicating it. Pattern: `mergePhaseMap(base, overlay)`. This avoids the failure mode you described where conference Pre logic gets re-implemented per feature.
+- ❌ Keep two A–H pillar definitions "for compatibility". That *is* the bug.
+- ❌ Adopt the thinner `event-categories.ts` names (`HIGH-STAKES GOVERNANCE` etc.) — they break Insights bucket labels and are less user-friendly.
+- ❌ Collapse subtypes into categories. Losing 30 keyword-rich rows kills JIT precision, mastery scenario routing, and demand-dimension scoring.
+- ❌ Move engines (`buildMorningContext` etc.) into `event-categories.ts`. They are runtime derivations, not taxonomy.
+- ❌ Inline category data into each feature ("each feature has its own mapping"). Features should *consume* the shared category + phase map; only feature-specific timing/copy overlays belong in feature folders.
 
-Rule of thumb: **shared taxonomy in `events/`, feature-specific timing/copy overlays inside the feature folder.**
+### Risk
 
-## Migration plan (low risk, mechanical)
+Low. All moves are file relocations; no behaviour changes. The two consolidations (FRAMEWORK_PILLARS → EVENT_CATEGORIES, EVENT_TYPES → event-subtypes) are mechanical with module-load validators catching any drift at boot. Test coverage already exists for `event-categories`, `event-phase-map`, and `ceo-behaviour/*` — extend with one cross-validation test asserting the three layers agree.
 
-1. Create the three new files; copy current contents across with no behaviour change.
-2. Enrich `event-phase-map.ts` with the missing `goal` + `preventsBuilds` data from doc §4 (one PR, coaching-reviewable).
-3. Update imports — only two consumers today: `ceo-behaviour/*` and `event-protocol-taxonomy.test.ts`.
-4. Re-point the test file (rename to `events/event-categories.test.ts` + new `event-phase-map.test.ts`).
-5. Delete `event-protocol-taxonomy.ts` (or leave a one-line re-export shim for one release if you want a soft deprecation).
-6. Update `mem/architecture/ceo-behaviour-shared-module-ownership.md` to document the new layering.
+### Open questions before I implement
 
-No DB, no edge-function deploy, no API surface change. All test-covered.
-
-## What I'd explicitly NOT do
-
-- ❌ Merge §4 into `ceo-behaviour/*.ts`. Behaviour rules already have a single job (decide when to fire); phase prescriptions are a different concern with a different review cadence and a different owner.
-- ❌ Two-file split (taxonomy + protocols). Loses the §3/§4 separation that makes §4 safely editable.
-- ❌ Embed §6 in a `.ts` file. It's never read at runtime; making it code invites drift.
-
-## Open questions for you before I implement
-
-1. Keep a shim re-export at the old path for one release, or hard-cut?
-2. `preventsBuilds` — array of strings (renderable bullets) or single string (verbatim doc copy)? I'd recommend array.
-3. Should `event-phase-map.ts` also carry a `severityHint` per phase so behaviour rules can default severity from the phase rather than re-deriving it?
+1. **Pillar names** — confirm we adopt executive-state-taxonomy's user-friendly names (and bump `causality_findings.signal_summary` bucket strings stays as-is)?
+2. **Shim duration** — one release of `executive-state-taxonomy.ts` re-exports, or hard-cut now (11 imports, all in your codebase, mechanical to update in a single PR)?
+3. **`primaryPillar` 1–5 priority-state codes** — keep on subtypes (engines use them) or fold into category metadata? I'd keep on subtypes; the 1–5 model is a different axis from A–H and removing it would force engine rewrites.
