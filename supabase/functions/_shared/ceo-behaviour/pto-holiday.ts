@@ -16,6 +16,59 @@
  * OVERRIDES: yields to Travel.
  */
 
-// Batch 2 will implement: holidayReducedTouch, ptoWithMeetingFallback.
+import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
+import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
 
-export {};
+function ptoActive(ctx: RuleContext): boolean {
+  return (
+    ctx.signals.ptoTodayAllDay === true ||
+    ctx.holidayAllDayEventToday != null
+  );
+}
+
+function travelActive(ctx: RuleContext): boolean {
+  return ctx.signals.travelDay === true || ctx.signals.travelLandingDetected === true;
+}
+
+/** PTO/holiday with no meeting today — single morning anchor, no afternoon/evening nudges. */
+export function holidayReducedTouch(ctx: RuleContext): BehaviourFlag | null {
+  if (travelActive(ctx)) return null;
+  if (!ptoActive(ctx)) return null;
+
+  const hasMeeting = ctx.upcomingEvents.some(
+    (e) => e.minutesUntil >= 0 && (Boolean(e.stakesLevel) || isHighStakesTitle(e.title)),
+  );
+  if (hasMeeting) return null; // ptoWithMeetingFallback owns this case
+
+  return {
+    rule: "holidayReducedTouch",
+    severity: "low",
+    evidence: [
+      ctx.signals.ptoTodayAllDay ? "PTO all-day" : "holiday all-day",
+    ],
+    stake: "Internal Buffer",
+    copyHint:
+      "off-day frame — one light cue at morning only; suppress load language and any pre-meeting framing",
+  };
+}
+
+/** PTO/holiday but a real meeting slipped in — restore standard pre-meeting framing for that meeting only. */
+export function ptoWithMeetingFallback(ctx: RuleContext): BehaviourFlag | null {
+  if (travelActive(ctx)) return null;
+  if (!ptoActive(ctx)) return null;
+
+  const meeting = ctx.upcomingEvents.find(
+    (e) => e.minutesUntil >= 0 && (Boolean(e.stakesLevel) || isHighStakesTitle(e.title)),
+  );
+  if (!meeting) return null;
+
+  return {
+    rule: "ptoWithMeetingFallback",
+    severity: "medium",
+    evidence: ["PTO with work meeting", `in ${meeting.minutesUntil}min`],
+    anchorEvent: meeting.title,
+    stake: "Executive Presence",
+    copyHint:
+      "off-day frame but the meeting is real — prep it cleanly then return to off-day; do not let it rebuild a workday around itself",
+  };
+}

@@ -16,6 +16,30 @@
  * OVERRIDES: yields to Travel; co-exists with boardLevelOutcome.
  */
 
-// Batch 2 will implement: advancePrep24h.
+import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
-export {};
+/**
+ * 24h advance prep window (MVP cap — no 48h yet).
+ * Fires when a high-stakes event sits in the next 24h AND is NOT already within today's
+ * boardLevelOutcome same-day frame (>4h out → tomorrow-prime; <=4h is boardLevelOutcome's job).
+ */
+export function advancePrep24h(ctx: RuleContext): BehaviourFlag | null {
+  const next = ctx.signals.highStakesEventInNext24h;
+  if (!next) return null;
+  if (next.minutesUntil <= 240) return null; // boardLevelOutcome owns same-day <=4h
+  if (next.minutesUntil > 24 * 60) return null;
+
+  // Travel landing+high-stakes already carries this contract.
+  if (ctx.signals.travelLandingDetected) return null;
+
+  const hoursOut = Math.round(next.minutesUntil / 60);
+  return {
+    rule: "advancePrep24h",
+    severity: next.minutesUntil <= 12 * 60 ? "medium" : "low",
+    evidence: [`high-stakes in ${hoursOut}h`],
+    anchorEvent: next.title,
+    stake: "Executive Presence",
+    copyHint:
+      "prime tomorrow now — one prep micro-block today, protect sleep tonight; do not let the event hijack this evening",
+  };
+}
