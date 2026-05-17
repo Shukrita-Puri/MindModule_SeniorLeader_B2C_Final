@@ -53,11 +53,22 @@ function landingActive(ctx: RuleContext): boolean {
 export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null {
   if (!ctx.signals.travelDay) return null;
   if (landingActive(ctx)) return null;
+  // Batch 4 — tighten to the 60–240 min window. Mechanical preFlightWindow is
+  // populated by brief-signal-coverage from the FIRST travel event of the day.
+  // If the field is unset (legacy callers) fall back to firing on travelDay
+  // alone so we don't regress before consumers re-route.
+  const win = ctx.signals.preFlightWindowMinutes;
+  if (win !== undefined && win === null) return null;
 
+  const title = ctx.signals.nextTravelEventTitle ?? undefined;
   return {
     rule: "travelPreFlightMandatory",
     severity: "medium",
-    evidence: ["travel day", "pre-flight window"],
+    evidence: [
+      "travel day",
+      win != null ? `T-${win}min to departure` : "pre-flight window",
+    ],
+    anchorEvent: title,
     stake: "Operational Drive",
     copyHint:
       "anchor to pre-flight self-regulation — one somatic + one orientation pass; protect arrival state, not departure speed",
@@ -140,5 +151,28 @@ export function postTripReentry(ctx: RuleContext): BehaviourFlag | null {
     stake: "Mental Bandwidth",
     copyHint:
       "reentry is its own load — do not treat today as a normal workday; protect the first 90 minutes tomorrow with a hard orientation block",
+  };
+}
+
+// --- Batch 4: True connection leg in-flight nudge ---------------------------
+// Fires only when Edge sets `inFlightConnectionMinutes` — i.e. it has confirmed
+// this is a true connecting leg with a short enough layover that a during-flight
+// self-regulation practice is realistic (assumes WiFi available).
+// Long gaps (≥ ~9–10h) fall through to advancePrep24h (if a meeting is in the
+// gap) or stay silent (likely personal time / PTO). That triangulation lives in
+// Edge — this rule is shape-only.
+export function travelInFlightConnection(ctx: RuleContext): BehaviourFlag | null {
+  const window = ctx.signals.inFlightConnectionMinutes;
+  if (window == null) return null;
+
+  const title = ctx.signals.nextTravelEventTitle ?? "next leg";
+  return {
+    rule: "travelInFlightConnection",
+    severity: "medium",
+    evidence: [`connection in ${window}min`],
+    anchorEvent: title,
+    stake: "Internal Buffer",
+    copyHint:
+      `during-flight self-regulation pass — one body-down practice before "${title}"; do not over-program the layover`,
   };
 }
