@@ -61,7 +61,15 @@ export type BehaviourRule =
   | "nudgeDeferOffline"
   | "nudgeSuppressDND"
   | "nudgeStaleSkip"
-  | "nudgeBatchOnReturn";
+  | "nudgeBatchOnReturn"
+  // --- Conference / Summit cluster (v2 expansion)
+  | "conferenceNightBeforeSummit"
+  | "conferenceDayAttend"
+  | "conferenceDayWithSpeaking"
+  | "dropInSpeakingHighStakes"
+  | "conferenceMidSessionReset"
+  | "conferenceCarryFatigue"
+  | "postConferenceReentry";
 
 export type Severity = "low" | "medium" | "high";
 
