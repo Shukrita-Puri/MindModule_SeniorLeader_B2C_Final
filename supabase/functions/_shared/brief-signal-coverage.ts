@@ -384,6 +384,19 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     // not populated here; Edge consumers add them before calling evaluate().
     preFlightWindowMinutes,
     nextTravelEventTitle,
+
+    // Conference / Summit cluster (v2) — mechanical fields only.
+    conferenceDayNumber,
+    conferenceDayNumberYesterday,
+    conferenceTotalDays,
+    conferenceEventTitle,
+    speakingBlocksToday,
+    hasFullDayConferenceWrapper: todayHasConferenceWrapper,
+    firstSessionGapMinutesToday,
+    conferenceDaysInTrailing4,
+    trailingConferenceLoad,
+    nextThreeDaysMeetingCount,
+    conferenceStartsTomorrow,
   };
 }
 
