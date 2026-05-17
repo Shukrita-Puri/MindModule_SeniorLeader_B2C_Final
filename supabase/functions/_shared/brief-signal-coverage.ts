@@ -202,6 +202,121 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       : null;
   const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
+  // ---------------------------------------------------------------------------
+  // Conference / Summit cluster (v2) — mechanical signals.
+  // All inputs are optional; missing inputs yield null/0 and the rule layer
+  // silently no-ops. Triangulation fields (userTagged*) are NOT set here.
+  // ---------------------------------------------------------------------------
+
+  const todayHasConferenceWrapper = input.events.some((e) => {
+    if (!CONFERENCE_RX.test(e.title)) return false;
+    if (e.isAllDay) return true;
+    const dur = eventDurationMin(e);
+    return typeof dur === "number" && dur >= 240;
+  });
+
+  // Build trailing+today chain to compute Day N.
+  const trailing = input.trailingEvents ?? [];
+  const dayHasConferenceMarker = (offset: number, source: Array<{ title: string; isAllDay?: boolean; startTime: string|Date; endTime?: string|Date|null; daysAgo?: number }>) => {
+    const pool = source.filter((e) => (e.daysAgo ?? 0) === offset);
+    return pool.some((e) => {
+      if (!CONFERENCE_RX.test(e.title)) return false;
+      if (e.isAllDay) return true;
+      const dur = eventDurationMin(e);
+      return typeof dur === "number" && dur >= 240;
+    });
+  };
+
+  // Conference day-N: walk back from today while previous day has a marker.
+  let conferenceDayNumber: number | null = null;
+  let conferenceTotalDays: number | null = null;
+  let conferenceEventTitle: string | null = null;
+  if (todayHasConferenceWrapper) {
+    let back = 0;
+    while (dayHasConferenceMarker(back + 1, trailing)) back += 1;
+    conferenceDayNumber = back + 1;
+    conferenceEventTitle =
+      input.events.find((e) => CONFERENCE_RX.test(e.title))?.title ?? null;
+    // Forward chain into tomorrow (one step lookahead — total may grow when
+    // we re-evaluate tomorrow; that is acceptable for MVP).
+    const tomorrowMarker = (input.tomorrowEvents ?? []).some((e) => {
+      if (!CONFERENCE_RX.test(e.title)) return false;
+      if (e.isAllDay) return true;
+      const dur = eventDurationMin(e);
+      return typeof dur === "number" && dur >= 240;
+    });
+    conferenceTotalDays = conferenceDayNumber + (tomorrowMarker ? 1 : 0);
+  }
+
+  // conferenceDayNumberYesterday: only set when yesterday was the LAST day of
+  // a multi-day chain (i.e. yesterday had marker, today does not, chain length
+  // ≥ 2 ending yesterday).
+  let conferenceDayNumberYesterday: number | null = null;
+  if (!todayHasConferenceWrapper && dayHasConferenceMarker(1, trailing)) {
+    let back = 1;
+    while (dayHasConferenceMarker(back + 1, trailing)) back += 1;
+    if (back >= 2) conferenceDayNumberYesterday = back;
+  }
+
+  // conferenceStartsTomorrow: tomorrow has marker AND today does not.
+  const tomorrowHasMarker = (input.tomorrowEvents ?? []).some((e) => {
+    if (!CONFERENCE_RX.test(e.title)) return false;
+    if (e.isAllDay) return true;
+    const dur = eventDurationMin(e);
+    return typeof dur === "number" && dur >= 240;
+  });
+  const conferenceStartsTomorrow = tomorrowHasMarker && !todayHasConferenceWrapper;
+  if (conferenceStartsTomorrow && !conferenceEventTitle) {
+    conferenceEventTitle =
+      (input.tomorrowEvents ?? []).find((e) => CONFERENCE_RX.test(e.title))?.title ?? null;
+  }
+
+  // Speaking sub-blocks on today's calendar.
+  const speakingBlocksToday = input.events
+    .filter((e) => !e.isAllDay && SPEAKING_RX.test(e.title))
+    .map((e) => {
+      const dur = eventDurationMin(e);
+      return {
+        title: e.title,
+        minutesUntil: minutesUntil(e.startTime, input.now),
+        durationMinutes: dur,
+        kind: classifySpeakingKind(e.title),
+      };
+    })
+    .filter((b) => b.durationMinutes === null || b.durationMinutes >= 15);
+
+  // First inter-session gap among today's timed events (sorted by start).
+  const timedToday = input.events
+    .filter((e) => !e.isAllDay && e.endTime)
+    .map((e) => ({
+      start: typeof e.startTime === "string" ? new Date(e.startTime).getTime() : e.startTime.getTime(),
+      end: typeof e.endTime === "string" ? new Date(e.endTime as string).getTime() : (e.endTime as Date).getTime(),
+    }))
+    .filter((e) => Number.isFinite(e.start) && Number.isFinite(e.end))
+    .sort((a, b) => a.start - b.start);
+  let firstSessionGapMinutesToday: number | null = null;
+  if (timedToday.length >= 2) {
+    const gap = Math.round((timedToday[1].start - timedToday[0].end) / 60000);
+    firstSessionGapMinutesToday = gap >= 0 ? gap : null;
+  }
+
+  // Trailing 4-day conference day count (excluding today).
+  let conferenceDaysInTrailing4 = 0;
+  for (let d = 1; d <= 4; d += 1) {
+    if (dayHasConferenceMarker(d, trailing)) conferenceDaysInTrailing4 += 1;
+  }
+
+  // Next 3 days meeting count (excluding all-day).
+  const nextThreeDaysMeetingCount = input.nextThreeDaysEvents
+    ? input.nextThreeDaysEvents.filter((e) => !e.isAllDay).length
+    : null;
+
+  // Composite trailing-conference load.
+  let trailingConferenceLoad: "low" | "medium" | "high" = "low";
+  const n3 = nextThreeDaysMeetingCount ?? 0;
+  if (conferenceDaysInTrailing4 >= 2 && n3 >= 10) trailingConferenceLoad = "high";
+  else if (conferenceDaysInTrailing4 >= 1 && n3 >= 6) trailingConferenceLoad = "medium";
+
   // Post-peak window: yesterday ≥75 AND today recovery deficit.
   const yesterdayHigh =
     typeof input.scoreYesterday === "number" && input.scoreYesterday >= 75;
