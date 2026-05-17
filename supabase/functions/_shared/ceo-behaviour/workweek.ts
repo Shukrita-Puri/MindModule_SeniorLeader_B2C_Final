@@ -144,6 +144,31 @@ export function personalFrictionInference(_ctx: RuleContext): BehaviourFlag | nu
   return null;
 }
 
+// --- §2.14b Decision Leakage Guard — PLAN scope (Batch 4) -------------------
+// Wider 24h window for plan-shaping. Mirrors legacy `decision_leakage` in
+// generate-mastery-plan (lines ~3195–3370). Mood × HRV fusion stays in Edge:
+// this rule only fires the shape; Edge decides whether to surface it.
+export function decisionLeakageGuardPlan(ctx: RuleContext): BehaviourFlag | null {
+  const { signals } = ctx;
+  const drainEvent = signals.emotionalDrainEventInNext24h;
+  if (!drainEvent) return null;
+
+  // Suppress if the narrower next-4h rule will already fire — keeps surfaces
+  // from double-counting. decisionLeakageGuard owns brief/nudge framing inside
+  // the 4h window; plan-scope rule covers the 4–24h tail.
+  if (signals.emotionalDrainEventInNext4h) return null;
+
+  return {
+    rule: "decisionLeakageGuardPlan",
+    severity: "medium",
+    evidence: [`drain event in ${drainEvent.minutesUntil}min (24h window)`],
+    anchorEvent: drainEvent.title,
+    stake: "Internal Buffer",
+    copyHint:
+      `reserve a regulate slot ahead of "${drainEvent.title}" — protect decision quality across the tail of the day`,
+  };
+}
+
 // --- §2.17 Board-Level Outcome ----------------------------------------------
 export function boardLevelOutcome(ctx: RuleContext): BehaviourFlag | null {
   const { signals } = ctx;

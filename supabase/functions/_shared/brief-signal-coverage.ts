@@ -51,6 +51,14 @@ export interface SignalCoverageInput {
 
 const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
 
+// Travel-event detection. Mirrors smart-nudges TRAVEL_RX. Used to identify the
+// first travel event of the day for preFlightWindowMinutes. Pure shape — does
+// not classify whether a long gap is a true connection vs personal time; that
+// triangulation lives in the Edge consumer that populates
+// `inFlightConnectionMinutes`.
+const TRAVEL_RX =
+  /\b(flight|flying|fly to|airport|depart|arrival|arriving|landing|long[- ]haul|red[- ]eye)\b/i;
+
 function minutesUntil(start: string | Date, now: Date): number {
   const t = typeof start === "string" ? new Date(start).getTime() : start.getTime();
   return Math.round((t - now.getTime()) / 60000);
@@ -93,6 +101,11 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       (e) => e.minutesUntil <= 240 && isEmotionalDrainEvent(e.title),
     ) ?? null;
 
+  const emotionalDrainNext24h =
+    futureEvents.find(
+      (e) => e.minutesUntil <= 24 * 60 && isEmotionalDrainEvent(e.title),
+    ) ?? null;
+
   const highStakesNext24h =
     futureEvents.find(
       (e) =>
@@ -102,6 +115,21 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     ) ?? null;
 
   const isHighVisibilityToday = highStakesNext24h !== null;
+
+  // --- Travel shape: FIRST travel event of the day owns the pre-flight window.
+  //     60–240 min window matches legacy smart-nudges preFlight detector. Long
+  //     gaps and connection legs are the Edge consumer's job (see
+  //     `inFlightConnectionMinutes`).
+  const firstTravelToday = futureEvents.find(
+    (e) => e.minutesUntil <= 24 * 60 && TRAVEL_RX.test(e.title),
+  ) ?? null;
+  const preFlightWindowMinutes =
+    firstTravelToday &&
+    firstTravelToday.minutesUntil >= 60 &&
+    firstTravelToday.minutesUntil <= 240
+      ? firstTravelToday.minutesUntil
+      : null;
+  const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
   // Post-peak window: yesterday ≥75 AND today recovery deficit.
   const yesterdayHigh =
@@ -154,6 +182,10 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       ? { title: emotionalDrainNext4h.title, minutesUntil: emotionalDrainNext4h.minutesUntil }
       : null,
 
+    emotionalDrainEventInNext24h: emotionalDrainNext24h
+      ? { title: emotionalDrainNext24h.title, minutesUntil: emotionalDrainNext24h.minutesUntil }
+      : null,
+
     highStakesEventInNext24h: highStakesNext24h
       ? { title: highStakesNext24h.title, minutesUntil: highStakesNext24h.minutesUntil }
       : null,
@@ -161,6 +193,11 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     morningWasCompressed,
     middayRecoveryDetected: input.middayRecoveryDetected ?? false,
     clarityDropFromTrailingAvg: clarityDrop,
+
+    // Batch 4 — mechanical travel shape. Triangulation + delivery fields are
+    // not populated here; Edge consumers add them before calling evaluate().
+    preFlightWindowMinutes,
+    nextTravelEventTitle,
   };
 }
 

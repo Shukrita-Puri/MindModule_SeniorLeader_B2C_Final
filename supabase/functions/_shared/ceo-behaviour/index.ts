@@ -18,6 +18,7 @@ import {
   secondWind,
   circadianPriority,
   decisionLeakageGuard,
+  decisionLeakageGuardPlan,
   personalFrictionInference,
   boardLevelOutcome,
   sundayReset,
@@ -48,6 +49,7 @@ import {
   travelLandingPlusHighStakes,
   longHaulRecovery,
   postTripReentry,
+  travelInFlightConnection,
 } from "./travel.ts";
 import { advancePrep24h } from "./high-stakes-prep.ts";
 import {
@@ -69,11 +71,20 @@ import { interpersonalMeetingContext } from "./interpersonal.ts";
 import { emptySlotProtection } from "./empty-slot.ts";
 import { upwardReporting } from "./upward-reporting.ts";
 
+// --- Batch 4 clusters ---
+import {
+  nudgeDeferOffline,
+  nudgeSuppressDND,
+  nudgeStaleSkip,
+  nudgeBatchOnReturn,
+} from "./delivery.ts";
+
 export {
   vetoRisk,
   secondWind,
   circadianPriority,
   decisionLeakageGuard,
+  decisionLeakageGuardPlan,
   postPeakHangover,
   personalFrictionInference,
   boardLevelOutcome,
@@ -93,6 +104,7 @@ export {
   travelLandingPlusHighStakes,
   longHaulRecovery,
   postTripReentry,
+  travelInFlightConnection,
   advancePrep24h,
   backToBackLoadOverride,
   meetingPrepCliff,
@@ -107,6 +119,11 @@ export {
   contextSwitchingCost,
   preEventSleepTarget,
   timeSinceLastRecovery,
+  // Batch 4 — delivery cluster (nudge-scope only)
+  nudgeDeferOffline,
+  nudgeSuppressDND,
+  nudgeStaleSkip,
+  nudgeBatchOnReturn,
 };
 
 /**
@@ -165,4 +182,16 @@ export const ALL_RULES: ScopedRule[] = [
   { scopes: ["brief", "plan", "nudge"], fn: contextSwitchingCost },
   { scopes: ["nudge"],                  fn: preEventSleepTarget },
   { scopes: ["nudge"],                  fn: timeSinceLastRecovery },
+
+  // --- Batch 4: Plan-scope decision-leakage tail (4–24h window) ---
+  { scopes: ["plan"],                   fn: decisionLeakageGuardPlan },
+
+  // --- Batch 4: True connection-leg in-flight nudge ---
+  { scopes: ["nudge"],                  fn: travelInFlightConnection },
+
+  // --- Batch 4: Delivery cluster (nudge-only) ---
+  { scopes: ["nudge"],                  fn: nudgeDeferOffline },
+  { scopes: ["nudge"],                  fn: nudgeSuppressDND },
+  { scopes: ["nudge"],                  fn: nudgeStaleSkip },
+  { scopes: ["nudge"],                  fn: nudgeBatchOnReturn },
 ];

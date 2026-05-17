@@ -1,314 +1,181 @@
 
-## Scope (Phase 1.5 — restructured by cluster)
+## 0. Heads-up on attached docs
 
-Restructure `ceo-behaviour-rules.ts` from a flat rule list into **cluster files** under `_shared/ceo-behaviour/`. Each cluster file owns: rule(s), inline CLUSTER_DOC explaining how it lands in **brief vs plan vs nudge**, the signals it consumes, the downstream effects (copy framing, slot boost, nudge cadence). Add 13 new rules covering every behaviour in the attached doc that isn't already implemented. Travel always overrides. Multi-cal aggregates by event title only (no work/personal labels). Foreign-telecom field reserved on `SignalMatrix` for the future native bridge; calendar-end ships as the only landing signal today.
+The two `.docx` files (`Proactive_Mastery_Plan_Documentation_v4.docx`, `Decision_Readiness_Brief_LLM_Prompt_v2.docx`) are not on the sandbox filesystem — only the `.md` siblings under `docs/`. I've referenced:
 
-Ships in **3 batches** for safety. Phase 2 (edge-function wiring) is unchanged and still owns consumption.
+- `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md` + `docs/MASTERY_PLAN_CONTEXT_LOGIC.md` (plan)
+- `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md` (brief)
+- `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md` + `docs/SMART_NUDGES_ARCHITECTURE.md` + `docs/SMART_NUDGES_TECHNICAL_DOCUMENTATION.md` (nudges)
+- `mem/architecture/ceo-behaviour-shared-module-ownership.md` (ownership ledger)
 
----
-
-## New file layout
-
-```
-supabase/functions/_shared/ceo-behaviour/
-  index.ts              # barrel: re-exports ALL_RULES, types
-  workweek.ts           # standard Mon-Fri rules (carry existing §2.11-2.17 here)
-  weekend.ts            # weekend morning anchor + full sub-case ladder
-  pto-holiday.ts        # PTO + public holiday reduced-touch
-  travel.ts             # travel arc — PRE / DURING / POST / LANDING (overrides all)
-  conference.ts         # multi-day external event (stub → full when day-counter ships)
-  high-stakes-prep.ts   # 24h prep window (caps MVP at 24h per your direction)
-  back-to-back.ts       # back-to-back load + meeting-prep cliff (notification-is-product)
-  post-peak.ts          # post-peak hangover (existing rule, moved here)
-  multi-calendar.ts     # aggregation + dedupe contract (title-based, calendar-neutral)
-  decision-density.ts   # NEW — see §5 below for measurement proposal
-  interpersonal.ts      # stub — needs attendee data
-  empty-slot.ts         # stub — needs gap detector
-  upward-reporting.ts   # stub — needs user-priority UI
-```
-
-The existing `ceo-behaviour-rules.ts` becomes a deprecated shim that re-exports from `./ceo-behaviour/index.ts` for one release, then is removed. No edge function imports break.
-
-Cluster-file template (every file follows this shape):
-
-```ts
-/**
- * CLUSTER: <name>
- * SOURCE: doc §<x>, row <y>
- *
- * APPLICATION:
- * - BRIEF: <how copyHint shapes the morning brief body>
- * - PLAN:  <which slot gets boosted, what practiceType, severity scaling>
- * - NUDGE: <cadence override, timing rules, notification-is-product applicability>
- *
- * SIGNALS CONSUMED: <list from SignalMatrix + RuleContext>
- * OVERRIDES: <what other clusters this suppresses; e.g. Travel suppresses Weekend>
- * NOT IN MVP: <intentional exclusions>
- */
-```
+If you want the `.docx` versions diffed, re-upload and I'll cross-check before we ship.
 
 ---
 
-## Cluster inventory (full vs stub)
+## 1. Decisions captured from your replies
 
-| Cluster | Rule(s) | Status | Notes |
-|---|---|---|---|
-| Workweek | vetoRisk, secondWind, circadianPriority, decisionLeakageGuard, postPeakHangover, personalFrictionInference, boardLevelOutcome, sundayReset, notificationIsProduct | Carry existing | Move into `workweek.ts` |
-| Weekend | `weekendMorningLightTouch`, `weekendWithMeeting`, `fullWorkingWeekend`, `weekendDeepWorkBlock`, `sundayEveningWeekAhead` | **FULL (5 rules)** | Sub-case ladder per your direction |
-| PTO/Holiday | `holidayReducedTouch`, `ptoWithMeetingFallback` | **FULL** | All-day title match; meeting on PTO → revert to standard prep |
-| Travel | `travelPreFlightMandatory`, `travelLandingOffload`, `travelLandingPlusHighStakes`, `longHaulRecovery`, `postTripReentry` | **FULL (5 rules)** | Overrides Weekend, PTO, Workweek when active |
-| Conference | `conferenceDepletion` | Stub (existing) | Lights up when `conferenceDayNumber` schema lands |
-| High-stakes prep | `boardLevelOutcome` (carries), `advancePrep24h` | **FULL** | Capped at 24h per your direction; no 48h prep |
-| Back-to-back | `backToBackLoadOverride`, `meetingPrepCliff` | **FULL** | Cliff: 5/15/30min gaps → notification-is-product applies |
-| Post-peak | `postPeakHangover` (carries) | Already done | Move file only |
-| Multi-calendar | `multiCalendarLoad` + `calendar-dedupe.ts` helper | **FULL** | Title-based dedupe, calendar-neutral, no source labels |
-| Decision density | `decisionDensity` | **FULL with measurement proposal** | See §5 |
-| Interpersonal | `interpersonalMeetingContext` | **Stub** | Needs attendee count |
-| Empty slot | `emptySlotProtection` | **Stub** | Needs gap detector |
-| Upward reporting | `upwardReporting` | **Stub** | Needs user-priority UI |
+| # | Question | Decision |
+|---|---|---|
+| 1 | `moodDrained` composition | Stays in Edge/LLM — triangulation is not `.ts`. |
+| 2 | HRV-as-mood OR-gate | Stays in Edge/LLM. |
+| 3 | `personal_friction` wearable-null handling | Stays in Edge/LLM. Shared rule remains a typed stub. |
+| 4 | `preFlightWindowMinutes` multi-leg travel | **First** travel event of the day owns the pre-flight window. Connection leg gets its **own in-flight nudge** only if the layover is short enough to be a true connection (assume WiFi for during-flight self-regulation). Long gap (≥ ~9–10h) → treat as separate working block: if a meeting is on the calendar in the gap → high-stakes prep fires; if not → assume personal/PTO and stay silent. |
+| 4b | Offline / DND / airplane-mode deferral | **Moves INTO `_shared/ceo-behaviour/`** as a delivery-shape rule. Port the existing logic from smart-nudges edge/LLM into a new cluster file. |
+| 5 | Parity logging destination | Deferred (Phase 4). Plain-English explanation in §5. |
 
-Out of MVP per your direction: stakes hierarchy refactor, returning-from-illness, recurring-event fatigue, sleep-debt accumulation (stays at LLM/edge-function level).
+These six decisions are the contract for everything below.
 
 ---
 
-## 1. Weekend cluster — sub-case ladder
+## 2. What "Phase 4 deferred" means concretely
 
-`weekend.ts` evaluates these in order; first match wins:
+We will **not** flip `SHARED_MODULES_ENABLED` in this PR series, and we will **not** delete the legacy detectors in `generate-mastery-plan` (~lines 3195–3485) or `smart-nudges` (~lines 937–1041 + `dayContext`/`buildDayShapeLine`). They keep running unchanged. Production behaviour does not move.
 
-```ts
-// 1. Travel active? → return null, let travel.ts carry
-// 2. PTO/holiday active and no meeting? → return null, let pto-holiday.ts carry
-// 3. Full working weekend (≥3 meetings spread across the day) → workweek rules apply,
-//    return a marker flag so brief/plan/nudge know to use Mon-Fri framing
-// 4. Weekend morning + work meeting in next 90min → prep framing, 60-90min pre-meeting nudge
-// 5. Weekend large work-block (title matches WORK_BLOCK_RX: pitch prep|presentation|
-//    deep strategy|client work|board prep|earnings prep) → workday framing,
-//    late-morning nudge 8-10am, 60-90min before block
-// 6. Sunday afternoon/evening (Sun 14:00+) → mandatory restore + week-ahead prep
-//    (extends existing sundayReset; sundayReset becomes the 18-21 sub-window)
-// 7. Saturday/Sunday morning, no work → weekendMorningLightTouch, late-start cadence,
-//    restoring framing
-```
-
-Rules emitted (one per matched sub-case):
-
-```ts
-weekendWithMeeting       // severity: medium; copyHint: pivot to prep, name the meeting
-fullWorkingWeekend       // severity: medium; copyHint: weekend acts as work week — protect Mon recovery
-weekendDeepWorkBlock     // severity: low;    copyHint: solo deep work day, frame flow not recovery
-sundayEveningWeekAhead   // severity: medium; copyHint: anchor the week; Mon is a readiness asset
-weekendMorningLightTouch // severity: low;    copyHint: late-start, restoring, no day-shape framing
-```
-
-**Brief**: cluster pill in the readiness brief ("Weekend · restoring" / "Weekend · work block ahead" / "Sunday · week-ahead anchor").
-**Plan**: `weekendMorningLightTouch` → suppress slot 2 and slot 3 boosts; `weekendDeepWorkBlock` → boost `prepare` (flow) into the slot before block start; `fullWorkingWeekend` → identical boosts to weekday.
-**Nudge**: morning timing override — light-touch sends 08:30-10:00 local; work-block / meeting variants send 60-90min before; Sunday afternoon variant sends at 17:00-19:00 with week-ahead framing.
+What we *will* do: finish `_shared/ceo-behaviour/` so it is the authoritative *rule-shape* library — so that when we are ready to flip the flag later, every rule already exists in `.ts` and the Edge/LLM layers only own triangulation, copy, and delivery.
 
 ---
 
-## 2. Travel cluster — overrides everything
+## 3. The boundary (locking it in)
 
-`travel.ts` returns flags before any other cluster evaluates. Travel always wins.
+Add a new top-section to `mem/architecture/ceo-behaviour-shared-module-ownership.md`:
 
-```ts
-travelPreFlightMandatory      // today is travel day, no landing yet → mandatory self-reg
-travelLandingOffload          // landing detected, no high-stakes follow-up → decompress
-travelLandingPlusHighStakes   // landing + high-stakes within 24h → offload then prep
-longHaulRecovery              // duration ≥3h, return day → full decompression
-postTripReentry               // yesterday was travel day, next-day calendar density ≥medium
-```
+**Belongs in `_shared/ceo-behaviour/` (rule shapes):**
+- Time-window predicates over already-computed signals
+- Day-shape classification (weekday/weekend/PTO/holiday/conference/travel-day)
+- Calendar taxonomy lookups (high-stakes, interpersonal, deep work, board-level outcome)
+- Stable `copyHint` strings + practice-type boosts tied to a single rule firing
+- **Delivery-shape predicates** (e.g. "user is offline → defer, fire on next online" / "DND window → suppress until window ends") — added per your latest reply
+- Pure functions: `(RuleContext) => BehaviourFlag | null`
 
-Landing detection (Batch 2, ships with `signals.travelLandingDetected = true` ONLY when):
-- `signals.foreignTelecomDetected === true` (reserved field, populated by future native bridge), OR
-- A calendar event whose title matches `TRAVEL_RX` has just ended (within last 60 min)
-
-You confirmed I should ship calendar-end now and reserve the telecom field. The field is added to `SignalMatrix` in Batch 1 but always set to `false` until the native bridge lands.
-
-Landing-plus-high-stakes nudge fires **60 min after landing end-time** to account for immigration/cab time, per your spec.
-
-**Brief**: anchors the brief to "Landing → [next event]" or "Travel day — protect tomorrow".
-**Plan**: `regulate` (somatic pause) into the slot closest to landing+60min; `integrate` into the evening slot for long-haul.
-**Nudge**: pre-flight 60-240min before flight; landing nudge T+60min; long-haul evening nudge fixed at 21:00 local at destination.
+**Stays in Edge / LLM (triangulation + delivery execution):**
+- Mood × energy × HRV fusion ("are they actually drained?")
+- Wearable-absence policy (40% of users have no device — null vs false interpretation)
+- Multi-signal severity arbitration when several rules fire
+- Final LLM copy generation, V8 validators, CTA verb selection
+- The *actual* push-queue mechanics that hold and re-fire deferred nudges (the rule says "defer until online"; the edge function owns the outbox, the APNS token lookup, and the retry side effect)
+- Per-surface dedupe across brief/nudge/plan
 
 ---
 
-## 3. Back-to-back cluster — meeting prep cliff
+## 4. Completing `_shared/ceo-behaviour/` (the actual work)
 
-`back-to-back.ts` emits two rules:
+### 4a. Audit: legacy → shared
+
+| Legacy concept | Current shared rule | Action |
+|---|---|---|
+| `veto_risk` | `vetoRisk` | ✅ ported |
+| `circadian_travel` ±48h | `travelPreFlightMandatory` / `travelLandingOffload` / `longHaulRecovery` / `postTripReentry` | ✅ ported; add 1→4 mapping comment in `travel.ts` header |
+| `decision_leakage` (24h drain window) | `decisionLeakageGuard` (4h) | **Add** `decisionLeakageGuardPlan` (24h, no mood gate — mood fusion stays in Edge). Plan-scope only. |
+| `post_peak_hangover` | `postPeakHangover` | ✅ ported |
+| `personal_friction` | `personalFrictionInference` (stub) | Stay stub. Edge populates `signals.personalFrictionWindow`. |
+| `board_outcome` | `boardLevelOutcome` | ✅ ported |
+| `public_holiday` / `personal_pto` | `holidayReducedTouch` / `ptoWithMeetingFallback` | ✅ ported |
+| `preFlight` 60–240 min window | `travelPreFlightMandatory` fires on broad `signals.travelDay` | **Tighten**: rule fires only when `signals.preFlightWindowMinutes !== null`. Edge populates from the **first** travel event of the day. |
+| `inFlight` window | none | **Add** `travelInFlightConnection` (nudge-scope). Fires when `signals.inFlightConnectionMinutes !== null`. Edge sets this only for a true connecting leg (short layover). Long gaps with a meeting in between fall through to `advancePrep24h` / high-stakes prep; long gaps without a meeting stay silent. |
+| `postTravel` (yesterday travel-day) | `postTripReentry` | ✅ ported; add `signals.yesterdayWasTravelDay` if missing. |
+| `ptoMode` (`away-day` / `ooo`) | `ptoWithMeetingFallback` | ✅ ported; add `signals.ptoModeToday` + `signals.ptoMeetingPresent`. |
+| `buildDayShapeLine` prose | not in `.ts` | **Do NOT port the prose builder.** Each rule's `copyHint` is the contract; surfaces format. |
+| Offline / DND / airplane-mode defer + re-fire | scattered in smart-nudges edge | **NEW cluster `delivery.ts`** — see §4c. |
+
+### 4b. `SignalMatrix` additions (additive, types only)
+
+In `brief-context.ts`:
 
 ```ts
-backToBackLoadOverride // ≥4h back-to-back today + ≥1 gap <15min → light-touch mode
-meetingPrepCliff       // any pre-event gap ∈ {5,15,30}min before a high-stakes event → notification-is-product
+// Travel shape
+preFlightWindowMinutes: number | null;
+inFlightConnectionMinutes: number | null;
+nextTravelEventTitle: string | null;
+yesterdayWasTravelDay: boolean;
+
+// Day-shape
+ptoModeToday: boolean;
+ptoMeetingPresent: boolean;
+
+// Triangulation-populated (Edge writes; .ts only reads)
+personalFrictionWindow: "sun-pm" | "mon-am" | null;
+emotionalDrainEventInNext24h: { title: string; minutesUntil: number } | null;
+
+// Delivery shape (new)
+deviceOnline: boolean | null;          // null = unknown
+dndActive: boolean;
+dndEndsInMinutes: number | null;
+airplaneModeActive: boolean;
+lastSeenOnlineMinutesAgo: number | null;
 ```
 
-`meetingPrepCliff` is your "2nd nudge" rule: when the user has a gap of 5/15/30min between a meeting and a high-stakes block, the **next nudge MUST be a complete micro-reframe in the body** with no "open the app" CTA. This is `notificationIsProduct` but triggered by gap structure instead of historical open rate.
+`brief-signal-coverage.ts` populates the mechanical (calendar / time-window) fields. Edge populates triangulation + delivery-telemetry fields before calling `evaluate()` once the flag flips.
 
-Severity:
-- gap == 5min → high (compressed, no time even to read more than the title)
-- gap == 15min → medium (one-line reframe + 90-second cue)
-- gap == 30min → low (still actionable, can include a "tap for 2-min reset" CTA)
+### 4c. New cluster file: `_shared/ceo-behaviour/delivery.ts`
 
-Required `RuleContext` additions:
-```ts
-nextPreEventGap?: { gapMinutes: number; nextEventTitle: string; nextEventStakes: string | null } | null;
-```
+Ported from the offline/DND handling currently inside smart-nudges. Pure rule shapes only — no push-queue side effects.
 
-**Brief**: not surfaced (cliffs are intra-day, nudge-only signal).
-**Plan**: no boost; the slot is already too compressed.
-**Nudge**: forces notification-is-product copy contract — full reframe in body, no app-open CTA, TTL = gap minutes − 1.
+Rules to add (nudge-scope only; brief and plan do not have delivery concerns):
+
+- `nudgeDeferOffline` — fires when `signals.deviceOnline === false || signals.airplaneModeActive`. `copyHint: "defer-until-online"`. The edge function reads this flag and routes the nudge into its retry outbox instead of dispatching to APNS.
+- `nudgeSuppressDND` — fires when `signals.dndActive === true && dndEndsInMinutes !== null`. `copyHint: "suppress-until-dnd-ends"`. Edge holds the nudge and re-evaluates at `dndEndsInMinutes`.
+- `nudgeStaleSkip` — fires when the original anchor event has already passed by the time the user returns online (`lastSeenOnlineMinutesAgo` exceeds rule TTL). `copyHint: "drop-stale"`. Edge drops instead of firing a now-irrelevant push.
+- `nudgeBatchOnReturn` — fires when more than one deferred nudge would land within a short window of the user coming back online. `copyHint: "batch-coalesce"`. Edge coalesces into one push.
+
+These are pure predicates; the edge function still owns the outbox, APNS dispatch, and the actual side effects. Locking them as `.ts` rules means the *policy* lives in one place across all three surfaces (today nudges, tomorrow potentially brief delivery too).
+
+### 4d. New cluster file additions for travel
+
+- `_shared/ceo-behaviour/travel.ts` → add `travelInFlightConnection`
+- `_shared/ceo-behaviour/workweek.ts` → add `decisionLeakageGuardPlan`
+- `_shared/ceo-behaviour/index.ts` → register all new rules + `delivery.ts` rules with correct scopes
+- `_shared/ceo-behaviour-batch4.test.ts` → unit tests for all new rules + tightened `travelPreFlightMandatory`
+
+### 4e. Update ownership ledger
+
+`mem/architecture/ceo-behaviour-shared-module-ownership.md` — add:
+1. The boundary in §3 above (now including delivery shapes).
+2. Decisions 1–4b from §1 with rationale.
+3. A rule → doc-section cross-reference table.
+4. Phase 4 pause note (flag flip + legacy deletion postponed pending triangulation work in Edge/LLM).
+
+### 4f. Cross-reference appendix
+
+New doc `docs/CEO_BEHAVIOUR_RULE_MAP.md` mapping each `.ts` rule to:
+- Originating section in the three architecture docs (brief / plan / nudges).
+- Signals consumed.
+- Edge/LLM triangulation it depends on (so reviewers see the seam clearly).
+- For delivery rules: the outbox / APNS handler that owns the side-effect.
+
+This is the "have all the relevant edge functions and LLM prompts been referenced" deliverable.
 
 ---
 
-## 4. Multi-calendar cluster — no source labels
+## 5. Plain-English answer to Q5 (parity logging)
 
-`multi-calendar.ts` + `calendar-dedupe.ts` helper.
+When we eventually flip `SHARED_MODULES_ENABLED = true`, the new shared rules will start driving brief/nudge/plan output. The old detectors will keep running silently in parallel for one week so we can compare "what the old code would have produced" vs "what the new code is producing." Any difference is a **diff** to investigate before we delete the old code.
 
-Per your direction: **no calendar is labeled work/personal**. High-stakes is decided purely by event title scoring (existing `isHighStakesTitle` / `highStakesScore` continue to own this). Multi-cal is purely a load-accuracy concern.
+Two ways to record diffs:
 
-Dedupe key (calendar-neutral, picks ONE event from N duplicates):
-1. Normalize titles (lowercase, trim, strip emoji/trailing punctuation).
-2. Two events from different calendar sources are duplicates if:
-   - Normalized title matches exactly, OR
-   - Start time within ±2 min AND end time within ±2 min (title-agnostic — collapses renamed copies).
-3. Same start time (no end-time check) → counted as 1 for **load** scoring (can only attend one).
-4. For JIT selection: pick the variant with the highest title-based stakes score (already implemented in `highStakesScore`).
-5. All-day events excluded from `backToBackHoursAggregated` (fixes load inflation from OOO/Holiday/Travel all-day blocks).
-6. Log `dedupeReason: "title" | "timeslot" | "all-day-filter"` for tunability.
+- **Console logs** — cheap, instantly visible in edge function logs, no DB writes. You grep through logs to count them.
+- **`behaviour_parity_log` table** — every brief/nudge/plan call writes one row: `{ rule_id, legacy_fired, shared_fired, user_id, timestamp }`. ~3 rows per user per day. Queryable with SQL, but adds DB writes and a small migration.
 
-`multiCalendarLoad` rule fires only when `calendarSources.length ≥ 2 AND backToBackHoursAggregated ≥ 4`. Severity climbs at ≥6h.
-
-**Brief**: evidence pill "load spans X calendars" to prevent the LLM from under-weighting cross-source load.
-**Plan**: no direct boost; downstream rules read the aggregated number.
-**Nudge**: nothing direct; back-to-back cluster reads the aggregated number.
+Recommendation when we get to Phase 4: console for week 1 (zero risk); promote to table only if diffs appear that need quantifying. **No action needed now.**
 
 ---
 
-## 5. Decision density — NEW rule with measurement proposal
+## 6. PR breakdown
 
-`decision-density.ts` emits `decisionDensity`. Recommended measurement model (senior-engineer take, three layers, cheap to ship):
+- **PR-1 — Types + signals only.** Extend `SignalMatrix` (travel + day-shape + delivery + triangulation-placeholder fields). Populate the mechanical fields in `brief-signal-coverage.ts`. Triangulation + delivery fields remain `null` in production. ~150 LOC, zero behaviour change.
+- **PR-2 — Travel rule shapes.** Add `decisionLeakageGuardPlan`, `travelInFlightConnection`. Tighten `travelPreFlightMandatory`. Register in `index.ts`. Tests in `ceo-behaviour-batch4.test.ts`. Flag still OFF.
+- **PR-3 — Delivery cluster.** Add `_shared/ceo-behaviour/delivery.ts` with the four delivery rules ported from smart-nudges edge. Register in `index.ts`. Tests added. Flag still OFF; edge function does not yet consume them. ~250 LOC + tests.
+- **PR-4 — Docs.** `docs/CEO_BEHAVIOUR_RULE_MAP.md` + ownership-ledger update. Docs-only.
 
-**Layer 1 — Title scoring (ships in Batch 2):**
-```ts
-const DECISION_KEYWORDS = [
-  "decision","approval","approve","review","sign-off","sign off",
-  "go/no-go","go no go","vote","budget","hiring","termination","firing",
-  "promotion","investment","commit","kick-off","launch","close","offer",
-];
-const DECISION_BOOST_KEYWORDS = ["board","investor","exec","leadership","strategy"];
-function decisionScore(title: string): number {
-  // 1.0 baseline if any DECISION_KEYWORD; +0.5 if also a BOOST keyword;
-  // +0.3 if attendee count ≥6 (committee); +0.2 if duration <30min (compressed).
-}
-```
-
-**Layer 2 — Attendee weight (when calendar API exposes attendees):**
-- attendees ≥ 6 + decision keyword → "committee decision" (weight ×1.5)
-- attendees == 2 + decision keyword → "1:1 ask" (weight ×0.7)
-- attendees unknown → weight ×1.0 (don't penalize iOS aggregated events)
-
-**Layer 3 — Rolling window:**
-```ts
-decisionDensityScore = sum(decisionScore(e) × attendeeWeight(e)) over events in next 4h
-```
-
-Thresholds:
-- score ≥ 4.0 → high
-- score ≥ 2.5 → medium
-- < 2.5 → null
-
-`RuleContext` additions:
-```ts
-upcomingEvents: Array<{ ...existing, attendeeCount?: number, durationMinutes?: number }>;
-```
-
-`SignalMatrix` additions:
-```ts
-decisionDensityScore: number | null;
-decisionDensityWindow: "next-4h" | null;
-```
-
-**Brief**: surfaces "X decisions clustered between Y and Z" when score ≥ medium.
-**Plan**: `prepare` (mindset flow) boosted into the slot preceding the densest window; severity drives magnitude.
-**Nudge**: when score ≥ high AND `meetingPrepCliff` is also firing, severity stacks to high.
-
-Open question for you below.
+Each PR is independently mergeable and reversible. Production behaviour is unchanged across all four because the flag stays OFF.
 
 ---
 
-## 6. Stubs (return null; lock API surface)
+## 7. Out of scope
 
-```ts
-emptySlotProtection         // row 7 — needs hasUpcomingEmptyBlock detector
-interpersonalMeetingContext // row 5 — needs nextInterpersonalEvent + attendees
-upwardReporting             // row 11 — needs userMarkedPriorities (UI dependency)
-multiCalendarLoadDistortion // covered by multiCalendarLoad above; alias kept for doc traceability
-stackedStakes               // §5.2 — same-day board + emotional; needs joint stakes detector
-crisisInjection             // unscheduled high-stakes pushed by user manually; UI dependency
-contextSwitchingCost        // back-to-back across different domains; needs event-topic classifier
-preEventSleepTarget         // tomorrow's high-stakes drives tonight's sleep target reference
-timeSinceLastRecovery       // long gap since last completed practice + active stakes
-```
+- Flipping `SHARED_MODULES_ENABLED`
+- Deleting legacy detectors in `generate-mastery-plan` / `smart-nudges`
+- Implementing mood/HRV fusion or wearable-null policy in `.ts`
+- Building the actual offline outbox / retry mechanism (the `.ts` rules describe the policy; the edge function still owns the side effects)
+- Changing any LLM prompt, validator, V8 CTA verb, or copy contract
 
-Each ships with the standard header: trigger, required field, dependency.
-
----
-
-## 7. Senior-engineer probes — gaps to confirm or skip
-
-These are things I'd expect to handle but the doc doesn't address. Confirm full / stub / skip for each:
-
-1. **Crisis / unscheduled high-stakes injection.** Calendar-only systems miss "board call in 90 min, just added by exec assistant" until the next calendar sync. Should we let the user manually flag a crisis in the UI (button: "Unplanned high-stakes in __ min") that feeds `RuleContext.crisisEvent`? Listed as `crisisInjection` stub above.
-
-2. **Context-switching cost (different from back-to-back).** 4×30min Eng standups feel different from Eng→Legal→Sales→Board. Needs a topic classifier on event titles. Worth a stub now? Listed as `contextSwitchingCost`.
-
-3. **Pre-event sleep targeting.** Tonight's evening nudge when tomorrow has a 9am board call should say "bank 7.5h, board at 9am" — different from `vetoRisk` (which is reactive). Listed as `preEventSleepTarget` stub.
-
-4. **Time-since-last-recovery.** System already knows last completed practice timestamp. Long gap (>36h) + active high-stakes today = stronger nudge severity. Worth lighting up now?
-
-5. **Personal calendar events on a workday.** "Personal Training 6am", "Therapy 4pm", "Kids pickup 5pm" — should these add to total cognitive load, or stay invisible to the system? Affects whether `multiCalendarLoad` should distinguish event categories.
-
-6. **Sunday anticipation anxiety vs Sunday Reset.** Distinct case: Sun PM + heavy Monday + historically low Mon-AM open rate. The Sun-PM nudge IS the brief for tomorrow. Currently your `sundayReset` covers 18:00-21:00 — should this expand or split? I've drafted `sundayEveningWeekAhead` (Sun 14:00+) as a separate rule that complements `sundayReset` instead of replacing it.
-
-7. **Decision density attendee data — confirm availability.** Google Calendar API exposes `attendees[]`. Microsoft Graph exposes `attendees[]`. Apple EKEvent on iOS exposes `attendees` array but commonly nil for invites synced from other systems. Confirm: should Layer 2 (attendee weight) ship in Batch 2 with the understanding that iOS-aggregated events get weight 1.0 (no penalty), or wait until we know attendee data quality?
-
-8. **Decision-keyword false positives.** Words like "review" and "kick-off" are noisy (1:1 reviews, sprint reviews, project kick-offs). Want me to gate with a co-occurrence requirement (must include both a DECISION_KEYWORD and one of {board, exec, leadership, investor, budget, hiring}), or trust the layered score to handle noise?
-
----
-
-## 8. Batch plan (ships safely in 3 PRs)
-
-**Batch 1 — Types + restructure (no behaviour change).**
-- Create `_shared/ceo-behaviour/` directory with cluster files, each containing existing rules in their correct cluster.
-- Add new `RuleContext` + `SignalMatrix` fields (all optional, default false/null).
-- `ceo-behaviour-rules.ts` becomes a shim re-exporting from the barrel.
-- Existing 23 tests stay green. Zero edge function edits.
-
-**Batch 2 — Full implementations.**
-- `weekend.ts` (5 sub-cases), `pto-holiday.ts` (2 rules), `travel.ts` (5 rules, telecom field reserved), `back-to-back.ts` (cliff + override), `high-stakes-prep.ts` (24h cap), `multi-calendar.ts` + `calendar-dedupe.ts`.
-- Tests for each cluster + dedupe helper.
-- Still zero edge function edits.
-
-**Batch 3 — Decision density + stubs.**
-- `decision-density.ts` with Layer 1 + Layer 2 (attendee-aware).
-- All stubs (`interpersonal.ts`, `empty-slot.ts`, `upward-reporting.ts`, `stackedStakes`, `crisisInjection`, `contextSwitchingCost`, `preEventSleepTarget`, `timeSinceLastRecovery`).
-- MIGRATE-FROM-EDGE inventory documented in `mem/architecture/ceo-behaviour-shared-module-ownership.md` so the next PR can route consumers through `evaluate()` and delete the duplicate logic in `generate-mastery-plan` lines 3195-3370 and `smart-nudges` lines 940-1041.
-
-Each batch is independently mergeable, additive, and reversible. Phase 2 wiring (consumers calling `evaluate({scope})`) remains gated behind `SHARED_MODULES_ENABLED`.
-
----
-
-## 9. Tests
-
-Per cluster file: 3-6 tests covering trigger conditions, severity ladder, override behaviour (e.g. travel suppresses weekend), and stub null-return contracts. Plus `calendar-dedupe.test.ts` for the 5 dedupe key cases including all-day filter and title-vs-timeslot dedupe reason logging.
-
-Target: ~60 tests by end of Batch 3, up from current 23.
-
-## Verification
-
-- `deno test` green after every batch
-- Type-check clean across `_shared/`
-- `evaluate(ctx, { scope })` filtering remains correct as cluster files re-export
-- Zero edits to edge functions in this plan (Phase 2 still owns wiring)
-- MIGRATE-FROM-EDGE list complete in memory doc so future deletion is a 1-PR job
-
-Answer the 8 probes inline or after the plan implements — I can start Batch 1 immediately and surface Batch 2/3 questions as we reach them.
+Phase 4 (flag flip + legacy deletion + parity logging) stays parked until you greenlight the triangulation-side work in Edge/LLM.
