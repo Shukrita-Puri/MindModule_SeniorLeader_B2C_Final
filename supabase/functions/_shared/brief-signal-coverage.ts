@@ -14,7 +14,7 @@
 // generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
-import { EVENT_TYPES, classifyEvent } from "./executive-state-taxonomy.ts";
+import { classifyEvent } from "./executive-state-taxonomy.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
