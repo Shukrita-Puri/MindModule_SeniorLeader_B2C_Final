@@ -1,88 +1,100 @@
-// OWNERSHIP: coaching + engineering. §3 of CEO Self-Regulation Framework v1.0
-// — the eight CEO Event Categories (A–H), their trigger keywords, and the
-// per-category Self-Regulation Focus.
+// OWNERSHIP: coaching + engineering. SINGLE SOURCE OF TRUTH for the eight CEO
+// Self-Regulation Framework pillars (A–H). This file owns:
+//   - id, user-friendly name (matches causality_findings.signal_summary buckets)
+//   - selfRegulationFocus (§3 of the framework doc)
+//   - Pre/During/Post protocol contract (formerly FRAMEWORK_PILLARS)
 //
-// SCOPE BOUNDARY: this file owns *what kind of event this is*. It does NOT
-// own per-phase prescriptions (timing / protocol / goal / prevents-builds) —
-// that lives in events/event-phase-map.ts. It also does NOT own behaviour
-// rules — those live in ceo-behaviour/*.ts. Keeping §3 thin lets the
-// classifier stay trustworthy while §4 churns.
+// SCOPE BOUNDARY:
+//   - Granular event subtypes (with keywords, demand profiles, JIT lead time
+//     etc.) live in ./event-subtypes.ts and reference `categoryId` from here.
+//   - Rich per-phase prescriptions (timing window, goal, prevents/builds)
+//     live in ./event-phase-map.ts.
+//   - Classification (title -> subtype/category) lives in ./event-classifier.ts.
+//   - Runtime state engines (morning/evening context, fragmentation etc.)
+//     live in ./state-engines.ts.
 
 export type EventCategoryId = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
 
+/** Alias retained for the §3 (FRAMEWORK_PILLARS) → §4 contract. */
+export type FrameworkPillar = EventCategoryId;
+
+export type InterventionType = "Pause" | "Flow" | "Reenergise";
+
+export interface CategoryProtocol {
+  pre: InterventionType | null;
+  during: InterventionType | null;
+  post: InterventionType | null;
+  /** True when DURING is delivered as a notification only — no in-app exercise. */
+  duringNotificationOnly?: boolean;
+}
+
 export interface EventCategory {
   id: EventCategoryId;
+  /** User-friendly name. Also used verbatim as the Insights bucket label. */
   name: string;
-  /** Lowercase title-substring triggers from doc §3. Matched case-insensitively. */
-  triggers: string[];
-  /** Doc §3 — the primary self-regulation priority for this pillar. */
+  /** §3 — primary self-regulation priority for this pillar. */
   selfRegulationFocus: string;
+  /** Pre/During/Post protocol contract (MVP self-regulation). */
+  protocol: CategoryProtocol;
 }
 
 export const EVENT_CATEGORIES: Record<EventCategoryId, EventCategory> = {
   A: {
-    id: "A", name: "HIGH-STAKES GOVERNANCE",
-    triggers: ["board", "investor", "earnings", "shareholder", "audit committee"],
-    selfRegulationFocus: "Executive Presence under external scrutiny",
+    id: "A",
+    name: "High-Stakes Governance",
+    selfRegulationFocus: "Emotional regulation + cognitive sharpness under external scrutiny",
+    protocol: { pre: "Flow", during: null, post: "Pause" },
   },
   B: {
-    id: "B", name: "PEOPLE & EMOTIONAL LABOUR",
-    triggers: ["1:1", "one on one", "performance review", "layoff", "termination", "hr review", "hr meeting"],
-    selfRegulationFocus: "Internal Buffer — emotional regulation under empathy load",
+    id: "B",
+    name: "Influence & Persuasion",
+    selfRegulationFocus: "Focus activation + post-persuasion recharge",
+    protocol: { pre: "Flow", during: null, post: "Reenergise" },
   },
   C: {
-    id: "C", name: "STRATEGIC DECISION",
-    triggers: ["strategy", "decision", "deal", "negotiation", "term sheet", "offsite"],
-    selfRegulationFocus: "Decision Power — clarity over speed",
+    id: "C",
+    name: "Visibility & Communication",
+    selfRegulationFocus: "Presence + composure under broadcast load",
+    protocol: { pre: "Pause", during: null, post: "Reenergise" },
   },
   D: {
-    id: "D", name: "EXTERNAL VISIBILITY",
-    triggers: ["keynote", "press", "media", "podcast", "interview", "panel", "stage"],
-    selfRegulationFocus: "Executive Presence under broadcast load",
+    id: "D",
+    name: "People & Difficult Conversations",
+    selfRegulationFocus: "Emotional labour + post-conversation offload",
+    protocol: { pre: "Pause", during: null, post: "Pause" },
   },
   E: {
-    id: "E", name: "DEEP WORK & CREATION",
-    triggers: ["deep work", "writing", "design review", "architecture", "focus block"],
-    selfRegulationFocus: "Mental Bandwidth — protected attention",
+    id: "E",
+    name: "Deep Work & Strategy",
+    selfRegulationFocus: "Flow activation + clean exit",
+    protocol: { pre: "Flow", during: "Flow", post: "Pause" },
   },
   F: {
-    id: "F", name: "TRAVEL & TIME-ZONE TRANSITION",
-    triggers: ["flight", "travel", "airport", "redeye"],
-    selfRegulationFocus: "Operational Drive — circadian re-entry",
+    id: "F",
+    name: "Conferences & External Events",
+    selfRegulationFocus:
+      "Pre-event social/emotional load priming; during = notification reminder only; post = depletion recovery",
+    protocol: { pre: "Pause", during: "Pause", post: "Reenergise", duringNotificationOnly: true },
   },
   G: {
-    id: "G", name: "TEAM RHYTHM & OPERATIONAL",
-    triggers: ["standup", "team meeting", "review", "weekly", "all hands", "syncing"],
-    selfRegulationFocus: "Operational Drive — sustained low-grade output",
+    id: "G",
+    name: "Travel",
+    selfRegulationFocus: "Circadian regulation + pre-event readiness",
+    protocol: { pre: "Pause", during: "Pause", post: "Reenergise" },
   },
   H: {
-    id: "H", name: "DAILY RHYTHM & RECOVERY",
-    triggers: ["lunch", "break", "commute", "evening", "recovery"],
-    selfRegulationFocus: "Physical Recovery — buffer reconstruction",
+    id: "H",
+    name: "Daily Rhythm & Baseline",
+    selfRegulationFocus: "Habit anchoring + recovery-to-build",
+    protocol: { pre: "Pause", during: null, post: "Pause" },
   },
 };
 
-const STAKES_TO_CATEGORY: Record<string, EventCategoryId> = {
-  board: "A", external: "A", investor: "A",
-};
+/** Legacy FRAMEWORK_PILLARS shape kept as an alias for callers that still
+ *  import that name. Prefer `EVENT_CATEGORIES` going forward. */
+export const FRAMEWORK_PILLARS = EVENT_CATEGORIES;
+export type FrameworkPillarMeta = EventCategory;
 
-/**
- * Classify a calendar event into one of the 8 CEO pillars.
- * `stakesLevel` overrides title matching when set (e.g. an event tagged
- * `board` is always Category A even if the title is "Coffee").
- */
-export function classifyEvent(
-  title: string,
-  stakesLevel?: string | null,
-): EventCategoryId | null {
-  if (stakesLevel) {
-    const hit = STAKES_TO_CATEGORY[stakesLevel.toLowerCase()];
-    if (hit) return hit;
-  }
-  if (!title) return null;
-  const t = title.toLowerCase();
-  for (const cat of Object.values(EVENT_CATEGORIES)) {
-    if (cat.triggers.some((kw) => t.includes(kw))) return cat.id;
-  }
-  return null;
+export function getFrameworkPillarProtocol(p: EventCategoryId): CategoryProtocol {
+  return EVENT_CATEGORIES[p].protocol;
 }
