@@ -18,7 +18,7 @@
  *                                     difficult conversation, layoff, HR, conflict)
  *
  * UNTIL DETECTOR LANDS: returns null. Do NOT inline-detect on title — that's
- * the classifier's job and lives upstream in event-protocol-taxonomy.
+ * the classifier's job and lives upstream in events/event-categories.ts.
  */
 
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
