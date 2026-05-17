@@ -65,6 +65,45 @@ const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
 const TRAVEL_RX =
   /\b(flight|flying|fly to|airport|depart|arrival|arriving|landing|long[- ]haul|red[- ]eye)\b/i;
 
+// --- Conference / Summit cluster (v2) -------------------------------------
+// Tier-1 regex. Tier-2 (day-N inference) groups consecutive days containing
+// CONFERENCE_RX hits or a stable normalized title. Tier-3 (user tags) is set
+// by Edge as `userTaggedConferenceToday` / `userTaggedSpeakingToday`.
+export const SPEAKING_RX =
+  /\b(panel|fireside|keynote|speaking|on[- ]stage|presenting|talk|moderat\w+|q\s?&\s?a|address|remarks)\b/i;
+export const CONFERENCE_RX =
+  /\b(summit|conference|convention|forum|expo|symposium|congress|offsite)\b/i;
+
+type SpeakingKind = "panel" | "fireside" | "keynote" | "talk" | "moderator" | "qa" | "other";
+
+function classifySpeakingKind(title: string): SpeakingKind {
+  if (/\bpanel\b/i.test(title)) return "panel";
+  if (/\bfireside\b/i.test(title)) return "fireside";
+  if (/\bkeynote\b/i.test(title)) return "keynote";
+  if (/\bmoderat/i.test(title)) return "moderator";
+  if (/\bq\s?&\s?a\b/i.test(title)) return "qa";
+  if (/\b(talk|address|remarks|presenting|speaking|on[- ]stage)\b/i.test(title)) return "talk";
+  return "other";
+}
+
+function normalizeConferenceTitle(t: string): string {
+  return t.toLowerCase()
+    .replace(/\bday\s*\d+\b/gi, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function eventDurationMin(
+  e: { startTime: string | Date; endTime?: string | Date | null },
+): number | null {
+  if (!e.endTime) return null;
+  const s = typeof e.startTime === "string" ? new Date(e.startTime).getTime() : e.startTime.getTime();
+  const en = typeof e.endTime === "string" ? new Date(e.endTime).getTime() : (e.endTime as Date).getTime();
+  if (!Number.isFinite(s) || !Number.isFinite(en)) return null;
+  return Math.max(0, Math.round((en - s) / 60000));
+}
+
 function minutesUntil(start: string | Date, now: Date): number {
   const t = typeof start === "string" ? new Date(start).getTime() : start.getTime();
   return Math.round((t - now.getTime()) / 60000);
