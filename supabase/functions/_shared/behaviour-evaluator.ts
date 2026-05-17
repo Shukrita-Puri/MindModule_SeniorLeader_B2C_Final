@@ -72,6 +72,56 @@ export function deriveSlotBoosts(flags: BehaviourFlag[]): SlotBoost[] {
         reason: "circadianPriority",
         severity: "high",
       }));
+    } else if (
+      (f.rule === "travelPreFlightMandatory" ||
+        f.rule === "travelLandingOffload" ||
+        f.rule === "longHaulRecovery") &&
+      (f.severity === "high" || f.severity === "medium")
+    ) {
+      boosts.push(withCombo({
+        slot: f.rule === "longHaulRecovery" ? "end_of_day" : "start_of_day",
+        practiceType: "regulate",
+        reason: f.rule,
+        severity: f.severity,
+      }));
+    } else if (
+      (f.rule === "advancePrep24h" || f.rule === "travelLandingPlusHighStakes") &&
+      (f.severity === "high" || f.severity === "medium")
+    ) {
+      boosts.push(withCombo({
+        slot: "midday",
+        practiceType: "prepare",
+        reason: f.rule,
+        severity: f.severity,
+      }));
+    } else if (f.rule === "weekendDeepWorkBlock") {
+      boosts.push(withCombo({
+        slot: "midday",
+        practiceType: "prepare",
+        reason: "weekendDeepWorkBlock",
+        severity: f.severity,
+      }));
+    } else if (f.rule === "fullWorkingWeekend" && f.severity === "high") {
+      boosts.push(withCombo({
+        slot: "start_of_day",
+        practiceType: "align",
+        reason: "fullWorkingWeekend",
+        severity: "high",
+      }));
+    } else if (f.rule === "sundayEveningWeekAhead") {
+      boosts.push(withCombo({
+        slot: "end_of_day",
+        practiceType: "align",
+        reason: "sundayEveningWeekAhead",
+        severity: f.severity,
+      }));
+    } else if (f.rule === "backToBackLoadOverride" && f.severity === "high") {
+      boosts.push(withCombo({
+        slot: "midday",
+        practiceType: "regulate",
+        reason: "backToBackLoadOverride",
+        severity: "high",
+      }));
     }
   }
   return boosts;
