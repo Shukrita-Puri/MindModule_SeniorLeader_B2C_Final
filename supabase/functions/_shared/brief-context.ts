@@ -20,7 +20,40 @@ export type BehaviourRule =
   | "boardLevelOutcome"
   | "sundayReset"            // §5.2 — all three surfaces
   | "notificationIsProduct"  // §5.2 — nudge only
-  | "conferenceDepletion";   // stub now, lights up when schema lands
+  | "conferenceDepletion"    // stub now, lights up when schema lands
+  // --- Batch 2: weekend cluster (sub-case ladder)
+  | "weekendMorningLightTouch"
+  | "weekendWithMeeting"
+  | "fullWorkingWeekend"
+  | "weekendDeepWorkBlock"
+  | "sundayEveningWeekAhead"
+  // --- Batch 2: pto/holiday cluster
+  | "holidayReducedTouch"
+  | "ptoWithMeetingFallback"
+  // --- Batch 2: travel cluster (overrides every other cluster)
+  | "travelPreFlightMandatory"
+  | "travelLandingOffload"
+  | "travelLandingPlusHighStakes"
+  | "longHaulRecovery"
+  | "postTripReentry"
+  // --- Batch 2: high-stakes prep (24h cap, MVP)
+  | "advancePrep24h"
+  // --- Batch 2: back-to-back + meeting-prep cliff
+  | "backToBackLoadOverride"
+  | "meetingPrepCliff"
+  // --- Batch 2: multi-calendar load aggregation
+  | "multiCalendarLoad"
+  // --- Batch 3: decision density
+  | "decisionDensity"
+  // --- Batch 3 stubs (lock API surface; return null until detectors land)
+  | "interpersonalMeetingContext"
+  | "emptySlotProtection"
+  | "upwardReporting"
+  | "stackedStakes"
+  | "crisisInjection"
+  | "contextSwitchingCost"
+  | "preEventSleepTarget"
+  | "timeSinceLastRecovery";
 
 export type Severity = "low" | "medium" | "high";
 
@@ -114,6 +147,37 @@ export interface SignalMatrix {
 
   // §2.15 Post-Peak Hangover support
   clarityDropFromTrailingAvg: number | null; // negative = drop
+
+  // --- Batch 1: reserved fields for Batches 2/3. All optional, default null/false.
+  //     No rule reads these in Batch 1; types added now so consumers don't churn.
+
+  /** Travel cluster — landing detection. Native bridge → telecom signal; null until shipped. */
+  foreignTelecomDetected?: boolean;
+  /** Travel cluster — composite: telecom OR calendar-end travel event ended ≤60min ago. */
+  travelLandingDetected?: boolean;
+  /** Long-haul flag (duration ≥3h) — populated by brief-signal-coverage when known. */
+  longHaulFlight?: { durationHours: number } | null;
+  /** Yesterday was a travel day AND next-day calendar density is medium/high. */
+  postTripReentryRisk?: boolean;
+
+  /** PTO / public holiday — all-day event whose title matches OOO|PTO|Vacation|Holiday|Out of Office. */
+  ptoTodayAllDay?: boolean;
+
+  /** Weekend cluster — at least one event today whose stakesLevel is set OR title is high-stakes. */
+  hasWorkMeetingOnWeekend?: boolean;
+  /** Weekend cluster — large block (≥90min) whose title matches WORK_BLOCK_RX. */
+  weekendWorkBlockToday?: { title: string; startMinutesFromNow: number; durationMinutes: number } | null;
+  /** Weekend cluster — total meetings spread across today (used for "full working weekend"). */
+  weekendMeetingCountToday?: number;
+
+  /** Multi-calendar cluster — distinct sources contributing to today's events (after dedupe). */
+  calendarSources?: string[];
+  /** Multi-calendar cluster — aggregated back-to-back hours across sources (post-dedupe). */
+  backToBackHoursAggregated?: number | null;
+
+  /** Decision density cluster (Batch 3) — rolling 4h score. */
+  decisionDensityScore?: number | null;
+  decisionDensityWindow?: "next-4h" | null;
 }
 
 /**
@@ -142,6 +206,12 @@ export interface RuleContext {
     minutesUntil: number;
     stakesLevel?: string | null;
     isEmotionalDrain?: boolean;
+    // Batch 2/3 extensions — all optional, populated when source exposes them.
+    attendeeCount?: number;
+    durationMinutes?: number;
+    source?: string;
+    startsAtMinutesFromNow?: number;
+    endsAtMinutesFromNow?: number;
   }>;
   // Local hour at the user's timezone, used by §2.12 (midday window).
   localHour: number;
@@ -153,4 +223,16 @@ export interface RuleContext {
   historicalAppOpenRateLow?: boolean;
   /** Day number within a multi-day conference (1 = day 1). Undefined until schema lands. */
   conferenceDayNumber?: number;
+
+  // --- Batch 1 reserved — all optional, no rule reads these in Batch 1.
+  /** Meeting prep cliff (Batch 2). Gap to next high-stakes event in {5,15,30} buckets. */
+  nextPreEventGap?: { gapMinutes: number; nextEventTitle: string; nextEventStakes: string | null } | null;
+  /** PTO/Holiday cluster (Batch 2). All-day OOO/PTO/Vacation/Holiday event today. */
+  holidayAllDayEventToday?: { title: string } | null;
+  /** Travel cluster (Batch 2). End of last travel event (calendar-source landing signal). */
+  lastTravelEventEndedMinutesAgo?: number | null;
+  /** Crisis injection (Batch 3 stub). User-flagged unplanned high-stakes event. */
+  crisisEvent?: { title: string; minutesUntil: number } | null;
+  /** Time since last completed practice — for timeSinceLastRecovery stub (Batch 3). */
+  minutesSinceLastPractice?: number | null;
 }
