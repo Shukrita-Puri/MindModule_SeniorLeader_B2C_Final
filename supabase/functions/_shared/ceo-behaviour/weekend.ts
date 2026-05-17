@@ -98,47 +98,44 @@ export function fullWorkingWeekend(ctx: RuleContext): BehaviourFlag | null {
   if (travelActive(ctx)) return null;
   const meetings = ctx.signals.weekendMeetingCountToday ?? 0;
   const back = ctx.backToBackHoursToday ?? 0;
-  if (meetings < 3 && back < 4) return null;
+
+  // A single high-stakes work block (deep work, pitch, strategy, etc.) on the
+  // weekend also counts — per spec, any explicit work-block upgrades the day
+  // to weekday cadence rather than light-touch.
+  const hasWorkBlock =
+    Boolean(ctx.signals.weekendWorkBlockToday) ||
+    ctx.upcomingEvents.some(
+      (e) =>
+        (e.startsAtMinutesFromNow ?? e.minutesUntil ?? -1) >= -240 &&
+        (Boolean(e.stakesLevel) || isHighStakesTitle(e.title)),
+    );
+
+  if (meetings < 3 && back < 4 && !hasWorkBlock) return null;
+
+  const evidence: string[] = [];
+  if (meetings >= 1) evidence.push(`${meetings} meetings`);
+  if (back >= 4) evidence.push(`back-to-back ${back}h`);
+  if (hasWorkBlock && meetings < 3 && back < 4) evidence.push("weekend work block");
 
   return {
     rule: "fullWorkingWeekend",
     severity: meetings >= 4 || back >= 6 ? "high" : "medium",
-    evidence: [
-      `${meetings} meetings`,
-      back >= 4 ? `back-to-back ${back}h` : "compressed schedule",
-    ],
+    evidence: evidence.length ? evidence : ["weekend work load"],
     stake: "Operational Drive",
     copyHint:
       "this is a working weekend in fact — drop the weekend framing, run weekday cadence, then schedule one true off-block",
   };
 }
 
-/** Weekend block whose title is high-stakes (duration irrelevant per user spec). */
+/**
+ * RETIRED as a primary flag: a single weekend high-stakes block now upgrades
+ * directly to `fullWorkingWeekend`. Kept exported as a no-op so the registry
+ * stays stable; remove in a later cleanup once downstream telemetry confirms
+ * no consumer is reading the flag directly.
+ */
 export function weekendDeepWorkBlock(ctx: RuleContext): BehaviourFlag | null {
-  if (!isWeekend(ctx.dayOfWeek)) return null;
-  if (travelActive(ctx)) return null;
-  // Defer to full-working-weekend when both apply.
-  if ((ctx.signals.weekendMeetingCountToday ?? 0) >= 3) return null;
-
-  const block = ctx.upcomingEvents.find(
-    (e) =>
-      (e.startsAtMinutesFromNow ?? e.minutesUntil ?? -1) >= -30 &&
-      (Boolean(e.stakesLevel) || isHighStakesTitle(e.title)),
-  );
-  // Fallback to signals.weekendWorkBlockToday if upstream populated it
-  const wb = ctx.signals.weekendWorkBlockToday;
-  const anchor = block?.title ?? wb?.title;
-  if (!anchor) return null;
-
-  return {
-    rule: "weekendDeepWorkBlock",
-    severity: "medium",
-    evidence: ["weekend high-stakes block", anchor],
-    anchorEvent: anchor,
-    stake: "Decision Power",
-    copyHint:
-      "name the block by its stake, not its duration — prime the start, end with a clean close so the rest of the weekend survives",
-  };
+  void ctx;
+  return null;
 }
 
 /** Sunday 14:00+ — broader week-ahead anchor (sundayReset still owns 18-21 sub-window). */
@@ -157,6 +154,6 @@ export function sundayEveningWeekAhead(ctx: RuleContext): BehaviourFlag | null {
     anchorEvent: next24h?.title,
     stake: "Operational Drive",
     copyHint:
-      "frame the week ahead as a readiness asset — one orientation pass, not a planning marathon; protect tonight's sleep first",
+      "settle the body first, then let prep happen — do not assume anxiety; the user may simply want to be ready. Specific framing (sleep-deprived, heavy weekend, low HRV, busy week ahead) is triangulated downstream in LLM/Edge, not here",
   };
 }
