@@ -33,6 +33,90 @@
  *                   ctx.upcomingEvents (attendeeCount, durationMinutes).
  */
 
-// Batch 3 will implement: decisionDensity (+ scoring helper).
+import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
-export {};
+const DECISION_KEYWORD_RX =
+  /\b(decision|approval|approve|review|sign[-\s]?off|go\s?\/?\s?no[-\s]?go|vote|budget|hiring|termination|firing|promotion|investment|commit|kick[-\s]?off|launch|close|offer)\b/i;
+const DECISION_BOOST_RX =
+  /\b(board|investor|exec|leadership|strategy)\b/i;
+
+/**
+ * Layer 1: title scoring.
+ *   +1.0  decision keyword
+ *   +0.5  boost keyword (on top of decision keyword)
+ *   +0.3  committee size (attendees ≥ 6)
+ *   +0.2  compressed (duration < 30min)
+ */
+export function titleDecisionScore(e: {
+  title: string;
+  attendeeCount?: number;
+  durationMinutes?: number;
+}): number {
+  if (!DECISION_KEYWORD_RX.test(e.title)) return 0;
+  let s = 1.0;
+  if (DECISION_BOOST_RX.test(e.title)) s += 0.5;
+  if ((e.attendeeCount ?? 0) >= 6) s += 0.3;
+  if (typeof e.durationMinutes === "number" && e.durationMinutes < 30) s += 0.2;
+  return s;
+}
+
+/**
+ * Layer 2: attendee-aware multiplier.
+ *   ≥6 attendees → 1.5  (committee — every voice multiplies cognitive load)
+ *   ==2 attendees → 0.7 (1:1 ask — directional but lower density)
+ *   unknown      → 1.0  (iOS-aggregated events have no attendee count;
+ *                       do not penalise)
+ */
+export function attendeeWeight(attendeeCount?: number): number {
+  if (typeof attendeeCount !== "number") return 1.0;
+  if (attendeeCount >= 6) return 1.5;
+  if (attendeeCount === 2) return 0.7;
+  return 1.0;
+}
+
+/**
+ * Layer 3: rolling 4h window sum. Returns `null` when no signal.
+ * Thresholds: ≥4.0 high, ≥2.5 medium, else null.
+ */
+export function decisionDensity(ctx: RuleContext): BehaviourFlag | null {
+  // Prefer pre-computed score from signal coverage when available; otherwise
+  // derive from upcomingEvents in the next 4h.
+  const precomputed = ctx.signals.decisionDensityScore ?? null;
+  let score = precomputed;
+
+  const contributing: string[] = [];
+  if (score == null) {
+    const window = ctx.upcomingEvents.filter(
+      (e) => e.minutesUntil >= 0 && e.minutesUntil <= 240,
+    );
+    let s = 0;
+    for (const e of window) {
+      const layer1 = titleDecisionScore({
+        title: e.title,
+        attendeeCount: e.attendeeCount,
+        durationMinutes: e.durationMinutes,
+      });
+      if (layer1 <= 0) continue;
+      const weighted = layer1 * attendeeWeight(e.attendeeCount);
+      s += weighted;
+      if (contributing.length < 3) contributing.push(e.title);
+    }
+    score = Math.round(s * 10) / 10;
+  }
+
+  if (score == null || score < 2.5) return null;
+
+  const severity = score >= 4.0 ? "high" : "medium";
+  const evidence: string[] = [`decision density ${score}`];
+  if (contributing.length) evidence.push(`across ${contributing.length} call(s)`);
+
+  return {
+    rule: "decisionDensity",
+    severity,
+    evidence,
+    anchorEvent: contributing[0],
+    stake: "Decision Power",
+    copyHint:
+      "name the cluster, not any single call — the cost is the switching between high-weight calls; prime focus once, then protect it; avoid invitations to 'just think it through'",
+  };
+}
