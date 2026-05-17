@@ -8,7 +8,7 @@
 
 export type PillarCluster = "cognition" | "physiology" | "resilience";
 
-import type { Protocol, ProtocolMode } from "./event-protocol-taxonomy.ts";
+import type { Protocol, ProtocolMode } from "./protocols/protocol-combos.ts";
 
 export type BehaviourRule =
   | "vetoRisk"
