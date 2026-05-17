@@ -53,7 +53,15 @@ export type BehaviourRule =
   | "crisisInjection"
   | "contextSwitchingCost"
   | "preEventSleepTarget"
-  | "timeSinceLastRecovery";
+  | "timeSinceLastRecovery"
+  // --- Batch 4: decision-leakage 24h tail (plan-only) + connection leg
+  | "decisionLeakageGuardPlan"
+  | "travelInFlightConnection"
+  // --- Batch 4: delivery cluster (nudge-only)
+  | "nudgeDeferOffline"
+  | "nudgeSuppressDND"
+  | "nudgeStaleSkip"
+  | "nudgeBatchOnReturn";
 
 export type Severity = "low" | "medium" | "high";
 
