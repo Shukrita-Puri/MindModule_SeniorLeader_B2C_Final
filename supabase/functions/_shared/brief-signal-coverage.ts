@@ -1,11 +1,17 @@
-// OWNERSHIP: engineering. Assembles the §3 Signal Coverage Matrix from raw
-// inputs already fetched by the consumer (wearable row, check-in row, calendar
-// events, profile, pattern store).
+// OWNERSHIP: engineering.
+//
+// SINGLE SOURCE OF MECHANICAL SIGNAL COVERAGE for BRIEF, NUDGES and PLAN.
+// (The filename is legacy — predates the shared CEO-behaviour module. Do not
+// rename; many callers import from this path.)
+//
+// Every mechanical/deterministic signal that any surface rule reads is
+// derived here. Triangulation (mood × wearable × calendar fusion, user tags,
+// social-load inference) is the Edge consumer's job — it writes those fields
+// onto the matrix after calling `buildSignalMatrix`.
 //
 // This module is a pure builder: it does NOT fetch from the database. The
-// consumer (typically compute-outer-readiness) is responsible for fetching and
-// passes the raw blocks in. Keeping IO out of this file is what makes the
-// matrix unit-testable.
+// consumer (typically compute-outer-readiness, smart-nudges-evaluator, or
+// generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { EVENT_TYPES, classifyEvent } from "./executive-state-taxonomy.ts";
@@ -38,7 +44,33 @@ export interface SignalCoverageInput {
   events: Array<{
     title: string;
     startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
     stakesLevel?: string | null;
+  }>;
+  /** Optional trailing 4 days of events (1..4 days ago) used by the
+   *  conference cluster's trailing-fatigue computation. Omit and trailing
+   *  signals stay 0 / null — rules silently no-op. */
+  trailingEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+    daysAgo: number;
+  }>;
+  /** Tomorrow's events. Drives `conferenceStartsTomorrow`. */
+  tomorrowEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+  }>;
+  /** Next 3 days of events (excluding today). Drives `nextThreeDaysMeetingCount`
+   *  used by `postConferenceReentry` and `trailingConferenceLoad`. */
+  nextThreeDaysEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    isAllDay?: boolean;
   }>;
   /** Now reference, used for minutesUntil. Pass user's local now. */
   now: Date;
@@ -58,6 +90,45 @@ const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
 // `inFlightConnectionMinutes`.
 const TRAVEL_RX =
   /\b(flight|flying|fly to|airport|depart|arrival|arriving|landing|long[- ]haul|red[- ]eye)\b/i;
+
+// --- Conference / Summit cluster (v2) -------------------------------------
+// Tier-1 regex. Tier-2 (day-N inference) groups consecutive days containing
+// CONFERENCE_RX hits or a stable normalized title. Tier-3 (user tags) is set
+// by Edge as `userTaggedConferenceToday` / `userTaggedSpeakingToday`.
+export const SPEAKING_RX =
+  /\b(panel|fireside|keynote|speaking|on[- ]stage|presenting|talk|moderat\w+|q\s?&\s?a|address|remarks)\b/i;
+export const CONFERENCE_RX =
+  /\b(summit|conference|convention|forum|expo|symposium|congress|offsite)\b/i;
+
+type SpeakingKind = "panel" | "fireside" | "keynote" | "talk" | "moderator" | "qa" | "other";
+
+function classifySpeakingKind(title: string): SpeakingKind {
+  if (/\bpanel\b/i.test(title)) return "panel";
+  if (/\bfireside\b/i.test(title)) return "fireside";
+  if (/\bkeynote\b/i.test(title)) return "keynote";
+  if (/\bmoderat/i.test(title)) return "moderator";
+  if (/\bq\s?&\s?a\b/i.test(title)) return "qa";
+  if (/\b(talk|address|remarks|presenting|speaking|on[- ]stage)\b/i.test(title)) return "talk";
+  return "other";
+}
+
+function normalizeConferenceTitle(t: string): string {
+  return t.toLowerCase()
+    .replace(/\bday\s*\d+\b/gi, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function eventDurationMin(
+  e: { startTime: string | Date; endTime?: string | Date | null },
+): number | null {
+  if (!e.endTime) return null;
+  const s = typeof e.startTime === "string" ? new Date(e.startTime).getTime() : e.startTime.getTime();
+  const en = typeof e.endTime === "string" ? new Date(e.endTime).getTime() : (e.endTime as Date).getTime();
+  if (!Number.isFinite(s) || !Number.isFinite(en)) return null;
+  return Math.max(0, Math.round((en - s) / 60000));
+}
 
 function minutesUntil(start: string | Date, now: Date): number {
   const t = typeof start === "string" ? new Date(start).getTime() : start.getTime();
@@ -131,6 +202,121 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       : null;
   const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
+  // ---------------------------------------------------------------------------
+  // Conference / Summit cluster (v2) — mechanical signals.
+  // All inputs are optional; missing inputs yield null/0 and the rule layer
+  // silently no-ops. Triangulation fields (userTagged*) are NOT set here.
+  // ---------------------------------------------------------------------------
+
+  const todayHasConferenceWrapper = input.events.some((e) => {
+    if (!CONFERENCE_RX.test(e.title)) return false;
+    if (e.isAllDay) return true;
+    const dur = eventDurationMin(e);
+    return typeof dur === "number" && dur >= 240;
+  });
+
+  // Build trailing+today chain to compute Day N.
+  const trailing = input.trailingEvents ?? [];
+  const dayHasConferenceMarker = (offset: number, source: Array<{ title: string; isAllDay?: boolean; startTime: string|Date; endTime?: string|Date|null; daysAgo?: number }>) => {
+    const pool = source.filter((e) => (e.daysAgo ?? 0) === offset);
+    return pool.some((e) => {
+      if (!CONFERENCE_RX.test(e.title)) return false;
+      if (e.isAllDay) return true;
+      const dur = eventDurationMin(e);
+      return typeof dur === "number" && dur >= 240;
+    });
+  };
+
+  // Conference day-N: walk back from today while previous day has a marker.
+  let conferenceDayNumber: number | null = null;
+  let conferenceTotalDays: number | null = null;
+  let conferenceEventTitle: string | null = null;
+  if (todayHasConferenceWrapper) {
+    let back = 0;
+    while (dayHasConferenceMarker(back + 1, trailing)) back += 1;
+    conferenceDayNumber = back + 1;
+    conferenceEventTitle =
+      input.events.find((e) => CONFERENCE_RX.test(e.title))?.title ?? null;
+    // Forward chain into tomorrow (one step lookahead — total may grow when
+    // we re-evaluate tomorrow; that is acceptable for MVP).
+    const tomorrowMarker = (input.tomorrowEvents ?? []).some((e) => {
+      if (!CONFERENCE_RX.test(e.title)) return false;
+      if (e.isAllDay) return true;
+      const dur = eventDurationMin(e);
+      return typeof dur === "number" && dur >= 240;
+    });
+    conferenceTotalDays = conferenceDayNumber + (tomorrowMarker ? 1 : 0);
+  }
+
+  // conferenceDayNumberYesterday: only set when yesterday was the LAST day of
+  // a multi-day chain (i.e. yesterday had marker, today does not, chain length
+  // ≥ 2 ending yesterday).
+  let conferenceDayNumberYesterday: number | null = null;
+  if (!todayHasConferenceWrapper && dayHasConferenceMarker(1, trailing)) {
+    let back = 1;
+    while (dayHasConferenceMarker(back + 1, trailing)) back += 1;
+    if (back >= 2) conferenceDayNumberYesterday = back;
+  }
+
+  // conferenceStartsTomorrow: tomorrow has marker AND today does not.
+  const tomorrowHasMarker = (input.tomorrowEvents ?? []).some((e) => {
+    if (!CONFERENCE_RX.test(e.title)) return false;
+    if (e.isAllDay) return true;
+    const dur = eventDurationMin(e);
+    return typeof dur === "number" && dur >= 240;
+  });
+  const conferenceStartsTomorrow = tomorrowHasMarker && !todayHasConferenceWrapper;
+  if (conferenceStartsTomorrow && !conferenceEventTitle) {
+    conferenceEventTitle =
+      (input.tomorrowEvents ?? []).find((e) => CONFERENCE_RX.test(e.title))?.title ?? null;
+  }
+
+  // Speaking sub-blocks on today's calendar.
+  const speakingBlocksToday = input.events
+    .filter((e) => !e.isAllDay && SPEAKING_RX.test(e.title))
+    .map((e) => {
+      const dur = eventDurationMin(e);
+      return {
+        title: e.title,
+        minutesUntil: minutesUntil(e.startTime, input.now),
+        durationMinutes: dur,
+        kind: classifySpeakingKind(e.title),
+      };
+    })
+    .filter((b) => b.durationMinutes === null || b.durationMinutes >= 15);
+
+  // First inter-session gap among today's timed events (sorted by start).
+  const timedToday = input.events
+    .filter((e) => !e.isAllDay && e.endTime)
+    .map((e) => ({
+      start: typeof e.startTime === "string" ? new Date(e.startTime).getTime() : e.startTime.getTime(),
+      end: typeof e.endTime === "string" ? new Date(e.endTime as string).getTime() : (e.endTime as Date).getTime(),
+    }))
+    .filter((e) => Number.isFinite(e.start) && Number.isFinite(e.end))
+    .sort((a, b) => a.start - b.start);
+  let firstSessionGapMinutesToday: number | null = null;
+  if (timedToday.length >= 2) {
+    const gap = Math.round((timedToday[1].start - timedToday[0].end) / 60000);
+    firstSessionGapMinutesToday = gap >= 0 ? gap : null;
+  }
+
+  // Trailing 4-day conference day count (excluding today).
+  let conferenceDaysInTrailing4 = 0;
+  for (let d = 1; d <= 4; d += 1) {
+    if (dayHasConferenceMarker(d, trailing)) conferenceDaysInTrailing4 += 1;
+  }
+
+  // Next 3 days meeting count (excluding all-day).
+  const nextThreeDaysMeetingCount = input.nextThreeDaysEvents
+    ? input.nextThreeDaysEvents.filter((e) => !e.isAllDay).length
+    : null;
+
+  // Composite trailing-conference load.
+  let trailingConferenceLoad: "low" | "medium" | "high" = "low";
+  const n3 = nextThreeDaysMeetingCount ?? 0;
+  if (conferenceDaysInTrailing4 >= 2 && n3 >= 10) trailingConferenceLoad = "high";
+  else if (conferenceDaysInTrailing4 >= 1 && n3 >= 6) trailingConferenceLoad = "medium";
+
   // Post-peak window: yesterday ≥75 AND today recovery deficit.
   const yesterdayHigh =
     typeof input.scoreYesterday === "number" && input.scoreYesterday >= 75;
@@ -198,6 +384,19 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     // not populated here; Edge consumers add them before calling evaluate().
     preFlightWindowMinutes,
     nextTravelEventTitle,
+
+    // Conference / Summit cluster (v2) — mechanical fields only.
+    conferenceDayNumber,
+    conferenceDayNumberYesterday,
+    conferenceTotalDays,
+    conferenceEventTitle,
+    speakingBlocksToday,
+    hasFullDayConferenceWrapper: todayHasConferenceWrapper,
+    firstSessionGapMinutesToday,
+    conferenceDaysInTrailing4,
+    trailingConferenceLoad,
+    nextThreeDaysMeetingCount,
+    conferenceStartsTomorrow,
   };
 }
 

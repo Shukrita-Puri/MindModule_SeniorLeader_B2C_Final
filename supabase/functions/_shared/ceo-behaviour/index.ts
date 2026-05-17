@@ -29,7 +29,16 @@ import {
 import { postPeakHangover } from "./post-peak.ts";
 
 // --- Conference cluster ---
-import { conferenceDepletion } from "./conference.ts";
+import {
+  conferenceDepletion,
+  conferenceNightBeforeSummit,
+  conferenceDayAttend,
+  conferenceDayWithSpeaking,
+  dropInSpeakingHighStakes,
+  conferenceMidSessionReset,
+  conferenceCarryFatigue,
+  postConferenceReentry,
+} from "./conference.ts";
 
 // --- Batch 2 clusters ---
 import {
@@ -91,6 +100,13 @@ export {
   sundayReset,
   notificationIsProduct,
   conferenceDepletion,
+  conferenceNightBeforeSummit,
+  conferenceDayAttend,
+  conferenceDayWithSpeaking,
+  dropInSpeakingHighStakes,
+  conferenceMidSessionReset,
+  conferenceCarryFatigue,
+  postConferenceReentry,
   // Batch 2
   weekendMorningLightTouch,
   weekendWithMeeting,
@@ -141,6 +157,16 @@ export const ALL_RULES: ScopedRule[] = [
   { scopes: ["brief", "plan", "nudge"], fn: sundayReset },
   { scopes: ["nudge"],                  fn: notificationIsProduct },
   { scopes: ["brief", "plan", "nudge"], fn: conferenceDepletion },
+
+  // --- Conference / Summit cluster (v2) — speaking rules listed before
+  //     attend so attend-only is correctly suppressed by sort order in tests.
+  { scopes: ["brief", "plan", "nudge"], fn: conferenceNightBeforeSummit },
+  { scopes: ["brief", "plan", "nudge"], fn: conferenceDayWithSpeaking },
+  { scopes: ["brief", "plan", "nudge"], fn: conferenceDayAttend },
+  { scopes: ["brief", "plan", "nudge"], fn: dropInSpeakingHighStakes },
+  { scopes: ["nudge"],                  fn: conferenceMidSessionReset },
+  { scopes: ["brief", "plan", "nudge"], fn: conferenceCarryFatigue },
+  { scopes: ["brief", "plan", "nudge"], fn: postConferenceReentry },
 
   // --- Batch 2: Weekend ladder (brief + plan; nudge timing handled in smart-nudges) ---
   { scopes: ["brief", "plan", "nudge"], fn: fullWorkingWeekend },

@@ -61,7 +61,15 @@ export type BehaviourRule =
   | "nudgeDeferOffline"
   | "nudgeSuppressDND"
   | "nudgeStaleSkip"
-  | "nudgeBatchOnReturn";
+  | "nudgeBatchOnReturn"
+  // --- Conference / Summit cluster (v2 expansion)
+  | "conferenceNightBeforeSummit"
+  | "conferenceDayAttend"
+  | "conferenceDayWithSpeaking"
+  | "dropInSpeakingHighStakes"
+  | "conferenceMidSessionReset"
+  | "conferenceCarryFatigue"
+  | "postConferenceReentry";
 
 export type Severity = "low" | "medium" | "high";
 
@@ -231,6 +239,50 @@ export interface SignalMatrix {
   airplaneModeActive?: boolean;
   /** Minutes since device was last seen online. */
   lastSeenOnlineMinutesAgo?: number | null;
+
+  // ---------------------------------------------------------------------------
+  // Conference / Summit cluster (v2). All optional / nullable. Mechanical fields
+  // populated by brief-signal-coverage.ts; user-tag fields written by Edge.
+  // ---------------------------------------------------------------------------
+
+  /** Day number within a multi-day conference chain spanning today. null when
+   *  today is not a conference day. */
+  conferenceDayNumber?: number | null;
+  /** Day number within a multi-day chain that ended YESTERDAY (used by
+   *  postConferenceReentry). null when yesterday was not the last day. */
+  conferenceDayNumberYesterday?: number | null;
+  /** Total days in the inferred conference chain. */
+  conferenceTotalDays?: number | null;
+  /** Normalized title of the conference chain spanning today (or tomorrow when
+   *  conferenceStartsTomorrow). Used purely for copy framing. */
+  conferenceEventTitle?: string | null;
+  /** Speaking sub-blocks on today's calendar, classified by regex. */
+  speakingBlocksToday?: Array<{
+    title: string;
+    minutesUntil: number;
+    durationMinutes: number | null;
+    kind: "panel" | "fireside" | "keynote" | "talk" | "moderator" | "qa" | "other";
+  }>;
+  /** True when today has an all-day OR ≥4h block matching CONFERENCE_RX. */
+  hasFullDayConferenceWrapper?: boolean;
+  /** Minutes between today's first and second timed session. null when <2. */
+  firstSessionGapMinutesToday?: number | null;
+  /** Conference days observed in the trailing 4 days (excluding today). */
+  conferenceDaysInTrailing4?: number;
+  /** Composite load: trailing conference days × next-3-day meeting density. */
+  trailingConferenceLoad?: "low" | "medium" | "high";
+  /** Distinct meetings scheduled in the next 3 days (excluding all-day). */
+  nextThreeDaysMeetingCount?: number | null;
+  /** Tomorrow is Day 1 of a multi-day conference chain AND today is not. */
+  conferenceStartsTomorrow?: boolean;
+
+  // --- Triangulation (Edge writes; .ts only reads) ---
+  /** User explicitly tagged today as a conference day. Overrides regex miss. */
+  userTaggedConferenceToday?: boolean;
+  /** User explicitly tagged a speaking commitment today. */
+  userTaggedSpeakingToday?: boolean;
+  /** Reserved post-MVP — social/sensory stim load is high today. */
+  conferenceSocialLoadHigh?: boolean;
 }
 
 /**

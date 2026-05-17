@@ -115,6 +115,30 @@ Additive, all optional / nullable. Mechanical fields populated by `brief-signal-
 - `travelInFlightConnection` (travel.ts, nudge-scope only) — fires only when Edge sets `inFlightConnectionMinutes`.
 - `nudgeDeferOffline`, `nudgeSuppressDND`, `nudgeStaleSkip`, `nudgeBatchOnReturn` (delivery.ts, nudge-scope only) — ported policy from smart-nudges.
 
+### Conference / Summit cluster (v2 expansion)
+
+- `conference.ts` now owns 7 rules + a legacy escalator: `conferenceNightBeforeSummit`, `conferenceDayAttend`, `conferenceDayWithSpeaking`, `dropInSpeakingHighStakes`, `conferenceMidSessionReset` (nudge-only), `conferenceCarryFatigue`, `postConferenceReentry`, plus legacy `conferenceDepletion`.
+- Severity model is engagement-type-led with a consecutive-day amplifier capped at `high`. Engagement type beats day count on Day 1; day count compounds from Day 2.
+- Every rule fires across `brief`, `plan`, `nudge` **except** `conferenceMidSessionReset` (nudge-only). Every cross-surface rule encodes a `· open-brief` or `· open-plan` hand-off in `copyHint`; the nudge layer is responsible for honouring that CTA.
+
+### `brief-signal-coverage.ts` is the universal mechanical signal source
+
+- Despite its filename, `brief-signal-coverage.ts` is the single source of mechanical/deterministic signal coverage for **brief, nudges and plan**. The header comment in the file states this explicitly.
+- New mechanical signals for any cluster must be added here, regardless of which surface consumes them. Triangulation (cross-source fusion, mood × wearable × calendar, user tags, social-load inference) stays in Edge.
+- Conference cluster additions: `SPEAKING_RX`, `CONFERENCE_RX`, day-N inference (tier-2), tomorrow lookahead, trailing-4-day window, composite `trailingConferenceLoad`, speaking-block classification.
+
+### Travel → Summit bridge
+
+- Travel cluster still overrides every other cluster on the travel day itself.
+- Single intentional co-fire: `conferenceNightBeforeSummit` reads `yesterdayWasTravelDay` / `travelDay` to escalate to `high` severity and switch framing to "offload travel + ground for summit." This is the only place travel and conference clusters intentionally interact.
+
+### MVP boundaries (conference v2)
+
+- No 24h advance prep for speaking — proximity-only.
+- No automatic presenting-vs-attending beyond regex + user override.
+- `conferenceSocialLoadHigh` reserved as stub field; no rule reads it yet.
+- No UI surface for user-tagging conference / speaking days — Edge writes `userTaggedConferenceToday` / `userTaggedSpeakingToday` if it has the data.
+
 ### Cross-reference appendix
 
 See `docs/CEO_BEHAVIOUR_RULE_MAP.md` for the full rule → doc-section → Edge/LLM seam table.

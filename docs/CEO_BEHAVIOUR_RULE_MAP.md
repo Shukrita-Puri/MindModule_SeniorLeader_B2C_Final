@@ -130,4 +130,41 @@ function still owns the outbox, APNS dispatch, and the retry mechanics.
 Deletion happens **after**:
 1. `SHARED_MODULES_ENABLED = true` is flipped in consumers.
 2. Triangulation fields (`personalFrictionWindow`, `inFlightConnectionMinutes`, `ptoMeetingPresent`, `deviceOnline`/`dndActive`/etc.) are populated by Edge before calling `evaluate({ scope })`.
+
+---
+
+## Conference / Summit cluster (v2)
+
+Severity = engagement-type base × consecutive-day amplifier (capped at `high`).
+Base ladder: attend-only=`low` | drop-in or stand-alone speaking=`medium` | attend + speaking inside a wrapper=`high`.
+Amplifier: `+1` step per consecutive day beyond Day 1.
+
+Every rule fires across `brief`, `plan`, `nudge` and includes a `· open-brief` or `· open-plan` hand-off in `copyHint`, **except** `conferenceMidSessionReset` which is nudge-only and carries `· inline-somatic` (no UI hand-off).
+
+| Rule | Scopes | Trigger | Base severity | Hand-off |
+| --- | --- | --- | --- | --- |
+| `conferenceNightBeforeSummit` | brief, plan, nudge | `conferenceStartsTomorrow` AND `localHour ≥ 17`; escalates to `high` when `yesterdayWasTravelDay` or `travelDay` | medium → high (travel) | open-brief |
+| `conferenceDayAttend` | brief, plan, nudge | `conferenceDayNumber ≥ 1` AND no `speakingBlocksToday` | low (day-count amplified) | open-plan |
+| `conferenceDayWithSpeaking` | brief, plan, nudge | conference day AND ≥1 speaking block; suppresses attend rule | high | open-plan |
+| `dropInSpeakingHighStakes` | brief, plan, nudge | ≥1 speaking block AND no conference wrapper; suppresses `advancePrep24h` for same anchor | medium | open-plan |
+| `conferenceMidSessionReset` | **nudge only** | conference day AND `firstSessionGapMinutesToday ≥ 30` | medium | inline-somatic |
+| `conferenceCarryFatigue` | brief, plan, nudge | `conferenceDaysInTrailing4 ≥ 1` AND today is not a conference day | low/medium/high (tracks `trailingConferenceLoad`) | open-plan |
+| `postConferenceReentry` | brief, plan, nudge | `conferenceDayNumberYesterday ≥ 2`; escalates to `high` when `nextThreeDaysMeetingCount ≥ 10` | medium → high | open-brief |
+| `conferenceDepletion` (legacy) | unchanged | `conferenceDayNumber ≥ 2` | medium/high | — |
+
+### Travel ↔ Summit handoff
+
+Travel cluster still overrides on the travel day itself. The single intentional co-fire is `conferenceNightBeforeSummit` reading `yesterdayWasTravelDay` / `travelDay` to escalate evening framing toward "offload travel + ground for summit."
+
+### Signal source
+
+All mechanical conference fields (`conferenceDayNumber`, `speakingBlocksToday`, `hasFullDayConferenceWrapper`, `firstSessionGapMinutesToday`, `conferenceDaysInTrailing4`, `trailingConferenceLoad`, `nextThreeDaysMeetingCount`, `conferenceStartsTomorrow`, `conferenceDayNumberYesterday`, `conferenceTotalDays`, `conferenceEventTitle`) are populated by `_shared/brief-signal-coverage.ts` for **all** surfaces (brief, plan, nudge). User-tag overrides (`userTaggedConferenceToday`, `userTaggedSpeakingToday`) and post-MVP `conferenceSocialLoadHigh` are written by the Edge consumer.
+
+### MVP boundaries
+
+- No 24h advance prep for speaking — proximity-only (morning + 45-min + night-before-summit).
+- No automatic presenting-vs-attending beyond regex + user override.
+- No social-load fusion yet — `conferenceSocialLoadHigh` is a stub field.
+- No UI for user-tagging conference/speaking days (follow-up).
+- `SHARED_MODULES_ENABLED` stays OFF until Phase 4.
 3. One week of parity logging (console-first) shows no diffs against legacy detectors.
