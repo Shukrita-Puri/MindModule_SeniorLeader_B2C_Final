@@ -105,16 +105,31 @@ export function conferenceDayAttend(ctx: RuleContext): BehaviourFlag | null {
   if (!isConferenceDay(s)) return null;
   if (hasSpeakingToday(s)) return null; // attend+speak rule wins
 
-  const severity = amplifyByDayCount("low", s.conferenceDayNumber);
+  // Engagement-led base: a true "attend & explore" day has zero parallel
+  // meetings (the user is browsing sessions, learning, no people-load).
+  // Anything ≥1 parallel meeting is active engagement (in-venue 1:1s OR
+  // external meetings clocked in alongside the summit) → social/cognitive
+  // load is materially higher even on Day 1.
+  const parallel = s.conferenceParallelMeetingsToday ?? 0;
+  const engagementBase: Severity =
+    parallel >= 3 ? "high" : parallel >= 1 ? "medium" : "low";
+  const severity = amplifyByDayCount(engagementBase, s.conferenceDayNumber);
   const day = s.conferenceDayNumber!;
+  const engagementTag =
+    parallel >= 1
+      ? `attend + ${parallel} parallel meeting${parallel === 1 ? "" : "s"}`
+      : "attend-only (exploring)";
+  const framing =
+    parallel >= 1
+      ? "attend + parallel meetings · morning intent now; protect a recovery beat between blocks; end-of-day offload · prevents social/cognitive load compounding"
+      : "attend-only conference day · morning intent + end-of-day offload · prevents cumulative fatigue across the event";
   return {
     rule: "conferenceDayAttend",
     severity,
-    evidence: [`conference day ${day}`, "attend-only"],
+    evidence: [`conference day ${day}`, engagementTag],
     anchorEvent: s.conferenceEventTitle ?? undefined,
     stake: "Physical Recovery",
-    copyHint:
-      `attend-only conference day · morning intent + end-of-day offload · prevents cumulative fatigue across the event · open-plan`,
+    copyHint: `${framing} · open-plan`,
   };
 }
 
