@@ -102,6 +102,38 @@ Deno.test("conferenceDayAttend: suppressed when speaking blocks exist", () => {
   assertEquals(flag, null);
 });
 
+Deno.test("conferenceDayAttend: parallel meetings promote severity above day-count alone", () => {
+  // Day 1, exploring only → low
+  const explore = conferenceDayAttend(ctx({}, {
+    conferenceDayNumber: 1, hasFullDayConferenceWrapper: true,
+    conferenceParallelMeetingsToday: 0,
+  }));
+  assertEquals(explore!.severity, "low");
+  assert(explore!.evidence.includes("attend-only (exploring)"));
+
+  // Day 1, 1 parallel meeting → medium (engagement-led, not day-count-led)
+  const oneMtg = conferenceDayAttend(ctx({}, {
+    conferenceDayNumber: 1, hasFullDayConferenceWrapper: true,
+    conferenceParallelMeetingsToday: 1,
+  }));
+  assertEquals(oneMtg!.severity, "medium");
+  assert(oneMtg!.copyHint.includes("parallel meetings"));
+
+  // Day 1, 3 parallel meetings → high
+  const dense = conferenceDayAttend(ctx({}, {
+    conferenceDayNumber: 1, hasFullDayConferenceWrapper: true,
+    conferenceParallelMeetingsToday: 3,
+  }));
+  assertEquals(dense!.severity, "high");
+
+  // Day 2 + 1 parallel meeting → high (medium base × +1 day amplifier)
+  const d2 = conferenceDayAttend(ctx({}, {
+    conferenceDayNumber: 2, hasFullDayConferenceWrapper: true,
+    conferenceParallelMeetingsToday: 1,
+  }));
+  assertEquals(d2!.severity, "high");
+});
+
 // ─── conferenceDayWithSpeaking ────────────────────────────────────────────
 
 Deno.test("conferenceDayWithSpeaking: fires at high severity, names the speaking block", () => {

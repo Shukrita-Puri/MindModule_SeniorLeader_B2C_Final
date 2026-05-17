@@ -276,6 +276,14 @@ export interface SignalMatrix {
   /** Tomorrow is Day 1 of a multi-day conference chain AND today is not. */
   conferenceStartsTomorrow?: boolean;
 
+  /** Count of timed non-speaking, non-wrapper meetings on a conference day.
+   *  Proxies active social/cognitive engagement *parallel* to the summit
+   *  (people-meetings inside the venue OR external meetings clocked in
+   *  alongside the event). Drives severity for `conferenceDayAttend` — a
+   *  pure attend-only "exploring & learning" day has 0; anything ≥1
+   *  promotes severity beyond the day-count amplifier. */
+  conferenceParallelMeetingsToday?: number;
+
   // --- Triangulation (Edge writes; .ts only reads) ---
   /** User explicitly tagged today as a conference day. Overrides regex miss. */
   userTaggedConferenceToday?: boolean;
