@@ -43,6 +43,11 @@ import from `events/*` directly. Scheduled for deletion next release.
 - **Engines ≠ taxonomy.** Runtime derivations (`detect*`, `buildMorningContext`,
   etc.) live in `state-engines.ts`. Do not move them into taxonomy files.
 - **Cross-layer drift is caught at boot** by `events/cross-layer.test.ts`.
+- **§3 inventory is canonical.** `EVENT_CATEGORIES[id].triggers` holds the
+  verbatim §3 events list per pillar. Subtype `bucket` strings in
+  `events/event-subtypes.ts` must equal the parent category's `name` —
+  enforced by `cross-layer.test.ts`. Features rendering trigger lists MUST
+  read from `EVENT_CATEGORIES[id].triggers`; never inline.
 
 ## Future-feature pattern
 
