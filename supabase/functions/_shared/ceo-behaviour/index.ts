@@ -30,13 +30,33 @@ import { postPeakHangover } from "./post-peak.ts";
 // --- Conference cluster ---
 import { conferenceDepletion } from "./conference.ts";
 
-// --- Batch 2/3 cluster placeholders (no exports yet; referenced for traceability) ---
-import "./weekend.ts";
-import "./pto-holiday.ts";
-import "./travel.ts";
-import "./high-stakes-prep.ts";
-import "./back-to-back.ts";
-import "./multi-calendar.ts";
+// --- Batch 2 clusters ---
+import {
+  weekendMorningLightTouch,
+  weekendWithMeeting,
+  fullWorkingWeekend,
+  weekendDeepWorkBlock,
+  sundayEveningWeekAhead,
+} from "./weekend.ts";
+import {
+  holidayReducedTouch,
+  ptoWithMeetingFallback,
+} from "./pto-holiday.ts";
+import {
+  travelPreFlightMandatory,
+  travelLandingOffload,
+  travelLandingPlusHighStakes,
+  longHaulRecovery,
+  postTripReentry,
+} from "./travel.ts";
+import { advancePrep24h } from "./high-stakes-prep.ts";
+import {
+  backToBackLoadOverride,
+  meetingPrepCliff,
+} from "./back-to-back.ts";
+import { multiCalendarLoad } from "./multi-calendar.ts";
+
+// --- Batch 3 placeholders (still empty) ---
 import "./decision-density.ts";
 import "./stubs.ts";
 
@@ -51,6 +71,23 @@ export {
   sundayReset,
   notificationIsProduct,
   conferenceDepletion,
+  // Batch 2
+  weekendMorningLightTouch,
+  weekendWithMeeting,
+  fullWorkingWeekend,
+  weekendDeepWorkBlock,
+  sundayEveningWeekAhead,
+  holidayReducedTouch,
+  ptoWithMeetingFallback,
+  travelPreFlightMandatory,
+  travelLandingOffload,
+  travelLandingPlusHighStakes,
+  longHaulRecovery,
+  postTripReentry,
+  advancePrep24h,
+  backToBackLoadOverride,
+  meetingPrepCliff,
+  multiCalendarLoad,
 };
 
 /**
@@ -68,4 +105,32 @@ export const ALL_RULES: ScopedRule[] = [
   { scopes: ["brief", "plan", "nudge"], fn: sundayReset },
   { scopes: ["nudge"],                  fn: notificationIsProduct },
   { scopes: ["brief", "plan", "nudge"], fn: conferenceDepletion },
+
+  // --- Batch 2: Weekend ladder (brief + plan; nudge timing handled in smart-nudges) ---
+  { scopes: ["brief", "plan", "nudge"], fn: fullWorkingWeekend },
+  { scopes: ["brief", "plan", "nudge"], fn: weekendWithMeeting },
+  { scopes: ["brief", "plan", "nudge"], fn: weekendDeepWorkBlock },
+  { scopes: ["brief", "plan", "nudge"], fn: sundayEveningWeekAhead },
+  { scopes: ["brief", "nudge"],         fn: weekendMorningLightTouch },
+
+  // --- Batch 2: PTO / Holiday ---
+  { scopes: ["brief", "nudge"],         fn: holidayReducedTouch },
+  { scopes: ["brief", "plan", "nudge"], fn: ptoWithMeetingFallback },
+
+  // --- Batch 2: Travel (overrides every other cluster when active) ---
+  { scopes: ["brief", "plan", "nudge"], fn: travelPreFlightMandatory },
+  { scopes: ["brief", "plan", "nudge"], fn: travelLandingOffload },
+  { scopes: ["brief", "plan", "nudge"], fn: travelLandingPlusHighStakes },
+  { scopes: ["brief", "plan", "nudge"], fn: longHaulRecovery },
+  { scopes: ["brief", "plan"],          fn: postTripReentry },
+
+  // --- Batch 2: High-stakes 24h prep ---
+  { scopes: ["brief", "plan", "nudge"], fn: advancePrep24h },
+
+  // --- Batch 2: Back-to-back + meeting-prep cliff ---
+  { scopes: ["brief", "plan", "nudge"], fn: backToBackLoadOverride },
+  { scopes: ["nudge"],                  fn: meetingPrepCliff },
+
+  // --- Batch 2: Multi-calendar load aggregation ---
+  { scopes: ["brief", "plan"],          fn: multiCalendarLoad },
 ];
