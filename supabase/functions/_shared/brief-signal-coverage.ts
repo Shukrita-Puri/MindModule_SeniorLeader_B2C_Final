@@ -14,7 +14,7 @@
 // generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
-import { EVENT_TYPES, classifyEvent } from "./executive-state-taxonomy.ts";
+import { classifyEvent } from "./executive-state-taxonomy.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
@@ -138,13 +138,10 @@ function minutesUntil(start: string | Date, now: Date): number {
 /** Returns true if the event title classifies into a People & Difficult
  *  Conversations / Influence-emotional / Visibility-personal slot per taxonomy. */
 function isEmotionalDrainEvent(title: string): boolean {
-  const classified = classifyEvent(title);
-  if (!classified) return false;
-  const ev = EVENT_TYPES.find((e) => e.id === classified);
+  const ev = classifyEvent(title);
   if (!ev) return false;
-  // Pillars D (People & Difficult Conversations) and emotional sub-events.
-  return ev.group === "D_people" ||
-    ev.group === "E_leadership" || // legacy alias for D
+  // Pillar D = People & Difficult Conversations (canonical categoryId).
+  return ev.categoryId === "D" ||
     /1on1|layoff|review|escalation|town hall|townhall|difficult/i.test(ev.id + " " + (ev.label || ""));
 }
 
