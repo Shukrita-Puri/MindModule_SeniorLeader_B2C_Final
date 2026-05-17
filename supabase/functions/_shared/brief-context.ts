@@ -206,6 +206,12 @@ export interface RuleContext {
     minutesUntil: number;
     stakesLevel?: string | null;
     isEmotionalDrain?: boolean;
+    // Batch 2/3 extensions — all optional, populated when source exposes them.
+    attendeeCount?: number;
+    durationMinutes?: number;
+    source?: string;
+    startsAtMinutesFromNow?: number;
+    endsAtMinutesFromNow?: number;
   }>;
   // Local hour at the user's timezone, used by §2.12 (midday window).
   localHour: number;
@@ -217,4 +223,16 @@ export interface RuleContext {
   historicalAppOpenRateLow?: boolean;
   /** Day number within a multi-day conference (1 = day 1). Undefined until schema lands. */
   conferenceDayNumber?: number;
+
+  // --- Batch 1 reserved — all optional, no rule reads these in Batch 1.
+  /** Meeting prep cliff (Batch 2). Gap to next high-stakes event in {5,15,30} buckets. */
+  nextPreEventGap?: { gapMinutes: number; nextEventTitle: string; nextEventStakes: string | null } | null;
+  /** PTO/Holiday cluster (Batch 2). All-day OOO/PTO/Vacation/Holiday event today. */
+  holidayAllDayEventToday?: { title: string } | null;
+  /** Travel cluster (Batch 2). End of last travel event (calendar-source landing signal). */
+  lastTravelEventEndedMinutesAgo?: number | null;
+  /** Crisis injection (Batch 3 stub). User-flagged unplanned high-stakes event. */
+  crisisEvent?: { title: string; minutesUntil: number } | null;
+  /** Time since last completed practice — for timeSinceLastRecovery stub (Batch 3). */
+  minutesSinceLastPractice?: number | null;
 }
