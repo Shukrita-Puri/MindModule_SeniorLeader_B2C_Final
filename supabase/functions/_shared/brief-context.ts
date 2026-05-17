@@ -178,6 +178,51 @@ export interface SignalMatrix {
   /** Decision density cluster (Batch 3) — rolling 4h score. */
   decisionDensityScore?: number | null;
   decisionDensityWindow?: "next-4h" | null;
+
+  // ---------------------------------------------------------------------------
+  // Batch 4 additive fields. All optional / nullable. No rule reads these until
+  // its cluster file is updated. See mem/architecture/ceo-behaviour-shared-
+  // module-ownership.md §"Phase 2 / Batch 4 boundary" for the contract.
+  // ---------------------------------------------------------------------------
+
+  // --- Travel shape (mechanical, populated by brief-signal-coverage) ---
+  /** Minutes until the FIRST travel event of the day. null unless 60–240. */
+  preFlightWindowMinutes?: number | null;
+  /** Minutes until the *connecting* leg of multi-leg travel. Set only when the
+   *  layover is short enough to be a true connection (i.e. WiFi-only in-flight
+   *  self-regulation window). Long gaps fall through to high-stakes prep or
+   *  remain silent (personal/PTO). Populated by Edge — triangulation. */
+  inFlightConnectionMinutes?: number | null;
+  /** Title of the next travel event (used for copy framing). */
+  nextTravelEventTitle?: string | null;
+  /** True if yesterday was a travel day. Used by postTripReentry copy. */
+  yesterdayWasTravelDay?: boolean;
+
+  // --- Day-shape (mechanical) ---
+  /** Today resolves to an away-day / OOO calendar mode. */
+  ptoModeToday?: boolean;
+  /** A meeting is scheduled inside the PTO day (override → ptoWithMeetingFallback). */
+  ptoMeetingPresent?: boolean;
+
+  // --- Triangulation-populated (Edge writes; .ts only reads) ---
+  /** "sun-pm" | "mon-am" | null. Edge sets when its triangulation
+   *  (mood × wearable-absence × calendar) concludes personal-friction window. */
+  personalFrictionWindow?: "sun-pm" | "mon-am" | null;
+  /** Drain event within next 24h (broader than next-4h variant used by
+   *  decisionLeakageGuard). Powers the plan-scope rule. */
+  emotionalDrainEventInNext24h?: { title: string; minutesUntil: number } | null;
+
+  // --- Delivery shape (nudge-cluster only; Edge populates from device telemetry) ---
+  /** Device connectivity state. null = unknown. */
+  deviceOnline?: boolean | null;
+  /** Do-Not-Disturb is currently active. */
+  dndActive?: boolean;
+  /** Minutes until DND ends. null when not in DND. */
+  dndEndsInMinutes?: number | null;
+  /** Airplane mode currently active on the device. */
+  airplaneModeActive?: boolean;
+  /** Minutes since device was last seen online. */
+  lastSeenOnlineMinutesAgo?: number | null;
 }
 
 /**
