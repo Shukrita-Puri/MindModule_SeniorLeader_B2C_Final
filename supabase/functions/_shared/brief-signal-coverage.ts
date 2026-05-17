@@ -1,11 +1,17 @@
-// OWNERSHIP: engineering. Assembles the §3 Signal Coverage Matrix from raw
-// inputs already fetched by the consumer (wearable row, check-in row, calendar
-// events, profile, pattern store).
+// OWNERSHIP: engineering.
+//
+// SINGLE SOURCE OF MECHANICAL SIGNAL COVERAGE for BRIEF, NUDGES and PLAN.
+// (The filename is legacy — predates the shared CEO-behaviour module. Do not
+// rename; many callers import from this path.)
+//
+// Every mechanical/deterministic signal that any surface rule reads is
+// derived here. Triangulation (mood × wearable × calendar fusion, user tags,
+// social-load inference) is the Edge consumer's job — it writes those fields
+// onto the matrix after calling `buildSignalMatrix`.
 //
 // This module is a pure builder: it does NOT fetch from the database. The
-// consumer (typically compute-outer-readiness) is responsible for fetching and
-// passes the raw blocks in. Keeping IO out of this file is what makes the
-// matrix unit-testable.
+// consumer (typically compute-outer-readiness, smart-nudges-evaluator, or
+// generate-mastery-plan) is responsible for fetching and passes raw blocks in.
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { EVENT_TYPES, classifyEvent } from "./executive-state-taxonomy.ts";
