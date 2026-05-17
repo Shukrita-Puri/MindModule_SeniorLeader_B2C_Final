@@ -300,6 +300,24 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     firstSessionGapMinutesToday = gap >= 0 ? gap : null;
   }
 
+  // Parallel meetings on a conference day: timed events that are NOT the
+  // conference wrapper (≥240min OR matches CONFERENCE_RX) and NOT speaking
+  // sub-blocks. Counts both in-venue people-meetings and external meetings
+  // clocked in alongside the summit. Distinguishes "exploring & learning"
+  // (count=0) from "active engagement" (count≥1).
+  let conferenceParallelMeetingsToday = 0;
+  if (todayHasConferenceWrapper) {
+    for (const e of input.events) {
+      if (e.isAllDay) continue;
+      if (CONFERENCE_RX.test(e.title)) continue;          // the wrapper itself
+      if (SPEAKING_RX.test(e.title)) continue;            // covered by speaking rule
+      const dur = eventDurationMin(e);
+      if (typeof dur === "number" && dur >= 240) continue; // any long block ≈ wrapper
+      if (typeof dur === "number" && dur < 15) continue;   // ignore micro-holds
+      conferenceParallelMeetingsToday += 1;
+    }
+  }
+
   // Trailing 4-day conference day count (excluding today).
   let conferenceDaysInTrailing4 = 0;
   for (let d = 1; d <= 4; d += 1) {
@@ -397,6 +415,7 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     trailingConferenceLoad,
     nextThreeDaysMeetingCount,
     conferenceStartsTomorrow,
+    conferenceParallelMeetingsToday,
   };
 }
 
