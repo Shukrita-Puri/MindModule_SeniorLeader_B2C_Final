@@ -200,7 +200,7 @@ Deno.test("meetingPrepCliff suppressed when gap OK but no high-stakes AND no hea
   const flags = evaluate(
     ctx({
       backToBackHoursToday: 1,
-      nextPreEventGap: { gapMinutes: 45, nextEventTitle: "1:1 with PM", nextEventStakes: null },
+      nextPreEventGap: { gapMinutes: 45, nextEventTitle: "Coffee chat", nextEventStakes: null },
     }),
     { scope: "nudge" },
   );
