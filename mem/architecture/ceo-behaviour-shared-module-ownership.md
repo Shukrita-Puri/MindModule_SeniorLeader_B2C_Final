@@ -11,7 +11,9 @@ The following files are the single source of truth for CEO Self-Regulation logic
 - `supabase/functions/_shared/brief-signal-coverage.ts` — §3 matrix builder
 - `supabase/functions/_shared/copy-vocabulary.ts` — Elastic Lexicon, forbidden words, pattern triggers, V8 CTA verbs
 - `supabase/functions/_shared/brief-validators.ts` — §5.1 / §5.2 validators
-- `supabase/functions/_shared/event-protocol-taxonomy.ts` — §2 protocol combos + §3 event matrix + `classifyEvent` / `protocolsForEvent` / `PRACTICE_TYPE_TO_COMBO`
+- `supabase/functions/_shared/protocols/protocol-combos.ts` — §2 six protocol combinations + `PRACTICE_TYPE_TO_COMBO` / `comboFor` (clinical primitive; coaching-owned)
+- `supabase/functions/_shared/events/event-categories.ts` — §3 eight CEO event pillars A–H + `classifyEvent` (taxonomy; coaching + engineering)
+- `supabase/functions/_shared/events/event-phase-map.ts` — §4 per-category Pre/During/Post prescriptions (timing, combo, goal, preventsBuilds, severityHint) + `protocolsForEvent` / `phaseForEvent`
 
 **Rule:** Trigger logic, severity thresholds, lexicon clusters, and forbidden-word lists in these files do NOT change in a chat-driven session without an explicit human request. They have ownership banners at the top of each file. Add new rules / lexicon entries via a normal code-review PR, not by asking the chat agent to "tune" them.
 
@@ -19,19 +21,33 @@ The following files are the single source of truth for CEO Self-Regulation logic
 
 **How to apply:** When the user asks for a copy or trigger change that touches §2.11–§2.17 / §2.20 / §5: confirm the change in chat, then edit the file with the change explicitly named in the response. Never refactor or "clean up" these files as a side-effect of unrelated work.
 
-## Two-file taxonomy split
+## Three-file taxonomy split (replaces the legacy `event-protocol-taxonomy.ts`)
 
-- `executive-state-taxonomy.ts` owns **pillar / stakes / keyword** vocabulary. Cadence: product / copy decisions.
-- `event-protocol-taxonomy.ts` owns **§2 combos + §3 event matrix + classifyEvent**. Cadence: coaching / clinical decisions.
-- Different change pressure → different files. Consumers never import from either taxonomy file directly for behaviour decisions; they call `behaviour-evaluator.evaluate(ctx, { scope })`.
+The doc has three distinct concerns at three different rates of change. Each gets its own file so coaching can iterate §4 without destabilising §2 or §3, and so non-event features can consume §2 without importing event code.
+
+| Layer | File | Doc § | Rate of change | Owner |
+|---|---|---|---|---|
+| Protocols | `protocols/protocol-combos.ts` | §2 | almost never | coaching |
+| Event categories | `events/event-categories.ts` | §3 | rare | coaching + eng |
+| Phase prescriptions | `events/event-phase-map.ts` | §4 | frequent | coaching |
+| Behaviour rules | `ceo-behaviour/*.ts` | §5 | frequent | engineering |
+| Prevents/Builds narrative | `docs/CEO_BEHAVIOUR_RULE_MAP.md` (and source doc) | §6 | rare | docs |
+
+Rules in `ceo-behaviour/*.ts` decide **when/whether** to fire; the phase map decides **what protocol** that nudge prescribes. Do NOT push §4 phase prescriptions into per-cluster behaviour files — that re-creates the overlap that prompted this split.
+
+`executive-state-taxonomy.ts` still owns **pillar / stakes / keyword** product vocabulary (separate concern, product/copy-owned). Consumers never import from any taxonomy file directly for behaviour decisions; they call `behaviour-evaluator.evaluate(ctx, { scope })`.
+
+### Future-feature overlay pattern
+
+Features needing specialised timing (e.g. a future sparring-partner feature that wants pre-event prep 7 days ahead) must NOT duplicate `EVENT_PHASE_MAP`. Instead, create `features/<feature>/phase-overlay.ts` that extends the base map via a `mergePhaseMap(base, overlay)` helper. Shared taxonomy stays in `events/`; per-feature copy and timing live with the feature.
 
 ## `PRACTICE_TYPE_TO_COMBO` is the single source of truth
 
-The legacy `SlotBoost.practiceType` → `(protocol, mode)` mapping lives **only** in `event-protocol-taxonomy.ts`. In Phase 2, `generate-mastery-plan` must import this constant and stop using string literals. Do not duplicate the mapping in plan-side code. If a second copy appears in review, reject the PR.
+The legacy `SlotBoost.practiceType` → `(protocol, mode)` mapping lives **only** in `protocols/protocol-combos.ts`. In Phase 2, `generate-mastery-plan` must import this constant and stop using string literals. Do not duplicate the mapping in plan-side code. If a second copy appears in review, reject the PR.
 
 ## Phase 2 classification-path audit (write down now, execute later)
 
-Before wiring `compute-outer-readiness`, `smart-nudges`, and `generate-mastery-plan` to `event-protocol-taxonomy`, grep consumer edge functions for direct imports of `executive-state-taxonomy.ts`. Any consumer using stakes / keyword lookups to make event-classification decisions that `classifyEvent()` now handles must migrate to the new function. Do not leave two classification paths running in parallel — that's how silent drift starts.
+Before wiring `compute-outer-readiness`, `smart-nudges`, and `generate-mastery-plan` to `events/event-categories.ts`, grep consumer edge functions for direct imports of `executive-state-taxonomy.ts`. Any consumer using stakes / keyword lookups to make event-classification decisions that `classifyEvent()` now handles must migrate to the new function. Do not leave two classification paths running in parallel — that's how silent drift starts.
 
 ## Scoped rules
 
