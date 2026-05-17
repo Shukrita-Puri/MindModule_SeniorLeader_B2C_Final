@@ -29,7 +29,116 @@
  *            evaluate for evidence pills but Travel framing wins).
  */
 
-// Batch 2 will implement: travelPreFlightMandatory, travelLandingOffload,
-// travelLandingPlusHighStakes, longHaulRecovery, postTripReentry.
+import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
-export {};
+/**
+ * Compute the post-landing protected window.
+ *   - If a meeting exists within 30-60min of landing → that meeting drives prep
+ *     (window collapses to "prep ahead of it" framing).
+ *   - Long-haul (≥3h): 90min default.
+ *   - Short-haul: 60min default.
+ * Caller passes ctx.lastTravelEventEndedMinutesAgo (>=0).
+ */
+function landingWindowMinutes(ctx: RuleContext): number {
+  const longHaul =
+    !!ctx.signals.longHaulFlight && ctx.signals.longHaulFlight.durationHours >= 3;
+  return longHaul ? 90 : 60;
+}
+
+function landingActive(ctx: RuleContext): boolean {
+  return ctx.signals.travelLandingDetected === true;
+}
+
+/** Travel day, no landing yet → pre-flight mandatory self-regulation. */
+export function travelPreFlightMandatory(ctx: RuleContext): BehaviourFlag | null {
+  if (!ctx.signals.travelDay) return null;
+  if (landingActive(ctx)) return null;
+
+  return {
+    rule: "travelPreFlightMandatory",
+    severity: "medium",
+    evidence: ["travel day", "pre-flight window"],
+    stake: "Operational Drive",
+    copyHint:
+      "anchor to pre-flight self-regulation — one somatic + one orientation pass; protect arrival state, not departure speed",
+  };
+}
+
+/** Landed, no high-stakes follow-up → decompress, hold cadence quiet for the window. */
+export function travelLandingOffload(ctx: RuleContext): BehaviourFlag | null {
+  if (!landingActive(ctx)) return null;
+
+  const next = ctx.signals.highStakesEventInNext24h;
+  if (next && next.minutesUntil <= 24 * 60) return null; // landingPlusHighStakes owns this
+
+  const since = ctx.lastTravelEventEndedMinutesAgo ?? 0;
+  const window = landingWindowMinutes(ctx);
+  const insideWindow = since <= window;
+
+  return {
+    rule: "travelLandingOffload",
+    severity: insideWindow ? "high" : "medium",
+    evidence: [
+      "landing detected",
+      `T+${Math.max(0, since)}min`,
+      `window ${window}min`,
+    ],
+    stake: "Internal Buffer",
+    copyHint:
+      "decompression frame — immigration/transit overhead is real; one body-down practice, no app-open CTA inside the protected window",
+  };
+}
+
+/** Landed AND a high-stakes meeting is in next 24h → offload then sharpen for the meeting. */
+export function travelLandingPlusHighStakes(ctx: RuleContext): BehaviourFlag | null {
+  if (!landingActive(ctx)) return null;
+  const next = ctx.signals.highStakesEventInNext24h;
+  if (!next) return null;
+
+  // If meeting is within 30-60min of landing, the meeting itself drives prep timing.
+  const meetingDrivesPrep = next.minutesUntil <= 60;
+
+  return {
+    rule: "travelLandingPlusHighStakes",
+    severity: meetingDrivesPrep || next.minutesUntil <= 240 ? "high" : "medium",
+    evidence: [
+      "landing detected",
+      `next high-stakes in ${next.minutesUntil}min`,
+    ],
+    anchorEvent: next.title,
+    stake: "Executive Presence",
+    copyHint: meetingDrivesPrep
+      ? "no protected window — the meeting drives prep timing; one focused regulation pass (can be done in transit), then enter the call"
+      : "decompress first, then sharpen — sequence matters; do not skip the body-down step to over-prep the slides",
+  };
+}
+
+/** Long-haul flight (≥3h), return day → full decompression in evening slot. */
+export function longHaulRecovery(ctx: RuleContext): BehaviourFlag | null {
+  const lh = ctx.signals.longHaulFlight;
+  if (!lh || lh.durationHours < 3) return null;
+  if (!ctx.signals.travelDay && !landingActive(ctx)) return null;
+
+  return {
+    rule: "longHaulRecovery",
+    severity: "high",
+    evidence: [`long-haul ${lh.durationHours}h`],
+    stake: "Operational Drive",
+    copyHint:
+      "long-haul carries a multi-day cost — evening practice is non-negotiable; sleep window > performance theatre tonight",
+  };
+}
+
+/** Yesterday was travel + next-day density is medium/high → reentry-risk framing. */
+export function postTripReentry(ctx: RuleContext): BehaviourFlag | null {
+  if (!ctx.signals.postTripReentryRisk) return null;
+
+  return {
+    rule: "postTripReentry",
+    severity: "medium",
+    evidence: ["post-trip reentry", "tomorrow heavy"],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "reentry is its own load — do not treat today as a normal workday; protect the first 90 minutes tomorrow with a hard orientation block",
+  };
+}
