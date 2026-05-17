@@ -40,3 +40,31 @@ Every entry in `ALL_RULES` declares `scopes: RuleScope[]` (`"brief"` | `"nudge"`
 ## Stub-rule pattern
 
 `personalFrictionInference` and `conferenceDepletion` return `null` today. They reserve the `BehaviourFlag` API surface so Phase 2 wiring is reviewed once. When the underlying data lands (≥3 weeks per-user history; `conference_day_number` field), only `brief-signal-coverage.ts` changes to populate the field — the rules, flag shapes, and downstream consumers remain identical.
+
+## MIGRATE-FROM-EDGE inventory (Phase 2 deletion targets)
+
+Once `SHARED_MODULES_ENABLED` is flipped and consumers route through `evaluate({ scope })`, the following duplicate detector blocks become deletion targets. **Do not delete in the same PR as wiring** — flip the flag, observe one week of brief/nudge/plan output parity, then delete.
+
+### `supabase/functions/generate-mastery-plan/index.ts`
+
+- **Lines ~3195–3370** — `detectCeoRealities(req, shared)` + `strategicAnchorClause` + `tacticalClause` + `immediateClause`. Returns `CeoRealityTag[]` (`veto_risk`, `circadian_travel`, `decision_leakage`, `post_peak_hangover`, `personal_friction`, `board_outcome`, `public_holiday`, `personal_pto`).
+- **Replacement:** `evaluate(ctx, { scope: "plan" }).filter(...)` — every tag has a 1:1 shared rule, except:
+  - `decision_leakage` legacy fires on `within24h.some(DRAIN_RX)` gated on drained mood OR `hrvDeviation < -15`. Shared `decisionLeakageGuard` fires on `signals.emotionalDrainEventInNext4h` — **narrower window, no mood gate**. Migration must add the legacy 24h+mood gate to brief-signal-coverage *before* deletion, or the plan loses recall.
+  - `personal_friction` legacy uses Sun-pm / Mon-am + drained + no wearable deficit; shared `personalFrictionInference` returns `null` (stub). Migration must implement detector first.
+  - `circadian_travel` legacy fires from `TRAVEL_RX` match in ±48h window; shared travel cluster (`travelPreFlightMandatory`, `travelLandingOffload`, `longHaulRecovery`, `postTripReentry`) is finer-grained. Map legacy → union of new rules; copy must be re-validated.
+
+### `supabase/functions/smart-nudges/index.ts`
+
+- **Lines ~940–1041** — `dayContext` builder: `preFlight` / `inFlight` / `postTravel` / `ptoMode` + `buildDayShapeLine`.
+- **Replacement:** read `evaluate(ctx, { scope: "nudge" })` for flags `travelPreFlightMandatory`, `travelLandingOffload`, `travelLandingPlusHighStakes`, `longHaulRecovery`, `postTripReentry`, `holidayReducedTouch`, `ptoWithMeetingFallback`. `buildDayShapeLine` becomes a thin formatter over `flag.copyHint`.
+- **Conflict to resolve:** legacy `preFlight` window is 60-240min; shared `travelPreFlightMandatory` fires on `signals.travelDay`. Migration must populate `preFlight` window into a SignalMatrix field (`preFlightWindowMinutes`) before deletion, or nudge timing shifts.
+
+### Conflicting copy contracts (raise before flipping flag)
+
+1. **Day-shape line vs cluster pill.** Brief currently surfaces cluster pills (`Weekend · restoring`); plan/smart-nudges use `buildDayShapeLine` prose. Both can co-exist while flag is off, but Phase 2 must pick one source for the prose. Recommend `flag.copyHint` as canon and have surfaces format it.
+2. **`decisionDensity` is NEW.** No legacy equivalent — safe to ship with flag ON for brief/nudge, OFF for plan (plan already has slot-pressure heuristics that may double-count).
+3. **Stubs (`stackedStakes`, `crisisInjection`, `contextSwitchingCost`, `preEventSleepTarget`, `timeSinceLastRecovery`, `interpersonalMeetingContext`, `emptySlotProtection`, `upwardReporting`) return null.** No code paths exist in edge functions for these — they are net-new API surface. Wire safe.
+
+### Phase 2 gating flag
+
+`SHARED_MODULES_ENABLED` (env or const, TBD at wiring time). When `false`: shared modules are still imported and tested but consumers ignore their output and use legacy detectors. When `true`: consumers consume `evaluate({ scope })` output and legacy detectors run in shadow for one week of parity logging, then are deleted in a follow-up PR.

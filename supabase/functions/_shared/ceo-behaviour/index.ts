@@ -56,9 +56,18 @@ import {
 } from "./back-to-back.ts";
 import { multiCalendarLoad } from "./multi-calendar.ts";
 
-// --- Batch 3 placeholders (still empty) ---
-import "./decision-density.ts";
-import "./stubs.ts";
+// --- Batch 3 clusters ---
+import { decisionDensity } from "./decision-density.ts";
+import {
+  stackedStakes,
+  crisisInjection,
+  contextSwitchingCost,
+  preEventSleepTarget,
+  timeSinceLastRecovery,
+} from "./stubs.ts";
+import { interpersonalMeetingContext } from "./interpersonal.ts";
+import { emptySlotProtection } from "./empty-slot.ts";
+import { upwardReporting } from "./upward-reporting.ts";
 
 export {
   vetoRisk,
@@ -88,6 +97,16 @@ export {
   backToBackLoadOverride,
   meetingPrepCliff,
   multiCalendarLoad,
+  // Batch 3
+  decisionDensity,
+  interpersonalMeetingContext,
+  emptySlotProtection,
+  upwardReporting,
+  stackedStakes,
+  crisisInjection,
+  contextSwitchingCost,
+  preEventSleepTarget,
+  timeSinceLastRecovery,
 };
 
 /**
@@ -133,4 +152,17 @@ export const ALL_RULES: ScopedRule[] = [
 
   // --- Batch 2: Multi-calendar load aggregation ---
   { scopes: ["brief", "plan"],          fn: multiCalendarLoad },
+
+  // --- Batch 3: Decision density (rolling 4h window) ---
+  { scopes: ["brief", "plan", "nudge"], fn: decisionDensity },
+
+  // --- Batch 3 stubs (API surface locked; null until detectors land) ---
+  { scopes: ["brief", "plan", "nudge"], fn: interpersonalMeetingContext },
+  { scopes: ["plan", "nudge"],          fn: emptySlotProtection },
+  { scopes: ["brief", "plan", "nudge"], fn: upwardReporting },
+  { scopes: ["brief", "plan", "nudge"], fn: stackedStakes },
+  { scopes: ["brief", "plan", "nudge"], fn: crisisInjection },
+  { scopes: ["brief", "plan", "nudge"], fn: contextSwitchingCost },
+  { scopes: ["nudge"],                  fn: preEventSleepTarget },
+  { scopes: ["nudge"],                  fn: timeSinceLastRecovery },
 ];
