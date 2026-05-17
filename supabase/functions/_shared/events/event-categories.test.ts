@@ -11,7 +11,19 @@ Deno.test("every category has user-friendly name, focus, and protocol contract",
     assert(c.name.length > 0, `${c.id} missing name`);
     assert(c.selfRegulationFocus.length > 0, `${c.id} missing focus`);
     assert(c.protocol, `${c.id} missing protocol`);
+    assert(Array.isArray(c.triggers) && c.triggers.length >= 6, `${c.id} needs ≥6 §3 triggers`);
   }
+});
+
+Deno.test("selfRegulationFocus carries doc-anchor phrases per pillar", () => {
+  assert(EVENT_CATEGORIES.A.selfRegulationFocus.includes("Leadership Variable"));
+  assert(EVENT_CATEGORIES.B.selfRegulationFocus.toLowerCase().includes("persuasion crash"));
+  assert(EVENT_CATEGORIES.C.selfRegulationFocus.toLowerCase().includes("arousal"));
+  assert(EVENT_CATEGORIES.D.selfRegulationFocus.toLowerCase().includes("emotional labour"));
+  assert(EVENT_CATEGORIES.E.selfRegulationFocus.toLowerCase().includes("flow"));
+  assert(EVENT_CATEGORIES.F.selfRegulationFocus.toLowerCase().includes("progressive daily recovery"));
+  assert(EVENT_CATEGORIES.G.selfRegulationFocus.toLowerCase().includes("circadian"));
+  assert(EVENT_CATEGORIES.H.selfRegulationFocus.toLowerCase().includes("habit"));
 });
 
 Deno.test("FRAMEWORK_PILLARS alias mirrors EVENT_CATEGORIES", () => {

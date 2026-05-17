@@ -19,3 +19,20 @@ Deno.test("every EVENT_PHASE_MAP id matches a category, combo resolves", () => {
     }
   }
 });
+
+Deno.test("every subtype's bucket equals its category name (§3 inventory alignment)", () => {
+  for (const et of EVENT_TYPES) {
+    const cat = EVENT_CATEGORIES[et.categoryId];
+    assert(cat, `${et.id} unknown categoryId`);
+    assert(
+      et.bucket === cat.name,
+      `${et.id} bucket "${et.bucket}" ≠ category.name "${cat.name}" — §3 drift`,
+    );
+  }
+});
+
+Deno.test("every category exposes a non-empty §3 triggers inventory", () => {
+  for (const cat of Object.values(EVENT_CATEGORIES)) {
+    assert(cat.triggers.length >= 6, `${cat.id} triggers list too short`);
+  }
+});
