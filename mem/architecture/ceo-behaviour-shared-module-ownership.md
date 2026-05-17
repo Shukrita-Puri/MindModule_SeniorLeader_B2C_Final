@@ -68,3 +68,57 @@ Once `SHARED_MODULES_ENABLED` is flipped and consumers route through `evaluate({
 ### Phase 2 gating flag
 
 `SHARED_MODULES_ENABLED` (env or const, TBD at wiring time). When `false`: shared modules are still imported and tested but consumers ignore their output and use legacy detectors. When `true`: consumers consume `evaluate({ scope })` output and legacy detectors run in shadow for one week of parity logging, then are deleted in a follow-up PR.
+
+## Batch 4 — boundary lock & Phase 2 pause
+
+The Batch 4 PR series **completes the `.ts` rule-shape library** but does **not** flip `SHARED_MODULES_ENABLED`. Production behaviour is unchanged. Legacy detectors in `generate-mastery-plan` (lines ~3195–3485) and `smart-nudges` (lines ~937–1041 + `dayContext`/`buildDayShapeLine`) are still authoritative.
+
+### What belongs in `_shared/ceo-behaviour/` (rule shapes)
+
+- Time-window predicates over already-computed signals.
+- Day-shape classification (weekday / weekend / PTO / holiday / conference / travel-day).
+- Calendar taxonomy lookups (high-stakes, interpersonal, deep work, board-level outcome).
+- Stable `copyHint` strings + practice-type boosts tied to a single rule firing.
+- **Delivery-shape predicates** (offline → defer, DND → suppress, stale → drop, batch-on-return). Ported from smart-nudges in Batch 4.
+- Pure functions: `(RuleContext) => BehaviourFlag | null`.
+
+### What stays in Edge / LLM (triangulation + delivery execution)
+
+- Mood × energy × HRV fusion ("are they actually drained?").
+- Wearable-absence policy (40% of users have no device; null-vs-false interpretation).
+- Multi-signal severity arbitration when several rules fire on the same surface.
+- Final LLM copy generation, V8 validators, CTA verb selection.
+- The actual push-queue mechanics that hold and re-fire deferred nudges. The `.ts` rule says "defer until online"; the edge function owns the outbox, the APNS token lookup, and the retry side-effect.
+- Per-surface dedupe across brief/nudge/plan.
+
+### Batch 4 decisions (confirmed by user)
+
+1. **`moodDrained` composition** — stays in Edge/LLM. Not a `SignalMatrix` field with rule-side logic.
+2. **HRV-as-mood OR-gate** — stays in Edge/LLM.
+3. **`personal_friction` wearable-null handling** — stays in Edge/LLM. `personalFrictionInference` remains a typed stub; Edge populates `signals.personalFrictionWindow`.
+4. **`preFlightWindowMinutes` for multi-leg travel** — owned by the **first** travel event of the day (mechanical in `brief-signal-coverage.ts`). The **connecting leg** earns its own in-flight nudge only when the layover is short enough to be a true connection (assume WiFi for during-flight self-regulation). Long gap (≥ ~9–10h) with a meeting on the calendar → falls through to `advancePrep24h` / high-stakes prep. Long gap without a meeting → assume personal/PTO, stay silent. The "is this a true connection?" call lives in Edge; the rule (`travelInFlightConnection`) only fires when Edge writes `inFlightConnectionMinutes`.
+4b. **Offline / DND / airplane-mode deferral** — moved INTO `_shared/ceo-behaviour/delivery.ts` as policy shape. Side effects (outbox, retry, APNS dispatch) stay in the edge function.
+5. **Parity logging destination** — deferred to Phase 4. Recommendation when we flip: console for week 1; promote to `behaviour_parity_log` table only if diffs need quantifying.
+
+### Batch 4 additions to `SignalMatrix`
+
+Additive, all optional / nullable. Mechanical fields populated by `brief-signal-coverage.ts`. Triangulation + delivery fields populated by the Edge consumer before calling `evaluate({ scope })` — until then they remain `undefined`/`null` and the corresponding rules stay silent.
+
+- `preFlightWindowMinutes`, `inFlightConnectionMinutes`, `nextTravelEventTitle`, `yesterdayWasTravelDay`
+- `ptoModeToday`, `ptoMeetingPresent`
+- `personalFrictionWindow`, `emotionalDrainEventInNext24h`
+- `deviceOnline`, `dndActive`, `dndEndsInMinutes`, `airplaneModeActive`, `lastSeenOnlineMinutesAgo`
+
+### Batch 4 new rules
+
+- `decisionLeakageGuardPlan` (workweek.ts, plan-scope only) — 24h tail of decision-leakage. Suppresses itself when the 4h-window rule will already fire.
+- `travelInFlightConnection` (travel.ts, nudge-scope only) — fires only when Edge sets `inFlightConnectionMinutes`.
+- `nudgeDeferOffline`, `nudgeSuppressDND`, `nudgeStaleSkip`, `nudgeBatchOnReturn` (delivery.ts, nudge-scope only) — ported policy from smart-nudges.
+
+### Cross-reference appendix
+
+See `docs/CEO_BEHAVIOUR_RULE_MAP.md` for the full rule → doc-section → Edge/LLM seam table.
+
+### Phase 2 / Phase 4 status
+
+**PAUSED.** Will only resume when Edge/LLM populates the triangulation fields above. Until then, every Batch 4 rule that depends on a triangulation field stays silent in production (its signal is `null`/`undefined`).
