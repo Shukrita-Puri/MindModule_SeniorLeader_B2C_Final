@@ -26,6 +26,28 @@
  * HELPER FILE: calendar-dedupe.ts (Batch 2).
  */
 
-// Batch 2 will implement: multiCalendarLoad (+ calendar-dedupe.ts helper).
+import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
-export {};
+/**
+ * Cross-cutting load aggregation flag.
+ * Upstream (brief-signal-coverage) is responsible for running calendar-dedupe.ts
+ * and populating signals.calendarSources + signals.backToBackHoursAggregated.
+ */
+export function multiCalendarLoad(ctx: RuleContext): BehaviourFlag | null {
+  const sources = ctx.signals.calendarSources ?? [];
+  const aggHours = ctx.signals.backToBackHoursAggregated ?? 0;
+  if (sources.length < 2) return null;
+  if (aggHours < 4) return null;
+
+  return {
+    rule: "multiCalendarLoad",
+    severity: aggHours >= 6 ? "high" : "medium",
+    evidence: [
+      `${sources.length} calendars`,
+      `aggregated ${aggHours}h back-to-back`,
+    ],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "load is spread across calendars — true demand is higher than any single feed shows; calibrate framing to the aggregate, not the loudest source",
+  };
+}
