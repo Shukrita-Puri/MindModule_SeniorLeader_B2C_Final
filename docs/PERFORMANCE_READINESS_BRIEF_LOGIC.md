@@ -105,6 +105,29 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 | Coach sessions | leanOn, watchFor for session context |
 | JIT nudges | `coachInsightAge`, `nextHighStakesEvent` |
 
+### 1.3 Where Each Piece of Logic Lives (v6.2)
+
+| Concern | Lives in | Notes |
+|---------|----------|-------|
+| Pill rendering + composition | `src/components/home/DecisionReadinessBrief.tsx` (`composePillar`, per-input contribs) | **Duplicated** with edge-side composition — §15 candidate to lift to `_shared/pillars/`. |
+| Inner readiness score | `compute-inner-readiness` edge fn | Pure scoring; called by client. |
+| Outer readiness pipeline | `compute-outer-readiness` edge fn | Q1–Q16 enrichment, LLM dispatch, snapshot cache, response assembly. |
+| Event taxonomy (A–H pillars, 30 subtypes, classifier, phase map) | `supabase/functions/_shared/events/*` | Single source — never restated in edge fn. |
+| CEO behaviour rules (veto/second-wind/decision-leakage/post-peak/board-level/travel/weekend/PTO/conference/density/back-to-back/multi-cal/etc.) | `supabase/functions/_shared/ceo-behaviour/*` | Catalogue: `docs/CEO_BEHAVIOUR_RULE_MAP.md`. Brief consumes via `evaluate({scope:"brief"})`. |
+| LLM system + user prompt | `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md` (canonical) + assembled at runtime by edge fn | Prompt versioned with `BRIEF_PROMPT_VERSION`. |
+| Snapshot cache | `brief_snapshots` table + edge fn upsert | Key: `(user_id, local_date, time_window, input_signature, prompt_version)`. |
+| Wearable calibration + Apple ×0.85 | `_shared/wearable/calibration.ts` | Brief should consume; some inline duplication remains — §15 candidate. |
+| Wearable data | `wearable_data` table | DB is canonical (memory rule). No fallbacks. |
+| Day-type overrides (Sunday eve, Monday AM, Friday/pre-rest, weekend, holiday, post-high-stakes, consecutive-low) | Currently inline in edge fn (P-1, P0a, P0b) | §15 candidate to lift to `_shared/brief/day-type-overrides.ts` so weekend/PTO behaviour rules feed it. |
+| Deterministic phrase matrix `getTheme()` | Inline in edge fn | §15 candidate to lift to `_shared/brief/deterministic-theme.ts`. |
+| `outcomeSignals.*` deterministic body templates | Inline in edge fn (line 1728 etc.) | §15 candidate to delete or lift — violates "structured, not prose". |
+| C×C modifier (8 patterns) | Inline in edge fn | §15 candidate to lift to `_shared/brief/cc-modifier.ts`. |
+| Archetype × Tier matrix (5×4) | Inline in edge fn | §15 candidate. |
+| Validators (25+) — `validateV61Output` | Inline in edge fn | §15 candidate to lift to `_shared/brief/llm-validators.ts`. |
+| Pillar-Vocabulary Map + Elastic Lexicon | Inline in edge fn (§6.5, §6.7) | §15 candidate to lift to `_shared/brief/lexicon.ts`. |
+| HRV × Event correlation (Q14) | Inline in edge fn | §15 candidate to lift to `_shared/brief/hrv-event-correlation.ts` (also used by Insights + JIT). |
+| Source-label map (`formatFallbackSignal`) | Inline in edge fn | §15 candidate to lift to `_shared/brief/source-labels.ts`. |
+
 ---
 
 ## 2. Upstream Data Sources
