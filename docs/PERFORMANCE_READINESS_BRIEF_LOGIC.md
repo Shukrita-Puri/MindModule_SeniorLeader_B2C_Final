@@ -369,17 +369,23 @@ The dashboard renders three pillars derived from the same signals the LLM receiv
 | **PHYSIOLOGY (Energy)** | Operational Drive · Leadership Stamina · Hardware Recovery · System Output · Physical Runway |
 | **RESILIENCE (Stability)** | Strategic Composure · Executive Presence · Diplomatic Shield · Reactive Risk · Internal Buffer |
 
-### 6.8 §2.11–2.17 CEO Reality Logic Engines (apply when triggers fire)
+### 6.8 CEO Behaviour Rules — Pointer (v6.2)
 
-| § | Engine | Trigger |
-|---|--------|---------|
-| 2.11 | **VETO RISK** | masked fatigue (felt strong + HRV/sleep low) → name the gap, lead wearable |
-| 2.12 | **SECOND WIND** | late-day energy lift after recovery signal → orient to selective use |
-| 2.13 | **CIRCADIAN PRIORITY** | timezone drift / travel → flag chronobiology before tactics |
-| 2.14 | **DECISION LEAKAGE GUARD** | (HR elevated OR HRV drop) + (depleted self-state) + (emotional/diplomatic event: town hall, 1:1 difficult, performance review, board, layoff). Name leakage risk to a specific event |
-| 2.15 | **POST-PEAK HANGOVER** | within `postPeakWindow` (≤180 min after high-stakes ended) → acknowledge cost |
-| 2.16 | **PERSONAL FRICTION INFERENCE** | friction-trend + emotional self-declared dip → infer interpersonal load (do not diagnose) |
-| 2.17 | **BOARD-LEVEL OUTCOME** | `isHighVisibilityToday` (board, town hall, investor, all-hands, earnings, press, keynote) → orient stake to executive presence |
+CEO behaviour rules (Veto Risk, Second Wind, Circadian Priority, Decision Leakage, Post-Peak Hangover, Personal Friction Inference, Board-Level Outcome, Advance Prep 24h, Back-to-Back Override, Meeting Prep Cliff, Multi-Calendar Load, Travel cluster, Weekend ladder, PTO/Holiday, Conference cluster, Decision Density, plus Batch-3/4 stubs) **do not live in this edge function**.
+
+They live in `supabase/functions/_shared/ceo-behaviour/*.ts` and are catalogued in `docs/CEO_BEHAVIOUR_RULE_MAP.md` (rule ↔ doc anchor ↔ signals consumed ↔ edge/LLM seam).
+
+**How the brief consumes them**:
+
+```ts
+import { evaluate } from "../_shared/ceo-behaviour";
+const flags = evaluate({ scope: "brief", signals }); // BehaviourFlag[]
+// → injected into the user prompt under "=== CEO BEHAVIOUR ===" (prompt doc §6.9)
+```
+
+The brief treats each returned `BehaviourFlag` (`rule`, `severity`, `evidence`, `anchorEvent`, `stake`, `copyHint`) as an input to phrase/body/leanOn/watchFor synthesis. It **never re-implements the trigger**.
+
+> ⚠️ §16 lists CEO-reality-shaped logic that still sits inside the edge function and has not yet been lifted into `_shared/ceo-behaviour/`. Those are raised as questions for the user before any extraction.
 
 ### 6.9 Hard Constraints — No Exceptions
 
