@@ -1,10 +1,22 @@
 # Performance Readiness Brief – Complete Technical Documentation
 
-> **Version**: v6.1
-> **Last updated**: 2026-04-21
+> **Version**: v6.2
+> **Last updated**: 2026-05-20
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 > **Persona**: *Chief of Staff for the Mind* — strategic register, wearable-first, never coaching imperatives
+> **Canonical LLM prompt**: `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md` (v4.0 with lovable deltas)
+> **CEO behaviour rules**: `_shared/ceo-behaviour/*` — catalogue in `docs/CEO_BEHAVIOUR_RULE_MAP.md`
+
+### v6.2 Changes Summary (2026-05-20)
+
+- **Prompt split out**: the v4 LLM prompt is now its own document — `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md`. This file describes runtime architecture, validators, pills, fallback, and the snapshot cache. Prompt text is no longer duplicated here.
+- **§6.8 rewritten as a pointer**: CEO realities (veto risk, second wind, circadian, decision leakage, post-peak, personal friction, board-level outcome, advance prep, back-to-back, travel, weekend, PTO, conference, decision density, etc.) live exclusively in `_shared/ceo-behaviour/*`. The brief consumes them via `evaluate({ scope: "brief" })` and never re-implements a trigger.
+- **New §1.3 — Where each piece of logic lives**: client / edge / `_shared/*` / LLM prompt / DB map.
+- **New §15 — Module-extraction candidates**: concrete proposals to lift day-type overrides, deterministic theme matrix, body templates, C×C modifier, archetype×tier matrix, validators, pillar composition, lexicon, source labels, HRV×event correlation, and wearable calibration out of the edge function into `_shared/*` modules. **No code change yet — proposals only, awaiting user direction.**
+- **New §16 — CEO-behaviour audit**: seven points where CEO-reality-shaped logic still sits inside `compute-outer-readiness`. Each is raised as a question, not silently moved.
+- Patterns A–I (§6.11), day-type overrides (§6.10), and hard constraints (§6.9) now reference the canonical prompt doc rather than restating it. Differences (additional lovable validators, sustained-deficit J pattern) are flagged in the prompt doc.
+- Cold-start coverage (Day 1 / Day 2–6 / Day 7) is fully described in the prompt doc §4 and no longer duplicated here.
 
 ### v6.1 Changes Summary (2026-04-21)
 
@@ -37,6 +49,8 @@
 12. [Source Labels](#12-source-labels)
 13. [DB Column Audit](#13-db-column-audit)
 14. [Known Issues & Gaps](#14-known-issues--gaps)
+15. [Module-Extraction Candidates (v6.2 audit)](#15-module-extraction-candidates-v62-audit)
+16. [CEO-Behaviour Audit — Logic Still Inside Edge Function](#16-ceo-behaviour-audit--logic-still-inside-edge-function)
 
 ---
 
