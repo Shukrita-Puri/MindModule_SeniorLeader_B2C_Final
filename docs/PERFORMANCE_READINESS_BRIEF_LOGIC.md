@@ -921,3 +921,111 @@ All columns referenced exist and are correctly named.
 ---
 
 *End of v6.1 reference. For the v5.0 doc see git history at commit prior to 2026-04-21. Pill-scoring fixes (Items 1–4) and validator-loosening (Item 5) are tracked as a separate code task — this document is reference-only.*
+
+---
+
+## 15. Module-Extraction Candidates (v6.2 audit)
+
+The edge function `compute-outer-readiness` is ~4087 lines today. Much of that is **pure logic** that does not need DB or LLM access and would be better tested, reused, and audited as `_shared/*` modules. This section lists concrete extraction candidates. **No code change yet — proposals only, awaiting user direction bit-by-bit.**
+
+The edge function should ultimately be a **fetch + assemble + dispatch** layer. Everything else can move.
+
+### 15.1 Recommended extractions
+
+| # | Current location (edge fn) | Proposed target | Why |
+|---|---------------------------|-----------------|-----|
+| E1 | Day-type override table (Sunday eve / Mon AM / Fri eve / weekend / holiday / post-high-stakes PM / consecutive-low) | `_shared/brief/day-type-overrides.ts` | Pure shape over `{dayOfWeek, hour, tomorrowLoad, holidayFlags}`. Partially overlaps with `_shared/ceo-behaviour/weekend.ts` + `pto-holiday.ts` — should consume the same `BehaviourFlag[]` instead of re-deriving. |
+| E2 | `getTheme()` deterministic phrase matrix (4 tiers × 3 times × 8 calendar combos) | `_shared/brief/deterministic-theme.ts` | Pure lookup; trivial to unit-test in isolation. |
+| E3 | `buildContextSuffix()` + `outcomeSignals.*` static body templates (line 1728 etc.) | `_shared/brief/deterministic-body-templates.ts` (or delete per docx §12 "structured, not prose") | Hardcoded prose strings buried mid-fn. Violate the v4 fallback recipe. |
+| E4 | C×C modifier (8 patterns, §8.2) | `_shared/brief/cc-modifier.ts` | Pure lookup. |
+| E5 | Archetype × Tier matrix (5×4, §8.3) + Day-1 cold-start recipe | `_shared/brief/archetype-tier-matrix.ts` | Static table. Required by deterministic fallback per docx §12. |
+| E6 | `validateV61Output` (25+ rules: wellness/tier/readiness blacklists, generic-trait, signal-substring-of-body, lexicon-cluster gate, phrase length/openers, coaching imperatives, pillar-vocab forbidden combo) | `_shared/brief/llm-validators.ts` | Single most valuable extraction. Validators are testable in isolation; today they are inline and untestable. Also consumed by smart-nudges. |
+| E7 | `composePillar` (median-of-tiers + strong-red override) + per-input contribution functions (HRV-cognitive, sharpness, clarity, RHR, sleep, outcome) | `_shared/pillars/compose-pillar.ts` | **Currently duplicated** — client (`DecisionReadinessBrief.tsx` lines 587–698) and edge fn both implement it. One source. |
+| E8 | Pillar-Vocabulary Map (§6.5) + Elastic Lexicon clusters (§6.7) | `_shared/brief/lexicon.ts` | Constants consumed by validators + prompt rendering + post-gen checks. |
+| E9 | `formatFallbackSignal()` source-label map (§8.4 / §12) | `_shared/brief/source-labels.ts` | Constant. |
+| E10 | Q14 — HRV × Event correlation (≥3 occurrences, >10% deviation) | `_shared/brief/hrv-event-correlation.ts` | Pure function over `wearable_data × calendar_events`. Should be shared with Insights (causality) and JIT (pre-event nudges). Already documented in `mem://features/performance-intelligence/hrv-event-correlation-logic`. |
+| E11 | Wearable 4-tier calibration + Apple ×0.85 adjustment + divergence-mode classifier | `_shared/wearable/calibration.ts` (file likely exists per repo conventions) | Route the brief through it instead of re-implementing inline. |
+| E12 | Coach insight age tiers + grace-tier C×C contradiction suppression (§8.6) | `_shared/coach/insight-age.ts` | Pure shape over coach signals; reusable. |
+
+### 15.2 What must stay in the edge function
+
+- DB fetches (Q1–Q16) and `Promise.all` enrichment.
+- LLM dispatch (Gemini 2.5 Flash via gateway → Claude Sonnet direct).
+- Snapshot upsert (fire-and-forget).
+- Response assembly try/catch + telemetry write.
+- Auth0 token validation + RLS-bypassing service-role reads (per memory rules).
+
+### 15.3 Sequencing recommendation (for when user gives the go-ahead)
+
+1. **E6 (validators)** first — biggest test-coverage win, no behaviour change.
+2. **E7 (compose-pillar)** — kills the client/edge duplication that already misbehaves (§14.1 #1–#4).
+3. **E10 (HRV × event)** — unlocks Insights/JIT reuse.
+4. **E2 + E3 + E4 + E5** — deterministic theme/body/C×C/archetype as a single "deterministic fallback" cluster, replacing prose with structured per docx §12.
+5. **E1 (day-type overrides)** — last, so it can consume the now-shared CEO behaviour flags.
+
+---
+
+## 16. CEO-Behaviour Audit — Logic Still Inside Edge Function
+
+Walking `compute-outer-readiness` against `_shared/ceo-behaviour/index.ts`, the following CEO-reality-shaped logic still sits inside the edge function and is **not yet** in the `.ts` cluster. Each point is raised as a **question for the user** — no silent move.
+
+### Q-A1 — `outcomeSignals.drained` 3-day prose template
+
+- **Where today**: edge fn, line 1728. Fires on 3+ consecutive `drained` check-ins.
+- **Looks like**: a CEO reality ("Consecutive Low Days ≥3") — matches docx §3 day-type override.
+- **Conflict with `.ts`?** No existing rule covers it.
+- **Question**: Promote to a new `_shared/ceo-behaviour/consecutive-low-days.ts` rule (deny-prose, return a `BehaviourFlag` for LLM to synthesise), **or** keep as a deterministic body template, **or** delete per docx §12 ("structured, not prose")?
+
+### Q-A2 — C×C modifier "both high → Rigidity from Conviction"
+
+- **Where today**: edge fn C×C modifier table (logic doc §8.2 row 2).
+- **Looks like**: a veto-risk cousin (over-confidence + over-clarity → rigidity). The `.ts` `vetoRisk` rule today only covers wearable-masked-fatigue.
+- **Conflict with `.ts`?** Potential overlap.
+- **Question**: Extend `vetoRisk` to cover cognitive-rigidity, **or** add a new sibling rule `cognitiveRigidity`, **or** leave inside C×C modifier (E4) as a deterministic phrase modifier?
+
+### Q-A3 — `getSundayEveningInsights` matrix (P0a)
+
+- **Where today**: edge fn, keyed on `tier × tomorrow-load`.
+- **Overlap**: `_shared/ceo-behaviour/weekend.ts` `sundayEveningWeekAhead` rule keys on `dayOfWeek + localHour` only.
+- **Conflict**: the doc's §6.10 "Sunday eve" branch needs `tomorrowLoadTier`, but the `.ts` signal matrix doesn't carry it yet.
+- **Question**: Make `.ts` `sundayEveningWeekAhead` the canonical rule and add `tomorrowLoadTier` to the shared signal matrix (so the framing can be derived in the rule), **or** keep the matrix as an edge-fn presentation concern downstream of the rule firing?
+
+### Q-A4 — `getEveningInsights` late-evening recovery override (P0b)
+
+- **Where today**: edge fn, fires after 21:00 on weekdays + Saturday with recovery-focused framing.
+- **Conflict with `.ts`?** No existing rule. Closest is `post-peak.ts` (`postPeakHangover`) but that's post-high-stakes only, not generic end-of-day.
+- **Question**: Add a new `_shared/ceo-behaviour/evening-recovery.ts` rule (generic end-of-day framing), **or** extend `postPeakHangover` to cover end-of-day broadly, **or** keep as edge-fn presentation?
+
+### Q-A5 — Wearable Sustained Deficit Override (P-1, feature flag `ENABLE_WEARABLE_RECOVERY_TRIGGER`)
+
+- **Where today**: edge fn, fires on 2+ consecutive days with HRV `< −20%` below baseline.
+- **Conflict with `.ts`?** `post-peak.ts` covers single-day acute; no multi-day sustained-deficit rule exists.
+- **Question**: Add `_shared/ceo-behaviour/sustained-deficit.ts` (proposed as **Pattern J** in the prompt doc §5), **or** extend `postPeakHangover` to multi-day, **or** keep as edge-fn override?
+
+### Q-A6 — Coach insight age tiers (recent / grace / contextual / historical / archived) + C×C contradiction suppression
+
+- **Where today**: edge fn (logic doc §8.6).
+- **Looks like**: not strictly CEO-behaviour — it's coach-signal hygiene.
+- **Question**: Lift to `_shared/coach/insight-age.ts` (proposed as E12 in §15), or keep inside the brief consumer? If lifted, smart-nudges + coach surface could reuse it.
+
+### Q-A7 — Pillar-vocabulary forbidden-combo rule
+
+- **Where today**: edge fn inline check — body cannot say "Body" / "Hardware" when `sleepDev > −8%` AND `rhrDev < +10%` (logic doc §6.5).
+- **Conflict with `.ts`?** None — it's a validator.
+- **Question**: Move to `_shared/brief/llm-validators.ts` (E6 in §15)? This is uncontroversial; raising explicitly because it is currently inline.
+
+### 16.1 Doc-vs-`.ts` conflicts to resolve before any extraction
+
+Surfaced for the user's call:
+
+1. **§6.10 Sunday-eve cell** says "Loaded+heavy → directive. Light → spacious." → needs `tomorrowLoadTier`. The `.ts` `sundayEveningWeekAhead` rule reads `dayOfWeek + localHour` only. If we make `.ts` canonical, the signal matrix grows. Confirm direction.
+2. **Decision Leakage Guard event list** — the docx and the old §6.8 row both inline "town hall, 1:1 difficult, performance review, board, layoff". The `.ts` rule reads a derived `emotionalDrainEventInNext4h` signal, with the actual event list owned by Pillar D in `_shared/events/event-categories.ts`. Doc references should point at Pillar D, not list events. Confirm.
+3. **`vetoRisk` doc trigger** says "felt strong + HRV/sleep low". The `.ts` rule also reads `mentalSharpness` + `confidence`. Already aligned in code — just needs the docstring update once we cut the doc's own copy of the trigger.
+
+### 16.2 Rule of engagement (proposed)
+
+> Once a behaviour exists as a `.ts` rule, the docs reference it by `rule` name and `docs/CEO_BEHAVIOUR_RULE_MAP.md` carries the trigger detail. No doc should re-state a trigger condition in long form. The prompt doc §6.9 simply tells the LLM "consume the `BehaviourFlag[]` injected under `=== CEO BEHAVIOUR ===` — do not infer the trigger."
+
+---
+
+*End of v6.2 reference. §15 + §16 are proposals only; no code has been changed pending user direction bit-by-bit.*
