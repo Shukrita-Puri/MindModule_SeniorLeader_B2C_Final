@@ -68,9 +68,22 @@ async function getRegistrationAuthToken(): Promise<string | null> {
 export function useDeviceTokenRegistration() {
   const { user, isAuthenticated } = useAuth();
   const registered = useRef(false);
+  const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id || registered.current) return;
+    // If user identity changes (logout + login as different user, or first
+    // login after reinstall), reset the latch so the new user re-registers.
+    if (user?.id && lastUserId.current && lastUserId.current !== user.id) {
+      console.log('[PushReg] User changed; resetting registration latch');
+      registered.current = false;
+    }
+    if (user?.id) lastUserId.current = user.id;
+    if (!isAuthenticated || !user?.id) {
+      // Logged out: allow re-register on next login.
+      registered.current = false;
+      return;
+    }
+    if (registered.current) return;
     if (!Capacitor.isNativePlatform()) return;
 
     registered.current = true;

@@ -28,6 +28,35 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         return f
     }()
 
+    // EKEventStoreChanged observer: when the user adds/edits/deletes events in
+    // any app on the device (Apple Calendar, iCloud subscriptions, etc.), we
+    // notify JS so the in-app UI can re-sync and re-render immediately —
+    // instead of waiting for the 6-hour stale window.
+    private var jsChangeObserver: NSObjectProtocol?
+
+    override public func load() {
+        super.load()
+        if jsChangeObserver == nil {
+            jsChangeObserver = NotificationCenter.default.addObserver(
+                forName: .EKEventStoreChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self = self else { return }
+                NSLog("[AppleCalendarPlugin] EKEventStoreChanged — notifying JS")
+                self.notifyListeners("calendarStoreChanged", data: [
+                    "at": Date().timeIntervalSince1970 * 1000
+                ])
+            }
+        }
+    }
+
+    deinit {
+        if let obs = jsChangeObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
+
     @objc func getPermissionStatus(_ call: CAPPluginCall) {
         let status = EKEventStore.authorizationStatus(for: .event)
         call.resolve(["status": label(for: status)])

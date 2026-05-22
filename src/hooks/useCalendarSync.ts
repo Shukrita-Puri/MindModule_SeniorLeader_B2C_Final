@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
 import { clearLocalCalendarData, saveCalendarEventsLocally } from '@/services/localDataStore';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
-import { isAppleCalendarSupported, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
+import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
@@ -27,7 +27,8 @@ interface UseCalendarSyncResult {
   error: string | null;
 }
 
-const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours (Google/Microsoft)
+const APPLE_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 min — native fetch is cheap
 
 export function useCalendarSync(): UseCalendarSyncResult {
   const { user } = useAuth();
@@ -395,7 +396,8 @@ export function useCalendarSync(): UseCalendarSyncResult {
           
           // If data is stale, trigger a background sync
           const syncTime = usableConnection.last_sync ? new Date(usableConnection.last_sync) : null;
-          if (!syncTime || Date.now() - syncTime.getTime() > STALE_THRESHOLD_MS) {
+          const threshold = usableConnection.provider === 'apple' ? APPLE_STALE_THRESHOLD_MS : STALE_THRESHOLD_MS;
+          if (!syncTime || Date.now() - syncTime.getTime() > threshold) {
             console.log('[useCalendarSync] Data is stale, triggering background sync...');
             // Background sync - don't await
             if (usableConnection.provider === 'apple') {
@@ -430,6 +432,71 @@ export function useCalendarSync(): UseCalendarSyncResult {
     
     return () => { cancelled = true; };
   }, [user?.id, fetchEvents, resetCalendarState, verifyConnectionUsable]);
+
+  // Apple Calendar live refresh:
+  //  - native EKEventStoreChanged → debounce → sync + refetch
+  //  - app resume on iOS → sync + refetch
+  // Both are no-ops on web.
+  useEffect(() => {
+    if (!user?.id || !connection || connection.provider !== 'apple') return;
+    if (!isAppleCalendarSupported()) return;
+
+    let cancelled = false;
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    let unsubChange: (() => void) | null = null;
+    let unsubResume: (() => void) | null = null;
+    let lastSyncAt = 0;
+    const MIN_GAP_MS = 4000;
+
+    const runSync = (reason: string) => {
+      if (cancelled) return;
+      const now = Date.now();
+      if (now - lastSyncAt < MIN_GAP_MS) return;
+      lastSyncAt = now;
+      console.log('[useCalendarSync] Apple instant sync triggered:', reason);
+      emitIntegrationEvent({
+        provider: 'apple-calendar',
+        event: 'sync_started',
+        userId: user.id,
+        meta: { source: 'useCalendarSync', reason },
+      });
+      syncAppleCalendarToBackend()
+        .then((res) => {
+          if (cancelled) return;
+          if (res.success) {
+            setLastSync(new Date());
+            void fetchEvents();
+          }
+        })
+        .catch((err) => console.warn('[useCalendarSync] Apple instant sync failed:', err));
+    };
+
+    const scheduleSync = (reason: string) => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => runSync(reason), 1500);
+    };
+
+    onAppleCalendarStoreChanged(() => scheduleSync('eventStoreChanged'))
+      .then((unsub) => { if (!cancelled) unsubChange = unsub; else unsub(); })
+      .catch((err) => console.warn('[useCalendarSync] onAppleCalendarStoreChanged failed:', err));
+
+    import('@capacitor/app').then(({ App }) => {
+      if (cancelled) return;
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) scheduleSync('app_resume');
+      }).then((handle) => {
+        if (cancelled) { void handle.remove(); return; }
+        unsubResume = () => { void handle.remove(); };
+      }).catch((err) => console.warn('[useCalendarSync] App resume listener failed:', err));
+    }).catch(() => { /* web — no-op */ });
+
+    return () => {
+      cancelled = true;
+      if (debounce) clearTimeout(debounce);
+      unsubChange?.();
+      unsubResume?.();
+    };
+  }, [user?.id, connection, fetchEvents]);
 
   return {
     events,

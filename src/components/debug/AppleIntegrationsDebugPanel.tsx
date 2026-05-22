@@ -52,6 +52,7 @@ import {
   getNotificationDiagnostics,
   refreshNotificationPermissions,
   sendLocalTestNotificationNow,
+  forcePushReRegistration,
   type NotificationDiagnostics,
 } from '@/utils/notificationDiagnostics';
 
@@ -218,6 +219,10 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
               <Button size="sm" variant="outline" disabled={!!busy}
                 onClick={() => run('notifPerm', async () => setNotificationDiag(await refreshNotificationPermissions()))}>
                 Refresh notification permission
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('forceReReg', async () => setNotificationDiag(await forcePushReRegistration()))}>
+                Force push re-registration
               </Button>
               <Button size="sm" variant="outline" disabled={!!busy}
                 onClick={() => run('pendingNotif', async () => setNotificationDiag(await dumpPendingLocalNotifications()))}>

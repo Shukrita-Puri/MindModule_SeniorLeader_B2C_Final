@@ -23,6 +23,7 @@ interface AppleCalendarPlugin {
   requestPermission(): Promise<{ granted: boolean; status: string }>;
   getPermissionStatus(): Promise<{ status: string }>;
   fetchEvents(opts: { startISO: string; endISO: string }): Promise<{ events: AppleCalendarEvent[] }>;
+  addListener(eventName: 'calendarStoreChanged', listener: (data: { at: number }) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
 const AppleCalendar = registerPlugin<AppleCalendarPlugin>('AppleCalendar');
@@ -102,5 +103,29 @@ export async function fetchAppleCalendarEvents(
       meta: { call: 'fetchEvents' },
     });
     throw err;
+  }
+}
+
+/**
+ * Subscribe to native EKEventStoreChanged notifications. The native plugin
+ * emits `calendarStoreChanged` whenever the user adds/edits/deletes events
+ * on the device (Apple Calendar app, iCloud subscriptions, etc.). Callers
+ * should debounce internally — events can arrive in bursts.
+ *
+ * Returns an unsubscribe function. Safe no-op on web.
+ */
+export async function onAppleCalendarStoreChanged(
+  callback: () => void
+): Promise<() => void> {
+  if (!isAppleCalendarSupported()) return () => { /* noop */ };
+  try {
+    const handle = await AppleCalendar.addListener('calendarStoreChanged', () => {
+      emitIntegrationEvent({ provider: 'apple-calendar', event: 'listener_registered', meta: { source: 'eventStoreChanged' } });
+      try { callback(); } catch (err) { console.warn('[appleCalendar] store-changed callback failed:', err); }
+    });
+    return () => { void handle.remove(); };
+  } catch (err) {
+    console.warn('[appleCalendar] addListener calendarStoreChanged failed:', err);
+    return () => { /* noop */ };
   }
 }
