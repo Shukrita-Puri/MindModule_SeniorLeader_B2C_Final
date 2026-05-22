@@ -69,6 +69,9 @@ export function useDeviceTokenRegistration() {
   const { user, isAuthenticated } = useAuth();
   const registered = useRef(false);
   const lastUserId = useRef<string | null>(null);
+  // Handle for the Capacitor App.appStateChange listener so we can remove it
+  // on unmount / user swap and avoid accumulating duplicate resume hooks.
+  const appStateHandleRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
   useEffect(() => {
     // If user identity changes (logout + login as different user, or first
@@ -87,10 +90,27 @@ export function useDeviceTokenRegistration() {
     if (!Capacitor.isNativePlatform()) return;
 
     registered.current = true;
+    let cancelled = false;
 
     (async () => {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
+
+        // Clear any listeners from a previous user session before adding new
+        // ones. Capacitor's PushNotifications plugin holds listeners at the
+        // native bridge level, so without this they accumulate across
+        // logout/login cycles and cause duplicate token-persist requests,
+        // duplicate telemetry, and duplicate registration callbacks.
+        try {
+          await PushNotifications.removeAllListeners();
+        } catch (e) {
+          console.warn('[PushReg] removeAllListeners failed (continuing):', e);
+        }
+        // Also remove any prior app-state listener handle from a previous run.
+        if (appStateHandleRef.current) {
+          try { await appStateHandleRef.current.remove(); } catch { /* ignore */ }
+          appStateHandleRef.current = null;
+        }
 
         // Check / request permission
         let permStatus = await PushNotifications.checkPermissions();
@@ -195,7 +215,7 @@ export function useDeviceTokenRegistration() {
         // reinstall, OS upgrade, or long background) gets persisted to the
         // backend and nudges keep firing.
         try {
-          await CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+          const handle = await CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
             if (!isActive) return;
             try {
               const perm = await PushNotifications.checkPermissions();
@@ -207,6 +227,11 @@ export function useDeviceTokenRegistration() {
               console.warn('[PushReg] Resume re-register failed:', e);
             }
           });
+          if (cancelled) {
+            try { await handle.remove(); } catch { /* ignore */ }
+          } else {
+            appStateHandleRef.current = handle;
+          }
         } catch (e) {
           console.warn('[PushReg] appStateChange listener failed:', e);
         }
@@ -214,5 +239,22 @@ export function useDeviceTokenRegistration() {
         console.error('[PushReg] Setup error:', err);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      // Tear down listeners on unmount or before the effect re-runs for a
+      // different user. We intentionally don't await here — React effect
+      // cleanups are synchronous and the native calls are fire-and-forget.
+      if (appStateHandleRef.current) {
+        const handle = appStateHandleRef.current;
+        appStateHandleRef.current = null;
+        handle.remove().catch(() => { /* ignore */ });
+      }
+      if (Capacitor.isNativePlatform()) {
+        import('@capacitor/push-notifications')
+          .then(({ PushNotifications }) => PushNotifications.removeAllListeners())
+          .catch(() => { /* ignore */ });
+      }
+    };
   }, [isAuthenticated, user?.id]);
 }
