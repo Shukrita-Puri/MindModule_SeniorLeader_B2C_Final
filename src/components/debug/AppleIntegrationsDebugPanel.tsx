@@ -221,6 +221,10 @@ export default function AppleIntegrationsDebugPanel({ derived }: { derived: Deri
                 Refresh notification permission
               </Button>
               <Button size="sm" variant="outline" disabled={!!busy}
+                onClick={() => run('forceReReg', async () => setNotificationDiag(await forcePushReRegistration()))}>
+                Force push re-registration
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy}
                 onClick={() => run('pendingNotif', async () => setNotificationDiag(await dumpPendingLocalNotifications()))}>
                 Dump pending notifications
               </Button>
