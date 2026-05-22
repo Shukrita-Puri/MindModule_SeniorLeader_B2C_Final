@@ -124,6 +124,7 @@ const CheckInDetail = () => {
               user_id: DEV_USER.id,
               checkin_date: checkinDate,
               time_window: timeWindow || getCurrentTimeWindow(),
+              outcome: 'steady',
               skipped: false,
               timestamp: new Date().toISOString(),
               sleep_hours: sleepHours,
