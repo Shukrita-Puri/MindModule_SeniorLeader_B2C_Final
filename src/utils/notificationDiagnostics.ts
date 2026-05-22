@@ -113,6 +113,30 @@ export async function refreshNotificationPermissions(): Promise<NotificationDiag
   return getNotificationDiagnostics();
 }
 
+/**
+ * Force a fresh APNs registration. Useful after reinstall, OS upgrade, or
+ * when diagnostics show a stale/malformed token. The token-registration
+ * hook re-persists the new token to the backend automatically.
+ */
+export async function forcePushReRegistration(): Promise<NotificationDiagnostics> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      let perm = await PushNotifications.checkPermissions();
+      if (perm.receive === 'prompt') perm = await PushNotifications.requestPermissions();
+      if (perm.receive === 'granted') {
+        await PushNotifications.register();
+        emitIntegrationEvent({ provider: 'notification', event: 'notification_apns_registration_started', meta: { reason: 'qa_force_reregister' } });
+      } else {
+        emitIntegrationEvent({ provider: 'notification', event: 'notification_permission_denied', meta: { reason: 'qa_force_reregister', receive: perm.receive } });
+      }
+    } catch (err) {
+      emitIntegrationEvent({ provider: 'notification', event: 'notification_apns_registration_failed', errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return getNotificationDiagnostics();
+}
+
 export async function sendLocalTestNotificationNow(): Promise<NotificationDiagnostics> {
   if (!Capacitor.isNativePlatform()) return getNotificationDiagnostics();
 
