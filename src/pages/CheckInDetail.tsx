@@ -415,12 +415,8 @@ const CheckInDetail = () => {
             {/* CTA */}
             <button
               onClick={handleSave}
-              disabled={saving || !allTouched}
-              className={`mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
-                allTouched
-                  ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
-                  : 'bg-muted text-foreground/60 cursor-not-allowed'
-              }`}
+              disabled={saving}
+              className="mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]"
             >
               {saving ? 'Saving...' : "Continue to Today's Brief"}
             </button>
