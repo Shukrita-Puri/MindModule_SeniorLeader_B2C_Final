@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
 import { clearLocalCalendarData, saveCalendarEventsLocally } from '@/services/localDataStore';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
-import { isAppleCalendarSupported, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
+import { isAppleCalendarSupported, onAppleCalendarStoreChanged, verifyAppleCalendarPermission } from '@/utils/appleCalendar';
 import { getAuthToken } from '@/services/authTokenService';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 import { queuePendingDisconnect } from '@/utils/integrationQaHelpers';
@@ -27,7 +27,8 @@ interface UseCalendarSyncResult {
   error: string | null;
 }
 
-const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours (Google/Microsoft)
+const APPLE_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 min — native fetch is cheap
 
 export function useCalendarSync(): UseCalendarSyncResult {
   const { user } = useAuth();
