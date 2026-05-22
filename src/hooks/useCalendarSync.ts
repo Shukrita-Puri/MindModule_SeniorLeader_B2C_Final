@@ -396,7 +396,8 @@ export function useCalendarSync(): UseCalendarSyncResult {
           
           // If data is stale, trigger a background sync
           const syncTime = usableConnection.last_sync ? new Date(usableConnection.last_sync) : null;
-          if (!syncTime || Date.now() - syncTime.getTime() > STALE_THRESHOLD_MS) {
+          const threshold = usableConnection.provider === 'apple' ? APPLE_STALE_THRESHOLD_MS : STALE_THRESHOLD_MS;
+          if (!syncTime || Date.now() - syncTime.getTime() > threshold) {
             console.log('[useCalendarSync] Data is stale, triggering background sync...');
             // Background sync - don't await
             if (usableConnection.provider === 'apple') {
