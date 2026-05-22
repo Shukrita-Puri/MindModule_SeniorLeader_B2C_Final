@@ -331,7 +331,8 @@ serve(async (req) => {
             ...updatePayload,
             user_id: userId,
             checkin_date: checkinDate,
-            time_window: timeWindow ?? null,
+            time_window: timeWindow ?? 'morning',
+            outcome: 'steady',
             skipped: false,
             timestamp: new Date().toISOString(),
           };
