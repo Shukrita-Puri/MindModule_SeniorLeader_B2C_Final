@@ -120,7 +120,7 @@ const CheckInDetail = () => {
           // failing — same contract as the edge function path.
           const { error: insertErr } = await supabase
             .from('daily_checkins')
-            .insert({
+            .insert([{
               user_id: DEV_USER.id,
               checkin_date: checkinDate,
               time_window: timeWindow || getCurrentTimeWindow(),
@@ -133,7 +133,7 @@ const CheckInDetail = () => {
               body_energy_level: rEnergy,
               recovery_yesterday_level: rRecovery,
               carry_load_level: rCarry,
-            });
+            }]);
           if (insertErr) throw insertErr;
         }
       } else {
