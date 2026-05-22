@@ -52,6 +52,7 @@ import {
   getNotificationDiagnostics,
   refreshNotificationPermissions,
   sendLocalTestNotificationNow,
+  forcePushReRegistration,
   type NotificationDiagnostics,
 } from '@/utils/notificationDiagnostics';
 
