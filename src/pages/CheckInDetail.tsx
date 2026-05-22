@@ -114,7 +114,28 @@ const CheckInDetail = () => {
 
         const { data, error } = await updateQuery.select('id').limit(1);
         if (error) throw error;
-        if (!data?.length) throw new Error('No matching check-in row found to update');
+        if (!data?.length) {
+          // Insert-fallback: user opened /check-in-detail without
+          // completing Page 1 first. Create a body-only row instead of
+          // failing — same contract as the edge function path.
+          const { error: insertErr } = await supabase
+            .from('daily_checkins')
+            .insert({
+              user_id: DEV_USER.id,
+              checkin_date: checkinDate,
+              time_window: timeWindow || getCurrentTimeWindow(),
+              skipped: false,
+              timestamp: new Date().toISOString(),
+              sleep_hours: sleepHours,
+              sleep_quality: rQuality,
+              sleep_wake_type: rWake,
+              body_tension_level: rTension,
+              body_energy_level: rEnergy,
+              recovery_yesterday_level: rRecovery,
+              carry_load_level: rCarry,
+            });
+          if (insertErr) throw insertErr;
+        }
       } else {
         const accessToken = await getAccessToken();
         if (!accessToken) {
