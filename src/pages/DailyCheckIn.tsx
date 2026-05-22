@@ -524,12 +524,8 @@ const DailyCheckIn = () => {
             {/* Inline CTA — matches Page 2's saffron pattern */}
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !allFourTouched}
-              className={`mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 ${
-                allFourTouched
-                  ? 'bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]'
-                  : 'bg-muted text-foreground/60 cursor-not-allowed'
-              }`}
+              disabled={isSubmitting}
+              className="mt-2 w-full h-12 rounded-xl font-body text-[15px] font-medium transition-all duration-200 bg-saffron text-saffron-foreground hover:brightness-110 active:scale-[0.98]"
             >
               {isSubmitting ? 'Saving...' : dailyCtaLabel}
             </button>
