@@ -1272,7 +1272,7 @@ function buildEnrichedContextDescription(
     const evtType = extractEventType(row.event_title || '');
     const corr = hrvCorrelations[evtType];
     if (corr && corr.count >= 2 && Math.abs(corr.avgHRVDeviation) > 10) {
-      const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
+      const canonicalLabel = canonicalTagForCoarse(evtType);
       parts.push(`your body shows a familiar pre-${canonicalLabel.toLowerCase().replace(/^pre /, '')} response`);
     }
   }
