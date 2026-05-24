@@ -368,6 +368,9 @@ const TodayThreePriorities = ({
       const hm = modules[idx];
       const key = buildPriorityKey(idx, hm);
       if (feedbackShownRef.current.has(key)) continue;
+      // Cancelled slots don't trigger the post-completion feedback modal —
+      // the cancel flow already captured the user's relevance feedback.
+      if (cancelledKeys.has(key)) continue;
       const sp = hm.practices || [hm.practice];
       const wasComplete = sp.every(p => prev.includes(p.contentId));
       const nowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
