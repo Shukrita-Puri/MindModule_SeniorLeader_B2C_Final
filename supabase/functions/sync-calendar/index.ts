@@ -379,6 +379,11 @@ serve(async (req) => {
           const organizer = event.organizer as Record<string, unknown> | undefined;
           const attendees = event.attendees as unknown[] | undefined;
           const attendeeSignals = buildAttendeeSignals(organizer, attendees);
+          // Conference / meeting URL: prefer explicit conferenceData entry over hangoutLink
+          const conf = event.conferenceData as any;
+          const conferenceUrl =
+            (Array.isArray(conf?.entryPoints) ? conf.entryPoints.find((ep: any) => ep?.entryPointType === 'video')?.uri : null) ||
+            (typeof event.hangoutLink === 'string' ? event.hangoutLink : null) || null;
           return {
             external_id: event.id as string,
             title: (event.summary as string) || 'Untitled Event',
@@ -391,6 +396,13 @@ serve(async (req) => {
               location: event.location,
               description: event.description,
               hangoutLink: event.hangoutLink,
+              meetingUrl: conferenceUrl,
+              conferenceProvider: conf?.conferenceSolution?.name ?? null,
+              recurrence: event.recurrence ?? null,
+              recurringEventId: event.recurringEventId ?? null,
+              htmlLink: event.htmlLink ?? null,
+              eventStatus: event.status ?? null,
+              visibility: event.visibility ?? null,
               attendeeSignals,
             },
           };
@@ -423,6 +435,15 @@ serve(async (req) => {
             event.organizer as Record<string, unknown> | undefined,
             attendees,
           );
+          const onlineMeeting = event.onlineMeeting as any;
+          const meetingUrl =
+            (typeof onlineMeeting?.joinUrl === 'string' ? onlineMeeting.joinUrl : null) ||
+            (typeof event.onlineMeetingUrl === 'string' ? (event.onlineMeetingUrl as string) : null) ||
+            null;
+          const body = event.body as any;
+          const description =
+            (typeof event.bodyPreview === 'string' && event.bodyPreview) ||
+            (typeof body?.content === 'string' ? body.content : null) || null;
           return {
             external_id: event.id as string,
             title: (event.subject as string) || 'Untitled Event',
@@ -434,7 +455,15 @@ serve(async (req) => {
             event_metadata: {
               location: loc?.displayName,
               body: event.bodyPreview,
+              description,
               webLink: event.webLink,
+              meetingUrl,
+              isOnlineMeeting: event.isOnlineMeeting ?? null,
+              onlineMeetingProvider: event.onlineMeetingProvider ?? null,
+              recurrence: event.recurrence ?? null,
+              eventStatus: event.showAs ?? null,
+              sensitivity: event.sensitivity ?? null,
+              importance: event.importance ?? null,
               attendeeSignals,
             },
           };
