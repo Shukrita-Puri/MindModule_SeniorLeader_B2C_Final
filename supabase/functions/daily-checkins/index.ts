@@ -471,7 +471,31 @@ serve(async (req) => {
         }
 
         if (!targetId) {
-          return new Response(JSON.stringify({ data: null }), {
+          // No prior row for this window (user opened /check-in-detail
+          // without completing Page 1 first). Create one carrying the
+          // body fields so the data is never silently dropped — mirrors
+          // UPDATE_CLARITY_CONFIDENCE's insert-fallback and the client
+          // DEV_MODE path in CheckInDetail.tsx.
+          const insertPayload: Record<string, unknown> = {
+            ...updatePayload,
+            user_id: userId,
+            checkin_date: checkinDate,
+            time_window: timeWindow ?? 'morning',
+            outcome: 'steady',
+            skipped: false,
+            timestamp: new Date().toISOString(),
+          };
+          const { data: inserted, error: insertErr } = await supabase
+            .from('daily_checkins')
+            .insert(insertPayload)
+            .select()
+            .maybeSingle();
+          if (insertErr) {
+            console.error('[daily-checkins] UPDATE_BODY_CHECKIN insert-fallback error:', insertErr);
+            throw insertErr;
+          }
+          console.log('[daily-checkins] UPDATE_BODY_CHECKIN insert-fallback created row for user:', userId);
+          return new Response(JSON.stringify({ data: inserted }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
