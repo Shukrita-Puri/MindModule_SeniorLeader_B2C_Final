@@ -61,6 +61,7 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 type AttendeeSignal = {
   displayName: string | null;
+  email: string | null;
   emailDomain: string | null;
   responseStatus: string | null;
   isSelf: boolean;
@@ -73,6 +74,15 @@ function normalizeEmailDomain(email: unknown): string | null {
   return parts.length === 2 && parts[1] ? parts[1] : null;
 }
 
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  // Strip mailto: prefix if present (Apple-style URLs)
+  const stripped = trimmed.startsWith('mailto:') ? trimmed.slice(7) : trimmed;
+  return /^[^\s@]+@[^\s@]+$/.test(stripped) ? stripped : null;
+}
+
 function statusToLabel(status: unknown): string | null {
   if (typeof status === 'string' && status.trim()) return status.toLowerCase();
   return null;
@@ -82,23 +92,28 @@ function buildAttendeeSignals(
   organizer: { name?: unknown; email?: unknown; self?: unknown } | undefined,
   attendees: unknown[] | undefined,
 ): {
-  organizer: { displayName: string | null; emailDomain: string | null; isCurrentUser: boolean };
+  organizer: { displayName: string | null; email: string | null; emailDomain: string | null; isCurrentUser: boolean };
   attendees: AttendeeSignal[];
   attendeeCount: number;
   responseSummary: Record<string, number>;
 } {
   const attendeeSignals = (attendees || [])
-    .map((attendee: any) => ({
-      displayName:
-        typeof attendee?.displayName === 'string' ? attendee.displayName :
-        typeof attendee?.email === 'string' ? attendee.email :
-        typeof attendee?.emailAddress?.name === 'string' ? attendee.emailAddress.name :
-        typeof attendee?.name === 'string' ? attendee.name : null,
-      emailDomain: normalizeEmailDomain(attendee?.email || attendee?.emailAddress?.address || attendee?.url),
-      responseStatus: statusToLabel(attendee?.responseStatus || attendee?.status?.response),
-      isSelf: attendee?.self === true,
-      isOrganizer: attendee?.organizer === true || attendee?.type === 'organizer',
-    }))
+    .map((attendee: any) => {
+      const emailRaw = attendee?.email || attendee?.emailAddress?.address || attendee?.url || attendee?.contactUrl;
+      const email = normalizeEmail(emailRaw);
+      return {
+        displayName:
+          typeof attendee?.displayName === 'string' ? attendee.displayName :
+          typeof attendee?.emailAddress?.name === 'string' ? attendee.emailAddress.name :
+          typeof attendee?.name === 'string' ? attendee.name :
+          (email || (typeof attendee?.email === 'string' ? attendee.email : null)),
+        email,
+        emailDomain: email ? email.split('@')[1] || null : normalizeEmailDomain(emailRaw),
+        responseStatus: statusToLabel(attendee?.responseStatus || attendee?.status?.response),
+        isSelf: attendee?.self === true || attendee?.isSelf === true,
+        isOrganizer: attendee?.organizer === true || attendee?.type === 'organizer' || attendee?.isOrganizer === true,
+      };
+    })
     .filter((attendee): attendee is AttendeeSignal => !!attendee);
 
   const responseSummary: Record<string, number> = {};
@@ -107,12 +122,14 @@ function buildAttendeeSignals(
     responseSummary[key] = (responseSummary[key] || 0) + 1;
   }
 
+  const orgEmail = normalizeEmail((organizer as any)?.email || (organizer as any)?.emailAddress?.address);
   return {
     organizer: {
       displayName:
         typeof organizer?.name === 'string' ? organizer.name :
-        typeof organizer?.emailAddress?.name === 'string' ? organizer.emailAddress.name : null,
-      emailDomain: normalizeEmailDomain(organizer?.email || organizer?.emailAddress?.address),
+        typeof (organizer as any)?.emailAddress?.name === 'string' ? (organizer as any).emailAddress.name : null,
+      email: orgEmail,
+      emailDomain: orgEmail ? orgEmail.split('@')[1] || null : normalizeEmailDomain((organizer as any)?.email || (organizer as any)?.emailAddress?.address),
       isCurrentUser: organizer?.self === true,
     },
     attendees: attendeeSignals,
