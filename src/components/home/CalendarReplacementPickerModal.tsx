@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Check, Clock3, CalendarDays } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Clock3, CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ export interface CalendarReplacementEvent {
   isRecurring?: boolean | null;
 }
 
-interface CalendarReplacementPickerModalProps {
+interface CalendarReplacementPickerInlineProps {
   slotTitle: string;
   slotNumber: number;
   events: CalendarReplacementEvent[];
@@ -30,10 +30,8 @@ interface CalendarReplacementPickerModalProps {
   error?: string | null;
 }
 
-type EventGroup = {
-  label: string;
-  items: CalendarReplacementEvent[];
-};
+type GroupMode = 'day' | 'period';
+type EventGroup = { label: string; items: CalendarReplacementEvent[] };
 
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -50,7 +48,7 @@ function localDayKey(value: Date) {
   return `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
 }
 
-function groupEvents(events: CalendarReplacementEvent[]): EventGroup[] {
+function groupByDay(events: CalendarReplacementEvent[]): EventGroup[] {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
@@ -76,7 +74,25 @@ function groupEvents(events: CalendarReplacementEvent[]): EventGroup[] {
   return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
 }
 
-const CalendarReplacementPickerModal = ({
+function groupByPeriod(events: CalendarReplacementEvent[]): EventGroup[] {
+  // Standard windows: Morning 05–12, Afternoon 12–18, Evening 18–05.
+  const buckets: Record<'Morning' | 'Afternoon' | 'Evening', CalendarReplacementEvent[]> = {
+    Morning: [],
+    Afternoon: [],
+    Evening: [],
+  };
+  for (const event of events) {
+    const h = new Date(event.startTime).getHours();
+    if (h >= 5 && h < 12) buckets.Morning.push(event);
+    else if (h >= 12 && h < 18) buckets.Afternoon.push(event);
+    else buckets.Evening.push(event);
+  }
+  return (['Morning', 'Afternoon', 'Evening'] as const)
+    .filter((k) => buckets[k].length > 0)
+    .map((k) => ({ label: k, items: buckets[k] }));
+}
+
+const CalendarReplacementPickerInline = ({
   slotTitle,
   slotNumber,
   events,
@@ -90,36 +106,55 @@ const CalendarReplacementPickerModal = ({
   onRelationshipTagChange,
   isLoading = false,
   error = null,
-}: CalendarReplacementPickerModalProps) => {
-  const groupedEvents = useMemo(() => groupEvents(events), [events]);
+}: CalendarReplacementPickerInlineProps) => {
+  const [groupMode, setGroupMode] = useState<GroupMode>('day');
+  // Dedupe by id so the same event never renders in two groups/cards.
+  const dedupedEvents = useMemo(() => {
+    const byId = new Map<string, CalendarReplacementEvent>();
+    for (const e of events) if (!byId.has(e.id)) byId.set(e.id, e);
+    return Array.from(byId.values());
+  }, [events]);
+  const groupedEvents = useMemo(
+    () => (groupMode === 'day' ? groupByDay(dedupedEvents) : groupByPeriod(dedupedEvents)),
+    [dedupedEvents, groupMode],
+  );
   const selectedCount = selectedIds.length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl max-h-[88vh] overflow-hidden rounded-3xl border border-white/40 bg-white/15 backdrop-blur-md shadow-xl">
-        <div className="px-5 pt-5 pb-3 space-y-1.5 border-b border-white/10">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-white/60 font-body font-medium">
+    <div className="rounded-xl card-standard px-3 py-3">
+      <div className="flex items-start justify-between gap-3 pb-2 border-b border-border/40">
+        <div className="space-y-0.5 min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-body font-medium">
             Priority {slotNumber}
           </p>
-          <h2 className="text-[22px] md:text-[26px] font-headline tracking-tight text-white">
-            Pick a replacement event
-          </h2>
-          <p className="text-sm text-white/70 line-clamp-2">{slotTitle}</p>
-          <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-body">
-            Select up to 3 events from the next 24 hours
+          <h3 className="text-[15px] md:text-[16px] font-semibold leading-tight text-foreground">
+            Pick replacement events
+          </h3>
+          <p className="text-xs text-muted-foreground line-clamp-1">{slotTitle}</p>
+          <p className="text-[11px] text-muted-foreground/80 font-body">
+            Next 24 hours · up to 3 events
           </p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/40 flex-shrink-0"
+          aria-label="Close replacement picker"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
-        <div className="px-5 py-4 max-h-[62vh] overflow-y-auto space-y-4">
+      <div className="pt-3 space-y-3">
           {error && (
-            <div className="rounded-2xl border border-red-300/30 bg-red-400/10 px-3 py-2 text-sm text-white/85">
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-foreground">
               {error}
             </div>
           )}
 
-          <div className="space-y-3 rounded-2xl border border-white/15 bg-white/8 px-4 py-4">
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">Priority tag</p>
+          <div className="space-y-3 rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
+            <div className="space-y-1.5">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Priority tag</p>
               <div className="flex flex-wrap gap-2">
                 {([
                   { value: 'high', label: 'High' },
@@ -133,10 +168,10 @@ const CalendarReplacementPickerModal = ({
                       type="button"
                       onClick={() => onPriorityTagChange(active ? null : value)}
                       className={cn(
-                        "rounded-full px-3 py-1.5 text-xs font-medium border transition-all",
+                        "rounded-full px-3 py-1 text-[11px] font-medium border transition-all",
                         active
-                          ? "border-taupe bg-taupe/20 text-white shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]"
-                          : "border-white/20 bg-white/10 text-white/70 hover:text-white hover:border-white/40",
+                          ? "border-taupe bg-taupe/15 text-taupe-foreground"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
                       )}
                     >
                       {label}
@@ -146,8 +181,8 @@ const CalendarReplacementPickerModal = ({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">Relationship tag</p>
+            <div className="space-y-1.5">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Relationship tag</p>
               <div className="flex flex-wrap gap-2">
                 {([
                   { value: 'boss', label: 'Boss' },
@@ -163,10 +198,10 @@ const CalendarReplacementPickerModal = ({
                       type="button"
                       onClick={() => onRelationshipTagChange(active ? null : value)}
                       className={cn(
-                        "rounded-full px-3 py-1.5 text-xs font-medium border transition-all",
+                        "rounded-full px-3 py-1 text-[11px] font-medium border transition-all",
                         active
-                          ? "border-taupe bg-taupe/20 text-white shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]"
-                          : "border-white/20 bg-white/10 text-white/70 hover:text-white hover:border-white/40",
+                          ? "border-taupe bg-taupe/15 text-taupe-foreground"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
                       )}
                     >
                       {label}
@@ -177,120 +212,131 @@ const CalendarReplacementPickerModal = ({
             </div>
           </div>
 
+          {/* Grouping toggle — Day vs Period */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
+              {([
+                { value: 'day', label: 'By day' },
+                { value: 'period', label: 'By period' },
+              ] as const).map(({ value, label }) => {
+                const active = groupMode === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setGroupMode(value)}
+                    className={cn(
+                      "px-3 py-1 text-[11px] font-medium rounded-full transition-colors",
+                      active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={active}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">{selectedCount}/3 selected</p>
+          </div>
+
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {[1, 2, 3].map((n) => (
                 <div
                   key={n}
-                  className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 animate-pulse"
+                  className="rounded-xl border border-border bg-muted/30 px-3 py-3 animate-pulse"
                 >
-                  <div className="h-3 w-24 rounded bg-white/15" />
-                  <div className="mt-3 h-4 w-3/4 rounded bg-white/15" />
-                  <div className="mt-2 h-3 w-1/2 rounded bg-white/15" />
+                  <div className="h-3 w-24 rounded bg-muted-foreground/15" />
+                  <div className="mt-2 h-3 w-3/4 rounded bg-muted-foreground/15" />
+                  <div className="mt-2 h-3 w-1/2 rounded bg-muted-foreground/15" />
                 </div>
               ))}
             </div>
           ) : groupedEvents.length === 0 ? (
-            <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 text-sm text-white/70">
+            <div className="rounded-xl border border-border bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
               No calendar events found in the next 24 hours.
             </div>
           ) : (
-            groupedEvents.map((group) => (
-              <div key={group.label} className="space-y-2">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/50">
-                  <CalendarDays size={12} />
-                  <span>{group.label}</span>
-                </div>
-                <div className="space-y-2">
-                  {group.items.map((event) => {
-                    const isSelected = selectedIds.includes(event.id);
-                    const toggleDisabled = !isSelected && selectedCount >= 3;
-                    const start = new Date(event.startTime);
-                    const end = new Date(event.endTime);
-                    const metaBits: string[] = [];
-                    if (event.provider) metaBits.push(event.provider);
-                    if (typeof event.attendeesCount === "number" && event.attendeesCount > 0) {
-                      metaBits.push(`${event.attendeesCount} attendees`);
-                    }
-                    if (event.isRecurring) metaBits.push("recurring");
+            <div className="max-h-[44vh] overflow-y-auto pr-1 space-y-3">
+              {groupedEvents.map((group) => (
+                <div key={group.label} className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    <CalendarDays size={11} />
+                    <span>{group.label}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {group.items.map((event) => {
+                      const isSelected = selectedIds.includes(event.id);
+                      const toggleDisabled = !isSelected && selectedCount >= 3;
+                      const start = new Date(event.startTime);
+                      const end = new Date(event.endTime);
+                      const metaBits: string[] = [];
+                      if (typeof event.attendeesCount === "number" && event.attendeesCount > 0) {
+                        metaBits.push(`${event.attendeesCount} attendees`);
+                      }
+                      if (event.isRecurring) metaBits.push("recurring");
 
-                    return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => !toggleDisabled && onToggleEvent(event.id)}
-                        disabled={toggleDisabled}
-                        className={cn(
-                          "w-full rounded-2xl border px-4 py-3 text-left transition-all",
-                          isSelected
-                            ? "border-taupe bg-taupe/18 text-white shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]"
-                            : "border-white/15 bg-white/10 text-white/85 hover:border-white/30 hover:bg-white/14",
-                          toggleDisabled && "opacity-50 cursor-not-allowed",
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10">
-                            {isSelected ? <Check size={14} className="text-white" /> : <Clock3 size={14} className="text-white/70" />}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium leading-tight">{event.title}</p>
-                                <p className="mt-1 text-[11px] text-white/55">
-                                  {TIME_FORMAT.format(start)} - {TIME_FORMAT.format(end)}
-                                </p>
-                              </div>
-                              {isSelected && (
-                                <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-white/80">
-                                  Selected
-                                </span>
-                              )}
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => !toggleDisabled && onToggleEvent(event.id)}
+                          disabled={toggleDisabled}
+                          className={cn(
+                            "w-full rounded-xl border px-3 py-2 text-left transition-all",
+                            isSelected
+                              ? "border-taupe bg-taupe/10"
+                              : "border-border bg-background hover:border-foreground/30 hover:bg-muted/30",
+                            toggleDisabled && "opacity-50 cursor-not-allowed",
+                          )}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <div className={cn(
+                              "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
+                              isSelected ? "border-taupe bg-taupe text-white" : "border-border bg-background text-muted-foreground",
+                            )}>
+                              {isSelected ? <Check size={12} className="stroke-[3]" /> : <Clock3 size={12} />}
                             </div>
-                            {metaBits.length > 0 && (
-                              <p className="mt-2 text-[11px] text-white/55">
-                                {metaBits.join(" • ")}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[13px] font-medium leading-tight text-foreground">{event.title}</p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {TIME_FORMAT.format(start)} – {TIME_FORMAT.format(end)}
+                                {metaBits.length > 0 ? ` · ${metaBits.join(' · ')}` : ''}
                               </p>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
-        </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
-          <div className="text-xs text-white/60 space-y-0.5">
-            <p>{selectedCount}/3 active priorities selected</p>
-            <p className="text-white/45">
-              {priorityTag ? `${priorityTag} priority` : 'No priority tag'} · {relationshipTag ? relationshipTag : 'No relationship tag'}
-            </p>
-          </div>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-end gap-2 pt-1">
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="text-sm text-white/70 hover:text-white hover:bg-white/10"
+              className="text-xs"
             >
-              Close
+              Cancel
             </Button>
             <Button
               type="button"
+              size="sm"
               onClick={onApply}
               disabled={selectedCount === 0 || isLoading}
-              className="text-sm bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Regenerate plan
+              Apply ({selectedCount})
             </Button>
           </div>
-        </div>
       </div>
     </div>
   );
 };
 
-export default CalendarReplacementPickerModal;
+export default CalendarReplacementPickerInline;
