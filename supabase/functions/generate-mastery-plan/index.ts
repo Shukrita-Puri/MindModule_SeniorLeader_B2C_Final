@@ -74,6 +74,7 @@ interface PlanRequest {
   timezoneOffset: number;
   localDate?: string;
   todayCheckinId?: string | null;
+  selectedCalendarEventIds?: string[];
   // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
@@ -1839,7 +1840,14 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       .gte('start_time', now.toISOString())
       .lte('start_time', in48h.toISOString())
       .order('start_time', { ascending: true });
-    ctx.rawCalendarEvents = events || [];
+    const selectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
+    const prioritizedEvents = [...(events || [])].sort((a: any, b: any) => {
+      const aSelected = selectedIds.has(a.id) ? 1 : 0;
+      const bSelected = selectedIds.has(b.id) ? 1 : 0;
+      if (aSelected !== bSelected) return bSelected - aSelected;
+      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+    });
+    ctx.rawCalendarEvents = prioritizedEvents;
     req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
       isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring,
@@ -2185,6 +2193,20 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
   } catch (filterError: any) {
     console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
+  }
+
+  const selectedEventIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
+  const selectedEventOrder = new Map<string, number>(
+    (req.selectedCalendarEventIds || []).filter(Boolean).map((id, index) => [id, index]),
+  );
+  if (selectedEventIds.size > 0) {
+    for (const evt of filteredEvents) {
+      if (selectedEventIds.has(evt.event.id)) {
+        const boost = 100 + (selectedEventOrder.get(evt.event.id) ?? 0);
+        evt.score = (evt.score || 0) + boost;
+        (evt as any).selectedByUser = true;
+      }
+    }
   }
 
   // v5.1: hard 24h MVP ceiling on JIT eligibility — never surface JIT prep for events >24h away.
@@ -4157,6 +4179,9 @@ Deno.serve(async (req) => {
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     const clientLocalDate = typeof body.localDate === 'string' ? body.localDate : null;
     const todayCheckinId = typeof body.todayCheckinId === 'string' ? body.todayCheckinId : null;
+    const selectedCalendarEventIds = Array.isArray(body.selectedCalendarEventIds)
+      ? body.selectedCalendarEventIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+      : [];
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
@@ -4224,6 +4249,7 @@ Deno.serve(async (req) => {
       timezoneOffset: clientTimezoneOffset,
       localDate: clientLocalDate || undefined,
       todayCheckinId,
+      selectedCalendarEventIds,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,

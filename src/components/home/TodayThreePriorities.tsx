@@ -23,6 +23,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
+import CalendarReplacementPickerModal, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
@@ -124,6 +125,12 @@ interface MasteryPlanResponse {
   };
   preEventPlan: any;
   jitPriority?: boolean;
+  calendarPills?: Array<{
+    label: string;
+    eventId: string;
+    priorityScore: number | null;
+    timePill: string;
+  }>;
   horizonModules?: HorizonModule[];
   /**
    * Stateful Plan Evolution metadata (server-emitted).
@@ -247,6 +254,11 @@ const TodayThreePriorities = ({
   // Phase 1: cancelled-slot state lives only in sessionStorage scoped to the
   // current ritual_date + period. No DB writes, no schema changes.
   const cancelledStorageKey = `cancelled-keys-${scopeKey}`;
+  const [replacementSlot, setReplacementSlot] = useState<{ index: number; key: string; title: string } | null>(null);
+  const [replacementEvents, setReplacementEvents] = useState<CalendarReplacementEvent[]>([]);
+  const [replacementLoading, setReplacementLoading] = useState(false);
+  const [replacementError, setReplacementError] = useState<string | null>(null);
+  const [replacementSelection, setReplacementSelection] = useState<string[]>([]);
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -282,6 +294,54 @@ const TodayThreePriorities = ({
       return next;
     });
   }, [cancelledStorageKey]);
+
+  useEffect(() => {
+    setCancelledKeys(loadPersistedSet(cancelledStorageKey));
+  }, [cancelledStorageKey]);
+
+  const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
+  const loadReplacementEvents = useCallback(async () => {
+    if (!effectiveUserId || !replacementSlot) return;
+    setReplacementLoading(true);
+    setReplacementError(null);
+    try {
+      const now = new Date();
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const { data, error } = await supabase
+        .from('primary_calendar_events')
+        .select('id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring')
+        .eq('user_id', effectiveUserId)
+        .gte('start_time', now.toISOString())
+        .lt('start_time', in24h.toISOString())
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      const events = (data || [])
+        .filter((event: any) => event?.id && event?.title && event?.start_time && event?.end_time)
+        .map((event: any) => ({
+          id: String(event.id),
+          title: String(event.title),
+          startTime: String(event.start_time),
+          endTime: String(event.end_time),
+          provider: event.provider ?? null,
+          attendeesCount: event.attendees_count ?? null,
+          isOrganizer: event.is_organizer ?? null,
+          isRecurring: event.is_recurring ?? null,
+        })) as CalendarReplacementEvent[];
+      setReplacementEvents(events);
+    } catch (error) {
+      console.error('[TodayThreePriorities] Failed to load replacement events:', error);
+      setReplacementEvents([]);
+      setReplacementError('Unable to load calendar events right now.');
+    } finally {
+      setReplacementLoading(false);
+    }
+  }, [effectiveUserId, replacementSlot]);
+
+  useEffect(() => {
+    if (!replacementSlot) return;
+    void loadReplacementEvents();
+  }, [replacementSlot, loadReplacementEvents]);
 
   // Hydration gate: only switch from "seeding" to "newly completed" detection AFTER
   // the first successful load of completedPracticeIds for this plan instance.
@@ -386,7 +446,7 @@ const TodayThreePriorities = ({
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey, cancelledKeys]);
 
   // ── Load plan ──
-  const loadPlan = useCallback(async (opts?: { silent?: boolean }) => {
+  const loadPlan = useCallback(async (opts?: { silent?: boolean; forceRefresh?: boolean; selectedCalendarEventIds?: string[] }) => {
     // Silent refreshes (e.g. background revalidation when we already
     // hydrated from sessionStorage) must not flip `loading` true — that
     // would re-trigger the scripted EngravedLoader for users who already
@@ -400,7 +460,8 @@ const TodayThreePriorities = ({
       const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
       const forceKey = cacheKeys.planForceRefresh(todayDate, currentPeriod);
-      const forceRefresh = sessionStorage.getItem(forceKey) === '1';
+      const selectedCalendarEventIds = (opts?.selectedCalendarEventIds || []).filter((id): id is string => typeof id === 'string' && id.length > 0);
+      const forceRefresh = opts?.forceRefresh === true || sessionStorage.getItem(forceKey) === '1' || selectedCalendarEventIds.length > 0;
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getTodayCheckin();
@@ -468,7 +529,7 @@ const TodayThreePriorities = ({
             // Glue plan cache to brief identity: when the brief regenerates legitimately
             // (new input_signature → new briefId), invalidate the plan with it.
             const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
-            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}`;
+            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:selected=${selectedCalendarEventIds.join(',')}`;
             if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
               clearPersistent(loadedKey);
               clearPersistent(dataKey);
@@ -484,7 +545,7 @@ const TodayThreePriorities = ({
               const horizonIds = (stripped.horizonModules || []).flatMap(m => (m.practices || [m.practice]).map((p: any) => p.contentId));
               setCompletedPracticeIds(horizonIds.length > 0 ? allCompleted.filter((id: string) => horizonIds.includes(id)) : allCompleted);
               setLoading(false);
-              return;
+              return true;
             }
           }
         }
@@ -522,6 +583,9 @@ const TodayThreePriorities = ({
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
         };
+        if (selectedCalendarEventIds.length > 0) {
+          requestBody.selectedCalendarEventIds = selectedCalendarEventIds;
+        }
         if (outerReadinessData?.phrase) {
           requestBody.outerReadinessCache = {
             phrase: outerReadinessData.phrase,
@@ -559,7 +623,7 @@ const TodayThreePriorities = ({
           autoRetryDoneRef.current = true;
           setTimeout(() => { loadPlan(); }, 3000);
         }
-        return;
+        return false;
       }
 
       if (planData?.awaitingSignals === true) {
@@ -569,7 +633,7 @@ const TodayThreePriorities = ({
         clearPersistent(dataKey);
         try { sessionStorage.removeItem(forceKey); } catch { /* ignore */ }
         setLoading(false);
-        return;
+        return false;
       }
 
       const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
@@ -611,8 +675,11 @@ const TodayThreePriorities = ({
       }
     } catch (error) {
       console.error('Error loading plan:', error);
+      setLoading(false);
+      return false;
     }
     setLoading(false);
+    return true;
   }, [user, outerReadinessData, noLocalSignalAtMount]);
 
   useEffect(() => {
@@ -1027,6 +1094,18 @@ const TodayThreePriorities = ({
                   >
                     Undo
                   </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReplacementSelection([]);
+                      setReplacementSlot({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
+                    }}
+                    className="text-[11px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/30 flex-shrink-0"
+                    aria-label="Replace with calendar event"
+                  >
+                    Replace
+                  </button>
                 </div>
               </div>
             );
@@ -1299,15 +1378,50 @@ const TodayThreePriorities = ({
         <SlotCancelFeedbackModal
           priorityNumber={pendingCancel.index + 1}
           slotTitle={pendingCancel.title}
-          onSubmit={(reason, feedback) => {
+          onSubmit={async (reason, feedback) => {
             const reasonLabel = reason === 'now' ? 'Not relevant now' : 'Not relevant ever';
             const combined = feedback ? `${reasonLabel}: ${feedback}` : reasonLabel;
             // Reuse existing feedback write path — rating=1 (down).
-            submitPlanFeedback('tod', 1, combined);
-            setCancelled(pendingCancel.key, true);
-            setPendingCancel(null);
+            const result = await submitPlanFeedback('tod', 1, combined);
+            if (result.success) {
+              setCancelled(pendingCancel.key, true);
+              setPendingCancel(null);
+            }
           }}
           onSkip={() => setPendingCancel(null)}
+        />
+      )}
+
+      {/* Phase 2: next-24h replacement event picker */}
+      {replacementSlot && (
+        <CalendarReplacementPickerModal
+          slotNumber={replacementSlot.index + 1}
+          slotTitle={replacementSlot.title}
+          events={replacementEvents}
+          selectedIds={replacementSelection}
+          onToggleEvent={(eventId) => {
+            setReplacementSelection((prev) => {
+              if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
+              if (prev.length >= 3) return prev;
+              return [...prev, eventId];
+            });
+          }}
+          onApply={async () => {
+            if (replacementSelection.length === 0) return;
+            const selectedIds = [...replacementSelection];
+            const success = await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
+            if (success) {
+              setCancelled(replacementSlot.key, false);
+              setReplacementSelection([]);
+              setReplacementSlot(null);
+            }
+          }}
+          onClose={() => {
+            setReplacementSelection([]);
+            setReplacementSlot(null);
+          }}
+          isLoading={replacementLoading}
+          error={replacementError}
         />
       )}
     </div>
