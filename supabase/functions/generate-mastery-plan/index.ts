@@ -1,7 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
-import { isNoiseTitle } from '../_shared/executive-state-taxonomy.ts';
-import { scenarioIdFor } from '../_shared/executive-state-taxonomy.ts';
+import {
+  isNoiseTitle,
+  scenarioIdFor,
+  isEducationalTitle,
+  coarseEventType,
+  canonicalEventTag,
+  eventClusterSignal,
+  eventPressureFlag,
+} from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
 
