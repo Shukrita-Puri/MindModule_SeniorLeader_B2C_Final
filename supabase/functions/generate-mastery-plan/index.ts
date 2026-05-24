@@ -1116,8 +1116,7 @@ async function getPreScoredEvents(
         if (minutesUntil < 0) continue;
 
         // Educational non-organizer hard gate – completely block, no override
-        const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-        const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || ''));
+        const isEducational = isEducationalTitle(row.event_title || '');
         const isOrganizer = matchingEvent?.isOrganizer ?? false;
         if (isEducational && !isOrganizer) {
           console.log(`[generate-mastery-plan] Bridge: BLOCKED educational non-organizer "${row.event_title}"`);
@@ -1323,8 +1322,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     if (isNoiseEvent(event.title || '')) continue;
 
     // Educational non-organizer guard in legacy fallback path
-    const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-    const isEducational = EDUCATIONAL_PATTERNS.test((event.title || '').toLowerCase());
+    const isEducational = isEducationalTitle(event.title || '');
     if (isEducational && !event.isOrganizer) continue;
 
     // ═══ TWO-TOUCH ACTION WINDOW ═══
