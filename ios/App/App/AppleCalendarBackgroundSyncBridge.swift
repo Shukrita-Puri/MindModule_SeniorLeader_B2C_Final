@@ -38,12 +38,14 @@ import Security
         case .declined: return "declined"
         case .tentative: return "tentative"
         case .delegated: return "delegated"
+        case .completed: return "completed"
+        case .inProcess: return "inProcess"
         @unknown default: return "unknown"
         }
     }
 
     private func participantSummary(_ participant: EKParticipant) -> [String: Any] {
-        let contactUrl = participant.url?.absoluteString ?? ""
+        let contactUrl = participant.url.absoluteString
         let email: String = {
             let s = contactUrl.lowercased()
             if s.hasPrefix("mailto:") {
@@ -60,7 +62,7 @@ import Security
         }()
         var summary: [String: Any] = [
             "displayName": participant.name ?? "",
-            "contactUrl": participant.url?.absoluteString ?? "",
+            "contactUrl": participant.url.absoluteString,
             "email": email,
             "emailDomain": emailDomain,
             "responseStatus": participantStatusLabel(participant.participantStatus),
@@ -218,7 +220,7 @@ import Security
         let normalized = events.map { ev -> [String: Any] in
             let attendees = ev.attendees ?? []
             let isOrganizer = ev.organizer?.isCurrentUser ?? false
-            let organizerContactUrl = ev.organizer?.url?.absoluteString ?? ""
+            let organizerContactUrl = ev.organizer?.url.absoluteString ?? ""
             let organizerEmail: String = {
                 let s = organizerContactUrl.lowercased()
                 if s.hasPrefix("mailto:") {
@@ -236,7 +238,7 @@ import Security
             let attendeeSignals: [String: Any] = [
                 "organizer": [
                     "displayName": ev.organizer?.name ?? "",
-                    "contactUrl": ev.organizer?.url?.absoluteString ?? "",
+                    "contactUrl": ev.organizer?.url.absoluteString ?? "",
                     "email": organizerEmail,
                     "emailDomain": organizerEmailDomain,
                     "isCurrentUser": isOrganizer,
