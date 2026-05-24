@@ -994,6 +994,43 @@ const TodayThreePriorities = ({
           const isExpanded = expandedSlot === index;
           const hasMultiple = slotPractices.length > 1;
           const module = hm.practice; // primary practice for collapsed view
+          const slotKey = buildPriorityKey(index, hm);
+          const slotCancelled = cancelledKeys.has(slotKey);
+
+          // Cancelled slots stay visible in place but compressed: greyed +
+          // strike-through + Undo. Completion state is preserved on the
+          // underlying completedPracticeIds, so uncancelling restores the
+          // exact prior visual (incl. ✓ if it was completed before cancel).
+          if (slotCancelled) {
+            return (
+              <div
+                key={`${module.contentId}-${index}`}
+                className="rounded-xl card-standard px-3 py-1.5 opacity-60"
+              >
+                <div className="flex items-center gap-3 py-1">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-muted/30 text-muted-foreground/60">
+                    {slotCompleted ? <Check size={12} className="stroke-[3]" /> : index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
+                      {hm.timeLabel} · {module.title}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
+                      Cancelled
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCancelled(slotKey, false); }}
+                    className="text-[11px] font-medium text-taupe hover:text-taupe-rich px-2 py-1 rounded-md hover:bg-taupe/10 flex-shrink-0"
+                    aria-label="Undo cancel"
+                  >
+                    Undo
+                  </button>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -1062,6 +1099,18 @@ const TodayThreePriorities = ({
                     onClick={(e) => { e.stopPropagation(); handleJitDismiss(index, hm); }}
                     className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
                     aria-label="Dismiss"
+                  >
+                    <X size={14} className="text-muted-foreground/50" />
+                  </button>
+                )}
+                {!hm.isJit && !slotCompleted && isExpanded && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingCancel({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
+                    }}
+                    className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
+                    aria-label="Cancel priority"
                   >
                     <X size={14} className="text-muted-foreground/50" />
                   </button>
