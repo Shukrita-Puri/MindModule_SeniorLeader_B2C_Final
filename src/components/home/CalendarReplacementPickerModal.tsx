@@ -23,9 +23,9 @@ interface CalendarReplacementPickerInlineProps {
   onApply: () => void;
   onClose: () => void;
   priorityTag: 'high' | 'medium' | 'low' | null;
-  relationshipTag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+  relationshipTag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
   onPriorityTagChange: (tag: 'high' | 'medium' | 'low' | null) => void;
-  onRelationshipTagChange: (tag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null) => void;
+  onRelationshipTagChange: (tag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -190,6 +190,7 @@ const CalendarReplacementPickerInline = ({
                   { value: 'junior', label: 'Junior' },
                   { value: 'vendor', label: 'Vendor' },
                   { value: 'client', label: 'Client' },
+                  { value: 'other', label: 'Other' },
                 ] as const).map(({ value, label }) => {
                   const active = relationshipTag === value;
                   return (
