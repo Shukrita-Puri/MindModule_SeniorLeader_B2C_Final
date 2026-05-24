@@ -41,9 +41,26 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func participantSummary(_ participant: EKParticipant) -> [String: Any] {
+        let contactUrl = participant.url?.absoluteString ?? ""
+        let email: String = {
+            let s = contactUrl.lowercased()
+            if s.hasPrefix("mailto:") {
+                let candidate = String(s.dropFirst(7))
+                if candidate.contains("@") { return candidate }
+            }
+            return ""
+        }()
+        let emailDomain: String = {
+            if let at = email.firstIndex(of: "@") {
+                return String(email[email.index(after: at)...])
+            }
+            return ""
+        }()
         var summary: [String: Any] = [
             "displayName": participant.name ?? "",
             "contactUrl": participant.url?.absoluteString ?? "",
+            "email": email,
+            "emailDomain": emailDomain,
             "responseStatus": participantStatusLabel(participant.participantStatus),
             "isSelf": participant.isCurrentUser,
         ]
