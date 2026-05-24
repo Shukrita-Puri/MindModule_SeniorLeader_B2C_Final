@@ -292,6 +292,10 @@ const TodayThreePriorities = ({
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
   const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+  // Phase 3: in-flight guard so a double-click on Apply cannot fire two
+  // overlapping regenerations for the same selection.
+  const regeneratingRef = useRef(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
   const loadReplacementEvents = useCallback(async () => {
@@ -1092,27 +1096,49 @@ const TodayThreePriorities = ({
                   });
                 }}
                 onApply={async () => {
+                  // Phase 3: Apply triggers a real recalibration through the
+                  // existing generate-mastery-plan edge function. We:
+                  //   1. Guard against double-submit via regeneratingRef.
+                  //   2. Persist the slot edit so the ledger reflects the choice.
+                  //   3. Close the inline picker BEFORE the network call so the
+                  //      existing EngravedLoader (driven by `loading`) takes over
+                  //      the priorities surface — no new loader, same copy.
+                  //   4. Call loadPlan with silent:false + selectedCalendarEventIds
+                  //      so the loader appears and the generator actually weights
+                  //      the chosen events.
                   if (replacementSelection.length === 0) return;
+                  if (regeneratingRef.current) return;
+                  regeneratingRef.current = true;
+                  setRegenerating(true);
                   const selectedIds = [...replacementSelection];
-                  const saved = await persistPlanLedgerEdit(
-                    replacementSlot.index,
-                    {
-                      cancelled: false,
-                      cancelReason: null,
-                      replacementEventIds: selectedIds,
-                      priorityTag: replacementPriorityTag,
-                      relationshipTag: replacementRelationshipTag,
-                    },
-                    getCurrentTimeWindow(),
-                  );
-                  if (saved) {
-                    await loadPlan({ silent: true, forceRefresh: true, selectedCalendarEventIds: selectedIds });
+                  try {
+                    const saved = await persistPlanLedgerEdit(
+                      replacementSlot.index,
+                      {
+                        cancelled: false,
+                        cancelReason: null,
+                        replacementEventIds: selectedIds,
+                        priorityTag: replacementPriorityTag,
+                        relationshipTag: replacementRelationshipTag,
+                      },
+                      getCurrentTimeWindow(),
+                    );
+                    if (!saved) {
+                      toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
+                      return;
+                    }
+                    // Reset picker state and close BEFORE the regenerate call
+                    // so the existing EngravedLoader is what the user sees.
                     setReplacementSelection([]);
                     setReplacementPriorityTag(null);
                     setReplacementRelationshipTag(null);
                     setReplacementSlot(null);
-                  } else {
-                    toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
+                    // Surface the existing loader (silent:false) while the
+                    // generator runs with the selected events.
+                    await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
+                  } finally {
+                    regeneratingRef.current = false;
+                    setRegenerating(false);
                   }
                 }}
                 onClose={() => {
