@@ -40,6 +40,20 @@ export function useCalendarSync(): UseCalendarSyncResult {
   const [connection, setConnection] = useState<CalendarConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const triggerCalendarRelationshipLearning = useCallback(() => {
+    if (!user?.id) return;
+
+    void supabase.functions.invoke('extract-calendar-relationship-insights', {
+      body: { lookbackDays: 30, minOccurrences: 3 },
+    }).then(({ error: insightError }) => {
+      if (insightError) {
+        console.warn('[useCalendarSync] Relationship insight extraction failed:', insightError);
+      }
+    }).catch(err => {
+      console.warn('[useCalendarSync] Relationship insight invocation failed:', err);
+    });
+  }, [user?.id]);
+
   const resetCalendarState = useCallback(() => {
     setEvents([]);
     setConnection(null);
@@ -251,6 +265,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
         });
         setLastSync(new Date());
         await fetchEvents();
+        void triggerCalendarRelationshipLearning();
         return;
       }
 
@@ -299,6 +314,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
       
       // Refresh events from database
       await fetchEvents();
+      void triggerCalendarRelationshipLearning();
     } catch (err) {
       console.error('[useCalendarSync] Sync failed:', err);
       emitIntegrationEvent({
@@ -316,7 +332,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     } finally {
       setIsSyncing(false);
     }
-  }, [user?.id, connection, fetchEvents, markAppleCalendarInactive, resetCalendarState]);
+  }, [user?.id, connection, fetchEvents, markAppleCalendarInactive, resetCalendarState, triggerCalendarRelationshipLearning]);
 
   // Initial load: check connection and fetch events
   useEffect(() => {
@@ -402,9 +418,12 @@ export function useCalendarSync(): UseCalendarSyncResult {
             // Background sync - don't await
             if (usableConnection.provider === 'apple') {
               if (isAppleCalendarSupported()) {
-                syncAppleCalendarToBackend()
-                  .then((res) => {
-                    if (!cancelled && res.success === true) fetchEvents();
+              syncAppleCalendarToBackend()
+                .then((res) => {
+                    if (!cancelled && res.success === true) {
+                      fetchEvents();
+                      void triggerCalendarRelationshipLearning();
+                    }
                     if (!cancelled && res.success === false) resetCalendarState();
                   })
                   .catch(err => console.error('[useCalendarSync] Apple background sync failed:', err));
@@ -413,7 +432,10 @@ export function useCalendarSync(): UseCalendarSyncResult {
               supabase.functions.invoke('sync-calendar', {
                 body: { provider: usableConnection.provider, userId: user.id }
               }).then((res) => {
-                if (!cancelled && res.data?.success === true) fetchEvents();
+                if (!cancelled && res.data?.success === true) {
+                  fetchEvents();
+                  void triggerCalendarRelationshipLearning();
+                }
                 if (res.data?.reconnectRequired) console.warn('[useCalendarSync] Background sync: reconnect required');
               }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
             }
@@ -431,7 +453,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
     init();
     
     return () => { cancelled = true; };
-  }, [user?.id, fetchEvents, resetCalendarState, verifyConnectionUsable]);
+  }, [user?.id, fetchEvents, resetCalendarState, verifyConnectionUsable, triggerCalendarRelationshipLearning]);
 
   // Apple Calendar live refresh:
   //  - native EKEventStoreChanged → debounce → sync + refetch
@@ -460,12 +482,13 @@ export function useCalendarSync(): UseCalendarSyncResult {
         userId: user.id,
         meta: { source: 'useCalendarSync', reason },
       });
-      syncAppleCalendarToBackend()
+        syncAppleCalendarToBackend()
         .then((res) => {
           if (cancelled) return;
           if (res.success) {
             setLastSync(new Date());
             void fetchEvents();
+            void triggerCalendarRelationshipLearning();
           }
         })
         .catch((err) => console.warn('[useCalendarSync] Apple instant sync failed:', err));
@@ -496,7 +519,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
       unsubChange?.();
       unsubResume?.();
     };
-  }, [user?.id, connection, fetchEvents]);
+  }, [user?.id, connection, fetchEvents, triggerCalendarRelationshipLearning]);
 
   return {
     events,

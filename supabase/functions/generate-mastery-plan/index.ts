@@ -827,6 +827,13 @@ function generatePlanBrief(
           coachFragment = ` Your coach noted ${pattern} – today's signals are consistent with it.`;
         }
       }
+      if (!coachFragment) {
+        const relationshipInsight = coachInsights.find((i: any) => i.type === 'relationship_pattern');
+        if (relationshipInsight?.content && relationshipInsight.content.length < 120 && !alreadyUsed?.includes('coach_memory_match')) {
+          const pattern = relationshipInsight.content.toLowerCase().replace(/\.$/, '');
+          coachFragment = ` A recurring relationship pattern is active: ${pattern}.`;
+        }
+      }
     }
 
     // Urgency frame

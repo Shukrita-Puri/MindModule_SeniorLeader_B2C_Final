@@ -1340,6 +1340,7 @@ interface CoachContext {
   currentInsights?: {
     leanOn?: string;
     watchFor?: string;
+    relationshipPattern?: string;
   };
 
   // Coach Memory (server-fetched)
@@ -1584,9 +1585,9 @@ async function buildServerContext(
       .select('insight_type, insight_content')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .in('insight_type', ['strength', 'growth_area'])
+      .in('insight_type', ['strength', 'growth_area', 'relationship_pattern'])
       .order('confidence_score', { ascending: false })
-      .limit(2),
+      .limit(3),
     // 11. Consecutive low-state pattern
     fetchConsecutivePattern(supabase, userId, clientContext?.todayState?.outcome),
     // 12. Practice effectiveness (sanctuary_events + next-day check-ins)
@@ -1794,9 +1795,11 @@ async function buildServerContext(
   if (insightsActiveResult.data && insightsActiveResult.data.length > 0) {
     const leanOn = insightsActiveResult.data.find((i: any) => i.insight_type === 'strength');
     const watchFor = insightsActiveResult.data.find((i: any) => i.insight_type === 'growth_area');
+    const relationshipPatternInsight = insightsActiveResult.data.find((i: any) => i.insight_type === 'relationship_pattern');
     context.currentInsights = {
       leanOn: (leanOn as any)?.insight_content || undefined,
       watchFor: (watchFor as any)?.insight_content || undefined,
+      relationshipPattern: (relationshipPatternInsight as any)?.insight_content || undefined,
     };
   }
 
@@ -2543,10 +2546,11 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
   }
 
   // Outer readiness / current insights
-  if (context.currentInsights?.leanOn || context.currentInsights?.watchFor) {
+  if (context.currentInsights?.leanOn || context.currentInsights?.watchFor || context.currentInsights?.relationshipPattern) {
     const parts: string[] = [];
     if (context.currentInsights.leanOn) parts.push(`lean on: "${context.currentInsights.leanOn}"`);
     if (context.currentInsights.watchFor) parts.push(`watch for: "${context.currentInsights.watchFor}"`);
+    if (context.currentInsights.relationshipPattern) parts.push(`relationship pattern: "${context.currentInsights.relationshipPattern}"`);
     contextSignals.push(`- Active insights: ${parts.join(', ')}`);
   }
 
@@ -2817,8 +2821,10 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
       lines.push('\n## Current Coaching Insights');
       if (context.currentInsights.leanOn) lines.push(`- **Active LEAN ON**: "${context.currentInsights.leanOn}"`);
       if (context.currentInsights.watchFor) lines.push(`- **Active WATCH FOR**: "${context.currentInsights.watchFor}"`);
+      if (context.currentInsights.relationshipPattern) lines.push(`- **Active RELATIONSHIP PATTERN**: "${context.currentInsights.relationshipPattern}"`);
       if (!context.currentInsights.leanOn) lines.push('- No active LEAN ON insight – if you observe a consistent strength, name it.');
       if (!context.currentInsights.watchFor) lines.push('- No active WATCH FOR insight – if you observe a recurring pattern, name it.');
+      if (!context.currentInsights.relationshipPattern) lines.push('- No active RELATIONSHIP PATTERN insight – if you observe recurring relationship pressure, name it.');
     }
 
     // Consecutive Pattern

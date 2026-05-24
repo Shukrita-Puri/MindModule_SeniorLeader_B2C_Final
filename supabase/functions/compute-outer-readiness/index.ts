@@ -104,6 +104,7 @@ interface OuterReadinessResult {
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
   coachInsightAge?: number;
   coachInsightLabel?: string;
+  relationshipPattern?: string;
   // New: State statement + alreadyUsed[] relay for SharedContext
   stateStatement?: string;
   stateAlreadyUsed?: string[];
@@ -1952,7 +1953,7 @@ serve(async (req) => {
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
-        .in('insight_type', ['strength', 'growth_area'])
+        .in('insight_type', ['strength', 'growth_area', 'relationship_pattern'])
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(5),
@@ -2000,8 +2001,10 @@ serve(async (req) => {
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
+    const relationshipInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'relationship_pattern');
     const coachStrength = strengthInsight?.insight_content || null;
     const coachGrowth = growthInsight?.insight_content || null;
+    const relationshipPattern = relationshipInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
@@ -2265,6 +2268,10 @@ serve(async (req) => {
         // Replace plain 'Title' with *Title* where it appears wrapped in single quotes
         finalContext = finalContext.replace(new RegExp(`'${hs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`, 'g'), `*${hs}*`);
       }
+    }
+
+    if (relationshipPattern) {
+      finalContext = `A recurring relationship pattern is showing up: ${relationshipPattern}. ${finalContext}`;
     }
 
     const timeOfDay = getTimeOfDay(hour);
@@ -4574,6 +4581,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       context: awaitingSignals ? null : responseBody,
       leanOn: awaitingSignals ? null : formattedLeanOn,
       watchFor: awaitingSignals ? null : formattedWatchFor,
+      relationshipPattern: awaitingSignals ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
       // Explicit period-scoped flags so the client never has to infer

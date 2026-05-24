@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface CoachInsight {
   id: string;
-  type: 'preference' | 'goal' | 'feedback' | 'challenge';
+  type: 'preference' | 'goal' | 'feedback' | 'challenge' | 'relationship_pattern';
   content: string;
   contentReference?: string;
   confidence: number;
@@ -71,6 +71,13 @@ export function getGoalInsights(insights: CoachInsight[]): CoachInsight[] {
  */
 export function getChallengeInsights(insights: CoachInsight[]): CoachInsight[] {
   return insights.filter(i => i.type === 'challenge' && i.confidence >= 0.6);
+}
+
+/**
+ * Get relationship pattern insights (recurring relationship signals from calendar/coach memory)
+ */
+export function getRelationshipPatternInsights(insights: CoachInsight[]): CoachInsight[] {
+  return insights.filter(i => i.type === 'relationship_pattern' && i.confidence >= 0.6);
 }
 
 /**
@@ -177,7 +184,8 @@ export function formatInsightForDisplay(insight: CoachInsight): {
     preference: { label: 'What works', icon: 'heart', color: 'text-rose-500' },
     goal: { label: 'Focus area', icon: 'target', color: 'text-blue-500' },
     feedback: { label: 'Insight', icon: 'lightbulb', color: 'text-amber-500' },
-    challenge: { label: 'Growth edge', icon: 'alert', color: 'text-purple-500' }
+    challenge: { label: 'Growth edge', icon: 'alert', color: 'text-purple-500' },
+    relationship_pattern: { label: 'Relationship pattern', icon: 'lightbulb', color: 'text-cyan-500' },
   };
   
   return formats[insight.type];
