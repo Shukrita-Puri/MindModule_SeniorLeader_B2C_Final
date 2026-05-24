@@ -101,7 +101,7 @@ interface HorizonModule {
   cancelReason?: string | null;
   replacementEventIds?: string[];
   priorityTag?: 'high' | 'medium' | 'low' | null;
-  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
 }
 
 interface CoachCardData {
@@ -262,7 +262,7 @@ const TodayThreePriorities = ({
   const [replacementError, setReplacementError] = useState<string | null>(null);
   const [replacementSelection, setReplacementSelection] = useState<string[]>([]);
   const [replacementPriorityTag, setReplacementPriorityTag] = useState<'high' | 'medium' | 'low' | null>(null);
-  const [replacementRelationshipTag, setReplacementRelationshipTag] = useState<'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null>(null);
+  const [replacementRelationshipTag, setReplacementRelationshipTag] = useState<'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null>(null);
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
