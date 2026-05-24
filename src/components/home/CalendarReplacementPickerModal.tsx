@@ -271,11 +271,6 @@ const CalendarReplacementPickerInline = ({
                       const toggleDisabled = !isSelected && selectedCount >= 3;
                       const start = new Date(event.startTime);
                       const end = new Date(event.endTime);
-                      const metaBits: string[] = [];
-                      if (typeof event.attendeesCount === "number" && event.attendeesCount > 0) {
-                        metaBits.push(`${event.attendeesCount} attendees`);
-                      }
-                      if (event.isRecurring) metaBits.push("recurring");
 
                       return (
                         <button
@@ -302,7 +297,6 @@ const CalendarReplacementPickerInline = ({
                               <p className="truncate text-[13px] font-medium leading-tight text-foreground">{event.title}</p>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
                                 {TIME_FORMAT.format(start)} – {TIME_FORMAT.format(end)}
-                                {metaBits.length > 0 ? ` · ${metaBits.join(' · ')}` : ''}
                               </p>
                             </div>
                           </div>
