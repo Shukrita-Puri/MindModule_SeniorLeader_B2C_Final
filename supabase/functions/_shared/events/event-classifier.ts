@@ -34,6 +34,18 @@ export function isNoiseTitle(title: string | null | undefined): boolean {
   return NOISE_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
+// ── Educational / non-organizer block ───────────────────────────────
+//
+// Single canonical pattern for "this looks like a course/webinar/learning
+// session, not the user's own event". Consumers gate on it to avoid prepping
+// for educational content the user only attends passively.
+export const EDUCATIONAL_PATTERN = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
+
+export function isEducationalTitle(title: string | null | undefined): boolean {
+  if (!title) return false;
+  return EDUCATIONAL_PATTERN.test(title);
+}
+
 // ── Classification ──────────────────────────────────────────────────
 
 export function classifyEvent(
@@ -63,6 +75,100 @@ export function scenarioIdFor(title: string | null | undefined): string | null {
   const et = classifyEvent(title);
   if (!et) return null;
   return EVENT_TYPE_TO_SCENARIO_ID[et.id] ?? null;
+}
+
+// ── Coarse downstream tokens & display labels ───────────────────────
+//
+// Maps shared subtype.id → the coarse event-type token historically used by
+// HRV correlation maps, canonical-tag lookups, and dim scoring. Single
+// source of truth: lives next to the classifier so no feature surface
+// re-encodes the taxonomy.
+const SUBTYPE_TO_COARSE: Record<string, string> = {
+  'gov.board_meeting':           'board',
+  'gov.board_committee':         'board',
+  'gov.board_prep':              'board',
+  'gov.investor_meeting':        'investor',
+  'gov.earnings_call':           'investor',
+  'gov.qbr':                     'quarterly-review',
+  'gov.budget_review':           'finance',
+  'gov.ma_discussion':           'ma',
+  'gov.crisis':                  'crisis',
+  'inf.fundraising':             'fundraising',
+  'inf.negotiation':             'negotiation',
+  'inf.client_presentation':     'client',
+  'vis.media':                   'media-interview',
+  'vis.all_hands':               'all-hands',
+  'lead.executive_1on1':         '1:1',
+  'lead.leadership_sync':        'leadership',
+  'lead.performance_review':     'performance-review',
+  'lead.difficult_conversation': 'layoff',
+  'lead.layoff':                 'layoff',
+  'lead.hiring_committee':       'hiring-interview',
+  'str.strategy_planning':       'strategy',
+  'str.deep_work':               'deep-work',
+  'str.product_launch':          'launch',
+  'conf.keynote':                'speaking',
+  'conf.speaking':               'speaking',
+  'conf.offsite':                'strategy',
+  'conf.award':                  'speaking',
+  'conf.customer_summit':        'speaking',
+  'conf.networking':             'networking',
+  'trv.long_haul':               'travel',
+  'trv.flight':                  'travel',
+  'rhy.catchup':                 'standup',
+  'rhy.pto':                     'pto',
+};
+
+/**
+ * Coarse event-type token derived from the shared classifier. Returns
+ * 'other' when no subtype matches. Replaces per-feature keyword tables.
+ */
+export function coarseEventType(title: string | null | undefined): string {
+  const et = classifyEvent(title);
+  if (!et) return 'other';
+  return SUBTYPE_TO_COARSE[et.id] ?? 'other';
+}
+
+/**
+ * Presentation label for a calendar event ("Pre Board Meeting" etc.).
+ * Sourced from the shared subtype's `label`; consumers should not maintain
+ * parallel label maps.
+ */
+export function canonicalEventTag(title: string | null | undefined): string {
+  const et = classifyEvent(title);
+  if (!et) return 'Meeting Prep';
+  // Subtype labels are user-facing already (e.g. "Board meeting"); wrap as
+  // "Pre X" for the prep framing the plan generator uses.
+  return `Pre ${et.label}`;
+}
+
+// ── Pressure / cluster floor (legacy DimA/DimB replacement) ─────────
+//
+// The plan generator's "legacy fallback gate" previously hardcoded two
+// keyword tables (PRESSURE + CLUSTER). Both are now derived from the
+// shared subtype: categoryId, primaryPillar, and demandProfile encode the
+// same intent without a second taxonomy.
+
+/** Categories that count as a pressure/cluster signal for legacy gating. */
+const CLUSTER_CATEGORIES = new Set(['A', 'B', 'C', 'D', 'E', 'F']); // gov, influence, visibility, people, deep work, conferences
+
+export function eventClusterSignal(title: string | null | undefined): boolean {
+  const et = classifyEvent(title);
+  if (!et) return false;
+  return CLUSTER_CATEGORIES.has(et.categoryId);
+}
+
+/**
+ * Returns whether the event is "pressure-flavored" — used to bump DimA on
+ * top of attendee count. Derived from primaryPillar (Executive Presence) or
+ * a meaningful visibility/political demand.
+ */
+export function eventPressureFlag(title: string | null | undefined): boolean {
+  const et = classifyEvent(title);
+  if (!et) return false;
+  if (et.primaryPillar === 2) return true;
+  const d = et.demandProfile;
+  return (d.vis >= 2) || (d.pol >= 2);
 }
 
 // Legacy keyword table consumed by older callers (cause-effect / nudges).
