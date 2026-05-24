@@ -67,7 +67,7 @@ export async function getRituals(days: number = 30): Promise<RitualData[]> {
       console.error('[dailyRituals] DEV_MODE getRituals error:', error);
       return [];
     }
-    return data || [];
+    return (data || []) as unknown as RitualData[];
   }
   
   // Production: Use edge function
@@ -114,7 +114,7 @@ export async function getTodayRitual(sessionPeriod?: 'morning' | 'afternoon' | '
       console.error('[dailyRituals] DEV_MODE getTodayRitual error:', error);
       return null;
     }
-    return data || null;
+    return (data || null) as unknown as RitualData | null;
   }
   
   // Production: Use edge function
@@ -196,7 +196,7 @@ export async function getRitualRange(startDate: string, endDate: string): Promis
       console.error('[dailyRituals] DEV_MODE getRitualRange error:', error);
       return [];
     }
-    return data || [];
+    return (data || []) as unknown as RitualData[];
   }
   
   // Production: Use edge function
