@@ -23,7 +23,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
-import CalendarReplacementPickerModal, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
+import CalendarReplacementPickerInline, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
