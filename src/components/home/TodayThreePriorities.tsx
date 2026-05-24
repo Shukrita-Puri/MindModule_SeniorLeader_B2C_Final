@@ -100,6 +100,8 @@ interface HorizonModule {
   isCancelled?: boolean;
   cancelReason?: string | null;
   replacementEventIds?: string[];
+  priorityTag?: 'high' | 'medium' | 'low' | null;
+  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
 }
 
 interface CoachCardData {
@@ -262,6 +264,8 @@ const TodayThreePriorities = ({
   const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacementError, setReplacementError] = useState<string | null>(null);
   const [replacementSelection, setReplacementSelection] = useState<string[]>([]);
+  const [replacementPriorityTag, setReplacementPriorityTag] = useState<'high' | 'medium' | 'low' | null>(null);
+  const [replacementRelationshipTag, setReplacementRelationshipTag] = useState<'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null>(null);
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -280,7 +284,7 @@ const TodayThreePriorities = ({
     return `${slotIndex}:${ids}`;
   };
 
-  const syncPlanCacheForSlot = useCallback((slotIndex: number, patch: Partial<Pick<HorizonModule, 'isCancelled' | 'cancelReason' | 'replacementEventIds'>>) => {
+  const syncPlanCacheForSlot = useCallback((slotIndex: number, patch: Partial<Pick<HorizonModule, 'isCancelled' | 'cancelReason' | 'replacementEventIds' | 'priorityTag' | 'relationshipTag'>>) => {
     setPlan((prev) => {
       if (!prev?.horizonModules) return prev;
       const nextPlan = {
@@ -297,6 +301,12 @@ const TodayThreePriorities = ({
       return nextPlan;
     });
   }, [periodForPlan, todayForPlan]);
+
+  const resetReplacementEditor = useCallback((slot?: HorizonModule) => {
+    setReplacementSelection(slot?.replacementEventIds || []);
+    setReplacementPriorityTag(slot?.priorityTag ?? null);
+    setReplacementRelationshipTag(slot?.relationshipTag ?? null);
+  }, []);
 
   // Tracks which priority fingerprints have ALREADY had their feedback modal shown
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
@@ -1086,6 +1096,10 @@ const TodayThreePriorities = ({
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
           const slotCancelled = hm.isCancelled !== undefined ? hm.isCancelled === true : cancelledKeys.has(slotKey);
+          const tagBadges = [
+            hm.priorityTag ? { label: `${hm.priorityTag} priority`, tone: 'bg-saffron/15 text-saffron border-saffron/20' } : null,
+            hm.relationshipTag ? { label: hm.relationshipTag, tone: 'bg-white/10 text-white/70 border-white/20' } : null,
+          ].filter(Boolean) as Array<{ label: string; tone: string }>;
 
           // Cancelled slots stay visible in place but compressed: greyed +
           // strike-through + Undo. Completion state is preserved on the
@@ -1108,6 +1122,15 @@ const TodayThreePriorities = ({
                     <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
                       Cancelled
                     </p>
+                    {tagBadges.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {tagBadges.map((badge) => (
+                          <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -1142,7 +1165,7 @@ const TodayThreePriorities = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setReplacementSelection([]);
+                      resetReplacementEditor(hm);
                       setReplacementSlot({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
                     }}
                     className="text-[11px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/30 flex-shrink-0"
@@ -1209,6 +1232,15 @@ const TodayThreePriorities = ({
                           {hm.whyLine}
                         </p>
                       )}
+                      {tagBadges.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {tagBadges.map((badge) => (
+                            <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
+                              {badge.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1268,6 +1300,16 @@ const TodayThreePriorities = ({
                       <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
                         {hm.whyLine}
                       </p>
+                    </div>
+                  )}
+
+                  {tagBadges.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagBadges.map((badge) => (
+                        <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
+                          {badge.label}
+                        </span>
+                      ))}
                     </div>
                   )}
 
@@ -1430,7 +1472,13 @@ const TodayThreePriorities = ({
             if (result.success) {
               const saved = await persistPlanLedgerEdit(
                 pendingCancel.index,
-                { cancelled: true, cancelReason: reason, replacementEventIds: [] },
+                {
+                  cancelled: true,
+                  cancelReason: reason,
+                  replacementEventIds: [],
+                  priorityTag: replacementPriorityTag,
+                  relationshipTag: replacementRelationshipTag,
+                },
                 getCurrentTimeWindow(),
               );
               if (saved) {
@@ -1439,6 +1487,8 @@ const TodayThreePriorities = ({
                   isCancelled: true,
                   cancelReason: reason,
                   replacementEventIds: [],
+                  priorityTag: replacementPriorityTag,
+                  relationshipTag: replacementRelationshipTag,
                 });
                 setPendingCancel(null);
               } else {
@@ -1457,6 +1507,10 @@ const TodayThreePriorities = ({
           slotTitle={replacementSlot.title}
           events={replacementEvents}
           selectedIds={replacementSelection}
+          priorityTag={replacementPriorityTag}
+          relationshipTag={replacementRelationshipTag}
+          onPriorityTagChange={setReplacementPriorityTag}
+          onRelationshipTagChange={setReplacementRelationshipTag}
           onToggleEvent={(eventId) => {
             setReplacementSelection((prev) => {
               if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
@@ -1471,7 +1525,13 @@ const TodayThreePriorities = ({
             if (success) {
               const saved = await persistPlanLedgerEdit(
                 replacementSlot.index,
-                { cancelled: false, cancelReason: null, replacementEventIds: selectedIds },
+                {
+                  cancelled: false,
+                  cancelReason: null,
+                  replacementEventIds: selectedIds,
+                  priorityTag: replacementPriorityTag,
+                  relationshipTag: replacementRelationshipTag,
+                },
                 getCurrentTimeWindow(),
               );
               if (saved) {
@@ -1479,17 +1539,23 @@ const TodayThreePriorities = ({
                   isCancelled: false,
                   cancelReason: null,
                   replacementEventIds: selectedIds,
+                  priorityTag: replacementPriorityTag,
+                  relationshipTag: replacementRelationshipTag,
                 });
               } else {
                 toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was shown, but the edit state was not persisted.', variant: 'destructive' });
               }
               setCancelled(replacementSlot.key, false);
               setReplacementSelection([]);
+              setReplacementPriorityTag(null);
+              setReplacementRelationshipTag(null);
               setReplacementSlot(null);
             }
           }}
           onClose={() => {
             setReplacementSelection([]);
+            setReplacementPriorityTag(null);
+            setReplacementRelationshipTag(null);
             setReplacementSlot(null);
           }}
           isLoading={replacementLoading}

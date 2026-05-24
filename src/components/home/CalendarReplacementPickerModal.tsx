@@ -22,6 +22,10 @@ interface CalendarReplacementPickerModalProps {
   onToggleEvent: (eventId: string) => void;
   onApply: () => void;
   onClose: () => void;
+  priorityTag: 'high' | 'medium' | 'low' | null;
+  relationshipTag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+  onPriorityTagChange: (tag: 'high' | 'medium' | 'low' | null) => void;
+  onRelationshipTagChange: (tag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -80,6 +84,10 @@ const CalendarReplacementPickerModal = ({
   onToggleEvent,
   onApply,
   onClose,
+  priorityTag,
+  relationshipTag,
+  onPriorityTagChange,
+  onRelationshipTagChange,
   isLoading = false,
   error = null,
 }: CalendarReplacementPickerModalProps) => {
@@ -108,6 +116,66 @@ const CalendarReplacementPickerModal = ({
               {error}
             </div>
           )}
+
+          <div className="space-y-3 rounded-2xl border border-white/15 bg-white/8 px-4 py-4">
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">Priority tag</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'high', label: 'High' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'low', label: 'Low' },
+                ] as const).map(({ value, label }) => {
+                  const active = priorityTag === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => onPriorityTagChange(active ? null : value)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-medium border transition-all",
+                        active
+                          ? "border-taupe bg-taupe/20 text-white shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]"
+                          : "border-white/20 bg-white/10 text-white/70 hover:text-white hover:border-white/40",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">Relationship tag</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'boss', label: 'Boss' },
+                  { value: 'colleague', label: 'Colleague' },
+                  { value: 'junior', label: 'Junior' },
+                  { value: 'vendor', label: 'Vendor' },
+                  { value: 'client', label: 'Client' },
+                ] as const).map(({ value, label }) => {
+                  const active = relationshipTag === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => onRelationshipTagChange(active ? null : value)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-medium border transition-all",
+                        active
+                          ? "border-taupe bg-taupe/20 text-white shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]"
+                          : "border-white/20 bg-white/10 text-white/70 hover:text-white hover:border-white/40",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
           {isLoading ? (
             <div className="space-y-3">
@@ -195,9 +263,12 @@ const CalendarReplacementPickerModal = ({
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
-          <p className="text-xs text-white/60">
-            {selectedCount}/3 active priorities selected
-          </p>
+          <div className="text-xs text-white/60 space-y-0.5">
+            <p>{selectedCount}/3 active priorities selected</p>
+            <p className="text-white/45">
+              {priorityTag ? `${priorityTag} priority` : 'No priority tag'} · {relationshipTag ? relationshipTag : 'No relationship tag'}
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"

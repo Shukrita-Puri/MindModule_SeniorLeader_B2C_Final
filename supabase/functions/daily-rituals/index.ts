@@ -37,21 +37,23 @@ interface RequestBody {
     recommended_practice_ids?: string[];
     completed_practice_ids?: string[];
     recommended_practices_count?: number;
-    plan_ledger?: {
-      modules?: unknown[];
-      generatedAt?: string;
-      generatedPeriod?: string;
-      source?: string;
-      userEdits?: {
-        slotEdits?: Record<string, {
-          cancelled?: boolean;
-          cancelReason?: string | null;
-          replacementEventIds?: string[];
+      plan_ledger?: {
+        modules?: unknown[];
+        generatedAt?: string;
+        generatedPeriod?: string;
+        source?: string;
+        userEdits?: {
+          slotEdits?: Record<string, {
+            cancelled?: boolean;
+            cancelReason?: string | null;
+            replacementEventIds?: string[];
+            priorityTag?: 'high' | 'medium' | 'low' | null;
+            relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+            updatedAt?: string;
+          }>;
           updatedAt?: string;
-        }>;
-        updatedAt?: string;
-      };
-    } | null;
+        };
+      } | null;
   };
 }
 

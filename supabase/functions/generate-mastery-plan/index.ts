@@ -2955,6 +2955,8 @@ interface HorizonModule {
   isCancelled?: boolean;
   cancelReason?: string | null;
   replacementEventIds?: string[];
+  priorityTag?: 'high' | 'medium' | 'low' | null;
+  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
 }
 
 function determineAllocationPattern(
@@ -3959,6 +3961,8 @@ interface PlanLedger {
       cancelled?: boolean;
       cancelReason?: string | null;
       replacementEventIds?: string[];
+      priorityTag?: 'high' | 'medium' | 'low' | null;
+      relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
       updatedAt?: string;
     }>;
     updatedAt?: string;
@@ -4028,6 +4032,8 @@ function applyLedgerEditsToModules(
       isCancelled: edit.cancelled === true,
       cancelReason: edit.cancelReason ?? null,
       replacementEventIds: edit.replacementEventIds || [],
+      priorityTag: edit.priorityTag ?? null,
+      relationshipTag: edit.relationshipTag ?? null,
     };
   });
 }
@@ -4136,7 +4142,8 @@ function mergeWithLedger(
 
       if (matchingFresh) {
         usedFreshIndexes.add(matchingFresh.idx);
-        out.push({
+          out.push({
+          ...ledgerSlot,
           // Anchor identity from ledger:
           horizon: ledgerSlot.horizon,
           isJit: true,
@@ -4152,6 +4159,9 @@ function mergeWithLedger(
           practice: matchingFresh.slot.practice,
           practices: matchingFresh.slot.practices,
           sequenceReasoning: matchingFresh.slot.sequenceReasoning,
+          priorityTag: ledgerSlot.priorityTag ?? null,
+          relationshipTag: ledgerSlot.relationshipTag ?? null,
+          replacementEventIds: ledgerSlot.replacementEventIds || [],
         });
         anchoredSlots++;
         continue;
@@ -4172,7 +4182,14 @@ function mergeWithLedger(
 
     if (pickIdx >= 0) {
       usedFreshIndexes.add(pickIdx);
-      out.push(freshModules[pickIdx]);
+      out.push({
+        ...freshModules[pickIdx],
+        isCancelled: ledgerSlot.isCancelled ?? undefined,
+        cancelReason: ledgerSlot.cancelReason ?? null,
+        replacementEventIds: ledgerSlot.replacementEventIds || [],
+        priorityTag: ledgerSlot.priorityTag ?? null,
+        relationshipTag: ledgerSlot.relationshipTag ?? null,
+      });
     } else {
       // No fresh content available — keep ledger slot.
       out.push({ ...ledgerSlot });
