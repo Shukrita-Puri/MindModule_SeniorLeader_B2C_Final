@@ -269,6 +269,19 @@ const TodayThreePriorities = ({
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
+  const [cancelledKeys, setCancelledKeys] = useState<Set<string>>(
+    () => loadPersistedSet(cancelledStorageKey),
+  );
+  const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+
+  const setCancelled = useCallback((key: string, cancelled: boolean) => {
+    setCancelledKeys((prev) => {
+      const next = new Set(prev);
+      if (cancelled) next.add(key); else next.delete(key);
+      persistSet(cancelledStorageKey, next);
+      return next;
+    });
+  }, [cancelledStorageKey]);
 
   // Hydration gate: only switch from "seeding" to "newly completed" detection AFTER
   // the first successful load of completedPracticeIds for this plan instance.
