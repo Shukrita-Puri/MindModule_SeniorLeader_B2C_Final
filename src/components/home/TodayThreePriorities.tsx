@@ -1293,6 +1293,23 @@ const TodayThreePriorities = ({
           onSkip={() => setFeedbackSlot(null)}
         />
       )}
+
+      {/* Phase 1: cancel-priority feedback (glass, "Not Relevant Now/Ever") */}
+      {pendingCancel && (
+        <SlotCancelFeedbackModal
+          priorityNumber={pendingCancel.index + 1}
+          slotTitle={pendingCancel.title}
+          onSubmit={(reason, feedback) => {
+            const reasonLabel = reason === 'now' ? 'Not relevant now' : 'Not relevant ever';
+            const combined = feedback ? `${reasonLabel}: ${feedback}` : reasonLabel;
+            // Reuse existing feedback write path — rating=1 (down).
+            submitPlanFeedback('tod', 1, combined);
+            setCancelled(pendingCancel.key, true);
+            setPendingCancel(null);
+          }}
+          onSkip={() => setPendingCancel(null)}
+        />
+      )}
     </div>
   );
 };
