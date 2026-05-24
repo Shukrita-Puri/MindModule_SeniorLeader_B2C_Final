@@ -25,6 +25,7 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
+import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import {
   read as readPersistent,
@@ -243,6 +244,9 @@ const TodayThreePriorities = ({
   // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
   // a remount or rehydration cannot "discover" an already-shown priority as new.
   const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
+  // Phase 1: cancelled-slot state lives only in sessionStorage scoped to the
+  // current ritual_date + period. No DB writes, no schema changes.
+  const cancelledStorageKey = `cancelled-keys-${scopeKey}`;
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -265,6 +269,19 @@ const TodayThreePriorities = ({
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
+  const [cancelledKeys, setCancelledKeys] = useState<Set<string>>(
+    () => loadPersistedSet(cancelledStorageKey),
+  );
+  const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+
+  const setCancelled = useCallback((key: string, cancelled: boolean) => {
+    setCancelledKeys((prev) => {
+      const next = new Set(prev);
+      if (cancelled) next.add(key); else next.delete(key);
+      persistSet(cancelledStorageKey, next);
+      return next;
+    });
+  }, [cancelledStorageKey]);
 
   // Hydration gate: only switch from "seeding" to "newly completed" detection AFTER
   // the first successful load of completedPracticeIds for this plan instance.
@@ -351,6 +368,9 @@ const TodayThreePriorities = ({
       const hm = modules[idx];
       const key = buildPriorityKey(idx, hm);
       if (feedbackShownRef.current.has(key)) continue;
+      // Cancelled slots don't trigger the post-completion feedback modal —
+      // the cancel flow already captured the user's relevance feedback.
+      if (cancelledKeys.has(key)) continue;
       const sp = hm.practices || [hm.practice];
       const wasComplete = sp.every(p => prev.includes(p.contentId));
       const nowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
@@ -363,7 +383,7 @@ const TodayThreePriorities = ({
     }
 
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey, cancelledKeys]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: { silent?: boolean }) => {
@@ -766,14 +786,15 @@ const TodayThreePriorities = ({
     for (let i = 0; i < modules.length; i++) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
-      if (!slotComplete) {
+      const key = buildPriorityKey(i, modules[i]);
+      if (!slotComplete && !cancelledKeys.has(key)) {
         setExpandedSlot(i);
         return;
       }
     }
     // All done
     setExpandedSlot(-1);
-  }, [completedPracticeIds, plan, expandReflection]);
+  }, [completedPracticeIds, plan, expandReflection, cancelledKeys]);
 
   const horizonModules = plan?.horizonModules;
 
@@ -973,6 +994,43 @@ const TodayThreePriorities = ({
           const isExpanded = expandedSlot === index;
           const hasMultiple = slotPractices.length > 1;
           const module = hm.practice; // primary practice for collapsed view
+          const slotKey = buildPriorityKey(index, hm);
+          const slotCancelled = cancelledKeys.has(slotKey);
+
+          // Cancelled slots stay visible in place but compressed: greyed +
+          // strike-through + Undo. Completion state is preserved on the
+          // underlying completedPracticeIds, so uncancelling restores the
+          // exact prior visual (incl. ✓ if it was completed before cancel).
+          if (slotCancelled) {
+            return (
+              <div
+                key={`${module.contentId}-${index}`}
+                className="rounded-xl card-standard px-3 py-1.5 opacity-60"
+              >
+                <div className="flex items-center gap-3 py-1">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-muted/30 text-muted-foreground/60">
+                    {slotCompleted ? <Check size={12} className="stroke-[3]" /> : index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
+                      {hm.timeLabel} · {module.title}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
+                      Cancelled
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCancelled(slotKey, false); }}
+                    className="text-[11px] font-medium text-taupe hover:text-taupe-rich px-2 py-1 rounded-md hover:bg-taupe/10 flex-shrink-0"
+                    aria-label="Undo cancel"
+                  >
+                    Undo
+                  </button>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -1041,6 +1099,18 @@ const TodayThreePriorities = ({
                     onClick={(e) => { e.stopPropagation(); handleJitDismiss(index, hm); }}
                     className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
                     aria-label="Dismiss"
+                  >
+                    <X size={14} className="text-muted-foreground/50" />
+                  </button>
+                )}
+                {!hm.isJit && !slotCompleted && isExpanded && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingCancel({ index, key: slotKey, title: `${hm.timeLabel} · ${module.title}` });
+                    }}
+                    className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
+                    aria-label="Cancel priority"
                   >
                     <X size={14} className="text-muted-foreground/50" />
                   </button>
@@ -1221,6 +1291,23 @@ const TodayThreePriorities = ({
             setFeedbackSlot(null);
           }}
           onSkip={() => setFeedbackSlot(null)}
+        />
+      )}
+
+      {/* Phase 1: cancel-priority feedback (glass, "Not Relevant Now/Ever") */}
+      {pendingCancel && (
+        <SlotCancelFeedbackModal
+          priorityNumber={pendingCancel.index + 1}
+          slotTitle={pendingCancel.title}
+          onSubmit={(reason, feedback) => {
+            const reasonLabel = reason === 'now' ? 'Not relevant now' : 'Not relevant ever';
+            const combined = feedback ? `${reasonLabel}: ${feedback}` : reasonLabel;
+            // Reuse existing feedback write path — rating=1 (down).
+            submitPlanFeedback('tod', 1, combined);
+            setCancelled(pendingCancel.key, true);
+            setPendingCancel(null);
+          }}
+          onSkip={() => setPendingCancel(null)}
         />
       )}
     </div>
