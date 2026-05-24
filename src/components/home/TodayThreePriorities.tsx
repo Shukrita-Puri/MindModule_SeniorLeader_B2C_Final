@@ -244,6 +244,9 @@ const TodayThreePriorities = ({
   // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
   // a remount or rehydration cannot "discover" an already-shown priority as new.
   const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
+  // Phase 1: cancelled-slot state lives only in sessionStorage scoped to the
+  // current ritual_date + period. No DB writes, no schema changes.
+  const cancelledStorageKey = `cancelled-keys-${scopeKey}`;
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
