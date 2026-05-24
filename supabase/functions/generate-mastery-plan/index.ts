@@ -2728,6 +2728,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       completedSlots: merged.completedSlots,
       victoryLine: merged.victoryLine,
     };
+    finalHorizonModules = applyLedgerEditsToModules(finalHorizonModules, ledger?.userEdits);
     console.log('[generate-mastery-plan] ledger', {
       userId: req.userId,
       today,
@@ -2758,6 +2759,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       generatedAt: new Date().toISOString(),
       generatedPeriod: timeOfDay,
       source: ledgerMeta.source,
+      userEdits: ledger?.userEdits || undefined,
     };
     await supabaseClient
       .from('daily_ritual_completions')
@@ -2950,6 +2952,9 @@ interface HorizonModule {
   showNavyBorder: boolean;
   showPulse: boolean;
   showPriorityPill: boolean;
+  isCancelled?: boolean;
+  cancelReason?: string | null;
+  replacementEventIds?: string[];
 }
 
 function determineAllocationPattern(
@@ -3949,6 +3954,15 @@ interface PlanLedger {
   generatedAt: string;
   generatedPeriod?: string;
   source?: string;
+  userEdits?: {
+    slotEdits?: Record<string, {
+      cancelled?: boolean;
+      cancelReason?: string | null;
+      replacementEventIds?: string[];
+      updatedAt?: string;
+    }>;
+    updatedAt?: string;
+  };
 }
 
 /**
@@ -3965,18 +3979,57 @@ async function loadTodayPlanLedger(
   try {
     const { data, error } = await supabaseClient
       .from('daily_ritual_completions')
-      .select('plan_ledger, created_at, session_period')
+      .select('plan_ledger, created_at, updated_at, session_period')
       .eq('user_id', userId)
       .eq('ritual_date', ritualDate)
       .not('plan_ledger', 'is', null)
       .order('created_at', { ascending: true });
     if (error || !data || data.length === 0) return null;
-    const earliest = data[0]?.plan_ledger as PlanLedger | null;
+    const earliest = data.find((row: any) => row?.plan_ledger && Array.isArray((row.plan_ledger as PlanLedger).modules))?.plan_ledger as PlanLedger | null;
     if (!earliest || !Array.isArray(earliest.modules)) return null;
-    return earliest;
+
+    const mergedSlotEdits: NonNullable<NonNullable<PlanLedger['userEdits']>['slotEdits']> = {};
+    for (const row of data) {
+      const ledger = row?.plan_ledger as PlanLedger | null;
+      const slotEdits = ledger?.userEdits?.slotEdits || {};
+      for (const [slotKey, edit] of Object.entries(slotEdits)) {
+        if (!slotKey) continue;
+        mergedSlotEdits[slotKey] = {
+          ...(mergedSlotEdits[slotKey] || {}),
+          ...edit,
+        };
+      }
+    }
+
+    return {
+      ...earliest,
+      userEdits: Object.keys(mergedSlotEdits).length > 0
+        ? {
+            slotEdits: mergedSlotEdits,
+            updatedAt: new Date().toISOString(),
+          }
+        : earliest.userEdits,
+    };
   } catch {
     return null;
   }
+}
+
+function applyLedgerEditsToModules(
+  modules: HorizonModule[],
+  userEdits?: PlanLedger['userEdits'],
+): HorizonModule[] {
+  const slotEdits = userEdits?.slotEdits || {};
+  return modules.map((module, index) => {
+    const edit = slotEdits[`slot-${index}`];
+    if (!edit) return module;
+    return {
+      ...module,
+      isCancelled: edit.cancelled === true,
+      cancelReason: edit.cancelReason ?? null,
+      replacementEventIds: edit.replacementEventIds || [],
+    };
+  });
 }
 
 /**

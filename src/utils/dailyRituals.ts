@@ -30,6 +30,21 @@ export interface RitualData {
   completed_practice_ids?: string[];
   recommended_practices_count?: number;
   session_period?: string;
+  plan_ledger?: {
+    modules?: unknown[];
+    generatedAt?: string;
+    generatedPeriod?: string;
+    source?: string;
+    userEdits?: {
+      slotEdits?: Record<string, {
+        cancelled?: boolean;
+        cancelReason?: string | null;
+        replacementEventIds?: string[];
+        updatedAt?: string;
+      }>;
+      updatedAt?: string;
+    };
+  } | null;
 }
 
 export async function getRituals(days: number = 30): Promise<RitualData[]> {
@@ -241,6 +256,62 @@ export async function upsertRitual(ritualData: Omit<RitualData, 'id' | 'user_id'
     return data?.data || null;
   } catch (error) {
     console.error('[dailyRituals] Failed to upsert ritual:', error);
+    return null;
+  }
+}
+
+function mergePlanEditState(
+  existing: NonNullable<NonNullable<RitualData['plan_ledger']>['userEdits']> | undefined,
+  slotKey: string,
+  patch: {
+    cancelled?: boolean;
+    cancelReason?: string | null;
+    replacementEventIds?: string[];
+  },
+) {
+  const now = new Date().toISOString();
+  const slotEdits = { ...(existing?.slotEdits || {}) };
+  const current = slotEdits[slotKey] || {};
+  slotEdits[slotKey] = {
+    ...current,
+    ...patch,
+    updatedAt: now,
+  };
+  return {
+    slotEdits,
+    updatedAt: now,
+  };
+}
+
+export async function persistPlanLedgerEdit(
+  slotIndex: number,
+  patch: {
+    cancelled?: boolean;
+    cancelReason?: string | null;
+    replacementEventIds?: string[];
+  },
+  sessionPeriod?: 'morning' | 'afternoon' | 'evening',
+): Promise<RitualData | null> {
+  const today = new Date().toLocaleDateString('en-CA');
+  const period = sessionPeriod || getCurrentTimeWindowForRituals();
+  const slotKey = `slot-${slotIndex}`;
+
+  try {
+    const existingRitual = await getTodayRitual(period);
+    const existingLedger = existingRitual?.plan_ledger || null;
+    const existingEdits = existingLedger?.userEdits;
+    const nextLedger = {
+      ...(existingLedger || {}),
+      userEdits: mergePlanEditState(existingEdits, slotKey, patch),
+    };
+
+    return await upsertRitual({
+      ritual_date: today,
+      session_period: period,
+      plan_ledger: nextLedger,
+    });
+  } catch (error) {
+    console.error('[dailyRituals] Failed to persist plan ledger edit:', error);
     return null;
   }
 }

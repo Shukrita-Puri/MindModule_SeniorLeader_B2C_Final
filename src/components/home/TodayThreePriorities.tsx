@@ -15,7 +15,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
-import { getTodayRitual, upsertRitual, getTodayCompletedUnion } from '@/utils/dailyRituals';
+import { getTodayRitual, upsertRitual, getTodayCompletedUnion, persistPlanLedgerEdit } from '@/utils/dailyRituals';
 import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
@@ -97,6 +97,9 @@ interface HorizonModule {
   showNavyBorder: boolean;
   showPulse: boolean;
   showPriorityPill: boolean;
+  isCancelled?: boolean;
+  cancelReason?: string | null;
+  replacementEventIds?: string[];
 }
 
 interface CoachCardData {
@@ -277,6 +280,24 @@ const TodayThreePriorities = ({
     return `${slotIndex}:${ids}`;
   };
 
+  const syncPlanCacheForSlot = useCallback((slotIndex: number, patch: Partial<Pick<HorizonModule, 'isCancelled' | 'cancelReason' | 'replacementEventIds'>>) => {
+    setPlan((prev) => {
+      if (!prev?.horizonModules) return prev;
+      const nextPlan = {
+        ...prev,
+        horizonModules: prev.horizonModules.map((hm, idx) => (
+          idx === slotIndex ? { ...hm, ...patch } : hm
+        )),
+      };
+      try {
+        writePersistent(cacheKeys.planData(todayForPlan, periodForPlan), nextPlan, msUntilWindowEnd());
+      } catch {
+        /* ignore cache write errors */
+      }
+      return nextPlan;
+    });
+  }, [periodForPlan, todayForPlan]);
+
   // Tracks which priority fingerprints have ALREADY had their feedback modal shown
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
@@ -428,9 +449,10 @@ const TodayThreePriorities = ({
       const hm = modules[idx];
       const key = buildPriorityKey(idx, hm);
       if (feedbackShownRef.current.has(key)) continue;
+      const slotCancelled = hm.isCancelled !== undefined ? hm.isCancelled === true : cancelledKeys.has(key);
       // Cancelled slots don't trigger the post-completion feedback modal —
       // the cancel flow already captured the user's relevance feedback.
-      if (cancelledKeys.has(key)) continue;
+      if (slotCancelled) continue;
       const sp = hm.practices || [hm.practice];
       const wasComplete = sp.every(p => prev.includes(p.contentId));
       const nowComplete = sp.every(p => completedPracticeIds.includes(p.contentId));
@@ -854,7 +876,8 @@ const TodayThreePriorities = ({
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
       const key = buildPriorityKey(i, modules[i]);
-      if (!slotComplete && !cancelledKeys.has(key)) {
+      const slotCancelled = modules[i].isCancelled !== undefined ? modules[i].isCancelled === true : cancelledKeys.has(key);
+      if (!slotComplete && !slotCancelled) {
         setExpandedSlot(i);
         return;
       }
@@ -1062,7 +1085,7 @@ const TodayThreePriorities = ({
           const hasMultiple = slotPractices.length > 1;
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
-          const slotCancelled = cancelledKeys.has(slotKey);
+          const slotCancelled = hm.isCancelled !== undefined ? hm.isCancelled === true : cancelledKeys.has(slotKey);
 
           // Cancelled slots stay visible in place but compressed: greyed +
           // strike-through + Undo. Completion state is preserved on the
@@ -1088,7 +1111,28 @@ const TodayThreePriorities = ({
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setCancelled(slotKey, false); }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const saved = await persistPlanLedgerEdit(
+                        index,
+                        {
+                          cancelled: false,
+                          cancelReason: null,
+                          replacementEventIds: hm.replacementEventIds || [],
+                        },
+                        getCurrentTimeWindow(),
+                      );
+                      if (saved) {
+                        setCancelled(slotKey, false);
+                        syncPlanCacheForSlot(index, {
+                          isCancelled: false,
+                          cancelReason: null,
+                          replacementEventIds: hm.replacementEventIds || [],
+                        });
+                      } else {
+                        toast({ title: 'Could not restore this priority', description: 'Your change was not saved.', variant: 'destructive' });
+                      }
+                    }}
                     className="text-[11px] font-medium text-taupe hover:text-taupe-rich px-2 py-1 rounded-md hover:bg-taupe/10 flex-shrink-0"
                     aria-label="Undo cancel"
                   >
@@ -1384,8 +1428,22 @@ const TodayThreePriorities = ({
             // Reuse existing feedback write path — rating=1 (down).
             const result = await submitPlanFeedback('tod', 1, combined);
             if (result.success) {
-              setCancelled(pendingCancel.key, true);
-              setPendingCancel(null);
+              const saved = await persistPlanLedgerEdit(
+                pendingCancel.index,
+                { cancelled: true, cancelReason: reason, replacementEventIds: [] },
+                getCurrentTimeWindow(),
+              );
+              if (saved) {
+                setCancelled(pendingCancel.key, true);
+                syncPlanCacheForSlot(pendingCancel.index, {
+                  isCancelled: true,
+                  cancelReason: reason,
+                  replacementEventIds: [],
+                });
+                setPendingCancel(null);
+              } else {
+                toast({ title: 'Could not save this cancel', description: 'The slot was not hidden locally because plan persistence failed.', variant: 'destructive' });
+              }
             }
           }}
           onSkip={() => setPendingCancel(null)}
@@ -1411,6 +1469,20 @@ const TodayThreePriorities = ({
             const selectedIds = [...replacementSelection];
             const success = await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
             if (success) {
+              const saved = await persistPlanLedgerEdit(
+                replacementSlot.index,
+                { cancelled: false, cancelReason: null, replacementEventIds: selectedIds },
+                getCurrentTimeWindow(),
+              );
+              if (saved) {
+                syncPlanCacheForSlot(replacementSlot.index, {
+                  isCancelled: false,
+                  cancelReason: null,
+                  replacementEventIds: selectedIds,
+                });
+              } else {
+                toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was shown, but the edit state was not persisted.', variant: 'destructive' });
+              }
               setCancelled(replacementSlot.key, false);
               setReplacementSelection([]);
               setReplacementSlot(null);
