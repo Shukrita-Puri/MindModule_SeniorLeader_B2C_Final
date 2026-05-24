@@ -1053,7 +1053,17 @@ const TodayThreePriorities = ({
           three distinct things to do at different times rather than one
           bulky block. Pure UI grouping; no logic/tracking changes. */}
       <div className="flex flex-col gap-3 px-1 sm:px-2 max-w-2xl mx-auto">
-        {horizonModules.map((hm, index) => {
+        {horizonModules
+          .map((hm, index) => ({ hm, index }))
+          // Push cancelled priorities below active ones while preserving
+          // original slot indices (used as keys + for ledger persistence).
+          .sort((a, b) => {
+            const ac = a.hm.isCancelled === true ? 1 : 0;
+            const bc = b.hm.isCancelled === true ? 1 : 0;
+            if (ac !== bc) return ac - bc;
+            return a.index - b.index;
+          })
+          .map(({ hm, index }) => {
           const slotPractices = hm.practices || [hm.practice];
           const slotCompleted = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
           const slotCompletedCount = slotPractices.filter(p => completedPracticeIds.includes(p.contentId)).length;
