@@ -41,6 +41,17 @@ export interface CalendarMetrics {
   loadScore: number;
 }
 
+function inferRelationshipPressure(metadata: any, title: string, attendeeCount: number): number {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|account|proposal|demo|vendor|supplier|partner)/.test(lower)) return 2;
+  if (/(boss|manager|director|vp|1:1|one-on-one|one on one|feedback|review|performance|skip level)/.test(lower)) return 2;
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 1;
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 1;
+  if ((metadata?.attendeeSignals?.attendees || []).some((a: any) => a?.responseStatus === 'declined')) return 1;
+  if (attendeeCount >= 6) return 1;
+  return 0;
+}
+
 // ==================== TIME OF DAY ====================
 
 export function getTimeOfDay(hour: number = new Date().getHours()): TimeOfDay {
@@ -95,6 +106,7 @@ export function getCalendarMetrics(calendarData: any[]): CalendarMetrics {
     else if (durationMin >= 30) eventPressure += 1;
     
     if (!event.is_recurring) eventPressure += 1;
+    eventPressure += inferRelationshipPressure(event.event_metadata, event.title || event.eventTitle || '', attendees);
     
     const hour = start.getHours();
     if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 16)) {

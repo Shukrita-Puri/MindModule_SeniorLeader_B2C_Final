@@ -30,6 +30,29 @@ import Security
     private var debounceWorkItem: DispatchWorkItem?
     private var lastObserverFireAt: TimeInterval = 0
 
+    private func participantStatusLabel(_ status: EKParticipantStatus) -> String {
+        switch status {
+        case .unknown: return "unknown"
+        case .pending: return "pending"
+        case .accepted: return "accepted"
+        case .declined: return "declined"
+        case .tentative: return "tentative"
+        case .delegated: return "delegated"
+        @unknown default: return "unknown"
+        }
+    }
+
+    private func participantSummary(_ participant: EKParticipant) -> [String: Any] {
+        var summary: [String: Any] = [
+            "displayName": participant.name ?? "",
+            "contactUrl": participant.url?.absoluteString ?? "",
+            "responseStatus": participantStatusLabel(participant.participantStatus),
+            "isSelf": participant.isCurrentUser,
+        ]
+        summary["isOrganizer"] = participant.participantRole == .organizer
+        return summary
+    }
+
     override init() {
         super.init()
         registerEventStoreObserver()
@@ -178,6 +201,15 @@ import Security
         let normalized = events.map { ev -> [String: Any] in
             let attendees = ev.attendees ?? []
             let isOrganizer = ev.organizer?.isCurrentUser ?? false
+            let attendeeSignals: [String: Any] = [
+                "organizer": [
+                    "displayName": ev.organizer?.name ?? "",
+                    "contactUrl": ev.organizer?.url?.absoluteString ?? "",
+                    "isCurrentUser": isOrganizer,
+                ],
+                "attendees": attendees.map { participantSummary($0) },
+                "attendeeCount": attendees.count,
+            ]
             var metadata: [String: Any] = [
                 "isAllDay": ev.isAllDay,
                 "source": "ios-background",
@@ -186,6 +218,7 @@ import Security
             if let cal = ev.calendar?.title { metadata["calendarTitle"] = cal }
             if let url = ev.url?.absoluteString { metadata["url"] = url }
             if let notes = ev.notes { metadata["notes"] = String(notes.prefix(500)) }
+            metadata["attendeeSignals"] = attendeeSignals
 
             return [
                 "external_id": ev.eventIdentifier ?? "\(ev.calendarItemIdentifier)",

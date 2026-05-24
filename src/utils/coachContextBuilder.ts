@@ -217,8 +217,18 @@ async function detectConsecutivePattern(
       return {
         days: consecutiveCount,
         state: currentOutcome
-      };
-    }
+  };
+}
+
+function inferRelationshipPattern(title: string, metadata: any): string | null {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|account|proposal|demo)/.test(lower)) return 'client-facing';
+  if (/(vendor|supplier|partner)/.test(lower)) return 'vendor coordination';
+  if (/(boss|manager|director|vp|leadership|1:1|one-on-one|one on one|review|feedback|performance)/.test(lower)) return 'boss or manager';
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 'junior or growth conversation';
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 'peer coordination';
+  return null;
+}
     
     return undefined;
   } catch {
@@ -562,7 +572,7 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         .order('checkin_date', { ascending: false }),
       supabase
         .from('calendar_events')
-        .select('start_time, title')
+        .select('start_time, title, event_metadata')
         .eq('user_id', userId)
         .gte('start_time', thirtyDaysAgo.toISOString())
     ]);
@@ -597,6 +607,14 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
             }
             correlations[keyword][checkIn.outcome] = (correlations[keyword][checkIn.outcome] || 0) + 1;
           }
+        }
+
+        const relationshipPattern = inferRelationshipPattern(event.title || '', (event as any).event_metadata);
+        if (relationshipPattern) {
+          if (!correlations[relationshipPattern]) {
+            correlations[relationshipPattern] = {};
+          }
+          correlations[relationshipPattern][checkIn.outcome] = (correlations[relationshipPattern][checkIn.outcome] || 0) + 1;
         }
       }
     }

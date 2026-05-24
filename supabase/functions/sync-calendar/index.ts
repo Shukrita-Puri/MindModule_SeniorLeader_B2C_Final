@@ -59,6 +59,68 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
 // Token refresh buffer: refresh 5 minutes before expiry
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
+type AttendeeSignal = {
+  displayName: string | null;
+  emailDomain: string | null;
+  responseStatus: string | null;
+  isSelf: boolean;
+  isOrganizer: boolean;
+};
+
+function normalizeEmailDomain(email: unknown): string | null {
+  if (typeof email !== 'string') return null;
+  const parts = email.toLowerCase().split('@');
+  return parts.length === 2 && parts[1] ? parts[1] : null;
+}
+
+function statusToLabel(status: unknown): string | null {
+  if (typeof status === 'string' && status.trim()) return status.toLowerCase();
+  return null;
+}
+
+function buildAttendeeSignals(
+  organizer: { name?: unknown; email?: unknown; self?: unknown } | undefined,
+  attendees: unknown[] | undefined,
+): {
+  organizer: { displayName: string | null; emailDomain: string | null; isCurrentUser: boolean };
+  attendees: AttendeeSignal[];
+  attendeeCount: number;
+  responseSummary: Record<string, number>;
+} {
+  const attendeeSignals = (attendees || [])
+    .map((attendee: any) => ({
+      displayName:
+        typeof attendee?.displayName === 'string' ? attendee.displayName :
+        typeof attendee?.email === 'string' ? attendee.email :
+        typeof attendee?.emailAddress?.name === 'string' ? attendee.emailAddress.name :
+        typeof attendee?.name === 'string' ? attendee.name : null,
+      emailDomain: normalizeEmailDomain(attendee?.email || attendee?.emailAddress?.address || attendee?.url),
+      responseStatus: statusToLabel(attendee?.responseStatus || attendee?.status?.response),
+      isSelf: attendee?.self === true,
+      isOrganizer: attendee?.organizer === true || attendee?.type === 'organizer',
+    }))
+    .filter((attendee): attendee is AttendeeSignal => !!attendee);
+
+  const responseSummary: Record<string, number> = {};
+  for (const attendee of attendeeSignals) {
+    const key = attendee.responseStatus || 'unknown';
+    responseSummary[key] = (responseSummary[key] || 0) + 1;
+  }
+
+  return {
+    organizer: {
+      displayName:
+        typeof organizer?.name === 'string' ? organizer.name :
+        typeof organizer?.emailAddress?.name === 'string' ? organizer.emailAddress.name : null,
+      emailDomain: normalizeEmailDomain(organizer?.email || organizer?.emailAddress?.address),
+      isCurrentUser: organizer?.self === true,
+    },
+    attendees: attendeeSignals,
+    attendeeCount: attendeeSignals.length,
+    responseSummary,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -299,6 +361,7 @@ serve(async (req) => {
           const end = event.end as Record<string, string>;
           const organizer = event.organizer as Record<string, unknown> | undefined;
           const attendees = event.attendees as unknown[] | undefined;
+          const attendeeSignals = buildAttendeeSignals(organizer, attendees);
           return {
             external_id: event.id as string,
             title: (event.summary as string) || 'Untitled Event',
@@ -311,6 +374,7 @@ serve(async (req) => {
               location: event.location,
               description: event.description,
               hangoutLink: event.hangoutLink,
+              attendeeSignals,
             },
           };
         });
@@ -338,6 +402,10 @@ serve(async (req) => {
           const end = event.end as Record<string, string>;
           const loc = event.location as Record<string, string> | undefined;
           const attendees = event.attendees as unknown[] | undefined;
+          const attendeeSignals = buildAttendeeSignals(
+            event.organizer as Record<string, unknown> | undefined,
+            attendees,
+          );
           return {
             external_id: event.id as string,
             title: (event.subject as string) || 'Untitled Event',
@@ -350,6 +418,7 @@ serve(async (req) => {
               location: loc?.displayName,
               body: event.bodyPreview,
               webLink: event.webLink,
+              attendeeSignals,
             },
           };
         });

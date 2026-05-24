@@ -17,6 +17,16 @@ interface CalendarCorrelation {
   confidence: number;
 }
 
+function inferRelationshipPattern(title: string, metadata: any): string | null {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|account|proposal|demo)/.test(lower)) return 'client-facing';
+  if (/(vendor|supplier|partner)/.test(lower)) return 'vendor coordination';
+  if (/(boss|manager|director|vp|leadership|1:1|one-on-one|one on one|review|feedback|performance)/.test(lower)) return 'boss or manager';
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 'junior or growth conversation';
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 'peer coordination';
+  return null;
+}
+
 interface CalendarStateCorrelationsProps {
   userId?: string;
 }
@@ -86,7 +96,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
       // Get calendar events for same period
       const { data: events } = await supabase
         .from('calendar_events')
-        .select('title, start_time')
+        .select('title, start_time, event_metadata')
         .eq('user_id', effectiveUserId)
         .gte('start_time', new Date(thirtyDaysAgo).toISOString());
 
@@ -119,6 +129,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
 
         dayEvents.forEach(event => {
           const titleLower = (event.title || '').toLowerCase();
+          const relationshipPattern = inferRelationshipPattern(event.title || '', (event as any).event_metadata);
           
           keywords.forEach(keyword => {
             if (titleLower.includes(keyword)) {
@@ -129,6 +140,14 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
               stateCount.set(outcome, (stateCount.get(outcome) || 0) + 1);
             }
           });
+
+          if (relationshipPattern) {
+            if (!correlationMap.has(relationshipPattern)) {
+              correlationMap.set(relationshipPattern, new Map());
+            }
+            const stateCount = correlationMap.get(relationshipPattern)!;
+            stateCount.set(outcome, (stateCount.get(outcome) || 0) + 1);
+          }
         });
       });
 

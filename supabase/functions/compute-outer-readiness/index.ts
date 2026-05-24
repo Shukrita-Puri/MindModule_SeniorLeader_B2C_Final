@@ -173,7 +173,18 @@ type LlmBriefPackage = {
   watchFor: BriefSignalItem[];
 };
 
-function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
+function inferRelationshipPressure(metadata: any, title: string, attendeeCount: number): number {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|vendor|supplier|partner|account|proposal|demo)/.test(lower)) return 2;
+  if (/(boss|manager|director|vp|1:1|one-on-one|one on one|feedback|review|performance|skip level)/.test(lower)) return 2;
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 1;
+  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 1;
+  if ((metadata?.attendeeSignals?.attendees || []).some((a: any) => a?.responseStatus === 'declined')) return 1;
+  if (attendeeCount >= 6) return 1;
+  return 0;
+}
+
+function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean; title?: string | null; event_metadata?: any }>): { load: CalendarLevel; pressure: CalendarLevel } {
   const now = new Date();
   const allEvents = events;
   const count = allEvents.length;
@@ -210,6 +221,7 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
     if (!event.is_recurring) p += 1;
     const hr = start.getHours();
     if ((hr >= 9 && hr < 12) || (hr >= 14 && hr < 16)) p += 1;
+    p += inferRelationshipPressure(event.event_metadata, event.title || '', att);
 
     // Upcoming events carry full weight; past events carry half weight
     if (start >= now) {
@@ -292,7 +304,7 @@ async function getServerCalendarMetrics(
 
   const { data: events, error } = await db
     .from('primary_calendar_events')
-    .select('start_time, end_time, is_organizer, attendees_count, is_recurring, title')
+    .select('start_time, end_time, is_organizer, attendees_count, is_recurring, title, event_metadata')
     .eq('user_id', userId)
     .gte('start_time', startUTC.toISOString())
     .lte('start_time', endUTC.toISOString());

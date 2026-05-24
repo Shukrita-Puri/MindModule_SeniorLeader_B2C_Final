@@ -56,6 +56,7 @@ interface CalendarEvent {
   isOrganizer?: boolean;
   attendeesCount?: number;
   isRecurring?: boolean;
+  eventMetadata?: Record<string, unknown> | null;
 }
 
 interface WearableContext {
@@ -1090,6 +1091,33 @@ function computeLegacyDimB(title: string): number {
   return 0;
 }
 
+type RelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client';
+
+function inferRelationshipTag(title: string, metadata: any, attendeeCount: number): { tag: RelationshipTag | null; reason: string | null } {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|account|proposal|demo|vendor|supplier|partner)/.test(lower)) {
+    return { tag: /vendor|supplier|partner/.test(lower) ? 'vendor' : 'client', reason: 'relationship keywords' };
+  }
+  if (/(1:1|one-on-one|one on one|feedback|review|performance|manager|boss|director|vp|leadership|skip level)/.test(lower)) {
+    return { tag: 'boss', reason: 'managerial or feedback keywords' };
+  }
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview|junior)/.test(lower)) {
+    return { tag: 'junior', reason: 'mentoring or candidate keywords' };
+  }
+  if (/(team|sync|standup|stand-up|working session|planning|retro)/.test(lower)) {
+    return { tag: 'colleague', reason: 'peer collaboration keywords' };
+  }
+  const attendeeSignals = metadata?.attendeeSignals;
+  const attendees = Array.isArray(attendeeSignals?.attendees) ? attendeeSignals.attendees : [];
+  if (attendeeCount >= 5 && attendees.some((a: any) => a?.responseStatus === 'declined')) {
+    return { tag: 'client', reason: 'large meeting with declined attendees' };
+  }
+  if (attendeeCount >= 6) {
+    return { tag: 'client', reason: 'large multi-party meeting' };
+  }
+  return { tag: null, reason: null };
+}
+
 // ==================== CALENDAR EVENT PRIORITISATION ====================
 
 interface ScoredEvent {
@@ -1292,6 +1320,19 @@ function buildEnrichedContextDescription(
     }
   }
 
+  const attendeeHint = inferRelationshipTag(
+    matchingEvent?.title || row.event_title || '',
+    matchingEvent?.eventMetadata || null,
+    matchingEvent?.attendeesCount || row.attendee_count || 0,
+  );
+  if (attendeeHint.tag) {
+    if (attendeeHint.tag === 'client') parts.push('client-facing relationship pressure');
+    else if (attendeeHint.tag === 'boss') parts.push('manager-level interpersonal load');
+    else if (attendeeHint.tag === 'junior') parts.push('people-development work');
+    else if (attendeeHint.tag === 'vendor') parts.push('vendor coordination');
+    else parts.push('peer coordination');
+  }
+
   // Urgency frame
   if (minutesUntil <= 30) {
     parts.push('starting very soon – start now');
@@ -1363,6 +1404,9 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
 
     if (event.isOrganizer) score += 15;
     if ((event.attendeesCount || 0) > 5) score += 10;
+    const relationshipHint = inferRelationshipTag(event.title || '', event.eventMetadata || null, event.attendeesCount || 0);
+    if (relationshipHint.tag === 'client' || relationshipHint.tag === 'boss') score += 6;
+    else if (relationshipHint.tag) score += 3;
     if (event.endTime) {
       const durationMin = (new Date(event.endTime).getTime() - startTime.getTime()) / 60000;
       if (durationMin > 60) score += 8;
@@ -1437,6 +1481,13 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
         contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
       } else if ((event.attendeesCount || 0) > 5) {
         contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
+      }
+      if (relationshipHint.tag) {
+        if (relationshipHint.tag === 'client') contextParts.push('client-facing relationship load');
+        else if (relationshipHint.tag === 'boss') contextParts.push('managerial relationship pressure');
+        else if (relationshipHint.tag === 'junior') contextParts.push('people-development relationship load');
+        else if (relationshipHint.tag === 'vendor') contextParts.push('vendor coordination load');
+        else contextParts.push('peer coordination load');
       }
       // Removed: generic "You're organizing this event" – not a justifiable context reason
       if (minutesUntil <= 30) contextParts.push(`starting very soon – prepare now`);
@@ -1835,7 +1886,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   if (calConnRes.data) {
     const { data: events } = await supabaseClient
       .from('primary_calendar_events')
-      .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+      .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
       .eq('user_id', req.userId)
       .gte('start_time', now.toISOString())
       .lte('start_time', in48h.toISOString())
@@ -1851,6 +1902,7 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
       isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring,
+      eventMetadata: e.event_metadata || null,
     }));
     console.log(`[buildSharedContext] calendar_events: ${ctx.rawCalendarEvents.length} events in next 48h`);
   } else {

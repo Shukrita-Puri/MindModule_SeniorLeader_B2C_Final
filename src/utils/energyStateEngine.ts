@@ -241,7 +241,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
         const { data: events } = await supabase
           .from('calendar_events')
-          .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+          .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
           .eq('user_id', effectiveUserId)
           .gte('start_time', now.toISOString())
           .lte('start_time', fourHoursLater.toISOString());

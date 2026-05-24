@@ -27,7 +27,51 @@ const PRESSURE_KEYWORDS = [
   'layoff', 'conflict', 'confrontation', 'dispute',
 ];
 
-function scoreDimensionA(title: string, attendeeCount: number): number {
+type AttendeeRelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client';
+
+type AttendeeSignals = {
+  organizer?: {
+    displayName?: string | null;
+    contactUrl?: string | null;
+    isCurrentUser?: boolean;
+  } | null;
+  attendees?: Array<{
+    displayName?: string | null;
+    contactUrl?: string | null;
+    responseStatus?: string | null;
+    isSelf?: boolean;
+    isOrganizer?: boolean;
+  }> | null;
+  attendeeCount?: number | null;
+};
+
+function extractAttendeeSignals(metadata: any): AttendeeSignals | null {
+  return (metadata?.attendeeSignals && typeof metadata.attendeeSignals === 'object')
+    ? metadata.attendeeSignals as AttendeeSignals
+    : null;
+}
+
+function inferRelationshipTag(title: string, metadata: any, attendeeCount: number): { tag: AttendeeRelationshipTag | null; reason: string | null } {
+  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
+  if (/(client|customer|account|proposal|demo|vendor|supplier|partner)/.test(lower)) {
+    return { tag: /vendor|supplier|partner/.test(lower) ? 'vendor' : 'client', reason: 'relationship keywords' };
+  }
+  if (/(1:1|one-on-one|one on one|feedback|review|performance|manager|boss|director|vp|leadership|skip level)/.test(lower)) {
+    return { tag: 'boss', reason: 'managerial or feedback keywords' };
+  }
+  if (/(direct report|mentee|coaching|onboarding|candidate|interview|junior)/.test(lower)) {
+    return { tag: 'junior', reason: 'mentoring or candidate keywords' };
+  }
+  if (/(team|sync|standup|stand-up|working session|planning|retro)/.test(lower)) {
+    return { tag: 'colleague', reason: 'peer collaboration keywords' };
+  }
+  if (attendeeCount >= 5) {
+    return { tag: 'client', reason: 'large multi-party meeting' };
+  }
+  return { tag: null, reason: null };
+}
+
+function scoreDimensionA(title: string, attendeeCount: number, metadata: any): number {
   let score = 0;
   if (attendeeCount === 0) return 0;
   if (attendeeCount <= 2) score = 12;
@@ -37,6 +81,12 @@ function scoreDimensionA(title: string, attendeeCount: number): number {
   if (PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) {
     score = Math.min(35, score + 15);
   }
+
+  const attendeeSignals = extractAttendeeSignals(metadata);
+  const relationshipHint = inferRelationshipTag(title, metadata, attendeeSignals?.attendeeCount ?? attendeeCount);
+  if (relationshipHint.tag === 'client' || relationshipHint.tag === 'boss') score = Math.min(35, score + 4);
+  else if (relationshipHint.tag) score = Math.min(35, score + 2);
+  if ((attendeeSignals?.attendees || []).some((a) => a.responseStatus === 'declined')) score = Math.min(35, score + 1);
   return score;
 }
 
@@ -142,7 +192,7 @@ function scoreDimensionC(minutesUntil: number): number {
 }
 
 // Dim D: Context Signals (0-10)
-function scoreDimensionD(isRecurring: boolean, isOrganizer: boolean, title: string, description: string | null): number {
+function scoreDimensionD(isRecurring: boolean, isOrganizer: boolean, title: string, description: string | null, metadata: any): number {
   let score = 0;
   if (!isRecurring) score += 4;
   if (isOrganizer) score += 3;
@@ -151,6 +201,10 @@ function scoreDimensionD(isRecurring: boolean, isOrganizer: boolean, title: stri
     const lower = description.toLowerCase();
     if (PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) score += 3;
   }
+  const attendeeSignals = extractAttendeeSignals(metadata);
+  const relationshipHint = inferRelationshipTag(title, metadata, attendeeSignals?.attendeeCount ?? 0);
+  if (relationshipHint.tag === 'client' || relationshipHint.tag === 'boss') score += 2;
+  else if (relationshipHint.tag) score += 1;
   return Math.min(10, score);
 }
 
@@ -576,7 +630,7 @@ serve(async (req) => {
       // ════════ STAGE 2: Five-Signal Scoring ════════
 
       // Dim A: Interpersonal Stakes
-      let dimA = scoreDimensionA(title, event.attendees_count || 0);
+      let dimA = scoreDimensionA(title, event.attendees_count || 0, metadata);
 
       // Coach signal check for Dim B (calendar inference layer 2)
       let coachSignalScore = 0;
@@ -644,6 +698,7 @@ serve(async (req) => {
         event.is_organizer || false,
         title,
         description,
+        metadata,
       );
 
       // Readiness amplifier

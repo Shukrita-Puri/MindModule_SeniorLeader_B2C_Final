@@ -28,6 +28,29 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         return f
     }()
 
+    private func participantStatusLabel(_ status: EKParticipantStatus) -> String {
+        switch status {
+        case .unknown: return "unknown"
+        case .pending: return "pending"
+        case .accepted: return "accepted"
+        case .declined: return "declined"
+        case .tentative: return "tentative"
+        case .delegated: return "delegated"
+        @unknown default: return "unknown"
+        }
+    }
+
+    private func participantSummary(_ participant: EKParticipant) -> [String: Any] {
+        var summary: [String: Any] = [
+            "displayName": participant.name ?? "",
+            "contactUrl": participant.url?.absoluteString ?? "",
+            "responseStatus": participantStatusLabel(participant.participantStatus),
+            "isSelf": participant.isCurrentUser,
+        ]
+        summary["isOrganizer"] = participant.participantRole == .organizer
+        return summary
+    }
+
     // EKEventStoreChanged observer: when the user adds/edits/deletes events in
     // any app on the device (Apple Calendar, iCloud subscriptions, etc.), we
     // notify JS so the in-app UI can re-sync and re-render immediately —
@@ -114,6 +137,15 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         let normalized: [[String: Any]] = events.map { ev in
             let attendees = ev.attendees ?? []
             let isOrganizer = ev.organizer?.isCurrentUser ?? false
+            let attendeeSignals: [String: Any] = [
+                "organizer": [
+                    "displayName": ev.organizer?.name ?? "",
+                    "contactUrl": ev.organizer?.url?.absoluteString ?? "",
+                    "isCurrentUser": isOrganizer,
+                ],
+                "attendees": attendees.map { participantSummary($0) },
+                "attendeeCount": attendees.count,
+            ]
             var metadata: [String: Any] = [
                 "isAllDay": ev.isAllDay,
             ]
@@ -121,6 +153,7 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             if let cal = ev.calendar?.title { metadata["calendarTitle"] = cal }
             if let url = ev.url?.absoluteString { metadata["url"] = url }
             if let notes = ev.notes { metadata["notes"] = String(notes.prefix(500)) }
+            metadata["attendeeSignals"] = attendeeSignals
             return [
                 "external_id": ev.eventIdentifier ?? "\(ev.calendarItemIdentifier)",
                 "title": ev.title ?? "Untitled Event",
