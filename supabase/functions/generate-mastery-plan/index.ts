@@ -1098,7 +1098,7 @@ function computeLegacyDimB(title: string): number {
   return 0;
 }
 
-type RelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client';
+type RelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other';
 
 function inferRelationshipTag(title: string, metadata: any, attendeeCount: number): { tag: RelationshipTag | null; reason: string | null } {
   const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
@@ -3015,7 +3015,7 @@ interface HorizonModule {
   cancelReason?: string | null;
   replacementEventIds?: string[];
   priorityTag?: 'high' | 'medium' | 'low' | null;
-  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
 }
 
 function determineAllocationPattern(
@@ -4021,7 +4021,7 @@ interface PlanLedger {
       cancelReason?: string | null;
       replacementEventIds?: string[];
       priorityTag?: 'high' | 'medium' | 'low' | null;
-      relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | null;
+      relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
       updatedAt?: string;
     }>;
     updatedAt?: string;
