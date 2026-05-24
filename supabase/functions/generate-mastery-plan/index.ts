@@ -1010,42 +1010,23 @@ function isNoiseEvent(title: string): boolean {
   return isNoiseTitle(title);
 }
 
-// ==================== LEGACY DIM A/B FLOOR GUARDS ====================
-// Mirrors generate-jit-events dimension scoring for legacy fallback gate
-
-const LEGACY_PRESSURE_KEYWORDS = [
-  'board', 'investor', 'performance', 'review', 'feedback', 'fire', 'difficult',
-  'press', 'media', 'interview', 'pitch', 'crisis', 'negotiation', 'termination',
-  'layoff', 'conflict', 'confrontation', 'dispute',
-];
-
-const LEGACY_CLUSTER_KEYWORDS: Record<string, string[]> = {
-  pressure: ['board', 'pitch', 'media', 'press', 'interview', 'speak', 'present', 'conference', 'investor', 'keynote', 'crisis', 'emergency', 'urgent'],
-  relationship: ['feedback', 'performance', 'difficult', 'fire', 'demotion', 'conflict', 'dispute', 'tension', 'confrontation', 'termination', 'pip', 'layoff'],
-  decision: ['strategy', 'planning', 'prioritise', 'prioritize', 'trade-off', 'decision', 'stakeholder', 'budget', 'forecast', 'earnings'],
-  transition: ['first', 'last', 'new role', 'launch', 'announcement', 'offsite', 'retreat', 'end of quarter', 'annual', 'restructuring'],
-};
+// ==================== DIM A/B FLOOR GUARDS ====================
+// DimA (attendee + pressure) and DimB (cluster signal) are derived from the
+// shared classifier — no second taxonomy lives in this file. See
+// `_shared/events/event-classifier.ts` for `eventPressureFlag` and
+// `eventClusterSignal`.
 
 function computeLegacyDimA(title: string, attendeeCount: number): number {
-  let score = 0;
   if (attendeeCount === 0) return 0;
-  if (attendeeCount <= 2) score = 12;
-  else score = 20;
-  const lower = (title || '').toLowerCase();
-  if (LEGACY_PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) {
+  let score = attendeeCount <= 2 ? 12 : 20;
+  if (eventPressureFlag(title)) {
     score = Math.min(35, score + 15);
   }
   return score;
 }
 
 function computeLegacyDimB(title: string): number {
-  const lower = (title || '').toLowerCase();
-  for (const keywords of Object.values(LEGACY_CLUSTER_KEYWORDS)) {
-    if (keywords.some(kw => lower.includes(kw))) {
-      return 15; // Minimum passing value for B if any cluster matches
-    }
-  }
-  return 0;
+  return eventClusterSignal(title) ? 15 : 0;
 }
 
 type RelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other';
