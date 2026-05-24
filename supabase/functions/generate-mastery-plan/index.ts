@@ -2406,14 +2406,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       enrichedContextDescription = `Your coach has noted a pattern here – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     } else if (topEvent.hrvCorrelation && Math.abs(topEvent.hrvCorrelation.avgDeviation) > 10 && !enrichedContextDescription) {
       // HRV as lead context when no coach signals and context is empty
-      const canonicalLabel = CANONICAL_TAGS[topEvent.hrvCorrelation.eventType] || topEvent.hrvCorrelation.eventType;
+      const canonicalLabel = canonicalTagForCoarse(topEvent.hrvCorrelation.eventType);
       enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     }
 
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
-        eventType: CANONICAL_TAGS[extractEventType(topEvent.event.title || '')] || scenario?.contextLabel || 'Meeting Prep',
+        eventType: canonicalEventTag(topEvent.event.title || '') || scenario?.contextLabel || 'Meeting Prep',
         minutesUntil: topEvent.minutesUntil,
         timePill: topEvent.timePill,
         contextDescription: enrichedContextDescription,
