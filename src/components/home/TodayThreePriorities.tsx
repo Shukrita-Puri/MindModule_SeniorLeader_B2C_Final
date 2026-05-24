@@ -23,7 +23,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
-import CalendarReplacementPickerModal, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
+import CalendarReplacementPickerInline, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
@@ -1068,6 +1068,65 @@ const TodayThreePriorities = ({
           // strike-through + Undo. Completion state is preserved on the
           // underlying completedPracticeIds, so uncancelling restores the
           // exact prior visual (incl. ✓ if it was completed before cancel).
+          // Phase 2: inline replacement picker — renders in place of the slot
+          // card when this slot is the active replacement target. Keeps all
+          // selection state in the existing `replacement*` state owned by this
+          // component (no separate route, no modal overlay).
+          if (replacementSlot?.index === index) {
+            return (
+              <CalendarReplacementPickerInline
+                key={`${module.contentId}-${index}-picker`}
+                slotNumber={index + 1}
+                slotTitle={replacementSlot.title}
+                events={replacementEvents}
+                selectedIds={replacementSelection}
+                priorityTag={replacementPriorityTag}
+                relationshipTag={replacementRelationshipTag}
+                onPriorityTagChange={setReplacementPriorityTag}
+                onRelationshipTagChange={setReplacementRelationshipTag}
+                onToggleEvent={(eventId) => {
+                  setReplacementSelection((prev) => {
+                    if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
+                    if (prev.length >= 3) return prev;
+                    return [...prev, eventId];
+                  });
+                }}
+                onApply={async () => {
+                  if (replacementSelection.length === 0) return;
+                  const selectedIds = [...replacementSelection];
+                  const saved = await persistPlanLedgerEdit(
+                    replacementSlot.index,
+                    {
+                      cancelled: false,
+                      cancelReason: null,
+                      replacementEventIds: selectedIds,
+                      priorityTag: replacementPriorityTag,
+                      relationshipTag: replacementRelationshipTag,
+                    },
+                    getCurrentTimeWindow(),
+                  );
+                  if (saved) {
+                    await loadPlan({ silent: true, forceRefresh: true, selectedCalendarEventIds: selectedIds });
+                    setReplacementSelection([]);
+                    setReplacementPriorityTag(null);
+                    setReplacementRelationshipTag(null);
+                    setReplacementSlot(null);
+                  } else {
+                    toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
+                  }
+                }}
+                onClose={() => {
+                  setReplacementSelection([]);
+                  setReplacementPriorityTag(null);
+                  setReplacementRelationshipTag(null);
+                  setReplacementSlot(null);
+                }}
+                isLoading={replacementLoading}
+                error={replacementError}
+              />
+            );
+          }
+
           if (slotCancelled) {
             return (
               <div
@@ -1451,58 +1510,7 @@ const TodayThreePriorities = ({
         />
       )}
 
-      {/* Phase 2: next-24h replacement event picker */}
-      {replacementSlot && (
-        <CalendarReplacementPickerModal
-          slotNumber={replacementSlot.index + 1}
-          slotTitle={replacementSlot.title}
-          events={replacementEvents}
-          selectedIds={replacementSelection}
-          priorityTag={replacementPriorityTag}
-          relationshipTag={replacementRelationshipTag}
-          onPriorityTagChange={setReplacementPriorityTag}
-          onRelationshipTagChange={setReplacementRelationshipTag}
-          onToggleEvent={(eventId) => {
-            setReplacementSelection((prev) => {
-              if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
-              if (prev.length >= 3) return prev;
-              return [...prev, eventId];
-            });
-          }}
-          onApply={async () => {
-            if (replacementSelection.length === 0) return;
-            const selectedIds = [...replacementSelection];
-            const saved = await persistPlanLedgerEdit(
-              replacementSlot.index,
-              {
-                cancelled: false,
-                cancelReason: null,
-                replacementEventIds: selectedIds,
-                priorityTag: replacementPriorityTag,
-                relationshipTag: replacementRelationshipTag,
-              },
-              getCurrentTimeWindow(),
-            );
-            if (saved) {
-              await loadPlan({ silent: true, forceRefresh: true, selectedCalendarEventIds: selectedIds });
-              setReplacementSelection([]);
-              setReplacementPriorityTag(null);
-              setReplacementRelationshipTag(null);
-              setReplacementSlot(null);
-            } else {
-              toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
-            }
-          }}
-          onClose={() => {
-            setReplacementSelection([]);
-            setReplacementPriorityTag(null);
-            setReplacementRelationshipTag(null);
-            setReplacementSlot(null);
-          }}
-          isLoading={replacementLoading}
-          error={replacementError}
-        />
-      )}
+      {/* Phase 2: replacement picker is rendered inline within the priorities list above. */}
     </div>
   );
 };
