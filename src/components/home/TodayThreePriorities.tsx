@@ -25,7 +25,7 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import CalendarReplacementPickerInline, { type CalendarReplacementEvent } from '@/components/home/CalendarReplacementPickerModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
-import { submitPlanFeedback } from '@/utils/relevanceFeedback';
+import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import {
@@ -1505,10 +1505,16 @@ const TodayThreePriorities = ({
           priorityNumber={pendingCancel.index + 1}
           slotTitle={pendingCancel.title}
           onSubmit={async (reason, feedback) => {
-            const reasonLabel = reason === 'now' ? 'Not relevant now' : 'Not relevant ever';
-            const combined = feedback ? `${reasonLabel}: ${feedback}` : reasonLabel;
-            // Reuse existing feedback write path — rating=1 (down).
-            const result = await submitPlanFeedback('tod', 1, combined);
+            // Phase 4: write structured cancel feedback so the reason is
+            // queryable in DB (feedback_reason + context_data), not just
+            // embedded in the free-text field.
+            const result = await submitPlanSlotCancelFeedback({
+              slotIndex: pendingCancel.index,
+              slotTitle: pendingCancel.title,
+              cancelReason: reason,
+              feedbackText: feedback,
+              sessionPeriod: getCurrentTimeWindow(),
+            });
             if (result.success) {
               const saved = await persistPlanLedgerEdit(
                 pendingCancel.index,
