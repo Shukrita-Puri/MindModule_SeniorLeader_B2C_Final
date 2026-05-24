@@ -383,7 +383,7 @@ const TodayThreePriorities = ({
     }
 
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey, cancelledKeys]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: { silent?: boolean }) => {
