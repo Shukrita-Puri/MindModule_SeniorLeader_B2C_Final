@@ -256,9 +256,6 @@ const TodayThreePriorities = ({
   // Feedback is keyed by a stable per-priority fingerprint (slot index + content IDs) so
   // a remount or rehydration cannot "discover" an already-shown priority as new.
   const feedbackShownStorageKey = `feedback-shown-${scopeKey}`;
-  // Phase 1: cancelled-slot state lives only in sessionStorage scoped to the
-  // current ritual_date + period. No DB writes, no schema changes.
-  const cancelledStorageKey = `cancelled-keys-${scopeKey}`;
   const [replacementSlot, setReplacementSlot] = useState<{ index: number; key: string; title: string } | null>(null);
   const [replacementEvents, setReplacementEvents] = useState<CalendarReplacementEvent[]>([]);
   const [replacementLoading, setReplacementLoading] = useState(false);
@@ -284,24 +281,6 @@ const TodayThreePriorities = ({
     return `${slotIndex}:${ids}`;
   };
 
-  const syncPlanCacheForSlot = useCallback((slotIndex: number, patch: Partial<Pick<HorizonModule, 'isCancelled' | 'cancelReason' | 'replacementEventIds' | 'priorityTag' | 'relationshipTag'>>) => {
-    setPlan((prev) => {
-      if (!prev?.horizonModules) return prev;
-      const nextPlan = {
-        ...prev,
-        horizonModules: prev.horizonModules.map((hm, idx) => (
-          idx === slotIndex ? { ...hm, ...patch } : hm
-        )),
-      };
-      try {
-        writePersistent(cacheKeys.planData(todayForPlan, periodForPlan), nextPlan, msUntilWindowEnd());
-      } catch {
-        /* ignore cache write errors */
-      }
-      return nextPlan;
-    });
-  }, [periodForPlan, todayForPlan]);
-
   const resetReplacementEditor = useCallback((slot?: HorizonModule) => {
     setReplacementSelection(slot?.replacementEventIds || []);
     setReplacementPriorityTag(slot?.priorityTag ?? null);
@@ -312,23 +291,7 @@ const TodayThreePriorities = ({
   // (across remounts, refreshes, etc.). Source of truth: sessionStorage.
   const feedbackShownRef = useRef<Set<string>>(loadPersistedSet(feedbackShownStorageKey));
   const celebratedIdsRef = useRef<Set<string>>(loadPersistedSet(celebratedStorageKey));
-  const [cancelledKeys, setCancelledKeys] = useState<Set<string>>(
-    () => loadPersistedSet(cancelledStorageKey),
-  );
   const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
-
-  const setCancelled = useCallback((key: string, cancelled: boolean) => {
-    setCancelledKeys((prev) => {
-      const next = new Set(prev);
-      if (cancelled) next.add(key); else next.delete(key);
-      persistSet(cancelledStorageKey, next);
-      return next;
-    });
-  }, [cancelledStorageKey]);
-
-  useEffect(() => {
-    setCancelledKeys(loadPersistedSet(cancelledStorageKey));
-  }, [cancelledStorageKey]);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
   const loadReplacementEvents = useCallback(async () => {
@@ -459,7 +422,7 @@ const TodayThreePriorities = ({
       const hm = modules[idx];
       const key = buildPriorityKey(idx, hm);
       if (feedbackShownRef.current.has(key)) continue;
-      const slotCancelled = hm.isCancelled !== undefined ? hm.isCancelled === true : cancelledKeys.has(key);
+      const slotCancelled = hm.isCancelled === true;
       // Cancelled slots don't trigger the post-completion feedback modal —
       // the cancel flow already captured the user's relevance feedback.
       if (slotCancelled) continue;
@@ -475,7 +438,7 @@ const TodayThreePriorities = ({
     }
 
     prevCompletedIdsRef.current = completedPracticeIds;
-  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey, cancelledKeys]);
+  }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
   // ── Load plan ──
   const loadPlan = useCallback(async (opts?: { silent?: boolean; forceRefresh?: boolean; selectedCalendarEventIds?: string[] }) => {
@@ -886,7 +849,7 @@ const TodayThreePriorities = ({
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
       const key = buildPriorityKey(i, modules[i]);
-      const slotCancelled = modules[i].isCancelled !== undefined ? modules[i].isCancelled === true : cancelledKeys.has(key);
+      const slotCancelled = modules[i].isCancelled === true;
       if (!slotComplete && !slotCancelled) {
         setExpandedSlot(i);
         return;
@@ -894,7 +857,7 @@ const TodayThreePriorities = ({
     }
     // All done
     setExpandedSlot(-1);
-  }, [completedPracticeIds, plan, expandReflection, cancelledKeys]);
+  }, [completedPracticeIds, plan, expandReflection]);
 
   const horizonModules = plan?.horizonModules;
 
@@ -1095,7 +1058,7 @@ const TodayThreePriorities = ({
           const hasMultiple = slotPractices.length > 1;
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
-          const slotCancelled = hm.isCancelled !== undefined ? hm.isCancelled === true : cancelledKeys.has(slotKey);
+          const slotCancelled = hm.isCancelled === true;
           const tagBadges = [
             hm.priorityTag ? { label: `${hm.priorityTag} priority`, tone: 'bg-saffron/15 text-saffron border-saffron/20' } : null,
             hm.relationshipTag ? { label: hm.relationshipTag, tone: 'bg-white/10 text-white/70 border-white/20' } : null,
@@ -1146,12 +1109,7 @@ const TodayThreePriorities = ({
                         getCurrentTimeWindow(),
                       );
                       if (saved) {
-                        setCancelled(slotKey, false);
-                        syncPlanCacheForSlot(index, {
-                          isCancelled: false,
-                          cancelReason: null,
-                          replacementEventIds: hm.replacementEventIds || [],
-                        });
+                        await loadPlan({ silent: true, forceRefresh: true });
                       } else {
                         toast({ title: 'Could not restore this priority', description: 'Your change was not saved.', variant: 'destructive' });
                       }
@@ -1482,14 +1440,7 @@ const TodayThreePriorities = ({
                 getCurrentTimeWindow(),
               );
               if (saved) {
-                setCancelled(pendingCancel.key, true);
-                syncPlanCacheForSlot(pendingCancel.index, {
-                  isCancelled: true,
-                  cancelReason: reason,
-                  replacementEventIds: [],
-                  priorityTag: replacementPriorityTag,
-                  relationshipTag: replacementRelationshipTag,
-                });
+                await loadPlan({ silent: true, forceRefresh: true });
                 setPendingCancel(null);
               } else {
                 toast({ title: 'Could not save this cancel', description: 'The slot was not hidden locally because plan persistence failed.', variant: 'destructive' });
@@ -1521,35 +1472,25 @@ const TodayThreePriorities = ({
           onApply={async () => {
             if (replacementSelection.length === 0) return;
             const selectedIds = [...replacementSelection];
-            const success = await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
-            if (success) {
-              const saved = await persistPlanLedgerEdit(
-                replacementSlot.index,
-                {
-                  cancelled: false,
-                  cancelReason: null,
-                  replacementEventIds: selectedIds,
-                  priorityTag: replacementPriorityTag,
-                  relationshipTag: replacementRelationshipTag,
-                },
-                getCurrentTimeWindow(),
-              );
-              if (saved) {
-                syncPlanCacheForSlot(replacementSlot.index, {
-                  isCancelled: false,
-                  cancelReason: null,
-                  replacementEventIds: selectedIds,
-                  priorityTag: replacementPriorityTag,
-                  relationshipTag: replacementRelationshipTag,
-                });
-              } else {
-                toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was shown, but the edit state was not persisted.', variant: 'destructive' });
-              }
-              setCancelled(replacementSlot.key, false);
+            const saved = await persistPlanLedgerEdit(
+              replacementSlot.index,
+              {
+                cancelled: false,
+                cancelReason: null,
+                replacementEventIds: selectedIds,
+                priorityTag: replacementPriorityTag,
+                relationshipTag: replacementRelationshipTag,
+              },
+              getCurrentTimeWindow(),
+            );
+            if (saved) {
+              await loadPlan({ silent: true, forceRefresh: true, selectedCalendarEventIds: selectedIds });
               setReplacementSelection([]);
               setReplacementPriorityTag(null);
               setReplacementRelationshipTag(null);
               setReplacementSlot(null);
+            } else {
+              toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
             }
           }}
           onClose={() => {
