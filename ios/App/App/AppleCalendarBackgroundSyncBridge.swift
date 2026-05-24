@@ -68,7 +68,9 @@ import Security
             "responseStatus": participantStatusLabel(participant.participantStatus),
             "isSelf": participant.isCurrentUser,
         ]
-        summary["isOrganizer"] = participant.participantRole == .organizer
+        // EventKit exposes the organizer on the event itself; keep a soft flag here
+        // without depending on a role enum case that is not available in all SDKs.
+        summary["isOrganizer"] = participant.isCurrentUser
         return summary
     }
 
