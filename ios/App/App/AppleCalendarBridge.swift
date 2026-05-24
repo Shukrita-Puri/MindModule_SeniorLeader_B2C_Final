@@ -154,10 +154,27 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         let normalized: [[String: Any]] = events.map { ev in
             let attendees = ev.attendees ?? []
             let isOrganizer = ev.organizer?.isCurrentUser ?? false
+            let organizerContactUrl = ev.organizer?.url?.absoluteString ?? ""
+            let organizerEmail: String = {
+                let s = organizerContactUrl.lowercased()
+                if s.hasPrefix("mailto:") {
+                    let c = String(s.dropFirst(7))
+                    if c.contains("@") { return c }
+                }
+                return ""
+            }()
+            let organizerEmailDomain: String = {
+                if let at = organizerEmail.firstIndex(of: "@") {
+                    return String(organizerEmail[organizerEmail.index(after: at)...])
+                }
+                return ""
+            }()
             let attendeeSignals: [String: Any] = [
                 "organizer": [
                     "displayName": ev.organizer?.name ?? "",
                     "contactUrl": ev.organizer?.url?.absoluteString ?? "",
+                    "email": organizerEmail,
+                    "emailDomain": organizerEmailDomain,
                     "isCurrentUser": isOrganizer,
                 ],
                 "attendees": attendees.map { participantSummary($0) },
@@ -168,8 +185,18 @@ public class AppleCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             ]
             if let loc = ev.location { metadata["location"] = loc }
             if let cal = ev.calendar?.title { metadata["calendarTitle"] = cal }
-            if let url = ev.url?.absoluteString { metadata["url"] = url }
+            if let url = ev.url?.absoluteString {
+                metadata["url"] = url
+                metadata["meetingUrl"] = url
+            }
             if let notes = ev.notes { metadata["notes"] = String(notes.prefix(500)) }
+            if let notes = ev.notes { metadata["description"] = String(notes.prefix(500)) }
+            if ev.hasRecurrenceRules, let rule = ev.recurrenceRules?.first {
+                metadata["recurrence"] = [
+                    "frequency": "\(rule.frequency.rawValue)",
+                    "interval": rule.interval,
+                ]
+            }
             metadata["attendeeSignals"] = attendeeSignals
             return [
                 "external_id": ev.eventIdentifier ?? "\(ev.calendarItemIdentifier)",
