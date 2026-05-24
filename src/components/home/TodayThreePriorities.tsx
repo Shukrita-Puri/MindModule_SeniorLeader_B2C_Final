@@ -786,14 +786,15 @@ const TodayThreePriorities = ({
     for (let i = 0; i < modules.length; i++) {
       const slotPractices = modules[i].practices || [modules[i].practice];
       const slotComplete = slotPractices.every(p => completedPracticeIds.includes(p.contentId));
-      if (!slotComplete) {
+      const key = buildPriorityKey(i, modules[i]);
+      if (!slotComplete && !cancelledKeys.has(key)) {
         setExpandedSlot(i);
         return;
       }
     }
     // All done
     setExpandedSlot(-1);
-  }, [completedPracticeIds, plan, expandReflection]);
+  }, [completedPracticeIds, plan, expandReflection, cancelledKeys]);
 
   const horizonModules = plan?.horizonModules;
 
