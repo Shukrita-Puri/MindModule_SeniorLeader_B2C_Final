@@ -1532,8 +1532,6 @@ const TodayThreePriorities = ({
                   cancelled: true,
                   cancelReason: reason,
                   replacementEventIds: [],
-                  priorityTag: replacementPriorityTag,
-                  relationshipTag: replacementRelationshipTag,
                 },
                 getCurrentTimeWindow(),
               );
