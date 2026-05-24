@@ -1,7 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth.ts';
-import { isNoiseTitle } from '../_shared/executive-state-taxonomy.ts';
-import { scenarioIdFor } from '../_shared/executive-state-taxonomy.ts';
+import {
+  isNoiseTitle,
+  scenarioIdFor,
+  isEducationalTitle,
+  coarseEventType,
+  canonicalEventTag,
+  canonicalTagForCoarse,
+  eventClusterSignal,
+  eventPressureFlag,
+} from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
 
@@ -904,70 +912,12 @@ interface EventTypeCorrelation {
 
 type HRVCorrelationMap = Record<string, EventTypeCorrelation>;
 
+// Coarse event-type token + presentation label — sourced from the shared
+// classifier (single source of truth in `_shared/events/event-classifier.ts`).
+// No second taxonomy lives in this file.
 function extractEventType(title: string): string {
-  const lower = title.toLowerCase();
-  if (lower.includes('board')) return 'board';
-  if (lower.includes('investor') || lower.includes('vc') || lower.includes('funding')) return 'investor';
-  if (lower.includes('fundrais')) return 'fundraising';
-  if (lower.includes('all-hands') || lower.includes('all hands') || lower.includes('town hall')) return 'all-hands';
-  // Interview disambiguation: media vs hiring vs ambiguous
-  if (lower.includes('media') || lower.includes('press') || lower.includes('journalist') || lower.includes('pr interview')) return 'media-interview';
-  if (lower.includes('final round') || lower.includes('hiring committee') || lower.includes('candidate review') || lower.includes('executive hire')) return 'hiring-interview';
-  if (lower.includes('interview') || lower.includes('podcast')) return 'interview-ambiguous';
-  if (lower.includes('pitch') || lower.includes('demo') || lower.includes('keynote')) return 'pitch';
-  if (lower.includes('client') || lower.includes('customer') || lower.includes('account review') || lower.includes('proposal')) return 'client';
-  // Strategy before generic team/planning
-  if (lower.includes('strategy') || lower.includes('strategic') || lower.includes('offsite') || lower.includes('vision') || lower.includes('roadmap')) return 'strategy';
-  // Leadership before generic team
-  if (lower.includes('leadership team') || lower.includes('exec team') || lower.includes('c-suite') || lower.includes('slt') || lower.includes('management meeting')) return 'leadership';
-  if (lower.includes('conference') || lower.includes('summit') || lower.includes('panel') || lower.includes('speaking') || lower.includes('presentation') || lower.includes('webinar')) return 'speaking';
-  if (lower.includes('m&a') || lower.includes('merger') || lower.includes('acquisition') || lower.includes('due diligence')) return 'ma';
-  if (lower.includes('launch') || lower.includes('go live') || lower.includes('release') || lower.includes('ship')) return 'launch';
-  if (lower.includes('layoff') || lower.includes('restructuring') || lower.includes('reduction') || lower.includes('rif') || lower.includes('downsizing')) return 'layoff';
-  if (lower.includes('negotiation') || lower.includes('contract') || lower.includes('deal') || lower.includes('terms') || lower.includes('partnership')) return 'negotiation';
-  if (lower.includes('crisis') || lower.includes('urgent') || lower.includes('emergency') || lower.includes('escalation')) return 'crisis';
-  if (lower.includes('competitor') || lower.includes('competitive')) return 'competitive';
-  if (lower.includes('budget') || lower.includes('finance review') || lower.includes('forecast') || lower.includes('earnings') || lower.includes('financial planning')) return 'finance';
-  if (lower.includes('quarterly') || lower.includes('qbr') || lower.match(/\bq[1-4]\b/)) return 'quarterly-review';
-  if (lower.includes('performance review') || lower.includes('annual review') || lower.includes('mid-year review') || lower.includes('360 feedback')) return 'performance-review';
-  if (lower.includes('1:1') || lower.includes('one-on-one') || lower.includes('1-on-1') || lower.includes('one on one') || lower.includes('check-in')) return '1:1';
-  if (lower.includes('team')) return 'team';
-  if (lower.includes('standup') || lower.includes('stand-up') || lower.includes('daily')) return 'standup';
-  if (lower.includes('retro') || lower.includes('retrospective')) return 'retrospective';
-  if (lower.includes('planning')) return 'planning';
-  if (lower.includes('review')) return 'quarterly-review';
-  return 'other';
+  return coarseEventType(title);
 }
-
-const CANONICAL_TAGS: Record<string, string> = {
-  'board': 'Pre Board Meeting',
-  'investor': 'Pre Investor Meeting',
-  'fundraising': 'Pre Fundraising Meeting',
-  'pitch': 'Pre Pitch',
-  'all-hands': 'Pre All-Hands',
-  'leadership': 'Pre Leadership Meeting',
-  '1:1': '1:1 Prep',
-  'team': 'Team Meeting Prep',
-  'client': 'Pre Client Meeting',
-  'speaking': 'Pre Speaking Engagement',
-  'strategy': 'Strategic Planning Prep',
-  'quarterly-review': 'Pre Quarterly Review',
-  'performance-review': 'Pre Performance Review',
-  'ma': 'Pre M&A Discussion',
-  'launch': 'Pre Launch',
-  'layoff': 'Pre Difficult Conversation',
-  'negotiation': 'Pre Negotiation',
-  'crisis': 'Crisis Response Prep',
-  'media-interview': 'Pre Media Interview',
-  'hiring-interview': 'Pre Hiring Interview',
-  'interview-ambiguous': 'Interview Prep',
-  'standup': 'Standup Prep',
-  'retrospective': 'Retro Prep',
-  'planning': 'Planning Prep',
-  'finance': 'Pre Finance Review',
-  'competitive': 'Competitive Review Prep',
-  'other': 'Meeting Prep',
-};
 
 async function getHRVEventCorrelations(
   userId: string,
@@ -1060,42 +1010,23 @@ function isNoiseEvent(title: string): boolean {
   return isNoiseTitle(title);
 }
 
-// ==================== LEGACY DIM A/B FLOOR GUARDS ====================
-// Mirrors generate-jit-events dimension scoring for legacy fallback gate
-
-const LEGACY_PRESSURE_KEYWORDS = [
-  'board', 'investor', 'performance', 'review', 'feedback', 'fire', 'difficult',
-  'press', 'media', 'interview', 'pitch', 'crisis', 'negotiation', 'termination',
-  'layoff', 'conflict', 'confrontation', 'dispute',
-];
-
-const LEGACY_CLUSTER_KEYWORDS: Record<string, string[]> = {
-  pressure: ['board', 'pitch', 'media', 'press', 'interview', 'speak', 'present', 'conference', 'investor', 'keynote', 'crisis', 'emergency', 'urgent'],
-  relationship: ['feedback', 'performance', 'difficult', 'fire', 'demotion', 'conflict', 'dispute', 'tension', 'confrontation', 'termination', 'pip', 'layoff'],
-  decision: ['strategy', 'planning', 'prioritise', 'prioritize', 'trade-off', 'decision', 'stakeholder', 'budget', 'forecast', 'earnings'],
-  transition: ['first', 'last', 'new role', 'launch', 'announcement', 'offsite', 'retreat', 'end of quarter', 'annual', 'restructuring'],
-};
+// ==================== DIM A/B FLOOR GUARDS ====================
+// DimA (attendee + pressure) and DimB (cluster signal) are derived from the
+// shared classifier — no second taxonomy lives in this file. See
+// `_shared/events/event-classifier.ts` for `eventPressureFlag` and
+// `eventClusterSignal`.
 
 function computeLegacyDimA(title: string, attendeeCount: number): number {
-  let score = 0;
   if (attendeeCount === 0) return 0;
-  if (attendeeCount <= 2) score = 12;
-  else score = 20;
-  const lower = (title || '').toLowerCase();
-  if (LEGACY_PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) {
+  let score = attendeeCount <= 2 ? 12 : 20;
+  if (eventPressureFlag(title)) {
     score = Math.min(35, score + 15);
   }
   return score;
 }
 
 function computeLegacyDimB(title: string): number {
-  const lower = (title || '').toLowerCase();
-  for (const keywords of Object.values(LEGACY_CLUSTER_KEYWORDS)) {
-    if (keywords.some(kw => lower.includes(kw))) {
-      return 15; // Minimum passing value for B if any cluster matches
-    }
-  }
-  return 0;
+  return eventClusterSignal(title) ? 15 : 0;
 }
 
 type RelationshipTag = 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other';
@@ -1185,8 +1116,7 @@ async function getPreScoredEvents(
         if (minutesUntil < 0) continue;
 
         // Educational non-organizer hard gate – completely block, no override
-        const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-        const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || ''));
+        const isEducational = isEducationalTitle(row.event_title || '');
         const isOrganizer = matchingEvent?.isOrganizer ?? false;
         if (isEducational && !isOrganizer) {
           console.log(`[generate-mastery-plan] Bridge: BLOCKED educational non-organizer "${row.event_title}"`);
@@ -1322,7 +1252,7 @@ function buildEnrichedContextDescription(
     const evtType = extractEventType(row.event_title || '');
     const corr = hrvCorrelations[evtType];
     if (corr && corr.count >= 2 && Math.abs(corr.avgHRVDeviation) > 10) {
-      const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
+      const canonicalLabel = canonicalTagForCoarse(evtType);
       parts.push(`your body shows a familiar pre-${canonicalLabel.toLowerCase().replace(/^pre /, '')} response`);
     }
   }
@@ -1392,8 +1322,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     if (isNoiseEvent(event.title || '')) continue;
 
     // Educational non-organizer guard in legacy fallback path
-    const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-    const isEducational = EDUCATIONAL_PATTERNS.test((event.title || '').toLowerCase());
+    const isEducational = isEducationalTitle(event.title || '');
     if (isEducational && !event.isOrganizer) continue;
 
     // ═══ TWO-TOUCH ACTION WINDOW ═══
@@ -1464,7 +1393,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       if (correlation && correlation.count >= 2) {
         const avgDev = correlation.avgHRVDeviation;
         hrvCorrelation = { eventType: evtType, avgDeviation: avgDev, historicalCount: correlation.count };
-        const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
+        const canonicalLabel = canonicalTagForCoarse(evtType);
         if (avgDev > 20) { score += 25; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events – your system responds strongly to these.`; }
         else if (avgDev > 15) { score += 20; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events.`; }
         else if (avgDev > 10) { score += 12; hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline).`; }
@@ -1484,7 +1413,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       const contextParts: string[] = [];
       if (matchedScenario) {
         const evtTypeForContext = extractEventType(event.title || '');
-        const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
+        const canonicalTagForContext = canonicalTagForCoarse(evtTypeForContext) || matchedScenario.contextLabel || 'meeting';
         contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
       } else if ((event.attendeesCount || 0) > 5) {
         contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
@@ -2456,14 +2385,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       enrichedContextDescription = `Your coach has noted a pattern here – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     } else if (topEvent.hrvCorrelation && Math.abs(topEvent.hrvCorrelation.avgDeviation) > 10 && !enrichedContextDescription) {
       // HRV as lead context when no coach signals and context is empty
-      const canonicalLabel = CANONICAL_TAGS[topEvent.hrvCorrelation.eventType] || topEvent.hrvCorrelation.eventType;
+      const canonicalLabel = canonicalTagForCoarse(topEvent.hrvCorrelation.eventType);
       enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events – ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     }
 
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
-        eventType: CANONICAL_TAGS[extractEventType(topEvent.event.title || '')] || scenario?.contextLabel || 'Meeting Prep',
+        eventType: canonicalEventTag(topEvent.event.title || '') || scenario?.contextLabel || 'Meeting Prep',
         minutesUntil: topEvent.minutesUntil,
         timePill: topEvent.timePill,
         contextDescription: enrichedContextDescription,

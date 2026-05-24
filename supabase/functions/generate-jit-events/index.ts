@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
-import { isNoiseTitle, classifyEvent, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
+import { isNoiseTitle, classifyEvent, isEducationalTitle, type EventGroup } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 
 const corsHeaders = {
@@ -590,8 +590,7 @@ serve(async (req) => {
       }
 
       // ════════ STAGE 0b: Educational Event Hard Gate ════════
-      const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-      const isEducational = EDUCATIONAL_PATTERNS.test(title);
+      const isEducational = isEducationalTitle(title);
       const isOrganizer = event.is_organizer || false;
       if (isEducational && !isOrganizer) {
         if (IS_DEV) console.log(`[JIT:Stage0b] BLOCKED title="${title}" reason=educational_non_organizer (hard gate)`);
