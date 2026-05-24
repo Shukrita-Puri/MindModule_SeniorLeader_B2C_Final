@@ -234,6 +234,16 @@ const TodayThreePriorities = ({
   const [expandedSlot, setExpandedSlot] = useState<number>(0);
   const [feedbackSlot, setFeedbackSlot] = useState<{ index: number; horizon: string; key: string } | null>(null);
 
+  // ── Cancelled-slot state (Phase 1, local-only) ──
+  // Cancelled priority keys live in sessionStorage scoped to the current
+  // ritual_date + period so a reload in the same window keeps the cancelled
+  // visual, but a new window starts fresh. No DB writes.
+  const cancelledStorageKey = `cancelled-keys-${scopeKey}`;
+  const [cancelledKeys, setCancelledKeys] = useState<Set<string>>(
+    () => loadPersistedSet(`cancelled-keys-${scopeKey}`),
+  );
+  const [pendingCancel, setPendingCancel] = useState<{ index: number; key: string; title: string } | null>(null);
+
   // Persist celebration/feedback state in sessionStorage so remounts don't re-trigger.
   // Keys are scoped to ritual_date + session_period so a new ritual cycle gets a clean slate
   // but reload/refresh within the same window reuses the same fingerprint.
