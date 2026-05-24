@@ -347,3 +347,65 @@ export async function submitBriefFeedback(
     return { success: false, error };
   }
 }
+
+/**
+ * Submit structured cancel feedback for a Today-plan priority slot.
+ *
+ * Writes a single row to `content_relevance_feedback` with enough metadata to
+ * be queryable independently of the free-text `feedback_text`:
+ *   - feedback_reason: 'not_relevant_now' | 'not_relevant_ever'
+ *   - trigger_context: 'plan_slot_cancel'
+ *   - context_data: { feedback_scope, plan_slot_index, slot_title, cancel_reason, session_period, local_date }
+ *
+ * This is the canonical write path for slot-cancel feedback. The plan-ledger
+ * edit (in `daily_ritual_completions.plan_ledger.userEdits`) is persisted
+ * separately and is the source of truth for slot edit STATE; this row is the
+ * source of truth for slot-cancel REASONS and free-text notes.
+ */
+export async function submitPlanSlotCancelFeedback(args: {
+  slotIndex: number;
+  slotTitle: string;
+  cancelReason: 'now' | 'ever';
+  feedbackText?: string;
+  sessionPeriod?: 'morning' | 'afternoon' | 'evening';
+}) {
+  try {
+    const accessToken = await getAuthToken();
+    if (!accessToken) return { success: false, error: new Error('Not authenticated') };
+
+    const reasonCode = args.cancelReason === 'now' ? 'not_relevant_now' : 'not_relevant_ever';
+    const dateKey = new Date().toLocaleDateString('en-CA');
+
+    const { data: result, error } = await supabase.functions.invoke('content-feedback', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'SUBMIT_FEEDBACK',
+        feedbackData: {
+          content_id: `plan-slot-${args.slotIndex}-${dateKey}`,
+          content_type: 'plan-tod',
+          feedback_type: 'thumbs_down',
+          trigger_context: 'plan_slot_cancel',
+          feedback_text: args.feedbackText,
+          feedback_reason: reasonCode,
+          context_data: {
+            feedback_scope: 'plan_slot_cancel',
+            plan_type: 'tod',
+            plan_slot_index: args.slotIndex,
+            slot_title: args.slotTitle,
+            cancel_reason: args.cancelReason,
+            session_period: args.sessionPeriod,
+            local_date: dateKey,
+          },
+        },
+      },
+    });
+
+    if (error) throw error;
+    return { success: true, data: result?.data };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to submit plan-slot cancel feedback:', error);
+    }
+    return { success: false, error };
+  }
+}
