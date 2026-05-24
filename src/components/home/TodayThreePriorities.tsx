@@ -25,6 +25,7 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import PlanFeedbackModal from '@/components/home/PlanFeedbackModal';
 import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback } from '@/utils/relevanceFeedback';
+import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import {
   read as readPersistent,
