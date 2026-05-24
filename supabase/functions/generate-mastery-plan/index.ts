@@ -6,6 +6,7 @@ import {
   isEducationalTitle,
   coarseEventType,
   canonicalEventTag,
+  canonicalTagForCoarse,
   eventClusterSignal,
   eventPressureFlag,
 } from '../_shared/executive-state-taxonomy.ts';
@@ -911,21 +912,11 @@ interface EventTypeCorrelation {
 
 type HRVCorrelationMap = Record<string, EventTypeCorrelation>;
 
-// Coarse event-type token + presentation label — both sourced from the
-// shared classifier (single source of truth in
-// `_shared/events/event-classifier.ts`). No second taxonomy lives here.
+// Coarse event-type token + presentation label — sourced from the shared
+// classifier (single source of truth in `_shared/events/event-classifier.ts`).
+// No second taxonomy lives in this file.
 function extractEventType(title: string): string {
   return coarseEventType(title);
-}
-
-function canonicalTagFor(eventTypeOrTitle: string, fallback?: string): string {
-  // Accept either a coarse token (legacy call sites) or a raw title. When
-  // given a coarse token we cannot recover the subtype label, so fall back
-  // to the supplied label.
-  if (eventTypeOrTitle && eventTypeOrTitle.includes(' ')) {
-    return canonicalEventTag(eventTypeOrTitle);
-  }
-  return fallback || 'Meeting Prep';
 }
 
 async function getHRVEventCorrelations(
