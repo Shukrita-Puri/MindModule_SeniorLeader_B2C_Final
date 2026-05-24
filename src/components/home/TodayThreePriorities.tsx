@@ -295,7 +295,6 @@ const TodayThreePriorities = ({
   // Phase 3: in-flight guard so a double-click on Apply cannot fire two
   // overlapping regenerations for the same selection.
   const regeneratingRef = useRef(false);
-  const [regenerating, setRegenerating] = useState(false);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
   const loadReplacementEvents = useCallback(async () => {
@@ -1109,7 +1108,6 @@ const TodayThreePriorities = ({
                   if (replacementSelection.length === 0) return;
                   if (regeneratingRef.current) return;
                   regeneratingRef.current = true;
-                  setRegenerating(true);
                   const selectedIds = [...replacementSelection];
                   try {
                     const saved = await persistPlanLedgerEdit(
@@ -1138,7 +1136,6 @@ const TodayThreePriorities = ({
                     await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
                   } finally {
                     regeneratingRef.current = false;
-                    setRegenerating(false);
                   }
                 }}
                 onClose={() => {
