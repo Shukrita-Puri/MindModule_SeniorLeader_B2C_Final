@@ -1414,7 +1414,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       if (correlation && correlation.count >= 2) {
         const avgDev = correlation.avgHRVDeviation;
         hrvCorrelation = { eventType: evtType, avgDeviation: avgDev, historicalCount: correlation.count };
-        const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
+        const canonicalLabel = canonicalTagForCoarse(evtType);
         if (avgDev > 20) { score += 25; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events – your system responds strongly to these.`; }
         else if (avgDev > 15) { score += 20; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events.`; }
         else if (avgDev > 10) { score += 12; hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline).`; }
@@ -1434,7 +1434,7 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       const contextParts: string[] = [];
       if (matchedScenario) {
         const evtTypeForContext = extractEventType(event.title || '');
-        const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
+        const canonicalTagForContext = canonicalTagForCoarse(evtTypeForContext) || matchedScenario.contextLabel || 'meeting';
         contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
       } else if ((event.attendeesCount || 0) > 5) {
         contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
