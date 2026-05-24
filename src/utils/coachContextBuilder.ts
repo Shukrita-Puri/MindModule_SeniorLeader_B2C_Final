@@ -217,7 +217,13 @@ async function detectConsecutivePattern(
       return {
         days: consecutiveCount,
         state: currentOutcome
-  };
+      };
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function inferRelationshipPattern(title: string, metadata: any): string | null {
@@ -228,12 +234,6 @@ function inferRelationshipPattern(title: string, metadata: any): string | null {
   if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 'junior or growth conversation';
   if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 'peer coordination';
   return null;
-}
-    
-    return undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 // Get recent practices from last 7 days
