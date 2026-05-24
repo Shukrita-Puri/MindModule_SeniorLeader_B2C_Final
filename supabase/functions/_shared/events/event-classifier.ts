@@ -142,6 +142,24 @@ export function canonicalEventTag(title: string | null | undefined): string {
   return `Pre ${et.label}`;
 }
 
+// Reverse map: coarse token → presentation label. Derived from the shared
+// subtype labels (no parallel taxonomy). Used when only the coarse token is
+// available downstream (e.g. HRV correlation cache keyed by coarse type).
+const COARSE_TO_LABEL: Record<string, string> = (() => {
+  const out: Record<string, string> = { 'other': 'Meeting Prep' };
+  for (const et of EVENT_TYPES) {
+    const coarse = SUBTYPE_TO_COARSE[et.id];
+    if (!coarse) continue;
+    if (!out[coarse]) out[coarse] = `Pre ${et.label}`;
+  }
+  return out;
+})();
+
+export function canonicalTagForCoarse(coarse: string | null | undefined): string {
+  if (!coarse) return 'Meeting Prep';
+  return COARSE_TO_LABEL[coarse] ?? 'Meeting Prep';
+}
+
 // ── Pressure / cluster floor (legacy DimA/DimB replacement) ─────────
 //
 // The plan generator's "legacy fallback gate" previously hardcoded two
