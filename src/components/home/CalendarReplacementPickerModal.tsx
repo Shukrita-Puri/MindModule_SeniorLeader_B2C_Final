@@ -47,6 +47,7 @@ function groupTodayTomorrow(events: CalendarReplacementEvent[]): EventGroup[] {
   tomorrow.setDate(today.getDate() + 1);
   const todayKey = localDayKey(today);
   const tomorrowKey = localDayKey(tomorrow);
+  const nowMs = today.getTime();
   const todayItems: CalendarReplacementEvent[] = [];
   const tomorrowItems: CalendarReplacementEvent[] = [];
   for (const event of events) {
@@ -56,8 +57,13 @@ function groupTodayTomorrow(events: CalendarReplacementEvent[]): EventGroup[] {
       if (key === todayKey) bucket = 'today';
       else if (key === tomorrowKey) bucket = 'tomorrow';
     }
-    if (bucket === 'today') todayItems.push(event);
-    else if (bucket === 'tomorrow') tomorrowItems.push(event);
+    if (bucket === 'today') {
+      // Only show events still ahead of (or currently running through) "now".
+      const endMs = new Date(event.endTime).getTime();
+      if (Number.isFinite(endMs) && endMs > nowMs) todayItems.push(event);
+    } else if (bucket === 'tomorrow') {
+      tomorrowItems.push(event);
+    }
   }
   const groups: EventGroup[] = [];
   if (todayItems.length) groups.push({ label: 'Today', items: todayItems });
