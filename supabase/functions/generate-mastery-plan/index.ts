@@ -2790,17 +2790,28 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
         const t = (m.jitEventTitle || '').toLowerCase().trim();
         return !!t && (t.includes(matchTitle) || matchTitle.includes(t));
       });
-      if (!freshMatch) continue;
       const prior = finalHorizonModules[idx];
       // Skip if this exact slot is already anchored to the requested event.
       const alreadyAnchored = (prior?.replacementEventIds || []).includes(eventId) ||
         ((prior?.jitEventTitle || '').toLowerCase().trim() === matchTitle && !prior?.isCancelled);
       if (alreadyAnchored) continue;
+      const truncatedEvtTitle = String(evt.title || '').split(/\s+/).slice(0, 5).join(' ').trim();
+      const prepareLabel = `Prepare ahead of ${truncatedEvtTitle}`;
+      const minsUntilEvt = (new Date(evt.startTime).getTime() - Date.now()) / 60000;
+      // Use fresh match if present, otherwise synthesize from prior so the
+      // slot is always re-anchored to the chosen event with Prepare framing.
+      const base = freshMatch || prior;
+      if (!base) continue;
       finalHorizonModules[idx] = {
-        ...freshMatch,
+        ...base,
+        isJit: true,
+        jitEventTitle: truncatedEvtTitle,
+        jitMinutesUntil: Number.isFinite(minsUntilEvt) ? Math.round(minsUntilEvt) : null,
+        timeLabel: prepareLabel,
         isCancelled: false,
         cancelReason: null,
         replacementEventIds: [eventId],
+        showPriorityPill: true,
         priorityTag: prior?.priorityTag ?? null,
         relationshipTag: prior?.relationshipTag ?? null,
         customTags: prior?.customTags ?? [],
