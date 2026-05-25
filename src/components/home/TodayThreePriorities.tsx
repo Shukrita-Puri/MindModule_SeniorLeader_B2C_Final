@@ -1286,6 +1286,14 @@ const TodayThreePriorities = ({
                           const today = localISODate();
                           const period = getCurrentTimeWindow();
                           writePersistent(cacheKeys.planData(today, period), next, ttl);
+                          // Mirror the un-cancel into the local edits store so
+                          // refresh / silent refetch cannot resurrect the
+                          // prior cancelled:true edit.
+                          patchPlanSlotEdit(today, period, index, {
+                            cancelled: false,
+                            cancelReason: null,
+                            replacementEventIds: hm.replacementEventIds || [],
+                          });
                         } catch { /* ignore */ }
                         return next;
                       });
