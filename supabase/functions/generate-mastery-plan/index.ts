@@ -2918,6 +2918,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       scenarioId: filteredEvents[0]?.scenario?.id || null,
       durationCeiling: maxDuration,
       maxModules,
+      jitRankedCandidates: jitRankedCandidates.slice(0, 8),
       calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
         ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
         : undefined
