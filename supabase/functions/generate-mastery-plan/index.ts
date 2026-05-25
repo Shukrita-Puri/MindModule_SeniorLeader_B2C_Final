@@ -3778,10 +3778,19 @@ function buildHorizonModules(
     const checkIn = req.checkInOutcome;
     const load = req.calendarLoad;
     const pressure = req.calendarPressure;
+    const tzOffset = (req as any).timezoneOffset ?? 0;
+    const localNow = new Date(Date.now() - tzOffset * 60000);
+    const dow = localNow.getUTCDay(); // 0 Sun .. 6 Sat
+    const isWeekend = dow === 0 || dow === 6;
+    const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
+    const tdyTitle = truncateTitle(todayLeadEvent?.title);
+    const tmrIsTravel = isTravelTitle(tomorrowLeadEvent?.title);
 
     // 1) State action — pick strongest signal
     let stateAction = '';
-    if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
+    if (tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
+      stateAction = 'Re-anchor circadian rhythm';
+    } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
       stateAction = 'Restore HRV';
     } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
       stateAction = 'Recover sleep debt';
@@ -3795,36 +3804,37 @@ function buildHorizonModules(
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
 
-    // 2) Calendar anchor — priority depends on slot
-    //    Slot 3 (evening) → prefer tomorrow. Slots 0/1 → prefer today.
+    // 2) Calendar anchor — Contract priority: B (state→JIT) > C (state→day) >
+    //    D (end-of-day→tomorrow) > E (weekend → next moment). Slot 3 (evening)
+    //    prefers tomorrow; slots 0/1 prefer today.
     let anchor = '';
-    const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
-    const tdyTitle = truncateTitle(todayLeadEvent?.title);
+
+    // Contract E — Weekend / PTO: anchor to next known performance moment.
+    if (isWeekend && todayRemainingEvents.length === 0) {
+      if (tmrTitle) {
+        anchor = tmrIsTravel ? 'long-haul travel tomorrow' : `tomorrow's ${tmrTitle}`;
+      } else if (dow === 0) {
+        anchor = "Monday's load";
+      } else {
+        anchor = 'next week\u2019s load';
+      }
+      return `${stateAction} ahead of ${anchor}`;
+    }
 
     if (slotIndex === 2) {
-      if (tmrTitle && isTravelTitle(tomorrowLeadEvent?.title)) {
-        anchor = 'long-haul travel tomorrow';
-      } else if (tmrTitle) {
-        anchor = `tomorrow's ${tmrTitle}`;
-      } else if (tomorrowEvents.length >= 5) {
-        anchor = "tomorrow's full day of back-to-back load";
-      } else if (tomorrowEvents.length > 0) {
-        anchor = "tomorrow's calendar";
-      } else if (load === 'high' || pressure === 'high') {
-        anchor = "today's dense calendar";
-      } else {
-        anchor = "tomorrow's load";
-      }
+      // Contract D — closing today, prepare tomorrow.
+      if (tmrIsTravel) anchor = 'long-haul travel tomorrow';
+      else if (tmrTitle) anchor = `tomorrow's ${tmrTitle}`;
+      else if (tomorrowEvents.length >= 5) anchor = "tomorrow's full day of back-to-back load";
+      else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
+      else if (load === 'high' || pressure === 'high') anchor = "today's dense calendar";
+      else anchor = "tomorrow's load";
     } else {
-      if (tdyTitle) {
-        anchor = `today's ${tdyTitle}`;
-      } else if (load === 'high' || pressure === 'high') {
-        anchor = "today's back-to-back load";
-      } else if (tmrTitle) {
-        anchor = `tomorrow's ${tmrTitle}`;
-      } else {
-        anchor = "today's load";
-      }
+      // Contracts B / C — slot 1 or 2 mid-day.
+      if (tdyTitle) anchor = `today's ${tdyTitle}`;
+      else if (load === 'high' || pressure === 'high') anchor = "today's back-to-back load";
+      else if (tmrTitle) anchor = tmrIsTravel ? 'long-haul travel tomorrow' : `tomorrow's ${tmrTitle}`;
+      else anchor = "today's load";
     }
 
     return `${stateAction} ahead of ${anchor}`;
