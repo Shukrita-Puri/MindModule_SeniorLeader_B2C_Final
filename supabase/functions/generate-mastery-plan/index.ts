@@ -33,6 +33,7 @@ import {
 } from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
+import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
 // import surface so future passes (Phase B/C) can read them without a new
