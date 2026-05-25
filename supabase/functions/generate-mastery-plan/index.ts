@@ -3891,13 +3891,12 @@ function buildHorizonModules(
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
-    const hrs = Math.round(jitMinutesUntil / 60);
-    slot2TimeLabel = `${jitEventTitle} · in ${hrs} hr${hrs > 1 ? 's' : ''}`;
+    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
-    slot2TimeLabel = `${jitEventTitle} · today`;
+    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else {
     // Second ToD module(s), skipping slot1 IDs
     const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
@@ -3907,7 +3906,7 @@ function buildHorizonModules(
     if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
       slot2Practices.push(remaining[1]);
     }
-    slot2TimeLabel = timeOfDay === 'morning' ? 'Midday reset' : timeOfDay === 'afternoon' ? 'Later today' : 'Before bed';
+    slot2TimeLabel = composeStateLabel(1);
   }
 
   if (slot2Practices.length > 0) {
