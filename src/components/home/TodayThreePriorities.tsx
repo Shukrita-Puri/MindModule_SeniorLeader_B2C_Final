@@ -1299,16 +1299,7 @@ const TodayThreePriorities = ({
                 {!slotCompleted && !isExpanded && (
                   <ChevronRight size={14} className="text-muted-foreground/40 flex-shrink-0" />
                 )}
-                {hm.isJit && !slotCompleted && isExpanded && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleJitDismiss(index, hm); }}
-                    className="p-1 rounded-full hover:bg-muted/30 flex-shrink-0"
-                    aria-label="Dismiss"
-                  >
-                    <X size={14} className="text-muted-foreground/50" />
-                  </button>
-                )}
-                {!hm.isJit && !slotCompleted && isExpanded && (
+                {!slotCompleted && isExpanded && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
