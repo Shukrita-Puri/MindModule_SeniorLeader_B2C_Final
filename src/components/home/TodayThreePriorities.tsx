@@ -1230,15 +1230,13 @@ const TodayThreePriorities = ({
                     <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
                       Cancelled
                     </p>
-                    {tagBadges.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {tagBadges.map((badge) => (
-                          <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                            {badge.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="mt-1.5">
+                      <PriorityTagAffordance
+                        value={tagState}
+                        onChange={(next) => updateSlotTags(index, next)}
+                        muted
+                      />
+                    </div>
                   </div>
                   <button
                     type="button"
