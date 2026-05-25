@@ -1,81 +1,53 @@
 
-## What's missing
+## Goal
 
-`events/event-categories.ts` today only carries `id`, `name`, a one-line `selfRegulationFocus`, and the Pre/During/Post `protocol` contract. The previous refactor dropped two pieces from §3 of the framework doc:
+Make the Today plan cancel flow work uniformly for all three priority slots — morning, evening, and JIT — with the same glass feedback modal and the same compressed/grey/strike-through cancelled state with Undo. Strip the thumbs up / neutral / down control out of the cancel feedback only.
 
-1. **Events / Triggers list** per pillar (the bullet list — "Board Meeting", "Investor / Fundraising Meeting", "QBR"…). These were moved out on the assumption that subtype keywords in `event-subtypes.ts` replace them. They don't — the doc's §3 trigger list is the human-readable canonical inventory consumed by Brief context, Insights cause-effect bucket descriptions, Nudges copy and Plan rationale. Subtype `keywords[]` are classifier tokens, not display labels.
-2. **Full self-regulation focus copy** per pillar (e.g. A is the full "Emotional regulation + cognitive sharpness. Prevent decision leakage and emotional hijack before high-visibility moments. Every body copy must link physical/cognitive state to a Leadership Variable." — not the abbreviated single line currently stored).
+## Findings (current state)
 
-Both are present verbatim in the attached `CEO_Self_Regulation_Framework_1-3.docx` §3 table (pages 1–3) and were in the original `executive-state-taxonomy.ts` mental model but never made it into the new file.
+`src/components/home/TodayThreePriorities.tsx`
 
-## Audit result
+- Cancel button is only rendered for non-JIT expanded slots (line 1311: `{!hm.isJit && !slotCompleted && isExpanded && ...}`). JIT slots get a different `X` that calls `handleJitDismiss` (line 1302), which only fires the `track-jit-skip` snooze and never sets `isCancelled`. Result: JIT can't be cancelled with feedback, and never enters the compressed cancelled card.
+- Non-JIT cancel already routes through `setPendingCancel` → `SlotCancelFeedbackModal` → `persistPlanLedgerEdit({ cancelled: true, cancelReason, replacementEventIds: [] })`. This part is correct.
+- Cancelled rendering (lines 1163–1228) already shows: compressed card, grey + line-through title, "Cancelled" label, preserved ✓ when `slotCompleted`, Undo button that clears `cancelled`/`cancelReason`. Sort at lines 1060–1064 already pushes cancelled below active. These do not need to change.
+- `useEffect` at 851–860 already skips cancelled slots when auto-expanding the next priority — works for JIT once `isCancelled` is set.
 
-| File | Has §3 triggers? | Has full §3 focus copy? | Action |
-|---|---|---|---|
-| `events/event-categories.ts` | No | Truncated | **Enrich** |
-| `events/event-subtypes.ts` | Indirectly (via `label` per row, all 30 rows tagged with `categoryId`) | n/a | Source of truth for the trigger labels |
-| `events/event-phase-map.ts` | n/a (phase data only) | n/a | Already correct |
-| `executive-state-taxonomy.ts` shim | re-exports the above | re-exports | No change |
-| Consumers (Brief, Nudges, Plan, Insights cause-effect, Coach summary, JIT) | Read `EVENT_CATEGORIES[id].name` + `.selfRegulationFocus` + `.protocol` | — | Pick up the richer focus copy automatically; new `triggers` field is opt-in |
+`src/components/home/SlotCancelFeedbackModal.tsx`
 
-No other taxonomy file has drifted. The fix is local to `event-categories.ts` plus one cross-layer test.
+- Already uses glass styling matching `PlanFeedbackModal`.
+- Still renders the thumbs row because it embeds `FeedbackCapture` with `hideRatingPrompt` (hides the label only) and a forced `rating="down"`. The three thumb icons still appear.
 
-## Plan
+`src/components/feedback/FeedbackCapture.tsx` and `src/components/home/PlanFeedbackModal.tsx`
 
-### 1. Extend the `EventCategory` shape
+- Used in multiple other places (plan completion feedback). Must not change their public behavior.
 
-```ts
-export interface EventCategory {
-  id: EventCategoryId;
-  name: string;                  // user-friendly, unchanged
-  selfRegulationFocus: string;   // ← REPLACE with verbatim §3 full text
-  /** §3 events/triggers list, verbatim from framework doc. */
-  triggers: readonly string[];   // ← NEW
-  protocol: CategoryProtocol;    // unchanged
-}
-```
+## Changes
 
-### 2. Populate all eight pillars from §3 of the doc (verbatim)
+### 1. `src/components/home/TodayThreePriorities.tsx`
 
-- **A High-Stakes Governance** — 9 triggers (Board Meeting in-person & remote, Board Presentation, Investor / Fundraising Meeting, QBR, End-of-Year / Annual Review, Budget & Forecast Review, M&A Discussion, Due Diligence Session, IPO Preparation Meeting). Focus: full leadership-variable line.
-- **B Influence & Persuasion** — 8 triggers (Sales Pitch, Investor Pitch, Negotiation, Presentation int/ext, Regional QBR, Next-Year Budget Planning, Client Presentation, Contract Signing / Close). Focus: focus activation + persuasion crash.
-- **C Visibility & Communication** — 9 triggers (All-Hands / Town Hall, Keynote, Speaking Engagement, Panel Moderation, Media Interview, Industry/Panel Interview, Press/Analyst Briefing, Podcast/Video, Conference speaking). Focus: presence + arousal-vs-anxiety.
-- **D People & Difficult Conversations** — 9 triggers (Perf Review giving, Difficult 1:1, Layoff/Restructure, Termination, PIP, 1:1 Boss/Chair/Board, 1:1 Peer politically charged, 1:1 Direct Report normal, Hiring Decision). Focus: emotional labour + context drives classification.
-- **E Deep Work & Strategy** — 7 triggers (3-Year Strategy, 3-Year Vision, Annual Operating Plan, Competitive Intel, Product Launch Planning, Deep Work Block, Post-Meeting Follow-up Block). Focus: flow activation + clean exit.
-- **F Conferences & External Events** — 6 triggers (Industry Conf attending, Conference speaking, Off-site/Retreat, Networking, Award/Recognition, Multi-day Customer Summit). Focus: sustained high-output + progressive daily recovery.
-- **G Travel** — 8 triggers (Pre-flight, Short-haul, Long-haul wifi, Long-haul offline, Landing same-day <4h, Landing next-day, ≥3h TZ shift, Multi-city 3+). Focus: circadian + active prep window.
-- **H Daily Rhythm & Baseline** — 7 triggers (Morning Check-in workday, Morning Check-in weekend/PTO/holiday, EOD Wind-down, Sunday Evening Reset, Back-to-back 4h+ block, Lunch/Recovery slot, Meeting-free Deep Work block). Focus: habit + recover-to-build + Sunday PM orientation.
+- Replace the JIT-only X button (lines 1302–1310) so that JIT slots use the same cancel-with-feedback entry point as non-JIT slots: open `SlotCancelFeedbackModal` via `setPendingCancel({ index, key: slotKey, title: ... })`. Drop the `handleJitDismiss` call from the slot UI.
+- Collapse the two conditional X buttons into a single button rendered for every expanded, not-yet-completed slot (JIT or not). The cancel handler stays unchanged — it already persists `isCancelled: true` through `persistPlanLedgerEdit`, which works for JIT slots too.
+- Leave `handleJitDismiss` defined (still referenced elsewhere if any) but remove its UI binding here. Verify there are no other call sites before deleting; if none, remove the function.
+- No changes to the cancelled-card branch (1163–1228), the sort order (1060–1064), the auto-expand effect, plan generation, or persistence schema.
 
-Trigger strings live verbatim — they are the Insights/Brief/Nudges/Plan display tokens.
+### 2. `src/components/home/SlotCancelFeedbackModal.tsx`
 
-### 3. Cross-validation (catch drift at module load)
+- Stop rendering the thumbs row. Two options; prefer the smaller one:
+  - Inline a trimmed feedback block (reason buttons already exist locally) with just a `<Textarea>` + Submit/Skip buttons styled to match the existing glass look. Drop the `FeedbackCapture` import.
+  - Keep the `rating="down"` analytics value passed to `onSubmit` via the existing `submitPlanSlotCancelFeedback` call path — that call already lives in `TodayThreePriorities.tsx` and does not depend on a user-visible rating. No analytics regression.
+- Preserve: glass shell, "Cancel this priority?", reason buttons (`now` / `ever`), optional textarea, Submit ("Cancel priority") / Skip ("Keep it"), 300-char limit.
 
-Extend `events/cross-layer.test.ts` with:
-```ts
-Deno.test("every EVENT_TYPES row's categoryId has its label representable in EVENT_CATEGORIES[id].triggers (substring match)", …);
-```
-This guarantees the §3 trigger list and the 30 subtype rows never diverge. Failure prints which subtype label has no matching trigger.
+### 3. Files NOT modified
 
-### 4. Update `event-categories.test.ts`
+- `src/components/feedback/FeedbackCapture.tsx` — keep as-is (used by `PlanFeedbackModal` and others).
+- `src/components/home/PlanFeedbackModal.tsx` — keep as-is.
+- No edge function, no migration, no calendar sync, no shared classifier changes.
 
-- Assert each category has ≥6 triggers.
-- Assert `selfRegulationFocus` contains the key phrase from the doc (e.g. A includes "Leadership Variable", F includes "progressive daily recovery", G includes "circadian").
+## QA checklist
 
-### 5. No consumer rewrites required
-
-Brief, Nudges, Plan, Insights cause-effect and Coach summary currently read `name` + `selfRegulationFocus` + `protocol`. They keep working with the richer focus copy automatically. Any consumer that wants to render the inventory of triggers per pillar (Brief context bullets, Insights bucket descriptions) can now read `EVENT_CATEGORIES[id].triggers` — single source, no inline strings.
-
-### 6. Update memo
-
-`mem/architecture/ceo-behaviour-shared-module-ownership.md` — add a line under "Hard rules":
-> `EVENT_CATEGORIES[id].triggers` is the canonical §3 inventory. Subtype `label` strings in `event-subtypes.ts` must each correspond (substring or 1:1) to a string in `triggers`; cross-layer test enforces.
-
-## Out of scope (deliberately)
-
-- Not touching `event-subtypes.ts`, `event-phase-map.ts`, `event-classifier.ts`, `state-engines.ts`, `protocol-combos.ts`, or any consumer.
-- Not deleting the `executive-state-taxonomy.ts` shim (separate cleanup, already in plan §7).
-- Not bumping Insights `causality_findings.signal_summary` bucket labels — the `name` field is unchanged.
-
-## Risk
-
-Low. Pure data enrichment in one file + two test additions. No behaviour change; consumers reading `selfRegulationFocus` see longer text (already free-form, no length caps in templates — quick grep confirms). Cross-layer test fails closed if §3 list and subtypes drift.
+- Expand a morning non-JIT priority → tap X → glass modal appears with reason buttons and textarea but no thumbs → submit → slot stays visible, greyed, struck through, with Undo.
+- Expand an evening non-JIT priority → same flow works.
+- Expand a JIT priority → tap X → same glass modal appears (not the silent snooze) → submit → JIT slot stays visible in compressed cancelled state.
+- Tap Undo on a cancelled JIT slot → slot returns to its prior active/expanded state; if it was completed before cancel, the ✓ is preserved.
+- Cancelled slots remain sorted below active ones; active priorities render exactly as before.
+- Existing EngravedLoader and card shell are unchanged.
