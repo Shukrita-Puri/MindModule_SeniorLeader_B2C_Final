@@ -1529,19 +1529,32 @@ const TodayThreePriorities = ({
           priorityNumber={pendingCancel.index + 1}
           slotTitle={pendingCancel.title}
           onSubmit={async (reason, feedback) => {
-            // Phase 4: write structured cancel feedback so the reason is
-            // queryable in DB (feedback_reason + context_data), not just
-            // embedded in the free-text field.
-            const result = await submitPlanSlotCancelFeedback({
-              slotIndex: pendingCancel.index,
-              slotTitle: pendingCancel.title,
-              cancelReason: reason,
-              feedbackText: feedback,
-              sessionPeriod: getCurrentTimeWindow(),
+            // Optimistic cancel: flip the slot locally and close the modal
+            // immediately so the user sees the compressed cancelled card
+            // + Undo straight away. Persistence and feedback writes happen
+            // in the background. On ledger persistence failure we roll the
+            // local slot back and notify via toast. We do NOT regenerate
+            // the plan — that's what was causing the 90s delay.
+            const cancelIndex = pendingCancel.index;
+            const cancelTitle = pendingCancel.title;
+            setPendingCancel(null);
+            setPlan((prev) => {
+              if (!prev?.horizonModules) return prev;
+              const next = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+                i === cancelIndex ? { ...m, isCancelled: true, cancelReason: reason, replacementEventIds: [] } : m,
+              ) } as MasteryPlanResponse;
+              try {
+                const ttl = msUntilWindowEnd();
+                const today = localISODate();
+                const period = getCurrentTimeWindow();
+                writePersistent(cacheKeys.planData(today, period), next, ttl);
+              } catch { /* ignore */ }
+              return next;
             });
-            if (result.success) {
+            // Background persistence — do not block UI.
+            (async () => {
               const saved = await persistPlanLedgerEdit(
-                pendingCancel.index,
+                cancelIndex,
                 {
                   cancelled: true,
                   cancelReason: reason,
@@ -1549,13 +1562,26 @@ const TodayThreePriorities = ({
                 },
                 getCurrentTimeWindow(),
               );
-              if (saved) {
-                await loadPlan({ silent: true, forceRefresh: true });
-                setPendingCancel(null);
-              } else {
-                toast({ title: 'Could not save this cancel', description: 'The slot was not hidden locally because plan persistence failed.', variant: 'destructive' });
+              if (!saved) {
+                // Roll back optimistic state.
+                setPlan((prev) => {
+                  if (!prev?.horizonModules) return prev;
+                  return { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+                    i === cancelIndex ? { ...m, isCancelled: false, cancelReason: null } : m,
+                  ) } as MasteryPlanResponse;
+                });
+                toast({ title: 'Could not save this cancel', description: 'Please try again.', variant: 'destructive' });
+                return;
               }
-            }
+              // Fire-and-forget feedback write (does not gate the UI).
+              submitPlanSlotCancelFeedback({
+                slotIndex: cancelIndex,
+                slotTitle: cancelTitle,
+                cancelReason: reason,
+                feedbackText: feedback,
+                sessionPeriod: getCurrentTimeWindow(),
+              }).catch(() => { /* silent */ });
+            })();
           }}
           onSkip={() => setPendingCancel(null)}
         />
