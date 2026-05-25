@@ -58,7 +58,7 @@ const PlanFeedbackModal = ({
   if (showConfirmation) {
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="relative rounded-3xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 bg-white/15 backdrop-blur-md border border-white/40 shadow-xl">
+        <div className="relative rounded-3xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 bg-black/55 backdrop-blur-xl border border-white/30 shadow-2xl">
           <div className="relative mb-6">
             <div className="w-16 h-16 mx-auto rounded-full bg-taupe/20 flex items-center justify-center border border-taupe/40">
               <Check className="w-8 h-8 text-taupe-foreground" strokeWidth={3} />
@@ -67,7 +67,7 @@ const PlanFeedbackModal = ({
           <h3 className="text-lg font-headline text-white mb-2">
             Feedback Received
           </h3>
-          <p className="text-sm text-white/70 leading-relaxed">
+          <p className="text-sm text-white/85 leading-relaxed">
             Your input helps calibrate future plans to your needs.
           </p>
         </div>
