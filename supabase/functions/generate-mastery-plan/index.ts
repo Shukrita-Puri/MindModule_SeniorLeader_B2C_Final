@@ -3724,6 +3724,101 @@ function buildHorizonModules(
   const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
   const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
 
+  // ── State + Calendar label composer ─────────────────────────────────
+  // Every non-JIT slot label MUST take the form:
+  //   "<state action> ahead of <calendar anchor>"
+  // It bridges the user's dominant physiological / cognitive signal to
+  // the calendar pressure that makes the state matter. Never emit bare
+  // time literals ("Midday reset", "Later today", "Before bed", etc.).
+  const truncateTitle = (t: string | null | undefined, n = 5): string | null => {
+    if (!t) return null;
+    return String(t).split(/\s+/).slice(0, n).join(' ').trim() || null;
+  };
+  const nowMs = Date.now();
+  const startOfTomorrow = new Date(); startOfTomorrow.setHours(0, 0, 0, 0); startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  const endOfTomorrow = new Date(startOfTomorrow); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+  const tomorrowEvents = (req.calendarEvents || []).filter((e: any) => {
+    const t = new Date(e.startTime).getTime();
+    return t >= startOfTomorrow.getTime() && t < endOfTomorrow.getTime();
+  });
+  const todayRemainingEvents = (req.calendarEvents || []).filter((e: any) => {
+    const t = new Date(e.startTime).getTime();
+    return t >= nowMs && t < startOfTomorrow.getTime();
+  });
+  const scoreEventStakes = (e: any): number => {
+    let s = 0;
+    if (e.isOrganizer) s += 2;
+    const att = e.attendeesCount || 0;
+    if (att > 5) s += 2; else if (att > 2) s += 1;
+    const dur = (new Date(e.endTime).getTime() - new Date(e.startTime).getTime()) / 60000;
+    if (dur > 60) s += 2; else if (dur >= 30) s += 1;
+    if (!e.isRecurring) s += 1;
+    const title = String(e.title || '').toLowerCase();
+    if (/board|investor|interview|keynote|earnings|all[- ]hands|offsite|gdst/.test(title)) s += 3;
+    return s;
+  };
+  const tomorrowLeadEvent = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
+  const todayLeadEvent = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
+  const isTravelTitle = (t: string | null | undefined) => !!t && /flight|airport|travel|long[- ]haul|red[- ]eye|layover/i.test(t);
+
+  const composeStateLabel = (slotIndex: 0 | 1 | 2): string => {
+    const w = req.wearableContext;
+    const tier = req.innerReadinessTier;
+    const checkIn = req.checkInOutcome;
+    const load = req.calendarLoad;
+    const pressure = req.calendarPressure;
+
+    // 1) State action — pick strongest signal
+    let stateAction = '';
+    if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
+      stateAction = 'Restore HRV';
+    } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
+      stateAction = 'Recover sleep debt';
+    } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
+      stateAction = 'Settle the system';
+    } else if (load === 'high' || pressure === 'high') {
+      stateAction = 'Decompress';
+    } else if (tier === 'managing') {
+      stateAction = 'Re-consolidate focus';
+    } else {
+      stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
+    }
+
+    // 2) Calendar anchor — priority depends on slot
+    //    Slot 3 (evening) → prefer tomorrow. Slots 0/1 → prefer today.
+    let anchor = '';
+    const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
+    const tdyTitle = truncateTitle(todayLeadEvent?.title);
+
+    if (slotIndex === 2) {
+      if (tmrTitle && isTravelTitle(tomorrowLeadEvent?.title)) {
+        anchor = 'long-haul travel tomorrow';
+      } else if (tmrTitle) {
+        anchor = `tomorrow's ${tmrTitle}`;
+      } else if (tomorrowEvents.length >= 5) {
+        anchor = "tomorrow's full day of back-to-back load";
+      } else if (tomorrowEvents.length > 0) {
+        anchor = "tomorrow's calendar";
+      } else if (load === 'high' || pressure === 'high') {
+        anchor = "today's dense calendar";
+      } else {
+        anchor = "tomorrow's load";
+      }
+    } else {
+      if (tdyTitle) {
+        anchor = `today's ${tdyTitle}`;
+      } else if (load === 'high' || pressure === 'high') {
+        anchor = "today's back-to-back load";
+      } else if (tmrTitle) {
+        anchor = `tomorrow's ${tmrTitle}`;
+      } else {
+        anchor = "today's load";
+      }
+    }
+
+    return `${stateAction} ahead of ${anchor}`;
+  };
+
   const modules: HorizonModule[] = [];
 
   // ─── SLOT 1 (Immediate) ───
