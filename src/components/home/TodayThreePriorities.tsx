@@ -77,7 +77,12 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
 // "Tonight") into Prevent / Prepare framing tied to CEO performance.
 // JIT slots keep their event-anchored label ("Before <Event>") untouched.
 const performanceSlotLabel = (raw: string, isJit: boolean): string => {
-  if (isJit) return raw;
+  // JIT event-anchored labels: replace "Before <Event>" with
+  // "Prepare ahead of <Event>" so the language stays Prevent / Prepare.
+  if (isJit) {
+    if (!raw) return raw;
+    return raw.replace(/^\s*Before\s+/i, 'Prepare ahead of ');
+  }
   const t = (raw || '').toLowerCase();
   if (!t) return raw;
   // Evening / next-day prep
