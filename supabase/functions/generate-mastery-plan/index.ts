@@ -3936,6 +3936,13 @@ function buildHorizonModules(
 
   const modules: HorizonModule[] = [];
 
+  // Pre-compute JIT phase label once — used by whichever slot lands on the
+  // JIT event. Pulled out so Slot 1 (touch1) / Slot 2 (touch2) / Slot 3
+  // (post window) all share one phase-aware contract.
+  const topEventStartMs = topEvent ? new Date(topEvent.event.start_time).getTime() : null;
+  const topEventEndMs = topEvent && topEvent.event.end_time ? new Date(topEvent.event.end_time).getTime() : null;
+  const jitPhase = resolveJitPhaseLabel(jitEventTitle, topEventStartMs, topEventEndMs, nowMs);
+
   // ─── SLOT 1 (Immediate) ───
   let slot1Practices: any[] = [];
   let slot1IsJit = false;
