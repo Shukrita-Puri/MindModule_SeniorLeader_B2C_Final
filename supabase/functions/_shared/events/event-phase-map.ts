@@ -57,6 +57,24 @@ export const EVENT_PHASE_MAP: Record<EventCategoryId, CategoryPhaseMap> = {
   },
 };
 
+/**
+ * Max number of priority slots a single event of a given category may
+ * occupy in one plan. Anchors the variable-slot dedup rule: C/E/B/H
+ * collapse to a single slot per event; multi-phase categories (G long-haul,
+ * F multi-day conference, A big-stakes pre+post, D pre+post same day) may
+ * legitimately occupy more.
+ */
+export const CATEGORY_MAX_SLOTS: Record<EventCategoryId, number> = {
+  A: 2,
+  B: 1,
+  C: 1,
+  D: 2,
+  E: 1,
+  F: 3,
+  G: 3,
+  H: 1,
+};
+
 const STAKES_TO_CATEGORY: Record<string, EventCategoryId> = {
   board: "A", external: "A", investor: "A",
 };
