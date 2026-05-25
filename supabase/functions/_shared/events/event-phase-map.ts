@@ -24,36 +24,43 @@ export interface EventPhase {
 export type CategoryPhaseMap = Partial<Record<Phase, EventPhase>>;
 
 export const EVENT_PHASE_MAP: Record<EventCategoryId, CategoryPhaseMap> = {
+  // §4 prescriptions, aligned 1:1 to the canonical contract declared on
+  // EVENT_CATEGORIES[id].protocol. Family suffix of the ComboKey (flow|pause|
+  // reenergise) MUST match that contract; mode (somatic|mindset) is the
+  // coaching authoring choice for the moment of impact.
   A: {
-    pre:    { timing: "T-60 to T-15min", combo: "somatic.flow",       goal: "Coherent activation, breath cadence locked",         preventsBuilds: ["Prevents sympathetic spike on entry"],                                                              severityHint: "high" },
-    during: { timing: "in-room",         combo: "mindset.flow",       goal: "Single-thread focus on outcome, not optics",         preventsBuilds: ["Prevents decision leakage from self-monitoring"],                                                   severityHint: "medium" },
-    post:   { timing: "T+30 to T+90min", combo: "mindset.reenergise", goal: "Capture lesson, consolidate identity",               preventsBuilds: ["Prevents post-peak hangover into next block"],                                                      severityHint: "medium" },
+    pre:  { timing: "T-60 to T-15min", combo: "somatic.flow",  goal: "Coherent activation, breath cadence locked",       preventsBuilds: ["Prevents sympathetic spike on entry"],                                                  severityHint: "high"   },
+    post: { timing: "T+30 to T+90min", combo: "mindset.pause", goal: "Detach, consolidate identity, capture lesson",     preventsBuilds: ["Prevents post-peak hangover into next block"],                                          severityHint: "medium" },
   },
   B: {
-    pre:    { timing: "T-15min",         combo: "somatic.pause",      goal: "Parasympathetic re-entry before emotional draw",     preventsBuilds: ["Prevents carrying prior block's charge into the conversation"],                                     severityHint: "medium" },
-    during: { timing: "in-room",         combo: "mindset.pause",      goal: "Detachment without disengagement",                   preventsBuilds: ["Prevents reactive identity threat"],                                                                severityHint: "low" },
-    post:   { timing: "T+15min",         combo: "somatic.pause",      goal: "Discharge residual emotional load",                  preventsBuilds: ["Prevents decision leakage into next block"],                                                        severityHint: "medium" },
+    pre:  { timing: "T-15min",         combo: "mindset.flow",       goal: "Confidence + outcome clarity primed",          preventsBuilds: ["Prevents persuasion crash from cold-start"],                                            severityHint: "medium" },
+    post: { timing: "T+15min",         combo: "somatic.reenergise", goal: "Recover from high-output persuasion effort",   preventsBuilds: ["Prevents persuasion crash into next block"],                                            severityHint: "medium" },
   },
   C: {
-    pre:    { timing: "T-30min",         combo: "mindset.pause",      goal: "Detach from sunk cost, surface true criteria",       preventsBuilds: ["Prevents anchoring bias under fatigue"],                                                            severityHint: "medium" },
-    during: { timing: "in-room",         combo: "mindset.flow",       goal: "Single-thread reasoning on the actual question",    preventsBuilds: ["Prevents premature convergence"],                                                                   severityHint: "medium" },
+    pre:  { timing: "T-30min",         combo: "somatic.pause",      goal: "Prime executive presence, distinguish arousal from anxiety", preventsBuilds: ["Prevents stage adrenaline compressing range"],                              severityHint: "high"   },
+    post: { timing: "T+30min",         combo: "somatic.reenergise", goal: "Discharge stage chemistry, offload performance energy",       preventsBuilds: ["Prevents audience-depletion hangover"],                                     severityHint: "medium" },
   },
   D: {
-    pre:    { timing: "T-45min",         combo: "somatic.flow",       goal: "Voice, posture, breath cadence",                     preventsBuilds: ["Prevents adrenal spike compressing range"],                                                         severityHint: "high" },
-    post:   { timing: "T+30min",         combo: "somatic.pause",      goal: "Discharge stage chemistry",                          preventsBuilds: ["Prevents post-peak hangover"],                                                                      severityHint: "medium" },
+    pre:  { timing: "T-15min",         combo: "somatic.pause",      goal: "Parasympathetic re-entry before emotional draw", preventsBuilds: ["Prevents carrying prior block's charge into the conversation"],                          severityHint: "medium" },
+    post: { timing: "T+15min",         combo: "mindset.pause",      goal: "Offload relational stress, detach from outcome", preventsBuilds: ["Prevents decision leakage into next interpersonal block"],                              severityHint: "medium" },
   },
   E: {
-    pre:    { timing: "T-10min",         combo: "mindset.flow",       goal: "Intent + first-move primed",                         preventsBuilds: ["Prevents cold-start churn"],                                                                        severityHint: "low" },
+    pre:    { timing: "T-10min",       combo: "mindset.flow",       goal: "Clear mental clutter, intent + first-move primed", preventsBuilds: ["Prevents cold-start churn"],                                                          severityHint: "low"    },
+    during: { timing: "in-block",      combo: "mindset.flow",       goal: "Single-thread focus on the chosen problem",         preventsBuilds: ["Prevents context-switching cost"],                                                    severityHint: "low"    },
+    post:   { timing: "T+10min",       combo: "somatic.pause",      goal: "Transition out without cognitive crash",            preventsBuilds: ["Prevents flow-exit into reactive interpersonal load"],                                severityHint: "low"    },
   },
   F: {
-    pre:    { timing: "T-2h",            combo: "somatic.pause",      goal: "Pre-load parasympathetic state for compressed travel", preventsBuilds: ["Prevents cumulative depletion across legs"],                                                      severityHint: "medium" },
-    post:   { timing: "on arrival",      combo: "somatic.reenergise", goal: "Hardware recovery, sleep priming",                   preventsBuilds: ["Prevents day-2 cognitive decline", "Builds circadian re-entry for next-morning baseline"],          severityHint: "high" },
+    pre:    { timing: "T-2h",          combo: "somatic.pause",      goal: "Pre-load parasympathetic state for sustained social output", preventsBuilds: ["Prevents social depletion across sessions"],                                  severityHint: "medium" },
+    during: { timing: "session window",combo: "mindset.pause",      goal: "Stay present without over-investing (notification-only)",     preventsBuilds: ["Prevents energy leak from over-engagement"],                                  severityHint: "low"    },
+    post:   { timing: "evening",       combo: "somatic.reenergise", goal: "Progressive daily recovery, sleep priming",                   preventsBuilds: ["Prevents day-2 cognitive decline", "Builds capacity for next session"],         severityHint: "high"   },
   },
   G: {
-    during: { timing: "in-room",         combo: "mindset.flow",       goal: "Stay present without over-investing",                preventsBuilds: ["Prevents energy leak from over-engagement"],                                                        severityHint: "low" },
+    pre:    { timing: "T-3h pre-flight",combo: "somatic.pause",     goal: "Pre-load parasympathetic state for compressed travel",       preventsBuilds: ["Prevents cumulative depletion across legs"],                                  severityHint: "medium" },
+    during: { timing: "in-flight",      combo: "mindset.pause",     goal: "Anchor circadian rhythm, minimise sympathetic drift",        preventsBuilds: ["Prevents jet-lag amplification from anxiety arousal"],                        severityHint: "medium" },
+    post:   { timing: "on landing",     combo: "somatic.reenergise",goal: "Hardware recovery, circadian re-entry",                       preventsBuilds: ["Prevents next-morning baseline collapse", "Builds capacity for landing-day event"], severityHint: "high"   },
   },
   H: {
-    during: { timing: "in-window",       combo: "somatic.reenergise", goal: "Active recovery, not passive scrolling",             preventsBuilds: ["Prevents end-of-day collapse"],                                                                     severityHint: "low" },
+    during: { timing: "in-window",     combo: "somatic.reenergise", goal: "Active recovery to build, not passive wind-down",  preventsBuilds: ["Prevents end-of-day collapse"],                                                       severityHint: "low"    },
   },
 };
 
