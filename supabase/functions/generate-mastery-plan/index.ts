@@ -3935,6 +3935,55 @@ function buildHorizonModules(
     }
     return null;
   };
+  /**
+   * Phase C.2 — ComboKey → legacy practiceType reverse lookup.
+   * Mirror of PRACTICE_TYPE_TO_COMBO (single source of truth in
+   * `_shared/protocols/protocol-combos.ts`). Used to bias practice
+   * selection toward the §4 prescribed combo for the slot's phase.
+   *   somatic.pause      → regulate
+   *   mindset.pause      → align
+   *   mindset.flow       → prepare
+   *   mindset.reenergise → integrate
+   *   somatic.flow       → regulate (closest somatic activation)
+   *   somatic.reenergise → integrate (closest body-closing intent)
+   */
+  const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, string> = {
+    'somatic.pause': 'regulate',
+    'mindset.pause': 'align',
+    'mindset.flow': 'prepare',
+    'mindset.reenergise': 'integrate',
+    'somatic.flow': 'regulate',
+    'somatic.reenergise': 'integrate',
+  };
+  /**
+   * Phase C.2 — pick the best-matching practice(s) from a module pool for
+   * the given ComboKey. Prefers exact type match; falls back to first
+   * non-coach module so we never emit an empty slot.
+   */
+  const selectPracticesByCombo = (
+    pool: any[],
+    combo: ComboKey | null,
+    excludeIds: Set<string>,
+    max = 2,
+  ): any[] => {
+    const candidates = (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId));
+    if (candidates.length === 0) return [];
+    const targetType = combo ? COMBO_TO_PRACTICE_TYPE[combo] : null;
+    const primary = targetType
+      ? candidates.find((m: any) => m.type === targetType && !m.isCoachCard)
+      : null;
+    const head = primary || candidates.find((m: any) => !m.isCoachCard) || candidates[0];
+    const out = [head];
+    if (max > 1) {
+      const secondary = candidates.find((m: any) =>
+        m.contentId !== head.contentId &&
+        m.type !== head.type &&
+        !m.isCoachCard
+      );
+      if (secondary) out.push(secondary);
+    }
+    return out;
+  };
   const pickAnchorEvent = (candidates: any[]): any | null => {
     for (const e of candidates) {
       if (!e) continue;
