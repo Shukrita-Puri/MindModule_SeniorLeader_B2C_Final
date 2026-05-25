@@ -123,6 +123,11 @@ No changes to `src/components/home/TodayThreePriorities.tsx` (it stays a pass-th
 - Deno test `_shared/events/jit-phase-label.test.ts` locks the §3/§4 contract (board → A pre+post, keynote → F with `duringNotificationOnly`, deep work → E, long-haul → G).
 
 **Deferred (next pass, scoped separately)**
-- Multi-candidate JIT scoring (`rankedJitCandidates` per `(event, phase)` driven by `leadTimeMin` + `demandProfile` + `phase.severityHint`). The current upstream `preEventPlan`/`topEvent` pipeline still picks a single event. The phase-aware label layer is now in place, which means the next pass only needs to enrich candidate generation; downstream label + framing are already correct.
 - Module mapping by `ComboKey` (replacing the `regulate/align/prepare/integrate` heuristic with the resolved combo from `phaseForEvent`).
 - LLM-narrated "Why this matters" body — depends on the two items above.
+
+**Phase B shipped**
+- `_shared/events/jit-candidates.ts` — `rankJitCandidates(events, nowMs)` emits one ranked candidate per `(event, phase)` with the §3 scoring formula (stakes base + categoryWeight + phaseSeverityWeight + demandProfileWeight + windowProximityWeight − skipPenalty), materialised firing windows and `eligible` flag.
+- `generate-mastery-plan/index.ts` now calls `rankJitCandidates` on `filteredEvents` after the 24h MVP ceiling, logs the top-3, and exposes the top-8 on `meta.jitRankedCandidates` for downstream consumers / Phase C slot fan-out.
+- Top-1 slot selection is intentionally unchanged — the legacy window+threshold loop still picks `topEvent`, so user-visible behaviour is identical to today.
+- Tests in `_shared/events/jit-candidates.test.ts` cover board (A: pre+during+post), keynote (F: pre+post), long-haul flight (G: during-only), deep work (E: pre-only), cross-category ranking (A > E), in-window eligibility, and skipPenalty arithmetic.

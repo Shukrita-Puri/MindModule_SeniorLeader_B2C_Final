@@ -33,6 +33,7 @@ import {
 } from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
+import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
 // import surface so future passes (Phase B/C) can read them without a new
@@ -2275,6 +2276,27 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
+  // Phase B: rank (event, phase) candidates against §3/§4. Shipped for
+  // observability + downstream wiring (jitRankedCandidates is persisted on
+  // the plan response). Top-1 slot selection still uses the legacy
+  // window/threshold filter below so user-visible behaviour is unchanged.
+  const nowMsForJit = Date.now();
+  let jitRankedCandidates: RankedJitCandidate[] = [];
+  try {
+    jitRankedCandidates = rankJitCandidates(
+      filteredEvents.map(e => ({
+        event: { id: e.event.id, title: e.event.title, start_time: e.event.start_time, end_time: e.event.end_time },
+        stakesLevel: (e as any).stakesLevel ?? null,
+        score: e.score,
+      })),
+      nowMsForJit,
+    );
+    const top3 = jitRankedCandidates.slice(0, 3).map(c => `${c.title}/${c.phase}=${c.score}`).join(' | ');
+    console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
+  } catch (rankErr: any) {
+    console.warn('[generate-mastery-plan] rankJitCandidates failed:', rankErr?.message);
+  }
+
   // Find first event in a valid action window
   let topEvent: ScoredEvent | null = null;
   for (const evt of filteredEvents) {
@@ -2896,6 +2918,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       scenarioId: filteredEvents[0]?.scenario?.id || null,
       durationCeiling: maxDuration,
       maxModules,
+      jitRankedCandidates: jitRankedCandidates.slice(0, 8),
       calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
         ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
         : undefined
