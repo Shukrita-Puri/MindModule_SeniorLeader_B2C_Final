@@ -1159,9 +1159,10 @@ const TodayThreePriorities = ({
                 selectedIds={replacementSelection}
                 onToggleEvent={(eventId) => {
                   setReplacementSelection((prev) => {
-                    if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
-                    if (prev.length >= 3) return prev;
-                    return [...prev, eventId];
+                    // Single-select: tap to choose, tap again to clear.
+                    // Rule: 1 event = 1 priority slot. Total plan = 3 priorities.
+                    if (prev.length === 1 && prev[0] === eventId) return [];
+                    return [eventId];
                   });
                 }}
                 onApply={async () => {
