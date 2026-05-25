@@ -2276,6 +2276,27 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
+  // Phase B: rank (event, phase) candidates against §3/§4. Shipped for
+  // observability + downstream wiring (jitRankedCandidates is persisted on
+  // the plan response). Top-1 slot selection still uses the legacy
+  // window/threshold filter below so user-visible behaviour is unchanged.
+  const nowMsForJit = Date.now();
+  let jitRankedCandidates: RankedJitCandidate[] = [];
+  try {
+    jitRankedCandidates = rankJitCandidates(
+      filteredEvents.map(e => ({
+        event: { id: e.event.id, title: e.event.title, start_time: e.event.start_time, end_time: e.event.end_time },
+        stakesLevel: (e as any).stakesLevel ?? null,
+        score: e.score,
+      })),
+      nowMsForJit,
+    );
+    const top3 = jitRankedCandidates.slice(0, 3).map(c => `${c.title}/${c.phase}=${c.score}`).join(' | ');
+    console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
+  } catch (rankErr: any) {
+    console.warn('[generate-mastery-plan] rankJitCandidates failed:', rankErr?.message);
+  }
+
   // Find first event in a valid action window
   let topEvent: ScoredEvent | null = null;
   for (const evt of filteredEvents) {
