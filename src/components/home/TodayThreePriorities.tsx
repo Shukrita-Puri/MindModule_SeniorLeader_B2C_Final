@@ -517,7 +517,16 @@ const TodayThreePriorities = ({
   }, [completedPracticeIds, plan, triggerCelebration, celebratedStorageKey, feedbackShownStorageKey]);
 
   // ── Load plan ──
-  const loadPlan = useCallback(async (opts?: { silent?: boolean; forceRefresh?: boolean; selectedCalendarEventIds?: string[] }) => {
+  const loadPlan = useCallback(async (opts?: {
+    silent?: boolean;
+    forceRefresh?: boolean;
+    /**
+     * Per-slot replacement map. Each entry pins a single calendar event
+     * to a specific slot index. The server anchors ONLY that slot to that
+     * event and never re-ranks the rest of the plan.
+     */
+    slotReplacements?: Record<number, { eventId: string }>;
+  }) => {
     // Silent refreshes (e.g. background revalidation when we already
     // hydrated from sessionStorage) must not flip `loading` true — that
     // would re-trigger the scripted EngravedLoader for users who already
@@ -531,8 +540,18 @@ const TodayThreePriorities = ({
       const loadedKey = cacheKeys.planLoaded(todayDate, currentPeriod);
       const dataKey = cacheKeys.planData(todayDate, currentPeriod);
       const forceKey = cacheKeys.planForceRefresh(todayDate, currentPeriod);
-      const selectedCalendarEventIds = (opts?.selectedCalendarEventIds || []).filter((id): id is string => typeof id === 'string' && id.length > 0);
-      const forceRefresh = opts?.forceRefresh === true || sessionStorage.getItem(forceKey) === '1' || selectedCalendarEventIds.length > 0;
+      const slotReplacements = opts?.slotReplacements && typeof opts.slotReplacements === 'object'
+        ? Object.entries(opts.slotReplacements).reduce<Record<string, { eventId: string }>>((acc, [k, v]) => {
+            const idx = Number(k);
+            const eventId = v?.eventId;
+            if (Number.isInteger(idx) && idx >= 0 && typeof eventId === 'string' && eventId.length > 0) {
+              acc[String(idx)] = { eventId };
+            }
+            return acc;
+          }, {})
+        : {};
+      const hasSlotReplacements = Object.keys(slotReplacements).length > 0;
+      const forceRefresh = opts?.forceRefresh === true || sessionStorage.getItem(forceKey) === '1' || hasSlotReplacements;
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
       const todayCheckin = await getTodayCheckin();
@@ -600,7 +619,11 @@ const TodayThreePriorities = ({
             // Glue plan cache to brief identity: when the brief regenerates legitimately
             // (new input_signature → new briefId), invalidate the plan with it.
             const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
-            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:selected=${selectedCalendarEventIds.join(',')}`;
+            const slotReplacementsHash = Object.entries(slotReplacements)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([k, v]) => `${k}=${v.eventId}`)
+              .join(',');
+            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:slotrepl=${slotReplacementsHash}`;
             if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
               clearPersistent(loadedKey);
               clearPersistent(dataKey);
@@ -667,8 +690,10 @@ const TodayThreePriorities = ({
           localDate: todayDate,
           todayCheckinId: todayCheckin?.id ?? null,
         };
-        if (selectedCalendarEventIds.length > 0) {
-          requestBody.selectedCalendarEventIds = selectedCalendarEventIds;
+        if (hasSlotReplacements) {
+          // Per-slot anchoring contract: server pins each event to the
+          // exact slot index here and never re-ranks other slots.
+          requestBody.slotReplacements = slotReplacements;
         }
         if (outerReadinessData?.phrase) {
           requestBody.outerReadinessCache = {
