@@ -34,8 +34,16 @@ Deno.test("board meeting clears MIN_IMMEDIATE even with no patterns", () => {
 Deno.test("tier weighting amplifies tactical at T3 vs T0", () => {
   const evt = [{ id: "x", title: "Board Meeting", start_time: inHours(4), end_time: inHours(5), attendeeRoles: ["boss" as const] }];
   const sig = {
-    event_to_hrv: [{ event_type: "Board / governance", n: 6, hrvDeltaPct: -22, confidence: "strong" }],
-    event_to_rhr: [],
+    event_to_hrv: [
+      { event_type: "Board / governance", n: 6, hrvDeltaPct: -22, confidence: "strong" },
+      { event_type: "1:1 / direct report", n: 4, hrvDeltaPct: -12, confidence: "emerging" },
+      { event_type: "External / client", n: 5, hrvDeltaPct: -18, confidence: "strong" },
+      { event_type: "Investor / fundraise", n: 3, hrvDeltaPct: -15, confidence: "emerging" },
+    ],
+    event_to_rhr: [
+      { event_type: "Exec / leadership", n: 5, hrvDeltaPct: 8, confidence: "strong" },
+      { event_type: "All-hands", n: 3, hrvDeltaPct: 6, confidence: "emerging" },
+    ],
   };
   const cold = selectJitCandidates(evt, { accountAgeDays: 3, signalSummary: null, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW });
   const mature = selectJitCandidates(evt, { accountAgeDays: 60, signalSummary: sig, skipCountsByBucket: {}, followThroughByBucket: {}, goals: null, nowMs: NOW });
