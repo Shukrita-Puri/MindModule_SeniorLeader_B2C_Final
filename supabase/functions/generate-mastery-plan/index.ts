@@ -3725,7 +3725,8 @@ function buildHorizonModules(
   todCoachCard: any,
   enrichedContent: any[],
   pendingCommitments: any[],
-  outerReadinessCache?: any
+  outerReadinessCache?: any,
+  jitRankedCandidates: RankedJitCandidate[] = [],
 ): HorizonModule[] {
   const hasJitEvent = !!preEventPlan;
   const jitMinutesUntil = preEventPlan?.minutesUntil ?? null;
