@@ -70,6 +70,31 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
   return `Strengthen your state for what's ahead`;
 };
 
+// Performance-oriented label remap for the 3 plan slots.
+// The plan's role is Prevent / Prepare — not generic wellness. We translate
+// any wellness-flavoured server timeLabels ("Later today", "When ready",
+// "Before bed", "Midday reset", "This morning", "This evening", "Right now",
+// "Tonight") into Prevent / Prepare framing tied to CEO performance.
+// JIT slots keep their event-anchored label ("Before <Event>") untouched.
+const performanceSlotLabel = (raw: string, isJit: boolean): string => {
+  if (isJit) return raw;
+  const t = (raw || '').toLowerCase();
+  if (!t) return raw;
+  // Evening / next-day prep
+  if (t.includes('evening') || t.includes('bed') || t.includes('tonight') || t.includes('when ready')) {
+    return 'Prepare for tomorrow';
+  }
+  // Afternoon / midday drop prevention
+  if (t.includes('afternoon') || t.includes('midday') || t.includes('later today')) {
+    return 'Prevent the afternoon dip';
+  }
+  // Morning / start-of-day prep
+  if (t.includes('morning') || t.includes('right now') || t.includes('start')) {
+    return 'Prepare for the day';
+  }
+  return raw;
+};
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
@@ -1250,7 +1275,7 @@ const TodayThreePriorities = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
-                      {hm.timeLabel} · {module.title}
+                      {performanceSlotLabel(hm.timeLabel, hm.isJit)}
                     </p>
                     <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                       <PriorityTagAffordance
@@ -1369,21 +1394,12 @@ const TodayThreePriorities = ({
                     "text-[15px] md:text-[16px] font-semibold leading-tight truncate",
                     slotCompleted ? "text-muted-foreground/60 line-through" : "text-foreground"
                   )}>
-                    {hm.timeLabel}
+                    {performanceSlotLabel(hm.timeLabel, hm.isJit)}
                   </p>
                   {!isExpanded && (
                     <div>
-                      <p className={cn(
-                        "text-sm font-body truncate mt-0.5",
-                        slotCompleted ? "text-muted-foreground/50 line-through" : "text-foreground/80"
-                      )}>
-                        {module.title}
-                        {hasMultiple && !slotCompleted && (
-                          <span className="text-muted-foreground/40 text-xs ml-1">
-                            ({slotCompletedCount} of {slotPractices.length})
-                          </span>
-                        )}
-                      </p>
+                      {/* Collapsed order mirrors expanded: tag → why-this-matters.
+                          Practice title intentionally hidden until expand. */}
                       <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                         <PriorityTagAffordance
                           value={tagState}
@@ -1391,8 +1407,18 @@ const TodayThreePriorities = ({
                         />
                       </div>
                       {hm.whyLine && !slotCompleted && (
-                        <p className="text-xs italic text-muted-foreground/50 font-body truncate mt-1">
-                          {hm.whyLine}
+                        <div className="mt-2 space-y-1">
+                          <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
+                            Why this matters
+                          </span>
+                          <p className="text-[12px] text-foreground/75 font-body leading-relaxed">
+                            {hm.whyLine}
+                          </p>
+                        </div>
+                      )}
+                      {hasMultiple && !slotCompleted && (
+                        <p className="text-[10px] text-muted-foreground/50 font-body mt-1">
+                          {slotCompletedCount} of {slotPractices.length} done
                         </p>
                       )}
                     </div>
