@@ -4104,8 +4104,12 @@ function buildHorizonModules(
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
     // JIT takes slot 1 — include all pre-event modules (up to 3)
-    const jitModules = preEventPlan.modules || [];
-    slot1Practices = jitModules.slice(0, 3);
+    // Phase C.2 — bias toward modules whose practiceType matches the
+    // §4 prescribed combo for the resolved phase (e.g. C-pre → somatic.pause
+    // → regulate). Falls through to legacy ordering if no match.
+    const jitModules: any[] = preEventPlan.modules || [];
+    const matched = selectPracticesByCombo(jitModules, jitPhase.combo, new Set(), 3);
+    slot1Practices = matched.length > 0 ? matched.slice(0, 3) : jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
@@ -4136,7 +4140,10 @@ function buildHorizonModules(
     slotAnchors.push({ eventId: sl?.eventId ?? null });
   }
   if (slot1IsJit && topEventId) {
-    slotAnchors.push({ eventId: topEventId });
+    // Phase C.2 — anchor with phase so the ranked-candidate picker can
+    // legitimately reuse the SAME event in slot 2/3 for a different phase
+    // (G long-haul pre+during+post, F multi-day, A pre+post, D pre+post).
+    slotAnchors.push({ eventId: topEventId, phase: jitPhase.phase });
   }
 
   if (slot1Practices.length > 0) {
