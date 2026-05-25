@@ -3899,7 +3899,29 @@ function buildHorizonModules(
   const todayLeadEvent = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
   const isTravelTitle = (t: string | null | undefined) => !!t && /flight|airport|travel|long[- ]haul|red[- ]eye|layover/i.test(t);
 
-  const composeStateLabel = (slotIndex: 0 | 1 | 2): string => {
+  // ── Slot-anchor bookkeeper (variable slot count + dedup) ──
+  // Each emitted slot pushes its anchor event id (null for pure
+  // state/load/wearable anchors). canAnchorAgain enforces
+  // CATEGORY_MAX_SLOTS so the same event can't show up in more slots
+  // than its category permits (C/E/B/H = 1; A/D = 2; F/G = 3).
+  const slotAnchors: { eventId: string | null }[] = [];
+  const anchorsUsedFor = (id: string) => slotAnchors.filter(a => a.eventId === id).length;
+  const canAnchorAgain = (id: string, cat: any): boolean => {
+    const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
+    return anchorsUsedFor(id) < cap;
+  };
+  const pickAnchorEvent = (candidates: any[]): any | null => {
+    for (const e of candidates) {
+      if (!e) continue;
+      const cat = enrichEvent(e).categoryId;
+      if (cat ? canAnchorAgain(e.id, cat) : anchorsUsedFor(e.id) < 1) return e;
+    }
+    return null;
+  };
+
+  const composeStateLabel = (
+    slotIndex: 0 | 1 | 2,
+  ): { label: string; eventId: string | null } | null => {
     const w = req.wearableContext;
     const tier = req.innerReadinessTier;
     const checkIn = req.checkInOutcome;
@@ -3909,86 +3931,85 @@ function buildHorizonModules(
     const localNow = new Date(Date.now() - tzOffset * 60000);
     const dow = localNow.getUTCDay(); // 0 Sun .. 6 Sat
     const isWeekend = dow === 0 || dow === 6;
-    const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
-    const tdyTitle = truncateTitle(todayLeadEvent?.title);
-    const tmrIsTravel = isTravelTitle(tomorrowLeadEvent?.title);
-    // §3 category-derived bias: if the dominant anchor event maps to a
-    // known framework pillar, prefer the verb that matches its
-    // selfRegulationFocus. This keeps state actions consistent with the
-    // category's coaching contract instead of relying on title keywords.
-    const anchorEventForVerb = slotIndex === 2 ? (tomorrowLeadEvent || todayLeadEvent) : (todayLeadEvent || tomorrowLeadEvent);
-    const anchorEnriched = anchorEventForVerb ? enrichEvent(anchorEventForVerb) : null;
-    const anchorSubtype = anchorEnriched?.subtype ?? null;
+
+    // Sort candidate event lists by stakes, then pick the first one that
+    // is not already saturating its category's slot cap. Slot 3 prefers
+    // tomorrow's events; slots 1–2 prefer today's.
+    const todaySorted = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
+    const tomorrowSorted = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
+    const candidateList = slotIndex === 2
+      ? [...tomorrowSorted, ...todaySorted]
+      : [...todaySorted, ...tomorrowSorted];
+    const anchorEvent = pickAnchorEvent(candidateList);
+    const anchorEnriched = anchorEvent ? enrichEvent(anchorEvent) : null;
     const anchorCategory = anchorEnriched?.categoryId ?? null;
     const anchorDemand = anchorEnriched?.demandProfile ?? null;
+    const anchorTitle = truncateTitle(anchorEvent?.title);
+    const anchorIsTravel = isTravelTitle(anchorEvent?.title);
+    const anchorIsTomorrow = !!(anchorEvent && tomorrowEvents.some((e: any) => e.id === anchorEvent.id));
 
     // 1) State action — pick strongest signal
     let stateAction = '';
-    // Demand-profile override (Phase A): circadian-heavy events (cir≥2) or
-    // category G (Travel) always win the state verb — title regex is the
-    // fallback for events the classifier doesn't recognise.
-    if (anchorCategory === 'G' || (anchorDemand && anchorDemand.cir >= 2) || tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
+    if (anchorCategory === 'G' || (anchorDemand && anchorDemand.cir >= 2) || anchorIsTravel) {
       stateAction = 'Re-anchor circadian rhythm';
     } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
       stateAction = 'Restore HRV';
     } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
       stateAction = 'Recover sleep debt';
     } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
-      // Category D (People & Difficult Conversations) explicitly calls for
-      // emotional discharge; category A pre-stage needs composure. Both map
-      // to "Settle". G (travel) handled above.
-      // Demand-profile refinement: high emotional demand (emo≥3) — even on
-      // an A/E category — should still settle, not reset.
       const highVisibility = (anchorCategory === 'C' || anchorCategory === 'F');
       const highEmotional = !!(anchorDemand && anchorDemand.emo >= 3);
       stateAction = (highVisibility && !highEmotional) ? 'Reset stage chemistry' : 'Settle the system';
     } else if (load === 'high' || pressure === 'high') {
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
-      // Category E (Deep Work & Strategy) is flow-activation; nudge toward
-      // priming verb rather than re-consolidation. Same for any subtype
-      // with cognitive-dominant demand (cog≥3, emo≤1, ene≤1) — e.g.
-      // strategy planning, board prep.
       const cogDominant = !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 && anchorDemand.ene <= 1);
       stateAction = (anchorCategory === 'E' || cogDominant) ? 'Prime for focus' : 'Re-consolidate focus';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
 
-    // 2) Calendar anchor — Contract priority: B (state→JIT) > C (state→day) >
-    //    D (end-of-day→tomorrow) > E (weekend → next moment). Slot 3 (evening)
-    //    prefers tomorrow; slots 0/1 prefer today.
+    // 2) Anchor phrase — Contract priority: distinct event > calendar load >
+    //    wearable deficit > generic horizon. For slot 2/3 (index ≥ 1), if
+    //    none of {distinct event, high load, wearable deficit, tomorrow's
+    //    calendar (slot 3)} apply, return null so the resolver drops the
+    //    slot rather than padding with a duplicate anchor.
     let anchor = '';
+    let anchorEventId: string | null = null;
+    const highLoad = load === 'high' || pressure === 'high';
+    const hrvDeficit = !!(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10);
+    const sleepDeficit = !!(w?.hasData && w.sleepScore !== null && w.sleepScore < 65);
 
-    // Contract E — Weekend / PTO: anchor to next known performance moment.
-    if (isWeekend && todayRemainingEvents.length === 0) {
-      if (tmrTitle) {
-        anchor = tmrIsTravel ? 'long-haul travel tomorrow' : `tomorrow's ${tmrTitle}`;
-      } else if (dow === 0) {
-        anchor = "Monday's load";
+    if (anchorEvent) {
+      anchorEventId = anchorEvent.id;
+      if (anchorIsTravel) {
+        anchor = anchorIsTomorrow ? 'long-haul travel tomorrow' : 'long-haul travel today';
       } else {
-        anchor = 'next week\u2019s load';
+        anchor = `${anchorIsTomorrow ? "tomorrow's" : "today's"} ${anchorTitle}`;
       }
-      return `${stateAction} ahead of ${anchor}`;
-    }
-
-    if (slotIndex === 2) {
-      // Contract D — closing today, prepare tomorrow.
-      if (tmrIsTravel) anchor = 'long-haul travel tomorrow';
-      else if (tmrTitle) anchor = `tomorrow's ${tmrTitle}`;
-      else if (tomorrowEvents.length >= 5) anchor = "tomorrow's full day of back-to-back load";
+    } else if (highLoad) {
+      anchor = slotIndex === 2 ? "today's dense calendar" : "today's back-to-back load";
+    } else if (hrvDeficit || sleepDeficit) {
+      anchor = "tomorrow's load";
+    } else if (slotIndex === 2) {
+      if (isWeekend && dow === 0) anchor = "Monday's load";
+      else if (isWeekend) anchor = "next week\u2019s load";
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
-      else if (load === 'high' || pressure === 'high') anchor = "today's dense calendar";
       else anchor = "tomorrow's load";
     } else {
-      // Contracts B / C — slot 1 or 2 mid-day.
-      if (tdyTitle) anchor = `today's ${tdyTitle}`;
-      else if (load === 'high' || pressure === 'high') anchor = "today's back-to-back load";
-      else if (tmrTitle) anchor = tmrIsTravel ? 'long-haul travel tomorrow' : `tomorrow's ${tmrTitle}`;
-      else anchor = "today's load";
+      anchor = "today's load";
     }
 
-    return `${stateAction} ahead of ${anchor}`;
+    // Variable-slot rule: index ≥ 1 must have a *meaningful* secondary
+    // signal — distinct event, high load, wearable deficit, or
+    // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
+    if (slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit && !sleepDeficit
+        && !(slotIndex === 2 && tomorrowEvents.length > 0)
+        && !(slotIndex === 2 && isWeekend)) {
+      return null;
+    }
+
+    return { label: `${stateAction} ahead of ${anchor}`, eventId: anchorEventId };
   };
 
   const modules: HorizonModule[] = [];
