@@ -10,7 +10,7 @@ Deno.test('emits pre + post for a board meeting at T+2h', () => {
     NOW,
   );
   const phases = ranked.map(r => r.phase).sort();
-  assertEquals(phases, ['post', 'pre']);
+  assertEquals(phases, ['during', 'post', 'pre']);
   assertEquals(ranked.every(r => r.categoryId === 'A'), true);
   // pre should outrank post when both upcoming because it fires sooner & high severity
   assertEquals(ranked[0].phase, 'pre');
