@@ -1559,11 +1559,19 @@ const TodayThreePriorities = ({
                 const today = localISODate();
                 const period = getCurrentTimeWindow();
                 writePersistent(cacheKeys.planData(today, period), next, ttl);
+                // Issue 1: mirror to localStorage so refresh survives even if
+                // the background DB write hasn't landed yet.
+                patchPlanSlotEdit(today, period, cancelIndex, {
+                  cancelled: true,
+                  cancelReason: reason,
+                  replacementEventIds: [],
+                });
               } catch { /* ignore */ }
               return next;
             });
             // Background persistence — do not block UI.
             (async () => {
+              pendingPersistRef.current += 1;
               const saved = await persistPlanLedgerEdit(
                 cancelIndex,
                 {
@@ -1573,6 +1581,7 @@ const TodayThreePriorities = ({
                 },
                 getCurrentTimeWindow(),
               );
+              pendingPersistRef.current = Math.max(0, pendingPersistRef.current - 1);
               if (!saved) {
                 // Roll back optimistic state.
                 setPlan((prev) => {
@@ -1581,6 +1590,7 @@ const TodayThreePriorities = ({
                     i === cancelIndex ? { ...m, isCancelled: false, cancelReason: null } : m,
                   ) } as MasteryPlanResponse;
                 });
+                try { clearPlanSlotEdit(localISODate(), getCurrentTimeWindow(), cancelIndex); } catch { /* ignore */ }
                 toast({ title: 'Could not save this cancel', description: 'Please try again.', variant: 'destructive' });
                 return;
               }
