@@ -1,133 +1,118 @@
+## Pre-Phase-C fix — dedup slots + variable slot count (1–3)
 
-## Status of the three wirings you asked about
+### What's broken (from the screenshot)
 
-Verified against `supabase/functions/generate-mastery-plan/index.ts` (current imports: `executive-state-taxonomy.ts` shim + `behaviour-wiring.ts`):
+All three priorities on the attached plan read "…ahead of tomorrow's Coca-Cola Client — Presentation". Two independent bugs in `supabase/functions/generate-mastery-plan/index.ts`:
 
-| Ask | Status today |
-|---|---|
-| 1 — Priority selection tied to CEO Behaviours and Pre/During/Post events | **Partial.** `evaluateForScope` + `applySlotBoostsToMapping` apply CEO-behaviour boosts to module mapping. The §4 per-category Pre/During/Post contract (`EVENT_PHASE_MAP`, `phaseForEvent`) is **not** consulted. So a Long-haul flight does not currently fan out into Pre-flight slot + In-flight slot + Landing slot; a multi-day Conference does not flow Pre-during-during-post across slots; Deep-Work has no Pre + During pairing. |
-| 2 — Logic covers all CEO event types | **Partial.** `classifyEvent` (subtype-aware) is reachable via `scenarioIdFor`, but `EVENT_TYPES` rows (the 30 subtypes with `leadTimeMin`, `demandProfile`, `categoryId`) are not read by the slot resolver. Travel sub-phases (`pre_flight`, `in_flight`, `landing_same_day`, `landing_next_day`, `tz_shift`, `multi_city`) and Conference `multi-day` are not differentiated. |
-| 3 — JIT scoring/calculation impact | **Not wired.** `rankedJitCandidates` ranks on simple proximity + stakes hints. It does not read `leadTimeMin` from the subtype, does not weight by `demandProfile.cognitive/emotional/physical`, does not bias by `categoryId` protocol stakes from §3, and does not honour the Pre/During/Post window from `event-phase-map.ts`. |
+1. **State-anchor duplication.** `composeStateLabel(slotIndex)` (lines 3901–3991) re-derives its anchor from `tomorrowLeadEvent` / `todayLeadEvent` every call. When the JIT path doesn't fire (event > 120 min away), all three slots stamp the same calendar title.
+2. **Forced 3-slot fill.** The resolver always emits 3 slots, even when there is genuinely only one or two meaningful priorities for the user's current window. Combined with bug 1, this manufactures padding slots that reuse the same anchor event.
+3. **No category-aware fan-out rule.** Per §4, only multi-phase categories (G Travel, F Conferences multi-day, A high-stakes with both pre+post in horizon, D pre+post same day) should ever take more than one slot for the same event. C/E/B/H must occupy at most one slot per plan.
 
-## What this plan changes
+### Fix (no Phase C, no taxonomy redefinition, no UI changes)
 
-A single wiring pass through `generate-mastery-plan/index.ts` so the shared §2/§3/§4 modules become the canonical decision substrate. No taxonomy is redefined — only consumed.
-
-### 1) Imports
-
-Add to `generate-mastery-plan/index.ts`:
+#### 1. Category fan-out registry — `_shared/events/event-phase-map.ts`
 
 ```ts
-import { EVENT_CATEGORIES, FRAMEWORK_PILLARS } from '../_shared/events/event-categories.ts';
-import { EVENT_TYPES, EVENT_TYPE_TO_SCENARIO_ID } from '../_shared/events/event-subtypes.ts';
-import { EVENT_PHASE_MAP, phaseForEvent, protocolsForEvent, type Phase } from '../_shared/events/event-phase-map.ts';
-import { classifyEvent } from '../_shared/events/event-classifier.ts';
-import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
+export const CATEGORY_MAX_SLOTS: Record<EventCategoryId, number> = {
+  A: 2,   // pre + post when both windows land in horizon
+  B: 1,
+  C: 1,   // ← Coca-Cola Presentation
+  D: 2,   // pre + post same day
+  E: 1,
+  F: 3,   // multi-day conference: pre + during-nudge + post per day
+  G: 3,   // long-haul: pre-flight + in-flight + landing
+  H: 1,
+};
 ```
 
-### 2) Event enrichment (single pass, upstream of JIT + slot resolution)
+The only rule governing "can the same event take more than one slot". The resolver consults it; nothing inline.
 
-For every event entering the horizon, build an `EnrichedEvent`:
+#### 2. Variable slot count: 1 ≤ slots ≤ 3
 
-```text
-EnrichedEvent {
-  raw,
-  subtype:    classifyEvent(title),          // → { categoryId, label, leadTimeMin, demandProfile, ... }
-  category:   EVENT_CATEGORIES[subtype.categoryId],
-  phases:     { pre?, during?, post? } from EVENT_PHASE_MAP[categoryId],
-  windows:    materialised absolute timestamps for each available phase
-              (pre: start - phase.timing offset; during: span; post: end + offset),
-  protocols:  { pre?: ComboKey, during?: ComboKey, post?: ComboKey }
+The resolver builds a **candidate list** of meaningful priorities for the current window, then emits `min(3, candidates.length)` slots. A slot is "meaningful" only if it carries either:
+
+- a JIT phase that is eligible in the current window (per `jit-candidates.ts` ranking), OR
+- a state-anchored intent backed by a non-duplicate anchor (distinct calendar event, calendar load, wearable deficit, or tomorrow's lead event for the evening contract).
+
+If no second/third meaningful candidate exists, **the plan ships with 1 or 2 slots — no padding**.
+
+Wired through `applyV51Enrichment` so the existing `mergeWithLedger` keeps working: completed slots stay crossed out, incomplete slots keep their practices. When the resolver returns fewer than the prior plan's slot count, surplus old slots are pruned (not silently filled).
+
+Worked examples:
+
+- **Evening + heavy day + tomorrow JIT (board 09:00):** Slot 1 = JIT prep at T-12h (Contract A pre), Slot 2 = state-anchored recovery ("Recover sleep debt ahead of tomorrow's board"). **2 slots, not 3.**
+- **Evening + heavy day + no upcoming JIT:** Slot 1 = state-anchored decompression / sleep prep. **1 slot.**
+- **Morning + dense calendar + 1 JIT in 2h + 1 JIT in 6h:** Slot 1 = imminent JIT pre, Slot 2 = state-anchored bridge ("Re-consolidate focus ahead of today's load"), Slot 3 = second JIT pre. **3 slots.**
+- **Weekend with no events:** Slot 1 = state-anchored ("Build capacity ahead of Monday's load"). **1 slot.**
+
+Hard guarantee: `modules.length >= 1 && modules.length <= 3` at the persistence boundary. The "≥ 1" floor is satisfied by the always-available state-anchor fallback (felt-state verb + generic anchor — e.g. "Steady the system ahead of the evening ahead" — never references an event id).
+
+#### 3. Slot-anchor bookkeeper (used by §4 and §5)
+
+```ts
+const slotAnchors: { eventId: string | null; phase: Phase | null }[] = [];
+function anchorsUsedFor(id: string)   { return slotAnchors.filter(a => a.eventId === id).length; }
+function canAnchorAgain(id: string, cat: EventCategoryId) {
+  return anchorsUsedFor(id) < (CATEGORY_MAX_SLOTS[cat] ?? 1);
 }
 ```
 
-Travel multi-phase subtypes (`pre_flight`, `landing_same_day`, etc.) keep their subtype-specific window so a Long-haul flight expands to up to three candidate slot anchors (pre-flight T-2h, in-flight, landing).
+Every slot pushes its anchor after it's built. JIT branches and `composeStateLabel` consult `canAnchorAgain` before adopting an event.
 
-### 3) JIT candidate generation + scoring (the part you asked about)
+#### 4. Gate the JIT slot-2 / slot-3 re-trigger on category
 
-`rankedJitCandidates` becomes one entry **per (event, phase)** instead of one per event. Score:
+The two JIT branches in slot 2 (lines 4071 and 4077) currently re-fire on `topEvent` whenever `jitMinutesUntil >= 120`. Wrap both:
 
-```text
-score =
-    base(stakesLevel)                              // existing
-  + categoryWeight(category.id)                    // A/D higher, H lower
-  + phaseSeverityWeight(phase.severityHint)        // high/med/low from §4
-  + demandProfileWeight(subtype.demandProfile)     // cognitive+emotional bias for Pre, physical for Post
-  + windowProximityWeight(now, phaseWindow,        // peak when inside lead-time band
-                          subtype.leadTimeMin)
-  - skipPenalty(get_event_type_skip_count(...))    // existing JIT preference penalty
+```ts
+const topCat = topEvent ? enrichEvent(topEvent.event).categoryId : null;
+const canReuseTopEvent = topCat && canAnchorAgain(topEvent.event.id, topCat);
+if (hasJitEvent && !slot1IsJit && canReuseTopEvent && /* existing window guard */) { … }
 ```
 
-`leadTimeMin` from `event-subtypes.ts` is the canonical horizon for "Pre" eligibility. `EVENT_PHASE_MAP[cat][phase].timing` defines the firing window. A candidate is eligible only inside its phase window.
+For C/E/B/H this collapses to a single JIT slot.
 
-The protocol combo for the candidate (`phaseForEvent(...).resolvedCombo`) becomes the practice-selection hint passed into module mapping (no more inferring `Pause/Flow/Reenergise` heuristically).
+#### 5. `composeStateLabel` — dedup fallback chain (replace single-shot anchor pick)
 
-### 4) Slot resolver — Pre/During/Post layering
+Inside `composeStateLabel(slotIndex)`:
 
-`resolveSlot` is extended so Contract A (Pure JIT) carries phase + protocol:
+- Walk a fallback chain instead of picking one lead event:
+  - First today event whose id is not already in `slotAnchors` AND its category permits another slot.
+  - Else calendar-load anchor: "today's back-to-back load" / "today's dense calendar".
+  - Else wearable-anchor: "Restore HRV ahead of tomorrow's load" etc.
+  - Else generic: "the evening ahead" / "tomorrow's load" / "Monday's load".
+- Slot 3 (`slotIndex === 2`): same chain against `tomorrowEvents` first.
+- Never return a string that names an event already anchored when `CATEGORY_MAX_SLOTS[cat] === 1`.
+- If the chain produces **no distinct anchor** AND this slot is index ≥ 1, return `null` → resolver drops the slot (variable-slot floor from §2 takes over).
 
-- Label patterns:
-  - `pre` → `Prepare ahead of <Event>`
-  - `during` → `Stay regulated through <Event>` (notification-only category F uses this only as a nudge anchor)
-  - `post` → `Recover after <Event>` / `Reset after <Event>`
-- `replacementEventIds` now carries `(eventId, phase)` so the same calendar event can legitimately occupy two slots (e.g. Slot 1 Pre-flight, Slot 3 Landing) without dedupe stripping the second.
-- Conference (F) multi-day: each day's `pre` + `post` is a distinct candidate; `during` is emitted as a nudge anchor, never as a slot.
-- Deep Work (E): `pre` (`mindset.flow`) + `during` (`mindset.flow`) collapse into a single slot anchored to the block start to avoid double-booking.
+#### 6. Behaviour after fix (screenshot scenario)
 
-Contracts B/C/D/E (non-JIT) keep their current `composeStateLabel` path but now consult `category.selfRegulationFocus` to pick the state action verb (e.g. category D fatigue → `Settle the system`, category G travel → `Re-anchor circadian rhythm`).
+Coca-Cola Client — Presentation (category C, tomorrow, >120 min):
 
-### 5) Practice / module selection tied to protocol combos
+- **Slot 1** — state-anchored, "…ahead of tomorrow's Coca-Cola Client — Presentation". `slotAnchors = [{coca, null}]`.
+- **Slot 2** — `canAnchorAgain(coca, 'C')` → false. Fallback chain finds no distinct event → returns null → **slot dropped**.
+- **Slot 3** — same dedup. If calendar load is high and HRV deficit exists → "Restore HRV ahead of tomorrow's load". Otherwise also dropped.
+- **Result:** 1 slot (single C event, no other signal) or 2 slots (single C event + meaningful state signal). Never 3 slots referencing the same Coca-Cola event.
 
-Where module mapping currently picks `regulate/align/prepare/integrate`, the resolved `ComboKey` (`somatic.flow`, `mindset.pause`, …) from §2 becomes the primary filter; `applySlotBoostsToMapping` continues to apply CEO-behaviour boosts on top.
+Long-haul flight tomorrow (G, max 3) unaffected: Pre-flight, In-flight, Landing each get their own slot.
 
-This kills duplicated `Pause/Flow/Reenergise` heuristics inside `generate-mastery-plan` — protocol-combos.ts is the single source.
+### Tests (Deno, `_shared/events/category-slot-fanout.test.ts`)
 
-### 6) MVP scope guard (unchanged)
+- Category C event 6 h away, no other signals → **1 slot**, references it once.
+- Category C event 6 h away + dense calendar + HRV deficit → **2 or 3 slots**, only one references the event; others use load/HRV anchors.
+- Category G long-haul → **3 slots**, pre/during/post phases of the same flight.
+- Category F multi-day conference (speaking Tue) → Tue plan = 2 slots (pre + post on keynote); Mon plan = 1 slot (pre only).
+- Evening + no JIT → **1 slot**, state-anchored, never references an event.
+- Weekend with empty calendar → **1 slot**, "Build capacity ahead of Monday's load".
+- Variable-count invariant: `1 ≤ modules.length ≤ 3` across all fixtures.
 
-Non-JIT contracts remain Self-Regulation framing only. No content prep. The `FORBIDDEN_LITERALS` guard stays.
+### Files touched
 
-### 7) Tests / validation
+- `supabase/functions/_shared/events/event-phase-map.ts` — add + export `CATEGORY_MAX_SLOTS`.
+- `supabase/functions/generate-mastery-plan/index.ts` — add `slotAnchors`, gate JIT slot-2 branches, rewrite `composeStateLabel` to use deduplicating fallback chain returning `null` when no distinct anchor, switch slot emission from hard-coded 3 to `modules.push(...)` only when a candidate exists, prune trailing nulls before persistence.
+- `supabase/functions/_shared/events/category-slot-fanout.test.ts` — new.
+- `mem/features/mastery-plan/slot-model-v5.md` — add note: "3-slot count is a ceiling, not a floor. Floor is 1. Padding slots forbidden."
+- `.lovable/plan.md` — append "Pre-Phase-C dedup + variable slot count" status section.
 
-Add Deno tests covering:
+No UI changes — `TodayThreePriorities.tsx` already maps over whatever modules the server returns; rendering 1 or 2 modules is a no-op.
 
-- Long-haul flight (>4h, offline) tomorrow at 14:00 → Slot 1 today `Prepare ahead of long-haul flight`, Slot 3 tomorrow `Re-anchor circadian rhythm after landing`.
-- Multi-day Conference Mon–Wed (speaking Tue) → Mon Slot 3 `Prepare ahead of tomorrow's keynote`, Tue Slot 1 `Prepare ahead of keynote`, Tue Slot 3 `Recover after keynote`.
-- Deep Work 09:00–12:00 → single Slot 1 `Prepare ahead of deep work block` using `mindset.flow`.
-- Board meeting 16:00 + depleted HRV → Slot 1 `Restore HRV ahead of today's board meeting` (B), Slot 2 `Prepare ahead of Board meeting` (A pre at T-60), Slot 3 `Reset after board meeting` (A post).
-- No `Midday reset` / `Prepare for the day` / `Prevent the afternoon dip` ever reaches the UI.
-
-### 8) Future LLM layer (noted, not built)
-
-Once §3/§4 are wired, the "Why this matters" body copy and per-practice context strings become a thin LLM call seeded with: `category.selfRegulationFocus`, `phase.goal`, `phase.preventsBuilds`, `subtype.demandProfile`, `protocolCombo`. The deterministic taxonomy stays the source of truth; the LLM only narrates.
-
-## Files
-
-- `supabase/functions/generate-mastery-plan/index.ts` — imports, enrichment pass, JIT scoring rewrite, `resolveSlot` phase-aware extension, module mapping via `ComboKey`.
-- `supabase/functions/generate-mastery-plan/*_test.ts` — new Deno tests above.
-- `.lovable/plan.md` — replace current contract-only plan with this expanded wiring plan (kept side-by-side; Contracts A–E remain valid, now extended with phase semantics).
-
-No changes to `src/components/home/TodayThreePriorities.tsx` (it stays a pass-through). No changes to the shared modules under `_shared/events/`, `_shared/protocols/`, `_shared/ceo-behaviour/` — they are already the source of truth.
-
----
-
-## Implementation status (this pass)
-
-**Shipped**
-- `generate-mastery-plan/index.ts` now imports `EVENT_CATEGORIES`, `EVENT_PHASE_MAP`, `phaseForEvent`, `classifyEvent`, `PROTOCOL_COMBOS` from the shared §3/§4 modules.
-- New `resolveJitPhaseLabel(title, startMs, endMs, nowMs)` helper resolves the slot label by Pre / During / Post window:
-  - `pre` → `Prepare ahead of <Event>`
-  - `during` → `Stay regulated through <Event>` (auto-downgraded to `pre` framing for category F per `protocol.duringNotificationOnly`)
-  - `post` → `Recover after <Event>` (high-stakes A/D → `Reset after <Event>`)
-- All three JIT slot emissions (Slot 1 touch1, Slot 2 touch2, Slot 2 long-lead) now use this helper instead of hardcoded `Prepare ahead of`.
-- `composeStateLabel` state-action verb now consults `classifyEvent(anchor).categoryId`: depleted + C/F → `Reset stage chemistry`, managing + E → `Prime for focus`; existing G (travel) path preserved.
-- Deno test `_shared/events/jit-phase-label.test.ts` locks the §3/§4 contract (board → A pre+post, keynote → F with `duringNotificationOnly`, deep work → E, long-haul → G).
-
-**Deferred (next pass, scoped separately)**
-- Module mapping by `ComboKey` (replacing the `regulate/align/prepare/integrate` heuristic with the resolved combo from `phaseForEvent`).
-- LLM-narrated "Why this matters" body — depends on the two items above.
-
-**Phase B shipped**
-- `_shared/events/jit-candidates.ts` — `rankJitCandidates(events, nowMs)` emits one ranked candidate per `(event, phase)` with the §3 scoring formula (stakes base + categoryWeight + phaseSeverityWeight + demandProfileWeight + windowProximityWeight − skipPenalty), materialised firing windows and `eligible` flag.
-- `generate-mastery-plan/index.ts` now calls `rankJitCandidates` on `filteredEvents` after the 24h MVP ceiling, logs the top-3, and exposes the top-8 on `meta.jitRankedCandidates` for downstream consumers / Phase C slot fan-out.
-- Top-1 slot selection is intentionally unchanged — the legacy window+threshold loop still picks `topEvent`, so user-visible behaviour is identical to today.
-- Tests in `_shared/events/jit-candidates.test.ts` cover board (A: pre+during+post), keynote (F: pre+post), long-haul flight (G: during-only), deep work (E: pre-only), cross-category ranking (A > E), in-window eligibility, and skipPenalty arithmetic.
+No Phase C work. No taxonomy changes.
