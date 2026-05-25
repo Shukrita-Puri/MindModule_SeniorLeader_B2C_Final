@@ -4271,10 +4271,38 @@ function buildHorizonModules(
   let slot3Practices: any[] = [];
   let slot3Horizon: 'immediate' | 'tactical' | 'strategic' = 'strategic';
   let slot3TimeLabel = '';
+  let slot3IsJit = false;
+  let slot3JitEventTitle: string | null = null;
+  let slot3JitMinutesUntil: number | null = null;
+  let slot3JitPhase: 'pre' | 'during' | 'post' | null = null;
 
   const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
-  if (pattern === '2immediate-1tactical') {
+  // Phase C.2 — third-slot multi-phase fan-out (G long-haul, F multi-day).
+  // Only fires when a *third* distinct (event, phase) candidate still has
+  // capacity AND we already shipped two JIT-aligned slots. Single-phase
+  // categories (cap=1) and 2-cap (A/D) naturally fall through.
+  const slot3Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
+  if (slot3Candidate) {
+    const ev = (req.calendarEvents || []).find((e: any) => e.id === slot3Candidate.eventId);
+    const evStart = ev ? new Date(ev.startTime).getTime() : null;
+    slot3JitMinutesUntil = evStart != null ? Math.round((evStart - nowMs) / 60_000) : null;
+    const truncated = (slot3Candidate.title || 'this event').split(/\s+/).slice(0, 5).join(' ');
+    const isHighStakesPost = slot3Candidate.phase === 'post' && (slot3Candidate.categoryId === 'A' || slot3Candidate.categoryId === 'D');
+    slot3TimeLabel = slot3Candidate.phase === 'pre' ? `Prepare ahead of ${truncated}`
+      : slot3Candidate.phase === 'during' ? `Stay regulated through ${truncated}`
+      : `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
+    slot3IsJit = true;
+    slot3JitEventTitle = slot3Candidate.title;
+    slot3JitPhase = slot3Candidate.phase;
+    slot3Horizon = 'tactical';
+    const pool = (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
+      ? preEventPlan.modules
+      : todModules;
+    const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2);
+    slot3Practices = matched.length > 0 ? matched : (todModules.find((m: any) => !usedIds.has(m.contentId)) ? [todModules.find((m: any) => !usedIds.has(m.contentId))] : []);
+    slotAnchors.push({ eventId: slot3Candidate.eventId, phase: slot3Candidate.phase });
+  } else if (pattern === '2immediate-1tactical') {
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
@@ -4299,7 +4327,7 @@ function buildHorizonModules(
   if (slot3Practices.length > 0) {
     const primaryPractice = slot3Practices[0];
     const practiceTypes = slot3Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(slot3Horizon, false, practiceTypes);
+    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
@@ -4311,12 +4339,13 @@ function buildHorizonModules(
       practice: primaryPractice,
       practices: slot3Practices,
       sequenceReasoning: seqReasoning,
-      isJit: false,
-      jitEventTitle: null,
-      jitMinutesUntil: null,
+      isJit: slot3IsJit,
+      jitEventTitle: slot3JitEventTitle,
+      jitMinutesUntil: slot3JitMinutesUntil,
       showNavyBorder: false,
       showPulse: false,
-      showPriorityPill: false,
+      showPriorityPill: slot3IsJit,
+      jitPhase: slot3JitPhase,
     });
   }
 
