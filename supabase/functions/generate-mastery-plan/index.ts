@@ -3935,6 +3935,55 @@ function buildHorizonModules(
     }
     return null;
   };
+  /**
+   * Phase C.2 — ComboKey → legacy practiceType reverse lookup.
+   * Mirror of PRACTICE_TYPE_TO_COMBO (single source of truth in
+   * `_shared/protocols/protocol-combos.ts`). Used to bias practice
+   * selection toward the §4 prescribed combo for the slot's phase.
+   *   somatic.pause      → regulate
+   *   mindset.pause      → align
+   *   mindset.flow       → prepare
+   *   mindset.reenergise → integrate
+   *   somatic.flow       → regulate (closest somatic activation)
+   *   somatic.reenergise → integrate (closest body-closing intent)
+   */
+  const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, string> = {
+    'somatic.pause': 'regulate',
+    'mindset.pause': 'align',
+    'mindset.flow': 'prepare',
+    'mindset.reenergise': 'integrate',
+    'somatic.flow': 'regulate',
+    'somatic.reenergise': 'integrate',
+  };
+  /**
+   * Phase C.2 — pick the best-matching practice(s) from a module pool for
+   * the given ComboKey. Prefers exact type match; falls back to first
+   * non-coach module so we never emit an empty slot.
+   */
+  const selectPracticesByCombo = (
+    pool: any[],
+    combo: ComboKey | null,
+    excludeIds: Set<string>,
+    max = 2,
+  ): any[] => {
+    const candidates = (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId));
+    if (candidates.length === 0) return [];
+    const targetType = combo ? COMBO_TO_PRACTICE_TYPE[combo] : null;
+    const primary = targetType
+      ? candidates.find((m: any) => m.type === targetType && !m.isCoachCard)
+      : null;
+    const head = primary || candidates.find((m: any) => !m.isCoachCard) || candidates[0];
+    const out = [head];
+    if (max > 1) {
+      const secondary = candidates.find((m: any) =>
+        m.contentId !== head.contentId &&
+        m.type !== head.type &&
+        !m.isCoachCard
+      );
+      if (secondary) out.push(secondary);
+    }
+    return out;
+  };
   const pickAnchorEvent = (candidates: any[]): any | null => {
     for (const e of candidates) {
       if (!e) continue;
@@ -4055,8 +4104,12 @@ function buildHorizonModules(
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
     // JIT takes slot 1 — include all pre-event modules (up to 3)
-    const jitModules = preEventPlan.modules || [];
-    slot1Practices = jitModules.slice(0, 3);
+    // Phase C.2 — bias toward modules whose practiceType matches the
+    // §4 prescribed combo for the resolved phase (e.g. C-pre → somatic.pause
+    // → regulate). Falls through to legacy ordering if no match.
+    const jitModules: any[] = preEventPlan.modules || [];
+    const matched = selectPracticesByCombo(jitModules, jitPhase.combo, new Set(), 3);
+    slot1Practices = matched.length > 0 ? matched.slice(0, 3) : jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
@@ -4087,7 +4140,10 @@ function buildHorizonModules(
     slotAnchors.push({ eventId: sl?.eventId ?? null });
   }
   if (slot1IsJit && topEventId) {
-    slotAnchors.push({ eventId: topEventId });
+    // Phase C.2 — anchor with phase so the ranked-candidate picker can
+    // legitimately reuse the SAME event in slot 2/3 for a different phase
+    // (G long-haul pre+during+post, F multi-day, A pre+post, D pre+post).
+    slotAnchors.push({ eventId: topEventId, phase: jitPhase.phase });
   }
 
   if (slot1Practices.length > 0) {
@@ -4122,18 +4178,48 @@ function buildHorizonModules(
   let slot2NavyBorder = false;
 
   // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
-  const jitReuseAllowed = !!(hasJitEvent && topEventId && topEventCat && canAnchorAgain(topEventId, topEventCat));
-  if (hasJitEvent && !slot1IsJit && jitReuseAllowed && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
-    const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
-    slot2Practices = jitMod ? [jitMod] : [];
+  // Phase C.2 — walk the ranked (event, phase) candidate list. This handles
+  // BOTH cases: (a) slot 1 was state-anchored and a JIT exists further out,
+  // and (b) slot 1 was JIT for a multi-phase event whose other phase
+  // (during / post) still has slot capacity left (G long-haul, F multi-day,
+  // A/D pre+post). Single-phase categories (C/E/B/H, cap=1) naturally fall
+  // through because canAnchorAgain returns false after slot 1.
+  const slot2Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
+  let slot2JitPhaseInfo: ReturnType<typeof resolveJitPhaseLabel> | null = null;
+  let slot2JitEventTitle: string | null = null;
+  let slot2JitMinutesUntil: number | null = null;
+  if (slot2Candidate) {
+    const ev = (req.calendarEvents || []).find((e: any) => e.id === slot2Candidate.eventId);
+    const evStart = ev ? new Date(ev.startTime).getTime() : null;
+    const evEnd = ev?.endTime ? new Date(ev.endTime).getTime() : null;
+    slot2JitPhaseInfo = resolveJitPhaseLabel(slot2Candidate.title, evStart, evEnd, nowMs);
+    // Force the phase the ranker chose (resolveJitPhaseLabel may have
+    // re-derived a different phase from absolute time — for fan-out we
+    // honour the rank decision and only borrow its label string).
+    slot2JitPhaseInfo = { ...slot2JitPhaseInfo, phase: slot2Candidate.phase };
+    slot2JitEventTitle = slot2Candidate.title;
+    slot2JitMinutesUntil = evStart != null ? Math.round((evStart - nowMs) / 60_000) : null;
+    // Phase-aware label rebuild (use the ranked candidate's phase verb).
+    const truncated = (slot2Candidate.title || 'this event').split(/\s+/).slice(0, 5).join(' ');
+    const isHighStakesPost = slot2Candidate.phase === 'post' && (slot2Candidate.categoryId === 'A' || slot2Candidate.categoryId === 'D');
+    const label = slot2Candidate.phase === 'pre' ? `Prepare ahead of ${truncated}`
+      : slot2Candidate.phase === 'during' ? `Stay regulated through ${truncated}`
+      : `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
+    slot2TimeLabel = label;
     slot2IsJit = true;
-    slot2NavyBorder = true;
-    slot2TimeLabel = jitPhase.label;
-  } else if (hasJitEvent && !slot1IsJit && jitReuseAllowed && jitMinutesUntil !== null && jitMinutesUntil > 360) {
-    const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
-    slot2Practices = jitMod ? [jitMod] : [];
-    slot2IsJit = true;
-    slot2TimeLabel = jitPhase.label;
+    // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
+    slot2NavyBorder = slot2JitMinutesUntil !== null && slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
+    // Practice pool: prefer the dedicated pre-event modules when the
+    // candidate matches the originally-staged JIT event; otherwise fall
+    // back to todModules. In both cases filter by the candidate's combo.
+    const pool = (slot2Candidate.eventId === topEventId && preEventPlan?.modules?.length)
+      ? preEventPlan.modules
+      : todModules;
+    const slot1Ids = new Set<string>(slot1Practices.map((p: any) => p.contentId).filter(Boolean));
+    const matched = selectPracticesByCombo(pool, slot2Candidate.comboKey, slot1Ids, 2);
+    slot2Practices = matched.length > 0
+      ? matched
+      : (todModules[1] ? [todModules[1]] : (todModules[0] ? [todModules[0]] : []));
   } else {
     // Second ToD module(s), skipping slot1 IDs
     const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
@@ -4152,8 +4238,8 @@ function buildHorizonModules(
       slot2Practices = []; // signal "drop this slot"
     }
   }
-  if (slot2IsJit && topEventId) {
-    slotAnchors.push({ eventId: topEventId });
+  if (slot2IsJit && slot2Candidate) {
+    slotAnchors.push({ eventId: slot2Candidate.eventId, phase: slot2Candidate.phase });
   }
 
   if (slot2Practices.length > 0) {
@@ -4172,12 +4258,12 @@ function buildHorizonModules(
       practices: slot2Practices,
       sequenceReasoning: seqReasoning,
       isJit: slot2IsJit,
-      jitEventTitle: slot2IsJit ? jitEventTitle : null,
-      jitMinutesUntil: slot2IsJit ? jitMinutesUntil : null,
+      jitEventTitle: slot2IsJit ? (slot2JitEventTitle ?? jitEventTitle) : null,
+      jitMinutesUntil: slot2IsJit ? (slot2JitMinutesUntil ?? jitMinutesUntil) : null,
       showNavyBorder: slot2NavyBorder,
       showPulse: false,
       showPriorityPill: slot2IsJit,
-      jitPhase: slot2IsJit ? jitPhase.phase : null,
+      jitPhase: slot2IsJit ? (slot2Candidate?.phase ?? jitPhase.phase) : null,
     });
   }
 
@@ -4185,10 +4271,38 @@ function buildHorizonModules(
   let slot3Practices: any[] = [];
   let slot3Horizon: 'immediate' | 'tactical' | 'strategic' = 'strategic';
   let slot3TimeLabel = '';
+  let slot3IsJit = false;
+  let slot3JitEventTitle: string | null = null;
+  let slot3JitMinutesUntil: number | null = null;
+  let slot3JitPhase: 'pre' | 'during' | 'post' | null = null;
 
   const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
-  if (pattern === '2immediate-1tactical') {
+  // Phase C.2 — third-slot multi-phase fan-out (G long-haul, F multi-day).
+  // Only fires when a *third* distinct (event, phase) candidate still has
+  // capacity AND we already shipped two JIT-aligned slots. Single-phase
+  // categories (cap=1) and 2-cap (A/D) naturally fall through.
+  const slot3Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
+  if (slot3Candidate) {
+    const ev = (req.calendarEvents || []).find((e: any) => e.id === slot3Candidate.eventId);
+    const evStart = ev ? new Date(ev.startTime).getTime() : null;
+    slot3JitMinutesUntil = evStart != null ? Math.round((evStart - nowMs) / 60_000) : null;
+    const truncated = (slot3Candidate.title || 'this event').split(/\s+/).slice(0, 5).join(' ');
+    const isHighStakesPost = slot3Candidate.phase === 'post' && (slot3Candidate.categoryId === 'A' || slot3Candidate.categoryId === 'D');
+    slot3TimeLabel = slot3Candidate.phase === 'pre' ? `Prepare ahead of ${truncated}`
+      : slot3Candidate.phase === 'during' ? `Stay regulated through ${truncated}`
+      : `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
+    slot3IsJit = true;
+    slot3JitEventTitle = slot3Candidate.title;
+    slot3JitPhase = slot3Candidate.phase;
+    slot3Horizon = 'tactical';
+    const pool = (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
+      ? preEventPlan.modules
+      : todModules;
+    const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2);
+    slot3Practices = matched.length > 0 ? matched : (todModules.find((m: any) => !usedIds.has(m.contentId)) ? [todModules.find((m: any) => !usedIds.has(m.contentId))] : []);
+    slotAnchors.push({ eventId: slot3Candidate.eventId, phase: slot3Candidate.phase });
+  } else if (pattern === '2immediate-1tactical') {
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
@@ -4213,7 +4327,7 @@ function buildHorizonModules(
   if (slot3Practices.length > 0) {
     const primaryPractice = slot3Practices[0];
     const practiceTypes = slot3Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(slot3Horizon, false, practiceTypes);
+    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
@@ -4225,12 +4339,13 @@ function buildHorizonModules(
       practice: primaryPractice,
       practices: slot3Practices,
       sequenceReasoning: seqReasoning,
-      isJit: false,
-      jitEventTitle: null,
-      jitMinutesUntil: null,
+      isJit: slot3IsJit,
+      jitEventTitle: slot3JitEventTitle,
+      jitMinutesUntil: slot3JitMinutesUntil,
       showNavyBorder: false,
       showPulse: false,
-      showPriorityPill: false,
+      showPriorityPill: slot3IsJit,
+      jitPhase: slot3JitPhase,
     });
   }
 
