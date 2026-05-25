@@ -3873,7 +3873,11 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
-    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : composeStateLabel(0);
+    // Contract A only fires via the JIT pipeline above. If we got here, the
+    // first calendar event was not JIT-eligible — fall through to a
+    // state-anchored label (Contracts B / C / D / E) so we never emit a
+    // "Prepare ahead of X" string for a slot that is not actually JIT.
+    slot1TimeLabel = composeStateLabel(0);
   }
 
   if (slot1Practices.length > 0) {
