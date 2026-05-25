@@ -269,8 +269,6 @@ const TodayThreePriorities = ({
   const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacementError, setReplacementError] = useState<string | null>(null);
   const [replacementSelection, setReplacementSelection] = useState<string[]>([]);
-  const [replacementPriorityTag, setReplacementPriorityTag] = useState<'high' | 'medium' | 'low' | null>(null);
-  const [replacementRelationshipTag, setReplacementRelationshipTag] = useState<'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null>(null);
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -291,8 +289,6 @@ const TodayThreePriorities = ({
 
   const resetReplacementEditor = useCallback((slot?: HorizonModule) => {
     setReplacementSelection(slot?.replacementEventIds || []);
-    setReplacementPriorityTag(slot?.priorityTag ?? null);
-    setReplacementRelationshipTag(slot?.relationshipTag ?? null);
   }, []);
 
   // Tracks which priority fingerprints have ALREADY had their feedback modal shown
@@ -303,6 +299,10 @@ const TodayThreePriorities = ({
   // Phase 3: in-flight guard so a double-click on Apply cannot fire two
   // overlapping regenerations for the same selection.
   const regeneratingRef = useRef(false);
+  // Issue 1: while a cancel/undo/tag persist is in-flight, suppress any
+  // generate-mastery-plan calls so a refresh during the race cannot wipe
+  // the optimistic cancellation state.
+  const pendingPersistRef = useRef<number>(0);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
   const loadReplacementEvents = useCallback(async () => {
@@ -310,29 +310,22 @@ const TodayThreePriorities = ({
     setReplacementLoading(true);
     setReplacementError(null);
     try {
-      const now = new Date();
-      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const { data, error } = await supabase
-        .from('primary_calendar_events')
-        .select('id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring')
-        .eq('user_id', effectiveUserId)
-        .gte('start_time', now.toISOString())
-        .lt('start_time', in24h.toISOString())
-        .order('start_time', { ascending: true });
-
+      // Calendar events live under deny-by-default RLS scoped to Supabase
+      // auth.uid(). This app authenticates via Auth0, so the anon client
+      // can never read these rows. Always go through the service-role
+      // edge function which authenticates via Auth0 JWT.
+      const headers: Record<string, string> = {};
+      const token = await getAuthToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+      const { data, error } = await supabase.functions.invoke(
+        'list-replacement-calendar-events',
+        { headers, body: {} },
+      );
       if (error) throw error;
-      const events = (data || [])
-        .filter((event: any) => event?.id && event?.title && event?.start_time && event?.end_time)
-        .map((event: any) => ({
-          id: String(event.id),
-          title: String(event.title),
-          startTime: String(event.start_time),
-          endTime: String(event.end_time),
-          provider: event.provider ?? null,
-          attendeesCount: event.attendees_count ?? null,
-          isOrganizer: event.is_organizer ?? null,
-          isRecurring: event.is_recurring ?? null,
-        })) as CalendarReplacementEvent[];
+      const events = ((data?.events || []) as CalendarReplacementEvent[]).filter(
+        (e) => e?.id && e?.title && e?.startTime && e?.endTime,
+      );
       setReplacementEvents(events);
     } catch (error) {
       console.error('[TodayThreePriorities] Failed to load replacement events:', error);
