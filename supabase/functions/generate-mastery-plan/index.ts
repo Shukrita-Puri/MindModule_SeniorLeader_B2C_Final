@@ -3081,6 +3081,11 @@ interface HorizonModule {
   priorityTag?: 'high' | 'medium' | 'low' | null;
   relationshipTag?: string | null;
   customTags?: string[];
+  // Phase C: which §4 phase (pre/during/post) the slot anchors against the
+  // event. Lets a single JIT event legitimately occupy multiple slots when
+  // CATEGORY_MAX_SLOTS allows (G long-haul = 3, F multi-day = 3, A/D = 2).
+  // Null for non-JIT or state-anchored slots.
+  jitPhase?: 'pre' | 'during' | 'post' | null;
 }
 
 function determineAllocationPattern(
