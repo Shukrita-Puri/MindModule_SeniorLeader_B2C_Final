@@ -4211,6 +4211,9 @@ function buildHorizonModules(
   const seenContentIds = new Set<string>();
   const deduped: HorizonModule[] = [];
   for (const m of modules) {
+    // Variable-slot rule: drop slots whose state-anchor resolved to null
+    // (composeStateLabel returned null → empty timeLabel + zero practices).
+    if (!m.timeLabel || (m.practices?.length ?? 0) === 0) continue;
     if (!seenContentIds.has(m.practice.contentId)) {
       // Also deduplicate within practices array
       const uniquePractices: any[] = [];
@@ -4228,8 +4231,10 @@ function buildHorizonModules(
     }
   }
 
-  // If we have fewer than 3 unique modules, try to fill from enrichedContent pool
-  if (deduped.length < 3 && enrichedContent.length > 0) {
+  // Filler pass — only runs when slot 1 itself is missing (e.g. no
+  // todModules at all). Per the variable-slot contract, we never pad
+  // beyond what composeStateLabel agrees is a meaningful anchor.
+  if (deduped.length < 1 && enrichedContent.length > 0) {
     const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
     const hasBodyUnderLoad = req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null && req.wearableContext.hrvDeviation < -15;
     const hasMaskedHigh = divergenceMode === 'MASKED_HIGH';
@@ -4239,15 +4244,10 @@ function buildHorizonModules(
     const isNewUser = (shared.innerReadinessPattern.values?.length || 0) < 7;
     const isHeavyDay = req.calendarLoad === 'high' || req.calendarLoad === 'extreme';
 
-    const filledHorizons = deduped.map(m => m.horizon);
-    const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] = [];
-    if (!filledHorizons.includes('immediate')) needsHorizons.push('immediate');
-    if (!filledHorizons.includes('tactical')) needsHorizons.push('tactical');
-    if (!filledHorizons.includes('strategic')) needsHorizons.push('strategic');
-    while (needsHorizons.length < (3 - deduped.length)) needsHorizons.push('tactical');
+    const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] = ['immediate'];
 
     for (const targetHorizon of needsHorizons) {
-      if (deduped.length >= 3) break;
+      if (deduped.length >= 1) break;
 
       let pool = remaining.filter((c: any) => {
         const hTags: string[] = c.horizonTags || [];
@@ -4310,9 +4310,10 @@ function buildHorizonModules(
         thumbnailUrl: selected.thumbnail_url,
       };
       const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
+      const fillerLabel = composeStateLabel(fillerSlotIdx);
       deduped.push({
         horizon: targetHorizon,
-        timeLabel: composeStateLabel(fillerSlotIdx),
+        timeLabel: fillerLabel?.label ?? 'Steady the system ahead of today\u2019s load',
         typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
         whyLine: slotCtx.whyLine,
         practice: fillerPractice,
