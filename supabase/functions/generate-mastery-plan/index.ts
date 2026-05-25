@@ -3911,11 +3911,29 @@ function buildHorizonModules(
   // state/load/wearable anchors). canAnchorAgain enforces
   // CATEGORY_MAX_SLOTS so the same event can't show up in more slots
   // than its category permits (C/E/B/H = 1; A/D = 2; F/G = 3).
-  const slotAnchors: { eventId: string | null }[] = [];
+  const slotAnchors: { eventId: string | null; phase: 'pre' | 'during' | 'post' | null }[] = [];
   const anchorsUsedFor = (id: string) => slotAnchors.filter(a => a.eventId === id).length;
   const canAnchorAgain = (id: string, cat: any): boolean => {
     const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
     return anchorsUsedFor(id) < cap;
+  };
+  const phaseAlreadyAnchored = (id: string, phase: 'pre' | 'during' | 'post') =>
+    slotAnchors.some(a => a.eventId === id && a.phase === phase);
+  /**
+   * Phase C: walk the ranked (event, phase) candidate list and return the
+   * first candidate that (a) hasn't saturated its category's slot cap and
+   * (b) hasn't already been anchored with this same phase. Lets a single
+   * G long-haul / F multi-day / A pre+post event legitimately occupy
+   * multiple slots without re-using the same phase.
+   */
+  const pickNextRankedCandidate = (): RankedJitCandidate | null => {
+    for (const c of jitRankedCandidates) {
+      if (!c.eventId) continue;
+      if (!canAnchorAgain(c.eventId, c.categoryId)) continue;
+      if (phaseAlreadyAnchored(c.eventId, c.phase)) continue;
+      return c;
+    }
+    return null;
   };
   const pickAnchorEvent = (candidates: any[]): any | null => {
     for (const e of candidates) {
