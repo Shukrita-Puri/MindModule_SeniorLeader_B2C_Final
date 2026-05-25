@@ -41,7 +41,8 @@ export interface RitualData {
         cancelReason?: string | null;
         replacementEventIds?: string[];
         priorityTag?: 'high' | 'medium' | 'low' | null;
-        relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+        relationshipTag?: string | null;
+        customTags?: string[];
         updatedAt?: string;
       }>;
       updatedAt?: string;
@@ -270,7 +271,8 @@ function mergePlanEditState(
     cancelReason?: string | null;
     replacementEventIds?: string[];
     priorityTag?: 'high' | 'medium' | 'low' | null;
-    relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+    relationshipTag?: string | null;
+    customTags?: string[];
   },
 ) {
   const now = new Date().toISOString();
@@ -294,7 +296,8 @@ export async function persistPlanLedgerEdit(
     cancelReason?: string | null;
     replacementEventIds?: string[];
     priorityTag?: 'high' | 'medium' | 'low' | null;
-    relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+    relationshipTag?: string | null;
+    customTags?: string[];
   },
   sessionPeriod?: 'morning' | 'afternoon' | 'evening',
 ): Promise<RitualData | null> {

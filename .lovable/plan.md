@@ -1,33 +1,71 @@
-I found the likely root cause: cancel submit currently waits for the feedback write first, then persists the plan edit, then force-refreshes/regenerates the plan. If the feedback/backend call is slow, the modal appears frozen for a long time and the local UI never gets an immediate cancelled state. Also, the cancelled state is only visible after the regenerated plan comes back with `isCancelled`, so any slow generation path delays grey/strikethrough + Undo.
+## Three issues to fix on the Plan page (`TodayThreePriorities`)
 
-Plan:
+### Issue 1 — Cancelled priorities reset after refresh / page revisit
 
-1. Make cancel optimistic and instant in `TodayThreePriorities.tsx`
-   - On “Cancel priority”, immediately update local `plan.horizonModules[pendingCancel.index]` with:
-     - `isCancelled: true`
-     - `cancelReason`
-     - `replacementEventIds: []`
-   - Close the modal immediately so the compressed cancelled card + Undo appears right away.
-   - Persist the ledger edit in the background via `persistPlanLedgerEdit`.
-   - Submit cancellation feedback in parallel/background so it cannot block the UI.
-   - If ledger persistence fails, roll the local slot back and show the existing destructive toast.
-   - Preserve priority/relationship tags by not passing them in the cancel patch.
+**Root cause**
+The cancel flow is optimistic-only with a background `persistPlanLedgerEdit` write. Two race conditions wipe the cancelled state:
 
-2. Make Undo instant too
-   - On Undo, immediately set `isCancelled: false` and clear `cancelReason` locally so the prior slot returns immediately.
-   - Persist the uncancel edit in the background.
-   - If persistence fails, roll back to cancelled and show the existing toast.
-   - Do not trigger slow force regeneration for simple cancel/uncancel.
+1. After refresh, `loadPlan` may call `generate-mastery-plan` before the background write to `plan_ledger.userEdits` lands. The server response then comes back **without** `isCancelled`, and the line `setPlan(planResponse)` overwrites both the local state and the localStorage cache (`writePersistent(dataKey, planResponse, ttl)`).
+2. Several invalidation paths inside `loadPlan` (energy hash drift, JIT cache, brief identity change) regenerate the plan and produce the same overwrite.
 
-3. Keep cache consistent without regenerating
-   - Update the existing persistent plan cache when cancel/uncancel succeeds so refresh retains the current visible state while the DB ledger remains canonical.
+The server-side merge in `applyLedgerEditsToModules` is correct — but only useful once the write reaches the DB and the next regeneration runs.
 
-4. Improve glass feedback readability
-   - In `SlotCancelFeedbackModal.tsx`, make “Not relevant now” and “Not relevant ever” labels white, with more readable hint text.
-   - Increase modal glass contrast/readability without redesigning the UI.
-   - In shared `FeedbackCapture.tsx` and `PlanFeedbackModal.tsx`, adjust glass variant text, placeholders, borders, and button text contrast so all glass feedback modals are legible.
+**Fix**
+- Introduce a tiny client-side mirror of slot edits: `localStorage` key `plan-user-edits-${date}-${period}` storing `{ slotEdits: { 'slot-0': { cancelled, cancelReason, replacementEventIds, priorityTag, relationshipTag, customTags }, ... }, updatedAt }`. Helper module `src/utils/planUserEdits.ts`.
+- Write to this mirror **synchronously** on every cancel / undo / tag change, before the background DB persist.
+- In `loadPlan` (both cache-hit and fresh-fetch branches), after producing the plan response, re-apply the local mirror via a new client helper `applyLocalSlotEditsToPlan(plan, edits)` so the rendered plan always reflects local edits even if the server response is stale.
+- When the server response already carries `isCancelled`/`priorityTag`/`relationshipTag` newer than the local mirror (compare `updatedAt`), trust the server and clear the local mirror entry.
+- Gate `loadPlan` so a refresh while a background persist is in flight does not run `generate-mastery-plan`: track `pendingPersistRef` and short-circuit (use cached + mirror only) until persistence resolves.
+- On cancel/undo: keep the optimistic UI, but also `await` `persistPlanLedgerEdit` (no UI blocking — modal already closed) and roll back the mirror on failure.
 
-5. Validate after implementation
-   - Run targeted static checks/searches for the cancel path.
-   - Verify the modal no longer blocks on feedback before local cancellation state is shown.
-   - Confirm cancelled slots render grey/strikethrough with Undo and tags preserved.
+This makes cancellation survive: page refresh, route navigation away/back, full app reopen within the window, and iOS background returns.
+
+### Issue 2 — "No calendar events found in the next 24 hours" despite a packed calendar
+
+**Root cause**
+`loadReplacementEvents` in `TodayThreePriorities.tsx` queries `primary_calendar_events` directly from the browser using the Supabase anon client. The app authenticates via Auth0 (not native Supabase JWT), and `primary_calendar_events` has deny-by-default RLS that only the service-role edge functions can read. Confirmed: the DB has 9 events in the next 24h for the affected user, but the anon SELECT returns 0 rows.
+
+**Fix**
+- Add a new lightweight edge function `list-replacement-calendar-events` (service-role) that:
+  - Authenticates via Auth0 JWT (mirroring `generate-mastery-plan`'s auth helper) or `x-dev-user-id` in DEV.
+  - Returns the next 24h of `primary_calendar_events` for the user (id, title, start_time, end_time, provider, attendees_count, is_organizer, is_recurring).
+  - Falls back to `web_primary_calendar_events` if `primary_calendar_events` is empty (some users sync there).
+- Replace the direct `supabase.from('primary_calendar_events')` query in `loadReplacementEvents` with `supabase.functions.invoke('list-replacement-calendar-events', …)` using `getAuthToken()` like other calls in the file.
+- Keep the existing UI, grouping, and selection logic untouched.
+
+### Issue 3 — Priority tags only appear during replacement; need a simpler always-available "+ ADD TAG"
+
+**Goal**
+- Tags must be available on every priority card (cancelled or active, replacement or not), so the system learns from existing priorities too.
+- Replace the current "PRIORITY TAG / RELATIONSHIP TAG" pill blocks with a compact inline affordance: `+ ADD TAG`.
+- Tapping `+` opens a small popover offering three groups:
+  - **Importance**: High, Medium, Low.
+  - **Relationship**: Boss, Colleague, Junior, Client, Customer, Board, Leadership, Team.
+  - **Add your own tag** — free-text input, saves as a custom tag.
+- Selected tags render as small pills next to `+`, with an `×` to remove.
+
+**Fix**
+- Extend the `HorizonModule` shape with `customTags?: string[]` and broaden the existing `relationshipTag` enum to include `customer | board | leadership | team`.
+- Add new component `src/components/home/PriorityTagAffordance.tsx`:
+  - Inline `+ ADD TAG` button + selected-tag pills.
+  - Popover (reuse shadcn `Popover`) with the three groups.
+  - `onChange({ priorityTag, relationshipTag, customTags })` callback.
+- Render `PriorityTagAffordance` on every priority card in `TodayThreePriorities.tsx` (active and cancelled), wired to a new helper `updateSlotTags(slotIndex, patch)` that:
+  - Updates local state, the local mirror (Issue 1), and the persistent cache.
+  - Calls `persistPlanLedgerEdit` in the background with the same patch.
+- Remove the duplicate priority/relationship tag block from `CalendarReplacementPickerModal.tsx`; replacement picker just shows event selection. (The same `PriorityTagAffordance` is already on the parent card.)
+- Extend `mergePlanEditState`, `applyLedgerEditsToModules`, and the local mirror helpers to round-trip `customTags`.
+
+### Technical notes
+
+- **Files added**
+  - `src/utils/planUserEdits.ts` — local mirror read/write/merge/apply.
+  - `src/components/home/PriorityTagAffordance.tsx` — inline `+ ADD TAG` UI.
+  - `supabase/functions/list-replacement-calendar-events/index.ts` — service-role calendar fetch.
+- **Files changed**
+  - `src/components/home/TodayThreePriorities.tsx` — use mirror in `loadPlan` cache-hit + post-fetch, route cancel/undo/tag through the mirror, await persist + rollback, render `PriorityTagAffordance` on every card, switch calendar fetch to the new edge function, gate `loadPlan` on `pendingPersistRef`.
+  - `src/components/home/CalendarReplacementPickerModal.tsx` — drop the duplicate priority/relationship blocks; keep event grouping/selection.
+  - `src/utils/dailyRituals.ts` — extend `RitualData['plan_ledger'].userEdits.slotEdits` with `customTags` and the expanded relationship enum.
+  - `supabase/functions/generate-mastery-plan/index.ts` — extend `PlanLedger['userEdits'].slotEdits` and `applyLedgerEditsToModules` to round-trip `customTags` and the new relationship values.
+- **Schema**: no migration required — `plan_ledger` is JSONB.
+- **Validation**: after build, manually verify in preview that cancel survives a hard refresh, that the replacement picker lists the user's real events, and that `+ ADD TAG` works on an active priority and persists across refresh.

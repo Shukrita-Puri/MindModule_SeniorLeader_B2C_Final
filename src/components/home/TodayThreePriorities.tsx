@@ -28,6 +28,13 @@ import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import PriorityTagAffordance, { type PriorityTagState } from '@/components/home/PriorityTagAffordance';
+import {
+  readEdits as readPlanEdits,
+  patchSlotEdit as patchPlanSlotEdit,
+  applyEditsToModules as applyPlanEditsToModules,
+  clearSlotEdit as clearPlanSlotEdit,
+} from '@/utils/planUserEdits';
 import {
   read as readPersistent,
   write as writePersistent,
@@ -101,7 +108,8 @@ interface HorizonModule {
   cancelReason?: string | null;
   replacementEventIds?: string[];
   priorityTag?: 'high' | 'medium' | 'low' | null;
-  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+  relationshipTag?: string | null;
+  customTags?: string[];
 }
 
 interface CoachCardData {
@@ -261,8 +269,6 @@ const TodayThreePriorities = ({
   const [replacementLoading, setReplacementLoading] = useState(false);
   const [replacementError, setReplacementError] = useState<string | null>(null);
   const [replacementSelection, setReplacementSelection] = useState<string[]>([]);
-  const [replacementPriorityTag, setReplacementPriorityTag] = useState<'high' | 'medium' | 'low' | null>(null);
-  const [replacementRelationshipTag, setReplacementRelationshipTag] = useState<'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null>(null);
 
   const loadPersistedSet = (key: string): Set<string> => {
     try {
@@ -283,8 +289,6 @@ const TodayThreePriorities = ({
 
   const resetReplacementEditor = useCallback((slot?: HorizonModule) => {
     setReplacementSelection(slot?.replacementEventIds || []);
-    setReplacementPriorityTag(slot?.priorityTag ?? null);
-    setReplacementRelationshipTag(slot?.relationshipTag ?? null);
   }, []);
 
   // Tracks which priority fingerprints have ALREADY had their feedback modal shown
@@ -295,6 +299,10 @@ const TodayThreePriorities = ({
   // Phase 3: in-flight guard so a double-click on Apply cannot fire two
   // overlapping regenerations for the same selection.
   const regeneratingRef = useRef(false);
+  // Issue 1: while a cancel/undo/tag persist is in-flight, suppress any
+  // generate-mastery-plan calls so a refresh during the race cannot wipe
+  // the optimistic cancellation state.
+  const pendingPersistRef = useRef<number>(0);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
   const loadReplacementEvents = useCallback(async () => {
@@ -302,29 +310,22 @@ const TodayThreePriorities = ({
     setReplacementLoading(true);
     setReplacementError(null);
     try {
-      const now = new Date();
-      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const { data, error } = await supabase
-        .from('primary_calendar_events')
-        .select('id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring')
-        .eq('user_id', effectiveUserId)
-        .gte('start_time', now.toISOString())
-        .lt('start_time', in24h.toISOString())
-        .order('start_time', { ascending: true });
-
+      // Calendar events live under deny-by-default RLS scoped to Supabase
+      // auth.uid(). This app authenticates via Auth0, so the anon client
+      // can never read these rows. Always go through the service-role
+      // edge function which authenticates via Auth0 JWT.
+      const headers: Record<string, string> = {};
+      const token = await getAuthToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+      const { data, error } = await supabase.functions.invoke(
+        'list-replacement-calendar-events',
+        { headers, body: {} },
+      );
       if (error) throw error;
-      const events = (data || [])
-        .filter((event: any) => event?.id && event?.title && event?.start_time && event?.end_time)
-        .map((event: any) => ({
-          id: String(event.id),
-          title: String(event.title),
-          startTime: String(event.start_time),
-          endTime: String(event.end_time),
-          provider: event.provider ?? null,
-          attendeesCount: event.attendees_count ?? null,
-          isOrganizer: event.is_organizer ?? null,
-          isRecurring: event.is_recurring ?? null,
-        })) as CalendarReplacementEvent[];
+      const events = ((data?.events || []) as CalendarReplacementEvent[]).filter(
+        (e) => e?.id && e?.title && e?.startTime && e?.endTime,
+      );
       setReplacementEvents(events);
     } catch (error) {
       console.error('[TodayThreePriorities] Failed to load replacement events:', error);
@@ -534,6 +535,12 @@ const TodayThreePriorities = ({
               shouldRegenerate = true;
             } else {
               const stripped = stripCoachFromPlan(parsed)!;
+              // Re-apply local mirror so cancellations/tags survive refresh.
+              if (stripped.horizonModules) {
+                stripped.horizonModules = applyPlanEditsToModules(
+                  stripped.horizonModules, todayDate, currentPeriod,
+                );
+              }
               setPlan(stripped);
               // Day-scoped union so morning completions persist into afternoon ✓
               const unionCompleted = await getTodayCompletedUnion();
@@ -547,6 +554,13 @@ const TodayThreePriorities = ({
             }
           }
         }
+      }
+
+      // Issue 1: if a cancel/undo persist is in flight, do not blow away
+      // optimistic state by calling the generator before the write lands.
+      if (pendingPersistRef.current > 0 && !forceRefresh) {
+        setLoading(false);
+        return true;
       }
 
       // Fetch fresh plan with retry logic for transient network errors
@@ -635,6 +649,13 @@ const TodayThreePriorities = ({
       }
 
       const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
+      // Re-apply local mirror onto fresh server response so optimistic
+      // cancellations/tags survive races where persistence hasn't landed yet.
+      if (planResponse.horizonModules) {
+        planResponse.horizonModules = applyPlanEditsToModules(
+          planResponse.horizonModules, todayDate, currentPeriod,
+        );
+      }
       setPlan(planResponse);
 
       // Store plan for stability
@@ -1093,10 +1114,6 @@ const TodayThreePriorities = ({
                 slotTitle={replacementSlot.title}
                 events={replacementEvents}
                 selectedIds={replacementSelection}
-                priorityTag={replacementPriorityTag}
-                relationshipTag={replacementRelationshipTag}
-                onPriorityTagChange={setReplacementPriorityTag}
-                onRelationshipTagChange={setReplacementRelationshipTag}
                 onToggleEvent={(eventId) => {
                   setReplacementSelection((prev) => {
                     if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
@@ -1126,8 +1143,6 @@ const TodayThreePriorities = ({
                         cancelled: false,
                         cancelReason: null,
                         replacementEventIds: selectedIds,
-                        priorityTag: replacementPriorityTag,
-                        relationshipTag: replacementRelationshipTag,
                       },
                       getCurrentTimeWindow(),
                     );
@@ -1138,8 +1153,6 @@ const TodayThreePriorities = ({
                     // Reset picker state and close BEFORE the regenerate call
                     // so the existing EngravedLoader is what the user sees.
                     setReplacementSelection([]);
-                    setReplacementPriorityTag(null);
-                    setReplacementRelationshipTag(null);
                     setReplacementSlot(null);
                     // Surface the existing loader (silent:false) while the
                     // generator runs with the selected events.
@@ -1150,8 +1163,6 @@ const TodayThreePriorities = ({
                 }}
                 onClose={() => {
                   setReplacementSelection([]);
-                  setReplacementPriorityTag(null);
-                  setReplacementRelationshipTag(null);
                   setReplacementSlot(null);
                 }}
                 isLoading={replacementLoading}
@@ -1548,11 +1559,19 @@ const TodayThreePriorities = ({
                 const today = localISODate();
                 const period = getCurrentTimeWindow();
                 writePersistent(cacheKeys.planData(today, period), next, ttl);
+                // Issue 1: mirror to localStorage so refresh survives even if
+                // the background DB write hasn't landed yet.
+                patchPlanSlotEdit(today, period, cancelIndex, {
+                  cancelled: true,
+                  cancelReason: reason,
+                  replacementEventIds: [],
+                });
               } catch { /* ignore */ }
               return next;
             });
             // Background persistence — do not block UI.
             (async () => {
+              pendingPersistRef.current += 1;
               const saved = await persistPlanLedgerEdit(
                 cancelIndex,
                 {
@@ -1562,6 +1581,7 @@ const TodayThreePriorities = ({
                 },
                 getCurrentTimeWindow(),
               );
+              pendingPersistRef.current = Math.max(0, pendingPersistRef.current - 1);
               if (!saved) {
                 // Roll back optimistic state.
                 setPlan((prev) => {
@@ -1570,6 +1590,7 @@ const TodayThreePriorities = ({
                     i === cancelIndex ? { ...m, isCancelled: false, cancelReason: null } : m,
                   ) } as MasteryPlanResponse;
                 });
+                try { clearPlanSlotEdit(localISODate(), getCurrentTimeWindow(), cancelIndex); } catch { /* ignore */ }
                 toast({ title: 'Could not save this cancel', description: 'Please try again.', variant: 'destructive' });
                 return;
               }
