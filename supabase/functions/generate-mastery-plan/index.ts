@@ -3761,7 +3761,9 @@ function buildHorizonModules(
     nowMs: number,
   ): { phase: Phase; label: string; combo: ComboKey | null; categoryId: EventCategoryId | null } => {
     const fallbackTitle = (eventTitle && eventTitle.trim()) || 'this event';
-    const truncated = truncateTitle(eventTitle, 5) || fallbackTitle;
+    const truncated = (eventTitle && eventTitle.trim())
+      ? eventTitle.trim().split(/\s+/).slice(0, 5).join(' ')
+      : fallbackTitle;
     const subtype = classifyEvent(eventTitle);
     const categoryId = subtype?.categoryId ?? null;
     const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
