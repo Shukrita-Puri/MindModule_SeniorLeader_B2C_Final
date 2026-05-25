@@ -3832,9 +3832,7 @@ function buildHorizonModules(
     slot1Practices = jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
-    slot1TimeLabel = jitMinutesUntil < 30
-      ? `${jitEventTitle} · now`
-      : `${jitEventTitle} · in ${Math.round(jitMinutesUntil)} mins`;
+    slot1TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -3843,7 +3841,7 @@ function buildHorizonModules(
       const alignMod = todModules.find((m: any) => m.contentId !== regMod.contentId && m.type === 'align' && !m.isCoachCard);
       if (alignMod) slot1Practices.push(alignMod);
     }
-    slot1TimeLabel = 'Prepare for the day';
+    slot1TimeLabel = composeStateLabel(0);
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -3854,7 +3852,7 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
-    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : timeOfDayLabel;
+    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : composeStateLabel(0);
   }
 
   if (slot1Practices.length > 0) {
