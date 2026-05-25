@@ -16,13 +16,23 @@ Deno.test('emits pre + post for a board meeting at T+2h', () => {
   assertEquals(ranked[0].phase, 'pre');
 });
 
-Deno.test('long-haul flight expands to pre + post (category F)', () => {
+Deno.test('keynote (category F) emits pre + post', () => {
   const ranked = rankJitCandidates(
-    [{ event: { id: 'f1', title: 'Long-haul flight to NYC', start_time: inHours(6), end_time: inHours(14) }, stakesLevel: 'medium' }],
+    [{ event: { id: 'f1', title: 'Industry keynote', start_time: inHours(6), end_time: inHours(7) }, stakesLevel: 'external' }],
     NOW,
   );
   const fPhases = ranked.filter(r => r.categoryId === 'F').map(r => r.phase).sort();
   assertEquals(fPhases, ['post', 'pre']);
+});
+
+Deno.test('long-haul flight (category G) emits a single during candidate', () => {
+  const ranked = rankJitCandidates(
+    [{ event: { id: 'g1', title: 'Long-haul flight to NYC', start_time: inHours(6), end_time: inHours(14) }, stakesLevel: 'medium' }],
+    NOW,
+  );
+  const g = ranked.filter(r => r.categoryId === 'G');
+  assertEquals(g.length, 1);
+  assertEquals(g[0].phase, 'during');
 });
 
 Deno.test('deep work emits a single pre candidate (category E)', () => {
