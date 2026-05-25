@@ -1191,20 +1191,43 @@ const TodayThreePriorities = ({
                     type="button"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      const saved = await persistPlanLedgerEdit(
-                        index,
-                        {
-                          cancelled: false,
-                          cancelReason: null,
-                          replacementEventIds: hm.replacementEventIds || [],
-                        },
-                        getCurrentTimeWindow(),
-                      );
-                      if (saved) {
-                        await loadPlan({ silent: true, forceRefresh: true });
-                      } else {
-                        toast({ title: 'Could not restore this priority', description: 'Your change was not saved.', variant: 'destructive' });
-                      }
+                      // Optimistic: instantly restore the slot locally so
+                      // the prior state returns without waiting for the
+                      // server. Persistence runs in the background; on
+                      // failure we roll back to cancelled.
+                      setPlan((prev) => {
+                        if (!prev?.horizonModules) return prev;
+                        const next = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+                          i === index ? { ...m, isCancelled: false, cancelReason: null } : m,
+                        ) } as MasteryPlanResponse;
+                        try {
+                          const ttl = msUntilWindowEnd();
+                          const today = localISODate();
+                          const period = getCurrentTimeWindow();
+                          writePersistent(cacheKeys.planData(today, period), next, ttl);
+                        } catch { /* ignore */ }
+                        return next;
+                      });
+                      (async () => {
+                        const saved = await persistPlanLedgerEdit(
+                          index,
+                          {
+                            cancelled: false,
+                            cancelReason: null,
+                            replacementEventIds: hm.replacementEventIds || [],
+                          },
+                          getCurrentTimeWindow(),
+                        );
+                        if (!saved) {
+                          setPlan((prev) => {
+                            if (!prev?.horizonModules) return prev;
+                            return { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+                              i === index ? { ...m, isCancelled: true } : m,
+                            ) } as MasteryPlanResponse;
+                          });
+                          toast({ title: 'Could not restore this priority', description: 'Your change was not saved.', variant: 'destructive' });
+                        }
+                      })();
                     }}
                     className="text-[11px] font-medium text-taupe hover:text-taupe-rich px-2 py-1 rounded-md hover:bg-taupe/10 flex-shrink-0"
                     aria-label="Undo cancel"
