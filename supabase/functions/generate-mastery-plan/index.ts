@@ -3944,12 +3944,17 @@ function buildHorizonModules(
     // selfRegulationFocus. This keeps state actions consistent with the
     // category's coaching contract instead of relying on title keywords.
     const anchorEventForVerb = slotIndex === 2 ? (tomorrowLeadEvent || todayLeadEvent) : (todayLeadEvent || tomorrowLeadEvent);
-    const anchorSubtype = anchorEventForVerb ? classifyEvent(anchorEventForVerb.title) : null;
-    const anchorCategory = anchorSubtype?.categoryId ?? null;
+    const anchorEnriched = anchorEventForVerb ? enrichEvent(anchorEventForVerb) : null;
+    const anchorSubtype = anchorEnriched?.subtype ?? null;
+    const anchorCategory = anchorEnriched?.categoryId ?? null;
+    const anchorDemand = anchorEnriched?.demandProfile ?? null;
 
     // 1) State action — pick strongest signal
     let stateAction = '';
-    if (tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
+    // Demand-profile override (Phase A): circadian-heavy events (cir≥2) or
+    // category G (Travel) always win the state verb — title regex is the
+    // fallback for events the classifier doesn't recognise.
+    if (anchorCategory === 'G' || (anchorDemand && anchorDemand.cir >= 2) || tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
       stateAction = 'Re-anchor circadian rhythm';
     } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
       stateAction = 'Restore HRV';
@@ -3959,13 +3964,20 @@ function buildHorizonModules(
       // Category D (People & Difficult Conversations) explicitly calls for
       // emotional discharge; category A pre-stage needs composure. Both map
       // to "Settle". G (travel) handled above.
-      stateAction = (anchorCategory === 'C' || anchorCategory === 'F') ? 'Reset stage chemistry' : 'Settle the system';
+      // Demand-profile refinement: high emotional demand (emo≥3) — even on
+      // an A/E category — should still settle, not reset.
+      const highVisibility = (anchorCategory === 'C' || anchorCategory === 'F');
+      const highEmotional = !!(anchorDemand && anchorDemand.emo >= 3);
+      stateAction = (highVisibility && !highEmotional) ? 'Reset stage chemistry' : 'Settle the system';
     } else if (load === 'high' || pressure === 'high') {
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
       // Category E (Deep Work & Strategy) is flow-activation; nudge toward
-      // priming verb rather than re-consolidation.
-      stateAction = anchorCategory === 'E' ? 'Prime for focus' : 'Re-consolidate focus';
+      // priming verb rather than re-consolidation. Same for any subtype
+      // with cognitive-dominant demand (cog≥3, emo≤1, ene≤1) — e.g.
+      // strategy planning, board prep.
+      const cogDominant = !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 && anchorDemand.ene <= 1);
+      stateAction = (anchorCategory === 'E' || cogDominant) ? 'Prime for focus' : 'Re-consolidate focus';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
