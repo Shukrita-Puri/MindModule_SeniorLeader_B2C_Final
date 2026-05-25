@@ -72,7 +72,7 @@ const SlotCancelFeedbackModal = ({
                         : "border-white/40 bg-white/10 text-white hover:bg-white/20 hover:border-white/60",
                     )}
                   >
-                    <p className="text-sm font-medium leading-tight">{label}</p>
+                    <p className="text-sm font-medium leading-tight text-white">{label}</p>
                     <p className="text-[11px] text-white/75 mt-0.5">{hint}</p>
                   </button>
                 );
