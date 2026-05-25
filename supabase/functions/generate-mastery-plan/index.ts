@@ -4111,6 +4111,7 @@ function buildHorizonModules(
       showNavyBorder: false,
       showPulse: slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil < 120,
       showPriorityPill: slot1IsJit,
+      jitPhase: slot1IsJit ? jitPhase.phase : null,
     });
   }
 
@@ -4176,6 +4177,7 @@ function buildHorizonModules(
       showNavyBorder: slot2NavyBorder,
       showPulse: false,
       showPriorityPill: slot2IsJit,
+      jitPhase: slot2IsJit ? jitPhase.phase : null,
     });
   }
 
