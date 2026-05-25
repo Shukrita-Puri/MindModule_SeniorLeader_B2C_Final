@@ -84,6 +84,13 @@ interface PlanRequest {
   localDate?: string;
   todayCheckinId?: string | null;
   selectedCalendarEventIds?: string[];
+  /**
+   * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
+   * Anchors a specific calendar event to a specific slot index.
+   * Other slots are never re-ranked or touched.
+   * Shape: { "0": { eventId }, "1": { eventId }, "2": { eventId } }
+   */
+  slotReplacements?: Record<string, { eventId: string }>;
   // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
@@ -2183,15 +2190,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
   }
 
-  const selectedEventIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
-  const selectedEventOrder = new Map<string, number>(
-    (req.selectedCalendarEventIds || []).filter(Boolean).map((id, index) => [id, index]),
+  // Per-slot replacements are honored post-merge via slot-index anchoring
+  // (see applySlotReplacementOverrides). We intentionally do NOT boost
+  // scores here — a global boost would let a per-slot replacement bubble
+  // up to slot 1 instead of staying in the slot the user clicked.
+  // Legacy `selectedCalendarEventIds` is retained as a soft signal only
+  // (mark events for downstream observability), with no score impact.
+  const legacySelectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
+  const slotReplacementEventIds = new Set(
+    Object.values(req.slotReplacements || {})
+      .map((v: any) => (v && typeof v.eventId === 'string' ? v.eventId : ''))
+      .filter(Boolean),
   );
-  if (selectedEventIds.size > 0) {
+  if (legacySelectedIds.size > 0 || slotReplacementEventIds.size > 0) {
     for (const evt of filteredEvents) {
-      if (selectedEventIds.has(evt.event.id)) {
-        const boost = 100 + (selectedEventOrder.get(evt.event.id) ?? 0);
-        evt.score = (evt.score || 0) + boost;
+      if (legacySelectedIds.has(evt.event.id) || slotReplacementEventIds.has(evt.event.id)) {
         (evt as any).selectedByUser = true;
       }
     }
@@ -2744,6 +2757,60 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     );
   } catch (enrichErr: any) {
     console.warn('[generate-mastery-plan] v5.1 enrichment failed:', enrichErr?.message);
+  }
+
+  // ── Per-slot replacement override ─────────────────────────────────────
+  // Strictly 1:1: each entry in req.slotReplacements pins one calendar
+  // event to one slot index. We anchor that slot to a fresh module that
+  // matches the chosen event and leave every other slot untouched. This
+  // runs after merge+enrich so that:
+  //  - When a ledger already records the edit, mergeWithLedger's Rule 3a
+  //    has already placed the right content; this override is a no-op or
+  //    idempotent reinforcement.
+  //  - When the ledger hasn't yet caught up (race on first regen after
+  //    the client's persist), this override still binds the event to the
+  //    exact slot index the user clicked instead of letting it bubble to
+  //    slot 1 via fresh ordering.
+  try {
+    const slotReplacements = (req.slotReplacements && typeof req.slotReplacements === 'object')
+      ? req.slotReplacements
+      : {};
+    for (const [slotKey, value] of Object.entries(slotReplacements)) {
+      const idx = Number(slotKey);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= finalHorizonModules.length) continue;
+      const eventId = (value as any)?.eventId;
+      if (typeof eventId !== 'string' || !eventId) continue;
+      const evt = (req.calendarEvents || []).find((e: any) => String(e.id) === String(eventId));
+      if (!evt) continue;
+      const matchTitle = String(evt.title || '').trim().toLowerCase();
+      if (!matchTitle) continue;
+      const freshMatch = horizonModules.find((m: HorizonModule) =>
+        m.isJit && (m.jitEventTitle || '').toLowerCase().trim() === matchTitle,
+      ) || horizonModules.find((m: HorizonModule) => {
+        const t = (m.jitEventTitle || '').toLowerCase().trim();
+        return !!t && (t.includes(matchTitle) || matchTitle.includes(t));
+      });
+      if (!freshMatch) continue;
+      const prior = finalHorizonModules[idx];
+      // Skip if this exact slot is already anchored to the requested event.
+      const alreadyAnchored = (prior?.replacementEventIds || []).includes(eventId) ||
+        ((prior?.jitEventTitle || '').toLowerCase().trim() === matchTitle && !prior?.isCancelled);
+      if (alreadyAnchored) continue;
+      finalHorizonModules[idx] = {
+        ...freshMatch,
+        isCancelled: false,
+        cancelReason: null,
+        replacementEventIds: [eventId],
+        priorityTag: prior?.priorityTag ?? null,
+        relationshipTag: prior?.relationshipTag ?? null,
+        customTags: prior?.customTags ?? [],
+      };
+      console.log('[generate-mastery-plan] per-slot replacement applied', {
+        slotIndex: idx, eventId, eventTitle: evt.title,
+      });
+    }
+  } catch (overrideErr: any) {
+    console.warn('[generate-mastery-plan] slot replacement override failed:', overrideErr?.message);
   }
 
   // Persist the (possibly evolved) ledger onto the current period row so the
@@ -4305,6 +4372,19 @@ Deno.serve(async (req) => {
     const selectedCalendarEventIds = Array.isArray(body.selectedCalendarEventIds)
       ? body.selectedCalendarEventIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
       : [];
+    // Per-slot replacement contract (preferred). Each entry binds one event
+    // to one slot index. Validated/normalised here; downstream code keys on
+    // string slot indexes "0" | "1" | "2".
+    const slotReplacements: Record<string, { eventId: string }> = {};
+    if (body.slotReplacements && typeof body.slotReplacements === 'object') {
+      for (const [k, v] of Object.entries(body.slotReplacements)) {
+        const idx = Number(k);
+        const eventId = (v as any)?.eventId;
+        if (Number.isInteger(idx) && idx >= 0 && idx <= 2 && typeof eventId === 'string' && eventId.length > 0) {
+          slotReplacements[String(idx)] = { eventId };
+        }
+      }
+    }
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
@@ -4373,6 +4453,7 @@ Deno.serve(async (req) => {
       localDate: clientLocalDate || undefined,
       todayCheckinId,
       selectedCalendarEventIds,
+      slotReplacements,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
