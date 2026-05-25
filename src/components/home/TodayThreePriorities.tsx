@@ -1227,16 +1227,16 @@ const TodayThreePriorities = ({
                     <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
                       {hm.timeLabel} · {module.title}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
-                      Cancelled
-                    </p>
-                    <div className="mt-1.5">
+                    <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                       <PriorityTagAffordance
                         value={tagState}
                         onChange={(next) => updateSlotTags(index, next)}
                         muted
                       />
                     </div>
+                    <p className="text-[10px] text-muted-foreground/50 font-body mt-1">
+                      Cancelled
+                    </p>
                   </div>
                   <button
                     type="button"
