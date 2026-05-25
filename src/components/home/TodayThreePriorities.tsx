@@ -1227,16 +1227,16 @@ const TodayThreePriorities = ({
                     <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
                       {hm.timeLabel} · {module.title}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
-                      Cancelled
-                    </p>
-                    <div className="mt-1.5">
+                    <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                       <PriorityTagAffordance
                         value={tagState}
                         onChange={(next) => updateSlotTags(index, next)}
                         muted
                       />
                     </div>
+                    <p className="text-[10px] text-muted-foreground/50 font-body mt-1">
+                      Cancelled
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1351,17 +1351,17 @@ const TodayThreePriorities = ({
                           </span>
                         )}
                       </p>
-                      {hm.whyLine && !slotCompleted && (
-                        <p className="text-xs italic text-muted-foreground/50 font-body truncate">
-                          {hm.whyLine}
-                        </p>
-                      )}
                       <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                         <PriorityTagAffordance
                           value={tagState}
                           onChange={(next) => updateSlotTags(index, next)}
                         />
                       </div>
+                      {hm.whyLine && !slotCompleted && (
+                        <p className="text-xs italic text-muted-foreground/50 font-body truncate mt-1">
+                          {hm.whyLine}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1404,6 +1404,13 @@ const TodayThreePriorities = ({
                     </div>
                   )}
 
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <PriorityTagAffordance
+                      value={tagState}
+                      onChange={(next) => updateSlotTags(index, next)}
+                    />
+                  </div>
+
                   {hm.whyLine && (
                     <div className="space-y-1">
                       <span className="text-[10px] tracking-[0.14em] uppercase font-body text-muted-foreground/70">
@@ -1414,13 +1421,6 @@ const TodayThreePriorities = ({
                       </p>
                     </div>
                   )}
-
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <PriorityTagAffordance
-                      value={tagState}
-                      onChange={(next) => updateSlotTags(index, next)}
-                    />
-                  </div>
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {hm.recommendedAction || fallbackRecommendedAction(hm)}
