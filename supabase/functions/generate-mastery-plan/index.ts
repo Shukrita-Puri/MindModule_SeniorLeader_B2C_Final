@@ -12,6 +12,13 @@ import {
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
+// §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
+// (Pre / During / Post) contract. Slot labelling and JIT framing now consult
+// these modules instead of redefining the taxonomy locally.
+import { EVENT_CATEGORIES, type EventCategoryId } from '../_shared/events/event-categories.ts';
+import { classifyEvent } from '../_shared/events/event-classifier.ts';
+import { EVENT_PHASE_MAP, phaseForEvent, type Phase } from '../_shared/events/event-phase-map.ts';
+import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3735,6 +3742,81 @@ function buildHorizonModules(
   const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
   const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
 
+  // ── §4 Pre/During/Post phase-aware JIT label resolver ────────────────
+  // Given the JIT topEvent + current time, returns the correct slot label
+  // contract:
+  //   pre    → "Prepare ahead of <Event>"
+  //   during → "Stay regulated through <Event>"  (skipped for category F —
+  //            EVENT_CATEGORIES.F.protocol.duringNotificationOnly = true)
+  //   post   → "Recover after <Event>" / "Reset after <Event>" (high-stakes
+  //            A/D use "Reset" per §3 selfRegulationFocus emphasis on
+  //            discharging stage chemistry / emotional residue)
+  // The resolved ComboKey from event-phase-map.ts is returned alongside so
+  // downstream practice selection can prefer matching practices (TODO wiring
+  // into module mapping — see follow-up plan §5).
+  const resolveJitPhaseLabel = (
+    eventTitle: string | null | undefined,
+    eventStartMs: number | null,
+    eventEndMs: number | null,
+    nowMs: number,
+  ): { phase: Phase; label: string; combo: ComboKey | null; categoryId: EventCategoryId | null } => {
+    const fallbackTitle = (eventTitle && eventTitle.trim()) || 'this event';
+    const truncated = (eventTitle && eventTitle.trim())
+      ? eventTitle.trim().split(/\s+/).slice(0, 5).join(' ')
+      : fallbackTitle;
+    const subtype = classifyEvent(eventTitle);
+    const categoryId = subtype?.categoryId ?? null;
+    const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
+
+    // Resolve phase from absolute times (the only signal we trust).
+    let phase: Phase = 'pre';
+    if (eventStartMs != null && eventEndMs != null) {
+      if (nowMs >= eventEndMs) phase = 'post';
+      else if (nowMs >= eventStartMs) phase = 'during';
+      else phase = 'pre';
+    } else if (eventStartMs != null && nowMs >= eventStartMs) {
+      // No end time: assume 60-minute default; treat as post after that.
+      phase = (nowMs - eventStartMs) > 60 * 60_000 ? 'post' : 'during';
+    }
+
+    // Category F (Conferences) — DURING is notification-only by §3 contract.
+    // If we land in "during" for F, downgrade to "pre" framing so we never
+    // emit a slot card the user can't action mid-keynote.
+    if (phase === 'during' && category?.protocol.duringNotificationOnly) {
+      phase = 'pre';
+    }
+
+    // Some categories have no During / Post phase defined (E pre-only,
+    // G partial). Fall back to the closest defined phase rather than
+    // emitting a nonsense label.
+    if (categoryId && !EVENT_PHASE_MAP[categoryId][phase]) {
+      const order: Phase[] = phase === 'post' ? ['post', 'pre', 'during']
+        : phase === 'during' ? ['during', 'pre', 'post']
+        : ['pre', 'during', 'post'];
+      const found = order.find((p) => EVENT_PHASE_MAP[categoryId][p]);
+      if (found) phase = found;
+    }
+
+    const resolved = phaseForEvent(eventTitle || '', phase);
+    const combo = resolved ? (`${resolved.resolvedCombo.protocol}.${resolved.resolvedCombo.mode}` as ComboKey) : null;
+
+    // High-stakes governance (A) and difficult people work (D) need a
+    // sharper Post verb — §3 selfRegulationFocus calls out "discharge
+    // residual emotional load" / "post-peak hangover". Use "Reset after".
+    const isHighStakesPost = phase === 'post' && (categoryId === 'A' || categoryId === 'D');
+
+    let label: string;
+    if (phase === 'pre') {
+      label = `Prepare ahead of ${truncated}`;
+    } else if (phase === 'during') {
+      label = `Stay regulated through ${truncated}`;
+    } else {
+      label = `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
+    }
+
+    return { phase, label, combo, categoryId };
+  };
+
   // ── State + Calendar label composer ─────────────────────────────────
   // Every non-JIT slot label MUST take the form:
   //   "<state action> ahead of <calendar anchor>"
@@ -3785,6 +3867,13 @@ function buildHorizonModules(
     const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
     const tdyTitle = truncateTitle(todayLeadEvent?.title);
     const tmrIsTravel = isTravelTitle(tomorrowLeadEvent?.title);
+    // §3 category-derived bias: if the dominant anchor event maps to a
+    // known framework pillar, prefer the verb that matches its
+    // selfRegulationFocus. This keeps state actions consistent with the
+    // category's coaching contract instead of relying on title keywords.
+    const anchorEventForVerb = slotIndex === 2 ? (tomorrowLeadEvent || todayLeadEvent) : (todayLeadEvent || tomorrowLeadEvent);
+    const anchorSubtype = anchorEventForVerb ? classifyEvent(anchorEventForVerb.title) : null;
+    const anchorCategory = anchorSubtype?.categoryId ?? null;
 
     // 1) State action — pick strongest signal
     let stateAction = '';
@@ -3795,11 +3884,16 @@ function buildHorizonModules(
     } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
       stateAction = 'Recover sleep debt';
     } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
-      stateAction = 'Settle the system';
+      // Category D (People & Difficult Conversations) explicitly calls for
+      // emotional discharge; category A pre-stage needs composure. Both map
+      // to "Settle". G (travel) handled above.
+      stateAction = (anchorCategory === 'C' || anchorCategory === 'F') ? 'Reset stage chemistry' : 'Settle the system';
     } else if (load === 'high' || pressure === 'high') {
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
-      stateAction = 'Re-consolidate focus';
+      // Category E (Deep Work & Strategy) is flow-activation; nudge toward
+      // priming verb rather than re-consolidation.
+      stateAction = anchorCategory === 'E' ? 'Prime for focus' : 'Re-consolidate focus';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
@@ -3842,6 +3936,13 @@ function buildHorizonModules(
 
   const modules: HorizonModule[] = [];
 
+  // Pre-compute JIT phase label once — used by whichever slot lands on the
+  // JIT event. Pulled out so Slot 1 (touch1) / Slot 2 (touch2) / Slot 3
+  // (post window) all share one phase-aware contract.
+  const topEventStartMs = topEvent ? new Date(topEvent.event.start_time).getTime() : null;
+  const topEventEndMs = topEvent && topEvent.event.end_time ? new Date(topEvent.event.end_time).getTime() : null;
+  const jitPhase = resolveJitPhaseLabel(jitEventTitle, topEventStartMs, topEventEndMs, nowMs);
+
   // ─── SLOT 1 (Immediate) ───
   let slot1Practices: any[] = [];
   let slot1IsJit = false;
@@ -3853,7 +3954,7 @@ function buildHorizonModules(
     slot1Practices = jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
-    slot1TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot1TimeLabel = jitPhase.label;
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -3916,12 +4017,12 @@ function buildHorizonModules(
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
-    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot2TimeLabel = jitPhase.label;
   } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
-    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot2TimeLabel = jitPhase.label;
   } else {
     // Second ToD module(s), skipping slot1 IDs
     const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
