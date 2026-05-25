@@ -107,3 +107,22 @@ Once §3/§4 are wired, the "Why this matters" body copy and per-practice contex
 - `.lovable/plan.md` — replace current contract-only plan with this expanded wiring plan (kept side-by-side; Contracts A–E remain valid, now extended with phase semantics).
 
 No changes to `src/components/home/TodayThreePriorities.tsx` (it stays a pass-through). No changes to the shared modules under `_shared/events/`, `_shared/protocols/`, `_shared/ceo-behaviour/` — they are already the source of truth.
+
+---
+
+## Implementation status (this pass)
+
+**Shipped**
+- `generate-mastery-plan/index.ts` now imports `EVENT_CATEGORIES`, `EVENT_PHASE_MAP`, `phaseForEvent`, `classifyEvent`, `PROTOCOL_COMBOS` from the shared §3/§4 modules.
+- New `resolveJitPhaseLabel(title, startMs, endMs, nowMs)` helper resolves the slot label by Pre / During / Post window:
+  - `pre` → `Prepare ahead of <Event>`
+  - `during` → `Stay regulated through <Event>` (auto-downgraded to `pre` framing for category F per `protocol.duringNotificationOnly`)
+  - `post` → `Recover after <Event>` (high-stakes A/D → `Reset after <Event>`)
+- All three JIT slot emissions (Slot 1 touch1, Slot 2 touch2, Slot 2 long-lead) now use this helper instead of hardcoded `Prepare ahead of`.
+- `composeStateLabel` state-action verb now consults `classifyEvent(anchor).categoryId`: depleted + C/F → `Reset stage chemistry`, managing + E → `Prime for focus`; existing G (travel) path preserved.
+- Deno test `_shared/events/jit-phase-label.test.ts` locks the §3/§4 contract (board → A pre+post, keynote → F with `duringNotificationOnly`, deep work → E, long-haul → G).
+
+**Deferred (next pass, scoped separately)**
+- Multi-candidate JIT scoring (`rankedJitCandidates` per `(event, phase)` driven by `leadTimeMin` + `demandProfile` + `phase.severityHint`). The current upstream `preEventPlan`/`topEvent` pipeline still picks a single event. The phase-aware label layer is now in place, which means the next pass only needs to enrich candidate generation; downstream label + framing are already correct.
+- Module mapping by `ComboKey` (replacing the `regulate/align/prepare/integrate` heuristic with the resolved combo from `phaseForEvent`).
+- LLM-narrated "Why this matters" body — depends on the two items above.
