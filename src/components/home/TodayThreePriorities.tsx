@@ -28,6 +28,13 @@ import ReflectionCorner from '@/components/home/ReflectionCorner';
 import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/relevanceFeedback';
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import PriorityTagAffordance, { type PriorityTagState } from '@/components/home/PriorityTagAffordance';
+import {
+  readEdits as readPlanEdits,
+  patchSlotEdit as patchPlanSlotEdit,
+  applyEditsToModules as applyPlanEditsToModules,
+  clearSlotEdit as clearPlanSlotEdit,
+} from '@/utils/planUserEdits';
 import {
   read as readPersistent,
   write as writePersistent,
@@ -101,7 +108,8 @@ interface HorizonModule {
   cancelReason?: string | null;
   replacementEventIds?: string[];
   priorityTag?: 'high' | 'medium' | 'low' | null;
-  relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+  relationshipTag?: string | null;
+  customTags?: string[];
 }
 
 interface CoachCardData {
