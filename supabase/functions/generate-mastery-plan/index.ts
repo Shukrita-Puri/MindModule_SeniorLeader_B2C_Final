@@ -2726,7 +2726,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
 
   const horizonModules = buildHorizonModules(
     todModules, preEventPlan, topEvent, req, shared, hrvCorrelations,
-    timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache
+    timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache,
+    jitRankedCandidates,
   );
 
   // ═══════════════════════════════════════════════════════════════
