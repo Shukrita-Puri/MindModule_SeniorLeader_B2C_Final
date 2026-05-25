@@ -3742,6 +3742,79 @@ function buildHorizonModules(
   const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
   const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
 
+  // ── §4 Pre/During/Post phase-aware JIT label resolver ────────────────
+  // Given the JIT topEvent + current time, returns the correct slot label
+  // contract:
+  //   pre    → "Prepare ahead of <Event>"
+  //   during → "Stay regulated through <Event>"  (skipped for category F —
+  //            EVENT_CATEGORIES.F.protocol.duringNotificationOnly = true)
+  //   post   → "Recover after <Event>" / "Reset after <Event>" (high-stakes
+  //            A/D use "Reset" per §3 selfRegulationFocus emphasis on
+  //            discharging stage chemistry / emotional residue)
+  // The resolved ComboKey from event-phase-map.ts is returned alongside so
+  // downstream practice selection can prefer matching practices (TODO wiring
+  // into module mapping — see follow-up plan §5).
+  const resolveJitPhaseLabel = (
+    eventTitle: string | null | undefined,
+    eventStartMs: number | null,
+    eventEndMs: number | null,
+    nowMs: number,
+  ): { phase: Phase; label: string; combo: ComboKey | null; categoryId: EventCategoryId | null } => {
+    const fallbackTitle = (eventTitle && eventTitle.trim()) || 'this event';
+    const truncated = truncateTitle(eventTitle, 5) || fallbackTitle;
+    const subtype = classifyEvent(eventTitle);
+    const categoryId = subtype?.categoryId ?? null;
+    const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
+
+    // Resolve phase from absolute times (the only signal we trust).
+    let phase: Phase = 'pre';
+    if (eventStartMs != null && eventEndMs != null) {
+      if (nowMs >= eventEndMs) phase = 'post';
+      else if (nowMs >= eventStartMs) phase = 'during';
+      else phase = 'pre';
+    } else if (eventStartMs != null && nowMs >= eventStartMs) {
+      // No end time: assume 60-minute default; treat as post after that.
+      phase = (nowMs - eventStartMs) > 60 * 60_000 ? 'post' : 'during';
+    }
+
+    // Category F (Conferences) — DURING is notification-only by §3 contract.
+    // If we land in "during" for F, downgrade to "pre" framing so we never
+    // emit a slot card the user can't action mid-keynote.
+    if (phase === 'during' && category?.protocol.duringNotificationOnly) {
+      phase = 'pre';
+    }
+
+    // Some categories have no During / Post phase defined (E pre-only,
+    // G partial). Fall back to the closest defined phase rather than
+    // emitting a nonsense label.
+    if (categoryId && !EVENT_PHASE_MAP[categoryId][phase]) {
+      const order: Phase[] = phase === 'post' ? ['post', 'pre', 'during']
+        : phase === 'during' ? ['during', 'pre', 'post']
+        : ['pre', 'during', 'post'];
+      const found = order.find((p) => EVENT_PHASE_MAP[categoryId][p]);
+      if (found) phase = found;
+    }
+
+    const resolved = phaseForEvent(eventTitle || '', phase);
+    const combo = resolved ? (`${resolved.resolvedCombo.protocol}.${resolved.resolvedCombo.mode}` as ComboKey) : null;
+
+    // High-stakes governance (A) and difficult people work (D) need a
+    // sharper Post verb — §3 selfRegulationFocus calls out "discharge
+    // residual emotional load" / "post-peak hangover". Use "Reset after".
+    const isHighStakesPost = phase === 'post' && (categoryId === 'A' || categoryId === 'D');
+
+    let label: string;
+    if (phase === 'pre') {
+      label = `Prepare ahead of ${truncated}`;
+    } else if (phase === 'during') {
+      label = `Stay regulated through ${truncated}`;
+    } else {
+      label = `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
+    }
+
+    return { phase, label, combo, categoryId };
+  };
+
   // ── State + Calendar label composer ─────────────────────────────────
   // Every non-JIT slot label MUST take the form:
   //   "<state action> ahead of <calendar anchor>"
