@@ -359,6 +359,7 @@ const TodayThreePriorities = ({
       const token = await getAuthToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
       if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+      headers['x-user-tz-offset'] = String(new Date().getTimezoneOffset());
       const { data, error } = await supabase.functions.invoke(
         'list-replacement-calendar-events',
         { headers, body: {} },

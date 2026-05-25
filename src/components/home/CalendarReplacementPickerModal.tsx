@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Check, Clock3, CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { collapseDuplicateEvents, periodFor } from "@/utils/rules/calendarEvents";
 
 export interface CalendarReplacementEvent {
   id: string;
@@ -12,6 +13,9 @@ export interface CalendarReplacementEvent {
   attendeesCount?: number | null;
   isOrganizer?: boolean | null;
   isRecurring?: boolean | null;
+  /** Optional hint from the edge function. Falls back to local computation. */
+  dayBucket?: 'today' | 'tomorrow';
+  period?: 'morning' | 'afternoon' | 'evening';
 }
 
 interface CalendarReplacementPickerInlineProps {
@@ -26,67 +30,46 @@ interface CalendarReplacementPickerInlineProps {
   error?: string | null;
 }
 
-type GroupMode = 'day' | 'period';
-type EventGroup = { label: string; items: CalendarReplacementEvent[] };
+type EventGroup = { label: 'Today' | 'Tomorrow'; items: CalendarReplacementEvent[] };
 
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
   minute: "2-digit",
 });
 
-const DAY_FORMAT = new Intl.DateTimeFormat(undefined, {
-  weekday: "long",
-  month: "short",
-  day: "numeric",
-});
-
 function localDayKey(value: Date) {
   return `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
 }
 
-function groupByDay(events: CalendarReplacementEvent[]): EventGroup[] {
+function groupTodayTomorrow(events: CalendarReplacementEvent[]): EventGroup[] {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-
   const todayKey = localDayKey(today);
   const tomorrowKey = localDayKey(tomorrow);
-  const groups = new Map<string, CalendarReplacementEvent[]>();
-
+  const todayItems: CalendarReplacementEvent[] = [];
+  const tomorrowItems: CalendarReplacementEvent[] = [];
   for (const event of events) {
-    const start = new Date(event.startTime);
-    const key = localDayKey(start);
-    const label =
-      key === todayKey
-        ? "Today"
-        : key === tomorrowKey
-          ? "Tomorrow"
-          : DAY_FORMAT.format(start);
-    const bucket = groups.get(label) || [];
-    bucket.push(event);
-    groups.set(label, bucket);
+    let bucket: 'today' | 'tomorrow' | null = event.dayBucket ?? null;
+    if (!bucket) {
+      const key = localDayKey(new Date(event.startTime));
+      if (key === todayKey) bucket = 'today';
+      else if (key === tomorrowKey) bucket = 'tomorrow';
+    }
+    if (bucket === 'today') todayItems.push(event);
+    else if (bucket === 'tomorrow') tomorrowItems.push(event);
   }
-
-  return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+  const groups: EventGroup[] = [];
+  if (todayItems.length) groups.push({ label: 'Today', items: todayItems });
+  if (tomorrowItems.length) groups.push({ label: 'Tomorrow', items: tomorrowItems });
+  return groups;
 }
 
-function groupByPeriod(events: CalendarReplacementEvent[]): EventGroup[] {
-  // Standard windows: Morning 05–12, Afternoon 12–18, Evening 18–05.
-  const buckets: Record<'Morning' | 'Afternoon' | 'Evening', CalendarReplacementEvent[]> = {
-    Morning: [],
-    Afternoon: [],
-    Evening: [],
-  };
-  for (const event of events) {
-    const h = new Date(event.startTime).getHours();
-    if (h >= 5 && h < 12) buckets.Morning.push(event);
-    else if (h >= 12 && h < 18) buckets.Afternoon.push(event);
-    else buckets.Evening.push(event);
-  }
-  return (['Morning', 'Afternoon', 'Evening'] as const)
-    .filter((k) => buckets[k].length > 0)
-    .map((k) => ({ label: k, items: buckets[k] }));
-}
+const PERIOD_LABEL: Record<'morning' | 'afternoon' | 'evening', string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+};
 
 const CalendarReplacementPickerInline = ({
   slotTitle,
@@ -99,17 +82,9 @@ const CalendarReplacementPickerInline = ({
   isLoading = false,
   error = null,
 }: CalendarReplacementPickerInlineProps) => {
-  const [groupMode, setGroupMode] = useState<GroupMode>('day');
-  // Dedupe by id so the same event never renders in two groups/cards.
-  const dedupedEvents = useMemo(() => {
-    const byId = new Map<string, CalendarReplacementEvent>();
-    for (const e of events) if (!byId.has(e.id)) byId.set(e.id, e);
-    return Array.from(byId.values());
-  }, [events]);
-  const groupedEvents = useMemo(
-    () => (groupMode === 'day' ? groupByDay(dedupedEvents) : groupByPeriod(dedupedEvents)),
-    [dedupedEvents, groupMode],
-  );
+  // Same event across calendars => keep one row (shared rule).
+  const dedupedEvents = useMemo(() => collapseDuplicateEvents(events), [events]);
+  const groupedEvents = useMemo(() => groupTodayTomorrow(dedupedEvents), [dedupedEvents]);
   const selectedCount = selectedIds.length;
 
   return (
@@ -124,7 +99,7 @@ const CalendarReplacementPickerInline = ({
           </h3>
           <p className="text-xs text-muted-foreground line-clamp-1">{slotTitle}</p>
           <p className="text-[11px] text-muted-foreground/80 font-body">
-            Next 24 hours · up to 3 events
+            Today &amp; tomorrow · up to 3 events
           </p>
         </div>
         <button
@@ -144,30 +119,7 @@ const CalendarReplacementPickerInline = ({
             </div>
           )}
 
-          {/* Grouping toggle — Day vs Period */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
-              {([
-                { value: 'day', label: 'By day' },
-                { value: 'period', label: 'By period' },
-              ] as const).map(({ value, label }) => {
-                const active = groupMode === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setGroupMode(value)}
-                    className={cn(
-                      "px-3 py-1 text-[11px] font-medium rounded-full transition-colors",
-                      active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-                    )}
-                    aria-pressed={active}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex items-center justify-end gap-2">
             <p className="text-[11px] text-muted-foreground">{selectedCount}/3 selected</p>
           </div>
 
@@ -186,7 +138,7 @@ const CalendarReplacementPickerInline = ({
             </div>
           ) : groupedEvents.length === 0 ? (
             <div className="rounded-xl border border-border bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
-              No calendar events found in the next 24 hours.
+              No calendar events found for today or tomorrow.
             </div>
           ) : (
             <div className="max-h-[44vh] overflow-y-auto pr-1 space-y-3">
@@ -202,6 +154,7 @@ const CalendarReplacementPickerInline = ({
                       const toggleDisabled = !isSelected && selectedCount >= 3;
                       const start = new Date(event.startTime);
                       const end = new Date(event.endTime);
+                      const period = event.period ?? periodFor(start);
 
                       return (
                         <button
@@ -226,9 +179,12 @@ const CalendarReplacementPickerInline = ({
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-[13px] font-medium leading-tight text-foreground">{event.title}</p>
-                              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                {TIME_FORMAT.format(start)} – {TIME_FORMAT.format(end)}
-                              </p>
+                              <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <span>{TIME_FORMAT.format(start)} – {TIME_FORMAT.format(end)}</span>
+                                <span className="inline-flex items-center rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/80">
+                                  {PERIOD_LABEL[period]}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </button>
