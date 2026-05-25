@@ -1209,6 +1209,16 @@ const TodayThreePriorities = ({
                         const today = localISODate();
                         const period = getCurrentTimeWindow();
                         writePersistent(cacheKeys.planData(today, period), next, ttl);
+                        // CRITICAL: update the local edits mirror too. Without this,
+                        // `applyPlanEditsToModules` would re-apply the prior
+                        // cancelled:true edit on top of the fresh server response
+                        // (and on top of the cache on refresh), so the replaced
+                        // priority would snap back to the greyed/cancelled card.
+                        patchPlanSlotEdit(today, period, replacementSlot.index, {
+                          cancelled: false,
+                          cancelReason: null,
+                          replacementEventIds: selectedIds,
+                        });
                       } catch { /* ignore */ }
                       return next;
                     });
@@ -1276,6 +1286,14 @@ const TodayThreePriorities = ({
                           const today = localISODate();
                           const period = getCurrentTimeWindow();
                           writePersistent(cacheKeys.planData(today, period), next, ttl);
+                          // Mirror the un-cancel into the local edits store so
+                          // refresh / silent refetch cannot resurrect the
+                          // prior cancelled:true edit.
+                          patchPlanSlotEdit(today, period, index, {
+                            cancelled: false,
+                            cancelReason: null,
+                            replacementEventIds: hm.replacementEventIds || [],
+                          });
                         } catch { /* ignore */ }
                         return next;
                       });
