@@ -1351,17 +1351,17 @@ const TodayThreePriorities = ({
                           </span>
                         )}
                       </p>
-                      {hm.whyLine && !slotCompleted && (
-                        <p className="text-xs italic text-muted-foreground/50 font-body truncate">
-                          {hm.whyLine}
-                        </p>
-                      )}
                       <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                         <PriorityTagAffordance
                           value={tagState}
                           onChange={(next) => updateSlotTags(index, next)}
                         />
                       </div>
+                      {hm.whyLine && !slotCompleted && (
+                        <p className="text-xs italic text-muted-foreground/50 font-body truncate mt-1">
+                          {hm.whyLine}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
