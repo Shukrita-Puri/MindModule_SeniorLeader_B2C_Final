@@ -1094,10 +1094,6 @@ const TodayThreePriorities = ({
                 slotTitle={replacementSlot.title}
                 events={replacementEvents}
                 selectedIds={replacementSelection}
-                priorityTag={replacementPriorityTag}
-                relationshipTag={replacementRelationshipTag}
-                onPriorityTagChange={setReplacementPriorityTag}
-                onRelationshipTagChange={setReplacementRelationshipTag}
                 onToggleEvent={(eventId) => {
                   setReplacementSelection((prev) => {
                     if (prev.includes(eventId)) return prev.filter((id) => id !== eventId);
@@ -1127,8 +1123,6 @@ const TodayThreePriorities = ({
                         cancelled: false,
                         cancelReason: null,
                         replacementEventIds: selectedIds,
-                        priorityTag: replacementPriorityTag,
-                        relationshipTag: replacementRelationshipTag,
                       },
                       getCurrentTimeWindow(),
                     );
@@ -1139,8 +1133,6 @@ const TodayThreePriorities = ({
                     // Reset picker state and close BEFORE the regenerate call
                     // so the existing EngravedLoader is what the user sees.
                     setReplacementSelection([]);
-                    setReplacementPriorityTag(null);
-                    setReplacementRelationshipTag(null);
                     setReplacementSlot(null);
                     // Surface the existing loader (silent:false) while the
                     // generator runs with the selected events.
@@ -1151,8 +1143,6 @@ const TodayThreePriorities = ({
                 }}
                 onClose={() => {
                   setReplacementSelection([]);
-                  setReplacementPriorityTag(null);
-                  setReplacementRelationshipTag(null);
                   setReplacementSlot(null);
                 }}
                 isLoading={replacementLoading}
