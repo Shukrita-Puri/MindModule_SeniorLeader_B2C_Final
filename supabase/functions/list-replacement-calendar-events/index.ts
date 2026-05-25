@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { collapseDuplicateEvents, periodFor } from "../_shared/rules/calendarEvents.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,16 +45,31 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const now = new Date();
-    const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    // Compute a Today (start of local day) → end of Tomorrow window so the
+    // picker shows every still-relevant event, not a rolling 24h slice that
+    // chops the afternoon as the day progresses.
+    const offsetParam = req.headers.get('x-user-tz-offset');
+    const offsetMinutes = offsetParam != null && offsetParam !== ''
+      ? Number(offsetParam)
+      : new Date().getTimezoneOffset();
+    const nowUtc = new Date();
+    // Local time = utc - offset (offset is minutes WEST of UTC, like JS getTimezoneOffset).
+    const localNow = new Date(nowUtc.getTime() - offsetMinutes * 60 * 1000);
+    const localStartOfToday = new Date(localNow);
+    localStartOfToday.setHours(0, 0, 0, 0);
+    const localEndOfTomorrow = new Date(localStartOfToday);
+    localEndOfTomorrow.setDate(localEndOfTomorrow.getDate() + 2); // exclusive upper bound
+    // Convert local boundaries back to UTC for the DB query.
+    const windowStartUtc = new Date(localStartOfToday.getTime() + offsetMinutes * 60 * 1000);
+    const windowEndUtc = new Date(localEndOfTomorrow.getTime() + offsetMinutes * 60 * 1000);
 
     async function queryTable(table: string): Promise<CalendarEventRow[]> {
       const { data, error } = await supabase
         .from(table)
         .select('id, title, start_time, end_time, provider, is_organizer, attendees_count, is_recurring')
         .eq('user_id', userId)
-        .gte('start_time', now.toISOString())
-        .lt('start_time', horizon.toISOString())
+        .gte('start_time', windowStartUtc.toISOString())
+        .lt('start_time', windowEndUtc.toISOString())
         .order('start_time', { ascending: true });
       if (error) {
         console.warn(`[list-replacement-calendar-events] ${table} query error:`, error.message);
@@ -62,12 +78,12 @@ serve(async (req) => {
       return (data || []) as CalendarEventRow[];
     }
 
-    // Try primary, then fall back to web_primary, then legacy calendar_events.
-    let rows = await queryTable('primary_calendar_events');
-    if (rows.length === 0) rows = await queryTable('web_primary_calendar_events');
-    if (rows.length === 0) rows = await queryTable('calendar_events');
+    // Always query the raw calendar_events (all providers, all calendars) so we
+    // can apply our shared dedupe rule rather than relying on the provider-
+    // primacy view which silently drops Apple-mirrored copies on web.
+    const rows = await queryTable('calendar_events');
 
-    const events = rows
+    const rawEvents = rows
       .filter((r) => r?.id && r?.title && r?.start_time && r?.end_time)
       .map((r) => ({
         id: String(r.id),
@@ -80,7 +96,24 @@ serve(async (req) => {
         isRecurring: r.is_recurring ?? null,
       }));
 
-    console.log(`[list-replacement-calendar-events] user=${userId} returned=${events.length}`);
+    // Same event across multiple calendars => keep only one row.
+    const platform = (req.headers.get('x-client-platform') || 'web').toLowerCase().includes('ios')
+      ? 'ios' : 'web';
+    const deduped = collapseDuplicateEvents(rawEvents, platform as 'ios' | 'web');
+
+    // Tag each event with its local-day bucket (today/tomorrow) and period.
+    const todayKey = `${localStartOfToday.getFullYear()}-${localStartOfToday.getMonth()}-${localStartOfToday.getDate()}`;
+    const events = deduped.map((e) => {
+      const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60 * 1000);
+      const key = `${localStart.getFullYear()}-${localStart.getMonth()}-${localStart.getDate()}`;
+      return {
+        ...e,
+        dayBucket: key === todayKey ? 'today' : 'tomorrow',
+        period: periodFor(localStart),
+      };
+    });
+
+    console.log(`[list-replacement-calendar-events] user=${userId} raw=${rawEvents.length} deduped=${events.length}`);
 
     return new Response(JSON.stringify({ events }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
