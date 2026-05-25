@@ -4024,6 +4024,7 @@ function applyLedgerEditsToModules(
       replacementEventIds: edit.replacementEventIds || [],
       priorityTag: edit.priorityTag ?? null,
       relationshipTag: edit.relationshipTag ?? null,
+      customTags: edit.customTags || [],
     };
   });
 }
