@@ -80,23 +80,23 @@ const FeedbackCapture = ({
 
   const isGlass = variant === "glass";
 
-  const promptClass = isGlass ? "text-white/80" : "text-foreground/80";
-  const hintClass = isGlass ? "text-white/50" : "text-muted-foreground";
-  const counterClass = isGlass ? "text-white/50" : "text-muted-foreground";
+  const promptClass = isGlass ? "text-white" : "text-foreground/80";
+  const hintClass = isGlass ? "text-white/70" : "text-muted-foreground";
+  const counterClass = isGlass ? "text-white/70" : "text-muted-foreground";
 
   const inactiveIconClass = isGlass
-    ? "border-white/30 bg-white/10 text-white/60 hover:text-white hover:border-white/50"
+    ? "border-white/40 bg-white/10 text-white hover:bg-white/20 hover:border-white/60"
     : "border-border bg-background text-muted-foreground hover:text-foreground";
 
   const activeIconClass =
     "border-taupe bg-taupe/15 text-taupe-foreground shadow-[0_0_0_3px_hsl(var(--taupe)/0.20)]";
 
   const textareaClass = isGlass
-    ? "min-h-[80px] text-sm resize-none bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-taupe/40"
+    ? "min-h-[80px] text-sm resize-none bg-white/10 border-white/30 text-white placeholder:text-white/60 focus-visible:ring-taupe/40"
     : "min-h-[80px] text-sm resize-none";
 
   const cancelClass = isGlass
-    ? "flex-1 text-sm text-white/70 hover:text-white hover:bg-white/10"
+    ? "flex-1 text-sm text-white hover:text-white hover:bg-white/15"
     : "flex-1 text-sm";
 
   return (
