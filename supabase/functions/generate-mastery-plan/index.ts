@@ -3867,6 +3867,13 @@ function buildHorizonModules(
     const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
     const tdyTitle = truncateTitle(todayLeadEvent?.title);
     const tmrIsTravel = isTravelTitle(tomorrowLeadEvent?.title);
+    // §3 category-derived bias: if the dominant anchor event maps to a
+    // known framework pillar, prefer the verb that matches its
+    // selfRegulationFocus. This keeps state actions consistent with the
+    // category's coaching contract instead of relying on title keywords.
+    const anchorEventForVerb = slotIndex === 2 ? (tomorrowLeadEvent || todayLeadEvent) : (todayLeadEvent || tomorrowLeadEvent);
+    const anchorSubtype = anchorEventForVerb ? classifyEvent(anchorEventForVerb.title) : null;
+    const anchorCategory = anchorSubtype?.categoryId ?? null;
 
     // 1) State action — pick strongest signal
     let stateAction = '';
@@ -3877,11 +3884,16 @@ function buildHorizonModules(
     } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
       stateAction = 'Recover sleep debt';
     } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
-      stateAction = 'Settle the system';
+      // Category D (People & Difficult Conversations) explicitly calls for
+      // emotional discharge; category A pre-stage needs composure. Both map
+      // to "Settle". G (travel) handled above.
+      stateAction = (anchorCategory === 'C' || anchorCategory === 'F') ? 'Reset stage chemistry' : 'Settle the system';
     } else if (load === 'high' || pressure === 'high') {
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
-      stateAction = 'Re-consolidate focus';
+      // Category E (Deep Work & Strategy) is flow-activation; nudge toward
+      // priming verb rather than re-consolidation.
+      stateAction = anchorCategory === 'E' ? 'Prime for focus' : 'Re-consolidate focus';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
