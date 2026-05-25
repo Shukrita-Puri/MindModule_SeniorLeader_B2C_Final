@@ -22,10 +22,6 @@ interface CalendarReplacementPickerInlineProps {
   onToggleEvent: (eventId: string) => void;
   onApply: () => void;
   onClose: () => void;
-  priorityTag: 'high' | 'medium' | 'low' | null;
-  relationshipTag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
-  onPriorityTagChange: (tag: 'high' | 'medium' | 'low' | null) => void;
-  onRelationshipTagChange: (tag: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null) => void;
   isLoading?: boolean;
   error?: string | null;
 }
