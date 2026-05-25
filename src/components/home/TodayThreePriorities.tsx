@@ -1278,7 +1278,15 @@ const TodayThreePriorities = ({
                     setReplacementSlot(null);
                     // Surface the existing loader (silent:false) while the
                     // generator runs with the selected events.
-                    await loadPlan({ silent: false, forceRefresh: true, selectedCalendarEventIds: selectedIds });
+                    // Per-slot anchoring: this replacement is bound to
+                    // `replacementSlot.index` only. The server will pin the
+                    // chosen event to that exact slot and leave the others
+                    // (and any cancelled-in-place slots) untouched.
+                    await loadPlan({
+                      silent: false,
+                      forceRefresh: true,
+                      slotReplacements: { [replacementSlot.index]: { eventId: selectedIds[0] } },
+                    });
                   } finally {
                     regeneratingRef.current = false;
                   }
