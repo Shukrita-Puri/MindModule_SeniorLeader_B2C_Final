@@ -1356,15 +1356,12 @@ const TodayThreePriorities = ({
                           {hm.whyLine}
                         </p>
                       )}
-                      {tagBadges.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {tagBadges.map((badge) => (
-                            <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                              {badge.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                        <PriorityTagAffordance
+                          value={tagState}
+                          onChange={(next) => updateSlotTags(index, next)}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1418,15 +1415,12 @@ const TodayThreePriorities = ({
                     </div>
                   )}
 
-                  {tagBadges.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {tagBadges.map((badge) => (
-                        <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                          {badge.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <PriorityTagAffordance
+                      value={tagState}
+                      onChange={(next) => updateSlotTags(index, next)}
+                    />
+                  </div>
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {hm.recommendedAction || fallbackRecommendedAction(hm)}
