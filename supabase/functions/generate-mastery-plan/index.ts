@@ -15,10 +15,29 @@ import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
-import { EVENT_CATEGORIES, type EventCategoryId } from '../_shared/events/event-categories.ts';
+import {
+  EVENT_CATEGORIES,
+  FRAMEWORK_PILLARS,
+  type EventCategoryId,
+} from '../_shared/events/event-categories.ts';
 import { classifyEvent } from '../_shared/events/event-classifier.ts';
-import { EVENT_PHASE_MAP, phaseForEvent, type Phase } from '../_shared/events/event-phase-map.ts';
+import {
+  EVENT_PHASE_MAP,
+  phaseForEvent,
+  protocolsForEvent,
+  type Phase,
+} from '../_shared/events/event-phase-map.ts';
+import {
+  EVENT_TYPES,
+  EVENT_TYPE_TO_SCENARIO_ID,
+} from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
+import { enrichEvent } from '../_shared/events/enrich-event.ts';
+
+// FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
+// import surface so future passes (Phase B/C) can read them without a new
+// import touch. Silence unused-import noise in tools that check.
+void FRAMEWORK_PILLARS; void EVENT_TYPES; void EVENT_TYPE_TO_SCENARIO_ID; void protocolsForEvent;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -3759,14 +3778,16 @@ function buildHorizonModules(
     eventStartMs: number | null,
     eventEndMs: number | null,
     nowMs: number,
-  ): { phase: Phase; label: string; combo: ComboKey | null; categoryId: EventCategoryId | null } => {
+  ): { phase: Phase; label: string; combo: ComboKey | null; categoryId: EventCategoryId | null; leadTimeMin: number | null } => {
     const fallbackTitle = (eventTitle && eventTitle.trim()) || 'this event';
     const truncated = (eventTitle && eventTitle.trim())
       ? eventTitle.trim().split(/\s+/).slice(0, 5).join(' ')
       : fallbackTitle;
-    const subtype = classifyEvent(eventTitle);
-    const categoryId = subtype?.categoryId ?? null;
-    const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
+    const enriched = enrichEvent({ title: eventTitle ?? '' });
+    const subtype = enriched.subtype;
+    const categoryId = enriched.categoryId;
+    const category = enriched.category;
+    const leadTimeMin = enriched.leadTimeMin;
 
     // Resolve phase from absolute times (the only signal we trust).
     let phase: Phase = 'pre';
@@ -3814,7 +3835,7 @@ function buildHorizonModules(
       label = `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
     }
 
-    return { phase, label, combo, categoryId };
+    return { phase, label, combo, categoryId, leadTimeMin };
   };
 
   // ── State + Calendar label composer ─────────────────────────────────
@@ -3872,12 +3893,17 @@ function buildHorizonModules(
     // selfRegulationFocus. This keeps state actions consistent with the
     // category's coaching contract instead of relying on title keywords.
     const anchorEventForVerb = slotIndex === 2 ? (tomorrowLeadEvent || todayLeadEvent) : (todayLeadEvent || tomorrowLeadEvent);
-    const anchorSubtype = anchorEventForVerb ? classifyEvent(anchorEventForVerb.title) : null;
-    const anchorCategory = anchorSubtype?.categoryId ?? null;
+    const anchorEnriched = anchorEventForVerb ? enrichEvent(anchorEventForVerb) : null;
+    const anchorSubtype = anchorEnriched?.subtype ?? null;
+    const anchorCategory = anchorEnriched?.categoryId ?? null;
+    const anchorDemand = anchorEnriched?.demandProfile ?? null;
 
     // 1) State action — pick strongest signal
     let stateAction = '';
-    if (tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
+    // Demand-profile override (Phase A): circadian-heavy events (cir≥2) or
+    // category G (Travel) always win the state verb — title regex is the
+    // fallback for events the classifier doesn't recognise.
+    if (anchorCategory === 'G' || (anchorDemand && anchorDemand.cir >= 2) || tmrIsTravel || isTravelTitle(todayLeadEvent?.title)) {
       stateAction = 'Re-anchor circadian rhythm';
     } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
       stateAction = 'Restore HRV';
@@ -3887,13 +3913,20 @@ function buildHorizonModules(
       // Category D (People & Difficult Conversations) explicitly calls for
       // emotional discharge; category A pre-stage needs composure. Both map
       // to "Settle". G (travel) handled above.
-      stateAction = (anchorCategory === 'C' || anchorCategory === 'F') ? 'Reset stage chemistry' : 'Settle the system';
+      // Demand-profile refinement: high emotional demand (emo≥3) — even on
+      // an A/E category — should still settle, not reset.
+      const highVisibility = (anchorCategory === 'C' || anchorCategory === 'F');
+      const highEmotional = !!(anchorDemand && anchorDemand.emo >= 3);
+      stateAction = (highVisibility && !highEmotional) ? 'Reset stage chemistry' : 'Settle the system';
     } else if (load === 'high' || pressure === 'high') {
       stateAction = 'Decompress';
     } else if (tier === 'managing') {
       // Category E (Deep Work & Strategy) is flow-activation; nudge toward
-      // priming verb rather than re-consolidation.
-      stateAction = anchorCategory === 'E' ? 'Prime for focus' : 'Re-consolidate focus';
+      // priming verb rather than re-consolidation. Same for any subtype
+      // with cognitive-dominant demand (cog≥3, emo≤1, ene≤1) — e.g.
+      // strategy planning, board prep.
+      const cogDominant = !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 && anchorDemand.ene <= 1);
+      stateAction = (anchorCategory === 'E' || cogDominant) ? 'Prime for focus' : 'Re-consolidate focus';
     } else {
       stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
     }
