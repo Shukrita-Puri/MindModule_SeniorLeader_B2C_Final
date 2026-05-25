@@ -103,15 +103,25 @@ serve(async (req) => {
 
     // Tag each event with its local-day bucket (today/tomorrow) and period.
     const todayKey = `${localStartOfToday.getFullYear()}-${localStartOfToday.getMonth()}-${localStartOfToday.getDate()}`;
-    const events = deduped.map((e) => {
-      const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60 * 1000);
-      const key = `${localStart.getFullYear()}-${localStart.getMonth()}-${localStart.getDate()}`;
-      return {
-        ...e,
-        dayBucket: key === todayKey ? 'today' : 'tomorrow',
-        period: periodFor(localStart),
-      };
-    });
+    const nowMs = nowUtc.getTime();
+    const events = deduped
+      .map((e) => {
+        const localStart = new Date(new Date(e.startTime).getTime() - offsetMinutes * 60 * 1000);
+        const key = `${localStart.getFullYear()}-${localStart.getMonth()}-${localStart.getDate()}`;
+        return {
+          ...e,
+          dayBucket: (key === todayKey ? 'today' : 'tomorrow') as 'today' | 'tomorrow',
+          period: periodFor(localStart),
+        };
+      })
+      // Cross-cutting rule: only show events that haven't ended yet.
+      // Today: drop anything whose end_time is in the past.
+      // Tomorrow: always future, kept as-is.
+      .filter((e) => {
+        if (e.dayBucket !== 'today') return true;
+        const endMs = new Date(e.endTime).getTime();
+        return Number.isFinite(endMs) && endMs > nowMs;
+      });
 
     console.log(`[list-replacement-calendar-events] user=${userId} raw=${rawEvents.length} deduped=${events.length}`);
 
