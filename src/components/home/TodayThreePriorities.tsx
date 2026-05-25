@@ -70,34 +70,14 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
   return `Strengthen your state for what's ahead`;
 };
 
-// Performance-oriented label remap for the 3 plan slots.
-// The plan's role is Prevent / Prepare — not generic wellness. We translate
-// any wellness-flavoured server timeLabels ("Later today", "When ready",
-// "Before bed", "Midday reset", "This morning", "This evening", "Right now",
-// "Tonight") into Prevent / Prepare framing tied to CEO performance.
-// JIT slots keep their event-anchored label ("Before <Event>") untouched.
-const performanceSlotLabel = (raw: string, isJit: boolean): string => {
-  // JIT event-anchored labels: replace "Before <Event>" with
-  // "Prepare ahead of <Event>" so the language stays Prevent / Prepare.
-  if (isJit) {
-    if (!raw) return raw;
-    return raw.replace(/^\s*Before\s+/i, 'Prepare ahead of ');
-  }
-  const t = (raw || '').toLowerCase();
-  if (!t) return raw;
-  // Evening / next-day prep
-  if (t.includes('evening') || t.includes('bed') || t.includes('tonight') || t.includes('when ready')) {
-    return 'Prepare for tomorrow';
-  }
-  // Afternoon / midday drop prevention
-  if (t.includes('afternoon') || t.includes('midday') || t.includes('later today')) {
-    return 'Prevent the afternoon dip';
-  }
-  // Morning / start-of-day prep
-  if (t.includes('morning') || t.includes('right now') || t.includes('start')) {
-    return 'Prepare for the day';
-  }
-  return raw;
+// Performance-oriented label for the 3 plan slots. The server is the single
+// source of truth: every slot label is either "Prepare ahead of <Event>"
+// (JIT) or "<state action> ahead of <calendar anchor>" (state). The only
+// client-side rewrite is the legacy "Before <Event>" → "Prepare ahead of …"
+// fallback for any cached labels still in flight from older payloads.
+const performanceSlotLabel = (raw: string, _isJit: boolean): string => {
+  if (!raw) return raw;
+  return raw.replace(/^\s*Before\s+/i, 'Prepare ahead of ');
 };
 
 // ── Types ──
