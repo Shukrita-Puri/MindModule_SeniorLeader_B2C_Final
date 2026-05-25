@@ -3911,7 +3911,7 @@ function buildHorizonModules(
   // state/load/wearable anchors). canAnchorAgain enforces
   // CATEGORY_MAX_SLOTS so the same event can't show up in more slots
   // than its category permits (C/E/B/H = 1; A/D = 2; F/G = 3).
-  const slotAnchors: { eventId: string | null; phase: 'pre' | 'during' | 'post' | null }[] = [];
+  const slotAnchors: { eventId: string | null; phase?: 'pre' | 'during' | 'post' | null }[] = [];
   const anchorsUsedFor = (id: string) => slotAnchors.filter(a => a.eventId === id).length;
   const canAnchorAgain = (id: string, cat: any): boolean => {
     const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
