@@ -1275,7 +1275,7 @@ const TodayThreePriorities = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
-                      {hm.timeLabel} · {module.title}
+                      {performanceSlotLabel(hm.timeLabel, hm.isJit)}
                     </p>
                     <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                       <PriorityTagAffordance
