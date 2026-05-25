@@ -1,54 +1,38 @@
-## Move "+ ADD TAG" below the event title (all priority cards)
+# Fix "Unable to load calendar events" in the replacement picker
 
-### What changes (UI-only, `src/components/home/TodayThreePriorities.tsx`)
+## Root cause
 
-The `PriorityTagAffordance` currently renders in three spots. Reposition all three to sit immediately under the event title line, before any "Why this matters" copy or recommended-action text. No logic, no DB, no styling system changes.
+`TodayThreePriorities.tsx` now sends two custom headers on the invoke call:
 
-1. **Expanded active card** (around line 1418)
-   - Currently rendered AFTER the `Why this matters` block.
-   - Move it to sit directly under the title row, BEFORE the `Why this matters` block. Order becomes:
-     `title → tag affordance → why this matters → recommended action`.
+- `x-user-tz-offset` (timezone for the Today→Tomorrow window)
+- (optionally) `x-client-platform` (iOS vs web for provider precedence)
 
-2. **Collapsed active card** (around line 1359)
-   - Currently rendered AFTER the truncated whyLine snippet.
-   - Move it to sit directly under `{module.title}` and BEFORE the italic whyLine. Order:
-     `timeLabel → title → tag affordance → whyLine snippet`.
+But `supabase/functions/list-replacement-calendar-events/index.ts` still declares:
 
-3. **Cancelled card** (around line 1233)
-   - Currently rendered AFTER the "Cancelled" label.
-   - Move it to sit directly under the strikethrough title and BEFORE the "Cancelled" label. Order:
-     `title (strikethrough) → tag affordance → "Cancelled"`.
+```
+'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id'
+```
 
-Spacing: keep the existing `mt-1.5` wrapper; adjust the now-following element's top margin only if visual rhythm needs it (single-line tweak).
+The browser preflight (`OPTIONS`) sees `x-user-tz-offset` is not in the allow-list and blocks the actual `POST`. `supabase.functions.invoke` then throws, the catch block sets `Unable to load calendar events right now.`, and the empty events array renders `No calendar events found for today or tomorrow.`
 
-### Where tag selections are stored (answer to your question)
+The earlier 14:15 success in the logs was from before the timezone header was added; nothing has reached the function from the browser since.
 
-Tags are persisted by `persistPlanLedgerEdit` (`src/utils/dailyRituals.ts`) into the existing JSONB column:
+## Change
 
-- **Table:** `public.daily_ritual_completions`
-- **Column:** `plan_ledger` (jsonb)
-- **Path:** `plan_ledger.userEdits.slotEdits["slot-{N}"]`
-- **Fields per slot:**
-  - `priorityTag`: `'high' | 'medium' | 'low' | null` (Importance)
-  - `relationshipTag`: `'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'customer' | 'board' | 'leadership' | 'team' | null`
-  - `customTags`: `string[]` — open-ended free-text tags (cap 5, 24 chars each)
+Single-file edit, no behavior changes elsewhere.
 
-Write path on every tag change in `updateSlotTags`:
-1. Optimistic local state update.
-2. Local mirror write (`plan-user-edits-${date}-${period}` in localStorage) so it survives refresh before the network round-trip.
-3. Background `persistPlanLedgerEdit` → upsert into `daily_ritual_completions.plan_ledger` for the current `(user_id, ritual_date, time_window)` row.
-4. Server-side `applyLedgerEditsToModules` in `generate-mastery-plan` rehydrates the saved tags onto every future plan response for that window.
+**`supabase/functions/list-replacement-calendar-events/index.ts`** — extend `corsHeaders`:
 
-### Feeding the memory spine (custom open-ended tags)
+```text
+'Access-Control-Allow-Headers':
+  'authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform'
+```
 
-The current edge function only round-trips tags back onto the plan; it does not yet emit them to the proactive-pattern store. Per `mem://architecture/unified-pattern-store`, the canonical proactive-pattern store is `causality_findings.signal_summary`. Plan a follow-up (separate task — not in this UI change) to:
+Everything else (Today→Tomorrow window, dedupe, period tagging, picker UI with no day/period toggle) is already in place from the previous turn and stays untouched.
 
-- Mint `priority_tag_observation` records in `causality_findings.signal_summary` when a slot completes, carrying `{ importance, relationship, customTags, slotTitle, completed }` so the coach/brief context can learn from both preset and free-text tags.
+## Verification
 
-This plan only covers the UI repositioning. Say the word and I'll add the memory-spine wiring as a separate change.
-
-### Files touched
-
-- `src/components/home/TodayThreePriorities.tsx` (3 small JSX moves)
-
-No schema, no edge function, no new components.
+1. Redeploy the function (automatic on save).
+2. Reload `/plan`, click Replace on Priority 1.
+3. Expect the Today and Tomorrow groups to render with the 9 deduped events the function already returns, each with a Morning/Afternoon/Evening chip.
+4. Confirm in browser DevTools Network that the `OPTIONS` preflight returns 200 with the expanded allow-list and the `POST` succeeds.
