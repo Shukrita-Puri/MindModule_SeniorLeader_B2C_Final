@@ -96,10 +96,6 @@ const CalendarReplacementPickerInline = ({
   onToggleEvent,
   onApply,
   onClose,
-  priorityTag,
-  relationshipTag,
-  onPriorityTagChange,
-  onRelationshipTagChange,
   isLoading = false,
   error = null,
 }: CalendarReplacementPickerInlineProps) => {
@@ -147,67 +143,6 @@ const CalendarReplacementPickerInline = ({
               {error}
             </div>
           )}
-
-          <div className="space-y-3 rounded-xl border border-border/50 bg-muted/20 px-3 py-3">
-            <div className="space-y-1.5">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Priority tag</p>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { value: 'high', label: 'High' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'low', label: 'Low' },
-                ] as const).map(({ value, label }) => {
-                  const active = priorityTag === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => onPriorityTagChange(active ? null : value)}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-[11px] font-medium border transition-all",
-                        active
-                          ? "border-taupe bg-taupe/15 text-taupe-foreground"
-                          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Relationship tag</p>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { value: 'boss', label: 'Boss' },
-                  { value: 'colleague', label: 'Colleague' },
-                  { value: 'junior', label: 'Junior' },
-                  { value: 'vendor', label: 'Vendor' },
-                  { value: 'client', label: 'Client' },
-                  { value: 'other', label: 'Other' },
-                ] as const).map(({ value, label }) => {
-                  const active = relationshipTag === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => onRelationshipTagChange(active ? null : value)}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-[11px] font-medium border transition-all",
-                        active
-                          ? "border-taupe bg-taupe/15 text-taupe-foreground"
-                          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
 
           {/* Grouping toggle — Day vs Period */}
           <div className="flex items-center justify-between gap-2">
