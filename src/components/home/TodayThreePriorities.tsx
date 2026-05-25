@@ -305,6 +305,47 @@ const TodayThreePriorities = ({
   const pendingPersistRef = useRef<number>(0);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
+
+  // Tag updates — optimistic local + mirror + background DB persist.
+  // Mirrors the cancel/undo pattern so the UI never regresses after refresh.
+  const updateSlotTags = useCallback((slotIndex: number, next: PriorityTagState) => {
+    const today = localISODate();
+    const period = getCurrentTimeWindow();
+    setPlan((prev) => {
+      if (!prev?.horizonModules) return prev;
+      const updated = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+        i === slotIndex
+          ? { ...m, priorityTag: next.priorityTag, relationshipTag: next.relationshipTag as any, customTags: next.customTags }
+          : m,
+      ) } as MasteryPlanResponse;
+      try {
+        const ttl = msUntilWindowEnd();
+        writePersistent(cacheKeys.planData(today, period), updated, ttl);
+        patchPlanSlotEdit(today, period, slotIndex, {
+          priorityTag: next.priorityTag,
+          relationshipTag: next.relationshipTag,
+          customTags: next.customTags,
+        });
+      } catch { /* ignore */ }
+      return updated;
+    });
+    (async () => {
+      pendingPersistRef.current += 1;
+      try {
+        await persistPlanLedgerEdit(
+          slotIndex,
+          {
+            priorityTag: next.priorityTag,
+            relationshipTag: next.relationshipTag,
+            customTags: next.customTags,
+          } as any,
+          period,
+        );
+      } catch { /* silent — local mirror keeps UI consistent */ }
+      pendingPersistRef.current = Math.max(0, pendingPersistRef.current - 1);
+    })();
+  }, []);
+
   const loadReplacementEvents = useCallback(async () => {
     if (!effectiveUserId || !replacementSlot) return;
     setReplacementLoading(true);
