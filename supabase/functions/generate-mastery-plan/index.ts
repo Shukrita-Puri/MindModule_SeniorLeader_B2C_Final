@@ -4109,9 +4109,10 @@ function buildHorizonModules(
         reasoning: slotCtx.whyLine,
         thumbnailUrl: selected.thumbnail_url,
       };
+      const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
       deduped.push({
         horizon: targetHorizon,
-        timeLabel: targetHorizon === 'immediate' ? 'Right now' : targetHorizon === 'tactical' ? 'Later today' : 'When ready',
+        timeLabel: composeStateLabel(fillerSlotIdx),
         typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
         whyLine: slotCtx.whyLine,
         practice: fillerPractice,
