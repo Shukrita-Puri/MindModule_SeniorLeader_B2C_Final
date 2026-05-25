@@ -4194,10 +4194,11 @@ function mergeWithLedger(
       continue;
     }
 
-    // Rule 3a: Per-slot replacement — cancelled slot with an explicit
-    // user-chosen calendar event. Anchor THIS slot to that event only;
-    // never let the replacement bleed into another slot index.
-    if (slotCancelled && replacementEventId) {
+    // Rule 3a: Per-slot replacement — user chose a specific calendar event
+    // to anchor THIS slot. Runs BEFORE the cancelled/stability check so a
+    // freshly-replaced slot (where userEdit.cancelled was flipped back to
+    // false) doesn't get pinned to its pre-replacement ledger content.
+    if (replacementEventId) {
       const match = findFreshByEventId(replacementEventId);
       if (match) {
         usedFreshIndexes.add(match.idx);
