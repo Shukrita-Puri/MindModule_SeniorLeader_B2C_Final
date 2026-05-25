@@ -2790,17 +2790,28 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
         const t = (m.jitEventTitle || '').toLowerCase().trim();
         return !!t && (t.includes(matchTitle) || matchTitle.includes(t));
       });
-      if (!freshMatch) continue;
       const prior = finalHorizonModules[idx];
       // Skip if this exact slot is already anchored to the requested event.
       const alreadyAnchored = (prior?.replacementEventIds || []).includes(eventId) ||
         ((prior?.jitEventTitle || '').toLowerCase().trim() === matchTitle && !prior?.isCancelled);
       if (alreadyAnchored) continue;
+      const truncatedEvtTitle = String(evt.title || '').split(/\s+/).slice(0, 5).join(' ').trim();
+      const prepareLabel = `Prepare ahead of ${truncatedEvtTitle}`;
+      const minsUntilEvt = (new Date(evt.startTime).getTime() - Date.now()) / 60000;
+      // Use fresh match if present, otherwise synthesize from prior so the
+      // slot is always re-anchored to the chosen event with Prepare framing.
+      const base = freshMatch || prior;
+      if (!base) continue;
       finalHorizonModules[idx] = {
-        ...freshMatch,
+        ...base,
+        isJit: true,
+        jitEventTitle: truncatedEvtTitle,
+        jitMinutesUntil: Number.isFinite(minsUntilEvt) ? Math.round(minsUntilEvt) : null,
+        timeLabel: prepareLabel,
         isCancelled: false,
         cancelReason: null,
         replacementEventIds: [eventId],
+        showPriorityPill: true,
         priorityTag: prior?.priorityTag ?? null,
         relationshipTag: prior?.relationshipTag ?? null,
         customTags: prior?.customTags ?? [],
@@ -3724,6 +3735,101 @@ function buildHorizonModules(
   const labels: Record<string, string> = { regulate: 'REGULATE', align: 'ALIGN', prepare: 'PREPARE', integrate: 'INTEGRATE' };
   const protocols: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
 
+  // ── State + Calendar label composer ─────────────────────────────────
+  // Every non-JIT slot label MUST take the form:
+  //   "<state action> ahead of <calendar anchor>"
+  // It bridges the user's dominant physiological / cognitive signal to
+  // the calendar pressure that makes the state matter. Never emit bare
+  // time literals ("Midday reset", "Later today", "Before bed", etc.).
+  const truncateTitle = (t: string | null | undefined, n = 5): string | null => {
+    if (!t) return null;
+    return String(t).split(/\s+/).slice(0, n).join(' ').trim() || null;
+  };
+  const nowMs = Date.now();
+  const startOfTomorrow = new Date(); startOfTomorrow.setHours(0, 0, 0, 0); startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  const endOfTomorrow = new Date(startOfTomorrow); endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+  const tomorrowEvents = (req.calendarEvents || []).filter((e: any) => {
+    const t = new Date(e.startTime).getTime();
+    return t >= startOfTomorrow.getTime() && t < endOfTomorrow.getTime();
+  });
+  const todayRemainingEvents = (req.calendarEvents || []).filter((e: any) => {
+    const t = new Date(e.startTime).getTime();
+    return t >= nowMs && t < startOfTomorrow.getTime();
+  });
+  const scoreEventStakes = (e: any): number => {
+    let s = 0;
+    if (e.isOrganizer) s += 2;
+    const att = e.attendeesCount || 0;
+    if (att > 5) s += 2; else if (att > 2) s += 1;
+    const dur = (new Date(e.endTime).getTime() - new Date(e.startTime).getTime()) / 60000;
+    if (dur > 60) s += 2; else if (dur >= 30) s += 1;
+    if (!e.isRecurring) s += 1;
+    const title = String(e.title || '').toLowerCase();
+    if (/board|investor|interview|keynote|earnings|all[- ]hands|offsite|gdst/.test(title)) s += 3;
+    return s;
+  };
+  const tomorrowLeadEvent = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
+  const todayLeadEvent = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
+  const isTravelTitle = (t: string | null | undefined) => !!t && /flight|airport|travel|long[- ]haul|red[- ]eye|layover/i.test(t);
+
+  const composeStateLabel = (slotIndex: 0 | 1 | 2): string => {
+    const w = req.wearableContext;
+    const tier = req.innerReadinessTier;
+    const checkIn = req.checkInOutcome;
+    const load = req.calendarLoad;
+    const pressure = req.calendarPressure;
+
+    // 1) State action — pick strongest signal
+    let stateAction = '';
+    if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
+      stateAction = 'Restore HRV';
+    } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
+      stateAction = 'Recover sleep debt';
+    } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
+      stateAction = 'Settle the system';
+    } else if (load === 'high' || pressure === 'high') {
+      stateAction = 'Decompress';
+    } else if (tier === 'managing') {
+      stateAction = 'Re-consolidate focus';
+    } else {
+      stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
+    }
+
+    // 2) Calendar anchor — priority depends on slot
+    //    Slot 3 (evening) → prefer tomorrow. Slots 0/1 → prefer today.
+    let anchor = '';
+    const tmrTitle = truncateTitle(tomorrowLeadEvent?.title);
+    const tdyTitle = truncateTitle(todayLeadEvent?.title);
+
+    if (slotIndex === 2) {
+      if (tmrTitle && isTravelTitle(tomorrowLeadEvent?.title)) {
+        anchor = 'long-haul travel tomorrow';
+      } else if (tmrTitle) {
+        anchor = `tomorrow's ${tmrTitle}`;
+      } else if (tomorrowEvents.length >= 5) {
+        anchor = "tomorrow's full day of back-to-back load";
+      } else if (tomorrowEvents.length > 0) {
+        anchor = "tomorrow's calendar";
+      } else if (load === 'high' || pressure === 'high') {
+        anchor = "today's dense calendar";
+      } else {
+        anchor = "tomorrow's load";
+      }
+    } else {
+      if (tdyTitle) {
+        anchor = `today's ${tdyTitle}`;
+      } else if (load === 'high' || pressure === 'high') {
+        anchor = "today's back-to-back load";
+      } else if (tmrTitle) {
+        anchor = `tomorrow's ${tmrTitle}`;
+      } else {
+        anchor = "today's load";
+      }
+    }
+
+    return `${stateAction} ahead of ${anchor}`;
+  };
+
   const modules: HorizonModule[] = [];
 
   // ─── SLOT 1 (Immediate) ───
@@ -3737,9 +3843,7 @@ function buildHorizonModules(
     slot1Practices = jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
-    slot1TimeLabel = jitMinutesUntil < 30
-      ? `${jitEventTitle} · now`
-      : `${jitEventTitle} · in ${Math.round(jitMinutesUntil)} mins`;
+    slot1TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -3748,7 +3852,7 @@ function buildHorizonModules(
       const alignMod = todModules.find((m: any) => m.contentId !== regMod.contentId && m.type === 'align' && !m.isCoachCard);
       if (alignMod) slot1Practices.push(alignMod);
     }
-    slot1TimeLabel = 'Prepare for the day';
+    slot1TimeLabel = composeStateLabel(0);
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -3759,7 +3863,7 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
-    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : timeOfDayLabel;
+    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : composeStateLabel(0);
   }
 
   if (slot1Practices.length > 0) {
@@ -3798,13 +3902,12 @@ function buildHorizonModules(
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
-    const hrs = Math.round(jitMinutesUntil / 60);
-    slot2TimeLabel = `${jitEventTitle} · in ${hrs} hr${hrs > 1 ? 's' : ''}`;
+    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
-    slot2TimeLabel = `${jitEventTitle} · today`;
+    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
   } else {
     // Second ToD module(s), skipping slot1 IDs
     const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
@@ -3814,7 +3917,7 @@ function buildHorizonModules(
     if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
       slot2Practices.push(remaining[1]);
     }
-    slot2TimeLabel = timeOfDay === 'morning' ? 'Midday reset' : timeOfDay === 'afternoon' ? 'Later today' : 'Before bed';
+    slot2TimeLabel = composeStateLabel(1);
   }
 
   if (slot2Practices.length > 0) {
@@ -3852,7 +3955,7 @@ function buildHorizonModules(
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
-    slot3TimeLabel = 'Later today';
+    slot3TimeLabel = composeStateLabel(2);
   } else {
     const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
     const fallbackModule = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
@@ -3863,7 +3966,7 @@ function buildHorizonModules(
       const secondMod = todModules.find((m: any) => !usedIds.has(m.contentId) && m.contentId !== primaryMod.contentId);
       if (secondMod) slot3Practices.push(secondMod);
     }
-    slot3TimeLabel = timeOfDay === 'morning' ? 'This evening' : timeOfDay === 'afternoon' ? 'When you have space' : 'For your development';
+    slot3TimeLabel = composeStateLabel(2);
   }
 
   if (slot3Practices.length > 0) {
