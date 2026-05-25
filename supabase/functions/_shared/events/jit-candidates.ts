@@ -154,7 +154,7 @@ export function rankJitCandidates(
         categoryId: enriched.categoryId,
         comboKey: ph.combo,
         severity,
-        leadTimeMin: enriched.leadTimeMin ?? Math.abs(fromMin) || null,
+        leadTimeMin: enriched.leadTimeMin ?? (Math.abs(fromMin) || null),
         demandProfile: enriched.demandProfile,
         windowStartMs: winStart,
         windowEndMs: winEnd,
