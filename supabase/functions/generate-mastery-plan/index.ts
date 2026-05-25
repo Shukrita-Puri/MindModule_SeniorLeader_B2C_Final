@@ -35,6 +35,12 @@ import {
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+// JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
+// scorer when JIT_V2 env is "shadow"; writes shadow columns to
+// jit_event_context for week-1 parity testing. Does not affect what the
+// user sees until PR 2.
+import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
+import type { ResolvedRole } from '../_shared/jit/relationship-weights.ts';
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
 // import surface so future passes (Phase B/C) can read them without a new
@@ -2296,6 +2302,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
   } catch (rankErr: any) {
     console.warn('[generate-mastery-plan] rankJitCandidates failed:', rankErr?.message);
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // JIT v2 shadow run — non-blocking, behind JIT_V2=shadow|on.
+  // PR 1: writes shadow columns only; never affects user-visible output.
+  // ────────────────────────────────────────────────────────────────────
+  const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
+  if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
+    runJitV2Shadow(supabaseClient, req.userId, filteredEvents, req).catch((e) =>
+      console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
+    );
   }
 
   // Find first event in a valid action window
