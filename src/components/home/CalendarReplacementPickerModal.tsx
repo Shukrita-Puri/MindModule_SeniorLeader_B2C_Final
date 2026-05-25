@@ -105,7 +105,7 @@ const CalendarReplacementPickerInline = ({
           </h3>
           <p className="text-xs text-muted-foreground line-clamp-1">{slotTitle}</p>
           <p className="text-[11px] text-muted-foreground/80 font-body">
-            Today &amp; tomorrow · up to 3 events
+            Today &amp; tomorrow · pick 1 event to replace this priority
           </p>
         </div>
         <button
@@ -126,7 +126,7 @@ const CalendarReplacementPickerInline = ({
           )}
 
           <div className="flex items-center justify-end gap-2">
-            <p className="text-[11px] text-muted-foreground">{selectedCount}/3 selected</p>
+            <p className="text-[11px] text-muted-foreground">{selectedCount === 1 ? '1 selected' : 'None selected'}</p>
           </div>
 
           {isLoading ? (
@@ -157,7 +157,7 @@ const CalendarReplacementPickerInline = ({
                   <div className="space-y-1.5">
                     {group.items.map((event) => {
                       const isSelected = selectedIds.includes(event.id);
-                      const toggleDisabled = !isSelected && selectedCount >= 3;
+                      const toggleDisabled = false;
                       const start = new Date(event.startTime);
                       const end = new Date(event.endTime);
                       const period = event.period ?? periodFor(start);
@@ -216,10 +216,10 @@ const CalendarReplacementPickerInline = ({
               type="button"
               size="sm"
               onClick={onApply}
-              disabled={selectedCount === 0 || isLoading}
+              disabled={selectedCount !== 1 || isLoading}
               className="text-xs bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Apply ({selectedCount})
+              Apply
             </Button>
           </div>
       </div>
