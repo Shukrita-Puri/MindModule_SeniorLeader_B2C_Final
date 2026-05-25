@@ -4020,6 +4020,8 @@ function buildHorizonModules(
   const topEventStartMs = topEvent ? new Date(topEvent.event.start_time).getTime() : null;
   const topEventEndMs = topEvent && topEvent.event.end_time ? new Date(topEvent.event.end_time).getTime() : null;
   const jitPhase = resolveJitPhaseLabel(jitEventTitle, topEventStartMs, topEventEndMs, nowMs);
+  const topEventCat: any = topEvent ? enrichEvent(topEvent.event).categoryId : null;
+  const topEventId: string | null = topEvent?.event?.id ?? null;
 
   // ─── SLOT 1 (Immediate) ───
   let slot1Practices: any[] = [];
@@ -4041,7 +4043,9 @@ function buildHorizonModules(
       const alignMod = todModules.find((m: any) => m.contentId !== regMod.contentId && m.type === 'align' && !m.isCoachCard);
       if (alignMod) slot1Practices.push(alignMod);
     }
-    slot1TimeLabel = composeStateLabel(0);
+    const sl = composeStateLabel(0);
+    slot1TimeLabel = sl?.label ?? '';
+    slotAnchors.push({ eventId: sl?.eventId ?? null });
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -4052,11 +4056,13 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
-    // Contract A only fires via the JIT pipeline above. If we got here, the
-    // first calendar event was not JIT-eligible — fall through to a
-    // state-anchored label (Contracts B / C / D / E) so we never emit a
-    // "Prepare ahead of X" string for a slot that is not actually JIT.
-    slot1TimeLabel = composeStateLabel(0);
+    // Non-JIT slot 1 — state-anchored label.
+    const sl = composeStateLabel(0);
+    slot1TimeLabel = sl?.label ?? '';
+    slotAnchors.push({ eventId: sl?.eventId ?? null });
+  }
+  if (slot1IsJit && topEventId) {
+    slotAnchors.push({ eventId: topEventId });
   }
 
   if (slot1Practices.length > 0) {
@@ -4090,13 +4096,14 @@ function buildHorizonModules(
   let slot2NavyBorder = false;
 
   // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
-  if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
+  const jitReuseAllowed = !!(hasJitEvent && topEventId && topEventCat && canAnchorAgain(topEventId, topEventCat));
+  if (hasJitEvent && !slot1IsJit && jitReuseAllowed && jitMinutesUntil !== null && jitMinutesUntil >= 120 && jitMinutesUntil <= 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
     slot2TimeLabel = jitPhase.label;
-  } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
+  } else if (hasJitEvent && !slot1IsJit && jitReuseAllowed && jitMinutesUntil !== null && jitMinutesUntil > 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
@@ -4110,7 +4117,17 @@ function buildHorizonModules(
     if (remaining.length > 1 && remaining[1].type !== remaining[0]?.type) {
       slot2Practices.push(remaining[1]);
     }
-    slot2TimeLabel = composeStateLabel(1);
+    const sl = composeStateLabel(1);
+    if (sl) {
+      slot2TimeLabel = sl.label;
+      slotAnchors.push({ eventId: sl.eventId });
+    } else {
+      slot2TimeLabel = '';
+      slot2Practices = []; // signal "drop this slot"
+    }
+  }
+  if (slot2IsJit && topEventId) {
+    slotAnchors.push({ eventId: topEventId });
   }
 
   if (slot2Practices.length > 0) {
@@ -4148,7 +4165,9 @@ function buildHorizonModules(
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
-    slot3TimeLabel = composeStateLabel(2);
+    const sl = composeStateLabel(2);
+    if (sl) { slot3TimeLabel = sl.label; slotAnchors.push({ eventId: sl.eventId }); }
+    else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
     const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
     const fallbackModule = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
@@ -4159,7 +4178,9 @@ function buildHorizonModules(
       const secondMod = todModules.find((m: any) => !usedIds.has(m.contentId) && m.contentId !== primaryMod.contentId);
       if (secondMod) slot3Practices.push(secondMod);
     }
-    slot3TimeLabel = composeStateLabel(2);
+    const sl = composeStateLabel(2);
+    if (sl) { slot3TimeLabel = sl.label; slotAnchors.push({ eventId: sl.eventId }); }
+    else { slot3TimeLabel = ''; slot3Practices = []; }
   }
 
   if (slot3Practices.length > 0) {
