@@ -41,7 +41,8 @@ export interface RitualData {
         cancelReason?: string | null;
         replacementEventIds?: string[];
         priorityTag?: 'high' | 'medium' | 'low' | null;
-        relationshipTag?: 'boss' | 'colleague' | 'junior' | 'vendor' | 'client' | 'other' | null;
+        relationshipTag?: string | null;
+        customTags?: string[];
         updatedAt?: string;
       }>;
       updatedAt?: string;
