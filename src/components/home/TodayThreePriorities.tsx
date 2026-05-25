@@ -1134,10 +1134,11 @@ const TodayThreePriorities = ({
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
           const slotCancelled = hm.isCancelled === true;
-          const tagBadges = [
-            hm.priorityTag ? { label: `${hm.priorityTag} priority`, tone: 'bg-saffron/15 text-saffron border-saffron/20' } : null,
-            hm.relationshipTag ? { label: hm.relationshipTag.charAt(0).toUpperCase() + hm.relationshipTag.slice(1), tone: 'bg-white/10 text-white/70 border-white/20' } : null,
-          ].filter(Boolean) as Array<{ label: string; tone: string }>;
+          const tagState: PriorityTagState = {
+            priorityTag: (hm.priorityTag ?? null) as PriorityTagState['priorityTag'],
+            relationshipTag: (hm.relationshipTag ?? null) as PriorityTagState['relationshipTag'],
+            customTags: hm.customTags || [],
+          };
 
           // Cancelled slots stay visible in place but compressed: greyed +
           // strike-through + Undo. Completion state is preserved on the
