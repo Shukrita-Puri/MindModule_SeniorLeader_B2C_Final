@@ -5,7 +5,7 @@ import { collapseDuplicateEvents, periodFor } from "../_shared/rules/calendarEve
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform',
 };
 
 interface CalendarEventRow {
