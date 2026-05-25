@@ -70,6 +70,31 @@ const fallbackRecommendedAction = (hm: { practice: { type: string }; jitEventTit
   return `Strengthen your state for what's ahead`;
 };
 
+// Performance-oriented label remap for the 3 plan slots.
+// The plan's role is Prevent / Prepare — not generic wellness. We translate
+// any wellness-flavoured server timeLabels ("Later today", "When ready",
+// "Before bed", "Midday reset", "This morning", "This evening", "Right now",
+// "Tonight") into Prevent / Prepare framing tied to CEO performance.
+// JIT slots keep their event-anchored label ("Before <Event>") untouched.
+const performanceSlotLabel = (raw: string, isJit: boolean): string => {
+  if (isJit) return raw;
+  const t = (raw || '').toLowerCase();
+  if (!t) return raw;
+  // Evening / next-day prep
+  if (t.includes('evening') || t.includes('bed') || t.includes('tonight') || t.includes('when ready')) {
+    return 'Prepare for tomorrow';
+  }
+  // Afternoon / midday drop prevention
+  if (t.includes('afternoon') || t.includes('midday') || t.includes('later today')) {
+    return 'Prevent the afternoon dip';
+  }
+  // Morning / start-of-day prep
+  if (t.includes('morning') || t.includes('right now') || t.includes('start')) {
+    return 'Prepare for the day';
+  }
+  return raw;
+};
+
 // ── Types ──
 interface PlanModule {
   type: 'regulate' | 'align' | 'prepare' | 'integrate';
