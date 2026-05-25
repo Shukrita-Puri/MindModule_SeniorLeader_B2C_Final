@@ -2700,6 +2700,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     const calendarEventTitles = new Set<string>(
       (req.calendarEvents || []).map((e: any) => String(e.title || '').trim()).filter(Boolean)
     );
+    const calendarEventTitleById = new Map<string, string>(
+      (req.calendarEvents || [])
+        .map((e: any) => [String(e.id), String(e.title || '').trim()])
+        .filter(([id, title]: any[]) => id && title)
+    );
 
     const merged = mergeWithLedger(
       horizonModules,
@@ -2707,6 +2712,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       new Set<string>(req.completedToday || []),
       calendarEventIds,
       calendarEventTitles,
+      ledger?.userEdits,
+      calendarEventTitleById,
     );
     finalHorizonModules = merged.modules;
     ledgerMeta = {
@@ -4052,6 +4059,8 @@ function mergeWithLedger(
   completedIds: Set<string>,
   calendarEventIds: Set<string>,
   calendarEventTitles: Set<string>,
+  userEdits?: PlanLedger['userEdits'],
+  calendarEventTitleById?: Map<string, string>,
 ): {
   modules: HorizonModule[];
   source: 'fresh' | 'ledger-evolution' | 'bonus-round';
@@ -4102,8 +4111,30 @@ function mergeWithLedger(
     }
   });
 
+  const slotEditsMap = userEdits?.slotEdits || {};
+  const titleById = calendarEventTitleById || new Map<string, string>();
+
+  const findFreshByEventId = (eventId: string): { slot: HorizonModule; idx: number } | null => {
+    const title = (titleById.get(eventId) || '').trim();
+    if (!title) return null;
+    const exact = freshByJitTitle.get(title);
+    if (exact && !usedFreshIndexes.has(exact.idx)) return exact;
+    for (const [t, v] of freshByJitTitle.entries()) {
+      if (usedFreshIndexes.has(v.idx)) continue;
+      const a = t.toLowerCase(); const b = title.toLowerCase();
+      if (a.includes(b) || b.includes(a)) return v;
+    }
+    return null;
+  };
+
   for (let slotIndex = 0; slotIndex < ledgerModules.length && slotIndex < 3; slotIndex++) {
     const ledgerSlot = ledgerModules[slotIndex];
+    const edit = slotEditsMap[`slot-${slotIndex}`];
+    const slotCancelled = edit?.cancelled === true || ledgerSlot.isCancelled === true;
+    const replacementEventId =
+      (edit?.replacementEventIds && edit.replacementEventIds[0]) ||
+      (ledgerSlot.replacementEventIds && ledgerSlot.replacementEventIds[0]) ||
+      null;
 
     // Rule 1: Sticky completion — completed slots stay verbatim.
     if (isSlotCompleted(ledgerSlot, completedIds)) {
@@ -4163,8 +4194,38 @@ function mergeWithLedger(
       continue;
     }
 
-    // Rule 3: Recompute — pick the next unused fresh slot (preferring same
-    // horizon for stability), else fall through to ledger if no fresh remains.
+    // Rule 3a: Per-slot replacement — cancelled slot with an explicit
+    // user-chosen calendar event. Anchor THIS slot to that event only;
+    // never let the replacement bleed into another slot index.
+    if (slotCancelled && replacementEventId) {
+      const match = findFreshByEventId(replacementEventId);
+      if (match) {
+        usedFreshIndexes.add(match.idx);
+        out.push({
+          ...match.slot,
+          isCancelled: false,
+          cancelReason: null,
+          replacementEventIds: [replacementEventId],
+          priorityTag: ledgerSlot.priorityTag ?? null,
+          relationshipTag: ledgerSlot.relationshipTag ?? null,
+        });
+        anchoredSlots++;
+        continue;
+      }
+      // Fall through to generic recompute if we couldn't find a match.
+    }
+
+    // Rule 3b: Anchor stability — non-cancelled, non-completed ledger slot.
+    // Keep its content as-is so replacing one priority never reshuffles the
+    // others. Only cancelled slots ever get recomputed from fresh.
+    if (!slotCancelled) {
+      out.push({ ...ledgerSlot });
+      carriedSlots++;
+      continue;
+    }
+
+    // Rule 3c: Cancelled slot without an explicit replacement — pick the
+    // next unused fresh slot (preferring same horizon).
     const sameHorizonFreshIdx = freshModules.findIndex((m, i) =>
       !usedFreshIndexes.has(i) && m.horizon === ledgerSlot.horizon
     );
