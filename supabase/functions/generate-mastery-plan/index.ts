@@ -25,6 +25,7 @@ import {
   EVENT_PHASE_MAP,
   phaseForEvent,
   protocolsForEvent,
+  CATEGORY_MAX_SLOTS,
   type Phase,
 } from '../_shared/events/event-phase-map.ts';
 import {
