@@ -305,6 +305,47 @@ const TodayThreePriorities = ({
   const pendingPersistRef = useRef<number>(0);
 
   const effectiveUserId = user?.id || (DEV_MODE ? DEV_USER.id : null);
+
+  // Tag updates — optimistic local + mirror + background DB persist.
+  // Mirrors the cancel/undo pattern so the UI never regresses after refresh.
+  const updateSlotTags = useCallback((slotIndex: number, next: PriorityTagState) => {
+    const today = localISODate();
+    const period = getCurrentTimeWindow();
+    setPlan((prev) => {
+      if (!prev?.horizonModules) return prev;
+      const updated = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+        i === slotIndex
+          ? { ...m, priorityTag: next.priorityTag, relationshipTag: next.relationshipTag as any, customTags: next.customTags }
+          : m,
+      ) } as MasteryPlanResponse;
+      try {
+        const ttl = msUntilWindowEnd();
+        writePersistent(cacheKeys.planData(today, period), updated, ttl);
+        patchPlanSlotEdit(today, period, slotIndex, {
+          priorityTag: next.priorityTag,
+          relationshipTag: next.relationshipTag,
+          customTags: next.customTags,
+        });
+      } catch { /* ignore */ }
+      return updated;
+    });
+    (async () => {
+      pendingPersistRef.current += 1;
+      try {
+        await persistPlanLedgerEdit(
+          slotIndex,
+          {
+            priorityTag: next.priorityTag,
+            relationshipTag: next.relationshipTag,
+            customTags: next.customTags,
+          } as any,
+          period,
+        );
+      } catch { /* silent — local mirror keeps UI consistent */ }
+      pendingPersistRef.current = Math.max(0, pendingPersistRef.current - 1);
+    })();
+  }, []);
+
   const loadReplacementEvents = useCallback(async () => {
     if (!effectiveUserId || !replacementSlot) return;
     setReplacementLoading(true);
@@ -1093,10 +1134,11 @@ const TodayThreePriorities = ({
           const module = hm.practice; // primary practice for collapsed view
           const slotKey = buildPriorityKey(index, hm);
           const slotCancelled = hm.isCancelled === true;
-          const tagBadges = [
-            hm.priorityTag ? { label: `${hm.priorityTag} priority`, tone: 'bg-saffron/15 text-saffron border-saffron/20' } : null,
-            hm.relationshipTag ? { label: hm.relationshipTag.charAt(0).toUpperCase() + hm.relationshipTag.slice(1), tone: 'bg-white/10 text-white/70 border-white/20' } : null,
-          ].filter(Boolean) as Array<{ label: string; tone: string }>;
+          const tagState: PriorityTagState = {
+            priorityTag: (hm.priorityTag ?? null) as PriorityTagState['priorityTag'],
+            relationshipTag: (hm.relationshipTag ?? null) as PriorityTagState['relationshipTag'],
+            customTags: hm.customTags || [],
+          };
 
           // Cancelled slots stay visible in place but compressed: greyed +
           // strike-through + Undo. Completion state is preserved on the
@@ -1188,15 +1230,13 @@ const TodayThreePriorities = ({
                     <p className="text-[10px] text-muted-foreground/50 font-body mt-0.5">
                       Cancelled
                     </p>
-                    {tagBadges.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {tagBadges.map((badge) => (
-                          <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                            {badge.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className="mt-1.5">
+                      <PriorityTagAffordance
+                        value={tagState}
+                        onChange={(next) => updateSlotTags(index, next)}
+                        muted
+                      />
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -1316,15 +1356,12 @@ const TodayThreePriorities = ({
                           {hm.whyLine}
                         </p>
                       )}
-                      {tagBadges.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {tagBadges.map((badge) => (
-                            <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                              {badge.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                        <PriorityTagAffordance
+                          value={tagState}
+                          onChange={(next) => updateSlotTags(index, next)}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1378,15 +1415,12 @@ const TodayThreePriorities = ({
                     </div>
                   )}
 
-                  {tagBadges.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {tagBadges.map((badge) => (
-                        <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${badge.tone}`}>
-                          {badge.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <PriorityTagAffordance
+                      value={tagState}
+                      onChange={(next) => updateSlotTags(index, next)}
+                    />
+                  </div>
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
                     {hm.recommendedAction || fallbackRecommendedAction(hm)}
