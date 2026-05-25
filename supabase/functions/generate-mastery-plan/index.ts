@@ -4127,7 +4127,28 @@ function buildHorizonModules(
     }
   }
 
-  return deduped.slice(0, 3);
+  // Final guard: forbidden bare-time literals must never reach the client.
+  // If any sneaks through, rewrite via composeStateLabel so the slot stays
+  // anchored to a calendar / performance moment (Contracts A–E).
+  const FORBIDDEN_LITERALS = new Set<string>([
+    'Midday reset', 'Later today', 'When you have space', 'This evening',
+    'Before bed', 'For your development', 'When ready', 'Right now',
+    'Prepare for the day', 'Prepare for tomorrow', 'Morning reset',
+    'Prevent the afternoon dip',
+  ]);
+  const out = deduped.slice(0, 3);
+  for (let i = 0; i < out.length; i++) {
+    const lbl = String(out[i].timeLabel || '').trim();
+    if (!lbl || FORBIDDEN_LITERALS.has(lbl)) {
+      const idx = (Math.min(i, 2) as 0 | 1 | 2);
+      const replacement = composeStateLabel(idx);
+      console.warn('[generate-mastery-plan] blacklisted timeLabel rewritten', {
+        slotIndex: i, original: lbl, replacement,
+      });
+      out[i] = { ...out[i], timeLabel: replacement };
+    }
+  }
+  return out;
 }
 
 // ==================== STATEFUL PLAN LEDGER ====================
