@@ -12,6 +12,13 @@ import {
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
+// §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
+// (Pre / During / Post) contract. Slot labelling and JIT framing now consult
+// these modules instead of redefining the taxonomy locally.
+import { EVENT_CATEGORIES, type EventCategoryId } from '../_shared/events/event-categories.ts';
+import { classifyEvent } from '../_shared/events/event-classifier.ts';
+import { EVENT_PHASE_MAP, phaseForEvent, type Phase } from '../_shared/events/event-phase-map.ts';
+import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
