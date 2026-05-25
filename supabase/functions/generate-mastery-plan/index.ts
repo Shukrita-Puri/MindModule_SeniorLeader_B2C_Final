@@ -3681,7 +3681,7 @@ function buildHorizonModules(
       const alignMod = todModules.find((m: any) => m.contentId !== regMod.contentId && m.type === 'align' && !m.isCoachCard);
       if (alignMod) slot1Practices.push(alignMod);
     }
-    slot1TimeLabel = 'Before you start';
+    slot1TimeLabel = 'Prepare for the day';
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -3692,7 +3692,7 @@ function buildHorizonModules(
         slot1Practices.push(nextMod);
       }
     }
-    slot1TimeLabel = firstEventTitle ? `Before ${firstEventTitle}` : timeOfDayLabel;
+    slot1TimeLabel = firstEventTitle ? `Prepare ahead of ${firstEventTitle}` : timeOfDayLabel;
   }
 
   if (slot1Practices.length > 0) {
