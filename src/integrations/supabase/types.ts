@@ -62,6 +62,81 @@ export type Database = {
         }
         Relationships: []
       }
+      attendee_relationships: {
+        Row: {
+          attendee_domain: string | null
+          attendee_email: string
+          attendee_name: string | null
+          confidence: number | null
+          created_at: string
+          evidence_url: string | null
+          expires_at: string
+          id: string
+          resolved_at: string
+          role: string
+          seniority: string | null
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendee_domain?: string | null
+          attendee_email: string
+          attendee_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          evidence_url?: string | null
+          expires_at?: string
+          id?: string
+          resolved_at?: string
+          role?: string
+          seniority?: string | null
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendee_domain?: string | null
+          attendee_email?: string
+          attendee_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          evidence_url?: string | null
+          expires_at?: string
+          id?: string
+          resolved_at?: string
+          role?: string
+          seniority?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      attendee_resolver_log: {
+        Row: {
+          attendee_email: string
+          created_at: string
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attendee_email: string
+          created_at?: string
+          id?: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          attendee_email?: string
+          created_at?: string
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2253,6 +2328,11 @@ export type Database = {
           jit_urgency_horizon: string | null
           scale_score: number | null
           scenario_match_score: number | null
+          shadow_v2_at: string | null
+          shadow_v2_components: Json | null
+          shadow_v2_role: string | null
+          shadow_v2_score: number | null
+          shadow_v2_tier: string | null
           shown_in_jit: boolean | null
           skip_penalty: number | null
           updated_at: string | null
@@ -2293,6 +2373,11 @@ export type Database = {
           jit_urgency_horizon?: string | null
           scale_score?: number | null
           scenario_match_score?: number | null
+          shadow_v2_at?: string | null
+          shadow_v2_components?: Json | null
+          shadow_v2_role?: string | null
+          shadow_v2_score?: number | null
+          shadow_v2_tier?: string | null
           shown_in_jit?: boolean | null
           skip_penalty?: number | null
           updated_at?: string | null
@@ -2333,6 +2418,11 @@ export type Database = {
           jit_urgency_horizon?: string | null
           scale_score?: number | null
           scenario_match_score?: number | null
+          shadow_v2_at?: string | null
+          shadow_v2_components?: Json | null
+          shadow_v2_role?: string | null
+          shadow_v2_score?: number | null
+          shadow_v2_tier?: string | null
           shown_in_jit?: boolean | null
           skip_penalty?: number | null
           updated_at?: string | null

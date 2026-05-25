@@ -1,118 +1,243 @@
-## Pre-Phase-C fix — dedup slots + variable slot count (1–3)
 
-### What's broken (from the screenshot)
+# Clean-Slate JIT Selection — Triangulated Importance Model (v2)
 
-All three priorities on the attached plan read "…ahead of tomorrow's Coca-Cola Client — Presentation". Two independent bugs in `supabase/functions/generate-mastery-plan/index.ts`:
+Goal: replace every JIT scoring path with a single selector that mirrors
+how a Chief of Staff triages a CEO's day. **Aim: prevent and prepare so
+the user performs at their cognitive peak at work.** Personal events
+have zero weight. 24h MVP horizon. Single code path. Legacy deleted.
 
-1. **State-anchor duplication.** `composeStateLabel(slotIndex)` (lines 3901–3991) re-derives its anchor from `tomorrowLeadEvent` / `todayLeadEvent` every call. When the JIT path doesn't fire (event > 120 min away), all three slots stamp the same calendar title.
-2. **Forced 3-slot fill.** The resolver always emits 3 slots, even when there is genuinely only one or two meaningful priorities for the user's current window. Combined with bug 1, this manufactures padding slots that reuse the same anchor event.
-3. **No category-aware fan-out rule.** Per §4, only multi-phase categories (G Travel, F Conferences multi-day, A high-stakes with both pre+post in horizon, D pre+post same day) should ever take more than one slot for the same event. C/E/B/H must occupy at most one slot per plan.
+---
 
-### Fix (no Phase C, no taxonomy redefinition, no UI changes)
+## 1. The three pillars
 
-#### 1. Category fan-out registry — `_shared/events/event-phase-map.ts`
+```text
+IMMEDIATE  — does the framework care about this event, and who's in the room?
+             • §3 category (A–H) base
+             • RELATIONSHIP weight (user tag → cached LLM+LinkedIn → unknown)
+             • explicit stakes hint from the title (board / external / investor)
 
-```ts
-export const CATEGORY_MAX_SLOTS: Record<EventCategoryId, number> = {
-  A: 2,   // pre + post when both windows land in horizon
-  B: 1,
-  C: 1,   // ← Coca-Cola Presentation
-  D: 2,   // pre + post same day
-  E: 1,
-  F: 3,   // multi-day conference: pre + during-nudge + post per day
-  G: 3,   // long-haul: pre-flight + in-flight + landing
-  H: 1,
-};
+TACTICAL   — has THIS user been knocked off-state by events like this?
+             • HRV / RHR pattern hit from causality_findings (NOT recomputed)
+             • USER PRIORITY TAG on the event
+             • skipPenalty (past dismissals / "not relevant", cap −10)
+             • followThroughBoost (past JIT completed + felt-better)
+
+STRATEGIC  — does this event sit on a self-declared growth lane?
+             • onboarding growth_intention, practicePriorityTag, coach growth_area
+             → tiebreaker only; multiplied by 0 when Immediate < MIN_IMMEDIATE
 ```
 
-The only rule governing "can the same event take more than one slot". The resolver consults it; nothing inline.
+Authority chain (immutable): **Immediate filters → Tactical ranks →
+Strategic breaks ties.** Strategic never out-votes a sustained tactical
+pattern; nothing rescues a personal event.
 
-#### 2. Variable slot count: 1 ≤ slots ≤ 3
+---
 
-The resolver builds a **candidate list** of meaningful priorities for the current window, then emits `min(3, candidates.length)` slots. A slot is "meaningful" only if it carries either:
+## 2. Adaptive weighting — patterns earn their authority over time
 
-- a JIT phase that is eligible in the current window (per `jit-candidates.ts` ranking), OR
-- a state-anchored intent backed by a non-duplicate anchor (distinct calendar event, calendar load, wearable deficit, or tomorrow's lead event for the evening contract).
+Tactical importance scales with how much truth we have on this user.
+A brand-new user has no pattern history, so Immediate (framework +
+relationship) must carry the day. Once patterns accumulate, Tactical
+overtakes Immediate because **"important to this CEO"** is stronger
+signal than **"important on paper"**.
 
-If no second/third meaningful candidate exists, **the plan ships with 1 or 2 slots — no padding**.
+Maturity is read directly off the user's existing
+`causality_findings.signal_summary` (canonical pattern store per
+`mem://architecture/unified-pattern-store`) — we do **not** recompute
+patterns inside the JIT selector. We count distinct event-type buckets
+present in `event_to_hrv` ∪ `event_to_rhr` with `n ≥ 3` and
+`confidence ∈ {emerging, strong}`.
 
-Wired through `applyV51Enrichment` so the existing `mergeWithLedger` keeps working: completed slots stay crossed out, incomplete slots keep their practices. When the resolver returns fewer than the prior plan's slot count, surplus old slots are pruned (not silently filled).
-
-Worked examples:
-
-- **Evening + heavy day + tomorrow JIT (board 09:00):** Slot 1 = JIT prep at T-12h (Contract A pre), Slot 2 = state-anchored recovery ("Recover sleep debt ahead of tomorrow's board"). **2 slots, not 3.**
-- **Evening + heavy day + no upcoming JIT:** Slot 1 = state-anchored decompression / sleep prep. **1 slot.**
-- **Morning + dense calendar + 1 JIT in 2h + 1 JIT in 6h:** Slot 1 = imminent JIT pre, Slot 2 = state-anchored bridge ("Re-consolidate focus ahead of today's load"), Slot 3 = second JIT pre. **3 slots.**
-- **Weekend with no events:** Slot 1 = state-anchored ("Build capacity ahead of Monday's load"). **1 slot.**
-
-Hard guarantee: `modules.length >= 1 && modules.length <= 3` at the persistence boundary. The "≥ 1" floor is satisfied by the always-available state-anchor fallback (felt-state verb + generic anchor — e.g. "Steady the system ahead of the evening ahead" — never references an event id).
-
-#### 3. Slot-anchor bookkeeper (used by §4 and §5)
-
-```ts
-const slotAnchors: { eventId: string | null; phase: Phase | null }[] = [];
-function anchorsUsedFor(id: string)   { return slotAnchors.filter(a => a.eventId === id).length; }
-function canAnchorAgain(id: string, cat: EventCategoryId) {
-  return anchorsUsedFor(id) < (CATEGORY_MAX_SLOTS[cat] ?? 1);
-}
+```text
+maturity tier      day range   distinct patterns   immediate w   tactical w
+─────────────────  ──────────  ──────────────────  ───────────   ──────────
+cold     (T0)      day 1–7      0                  0.60          0.25
+warming  (T1)      day 8–14     1–2                0.50          0.35
+warm     (T2)      day 15–30    3–5                0.40          0.45
+mature   (T3)      day 30+      6+                 0.35          0.50
 ```
 
-Every slot pushes its anchor after it's built. JIT branches and `composeStateLabel` consult `canAnchorAgain` before adopting an event.
+Strategic weight stays at **0.15** across all tiers. Day-count is the
+floor (a user can't enter T2 on day 3 even with patterns), pattern-count
+is the ceiling (a 60-day user with zero patterns stays at T1).
 
-#### 4. Gate the JIT slot-2 / slot-3 re-trigger on category
+The final formula becomes:
 
-The two JIT branches in slot 2 (lines 4071 and 4077) currently re-fire on `topEvent` whenever `jitMinutesUntil >= 120`. Wrap both:
-
-```ts
-const topCat = topEvent ? enrichEvent(topEvent.event).categoryId : null;
-const canReuseTopEvent = topCat && canAnchorAgain(topEvent.event.id, topCat);
-if (hasJitEvent && !slot1IsJit && canReuseTopEvent && /* existing window guard */) { … }
+```text
+importance = w_immediate * immediate
+           + w_tactical  * tactical
+           + w_strategic * strategic * strategicGate
 ```
 
-For C/E/B/H this collapses to a single JIT slot.
+`strategicGate = 1` iff raw `immediate >= MIN_IMMEDIATE`, else 0.
 
-#### 5. `composeStateLabel` — dedup fallback chain (replace single-shot anchor pick)
+Worked intuition: at T0 a Board meeting wins because Immediate is heavy.
+At T3, a 1:1 with the boss where HRV has dropped 3× in the last month
+beats a generic Board sync — because the system now knows that *this*
+1:1 is the one that costs *this* CEO regulation.
 
-Inside `composeStateLabel(slotIndex)`:
+---
 
-- Walk a fallback chain instead of picking one lead event:
-  - First today event whose id is not already in `slotAnchors` AND its category permits another slot.
-  - Else calendar-load anchor: "today's back-to-back load" / "today's dense calendar".
-  - Else wearable-anchor: "Restore HRV ahead of tomorrow's load" etc.
-  - Else generic: "the evening ahead" / "tomorrow's load" / "Monday's load".
-- Slot 3 (`slotIndex === 2`): same chain against `tomorrowEvents` first.
-- Never return a string that names an event already anchored when `CATEGORY_MAX_SLOTS[cat] === 1`.
-- If the chain produces **no distinct anchor** AND this slot is index ≥ 1, return `null` → resolver drops the slot (variable-slot floor from §2 takes over).
+## 3. Noise gate (run before scoring)
 
-#### 6. Behaviour after fix (screenshot scenario)
+Hard-reject titles matching the personal/non-work lexicon. Extends
+existing `isNoiseEvent` / `isEducationalTitle`:
 
-Coca-Cola Client — Presentation (category C, tomorrow, >120 min):
+```text
+personal_noise = [
+  walk dog, dog walk, gym, workout, run, yoga class,
+  school run, school pickup, school drop-off, kids,
+  dentist, doctor, gp appointment, haircut, salon,
+  grocery, shopping, lunch with family, family dinner,
+  birthday, anniversary, date night, holiday, vacation,
+  personal, errands, laundry, cleaner
+]
+education_noise = lunch & learn, course, training (when not organizer)
+```
 
-- **Slot 1** — state-anchored, "…ahead of tomorrow's Coca-Cola Client — Presentation". `slotAnchors = [{coca, null}]`.
-- **Slot 2** — `canAnchorAgain(coca, 'C')` → false. Fallback chain finds no distinct event → returns null → **slot dropped**.
-- **Slot 3** — same dedup. If calendar load is high and HRV deficit exists → "Restore HRV ahead of tomorrow's load". Otherwise also dropped.
-- **Result:** 1 slot (single C event, no other signal) or 2 slots (single C event + meaningful state signal). Never 3 slots referencing the same Coca-Cola event.
+Tagged `reason="personal_noise"` for shadow-week audit.
 
-Long-haul flight tomorrow (G, max 3) unaffected: Pre-flight, In-flight, Landing each get their own slot.
+---
 
-### Tests (Deno, `_shared/events/category-slot-fanout.test.ts`)
+## 4. Relationship resolver (inside Immediate)
 
-- Category C event 6 h away, no other signals → **1 slot**, references it once.
-- Category C event 6 h away + dense calendar + HRV deficit → **2 or 3 slots**, only one references the event; others use load/HRV anchors.
-- Category G long-haul → **3 slots**, pre/during/post phases of the same flight.
-- Category F multi-day conference (speaking Tue) → Tue plan = 2 slots (pre + post on keynote); Mon plan = 1 slot (pre only).
-- Evening + no JIT → **1 slot**, state-anchored, never references an event.
-- Weekend with empty calendar → **1 slot**, "Build capacity ahead of Monday's load".
-- Variable-count invariant: `1 ≤ modules.length ≤ 3` across all fixtures.
+User tag is sovereign. LLM+LinkedIn lookup fills gaps, async, cached.
 
-### Files touched
+```text
+Resolution order per attendee:
+  1. attendee_relationships.source = 'user_tag'   (authoritative)
+  2. attendee_relationships.source = 'llm'        (cached, 90d TTL)
+  3. role = 'unknown'                              (no penalty, no boost)
 
-- `supabase/functions/_shared/events/event-phase-map.ts` — add + export `CATEGORY_MAX_SLOTS`.
-- `supabase/functions/generate-mastery-plan/index.ts` — add `slotAnchors`, gate JIT slot-2 branches, rewrite `composeStateLabel` to use deduplicating fallback chain returning `null` when no distinct anchor, switch slot emission from hard-coded 3 to `modules.push(...)` only when a candidate exists, prune trailing nulls before persistence.
-- `supabase/functions/_shared/events/category-slot-fanout.test.ts` — new.
-- `mem/features/mastery-plan/slot-model-v5.md` — add note: "3-slot count is a ceiling, not a floor. Floor is 1. Padding slots forbidden."
-- `.lovable/plan.md` — append "Pre-Phase-C dedup + variable slot count" status section.
+LLM+LinkedIn lookup (async edge function, never blocks plan):
+  - Trigger: calendar sync writes a new attendee
+  - Skip:    generic domains [gmail, hotmail, outlook.com, icloud, yahoo, proton]
+  - Skip:    rate limit > 50 lookups / user / day  (revisit after week 1)
+  - Model:   gemini-2.5-flash, web-grounded, public LinkedIn only
+  - Roles:   boss | board_member | investor | client | vendor |
+             peer | report | external_partner | unknown
+```
 
-No UI changes — `TodayThreePriorities.tsx` already maps over whatever modules the server returns; rendering 1 or 2 modules is a no-op.
+---
 
-No Phase C work. No taxonomy changes.
+## 5. Scoring components (single formula)
+
+```text
+immediate = categoryBase[category]              // 0..40  (A=40, C=30, F=30,
+                                                           G=25, D=20, B=15,
+                                                           E=10, H=5)
+          + relationshipWeight[resolvedRole]    // 0..25  (boss=25, board=25,
+                                                           investor=20, client=18,
+                                                           external=15, peer=8,
+                                                           vendor=5, report=5,
+                                                           unknown=0)
+          + stakesHint(title)                   // 0..15
+
+tactical  = patternHit(category, role)          // 0..25  ← reads causality_findings
+          + userPriorityTagBoost(event.tags)    // 0..20
+          - skipPenalty                          // 0..10
+          + followThroughBoost                  // 0..10
+
+strategic = goalAlignment(event, user.goals)   // 0..15
+
+importance = w_imm*immediate + w_tac*tactical
+           + w_str*strategic*strategicGate      // tier weights from §2
+```
+
+`patternHit` looks up the event-type bucket in
+`causality_findings.signal_summary.event_to_hrv` and
+`event_to_rhr`; scales by `n`, `hrvDeltaPct` magnitude, and
+`confidence` (strong=25, emerging=15, none=0).
+
+`MIN_IMMEDIATE = 25` (provisional, revisit after shadow week).
+
+Tie-breakers: `tactical desc`, `strategic desc`, `minutesUntilStart asc`.
+
+**Deleted forever:** attendee count, organizer flag, recurring flag,
+time-of-day, dimA/dimB gate, `JIT_THRESHOLD_UNIFIED`, +6/+3 relationship
+boost.
+
+---
+
+## 6. Phase fan-out (unchanged)
+
+`pickNextRankedCandidate`, `CATEGORY_MAX_SLOTS`, `phaseAlreadyAnchored`
+consume the new ranked list. Pre/During/Post windows from
+`events/event-phase-map.ts`. Only ranking changes.
+
+---
+
+## 7. Safe cutover
+
+**PR 1 — shadow mode (no user-visible change)**
+- New `_shared/jit/select-jit.ts` exporting `selectJitCandidates(events, ctx)`.
+- New `_shared/jit/maturity-tier.ts` (reads `causality_findings`, returns weights).
+- New async `resolve-attendee-relationship` edge function.
+- New `attendee_relationships` table (RLS deny-by-default).
+- Nullable `jit_event_context.shadow_v2_score` + `shadow_v2_components` + `shadow_v2_tier`.
+- Behind `JIT_V2=shadow`: legacy still selects; new selector writes shadow rows.
+- After 7 days: run `/mnt/documents/shadow-diff-week1.csv` to compare picks
+  per user **and** tier distribution.
+
+**PR 2 — flip + hard delete**
+- `JIT_V2=on`. New selector is sole path.
+- Delete: `scoreCalendarEventsLegacy`, `computeLegacyDimA/B`,
+  `JIT_THRESHOLD_UNIFIED`, `getPreScoredEvents` bridge, weight block
+  in `_shared/events/jit-candidates.ts`.
+- `jit_event_context` becomes write-only observability.
+- Drop `shadow_v2_*` columns once parity confirmed.
+- Rollback = revert PR 2 commit.
+
+---
+
+## 8. Files
+
+```text
+supabase/functions/_shared/jit/
+  select-jit.ts                 NEW   selector + scoring + tie-breakers
+  maturity-tier.ts              NEW   tier resolver from causality_findings
+  noise-filters.ts              NEW   personal/education noise lexicon
+  relationship-weights.ts       NEW   role → weight table
+  tactical-signals.ts           NEW   patternHit (reads causality_findings),
+                                      priority tag, skip, follow-through
+  goal-alignment.ts             NEW   strategic boost
+  select-jit.test.ts            NEW   Imm/Tac/Str + noise + 4 tier fixtures
+
+supabase/functions/resolve-attendee-relationship/
+  index.ts                      NEW
+
+supabase/migrations/<ts>_attendee_relationships.sql        NEW
+supabase/migrations/<ts>_jit_event_context_shadow.sql      NEW (PR 1)
+supabase/migrations/<ts>_jit_event_context_drop_shadow.sql NEW (PR 2)
+
+supabase/functions/generate-mastery-plan/index.ts   wire selector (PR 1);
+                                                    delete legacy (PR 2)
+supabase/functions/_shared/events/jit-candidates.ts  weights deleted (PR 2)
+
+mem://features/mastery-plan/jit-selection-v2        NEW — three pillars,
+                                                    tier-weight table,
+                                                    "patterns are read,
+                                                    never recomputed",
+                                                    personal noise list,
+                                                    no attendee math
+```
+
+Memory prune (PR 2): remove any entry referencing attendee-count /
+organizer / time-of-day scoring.
+
+---
+
+## 9. Confirmed open items
+
+1. `MIN_IMMEDIATE = 25` — provisional; revisit after shadow week.
+2. Generic-domain blocklist — confirmed (gmail/hotmail/outlook/icloud/yahoo/proton).
+3. Cost guard 50 lookups/user/day — confirmed; tune after week 1.
+4. Memory pruning of legacy-scoring references — confirmed.
+5. Personal noise lexicon — confirmed.
+6. Relationship in Immediate; user priority tag in Tactical — confirmed.
+7. Skip penalty = past dismissals + "not relevant" feedback, cap −10.
+8. **Tier weights shift Immediate → Tactical as patterns mature** (§2).
+9. **Patterns are read from `causality_findings`, never recomputed in
+   the JIT path** (per `mem://architecture/unified-pattern-store`).
+
+Approve and I'll open PR 1 in build mode.

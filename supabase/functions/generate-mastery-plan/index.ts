@@ -35,6 +35,132 @@ import {
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+// JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
+// scorer when JIT_V2 env is "shadow"; writes shadow columns to
+// jit_event_context for week-1 parity testing. Does not affect what the
+// user sees until PR 2.
+import { selectJitCandidates, type SelectInputEvent } from '../_shared/jit/select-jit.ts';
+import type { ResolvedRole } from '../_shared/jit/relationship-weights.ts';
+
+/**
+ * JIT v2 shadow runner (PR 1). Pure side-effect; safe to fire-and-forget.
+ * Loads account age + canonical pattern summary + resolved attendee roles,
+ * runs the new selector, and stamps shadow_v2_* columns on the matching
+ * jit_event_context rows the legacy bridge already wrote this run.
+ */
+async function runJitV2Shadow(
+  supabase: any,
+  userId: string,
+  filteredEvents: any[],
+  req: any,
+): Promise<void> {
+  if (!Array.isArray(filteredEvents) || filteredEvents.length === 0) return;
+
+  // Account age in days (floor by profiles.created_at).
+  let accountAgeDays = 0;
+  try {
+    const { data: prof } = await supabase
+      .from('profiles').select('created_at').eq('id', userId).maybeSingle();
+    if (prof?.created_at) {
+      accountAgeDays = Math.floor((Date.now() - new Date(prof.created_at).getTime()) / 86_400_000);
+    }
+  } catch (_e) { /* default 0 → T0 */ }
+
+  // Canonical pattern summary (never recomputed here).
+  let signalSummary: any = null;
+  try {
+    const { data } = await supabase
+      .from('causality_findings')
+      .select('signal_summary')
+      .eq('user_id', userId)
+      .eq('pattern_kind', 'cause_effect_v2')
+      .order('computed_for_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    signalSummary = (data as any)?.signal_summary ?? null;
+  } catch (_e) { /* null → tier T0 */ }
+
+  // Resolved attendee roles for events in scope.
+  const emails = new Set<string>();
+  for (const fe of filteredEvents) {
+    const att = fe?.event?.attendees;
+    if (Array.isArray(att)) for (const a of att) {
+      const em = typeof a === 'string' ? a : a?.email;
+      if (typeof em === 'string') emails.add(em.toLowerCase().trim());
+    }
+  }
+  const roleByEmail = new Map<string, ResolvedRole>();
+  if (emails.size > 0) {
+    try {
+      const { data } = await supabase
+        .from('attendee_relationships')
+        .select('attendee_email, role, expires_at')
+        .eq('user_id', userId)
+        .in('attendee_email', Array.from(emails));
+      for (const r of (data ?? [])) {
+        if (r?.expires_at && new Date(r.expires_at).getTime() < Date.now()) continue;
+        roleByEmail.set(r.attendee_email, (r.role as ResolvedRole) || 'unknown');
+      }
+    } catch (_e) { /* fall through */ }
+  }
+
+  const input: SelectInputEvent[] = filteredEvents.map((fe: any) => {
+    const roles: ResolvedRole[] = [];
+    const att = fe?.event?.attendees;
+    if (Array.isArray(att)) for (const a of att) {
+      const em = typeof a === 'string' ? a : a?.email;
+      if (typeof em === 'string') {
+        const r = roleByEmail.get(em.toLowerCase().trim());
+        if (r) roles.push(r);
+      }
+    }
+    return {
+      id: fe.event.id,
+      title: fe.event.title || '',
+      start_time: fe.event.start_time,
+      end_time: fe.event.end_time,
+      attendeeRoles: roles,
+      tags: Array.isArray(fe.event.tags) ? fe.event.tags : [],
+    };
+  });
+
+  const goals = {
+    growthIntentions: typeof req?.growthIntention === 'string' ? [req.growthIntention] : [],
+    practicePriorityTags: req?.practicePriorityTag ? [String(req.practicePriorityTag)] : [],
+    coachGrowthAreas: (req?.coachInsights || [])
+      .filter((i: any) => i?.type === 'growth_area')
+      .map((i: any) => String(i.content || ''))
+      .filter(Boolean),
+  };
+
+  const result = selectJitCandidates(input, {
+    accountAgeDays,
+    signalSummary,
+    skipCountsByBucket: {},        // PR 1: empty; PR 2 wires jit_preferences
+    followThroughByBucket: {},
+    goals,
+    nowMs: Date.now(),
+  });
+
+  console.log(`[generate-mastery-plan][jit-v2-shadow] tier=${result.tier.tier} ageDays=${accountAgeDays} patternCount=${result.tier.patternCount} ranked=${result.ranked.length} excluded=${result.excluded.length} top=${result.ranked[0]?.title ?? 'none'}@${result.ranked[0]?.importance ?? 0}`);
+
+  // Stamp shadow columns onto rows the legacy bridge wrote this run.
+  for (const c of result.ranked.slice(0, 5)) {
+    try {
+      await supabase
+        .from('jit_event_context')
+        .update({
+          shadow_v2_score: c.importance,
+          shadow_v2_components: c.components,
+          shadow_v2_tier: result.tier.tier,
+          shadow_v2_role: c.role,
+          shadow_v2_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('calendar_event_id', c.eventId);
+    } catch (_e) { /* best effort */ }
+  }
+}
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
 // import surface so future passes (Phase B/C) can read them without a new
@@ -2296,6 +2422,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
   } catch (rankErr: any) {
     console.warn('[generate-mastery-plan] rankJitCandidates failed:', rankErr?.message);
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // JIT v2 shadow run — non-blocking, behind JIT_V2=shadow|on.
+  // PR 1: writes shadow columns only; never affects user-visible output.
+  // ────────────────────────────────────────────────────────────────────
+  const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
+  if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
+    runJitV2Shadow(supabaseClient, req.userId, filteredEvents, req).catch((e) =>
+      console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
+    );
   }
 
   // Find first event in a valid action window
