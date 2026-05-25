@@ -1,28 +1,65 @@
-I’ll fix this as one end-to-end replacement flow, without changing the core “one daily plan with 3 priorities, evolve unfinished slots, bonus round only after all 3 are complete” rule.
+## Goal
 
-Plan:
+Make calendar-event replacement strictly 1:1 with the cancelled slot the user clicked. No multi-select, no cross-slot bleed, always exactly 3 priorities in the plan.
 
-1. Persist replacements as real active slots
-- Update the client replacement apply path so selecting calendar events writes a local mirror immediately, not only the backend ledger.
-- The mirror will store `cancelled: false`, `cancelReason: null`, and `replacementEventIds` so a browser refresh cannot rehydrate the old cancelled/greyed state while the backend response catches up.
-- When the regenerated plan returns, cache the regenerated active plan and keep it as the rendered plan after refresh.
+## Problems today
 
-2. Fix ledger merge so replaced priorities do not stay cancelled
-- In the plan Edge Function, treat a slot with `replacementEventIds` and `cancelled: false` as an active replaced slot.
-- When merging with the daily ledger, preserve the replacement selection and use the newly selected event context for that slot, instead of falling back to the original recommended priority.
-- Avoid applying stale `isCancelled` values from old ledger modules over a newer user edit that explicitly says `cancelled: false`.
+1. The picker allows 1–3 events per priority. Users can select multiple, which contradicts the "1 event = 1 priority slot, 3 total" rule.
+2. When multiple slots are cancelled and replacements are chosen, regeneration fills slots in order (Slot 1, Slot 2) instead of the specific cancelled slots (e.g. Slot 2 + Slot 3). Replacements leak into non-cancelled slots.
 
-3. Filter previous/passed events consistently
-- Move the “remaining events only” rule into the shared calendar rules file used by both UI and backend.
-- Apply it to the replacement picker before grouping Today/Tomorrow, for all three priorities.
-- Also apply the same rule inside `list-replacement-calendar-events` so passed events are removed before the UI ever receives them.
-- Keep today + tomorrow only; no day/period toggle.
+## Fix
 
-4. Keep the existing daily-plan rule intact
-- Do not change the overall plan lifecycle: the user still sees one 3-priority plan for the day, unfinished priorities evolve with new brief context, completed priorities stay done, and a fresh new set only appears after all 3 are complete.
-- The only exception remains replacement: if the user cancels/replaces a priority, that slot becomes the updated/replaced plan slot and should not revert to the original recommendation.
+### 1. Picker becomes single-select (per slot)
 
-5. Validate the path
-- Verify code paths for: cancel → replace → apply → regenerated plan → refresh.
-- Confirm picker results exclude ended events for every slot.
-- Confirm replaced slots render active, not greyed/cancelled, immediately and after refresh.
+`src/components/home/CalendarReplacementPickerModal.tsx`
+- Replace multi-toggle behaviour with single-select radio semantics: tapping an event sets it as the only selection; tapping again deselects.
+- Drop "up to 3 events" / "X/3 selected" copy. Replace with "Pick 1 event to replace this priority".
+- Apply button label: `Apply` (no count). Disabled until exactly 1 chosen.
+- Keep today/tomorrow grouping and the past-event filter as-is.
+
+### 2. Replacement is scoped to the exact cancelled slot
+
+`src/components/home/TodayThreePriorities.tsx`
+- On Apply, write the single selected event id to that specific slot's ledger edit only:
+  - `patchPlanSlotEdit(slotIndex, { cancelled: false, replacementEventIds: [eventId] })`
+  - `persistPlanLedgerEdit(slotIndex, { cancelled: false, replacementEventIds: [eventId] })`
+- When calling `loadPlan({ forceRefresh: true })`, pass a per-slot replacement map (not a flat `selectedCalendarEventIds` array). Shape:
+  ```
+  slotReplacements: { [slotIndex: number]: { eventId: string } }
+  ```
+- Stop passing the flat `selectedCalendarEventIds` for the replacement flow; that array is what causes the edge function to re-anchor slots in index order rather than at the cancelled position.
+
+### 3. Edge function honours per-slot anchoring
+
+`supabase/functions/generate-mastery-plan/index.ts`
+- Accept new optional input `slotReplacements: Record<string, { eventId: string }>` alongside (and preferred over) `selectedCalendarEventIds`.
+- During plan assembly:
+  - For every slot index `i` in `slotReplacements`, anchor slot `i` to that event and mark its ledger entry `cancelled: false, replacementEventIds: [eventId]`.
+  - Leave all other slots untouched — never overwrite a non-cancelled slot, never shift a cancelled slot's replacement into a different index.
+- Keep backwards compatibility: if only `selectedCalendarEventIds` is provided (legacy), fall back to today's behaviour but log a deprecation note.
+- Always return exactly 3 priorities (existing invariant — verify the merge path still produces 3 when 1 or 2 slots are replaced and the others are untouched).
+
+### 4. Local mirror + cache stay consistent
+
+- `applyPlanEditsToModules` already merges per-slot edits — no change needed, because we are now writing per-slot.
+- After Apply, optimistic `setPlan` updates only the targeted slot (clear `isCancelled`, set `replacementEventIds: [eventId]`); other slots untouched.
+- `persistentBriefCache` write reflects the same per-slot update so refresh hydrates the correct slots.
+
+## Out of scope
+
+- No change to the cancel/undo flow, the past-event filter, or the daily-plan lifecycle (1 plan/day, bonus round after all 3 done).
+- No UI change to non-replacement parts of `TodayThreePriorities`.
+
+## Files touched
+
+- `src/components/home/CalendarReplacementPickerModal.tsx` — single-select UI + copy
+- `src/components/home/TodayThreePriorities.tsx` — per-slot apply + per-slot regen payload
+- `supabase/functions/generate-mastery-plan/index.ts` — accept `slotReplacements`, anchor by index
+- (No DB migration; ledger shape unchanged — `replacementEventIds` simply becomes a length-1 array.)
+
+## Validation
+
+1. Cancel Slot 2 only → pick event A → Slot 2 anchors to A; Slots 1 & 3 unchanged.
+2. Cancel Slots 2 & 3 → open Slot 2 picker → choose B → only Slot 2 changes. Open Slot 3 picker → choose C → only Slot 3 changes. Slot 1 untouched throughout.
+3. Refresh after each Apply → replaced slot stays anchored to the chosen event (not greyed, not reverted).
+4. Picker shows only future-or-current events for today + all tomorrow events.
