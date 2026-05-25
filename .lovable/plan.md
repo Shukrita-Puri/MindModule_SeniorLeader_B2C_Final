@@ -1,38 +1,28 @@
-# Fix "Unable to load calendar events" in the replacement picker
+I’ll fix this as one end-to-end replacement flow, without changing the core “one daily plan with 3 priorities, evolve unfinished slots, bonus round only after all 3 are complete” rule.
 
-## Root cause
+Plan:
 
-`TodayThreePriorities.tsx` now sends two custom headers on the invoke call:
+1. Persist replacements as real active slots
+- Update the client replacement apply path so selecting calendar events writes a local mirror immediately, not only the backend ledger.
+- The mirror will store `cancelled: false`, `cancelReason: null`, and `replacementEventIds` so a browser refresh cannot rehydrate the old cancelled/greyed state while the backend response catches up.
+- When the regenerated plan returns, cache the regenerated active plan and keep it as the rendered plan after refresh.
 
-- `x-user-tz-offset` (timezone for the Today→Tomorrow window)
-- (optionally) `x-client-platform` (iOS vs web for provider precedence)
+2. Fix ledger merge so replaced priorities do not stay cancelled
+- In the plan Edge Function, treat a slot with `replacementEventIds` and `cancelled: false` as an active replaced slot.
+- When merging with the daily ledger, preserve the replacement selection and use the newly selected event context for that slot, instead of falling back to the original recommended priority.
+- Avoid applying stale `isCancelled` values from old ledger modules over a newer user edit that explicitly says `cancelled: false`.
 
-But `supabase/functions/list-replacement-calendar-events/index.ts` still declares:
+3. Filter previous/passed events consistently
+- Move the “remaining events only” rule into the shared calendar rules file used by both UI and backend.
+- Apply it to the replacement picker before grouping Today/Tomorrow, for all three priorities.
+- Also apply the same rule inside `list-replacement-calendar-events` so passed events are removed before the UI ever receives them.
+- Keep today + tomorrow only; no day/period toggle.
 
-```
-'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-dev-user-id'
-```
+4. Keep the existing daily-plan rule intact
+- Do not change the overall plan lifecycle: the user still sees one 3-priority plan for the day, unfinished priorities evolve with new brief context, completed priorities stay done, and a fresh new set only appears after all 3 are complete.
+- The only exception remains replacement: if the user cancels/replaces a priority, that slot becomes the updated/replaced plan slot and should not revert to the original recommendation.
 
-The browser preflight (`OPTIONS`) sees `x-user-tz-offset` is not in the allow-list and blocks the actual `POST`. `supabase.functions.invoke` then throws, the catch block sets `Unable to load calendar events right now.`, and the empty events array renders `No calendar events found for today or tomorrow.`
-
-The earlier 14:15 success in the logs was from before the timezone header was added; nothing has reached the function from the browser since.
-
-## Change
-
-Single-file edit, no behavior changes elsewhere.
-
-**`supabase/functions/list-replacement-calendar-events/index.ts`** — extend `corsHeaders`:
-
-```text
-'Access-Control-Allow-Headers':
-  'authorization, x-client-info, apikey, content-type, x-dev-user-id, x-user-tz-offset, x-client-platform'
-```
-
-Everything else (Today→Tomorrow window, dedupe, period tagging, picker UI with no day/period toggle) is already in place from the previous turn and stays untouched.
-
-## Verification
-
-1. Redeploy the function (automatic on save).
-2. Reload `/plan`, click Replace on Priority 1.
-3. Expect the Today and Tomorrow groups to render with the 9 deduped events the function already returns, each with a Morning/Afternoon/Evening chip.
-4. Confirm in browser DevTools Network that the `OPTIONS` preflight returns 200 with the expanded allow-list and the `POST` succeeds.
+5. Validate the path
+- Verify code paths for: cancel → replace → apply → regenerated plan → refresh.
+- Confirm picker results exclude ended events for every slot.
+- Confirm replaced slots render active, not greyed/cancelled, immediately and after refresh.
