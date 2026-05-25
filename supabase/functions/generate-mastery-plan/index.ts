@@ -84,6 +84,13 @@ interface PlanRequest {
   localDate?: string;
   todayCheckinId?: string | null;
   selectedCalendarEventIds?: string[];
+  /**
+   * Per-slot replacement map (preferred over `selectedCalendarEventIds`).
+   * Anchors a specific calendar event to a specific slot index.
+   * Other slots are never re-ranked or touched.
+   * Shape: { "0": { eventId }, "1": { eventId }, "2": { eventId } }
+   */
+  slotReplacements?: Record<string, { eventId: string }>;
   // ALL below are server-fetched – populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
