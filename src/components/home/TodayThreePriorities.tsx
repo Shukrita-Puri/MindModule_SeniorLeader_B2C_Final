@@ -1193,6 +1193,25 @@ const TodayThreePriorities = ({
                       toast({ title: 'Could not save the replacement selection', description: 'The regenerated plan was not applied because persistence failed.', variant: 'destructive' });
                       return;
                     }
+                    // Optimistically clear the cancelled/greyed state on this
+                    // slot so the user sees the priority refresh into a new
+                    // plan immediately (rather than the strike-through card
+                    // lingering until the regen response lands).
+                    setPlan((prev) => {
+                      if (!prev?.horizonModules) return prev;
+                      const next = { ...prev, horizonModules: prev.horizonModules.map((m, i) =>
+                        i === replacementSlot.index
+                          ? { ...m, isCancelled: false, cancelReason: null, replacementEventIds: selectedIds }
+                          : m,
+                      ) } as MasteryPlanResponse;
+                      try {
+                        const ttl = msUntilWindowEnd();
+                        const today = localISODate();
+                        const period = getCurrentTimeWindow();
+                        writePersistent(cacheKeys.planData(today, period), next, ttl);
+                      } catch { /* ignore */ }
+                      return next;
+                    });
                     // Reset picker state and close BEFORE the regenerate call
                     // so the existing EngravedLoader is what the user sees.
                     setReplacementSelection([]);
