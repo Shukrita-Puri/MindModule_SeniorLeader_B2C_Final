@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import FeedbackCapture, { type FeedbackRating } from "@/components/feedback/FeedbackCapture";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * SlotCancelFeedbackModal — glass-style "Not Relevant" capture for a
@@ -30,7 +31,6 @@ const SlotCancelFeedbackModal = ({
   onSkip,
 }: SlotCancelFeedbackModalProps) => {
   const [reason, setReason] = useState<CancelReason | null>(null);
-  const [rating, setRating] = useState<FeedbackRating | null>("down");
   const [feedback, setFeedback] = useState("");
 
   const handleSubmit = () => {
@@ -80,22 +80,38 @@ const SlotCancelFeedbackModal = ({
             </div>
           </div>
 
-          <FeedbackCapture
-            variant="glass"
-            hideRatingPrompt
-            rating={rating}
-            onRatingChange={setRating}
-            feedback={feedback}
-            onFeedbackChange={setFeedback}
-            onSubmit={handleSubmit}
-            onCancel={onSkip}
-            feedbackPrompt="Anything we should know?"
-            positivePlaceholder="What would have been more useful?"
-            negativePlaceholder="What would have been more useful?"
-            submitLabel={reason ? "Cancel priority" : "Choose a reason"}
-            cancelLabel="Keep it"
-            maxLength={300}
-          />
+          <div className="space-y-2">
+            <p className="text-sm text-white/80">
+              Anything we should know? <span className="text-xs text-white/50">(optional)</span>
+            </p>
+            <Textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="What would have been more useful?"
+              maxLength={300}
+              className="min-h-[80px] text-sm resize-none bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-taupe/40"
+            />
+            <p className="text-xs text-right text-white/50">{feedback.length}/300</p>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1 text-sm text-white/70 hover:text-white hover:bg-white/10"
+              onClick={onSkip}
+            >
+              Keep it
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!reason}
+              className="flex-1 text-sm bg-taupe hover:bg-taupe-rich text-taupe-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {reason ? "Cancel priority" : "Choose a reason"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
