@@ -2726,7 +2726,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
 
   const horizonModules = buildHorizonModules(
     todModules, preEventPlan, topEvent, req, shared, hrvCorrelations,
-    timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache
+    timeOfDay, todCoachCard, enrichedContent, pendingCommitments, outerReadinessCache,
+    jitRankedCandidates,
   );
 
   // ═══════════════════════════════════════════════════════════════
@@ -3081,6 +3082,11 @@ interface HorizonModule {
   priorityTag?: 'high' | 'medium' | 'low' | null;
   relationshipTag?: string | null;
   customTags?: string[];
+  // Phase C: which §4 phase (pre/during/post) the slot anchors against the
+  // event. Lets a single JIT event legitimately occupy multiple slots when
+  // CATEGORY_MAX_SLOTS allows (G long-haul = 3, F multi-day = 3, A/D = 2).
+  // Null for non-JIT or state-anchored slots.
+  jitPhase?: 'pre' | 'during' | 'post' | null;
 }
 
 function determineAllocationPattern(
@@ -3719,7 +3725,8 @@ function buildHorizonModules(
   todCoachCard: any,
   enrichedContent: any[],
   pendingCommitments: any[],
-  outerReadinessCache?: any
+  outerReadinessCache?: any,
+  jitRankedCandidates: RankedJitCandidate[] = [],
 ): HorizonModule[] {
   const hasJitEvent = !!preEventPlan;
   const jitMinutesUntil = preEventPlan?.minutesUntil ?? null;
@@ -3904,11 +3911,29 @@ function buildHorizonModules(
   // state/load/wearable anchors). canAnchorAgain enforces
   // CATEGORY_MAX_SLOTS so the same event can't show up in more slots
   // than its category permits (C/E/B/H = 1; A/D = 2; F/G = 3).
-  const slotAnchors: { eventId: string | null }[] = [];
+  const slotAnchors: { eventId: string | null; phase?: 'pre' | 'during' | 'post' | null }[] = [];
   const anchorsUsedFor = (id: string) => slotAnchors.filter(a => a.eventId === id).length;
   const canAnchorAgain = (id: string, cat: any): boolean => {
     const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
     return anchorsUsedFor(id) < cap;
+  };
+  const phaseAlreadyAnchored = (id: string, phase: 'pre' | 'during' | 'post') =>
+    slotAnchors.some(a => a.eventId === id && a.phase === phase);
+  /**
+   * Phase C: walk the ranked (event, phase) candidate list and return the
+   * first candidate that (a) hasn't saturated its category's slot cap and
+   * (b) hasn't already been anchored with this same phase. Lets a single
+   * G long-haul / F multi-day / A pre+post event legitimately occupy
+   * multiple slots without re-using the same phase.
+   */
+  const pickNextRankedCandidate = (): RankedJitCandidate | null => {
+    for (const c of jitRankedCandidates) {
+      if (!c.eventId) continue;
+      if (!canAnchorAgain(c.eventId, c.categoryId)) continue;
+      if (phaseAlreadyAnchored(c.eventId, c.phase)) continue;
+      return c;
+    }
+    return null;
   };
   const pickAnchorEvent = (candidates: any[]): any | null => {
     for (const e of candidates) {
@@ -4086,6 +4111,7 @@ function buildHorizonModules(
       showNavyBorder: false,
       showPulse: slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil < 120,
       showPriorityPill: slot1IsJit,
+      jitPhase: slot1IsJit ? jitPhase.phase : null,
     });
   }
 
@@ -4151,6 +4177,7 @@ function buildHorizonModules(
       showNavyBorder: slot2NavyBorder,
       showPulse: false,
       showPriorityPill: slot2IsJit,
+      jitPhase: slot2IsJit ? jitPhase.phase : null,
     });
   }
 
