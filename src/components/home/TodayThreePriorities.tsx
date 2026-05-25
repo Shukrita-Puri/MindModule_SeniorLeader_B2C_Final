@@ -535,6 +535,12 @@ const TodayThreePriorities = ({
               shouldRegenerate = true;
             } else {
               const stripped = stripCoachFromPlan(parsed)!;
+              // Re-apply local mirror so cancellations/tags survive refresh.
+              if (stripped.horizonModules) {
+                stripped.horizonModules = applyPlanEditsToModules(
+                  stripped.horizonModules, todayDate, currentPeriod,
+                );
+              }
               setPlan(stripped);
               // Day-scoped union so morning completions persist into afternoon ✓
               const unionCompleted = await getTodayCompletedUnion();
@@ -548,6 +554,13 @@ const TodayThreePriorities = ({
             }
           }
         }
+      }
+
+      // Issue 1: if a cancel/undo persist is in flight, do not blow away
+      // optimistic state by calling the generator before the write lands.
+      if (pendingPersistRef.current > 0 && !forceRefresh) {
+        setLoading(false);
+        return true;
       }
 
       // Fetch fresh plan with retry logic for transient network errors
@@ -636,6 +649,13 @@ const TodayThreePriorities = ({
       }
 
       const planResponse = stripCoachFromPlan(planData as MasteryPlanResponse)!;
+      // Re-apply local mirror onto fresh server response so optimistic
+      // cancellations/tags survive races where persistence hasn't landed yet.
+      if (planResponse.horizonModules) {
+        planResponse.horizonModules = applyPlanEditsToModules(
+          planResponse.horizonModules, todayDate, currentPeriod,
+        );
+      }
       setPlan(planResponse);
 
       // Store plan for stability
