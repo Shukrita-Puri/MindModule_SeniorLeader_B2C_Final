@@ -2700,6 +2700,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     const calendarEventTitles = new Set<string>(
       (req.calendarEvents || []).map((e: any) => String(e.title || '').trim()).filter(Boolean)
     );
+    const calendarEventTitleById = new Map<string, string>(
+      (req.calendarEvents || [])
+        .map((e: any) => [String(e.id), String(e.title || '').trim()])
+        .filter(([id, title]: any[]) => id && title)
+    );
 
     const merged = mergeWithLedger(
       horizonModules,
@@ -2707,6 +2712,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       new Set<string>(req.completedToday || []),
       calendarEventIds,
       calendarEventTitles,
+      ledger?.userEdits,
+      calendarEventTitleById,
     );
     finalHorizonModules = merged.modules;
     ledgerMeta = {
