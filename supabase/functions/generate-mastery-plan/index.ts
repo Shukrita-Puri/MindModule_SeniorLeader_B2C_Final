@@ -3954,7 +3954,7 @@ function buildHorizonModules(
     slot1Practices = jitModules.slice(0, 3);
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
-    slot1TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot1TimeLabel = jitPhase.label;
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -4017,12 +4017,12 @@ function buildHorizonModules(
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
     slot2NavyBorder = true;
-    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot2TimeLabel = jitPhase.label;
   } else if (hasJitEvent && !slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil > 360) {
     const jitMod = preEventPlan.modules?.[0] || todModules[1] || todModules[0];
     slot2Practices = jitMod ? [jitMod] : [];
     slot2IsJit = true;
-    slot2TimeLabel = `Prepare ahead of ${jitEventTitle}`;
+    slot2TimeLabel = jitPhase.label;
   } else {
     // Second ToD module(s), skipping slot1 IDs
     const slot1Ids = new Set(slot1Practices.map((p: any) => p.contentId));
