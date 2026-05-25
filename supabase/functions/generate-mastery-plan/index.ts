@@ -4342,7 +4342,8 @@ function buildHorizonModules(
     const lbl = String(out[i].timeLabel || '').trim();
     if (!lbl || FORBIDDEN_LITERALS.has(lbl)) {
       const idx = (Math.min(i, 2) as 0 | 1 | 2);
-      const replacement = composeStateLabel(idx);
+      const sl = composeStateLabel(idx);
+      const replacement = sl?.label ?? 'Steady the system ahead of today\u2019s load';
       console.warn('[generate-mastery-plan] blacklisted timeLabel rewritten', {
         slotIndex: i, original: lbl, replacement,
       });
