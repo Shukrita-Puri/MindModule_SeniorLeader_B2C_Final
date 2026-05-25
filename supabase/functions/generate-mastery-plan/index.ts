@@ -30,17 +30,14 @@ import {
 import {
   EVENT_TYPES,
   EVENT_TYPE_TO_SCENARIO_ID,
-  type EventType,
-  type DemandProfile,
 } from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
-import { enrichEvent, type EnrichedEvent } from '../_shared/events/enrich-event.ts';
+import { enrichEvent } from '../_shared/events/enrich-event.ts';
 
 // FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
 // import surface so future passes (Phase B/C) can read them without a new
 // import touch. Silence unused-import noise in tools that check.
-void FRAMEWORK_PILLARS; void EVENT_TYPES; void protocolsForEvent;
-void enrichEvent;
+void FRAMEWORK_PILLARS; void EVENT_TYPES; void EVENT_TYPE_TO_SCENARIO_ID; void protocolsForEvent;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
