@@ -4234,7 +4234,31 @@ function buildHorizonModules(
   // Filler pass — only runs when slot 1 itself is missing (e.g. no
   // todModules at all). Per the variable-slot contract, we never pad
   // beyond what composeStateLabel agrees is a meaningful anchor.
-  if (deduped.length < 1 && enrichedContent.length > 0) {
+  //
+  // Habit-building minimum-slot rule (CEO doc):
+  //  • Weekday, no JIT, no PTO/holiday → guarantee 2 slots (morning anchor
+  //    + evening recovery building toward tomorrow).
+  //  • Weekday + PTO/public/personal holiday → 1 morning slot only.
+  //  • Saturday → 1 morning slot mandatory.
+  //  • Sunday → 1 slot mandatory (afternoon/evening week-ahead prep).
+  //  • Any JIT-bearing day → existing variable-slot logic owns it.
+  const tzOffsetMin = (req as any).timezoneOffset ?? 0;
+  const _localNow = new Date(Date.now() - tzOffsetMin * 60000);
+  const _dow = _localNow.getUTCDay(); // 0 Sun .. 6 Sat
+  const _isWeekday = _dow >= 1 && _dow <= 5;
+  const _hasAnyJit = !!preEventPlan;
+  const _ptoHolidayRx = /(ooo|out of office|vacation|annual leave|pto|on leave|public holiday|bank holiday|national holiday|\bholiday\b)/i;
+  const _isPtoOrHoliday = (req.calendarEvents || []).some((e: any) => {
+    const t = String(e.title || '');
+    const s = new Date(e.startTime).getTime();
+    const en = new Date(e.endTime || e.startTime).getTime();
+    const allDay = (en - s) >= 20 * 3600 * 1000;
+    return allDay && _ptoHolidayRx.test(t);
+  });
+  let _minSlots = 1;
+  if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
+
+  if (deduped.length < _minSlots && enrichedContent.length > 0) {
     const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
     const hasBodyUnderLoad = req.wearableContext?.hasData && req.wearableContext.hrvDeviation !== null && req.wearableContext.hrvDeviation < -15;
     const hasMaskedHigh = divergenceMode === 'MASKED_HIGH';
@@ -4244,10 +4268,11 @@ function buildHorizonModules(
     const isNewUser = (shared.innerReadinessPattern.values?.length || 0) < 7;
     const isHeavyDay = req.calendarLoad === 'high' || req.calendarLoad === 'extreme';
 
-    const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] = ['immediate'];
+    const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] =
+      _minSlots >= 2 ? ['immediate', 'tactical'] : ['immediate'];
 
     for (const targetHorizon of needsHorizons) {
-      if (deduped.length >= 1) break;
+      if (deduped.length >= _minSlots) break;
 
       let pool = remaining.filter((c: any) => {
         const hTags: string[] = c.horizonTags || [];
