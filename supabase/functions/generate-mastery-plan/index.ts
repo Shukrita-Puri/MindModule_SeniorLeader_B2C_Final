@@ -15,10 +15,82 @@ import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
-import { EVENT_CATEGORIES, type EventCategoryId } from '../_shared/events/event-categories.ts';
+import {
+  EVENT_CATEGORIES,
+  FRAMEWORK_PILLARS,
+  type EventCategoryId,
+} from '../_shared/events/event-categories.ts';
 import { classifyEvent } from '../_shared/events/event-classifier.ts';
-import { EVENT_PHASE_MAP, phaseForEvent, type Phase } from '../_shared/events/event-phase-map.ts';
+import {
+  EVENT_PHASE_MAP,
+  phaseForEvent,
+  protocolsForEvent,
+  type Phase,
+} from '../_shared/events/event-phase-map.ts';
+import {
+  EVENT_TYPES,
+  EVENT_TYPE_TO_SCENARIO_ID,
+  type EventType,
+  type DemandProfile,
+} from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
+
+// ─── Phase A: Event enrichment helper ───────────────────────────────
+// Single read-only adapter over the shared §3/§4 taxonomy. Returns
+// everything downstream label / scoring code needs from one call so we
+// stop re-classifying the same event in three places. No structural
+// changes yet — consumers in Phase A only read these fields for richer
+// state-action verbs and Pre-window awareness. Phase B will use the
+// same shape to drive per-(event, phase) JIT candidate scoring.
+export interface EnrichedEvent {
+  raw: any;
+  title: string;
+  subtype: EventType | null;
+  category: typeof EVENT_CATEGORIES[EventCategoryId] | null;
+  categoryId: EventCategoryId | null;
+  /** Canonical JIT lead-time in minutes from §3 subtype row, when known. */
+  leadTimeMin: number | null;
+  /** Per-dimension demand (cog/emo/vis/pol/rel/ene/cir/id), 0–3 each. */
+  demandProfile: DemandProfile | null;
+  /** Mastery scenario id when the subtype maps to one (else null). */
+  scenarioId: string | null;
+  /** Phase windows materialised once for downstream re-use (Phase B+). */
+  phases: {
+    pre?: ReturnType<typeof phaseForEvent>;
+    during?: ReturnType<typeof phaseForEvent>;
+    post?: ReturnType<typeof phaseForEvent>;
+  };
+}
+
+export function enrichEvent(raw: any): EnrichedEvent {
+  const title = String(raw?.title ?? raw?.event?.title ?? '').trim();
+  const subtype = classifyEvent(title);
+  const categoryId = subtype?.categoryId ?? null;
+  const category = categoryId ? EVENT_CATEGORIES[categoryId] : null;
+  const scenarioId = subtype ? (EVENT_TYPE_TO_SCENARIO_ID[subtype.id] ?? null) : null;
+  const phases: EnrichedEvent['phases'] = {};
+  if (categoryId) {
+    if (EVENT_PHASE_MAP[categoryId].pre)    phases.pre    = phaseForEvent(title, 'pre');
+    if (EVENT_PHASE_MAP[categoryId].during) phases.during = phaseForEvent(title, 'during');
+    if (EVENT_PHASE_MAP[categoryId].post)   phases.post   = phaseForEvent(title, 'post');
+  }
+  return {
+    raw,
+    title,
+    subtype: subtype ?? null,
+    category,
+    categoryId,
+    leadTimeMin: subtype?.jitLeadTimeMinutes ?? null,
+    demandProfile: subtype?.demandProfile ?? null,
+    scenarioId,
+    phases,
+  };
+}
+
+// FRAMEWORK_PILLARS, EVENT_TYPES, protocolsForEvent are re-exported via the
+// import surface so future passes (Phase B/C) can read them without a new
+// import touch. Silence unused-import noise in tools that check.
+void FRAMEWORK_PILLARS; void EVENT_TYPES; void protocolsForEvent;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
