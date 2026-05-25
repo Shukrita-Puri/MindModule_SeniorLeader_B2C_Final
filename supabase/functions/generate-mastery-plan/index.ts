@@ -4372,6 +4372,19 @@ Deno.serve(async (req) => {
     const selectedCalendarEventIds = Array.isArray(body.selectedCalendarEventIds)
       ? body.selectedCalendarEventIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
       : [];
+    // Per-slot replacement contract (preferred). Each entry binds one event
+    // to one slot index. Validated/normalised here; downstream code keys on
+    // string slot indexes "0" | "1" | "2".
+    const slotReplacements: Record<string, { eventId: string }> = {};
+    if (body.slotReplacements && typeof body.slotReplacements === 'object') {
+      for (const [k, v] of Object.entries(body.slotReplacements)) {
+        const idx = Number(k);
+        const eventId = (v as any)?.eventId;
+        if (Number.isInteger(idx) && idx >= 0 && idx <= 2 && typeof eventId === 'string' && eventId.length > 0) {
+          slotReplacements[String(idx)] = { eventId };
+        }
+      }
+    }
     const forceRefresh = body.forceRefresh === true;
     const outerReadinessCache = body.outerReadinessCache ?? null;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
@@ -4440,6 +4453,7 @@ Deno.serve(async (req) => {
       localDate: clientLocalDate || undefined,
       todayCheckinId,
       selectedCalendarEventIds,
+      slotReplacements,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
