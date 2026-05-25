@@ -3944,7 +3944,7 @@ function buildHorizonModules(
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
-    slot3TimeLabel = 'Later today';
+    slot3TimeLabel = composeStateLabel(2);
   } else {
     const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
     const fallbackModule = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
@@ -3955,7 +3955,7 @@ function buildHorizonModules(
       const secondMod = todModules.find((m: any) => !usedIds.has(m.contentId) && m.contentId !== primaryMod.contentId);
       if (secondMod) slot3Practices.push(secondMod);
     }
-    slot3TimeLabel = timeOfDay === 'morning' ? 'This evening' : timeOfDay === 'afternoon' ? 'When you have space' : 'For your development';
+    slot3TimeLabel = composeStateLabel(2);
   }
 
   if (slot3Practices.length > 0) {
