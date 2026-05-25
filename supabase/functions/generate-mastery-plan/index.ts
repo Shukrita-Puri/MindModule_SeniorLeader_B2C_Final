@@ -2190,15 +2190,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.error('[generate-mastery-plan] Event filter failed, using unfiltered events:', filterError?.message);
   }
 
-  const selectedEventIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
-  const selectedEventOrder = new Map<string, number>(
-    (req.selectedCalendarEventIds || []).filter(Boolean).map((id, index) => [id, index]),
+  // Per-slot replacements are honored post-merge via slot-index anchoring
+  // (see applySlotReplacementOverrides). We intentionally do NOT boost
+  // scores here — a global boost would let a per-slot replacement bubble
+  // up to slot 1 instead of staying in the slot the user clicked.
+  // Legacy `selectedCalendarEventIds` is retained as a soft signal only
+  // (mark events for downstream observability), with no score impact.
+  const legacySelectedIds = new Set((req.selectedCalendarEventIds || []).filter(Boolean));
+  const slotReplacementEventIds = new Set(
+    Object.values(req.slotReplacements || {})
+      .map((v: any) => (v && typeof v.eventId === 'string' ? v.eventId : ''))
+      .filter(Boolean),
   );
-  if (selectedEventIds.size > 0) {
+  if (legacySelectedIds.size > 0 || slotReplacementEventIds.size > 0) {
     for (const evt of filteredEvents) {
-      if (selectedEventIds.has(evt.event.id)) {
-        const boost = 100 + (selectedEventOrder.get(evt.event.id) ?? 0);
-        evt.score = (evt.score || 0) + boost;
+      if (legacySelectedIds.has(evt.event.id) || slotReplacementEventIds.has(evt.event.id)) {
         (evt as any).selectedByUser = true;
       }
     }
