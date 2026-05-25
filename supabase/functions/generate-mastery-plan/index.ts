@@ -2759,6 +2759,60 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.warn('[generate-mastery-plan] v5.1 enrichment failed:', enrichErr?.message);
   }
 
+  // ── Per-slot replacement override ─────────────────────────────────────
+  // Strictly 1:1: each entry in req.slotReplacements pins one calendar
+  // event to one slot index. We anchor that slot to a fresh module that
+  // matches the chosen event and leave every other slot untouched. This
+  // runs after merge+enrich so that:
+  //  - When a ledger already records the edit, mergeWithLedger's Rule 3a
+  //    has already placed the right content; this override is a no-op or
+  //    idempotent reinforcement.
+  //  - When the ledger hasn't yet caught up (race on first regen after
+  //    the client's persist), this override still binds the event to the
+  //    exact slot index the user clicked instead of letting it bubble to
+  //    slot 1 via fresh ordering.
+  try {
+    const slotReplacements = (req.slotReplacements && typeof req.slotReplacements === 'object')
+      ? req.slotReplacements
+      : {};
+    for (const [slotKey, value] of Object.entries(slotReplacements)) {
+      const idx = Number(slotKey);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= finalHorizonModules.length) continue;
+      const eventId = (value as any)?.eventId;
+      if (typeof eventId !== 'string' || !eventId) continue;
+      const evt = (req.calendarEvents || []).find((e: any) => String(e.id) === String(eventId));
+      if (!evt) continue;
+      const matchTitle = String(evt.title || '').trim().toLowerCase();
+      if (!matchTitle) continue;
+      const freshMatch = horizonModules.find((m: HorizonModule) =>
+        m.isJit && (m.jitEventTitle || '').toLowerCase().trim() === matchTitle,
+      ) || horizonModules.find((m: HorizonModule) => {
+        const t = (m.jitEventTitle || '').toLowerCase().trim();
+        return !!t && (t.includes(matchTitle) || matchTitle.includes(t));
+      });
+      if (!freshMatch) continue;
+      const prior = finalHorizonModules[idx];
+      // Skip if this exact slot is already anchored to the requested event.
+      const alreadyAnchored = (prior?.replacementEventIds || []).includes(eventId) ||
+        ((prior?.jitEventTitle || '').toLowerCase().trim() === matchTitle && !prior?.isCancelled);
+      if (alreadyAnchored) continue;
+      finalHorizonModules[idx] = {
+        ...freshMatch,
+        isCancelled: false,
+        cancelReason: null,
+        replacementEventIds: [eventId],
+        priorityTag: prior?.priorityTag ?? null,
+        relationshipTag: prior?.relationshipTag ?? null,
+        customTags: prior?.customTags ?? [],
+      };
+      console.log('[generate-mastery-plan] per-slot replacement applied', {
+        slotIndex: idx, eventId, eventTitle: evt.title,
+      });
+    }
+  } catch (overrideErr: any) {
+    console.warn('[generate-mastery-plan] slot replacement override failed:', overrideErr?.message);
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
