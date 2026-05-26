@@ -2988,7 +2988,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
 
   // v5.1: enrich whyLine + stepRationale + slotKind without changing UI structure.
   try {
-    finalHorizonModules = applyV51Enrichment(
+    finalHorizonModules = await applyV51Enrichment(
       finalHorizonModules, req, shared, hrvCorrelations, outerReadinessCache, timeOfDay,
     );
   } catch (enrichErr: any) {
