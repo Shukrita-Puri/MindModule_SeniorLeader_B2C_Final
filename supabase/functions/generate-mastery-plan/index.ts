@@ -2467,7 +2467,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
   console.log(`[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" scored=${scoredEvents.length} filtered=${filteredEvents.length}`);
-  if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
+  // Treat any non-empty value other than the explicit disables as shadow-on.
+  const jitV2Enabled = JIT_V2_MODE !== '' && JIT_V2_MODE !== 'off' && JIT_V2_MODE !== 'false' && JIT_V2_MODE !== '0';
+  if (jitV2Enabled) {
     runJitV2Shadow(supabaseClient, req.userId, scoredEvents, filteredEvents, req).catch((e) =>
       console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
     );
