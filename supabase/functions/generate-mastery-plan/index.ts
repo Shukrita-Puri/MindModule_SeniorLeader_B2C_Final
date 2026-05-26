@@ -111,8 +111,9 @@ async function runJitV2Shadow(
   }
 
   const input: SelectInputEvent[] = sourceEvents.map((fe: any) => {
+    const ev = fe?.event ?? fe;
     const roles: ResolvedRole[] = [];
-    const att = fe?.event?.attendees;
+    const att = ev?.attendees;
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
       if (typeof em === 'string') {
@@ -120,13 +121,17 @@ async function runJitV2Shadow(
         if (r) roles.push(r);
       }
     }
+    const rawStart = ev?.start_time ?? ev?.startTime ?? ev?.start ?? null;
+    const rawEnd = ev?.end_time ?? ev?.endTime ?? ev?.end ?? null;
+    const startIso = rawStart instanceof Date ? rawStart.toISOString() : (rawStart ?? '');
+    const endIso = rawEnd instanceof Date ? rawEnd.toISOString() : (rawEnd ?? '');
     return {
-      id: fe.event.id,
-      title: fe.event.title || '',
-      start_time: fe.event.start_time,
-      end_time: fe.event.end_time,
+      id: ev?.id,
+      title: ev?.title || '',
+      start_time: startIso,
+      end_time: endIso,
       attendeeRoles: roles,
-      tags: Array.isArray(fe.event.tags) ? fe.event.tags : [],
+      tags: Array.isArray(ev?.tags) ? ev.tags : [],
     };
   });
 
@@ -2467,7 +2472,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
   console.log(`[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" scored=${scoredEvents.length} filtered=${filteredEvents.length}`);
-  if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
+  // Treat any non-empty value other than the explicit disables as shadow-on.
+  const jitV2Enabled = JIT_V2_MODE !== '' && JIT_V2_MODE !== 'off' && JIT_V2_MODE !== 'false' && JIT_V2_MODE !== '0';
+  if (jitV2Enabled) {
     runJitV2Shadow(supabaseClient, req.userId, scoredEvents, filteredEvents, req).catch((e) =>
       console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
     );
