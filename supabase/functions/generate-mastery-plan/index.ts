@@ -2466,6 +2466,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // PR 1: writes shadow columns only; never affects user-visible output.
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
+  console.log(`[generate-mastery-plan][jit-v2-shadow] gate JIT_V2="${JIT_V2_MODE}" scored=${scoredEvents.length} filtered=${filteredEvents.length}`);
   if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
     runJitV2Shadow(supabaseClient, req.userId, scoredEvents, filteredEvents, req).catch((e) =>
       console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
