@@ -111,8 +111,9 @@ async function runJitV2Shadow(
   }
 
   const input: SelectInputEvent[] = sourceEvents.map((fe: any) => {
+    const ev = fe?.event ?? fe;
     const roles: ResolvedRole[] = [];
-    const att = fe?.event?.attendees;
+    const att = ev?.attendees;
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
       if (typeof em === 'string') {
@@ -120,13 +121,17 @@ async function runJitV2Shadow(
         if (r) roles.push(r);
       }
     }
+    const rawStart = ev?.start_time ?? ev?.startTime ?? ev?.start ?? null;
+    const rawEnd = ev?.end_time ?? ev?.endTime ?? ev?.end ?? null;
+    const startIso = rawStart instanceof Date ? rawStart.toISOString() : (rawStart ?? '');
+    const endIso = rawEnd instanceof Date ? rawEnd.toISOString() : (rawEnd ?? '');
     return {
-      id: fe.event.id,
-      title: fe.event.title || '',
-      start_time: fe.event.start_time,
-      end_time: fe.event.end_time,
+      id: ev?.id,
+      title: ev?.title || '',
+      start_time: startIso,
+      end_time: endIso,
       attendeeRoles: roles,
-      tags: Array.isArray(fe.event.tags) ? fe.event.tags : [],
+      tags: Array.isArray(ev?.tags) ? ev.tags : [],
     };
   });
 
