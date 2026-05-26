@@ -51,10 +51,16 @@ import type { ResolvedRole } from '../_shared/jit/relationship-weights.ts';
 async function runJitV2Shadow(
   supabase: any,
   userId: string,
+  scoredEvents: any[],
   filteredEvents: any[],
   req: any,
 ): Promise<void> {
-  if (!Array.isArray(filteredEvents) || filteredEvents.length === 0) return;
+  // Run on the broader scored set so v2 has visibility even when the legacy
+  // suppression filter drops everything; fall back to filteredEvents.
+  const sourceEvents = Array.isArray(scoredEvents) && scoredEvents.length > 0
+    ? scoredEvents
+    : (Array.isArray(filteredEvents) ? filteredEvents : []);
+  if (sourceEvents.length === 0) return;
 
   // Account age in days (floor by profiles.created_at).
   let accountAgeDays = 0;
@@ -82,7 +88,7 @@ async function runJitV2Shadow(
 
   // Resolved attendee roles for events in scope.
   const emails = new Set<string>();
-  for (const fe of filteredEvents) {
+  for (const fe of sourceEvents) {
     const att = fe?.event?.attendees;
     if (Array.isArray(att)) for (const a of att) {
       const em = typeof a === 'string' ? a : a?.email;
@@ -104,7 +110,7 @@ async function runJitV2Shadow(
     } catch (_e) { /* fall through */ }
   }
 
-  const input: SelectInputEvent[] = filteredEvents.map((fe: any) => {
+  const input: SelectInputEvent[] = sourceEvents.map((fe: any) => {
     const roles: ResolvedRole[] = [];
     const att = fe?.event?.attendees;
     if (Array.isArray(att)) for (const a of att) {
@@ -144,7 +150,13 @@ async function runJitV2Shadow(
 
   console.log(`[generate-mastery-plan][jit-v2-shadow] tier=${result.tier.tier} ageDays=${accountAgeDays} patternCount=${result.tier.patternCount} ranked=${result.ranked.length} excluded=${result.excluded.length} top=${result.ranked[0]?.title ?? 'none'}@${result.ranked[0]?.importance ?? 0}`);
 
-  // Stamp shadow columns onto rows the legacy bridge wrote this run.
+  // Capture legacy top for parity (filteredEvents[0] is the legacy winner).
+  const legacyTop = (filteredEvents && filteredEvents[0]) || null;
+  const legacyTopId = legacyTop?.event?.id ?? null;
+  const v2Top = result.ranked[0] ?? null;
+  const parityMatch = legacyTopId && v2Top ? legacyTopId === v2Top.eventId : null;
+
+  // Stamp shadow columns onto any matching legacy bridge rows (best effort).
   for (const c of result.ranked.slice(0, 5)) {
     try {
       await supabase
@@ -159,6 +171,31 @@ async function runJitV2Shadow(
         .eq('user_id', userId)
         .eq('calendar_event_id', c.eventId);
     } catch (_e) { /* best effort */ }
+  }
+
+  // Always log a standalone shadow run row for week-1 parity analysis.
+  try {
+    await supabase.from('jit_shadow_v2_runs').insert({
+      user_id: userId,
+      tier: result.tier.tier,
+      account_age_days: accountAgeDays,
+      pattern_count: result.tier.patternCount,
+      ranked_count: result.ranked.length,
+      excluded_count: result.excluded.length,
+      top_event_id: v2Top?.eventId ?? null,
+      top_event_title: v2Top?.title ?? null,
+      top_event_role: v2Top?.role ?? null,
+      top_importance: v2Top?.importance ?? null,
+      top_components: v2Top?.components ?? null,
+      legacy_top_event_id: legacyTopId,
+      legacy_top_event_title: legacyTop?.event?.title ?? null,
+      legacy_top_score: legacyTop?.score ?? null,
+      parity_match: parityMatch,
+      ranked: result.ranked.slice(0, 10),
+      excluded: result.excluded.slice(0, 10),
+    });
+  } catch (e: any) {
+    console.warn('[generate-mastery-plan][jit-v2-shadow] insert_run_failed:', e?.message);
   }
 }
 
@@ -2430,7 +2467,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // ────────────────────────────────────────────────────────────────────
   const JIT_V2_MODE = (Deno.env.get('JIT_V2') || '').toLowerCase();
   if (JIT_V2_MODE === 'shadow' || JIT_V2_MODE === 'on') {
-    runJitV2Shadow(supabaseClient, req.userId, filteredEvents, req).catch((e) =>
+    runJitV2Shadow(supabaseClient, req.userId, scoredEvents, filteredEvents, req).catch((e) =>
       console.warn('[generate-mastery-plan][jit-v2-shadow] failed:', e?.message),
     );
   }
