@@ -35,6 +35,10 @@ import {
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+// Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
+import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
+import { buildActionFrame } from '../_shared/plan/action-frame.ts';
+import { generateWhyStatement, jaccard, type WhyLLMInput } from '../_shared/plan/why-llm.ts';
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
 // scorer when JIT_V2 env is "shadow"; writes shadow columns to
 // jit_event_context for week-1 parity testing. Does not affect what the
