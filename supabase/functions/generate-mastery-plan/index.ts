@@ -3819,17 +3819,33 @@ function detectMorningFusionEvent(req: PlanRequest, ceo: CeoRealityTag[]): strin
  *   user-visible context line on step cards) when available.
  * Practice titles never change.
  */
-function applyV51Enrichment(
+async function applyV51Enrichment(
   modules: HorizonModule[],
   req: PlanRequest,
   shared: SharedContext,
   hrvCorrelations: any,
   outerReadinessCache: any,
   timeOfDay: string,
-): HorizonModule[] {
+): Promise<HorizonModule[]> {
   const ceo = detectCeoRealities(req, shared);
   const briefClaim = buildBriefClaimSet(outerReadinessCache, req);
   const fusionEvent = detectMorningFusionEvent(req, ceo);
+
+  // Pre-compute today's local date for tomorrow detection.
+  const tzOffsetMin = typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0;
+  const nowLocal = new Date(Date.now() - tzOffsetMin * 60_000);
+  const todayKey = nowLocal.toISOString().slice(0, 10);
+
+  // Build a fast event lookup by title for category/phase derivation.
+  const eventByTitle = new Map<string, any>();
+  for (const e of (req.calendarEvents || [])) {
+    const t = String(e?.title || '').toLowerCase().trim();
+    if (t && !eventByTitle.has(t)) eventByTitle.set(t, e);
+  }
+
+  // Phase 1 (sync): slot tagging, deterministic title + sub-line, fallback Why.
+  type JitJob = { idx: number; input: WhyLLMInput };
+  const jitJobs: JitJob[] = [];
 
   modules.forEach((hm, idx) => {
     // Slot purpose tagging
@@ -3840,10 +3856,69 @@ function applyV51Enrichment(
 
     hm.ceoRealities = ceo;
 
-    // Compose Why
+    // Compose Why — deterministic baseline (always set, LLM will overwrite on success)
     const fusion = idx === 0 && fusionEvent && hm.slotKind === 'start_of_day' ? fusionEvent : null;
     const newWhy = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
     if (newWhy && newWhy.length >= 12) hm.whyLine = newWhy;
+
+    // ── Today's-3 v2: per-JIT-priority title, sub-line, LLM Why ──
+    if (hm.isJit && hm.jitEventTitle) {
+      const evtMatch = eventByTitle.get(String(hm.jitEventTitle).toLowerCase().trim());
+      const subtype = classifyEvent(hm.jitEventTitle);
+      const category = (subtype?.categoryId ?? null) as EventCategoryId | null;
+      const phase: Phase = (hm.jitPhase as Phase) || 'pre';
+
+      // Tomorrow detection from event start vs local today
+      let isTomorrow = false;
+      try {
+        const startIso = evtMatch?.startTime || evtMatch?.start_time || null;
+        if (startIso) {
+          const startLocal = new Date(new Date(startIso).getTime() - tzOffsetMin * 60_000);
+          isTomorrow = startLocal.toISOString().slice(0, 10) !== todayKey;
+        }
+      } catch { /* keep false */ }
+
+      // Title (replaces "Prepare ahead of …" label that truncates)
+      const newTitle = buildPlanTitle({
+        eventTitle: hm.jitEventTitle,
+        category,
+        phase,
+        isTomorrow,
+      });
+      if (newTitle) hm.timeLabel = newTitle;
+
+      // Sub-line (≤6 words) → rendered as recommendedAction
+      const frame = buildActionFrame(category, phase);
+      if (frame) hm.recommendedAction = frame;
+
+      // Queue LLM Why
+      if (category) {
+        const role = phase === 'post' ? 'PREVENT' : 'PREPARE';
+        const w = req.wearableContext;
+        const corr = hrvCorrelations?.eventToHrv || hrvCorrelations?.hrvEventCorrelation || null;
+        const patternSummary = corr && corr.eventType && typeof corr.avgHrvDelta === 'number' && corr.occurrences >= 3
+          ? `HRV ${corr.avgHrvDelta > 0 ? 'rises' : 'drops'} ~${Math.abs(Math.round(corr.avgHrvDelta))}% around ${corr.eventType} (n=${corr.occurrences})`
+          : null;
+        const input: WhyLLMInput = {
+          role,
+          eventName: hm.jitEventTitle,
+          category,
+          phase,
+          minutesUntilStart: hm.jitMinutesUntil ?? null,
+          hrvDeltaPct: (w?.hasData && typeof w.hrvDeviation === 'number') ? Math.round(w.hrvDeviation) : null,
+          sleepScore: (w?.hasData && typeof w.sleepScore === 'number') ? w.sleepScore : null,
+          rhrTrend: (w?.hasData && typeof w.restingHR === 'number' && w.restingHR > 0) ? 'elevated' : null,
+          travelDebtActive: ceo.includes('circadian_travel') ? true : null,
+          stressLoad: null,
+          burnoutRisk: null,
+          mindState: typeof req.clarityLevel === 'number' && req.clarityLevel > 0 ? req.clarityLevel : null,
+          bodyState: typeof req.confidenceLevel === 'number' && req.confidenceLevel > 0 ? req.confidenceLevel : null,
+          patternSummary,
+          growthIntention: (req as any).growthIntention || null,
+        };
+        jitJobs.push({ idx, input });
+      }
+    }
 
     // Step rationale (2–4 words) per practice
     const types = (hm.practices || [hm.practice]).map((p: any) => p?.type).filter(Boolean);
@@ -3857,6 +3932,21 @@ function applyV51Enrichment(
       if (hm.practice && rationale[0]) hm.practice.reasoning = rationale[0];
     }
   });
+
+  // Phase 2 (parallel LLM): per-JIT-priority Why statements.
+  if (jitJobs.length > 0) {
+    const results = await Promise.all(jitJobs.map((j) => generateWhyStatement(j.input)));
+    const accepted: { idx: number; text: string }[] = [];
+    for (let i = 0; i < jitJobs.length; i++) {
+      const text = results[i];
+      if (!text || text.split(/\s+/).length < 5) continue;
+      // Dedupe: reject if too-similar to an already-accepted Why.
+      const dup = accepted.find((a) => jaccard(a.text, text) > 0.85);
+      if (dup) continue;
+      accepted.push({ idx: jitJobs[i].idx, text });
+    }
+    for (const a of accepted) modules[a.idx].whyLine = a.text;
+  }
 
   return modules;
 }
