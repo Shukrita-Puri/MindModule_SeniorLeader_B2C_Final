@@ -2518,6 +2518,72 @@ export type Database = {
         }
         Relationships: []
       }
+      jit_shadow_v2_runs: {
+        Row: {
+          account_age_days: number
+          excluded: Json | null
+          excluded_count: number
+          id: string
+          legacy_top_event_id: string | null
+          legacy_top_event_title: string | null
+          legacy_top_score: number | null
+          parity_match: boolean | null
+          pattern_count: number
+          ranked: Json | null
+          ranked_count: number
+          run_at: string
+          tier: string
+          top_components: Json | null
+          top_event_id: string | null
+          top_event_role: string | null
+          top_event_title: string | null
+          top_importance: number | null
+          user_id: string
+        }
+        Insert: {
+          account_age_days: number
+          excluded?: Json | null
+          excluded_count: number
+          id?: string
+          legacy_top_event_id?: string | null
+          legacy_top_event_title?: string | null
+          legacy_top_score?: number | null
+          parity_match?: boolean | null
+          pattern_count: number
+          ranked?: Json | null
+          ranked_count: number
+          run_at?: string
+          tier: string
+          top_components?: Json | null
+          top_event_id?: string | null
+          top_event_role?: string | null
+          top_event_title?: string | null
+          top_importance?: number | null
+          user_id: string
+        }
+        Update: {
+          account_age_days?: number
+          excluded?: Json | null
+          excluded_count?: number
+          id?: string
+          legacy_top_event_id?: string | null
+          legacy_top_event_title?: string | null
+          legacy_top_score?: number | null
+          parity_match?: boolean | null
+          pattern_count?: number
+          ranked?: Json | null
+          ranked_count?: number
+          run_at?: string
+          tier?: string
+          top_components?: Json | null
+          top_event_id?: string | null
+          top_event_role?: string | null
+          top_event_title?: string | null
+          top_importance?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mastery_plan_completions: {
         Row: {
           based_on_window: string | null
