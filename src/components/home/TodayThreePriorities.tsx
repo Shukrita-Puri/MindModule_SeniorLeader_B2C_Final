@@ -1292,7 +1292,7 @@ const TodayThreePriorities = ({
                     {slotCompleted ? <Check size={12} className="stroke-[3]" /> : index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium leading-tight truncate text-muted-foreground/70 line-through">
+                    <p className="text-[13px] font-medium leading-tight line-clamp-2 break-words text-muted-foreground/70 line-through">
                       {performanceSlotLabel(hm.timeLabel, hm.isJit)}
                     </p>
                     <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1409,7 +1409,7 @@ const TodayThreePriorities = ({
                 {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
                   <p className={cn(
-                    "text-[15px] md:text-[16px] font-semibold leading-tight truncate",
+                    "text-[15px] md:text-[16px] font-semibold leading-tight line-clamp-2 break-words",
                     slotCompleted ? "text-muted-foreground/60 line-through" : "text-foreground"
                   )}>
                     {performanceSlotLabel(hm.timeLabel, hm.isJit)}
