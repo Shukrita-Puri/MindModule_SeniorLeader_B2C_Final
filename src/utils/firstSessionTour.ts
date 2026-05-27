@@ -38,6 +38,7 @@ export const FST_KEYS = {
   retake: 'first_session_guide_retake',
   introSeen: 'first_session_intro_seen',
   done: 'first_session_guide_done',
+  source: 'first_session_guide_source',
 } as const;
 
 export const FIRST_SESSION_TOUR_STARTED_EVENT = 'first-session-tour-started';
@@ -67,6 +68,7 @@ export function startFirstSessionTour({ userId, source }: StartTourOptions): str
   // Always reset cross-step state so a retake starts at step 1 with intro.
   safeSet(FST_KEYS.active, '1');
   safeSet(FST_KEYS.step, '0');
+  safeSet(FST_KEYS.source, source);
   if (userId) {
     safeSet(FST_KEYS.user, userId);
     if (source === 'retake') safeSet(FST_KEYS.retake, userId);
@@ -114,10 +116,24 @@ export function isTourActiveForUser(userId?: string | null): boolean {
 }
 
 export function isRetakeForUser(userId?: string | null): boolean {
+  // CONTRACT: the "Retake Tour" entry point in Profile is only visible to
+  // existing users. So a truthy retake flag is a deterministic
+  // "this is NOT a first-time user" signal. The TourMock gate relies on
+  // this to avoid ever showing demo Brief/Plan content to retake users.
   const r = safeGet(FST_KEYS.retake);
   if (!r) return false;
   if (!userId) return true;
   return r === userId;
+}
+
+/**
+ * Returns the source that launched the active tour, or null if absent.
+ * Used by the TourMock gate to suppress demo data for retake users even
+ * before the user id has been bound.
+ */
+export function getTourSource(): StartSource | null {
+  const s = safeGet(FST_KEYS.source);
+  return s === 'onboarding' || s === 'retake' ? s : null;
 }
 
 /**
@@ -137,5 +153,6 @@ export function clearFirstSessionTour(opts: { markDone?: boolean } = {}): void {
   safeRemove(FST_KEYS.user);
   safeRemove(FST_KEYS.retake);
   safeRemove(FST_KEYS.introSeen);
+  safeRemove(FST_KEYS.source);
   if (opts.markDone) safeSet(FST_KEYS.done, '1');
 }
