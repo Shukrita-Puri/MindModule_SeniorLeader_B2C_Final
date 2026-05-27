@@ -203,34 +203,34 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       
       {/* Content layer */}
-      <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto">
+      <div className="relative z-10 flex flex-col items-center justify-between text-center h-full w-full px-5 max-w-4xl mx-auto pt-[max(env(safe-area-inset-top),2rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         
-        {/* Top section */}
-          <div className="flex flex-col items-center space-y-4 sm:space-y-6 lg:space-y-8">
-            {/* Logo */}
-            <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
-            
-            {/* Brand name */}
-            <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
-              MIND MODULE
-            </h1>
-            <p className="text-xs sm:text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
-              Executive Edition
-            </p>
-            
-            {/* Tagline */}
-            <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] mt-10 sm:mt-8">
-              Designed for Leaders to Stay Mentally Ahead
-            </h2>
-          </div>
+        {/* Brand cluster — anchored to upper sky region */}
+        <div className="flex flex-col items-center space-y-3 sm:space-y-4 mt-2 sm:mt-6">
+          <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
+            MIND MODULE
+          </h1>
+          <p className="text-xs sm:text-xs tracking-[0.35em] uppercase text-white/60 font-body">
+            Executive Edition
+          </p>
+        </div>
 
+        {/* Tagline — owns the middle zone */}
+        <div className="flex flex-col items-center justify-center flex-1 px-2">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+            Designed for Leaders to Stay Mentally Ahead
+          </h2>
+        </div>
+
+        {/* Bottom zone: CTAs + trust badge */}
+        <div className="flex flex-col items-center w-full">
           {/* CTA Buttons */}
-          <div className="flex flex-row items-center justify-center gap-3 w-full mt-8 px-4">
+          <div className="flex flex-row items-center justify-center gap-3 w-full px-2">
             <Button
               onClick={handleSignIn}
-              variant="outline"
               size="lg"
-              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide border-white/30 text-white hover:border-white/50 hover:text-white rounded-2xl transition-all duration-300 bg-slate-200"
+              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-semibold tracking-wide bg-white/95 text-foreground border border-white/70 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:bg-white hover:-translate-y-0.5 rounded-2xl transition-all duration-300"
             >
               Log In
             </Button>
@@ -239,27 +239,28 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
               onClick={handleGetStarted}
               variant="critical"
               size="lg"
-              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl"
+              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-semibold tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 rounded-2xl"
             >
               Sign up
             </Button>
           </div>
-        
-        {/* Privacy Trust Badge */}
-        <div className="flex flex-col items-center gap-1 pt-6 sm:pt-8 border-t border-white/10 w-full mt-8 pb-4 sm:pb-0">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
-            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
-            <span className="font-body tracking-wide">Privacy by Design</span>
+
+          {/* Privacy Trust Badge */}
+          <div className="flex flex-col items-center gap-1 pt-5 mt-5 border-t border-white/10 w-full">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
+              <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
+              <span className="font-body tracking-wide">Privacy by Design</span>
+            </div>
+            <span className="text-xs text-white/40 font-body tracking-wide">
+              Local &amp; End-to-End Encrypted
+            </span>
+            <button
+              onClick={() => navigate('/powered-by-ai')}
+              className="text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
+            >
+              Powered by AI →
+            </button>
           </div>
-          <span className="text-xs sm:text-xs text-white/40 font-body tracking-wide">
-            Local &amp; End-to-End Encrypted
-          </span>
-          <button
-            onClick={() => navigate('/powered-by-ai')}
-            className="text-xs sm:text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
-          >
-            Powered by AI →
-          </button>
         </div>
       </div>
       
