@@ -24,7 +24,9 @@ import {
   markIntroSeen,
   setTourStep,
   getTourStep,
+  getTourSource,
 } from '@/utils/firstSessionTour';
+import { setTourMockActive } from './useTourMock';
 
 /* ------------------------------------------------------------------ */
 /*  Step definitions                                                   */
@@ -42,6 +44,7 @@ interface GuideStep {
   spotlightCircle?: boolean;
   tooltipPosition?: 'above' | 'below' | 'auto';
   activateTab?: 'state' | 'compass' | 'action';
+  openSidebar?: boolean;
 }
 
 const STEPS: GuideStep[] = [
@@ -61,6 +64,7 @@ const STEPS: GuideStep[] = [
     scrollBlock: 'start',
     tooltipPosition: 'below',
     activateTab: 'state',
+    spotlightPad: 8,
   },
   {
     targetSelector: '[data-tour="daily-plan"]',
@@ -71,6 +75,29 @@ const STEPS: GuideStep[] = [
     scrollBlock: 'center',
     tooltipPosition: 'above',
     activateTab: 'action',
+    spotlightPad: 8,
+  },
+  {
+    targetSelector: '[data-tour="sidebar-suite-4"]',
+    title: 'Reset on demand',
+    body:
+      'A library of short Pause, Flow, and Reenergise mindset and somatic protocols. Open the Reset button before a high-stakes moment to prepare — or after one to prevent stress carrying into the next.',
+    page: 'home',
+    phaseLabel: 'EXPLORE WHEN YOU NEED',
+    tooltipPosition: 'auto',
+    openSidebar: true,
+    spotlightPad: 6,
+  },
+  {
+    targetSelector: '[data-tour="sidebar-suite-3"]',
+    title: 'See the patterns forming',
+    body:
+      'Open the Insight button to see how your progress and patterns forming through the week and month — you can see the exact moments that could cause stress, burnout or clarity drain and prevent it from happening.',
+    page: 'home',
+    phaseLabel: 'EXPLORE WHEN YOU NEED',
+    tooltipPosition: 'auto',
+    openSidebar: true,
+    spotlightPad: 6,
   },
 ];
 
@@ -347,8 +374,19 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
       const tabBtn = document.querySelector(`[data-tour="tab-${s.activateTab}"]`) as HTMLElement | null;
       if (tabBtn) tabBtn.click();
     }
+    if (s.openSidebar) {
+      setSidebar(true);
+      // Give the sheet/sidebar a tick to mount its anchors before polling.
+      waitForTargetThenCb(s.targetSelector, cb);
+      return;
+    }
+    if (!s.openSidebar && sidebarCtx) {
+      // Steps that don't need the sidebar should never inherit it from the
+      // previous step — close it so the spotlight has a clean canvas.
+      setSidebar(false);
+    }
     cb();
-  }, []);
+  }, [setSidebar, sidebarCtx, waitForTargetThenCb]);
 
   /* ---- step lifecycle ---- */
 
@@ -397,12 +435,22 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, location.pathname]);
 
-  // Cleanup on unmount
+  // Mount/unmount side-effects:
+  //  - Defensive: if a retake user arrived from Profile, close any side
+  //    panel left open by the previous page so the intro modal lands as
+  //    the topmost surface.
+  //  - Mark the TourMock flag so first-time users see demo Brief/Plan.
+  //  - Cleanup: close the sidebar, drop the mock flag, clear retries.
   useEffect(() => {
+    if (getTourSource() === 'retake') {
+      setSidebar(false);
+    }
+    setTourMockActive(true);
     return () => {
       cleanupPrevious();
       clearRetry();
       setSidebar(false);
+      setTourMockActive(false);
     };
   }, [cleanupPrevious, clearRetry, setSidebar]);
 
@@ -475,7 +523,7 @@ const FirstSessionGuide = ({ onComplete }: FirstSessionGuideProps) => {
             Let's show you around.
           </h2>
           <p className="text-sm text-white/60 font-body leading-relaxed mb-8">
-            A quick 3-step tour of how Mind Module works — starting with your daily check-in.
+            A quick 5-step tour of how Mind Module works — starting with your daily check-in.
           </p>
           <button
             onClick={dismissIntroAndStart}
