@@ -39,7 +39,7 @@ const FloatingPillNav = () => {
     <nav
       className="fixed z-[40] sm:hidden flex items-center justify-center"
       style={{
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
         left: '50%',
         transform: 'translateX(-50%)',
       }}
@@ -48,8 +48,8 @@ const FloatingPillNav = () => {
         className="flex items-center border border-white/10 bg-black/70 backdrop-blur-2xl shadow-2xl"
         style={{
           borderRadius: 999,
-          padding: '6px 8px',
-          gap: 4,
+          padding: '10px 14px',
+          gap: 6,
         }}
       >
         {TABS.map((tab) => {
@@ -61,30 +61,31 @@ const FloatingPillNav = () => {
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className={`relative flex min-w-[64px] flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-all duration-200 ${
+              className={`relative flex min-w-[86px] flex-col items-center gap-1 rounded-full px-4 py-2.5 transition-all duration-200 ${
                 isActive
                   ? 'bg-white/15'
                   : 'bg-transparent'
               }`}
               style={{
                 WebkitTapHighlightColor: 'transparent',
+                minHeight: 56,
               }}
             >
               {/* Icon */}
               {tab.phosphor ? (
                 <tab.icon
-                  size={19}
+                  size={24}
                   weight="duotone"
                   className="text-white"
                 />
               ) : (
                 <tab.icon
-                  size={19}
+                  size={24}
                   className="text-white"
                 />
               )}
               <span
-                className={`font-body text-[9px] tracking-[0.01em] text-white ${
+                className={`font-body text-[11px] tracking-[0.02em] text-white ${
                   isActive ? 'opacity-100' : 'opacity-70'
                 }`}
               >
