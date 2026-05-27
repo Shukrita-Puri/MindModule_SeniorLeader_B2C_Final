@@ -230,7 +230,7 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
               onClick={handleSignIn}
               variant="outline"
               size="lg"
-              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide border-white/30 bg-transparent text-white hover:bg-white/10 hover:border-white/50 hover:text-white rounded-2xl transition-all duration-300"
+              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide border-white/30 text-white hover:border-white/50 hover:text-white rounded-2xl transition-all duration-300 bg-slate-200"
             >
               Log In
             </Button>
