@@ -54,7 +54,7 @@ const features = [
     description: 'Trends & patterns',
   },
   {
-    title: 'Reset',
+    title: 'Recalibrate',
     icon: Compass,
     path: '/recalibrate',
     description: 'Energy practices',

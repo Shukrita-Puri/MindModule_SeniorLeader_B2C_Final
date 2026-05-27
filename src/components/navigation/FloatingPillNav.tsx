@@ -11,7 +11,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { icon: FileText, label: 'Today', path: '/executive-home' },
-  { icon: Compass, label: 'Reset', path: '/recalibrate', phosphor: true },
+  { icon: Compass, label: 'Recalibrate', path: '/recalibrate', phosphor: true },
   { icon: TrendingUp, label: 'Insight', path: '/insights' },
 ];
 
