@@ -225,17 +225,24 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col items-center gap-5 w-full mt-8">
-            {/* Gold Divider */}
-            <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-4" />
-            
-            <Button onClick={handleGetStarted} variant="critical" size="lg" className="w-full max-w-sm px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl">
-              Let's Go
+          <div className="flex flex-row items-center justify-center gap-3 w-full mt-8 px-4">
+            <Button
+              onClick={handleSignIn}
+              variant="outline"
+              size="lg"
+              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide border-white/30 bg-transparent text-white hover:bg-white/10 hover:border-white/50 hover:text-white rounded-2xl transition-all duration-300"
+            >
+              Log In
             </Button>
-            
-            <button type="button" onClick={handleSignIn} className="text-sm text-white/60 hover:text-white transition-colors duration-200 font-body">
-              Already have an account? <span className="underline underline-offset-2">Log in</span>
-            </button>
+
+            <Button
+              onClick={handleGetStarted}
+              variant="critical"
+              size="lg"
+              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl"
+            >
+              Sign up
+            </Button>
           </div>
         
         {/* Privacy Trust Badge */}
