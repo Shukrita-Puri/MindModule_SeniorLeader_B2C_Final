@@ -18,6 +18,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useAuth } from '@/hooks/useAuth';
+import { useTourMock } from '@/components/onboarding/useTourMock';
+import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { read as readPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
