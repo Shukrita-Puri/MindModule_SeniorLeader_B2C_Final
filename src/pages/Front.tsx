@@ -206,19 +206,19 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
       <div className="relative z-10 flex flex-col items-center justify-between text-center h-full w-full px-5 max-w-4xl mx-auto pt-[max(env(safe-area-inset-top),2rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         
         {/* Brand cluster — anchored to upper sky region */}
-        <div className="flex flex-col items-center space-y-3 sm:space-y-4 mt-2 sm:mt-6">
+        <div className="flex flex-col items-center space-y-3 sm:space-y-4 mt-2 sm:mt-6 px-6 py-4 rounded-3xl bg-black/20 backdrop-blur-sm">
           <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
-          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none">
+          <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             MIND MODULE
           </h1>
-          <p className="text-xs sm:text-xs tracking-[0.35em] uppercase text-white/60 font-body">
+          <p className="text-xs sm:text-xs tracking-[0.35em] uppercase text-white/90 font-body drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
             Executive Edition
           </p>
         </div>
 
         {/* Tagline — owns the middle zone */}
         <div className="flex flex-col items-center justify-center flex-1 px-2">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
             Designed for Leaders to Stay Mentally Ahead
           </h2>
         </div>
