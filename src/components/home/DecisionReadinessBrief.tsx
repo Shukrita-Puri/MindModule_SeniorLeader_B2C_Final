@@ -18,6 +18,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { useAuth } from '@/hooks/useAuth';
+import { useTourMock } from '@/components/onboarding/useTourMock';
+import { MOCK_BRIEF } from '@/components/onboarding/tourMockData';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { read as readPersistent, cacheKeys, localISODate, currentPeriod as currentPeriodLocal } from '@/utils/persistentBriefCache';
@@ -1573,10 +1575,23 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
   // Single canonical payload — no separate computeEnergyState call
   const {
-    data: outerBrief,
+    data: outerBriefReal,
     isLoading: outerBriefLoading,
     isFetching: outerBriefFetching,
   } = useOuterReadiness();
+
+  // App-Tour mock injection — strict triple-AND gate (mock active + genuine
+  // first-time user + no real brief yet). Substitutes a best-in-class demo
+  // payload so the tour spotlights a realistic, fully populated card
+  // instead of an empty awaiting state. Real users with real data are
+  // never overridden.
+  const { shouldRenderMock: tourMockBriefActive } = useTourMock();
+  const realBriefEmpty =
+    !outerBriefReal ||
+    (outerBriefReal as any)?.awaitingSignals === true ||
+    !outerBriefReal.phrase;
+  const outerBrief =
+    tourMockBriefActive && realBriefEmpty ? MOCK_BRIEF : outerBriefReal;
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
@@ -1680,7 +1695,10 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // load (no cached brief yet). Empty/error states (no loading + no data)
   // fall through to the main render so they aren't gated.
   const [briefScriptDone, setBriefScriptDone] = useState(hadCacheAtMount);
-  const showLoader = !noLocalSignalAtMount && (outerBriefLoading || outerBriefFetching);
+  const showLoader =
+    !tourMockBriefActive &&
+    !noLocalSignalAtMount &&
+    (outerBriefLoading || outerBriefFetching);
 
   const briefId = (outerBrief as any)?.briefId ?? null;
 

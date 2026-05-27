@@ -5,6 +5,8 @@ import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import TourMockPlan from "@/components/onboarding/TourMockPlan";
+import { useTourMock } from "@/components/onboarding/useTourMock";
 import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
@@ -26,6 +28,11 @@ const PlanPage = () => {
   const reflectionContext = searchParams.get('context'); // 'post-event' | null
   const reflectionEvent = searchParams.get('event');
   const effectiveId = user?.id || (DEV_MODE ? DEV_USER.id : undefined);
+  // Tour mock — render best-in-class demo priorities for genuine
+  // first-time users while the App Tour is active. Strict gating in
+  // useTourMock (active flag + first-time user). Real plan + completion
+  // logic stay untouched.
+  const { shouldRenderMock: showTourMockPlan } = useTourMock();
 
   useEffect(() => {
     setShowGuide(isTourActiveForUser(effectiveId) || isRetakeForUser(effectiveId));
@@ -62,14 +69,20 @@ const PlanPage = () => {
                     </span>
                   </div>
                   <div>
-                    <TodayThreePriorities
-                      onEmpty={() => setPrioritiesEmpty(true)}
-                      onLoaded={() => setPrioritiesEmpty(false)}
-                      expandReflection={expandReflection}
-                      reflectionContext={reflectionContext}
-                      reflectionEvent={reflectionEvent}
-                    />
-                    {prioritiesEmpty && <DailyRitual />}
+                    {showTourMockPlan ? (
+                      <TourMockPlan />
+                    ) : (
+                      <>
+                        <TodayThreePriorities
+                          onEmpty={() => setPrioritiesEmpty(true)}
+                          onLoaded={() => setPrioritiesEmpty(false)}
+                          expandReflection={expandReflection}
+                          reflectionContext={reflectionContext}
+                          reflectionEvent={reflectionEvent}
+                        />
+                        {prioritiesEmpty && <DailyRitual />}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
