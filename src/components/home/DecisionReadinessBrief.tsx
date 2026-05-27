@@ -1575,10 +1575,23 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
 
   // Single canonical payload — no separate computeEnergyState call
   const {
-    data: outerBrief,
+    data: outerBriefReal,
     isLoading: outerBriefLoading,
     isFetching: outerBriefFetching,
   } = useOuterReadiness();
+
+  // App-Tour mock injection — strict triple-AND gate (mock active + genuine
+  // first-time user + no real brief yet). Substitutes a best-in-class demo
+  // payload so the tour spotlights a realistic, fully populated card
+  // instead of an empty awaiting state. Real users with real data are
+  // never overridden.
+  const { shouldRenderMock: tourMockBriefActive } = useTourMock();
+  const realBriefEmpty =
+    !outerBriefReal ||
+    (outerBriefReal as any)?.awaitingSignals === true ||
+    !outerBriefReal.phrase;
+  const outerBrief =
+    tourMockBriefActive && realBriefEmpty ? MOCK_BRIEF : outerBriefReal;
 
   // Eager cache peek: if React Query already has data for this user/period at
   // mount time, this is a *revisit* — skip the scripted narration loader and
