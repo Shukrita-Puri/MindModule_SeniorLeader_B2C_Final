@@ -1,94 +1,120 @@
 
-## Scope
+# App Tour — Three Isolated Fixes (Mobile-First, Final)
 
-Isolated change to the Plan feature's Today's 3 Priorities. Each of the 3 priority cards. No change to Brief, JIT selection, practice selection logic, or plan structure. Reads Brief outputs from DB; does not re-query wearables.
+Scope: `src/components/onboarding/FirstSessionGuide.tsx`, tour anchors, mock-data scaffolding, and `Profile.tsx` retake flow. No backend or scoring changes.
 
-## Files touched
+Platform framing: primary surface is **iOS / Android**. Tour copy must **never** reference a "sidebar", "side menu" or "hamburger" — refer only to the **Reset button** and **Insight button**.
 
-Edge function:
-- `supabase/functions/generate-mastery-plan/index.ts` — replace title + why composition for the 3 priority slots.
-- `supabase/functions/_shared/plan/title-prefixes.ts` (NEW) — PREVENT_PREFIXES / PREPARE_PREFIXES tables + helpers.
-- `supabase/functions/_shared/plan/action-frame.ts` (NEW) — deterministic ≤6-word sub-line from `event-phase-map.ts` goal field.
-- `supabase/functions/_shared/plan/why-llm.ts` (NEW) — single Lovable AI call builder + JSON tool-call schema; caller fan-outs via `Promise.all`.
+---
 
-Read-only references (single source of truth — do not duplicate):
-- `_shared/events/event-categories.ts` (selfRegulationFocus)
-- `_shared/events/event-phase-map.ts` (timing, combo, goal, preventsBuilds, severityHint)
-- `_shared/events/event-classifier.ts` (already-stored classification)
-- `_shared/events/state-engines.ts`
-- `_shared/protocols/protocol-combos.ts`
-- `_shared/jit/select-jit.ts`, `_shared/jit/tactical-signals.ts`
-- `causality_findings.signal_summary` (event_to_hrv, event_to_rhr, confidence, n)
+## 1. Extend tour 3 → 5 steps: add Reset + Insight as discovery surfaces
 
-Frontend:
-- `src/components/home/TodayThreePriorities.tsx` — drop `truncate` on the title classNames so 8-word titles wrap to 2 lines instead of clipping with `...`; render new `actionFrame` field as the italic sub-line (fallback to existing copy).
+`STEPS` in `FirstSessionGuide.tsx`:
 
-## 1. WHAT — Title (deterministic)
-
-Replace today's `timeLabel` ("Prepare ahead of X" / fallback strings) with `buildPlanTitle(hm, evt, isToday)` in `applyV51Enrichment`:
-
-```text
-[PREVENT|PREPARE prefix] + [event name, ≤4 identifying words] (+ "tomorrow" if !isToday)
-hard cap: 8 words total
+```
+1. YOUR DAILY LOOP        → Assessment   (existing)
+2. YOUR DAILY LOOP        → Brief        (existing)
+3. YOUR DAILY LOOP        → Plan         (existing)
+4. EXPLORE WHEN YOU NEED  → Reset        (NEW)
+5. EXPLORE WHEN YOU NEED  → Insight      (NEW)
 ```
 
-- Role = PREVENT if `phaseWindow === 'post'` OR category preventsBuilds[0] starts with "Prevents…"; else PREPARE.
-- Prefix lookup table in new `title-prefixes.ts` (verbatim from spec §9), keyed by the prevents/builds slug from `event-phase-map.ts`. Fallback prefix per role: Steady (PREVENT), Prime (PREPARE).
-- Event name comes from `hm.jitEventTitle` (already from calendar). Tokenise on whitespace; if >4 words, keep first 3 + last 1 token (most identifying); strip parens/quotes.
-- Today vs tomorrow: compare event start date to user's local today (use existing tz helper).
-- For non-JIT slots (start_of_day / state-management / end_of_day with no event), keep title generation off this path — leave existing copy.
+### Step 4 — Reset
+- Title: **"Reset on demand"**
+- Body (≤30 words, user-supplied): *"A library of short Pause, Flow, and Reenergise mindset and somatic protocols. Open the **Reset** button before a high-stakes moment to prepare — or after one to prevent stress carrying into the next."*
+- Target: `[data-tour="sidebar-suite-4"]` (Reset entry in `LeftSidebar.tsx`; same anchor lives in the mobile sheet).
 
-Frontend fix: in `TodayThreePriorities.tsx` line ~1412, change `truncate` → `line-clamp-2 break-words`, keep font/leading.
+### Step 5 — Insight
+- Title: **"See the patterns forming"**
+- Body (≤30 words, user-supplied): *"Open the **Insight** button to see how your progress and patterns forming through the week and month — you can see the exact moments that could cause stress, burnout or clarity drain and prevent it from happening."*
+- Target: `[data-tour="sidebar-suite-3"]`.
 
-## 2. WHY — LLM per priority, unique, ≤25 words
+### Step mechanics (shared by steps 4 & 5)
+- `page: 'home'` — stay on `/executive-home`, do not navigate to `/recalibrate` or `/insights`.
+- Before spotlight: call existing `setSidebar(true)`; `waitForTargetThenCb` polls until the anchor is visible.
+- `spotlightCircle: false`, `spotlightPad: 6`, `tooltipPosition: 'auto'`.
+- On `finish()`: `setSidebar(false)` to close sheet/sidebar before unmount.
 
-Replace `composeWhyLine(...)` for JIT priorities with a single Lovable AI call per slot, fired in parallel via `Promise.all([...])` in `applyV51Enrichment` (after enrichment data is gathered, before persistence).
+---
 
-- Model: `google/gemini-3-flash-preview` (Lovable AI Gateway, server-side, LOVABLE_API_KEY already provisioned). Cheap + fast for 3 parallel ≤25-word generations. (Spec mentions Claude — we use Lovable AI per platform standard; same prompt.)
-- Structured output via tool-call `write_why` returning `{ statement: string, role: "PREVENT" | "PREPARE" }`. Post-trim if >25 words; if LLM unavailable or trims to <12 words, fall back to existing `composeWhyLine` deterministic output (no regression).
-- Inputs (read-only, already in DB — no wearable re-query):
-  - From `req` / Brief outputs: hrvDeviation, sleepScore, rhrTrend, travelDebt, stressLoad, burnoutRisk, mindState, bodyState.
-  - From event: name, category + label, selfRegulationFocus, phaseWindow, preventsBuilds, minutesUntilStart.
-  - From `causality_findings.signal_summary` (already a `SELECT` earlier in pipeline if present; otherwise null) — patternSummary string.
-  - Strategic: growth_intention (only when category maps to it).
-- Prompt: spec §4 verbatim. Filter `null` signals before interpolation. No retry on 429/402 — fall back to deterministic Why.
+## 2. Spotlight covers the full card
 
-Anti-duplication: each call independent + event-specific ⇒ duplicate "Why" bug (current screenshot) goes away by construction. Add a post-pass dedupe: if any two final Why strings are >0.85 Jaccard-similar, regenerate the loser deterministically.
+Today the Plan spotlight targets the inner `data-tour="daily-plan"` div, leaving the header strip outside the cut-out.
 
-## 3. HOW — Sub-line ≤6 words (deterministic)
+- **`src/pages/PlanPage.tsx`** — move `data-tour="daily-plan"` from the inner div onto the outer glass-card wrapper that contains both the header row and `TodayThreePriorities`.
+- **`src/pages/ExecutiveHome.tsx`** — verify `data-tour="today-state"` wraps the entire Brief card (header + body); hoist one level if not.
+- In `FirstSessionGuide.tsx`, raise `spotlightPad` for Brief + Plan steps from `0` → `8` so the saffron ring breathes around the rounded corners.
 
-New `buildActionFrame(category, phaseWindow)` reads `EVENT_PHASE_MAP[category][phase].goal`, compresses to ≤6 words via a static map (one entry per category×phase, hand-authored to match the goal). Attach as `hm.actionFrame: string`. Frontend renders italic sub-line; falls back to current "Regulate your state…" copy if absent.
+---
 
-Practice step layer otherwise unchanged.
+## 3. First-time-user mock: best-in-class Brief + Plan during the tour
 
-## 4. UI rules wired
+A brand-new user runs the tour *before* any check-in, so Brief and Plan render empty. We need populated demo content while the tour is on screen, without ever overwriting real data.
 
-- Title: `line-clamp-2` (2 lines), no `truncate`, no `...`.
-- "Why this matters" label: unchanged.
-- Sub-line: new `actionFrame` field (italic, ≤6 words). Existing italic line replaced when present.
-- Practice cards: unchanged.
+### Files (presentation only)
 
-## 5. Acceptance criteria (matches spec §11)
+1. **`src/components/onboarding/tourMockData.ts`** (NEW)
+   - `MOCK_BRIEF` — `OuterReadinessBrief`-shaped: tier `peak`, score 78, phrase *"Channel the peak."*, body referencing a sample event with HRV/sleep deltas, `leanOn` / `watchFor` populated, `awaitingSignals: false`.
+   - `MOCK_PLAN_PRIORITIES` — 3 v2 JIT-shaped priorities with PREVENT / PREPARE titles, ≤25-word Why lines (Prevent / Prepare framing per CEO Self-Regulation Framework §1, §6), ≤6-word sub-lines, 2-step `practiceQueue` (reuse existing sanctuary content IDs).
+   - All copy passes `forbiddenWords` filter in `supabase/functions/_shared/copy-vocabulary.ts`.
 
-1. No title ever truncates on iOS — all titles ≤8 words; `line-clamp-2` lets long event names wrap.
-2. Each of 3 Why statements is unique (Jaccard dedupe guard).
-3. Each Why references ≥1 non-generic signal pulled from the inputs.
-4. PREVENT vs PREPARE prefix verb matches the role derived from `phaseWindow` + preventsBuilds.
-5. "tomorrow" appears in title when event is tomorrow.
-6. Why ≤25 words; sub-line ≤6 words.
-7. LLM Why calls run in `Promise.all`.
-8. Plan path issues zero new wearable queries; all signals are read from Brief outputs already on `req` / cached snapshot.
+2. **`src/components/onboarding/TourMockContext.tsx`** (NEW)
+   - Provider + `useTourMock()` returning `{ mockBrief, mockPlan, isTourMockActive, firstTimeUser }`.
+   - Mounted by `FirstSessionGuide`; unmounts on `finish()` / `skipTourEntirely()`.
 
-## 6. Sequencing
+### Gating — strict triple AND
 
-1. Add `title-prefixes.ts`, `action-frame.ts`, `why-llm.ts` (+ unit tests for prefix selection and 8-word cap).
-2. Wire into `applyV51Enrichment` for JIT slots only; keep deterministic path for non-JIT slots and as LLM fallback.
-3. Frontend: drop `truncate`, render `actionFrame`.
-4. Deploy `generate-mastery-plan`; smoke test 3 priorities render unique Why + non-truncated titles in preview.
+The mock renders only when **all three** are true:
+- (a) `isTourMockActive` (tour mounted), AND
+- (b) **genuine first-time user** (see resolver below), AND
+- (c) underlying card has no real data: `outerBrief?.awaitingSignals === true` (Brief) / existing `prioritiesEmpty === true` (Plan).
 
-## Open assumptions (will proceed unless flagged)
+**First-time-user resolver (layered):**
+1. **Retake flag wins (negative signal):** if `isRetakeForUser(effectiveId)` from `firstSessionTour.ts` returns `true` → existing user → `firstTimeUser = false`. The "Retake Tour" entry is only visible to existing users in Profile, so its presence is a deterministic "not first-time" signal. Add a one-line comment in `firstSessionTour.ts` documenting this contract.
+2. **Tour-source flag:** persist `source` from `startFirstSessionTour({ source })` into sessionStorage (`FST_KEYS.source`). `source === 'retake'` → existing user. Expose `getTourSource()`.
+3. **Account-age fallback:** if `user.created_at` older than ~10 minutes OR `user.onboarding_completed_at` exists and any prior check-in / brief snapshot is recorded → existing user.
+4. Only if all three say "fresh" → `firstTimeUser = true`.
 
-- Use Lovable AI Gateway (Gemini Flash) — not Anthropic — per platform default; same prompt text.
-- Compressed-goal sub-line map is authored once in `action-frame.ts` (≈16 entries: 8 categories × ~2 phases). Coaching can edit later.
-- Deterministic fallback for Why is the existing `composeWhyLine` to guarantee no empty card on LLM failure.
-- No memory/index updates in this PR; will land alongside.
+### Consumer wiring (minimal)
+- `src/hooks/useOuterReadiness.ts` — short-circuit to `MOCK_BRIEF` when gate passes.
+- `src/components/home/TodayThreePriorities.tsx` — render `MOCK_PLAN_PRIORITIES` read-only; Start buttons are no-ops during tour (no DB writes, no analytics).
+- Small "Demo preview" pill in the corner of mocked cards.
+- On tour end, provider unmounts → both consumers revert to real state.
+
+---
+
+## 4. Mobile retake: auto-close side panel before showing intro modal
+
+**Behaviour today:** On iOS, user opens side panel → Profile → "Retake Tour". `Profile.handleRetakeTour` calls `startFirstSessionTour({ source: 'retake' })` and `navigate('/daily-check-in?tour=1')`. The native sheet/panel can remain visually open on top, partially obscuring the *"Let's show you around — A quick 3-step tour…"* intro modal.
+
+**Fix:**
+1. In `src/pages/Profile.tsx` → `handleRetakeTour`:
+   - Call `setSidebar(false)` (via `useSidebarSafe()` — same hook `FirstSessionGuide` already uses) **before** `navigate(...)`. Works for both desktop sidebar and mobile bottom sheet.
+   - Dispatch an existing close event if no provider is mounted at `Profile` route; otherwise add a tiny `closeAppPanels()` util that sets `sidebar=false` and emits `window.dispatchEvent(new Event('mm:close-panels'))`. `LeftSidebar` already listens for sidebar state; mobile sheet honours the same flag.
+2. In `FirstSessionGuide.tsx`, when mounting and detecting `source === 'retake'`, defensively call `setSidebar(false)` once on mount so the intro modal is always the topmost element.
+3. Update intro modal copy step count from "3-step tour" → **"5-step tour"** to match the new step count (one-line edit in the existing intro card body).
+
+Acceptance: tapping "Retake Tour" on iOS closes the side panel and lands the user on `/daily-check-in?tour=1` with the *"Let's show you around"* card as the first visible surface — nothing else on top.
+
+---
+
+## Body-copy guardrails (all 5 steps)
+- Never say "side menu", "sidebar", "hamburger", "navigation drawer".
+- Refer to entries as **Reset button** and **Insight button**.
+- Prevent / Prepare framing per CEO Self-Regulation Framework §1, §6.
+- ≤30 words per body; passes `forbiddenWords` filter.
+- Sentence-case, Chief-of-Staff voice, no wellness verbs.
+
+---
+
+## Files Touched
+- `src/components/onboarding/FirstSessionGuide.tsx` — +2 steps, padding, sidebar open/close, mount `TourMockContext`, intro copy "5-step", retake auto-close.
+- `src/utils/firstSessionTour.ts` — persist `source`; expose `getTourSource()`; document retake contract.
+- `src/pages/Profile.tsx` — `handleRetakeTour` closes side panel before navigate.
+- `src/pages/PlanPage.tsx` — move `data-tour="daily-plan"` to outer card.
+- `src/pages/ExecutiveHome.tsx` — verify Brief anchor wraps full card.
+- `src/components/onboarding/tourMockData.ts` — NEW.
+- `src/components/onboarding/TourMockContext.tsx` — NEW (provider, hook, resolver).
+- `src/hooks/useOuterReadiness.ts` — gated mock short-circuit.
+- `src/components/home/TodayThreePriorities.tsx` — gated mock render, read-only Start.
+- `mem://features/onboarding/app-tour` — update: 5 steps, no sidebar wording, triple-AND mock gating, mobile retake auto-closes panel.
