@@ -1,115 +1,56 @@
-## Insights — revised plan (items 7 & 8 reworked)
+## 1. Inner Readiness Dial (top card)
 
-Items 1–6 unchanged from the previous plan (remove header title, per-card share, "Your Performance Trajectory" rename, borderless glass rows, drop icons, larger eyebrow with full new card names). This revision only rewrites items 7 and 8.
+`src/components/insights/InnerReadinessDial.tsx`
 
----
+- **Copy:** Title → `Your Performance Trajectory`. Subheadline (grey, same `text-[11px] uppercase tracking-[0.12em]` style) → `Inner Readiness Streak · This Week`.
+- **Number colour:** Force black (`hsl(var(--foreground))`) regardless of tier — keep the arc segment as the colour cue.
+- **Score ranges (documented in code comment, also shown in the info tooltip):**
+  - Red (Depleted): `< 40`
+  - Amber (Recovering): `40 – 66`
+  - Green (Strong): `≥ 67`
+- **Past-day colouring (root cause of empty dots):** `inner_readiness_scores` is only written when an `outer-readiness` brief runs, so most historical days are blank. Fix by:
+  1. In parallel with the existing `inner_readiness_scores` fetch, query `daily_checkins` for the same Mon→Sun window (`clarity_level, emotion_level, pressure_level, regulation_level, checkin_date, created_at`).
+  2. Group check-ins by `checkin_date`; per day compute a composite using the same weighting already used by `energyStateScoring` (or a small helper here that mirrors it: avg of clarity/emotion/regulation + inverted pressure, scaled to 0–100). When a day has multiple check-ins, **average the per-check-in composites** to get the day's final score, then map through `tierFor` for the dot colour.
+  3. Prefer the `inner_readiness_scores` row when present (canonical), otherwise fall back to the averaged check-in composite. Today's dot continues to use the live `outer.innerReadinessScore`.
+- Keep dot future-state dimming and today's ring as today.
 
-### Item 7 — re-evaluated (no static "today" metric)
+## 2. Performance Streaks card
 
-The previous "today's value on the right" idea was wrong: each card actually answers a **trend** question, not a "what's my number right now" question. Forcing a single live value would either be noisy (a single check-in moves it wildly) or misleading (e.g. a stress score with no event today).
+`src/components/insights/PerformanceStreaks.tsx` + `src/utils/dimensionTiers.ts`
 
-**New recommendation:** drop the right-side metric entirely on the summary rows. Each row keeps only: large eyebrow, one-line plain-English value sentence already written (e.g. "Operating sharper than baseline · last 7 days"), and the chevron. The detail card is the home of all numbers — the summary row stays calm and CEO-grade, matching Apple Health's "you have to tap in for the data" pattern.
+- **Copy:** Eyebrow stays `Your Performance Trajectory` *(if we keep one header line — confirm)*. Add a grey subhead line in the same style as the dial's: `Performance Streak · This Month`.
+- **Wire to the same flame logic the dimension trends use.** Today the streaks use 90-day personal quartiles; the user wants parity with the flame on the *Performance Rhythm* trends (`LevelTrendCalendar`), which counts **consecutive days in the current calendar month where any slot value ≥ 4**. Replace `computeDimensionStreaks` with that rule:
+  - **Peak (👍):** consecutive in-month days where any of morning/midday/evening for that dimension was **level 4 or 5** (i.e. Lucid+Crystal, Composed+Open, Light+Spacious, Strong+In-Control). **Neutral (3) is excluded** — matches the existing flame.
+  - **Friction (👎):** consecutive in-month days where any slot for that dimension was **level 1 or 2** (Clouded/Obscured, Reactive/Unsettled, Elevated/Overloaded, Low/Reactive). For pressure the raw levels already encode "overloaded = low", so the same `≤ 2` rule applies after the existing inversion swap.
+  - Streak resets on the 1st of the month and on any day in-month where the dimension had a check-in but did not meet the band.
+- Query source: same `daily_checkins` rows the dial pulls; we can share the fetch via a tiny hook (`useWeekMonthCheckins`) to avoid duplicate round-trips.
+- Counts in the chips become the streak length (matches the "5" flame in the screenshot), not a monthly tally.
 
-What I will do instead: rewrite each row's `value` sentence into a *signal-bearing one-liner* derived from data already on `statePatterns` / `weekData` / `practiceData` — no new fetches:
+## 3. Share button placement (UX recommendation)
 
-| Card | Sentence template (data-driven) |
-|---|---|
-| Your Performance Trajectory | "{archetypeShortTitle} · {trendDirection} vs baseline" e.g. "Adaptive Navigator · improving" |
-| When You Perform Best | "Sharpest on {topDay} {topWindow} · 7-day pattern" |
-| What Drains Your Performance | "{highStressDayCount} elevated-load days this week" or "Calendar + wearable still gathering" |
-| What Restores Your Performance | "{topCategory} lifted your next check-in most" |
+Current placement (overlaid in the top-right of each card, just left of the `i` icon) still competes visually with the tooltip trigger and forces a small 36px hit target into a dense corner.
 
-When a sentence cannot be honestly produced (missing data), the row falls back to a neutral descriptor — never a fabricated number. Aligns with the **Data Honesty Standards** memory.
+**Recommendation: move Share to the card footer, right-aligned, on its own row.**
 
-No icon, no border, no right-side metric. The Apple-Health gestalt is preserved by the eyebrow + sentence + chevron.
+- Pattern used by Apple Health / Notes / Strava detail screens: primary content owns the top, share is a low-emphasis action at the bottom-right.
+- Avoids any collision with the info tooltip, and the capture target (the whole card) is unchanged so multi-tab share still works.
+- Implementation: in `src/pages/InsightDetail.tsx`, drop the absolute-positioned `ShareCardButton` overlay and instead render a thin footer strip after `card.render(...)`:
+  ```text
+  ┌── card content (captured) ──┐
+  │ …                           │
+  └─────────────────────────────┘
+     [ Share ↗ ]   ← right-aligned, 12px above bottom safe area
+  ```
+- Keep `captureRef` wrapping only the card body (not the footer) so the share PNG doesn't include the share button itself.
 
----
+## 4. Out of scope / unchanged
 
-### Item 8 — Readiness & Performance Streaks block (above the four rows)
+- No backend / edge-function changes. All new math is client-side off existing tables (`daily_checkins`, `inner_readiness_scores`).
+- `PerformanceRhythmCard` flame logic is the reference and remains untouched.
+- No copy changes on other insight cards.
 
-Two stacked components above the summary stack. The current **Trajectory** summary row is suppressed once this lands (kept in code for re-enable).
-
-```
-┌─────────────────────────────────────────────────┐
-│             INNER READINESS  · this week        │
-│                                                 │
-│            ◜◝         ┌──────────┐              │
-│          ◜    ◝       │   M T W T │ F S S       │
-│         │   72   │    │   ● ● ● ● │ · · ·       │  ← daily marks
-│          ◟    ◞                                 │
-│             ◟◞                                  │
-│        Strong · Recovering · Depleted           │
-└─────────────────────────────────────────────────┘
-
-┌──── Peak (cumulative · resets month-end) ─────┐
-│  👍 4   Peak Clarity                          │
-│  👍 3   In-Control Regulation                 │
-│  👍 2   Composed Pressure                     │
-└────────────────────────────────────────────────┘
-┌──── Friction (cumulative · resets month-end) ─┐
-│  👎 5   Overloaded Pressure                   │
-│  👎 3   Reactive Regulation                   │
-│  👎 2   Clouded Clarity                       │
-└────────────────────────────────────────────────┘
-```
-
-#### 8a · Inner Readiness Dial (daily · Mon→Sun · resets weekly)
-
-- **Component:** new `src/components/insights/InnerReadinessDial.tsx`.
-- **Visual:** semicircular speedometer (SVG). 0–100 scale. Tri-zone arc using the same tokens that drive the homepage hero tier pill (Strong = green, Recovering = amber, Depleted = red — sourced from `outerBrief.innerReadinessTier` mapping in `useOuterReadiness.ts`). A single needle marks today's score. Score number rendered large at center in headline font.
-- **Daily strip below dial:** Mon–Sun row of 7 dots. Each dot color = that day's tier (green/amber/red) from the day's `innerReadinessScore`. Today's dot is ringed. Days in the future are hairline outlines only.
-- **Data source:** reuse `useOuterReadiness` for today's score + tier. For the M–Sun history, pull from `brief_snapshots` table (already used by the Insights Progress Tab v2 memory) — read-only Supabase query for the last 7 days of `inner_readiness_score`. No new edge function.
-- **Reset:** the strip is keyed by ISO week. On Monday 00:00 (user timezone, per `Timezone Persistence` memory) the strip visually resets while the underlying historical rows stay in the DB for the Trajectory detail card.
-- **Tap:** routes to `/insights/leadership-patterns` (the now-hidden Trajectory detail) so the data still has a deep-dive home.
-
-#### 8b · Performance Streaks (cumulative this month · resets month-end)
-
-- **Component:** new `src/components/insights/PerformanceStreaks.tsx`.
-- Two side-by-side columns inside one glass card: **Peak** (top) and **Friction** (bottom), each with up to 3 rows ordered by count descending.
-- Each row: thumbs-up or thumbs-down glyph with the count layered inside (mirrors the "flame with a number" pattern the user likes), plus a label.
-- **Dimensions tracked:** Clarity, Emotion, Pressure, Regulation — the four sliders already captured by `daily_checkins` (`clarity_level`, `emotion_level`, `pressure_level`, `regulation_level`).
-- **Label rules (CEO register, no wellness tropes):**
-  - Peak labels — top quartile of the dimension's monthly distribution:
-    - Clarity → "Peak Clarity"
-    - Emotion → "Steady Emotion"
-    - Pressure → "Composed Pressure"
-    - Regulation → "In-Control Regulation"
-  - Friction labels — bottom quartile:
-    - Clarity → "Clouded Clarity"
-    - Emotion → "Volatile Emotion"
-    - Pressure → "Overloaded Pressure"
-    - Regulation → "Reactive Regulation"
-- **Counts:** number of check-ins this calendar month where the dimension fell into the relevant quartile. Quartile boundaries computed against the user's own 30-day baseline (already accessible via existing rhythm-card logic — extracted to `src/utils/dimensionTiers.ts` so both this block and the rhythm detail card share one source of truth, preventing drift).
-- **Reset:** first day of new month rolls counts back to 0. Previous month's totals are not lost (they remain queryable on the rhythm detail card; only the strip resets).
-- **Empty state:** when a dimension has fewer than 4 check-ins this month, it's omitted rather than shown as "0" — keeps the strip honest and never gamified.
-- **Tap:** routes to `/insights/performance-rhythm` (since that detail card already breaks down the 4 dimensions).
-
-#### Trajectory row suppression
-
-Once 8a is live, the four-row stack becomes three rows (Rhythm, Drains, Restores). The Trajectory `InsightSummaryRow` is wrapped in `{false && (...)}` — component + route + detail page remain so the dial's tap target still works.
-
----
-
-### Data scientist notes (why this is the right shape)
-
-- **Inner Readiness is a daily-noise, weekly-pattern signal.** A speedometer + 7 dots reads it correctly: one glance at today's tier + immediate context of the trailing days. Resetting weekly prevents stale "30-day streak" anchoring that would fight the daily decision question.
-- **Dimension performance is a slow signal** — a single bad day shouldn't flip "In-Control Regulation". A monthly cumulative count over a quartile threshold is statistically more stable and matches how a CEO already thinks in monthly cycles. Quartiles use the user's own baseline so the counts mean the same thing for everyone regardless of absolute slider behaviour.
-- **Thumbs up/down with embedded count** preserves the affective punch of the flame icon the user liked, without the gamified "streak" semantics that don't fit an executive product.
-
----
-
-### Files (delta vs prior plan)
-
-Added/changed:
-- `src/components/insights/InnerReadinessDial.tsx` (new)
-- `src/components/insights/PerformanceStreaks.tsx` (new)
-- `src/utils/dimensionTiers.ts` (new — quartile helper shared with `PerformanceRhythmCard.tsx`)
-- `src/pages/Insights.tsx` — render the two new blocks above the row stack; suppress Trajectory row.
-- `src/components/insights/InsightSummaryRow.tsx` — drop the right-side metric slot from the prior plan (item 7 reverted).
-
-Removed from prior plan:
-- The `metric` prop on `InsightSummaryRow` and all "today's value on the right" wiring.
-
-Unchanged from prior plan: items 1–6 and the per-card share refactor.
-
-No edge function, schema, RLS, scoring, or memory changes.
+## Files touched
+- `src/components/insights/InnerReadinessDial.tsx`
+- `src/components/insights/PerformanceStreaks.tsx`
+- `src/utils/dimensionTiers.ts` (replace quartile logic with flame-parity rule)
+- `src/pages/InsightDetail.tsx` (relocate share button)
