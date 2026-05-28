@@ -32,6 +32,7 @@ import {
   dedupeCalendarEvents,
   type Pillar,
 } from "../_shared/executive-state-taxonomy.ts";
+import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,7 +60,14 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * Bump this when scoring/classification logic changes so that any cached
  * row missing this version is treated as stale and recomputed automatically.
  */
-const ENGINE_VERSION = 3;
+/**
+ * v4 adds `signal_summary.performance_lift` — positive-side correlations
+ * (event subtype/category thrive matrix using event-window peak HR vs
+ * resting baseline, sleep → next-day lift, RHR-recovery best-window,
+ * recovery-streak → peak). Reads from the new A–H event taxonomy via
+ * `classifyEventCanonical`. See mem://architecture/unified-pattern-store.
+ */
+const ENGINE_VERSION = 4;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
