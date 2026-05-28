@@ -100,15 +100,11 @@ export function computeDimensionStreaks(
       }
     }
 
-    if (peakCount >= 2) {
-      peaks.push({ dimension: d, kind: 'peak', count: peakCount, label: DIMENSION_LABELS[d].peak });
-    }
-    if (frictionCount >= 2) {
-      frictions.push({ dimension: d, kind: 'friction', count: frictionCount, label: DIMENSION_LABELS[d].friction });
-    }
+    peaks.push({ dimension: d, kind: 'peak', count: peakCount, label: DIMENSION_LABELS[d].peak });
+    frictions.push({ dimension: d, kind: 'friction', count: frictionCount, label: DIMENSION_LABELS[d].friction });
   }
 
-  peaks.sort((a, b) => b.count - a.count);
-  frictions.sort((a, b) => b.count - a.count);
-  return { peaks: peaks.slice(0, 3), frictions: frictions.slice(0, 3) };
+  // Keep canonical dimension order (clarity, emotion, pressure, regulation) so
+  // the horizontal strip lines up across rows.
+  return { peaks, frictions };
 }
