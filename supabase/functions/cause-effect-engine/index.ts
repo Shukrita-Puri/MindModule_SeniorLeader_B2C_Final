@@ -66,8 +66,13 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * resting baseline, sleep → next-day lift, RHR-recovery best-window,
  * recovery-streak → peak). Reads from the new A–H event taxonomy via
  * `classifyEventCanonical`. See mem://architecture/unified-pattern-store.
+ *
+ * v5 adds `recoveryByEvent` to the payload — per event-type (A–H taxonomy)
+ * recovery-days based on Heart Rate (RHR). HRV is intentionally excluded
+ * here because it's a daily morning signal and too coarse for event-level
+ * recovery tracking; Heart Rate is the canonical event-window signal.
  */
-const ENGINE_VERSION = 4;
+const ENGINE_VERSION = 5;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -126,6 +131,13 @@ interface Payload {
   // is never inspectable from the client.
   stressMatrix?: StressMatrix;
   burnoutMatrix?: BurnoutMatrix;
+  /**
+   * v5 — per event-type recovery time (in days) after that event class,
+   * derived from Heart Rate (RHR) returning within ±5% of baseline. HRV
+   * intentionally excluded — too coarse for event-level recovery tracking.
+   * Uses the canonical A–H event taxonomy via lensA findings.
+   */
+  recoveryByEvent?: RecoveryByEvent | null;
   // Computed silently per spec — engine measures these so the UI can
   // surface them later without a separate backfill. The card does not
   // currently render these tabs.
@@ -161,6 +173,21 @@ interface RecoveryTimeline {
   days: string[];                                   // ISO dates
   values: (number | null)[];                        // recovery-cost score per day
   rolling7: (number | null)[];
+}
+
+// ── v5: Per event-type recovery time (Heart Rate based) ────────────────
+interface RecoveryByEventEntry {
+  eventType: string;          // canonical A–H taxonomy label (from lensA.cause)
+  recoveryDays: number;       // mean days for RHR to return within ±5% of baseline
+  rhrDeltaBpm: number;        // mean event-day RHR − baseline (bpm), positive = elevation
+  n: number;                  // sample size of event days
+  confidence: Confidence;
+  lastSeen: string;           // ISO date of most recent event in this category
+}
+interface RecoveryByEvent {
+  entries: RecoveryByEventEntry[];          // sorted desc by recoveryDays
+  maxRecoveryDays: number;                  // for client-side bar scaling
+  topEntry: RecoveryByEventEntry | null;
 }
 
 // ── Unified pattern store: flat projection for fast O(1) reads by other
@@ -1166,6 +1193,50 @@ serve(async (req) => {
     payload.burnoutMatrix = burnoutMatrix;
     payload.sleepDisruptionMatrix = sleepDisruptionMatrix;
     payload.recoveryCostTimeline = recoveryCostTimeline;
+
+    // ════════════════════════════════════════════════════════════════════
+    // v5: RECOVERY BY EVENT — Heart Rate based per A–H event taxonomy
+    // ════════════════════════════════════════════════════════════════════
+    // Surfaces "after which events does recovery take longest" inside the
+    // Drains card. Pulls from existing lensA RHR findings that already
+    // carry per-event recoveryDays (days for RHR to return within ±5% of
+    // baseline). HRV is intentionally excluded — too coarse for events.
+    const recoveryByEvent: RecoveryByEvent | null = (() => {
+      const rhrFindings = lensA.filter(
+        (f) =>
+          f.effectSignal === "RHR" &&
+          f.cause !== "High-load calendar days" &&
+          typeof f.recoveryDays === "number" &&
+          f.recoveryDays > 0,
+      );
+      if (rhrFindings.length === 0) return null;
+      // Compute last-seen per event-type inline (lastSeenByEventType isn't
+      // built until further below in the signal-summary section).
+      const lastSeenLocal = new Map<string, string>();
+      eventTypeDays.forEach((set, label) => {
+        let max = "";
+        set.forEach((d) => { if (d > max) max = d; });
+        if (max) lastSeenLocal.set(label, max);
+      });
+      const entries: RecoveryByEventEntry[] = rhrFindings
+        .map((f) => ({
+          eventType: f.cause,
+          recoveryDays: f.recoveryDays as number,
+          rhrDeltaBpm: f.deltaAbs,
+          n: f.n,
+          confidence: f.confidence,
+          lastSeen: lastSeenLocal.get(f.cause) || "",
+        }))
+        .sort((a, b) => b.recoveryDays - a.recoveryDays)
+        .slice(0, 6);
+      const maxRecoveryDays = entries.reduce((m, e) => Math.max(m, e.recoveryDays), 0);
+      return {
+        entries,
+        maxRecoveryDays,
+        topEntry: entries[0] || null,
+      };
+    })();
+    payload.recoveryByEvent = recoveryByEvent;
 
     // ════════════════════════════════════════════════════════════════════
     // v4: PERFORMANCE LIFT — positive-side correlations

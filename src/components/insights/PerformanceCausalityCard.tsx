@@ -52,6 +52,19 @@ interface BurnoutMatrix {
   cardTrajectory: 'escalating' | 'stable' | 'improving';
   bannerCopy: string;
 }
+interface RecoveryByEventEntry {
+  eventType: string;
+  recoveryDays: number;
+  rhrDeltaBpm: number;
+  n: number;
+  confidence: Confidence;
+  lastSeen: string;
+}
+interface RecoveryByEvent {
+  entries: RecoveryByEventEntry[];
+  maxRecoveryDays: number;
+  topEntry: RecoveryByEventEntry | null;
+}
 interface Coverage {
   hasCalendar: boolean;
   hasWearable: boolean;
@@ -60,6 +73,7 @@ interface CausalityPayload {
   coverage: Coverage;
   stressMatrix?: StressMatrix;
   burnoutMatrix?: BurnoutMatrix;
+  recoveryByEvent?: RecoveryByEvent | null;
   version?: number;
   cached?: boolean;
 }
@@ -242,6 +256,62 @@ function BurnoutRiskTab({ matrix }: { matrix: BurnoutMatrix }) {
   );
 }
 
+// ── Recovery Time tab ────────────────────────────────────────────────
+// Shows event types (canonical A–H taxonomy) ranked by how long Heart Rate
+// takes to return within ±5% of baseline. Heart Rate (not HRV) is the
+// event-window signal — HRV is too coarse for per-event causation.
+function RecoveryTimeTab({ data }: { data: RecoveryByEvent }) {
+  const { entries, maxRecoveryDays, topEntry } = data;
+  if (!entries.length || maxRecoveryDays <= 0) {
+    return (
+      <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+        Need a few more wearable days after meetings to measure recovery time.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {entries.map((e) => {
+          const pct = Math.max(8, Math.round((e.recoveryDays / maxRecoveryDays) * 100));
+          const isTop = topEntry && e.eventType === topEntry.eventType;
+          const barColor = isTop ? CORAL_RAMP[4] : CORAL_RAMP[2];
+          return (
+            <div key={e.eventType} className="space-y-1">
+              <div className="flex items-baseline justify-between text-[11px]">
+                <span className="text-foreground/90 font-medium truncate pr-2">{e.eventType}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {e.recoveryDays}
+                  <span className="text-[10px] text-muted-foreground/70 ml-0.5">
+                    {e.recoveryDays === 1 ? 'day' : 'days'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/50 ml-1.5">n={e.n}</span>
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: barColor }}
+                />
+              </div>
+              <div className="text-[10px] text-muted-foreground/60 tabular-nums">
+                Heart Rate +{Math.round(e.rhrDeltaBpm)} bpm on event day
+                {e.confidence === 'emerging' ? ' · emerging pattern' : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {topEntry && (
+        <div className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          Longest recovery: <span className="text-foreground font-medium">{topEntry.eventType}</span>
+          {' '}— typically {topEntry.recoveryDays} {topEntry.recoveryDays === 1 ? 'day' : 'days'}.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Gating prompt (no wearable AND no calendar) ──────────────────────
 function GatingPrompt({ hasWearable, hasCalendar }: { hasWearable: boolean; hasCalendar: boolean }) {
   const navigate = useNavigate();
@@ -289,7 +359,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
   const [isMock, setIsMock] = useState(false);
-  const [tab, setTab] = useState<'stress' | 'burnout'>('stress');
+  const [tab, setTab] = useState<'stress' | 'burnout' | 'recovery'>('stress');
 
   useEffect(() => {
     let cancelled = false;
@@ -409,6 +479,9 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               <TabPill active={tab === 'burnout'} onClick={() => setTab('burnout')}>
                 Burnout Risk
               </TabPill>
+              <TabPill active={tab === 'recovery'} onClick={() => setTab('recovery')}>
+                Recovery Time
+              </TabPill>
             </div>
 
             {partialBanner && (
@@ -425,11 +498,19 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   Need a few more wearable days during meetings to populate.
                 </p>
               )
-            ) : data.burnoutMatrix ? (
-              <BurnoutRiskTab matrix={data.burnoutMatrix} />
+            ) : tab === 'burnout' ? (
+              data.burnoutMatrix ? (
+                <BurnoutRiskTab matrix={data.burnoutMatrix} />
+              ) : (
+                <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+                  Need a few more weeks of wearable + calendar data to populate.
+                </p>
+              )
+            ) : data.recoveryByEvent ? (
+              <RecoveryTimeTab data={data.recoveryByEvent} />
             ) : (
               <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                Need a few more weeks of wearable + calendar data to populate.
+                Need a few more wearable days after meetings to measure recovery time.
               </p>
             )}
           </>
