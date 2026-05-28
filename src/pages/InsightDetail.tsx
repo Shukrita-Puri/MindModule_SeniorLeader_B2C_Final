@@ -74,23 +74,25 @@ const InsightDetail = () => {
         className="px-4 max-w-lg mx-auto pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
       >
-        <div>
-          <div ref={captureRef}>
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              }
-            >
-              {card.render(user?.id)}
-            </Suspense>
-          </div>
-          {/* Share lives in a low-emphasis footer strip below the card so it
-              never collides with the header info ("i") tooltip. The
-              captureRef intentionally excludes this row so the share image
-              doesn't include the share button itself. */}
-          <div className="flex justify-end mt-2 pr-1">
+        {/* Share lives INSIDE the card frame (top-right, left of each card's
+            info "i" tooltip). It carries data-share-hide so the snapshot
+            taken by shareInsightCard excludes the share affordance itself.
+            captureRef wraps the card so any toggle / tab state currently
+            visible is what gets exported. */}
+        <div ref={captureRef} className="relative">
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            }
+          >
+            {card.render(user?.id)}
+          </Suspense>
+          <div
+            data-share-hide
+            className="absolute top-2 right-12 z-20"
+          >
             <ShareCardButton
               targetRef={captureRef}
               title={card.title}

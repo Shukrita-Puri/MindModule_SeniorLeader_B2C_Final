@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -45,7 +44,6 @@ const Cell = ({ s, kind }: { s: DimensionStreak; kind: 'peak' | 'friction' }) =>
 };
 
 const PerformanceStreaks = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
   const [streaks, setStreaks] = useState<{ peaks: DimensionStreak[]; frictions: DimensionStreak[] }>({ peaks: [], frictions: [] });
@@ -72,16 +70,14 @@ const PerformanceStreaks = () => {
   if (loading) return null;
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate('/insights/performance-rhythm')}
+    <div
+      role="group"
+      aria-label="Performance streaks this month"
       className={cn(
         'w-full text-left rounded-2xl bg-white/65 backdrop-blur-[30px] backdrop-saturate-150',
         'shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]',
-        'transition-transform duration-200 active:scale-[0.99]',
         'px-5 pt-4 pb-4',
       )}
-      aria-label="Performance streaks this month"
     >
       <div className="mb-2">
         <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
@@ -106,9 +102,9 @@ const PerformanceStreaks = () => {
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground/70 mt-3 leading-snug">
-        Counts reset on the 1st. Quartiles use your own 90-day baseline.
+        Counts reset on the 1st. Peak = any slot at level 4–5. Friction = any slot at level 1–2.
       </p>
-    </button>
+    </div>
   );
 };
 
