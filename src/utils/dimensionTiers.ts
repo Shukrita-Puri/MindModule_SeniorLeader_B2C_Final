@@ -33,16 +33,6 @@ const INVERTED: Record<Dimension, boolean> = {
   regulation: false,
 };
 
-function quantile(sorted: number[], q: number): number {
-  if (sorted.length === 0) return 0;
-  const pos = (sorted.length - 1) * q;
-  const base = Math.floor(pos);
-  const rest = pos - base;
-  return sorted[base + 1] !== undefined
-    ? sorted[base] + rest * (sorted[base + 1] - sorted[base])
-    : sorted[base];
-}
-
 export interface DimensionStreak {
   dimension: Dimension;
   kind: 'peak' | 'friction';
@@ -56,54 +46,93 @@ export interface MonthlyCheckin {
   pressure_level?: number | null;
   regulation_level?: number | null;
   checkin_date: string;
+  created_at?: string | null;
 }
 
 /**
- * @param baseline  ALL check-ins (last 90d) used to compute quartile cuts.
- * @param monthly   Check-ins inside the current calendar month — what we count.
+ * Flame-parity streak math.
+ *
+ * Mirrors the consecutive-day flame on the "When You Perform Best" trend
+ * cards (LevelTrendCalendar): for each dimension we count consecutive
+ * in-month days ending at today (or yesterday if today is not yet logged)
+ * where ANY slot for that dimension hit the band.
+ *
+ *   Peak (👍)    : any slot value ≥ 4   (top two levels — neutral is NOT included)
+ *   Friction (👎): any slot value ≤ 2   (bottom two levels)
+ *
+ * For pressure the raw 1–5 scale already encodes "1 = overloaded" / "5 =
+ * spacious", so the same ≥4 / ≤2 rules apply directly — the INVERTED flag
+ * only matters for the legacy quartile path, which we no longer use.
+ *
+ * The streak resets on the 1st of the month and on any in-month day that
+ * had a check-in but did not meet the band.
+ *
+ * @param baseline  kept for signature compatibility — unused.
+ * @param monthly   Check-ins inside the current calendar month.
  */
 export function computeDimensionStreaks(
-  baseline: MonthlyCheckin[],
+  _baseline: MonthlyCheckin[],
   monthly: MonthlyCheckin[],
 ): { peaks: DimensionStreak[]; frictions: DimensionStreak[] } {
   const dims: Dimension[] = ['clarity', 'emotion', 'pressure', 'regulation'];
   const peaks: DimensionStreak[] = [];
   const frictions: DimensionStreak[] = [];
 
+  // Group monthly check-ins by date.
+  const byDate = new Map<string, MonthlyCheckin[]>();
+  for (const c of monthly) {
+    const arr = byDate.get(c.checkin_date) ?? [];
+    arr.push(c);
+    byDate.set(c.checkin_date, arr);
+  }
+  const datesAsc = Array.from(byDate.keys()).sort();
+  const todayStr = new Date().toLocaleDateString('en-CA');
+
   for (const d of dims) {
     const key = `${d}_level` as keyof MonthlyCheckin;
-    const base = baseline
-      .map(c => c[key] as number | null | undefined)
-      .filter((v): v is number => typeof v === 'number')
-      .sort((a, b) => a - b);
-    // For inverted dims, "peak" means LOW values (bottom quartile of raw),
-    // "friction" means HIGH values (top quartile of raw).
-    const inverted = INVERTED[d];
+
+    // Walk from the most-recent in-month date backwards, but skip today if
+ // today has no check-in yet (matches LevelTrendCalendar behaviour).
+    let i = datesAsc.length - 1;
+    if (i >= 0 && datesAsc[i] === todayStr) {
+      const todayRows = byDate.get(datesAsc[i]) ?? [];
+      const hasAny = todayRows.some(r => typeof r[key] === 'number');
+      if (!hasAny) i -= 1;
+    }
+
+    const dayMatches = (rows: MonthlyCheckin[], predicate: (v: number) => boolean): 'hit' | 'miss' | 'empty' => {
+      const vals = rows
+        .map(r => r[key] as number | null | undefined)
+        .filter((v): v is number => typeof v === 'number');
+      if (vals.length === 0) return 'empty';
+      return vals.some(predicate) ? 'hit' : 'miss';
+    };
+
     let peakCount = 0;
+    for (let j = i; j >= 0; j--) {
+      const rows = byDate.get(datesAsc[j]) ?? [];
+      const r = dayMatches(rows, v => v >= 4);
+      if (r === 'hit') peakCount += 1;
+      else if (r === 'miss') break;
+      // 'empty' days are skipped (no check-in that day for this dim) —
+      // they don't extend or break the streak.
+    }
+
     let frictionCount = 0;
-    if (base.length >= 6) {
-      const lo = quantile(base, 0.25);
-      const hi = quantile(base, 0.75);
-      for (const c of monthly) {
-        const v = c[key] as number | null | undefined;
-        if (typeof v !== 'number') continue;
-        const isHigh = v >= hi;
-        const isLow = v <= lo;
-        if (inverted) {
-          if (isLow) peakCount++;
-          else if (isHigh) frictionCount++;
-        } else {
-          if (isHigh) peakCount++;
-          else if (isLow) frictionCount++;
-        }
-      }
+    for (let j = i; j >= 0; j--) {
+      const rows = byDate.get(datesAsc[j]) ?? [];
+      const r = dayMatches(rows, v => v <= 2);
+      if (r === 'hit') frictionCount += 1;
+      else if (r === 'miss') break;
     }
 
     peaks.push({ dimension: d, kind: 'peak', count: peakCount, label: DIMENSION_LABELS[d].peak });
     frictions.push({ dimension: d, kind: 'friction', count: frictionCount, label: DIMENSION_LABELS[d].friction });
   }
 
-  // Keep canonical dimension order (clarity, emotion, pressure, regulation) so
-  // the horizontal strip lines up across rows.
   return { peaks, frictions };
 }
+
+// Re-export so the (legacy) inverted map isn't accidentally tree-shaken if
+// referenced elsewhere via type.
+export { INVERTED };
