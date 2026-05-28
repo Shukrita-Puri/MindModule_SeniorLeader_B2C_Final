@@ -167,7 +167,7 @@ const tierFor = (tiers: Tier[], v: number | null) => {
 const MILESTONES = [3, 7, 14, 21, 30] as const;
 type Milestone = (typeof MILESTONES)[number];
 
-const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel }: LevelTrendCalendarProps) => {
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel, hideStreak }: LevelTrendCalendarProps) => {
   const LEVEL_TIERS = tiersFor(palette, vocabulary);
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
