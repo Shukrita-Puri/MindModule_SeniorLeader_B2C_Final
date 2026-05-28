@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, startOfMonth, subDays } from 'date-fns';
 import { computeDimensionStreaks, type DimensionStreak, type MonthlyCheckin } from '@/utils/dimensionTiers';
 import { cn } from '@/lib/utils';
+import { getAuthToken } from '@/services/authTokenService';
 
 const SHORT_LABEL: Record<string, string> = {
   clarity: 'Clarity',
@@ -53,16 +54,31 @@ const PerformanceStreaks = () => {
     if (!uid) return;
     (async () => {
       const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const baselineStart = format(subDays(new Date(), 90), 'yyyy-MM-dd');
-      const { data } = await supabase
-        .from('daily_checkins')
-        .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
-        .eq('user_id', uid)
-        .gte('checkin_date', baselineStart)
-        .order('checkin_date', { ascending: true });
-      const all = (data as MonthlyCheckin[]) || [];
-      const monthly = all.filter(c => c.checkin_date >= monthStart);
-      setStreaks(computeDimensionStreaks(all, monthly));
+      const today = format(new Date(), 'yyyy-MM-dd');
+      let rows: MonthlyCheckin[] = [];
+      try {
+        if (DEV_MODE) {
+          const { data } = await supabase
+            .from('daily_checkins')
+            .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
+            .eq('user_id', uid)
+            .gte('checkin_date', monthStart)
+            .order('checkin_date', { ascending: true });
+          rows = (data as MonthlyCheckin[]) || [];
+        } else {
+          const token = await getAuthToken();
+          if (token) {
+            const { data } = await supabase.functions.invoke('daily-checkins', {
+              headers: { Authorization: `Bearer ${token}` },
+              body: { action: 'GET_MONTHLY_LEVELS', startDate: monthStart, endDate: today },
+            });
+            rows = (data?.data as MonthlyCheckin[]) || [];
+          }
+        }
+      } catch (err) {
+        console.error('[PerformanceStreaks] fetch failed:', err);
+      }
+      setStreaks(computeDimensionStreaks(rows, rows));
       setLoading(false);
     })();
   }, [uid]);

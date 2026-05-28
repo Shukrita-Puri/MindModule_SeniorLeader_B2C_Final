@@ -21,7 +21,8 @@ interface RequestBody {
     | 'GET_CHECKIN_FOR_WINDOW'
     | 'GET_ALL_CHECKINS_TODAY'
     | 'INFER_CURRENT_STATE'
-    | 'GET_RECENT_CHECKINS';
+    | 'GET_RECENT_CHECKINS'
+    | 'GET_MONTHLY_LEVELS';
   days?: number;
   startDate?: string;
   endDate?: string;
@@ -552,6 +553,37 @@ serve(async (req) => {
 
         if (error) {
           console.error('[daily-checkins] GET_RECENT_CHECKINS error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ data: data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'GET_MONTHLY_LEVELS': {
+        // Returns 1–5 dimension levels for the current calendar month so the
+        // Performance Streak card can compute Peak / Friction counts without
+        // a direct browser read (RLS deny-by-default blocks the Auth0 path).
+        // `startDate` / `endDate` are optional; default = month-to-date.
+        const now = new Date();
+        const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1)
+          .toISOString().split('T')[0];
+        const start = (body.startDate && /^\d{4}-\d{2}-\d{2}$/.test(body.startDate))
+          ? body.startDate : defaultStart;
+        const end = (body.endDate && /^\d{4}-\d{2}-\d{2}$/.test(body.endDate))
+          ? body.endDate : now.toISOString().split('T')[0];
+
+        const { data, error } = await supabase
+          .from('daily_checkins')
+          .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
+          .eq('user_id', userId)
+          .gte('checkin_date', start)
+          .lte('checkin_date', end)
+          .order('checkin_date', { ascending: true });
+
+        if (error) {
+          console.error('[daily-checkins] GET_MONTHLY_LEVELS error:', error);
           throw error;
         }
 
