@@ -94,7 +94,7 @@ serve(async (req) => {
     const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
     // Fetch all data in parallel
-    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] =
+    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes, causalityRes] =
       await Promise.all([
         sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
@@ -114,6 +114,17 @@ serve(async (req) => {
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
         sb.from("wearable_data").select("summary_date, hrv, resting_heart_rate")
           .eq("user_id", userId).gte("summary_date", thirtyDaysAgoStr).not("hrv", "is", null),
+        // v4 — read pre-projected positive correlations from the unified
+        // pattern store. cause-effect-engine writes signal_summary nightly;
+        // we surface its performance_lift key on the "When You Perform Best"
+        // card without recomputing anything client-side.
+        sb.from("causality_findings")
+          .select("signal_summary, computed_for_date")
+          .eq("user_id", userId)
+          .eq("pattern_kind", "cause_effect_v2")
+          .order("computed_for_date", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
     const checkIns = checkInsRes.data || [];
@@ -126,6 +137,9 @@ serve(async (req) => {
     const rituals = ritualsRes.data || [];
     const jitPrefs = jitRes.data || [];
     const wearableData = wearableRes.data || [];
+    // Latest performance_lift projection (may be absent for new users —
+    // card falls back to the existing patterns block).
+    const performanceLift = (causalityRes?.data as any)?.signal_summary?.performance_lift ?? null;
 
     // BUG 1 fix: Scope dialogue_messages by user's session IDs
     const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
