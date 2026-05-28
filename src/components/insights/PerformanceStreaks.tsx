@@ -8,21 +8,38 @@ import { format, startOfMonth, subDays } from 'date-fns';
 import { computeDimensionStreaks, type DimensionStreak, type MonthlyCheckin } from '@/utils/dimensionTiers';
 import { cn } from '@/lib/utils';
 
-const ChipRow = ({ s, kind }: { s: DimensionStreak; kind: 'peak' | 'friction' }) => {
+const SHORT_LABEL: Record<string, string> = {
+  clarity: 'Clarity',
+  emotion: 'Emotion',
+  pressure: 'Pressure',
+  regulation: 'Regulation',
+};
+
+const Cell = ({ s, kind }: { s: DimensionStreak; kind: 'peak' | 'friction' }) => {
   const Icon = kind === 'peak' ? ThumbsUp : ThumbsDown;
   const tint = kind === 'peak' ? 'hsl(142 55% 42%)' : 'hsl(8 75% 55%)';
+  const dim = s.count === 0;
   return (
-    <div className="flex items-center gap-3 py-1.5">
+    <div className="flex flex-col items-center gap-1 min-w-0">
       <span
         className="relative flex items-center justify-center w-9 h-9 rounded-full"
-        style={{ background: `${tint}14`, color: tint }}
+        style={{
+          background: dim ? 'hsl(var(--muted) / 0.4)' : `${tint}14`,
+          color: dim ? 'hsl(var(--muted-foreground))' : tint,
+          opacity: dim ? 0.55 : 1,
+        }}
       >
         <Icon className="w-4 h-4" strokeWidth={2.2} />
-        <span className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold flex items-center justify-center text-white" style={{ background: tint }}>
+        <span
+          className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold flex items-center justify-center text-white"
+          style={{ background: dim ? 'hsl(var(--muted-foreground))' : tint }}
+        >
           {s.count}
         </span>
       </span>
-      <span className="text-[14px] text-foreground font-body">{s.label}</span>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate max-w-full">
+        {SHORT_LABEL[s.dimension] ?? s.dimension}
+      </span>
     </div>
   );
 };
@@ -53,7 +70,6 @@ const PerformanceStreaks = () => {
   }, [uid]);
 
   if (loading) return null;
-  if (streaks.peaks.length === 0 && streaks.frictions.length === 0) return null;
 
   return (
     <button
@@ -72,22 +88,18 @@ const PerformanceStreaks = () => {
           Performance Streaks · this month
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4">
-        <div>
-          <p className="text-[11px] tracking-[0.16em] uppercase text-muted-foreground/80 mb-1">Peak</p>
-          {streaks.peaks.length === 0 ? (
-            <p className="text-xs text-muted-foreground/60 py-2">Gathering data</p>
-          ) : (
-            streaks.peaks.map(s => <ChipRow key={s.dimension} s={s} kind="peak" />)
-          )}
+      {/* Peak row */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[10px] tracking-[0.16em] uppercase text-muted-foreground/80 w-16 flex-shrink-0">Peak</span>
+        <div className="grid grid-cols-4 gap-2 flex-1">
+          {streaks.peaks.map(s => <Cell key={s.dimension} s={s} kind="peak" />)}
         </div>
-        <div>
-          <p className="text-[11px] tracking-[0.16em] uppercase text-muted-foreground/80 mb-1">Friction</p>
-          {streaks.frictions.length === 0 ? (
-            <p className="text-xs text-muted-foreground/60 py-2">Gathering data</p>
-          ) : (
-            streaks.frictions.map(s => <ChipRow key={s.dimension} s={s} kind="friction" />)
-          )}
+      </div>
+      {/* Friction row */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] tracking-[0.16em] uppercase text-muted-foreground/80 w-16 flex-shrink-0">Friction</span>
+        <div className="grid grid-cols-4 gap-2 flex-1">
+          {streaks.frictions.map(s => <Cell key={s.dimension} s={s} kind="friction" />)}
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground/70 mt-3 leading-snug">

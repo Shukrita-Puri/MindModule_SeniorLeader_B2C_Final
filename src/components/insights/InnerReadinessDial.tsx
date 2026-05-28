@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -42,7 +41,6 @@ interface DayDot {
 }
 
 const InnerReadinessDial = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [history, setHistory] = useState<Array<{ score_date: string; composite_score: number; energy_tier: string }>>([]);
@@ -99,27 +97,22 @@ const InnerReadinessDial = () => {
   const aStart = Math.PI;
   const aEnd = 2 * Math.PI;
   const seg = (aEnd - aStart) / 3;
-  const score = todayScore ?? 0;
-  const needleAngle = aStart + (Math.max(0, Math.min(100, score)) / 100) * (aEnd - aStart);
-  const needleLen = R - 4;
-  const nx = CX + needleLen * Math.cos(needleAngle);
-  const ny = CY + needleLen * Math.sin(needleAngle);
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate('/insights/leadership-patterns')}
+    <div
       className={cn(
         'w-full text-left rounded-2xl bg-white/65 backdrop-blur-[30px] backdrop-saturate-150',
         'shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]',
-        'transition-transform duration-200 active:scale-[0.99]',
         'px-5 pt-4 pb-5',
       )}
-      aria-label="Inner readiness this week"
+      aria-label="Your performance trajectory this week"
     >
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[13px] font-medium tracking-[0.14em] uppercase text-muted-foreground">
-          Inner Readiness · this week
+      <div className="mb-2">
+        <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
+          Your Performance Trajectory · this week
+        </span>
+        <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
+          Inner Readiness Score
         </span>
       </div>
       <div className="flex items-center gap-4">
@@ -128,13 +121,7 @@ const InnerReadinessDial = () => {
             <path d={arcPath(aStart, aStart + seg)} stroke={tierColor.red} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'red' ? 1 : 0.28} />
             <path d={arcPath(aStart + seg, aStart + 2 * seg)} stroke={tierColor.amber} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'amber' ? 1 : 0.28} />
             <path d={arcPath(aStart + 2 * seg, aEnd)} stroke={tierColor.green} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'green' ? 1 : 0.28} />
-            {todayScore !== null && (
-              <>
-                <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="hsl(var(--foreground))" strokeWidth={2.5} strokeLinecap="round" />
-                <circle cx={CX} cy={CY} r={4} fill="hsl(var(--foreground))" />
-              </>
-            )}
-            <text x={CX} y={CY - 22} textAnchor="middle" className="font-headline" fontSize="28" fill="hsl(var(--foreground))">
+            <text x={CX} y={CY - 18} textAnchor="middle" className="font-headline" fontSize="32" fill={todayTier ? tierColor[todayTier] : 'hsl(var(--foreground))'} fontWeight={600}>
               {todayScore !== null ? todayScore : '—'}
             </text>
           </svg>
@@ -159,11 +146,11 @@ const InnerReadinessDial = () => {
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground/80 mt-3 leading-snug">
-            Resets every Monday. Tap for your full trajectory.
+            Resets every Monday. Past days hold their daily colour.
           </p>
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 
