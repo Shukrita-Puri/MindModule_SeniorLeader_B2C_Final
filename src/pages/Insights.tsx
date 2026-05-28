@@ -19,7 +19,8 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import PerformanceCausalityCard from '@/components/insights/PerformanceCausalityCard';
 import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 import InsightSummaryRow from '@/components/insights/InsightSummaryRow';
-import { Activity, Sunrise, AlertTriangle, Sparkles } from 'lucide-react';
+import InnerReadinessDial from '@/components/insights/InnerReadinessDial';
+import PerformanceStreaks from '@/components/insights/PerformanceStreaks';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
