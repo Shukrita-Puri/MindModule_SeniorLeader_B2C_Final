@@ -32,6 +32,7 @@ import {
   dedupeCalendarEvents,
   type Pillar,
 } from "../_shared/executive-state-taxonomy.ts";
+import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,7 +60,14 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * Bump this when scoring/classification logic changes so that any cached
  * row missing this version is treated as stale and recomputed automatically.
  */
-const ENGINE_VERSION = 3;
+/**
+ * v4 adds `signal_summary.performance_lift` — positive-side correlations
+ * (event subtype/category thrive matrix using event-window peak HR vs
+ * resting baseline, sleep → next-day lift, RHR-recovery best-window,
+ * recovery-streak → peak). Reads from the new A–H event taxonomy via
+ * `classifyEventCanonical`. See mem://architecture/unified-pattern-store.
+ */
+const ENGINE_VERSION = 4;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -184,6 +192,48 @@ interface SignalSummary {
   }>;
   sleep_to_prs: { lowSleepPrsDeltaPct: number; n: number; confidence: Confidence } | null;
   consecutive_load: { tailDeltaPct: number; n: number; confidence: Confidence } | null;
+  /**
+   * v4 — positive correlations powering the "When You Perform Best" card.
+   * Heart Rate (not HRV) for event windows — HRV is a daily morning signal
+   * and is too coarse for per-event causation. Daily HRV stays elsewhere in
+   * this summary as recovery context only.
+   */
+  performance_lift?: PerformanceLift;
+  generatedAt: string;
+}
+
+// ── v4: Performance Lift projections ──────────────────────────────────
+// Shape mirrors the unified-pattern-store extension rule: small, flat,
+// pre-projected arrays the UI can render with no client-side math.
+type TimeWindow = "morning" | "afternoon" | "evening";
+interface PerformanceLift {
+  /** Per EVENT_TYPE subtype: mean event-window peak HR delta + composite lift. */
+  hr_event_lift: Array<{
+    eventTypeId: string;
+    bucket: string;
+    categoryId: EventCategoryId;
+    categoryName: string;
+    hrDeltaBpm: number;       // mean peak HR − resting baseline (bpm)
+    compositeLift: number;    // pct delta in same-day PRS vs window baseline
+    n: number;
+    confidence: Confidence;
+    lastSeen: string;
+  }>;
+  /** Rollup of hr_event_lift to A–H categories. */
+  category_lift: Array<{
+    categoryId: EventCategoryId;
+    categoryName: string;
+    hrDeltaBpm: number;
+    compositeLift: number;
+    n: number;
+    confidence: Confidence;
+  }>;
+  /** Nights with sleep ≥ user P70 → next-day PRS lift + best window. */
+  sleep_to_peak: { deltaPct: number; n: number; confidence: Confidence; bestWindow: TimeWindow | null } | null;
+  /** Well-recovered mornings (RHR ≤ baseline − 1σ) → window with highest lift. */
+  rhr_recovery_window: { window: TimeWindow; liftPct: number; n: number; confidence: Confidence } | null;
+  /** Mean streak length of low-RHR days preceding a top-quartile PRS day. */
+  recovery_streak_to_peak: { avgStreakLength: number; n: number; confidence: Confidence } | null;
   generatedAt: string;
 }
 
@@ -1104,6 +1154,213 @@ serve(async (req) => {
     payload.sleepDisruptionMatrix = sleepDisruptionMatrix;
     payload.recoveryCostTimeline = recoveryCostTimeline;
 
+    // ════════════════════════════════════════════════════════════════════
+    // v4: PERFORMANCE LIFT — positive-side correlations
+    // ════════════════════════════════════════════════════════════════════
+    // Drives the "When You Perform Best" card. Uses event-window peak HR
+    // (not HRV), the new A–H event taxonomy via classifyEventCanonical,
+    // and PRS (brief_snapshots.score) as the composite proxy.
+    // Per mem://architecture/unified-pattern-store: new key on
+    // signal_summary, never a new table.
+    const performance_lift: PerformanceLift = (() => {
+      // PRS baseline + per-window PRS baselines
+      const prsAll: number[] = [];
+      const prsByWindow: Record<TimeWindow, number[]> = { morning: [], afternoon: [], evening: [] };
+      briefs.forEach((b: any) => {
+        if (typeof b.score !== "number") return;
+        prsAll.push(b.score);
+        const tw = b.time_window as TimeWindow | null;
+        if (tw && prsByWindow[tw]) prsByWindow[tw].push(b.score);
+      });
+      const prsBaseline = prsAll.length >= 3 ? mean(prsAll) : null;
+
+      // ── (1) hr_event_lift: per-subtype peak HR + same-day PRS lift ────
+      // Accumulators keyed by canonical EVENT_TYPE.id (from event-subtypes).
+      const hrAcc = new Map<string, { hrDeltas: number[]; prsDeltas: number[]; lastSeen: string; et: ReturnType<typeof classifyEventCanonical> }>();
+      if (restingBaseline !== null && prsBaseline !== null) {
+        for (const e of events as any[]) {
+          if (!e.start_time || !e.end_time) continue;
+          const et = classifyEventCanonical(e.title);
+          if (!et) continue;
+          const dayKey = ymd(new Date(e.start_time));
+          const samples = hrSamplesByDay.get(dayKey);
+          if (!samples || samples.length === 0) continue;
+          const startMs = new Date(e.start_time).getTime();
+          const endMs = new Date(e.end_time).getTime();
+          let peak = 0;
+          for (const s of samples) {
+            const t = new Date(s.t).getTime();
+            if (t >= startMs && t <= endMs && typeof s.v === "number" && s.v > peak) peak = s.v;
+          }
+          if (peak <= 0) continue;
+          const hrDelta = peak - restingBaseline;
+          if (!Number.isFinite(hrDelta)) continue;
+          const dayPrs = prsByDay.get(dayKey);
+          const prsDelta = typeof dayPrs === "number" ? pctDelta(dayPrs, prsBaseline) : NaN;
+          if (!hrAcc.has(et.id)) hrAcc.set(et.id, { hrDeltas: [], prsDeltas: [], lastSeen: dayKey, et });
+          const slot = hrAcc.get(et.id)!;
+          slot.hrDeltas.push(hrDelta);
+          if (Number.isFinite(prsDelta)) slot.prsDeltas.push(prsDelta);
+          if (dayKey > slot.lastSeen) slot.lastSeen = dayKey;
+        }
+      }
+      const hr_event_lift: PerformanceLift["hr_event_lift"] = [];
+      hrAcc.forEach(({ hrDeltas, prsDeltas, lastSeen, et }, id) => {
+        if (!et) return;
+        if (hrDeltas.length < MIN_OCCURRENCES_EMERGING) return;
+        const conf: Confidence = hrDeltas.length >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
+        const cat = EVENT_CATEGORIES[et.categoryId];
+        hr_event_lift.push({
+          eventTypeId: id,
+          bucket: et.bucket,
+          categoryId: et.categoryId,
+          categoryName: cat?.name ?? et.bucket,
+          hrDeltaBpm: Math.round(mean(hrDeltas)),
+          compositeLift: prsDeltas.length >= 2 ? Math.round(mean(prsDeltas) * 10) / 10 : 0,
+          n: hrDeltas.length,
+          confidence: conf,
+          lastSeen,
+        });
+      });
+      // Sort by thrive score (low HR delta + high composite lift). Smaller
+      // hrDelta is better; higher compositeLift is better.
+      hr_event_lift.sort((a, b) => (b.compositeLift - a.compositeLift) - (a.hrDeltaBpm - b.hrDeltaBpm) * 0.1);
+
+      // ── (2) category_lift: rollup of (1) to A–H ──────────────────────
+      const catAcc = new Map<EventCategoryId, { hr: number[]; prs: number[]; n: number }>();
+      hr_event_lift.forEach((row) => {
+        if (!catAcc.has(row.categoryId)) catAcc.set(row.categoryId, { hr: [], prs: [], n: 0 });
+        const slot = catAcc.get(row.categoryId)!;
+        // Weight by sample size — repeating the value n times preserves means.
+        for (let i = 0; i < row.n; i++) slot.hr.push(row.hrDeltaBpm);
+        for (let i = 0; i < row.n; i++) slot.prs.push(row.compositeLift);
+        slot.n += row.n;
+      });
+      const category_lift: PerformanceLift["category_lift"] = [];
+      catAcc.forEach((slot, categoryId) => {
+        if (slot.n < MIN_OCCURRENCES_EMERGING) return;
+        const conf: Confidence = slot.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
+        category_lift.push({
+          categoryId,
+          categoryName: EVENT_CATEGORIES[categoryId]?.name ?? categoryId,
+          hrDeltaBpm: Math.round(mean(slot.hr)),
+          compositeLift: Math.round(mean(slot.prs) * 10) / 10,
+          n: slot.n,
+          confidence: conf,
+        });
+      });
+      category_lift.sort((a, b) => b.compositeLift - a.compositeLift);
+
+      // ── (3) sleep_to_peak: high-sleep nights → next-day PRS + window ─
+      let sleep_to_peak: PerformanceLift["sleep_to_peak"] = null;
+      const sleepScored = (wearable as any[])
+        .filter((w) => typeof w.sleep_score === "number" && w.sleep_score > 0)
+        .map((w) => ({ date: w.summary_date as string, score: w.sleep_score as number }));
+      if (sleepScored.length >= 7 && prsBaseline !== null) {
+        const sortedScores = sleepScored.map((s) => s.score).sort((a, b) => a - b);
+        const p70 = sortedScores[Math.floor(sortedScores.length * 0.7)];
+        const highNights = sleepScored.filter((s) => s.score >= p70);
+        const nextDayPrs: number[] = [];
+        const winAcc: Record<TimeWindow, number[]> = { morning: [], afternoon: [], evening: [] };
+        highNights.forEach((n) => {
+          const next = ymd(addDays(new Date(n.date + "T00:00:00Z"), 1));
+          const p = prsByDay.get(next);
+          if (typeof p === "number") nextDayPrs.push(p);
+          briefs.forEach((b: any) => {
+            if (b.local_date !== next || typeof b.score !== "number") return;
+            const tw = b.time_window as TimeWindow | null;
+            if (tw && winAcc[tw]) winAcc[tw].push(b.score);
+          });
+        });
+        if (nextDayPrs.length >= MIN_OCCURRENCES_EMERGING) {
+          const observed = mean(nextDayPrs);
+          const deltaPct = Math.round(pctDelta(observed, prsBaseline) * 10) / 10;
+          let bestWindow: TimeWindow | null = null;
+          let bestVal = -Infinity;
+          (Object.keys(winAcc) as TimeWindow[]).forEach((w) => {
+            if (winAcc[w].length < 2) return;
+            const m = mean(winAcc[w]);
+            if (m > bestVal) { bestVal = m; bestWindow = w; }
+          });
+          const conf: Confidence = nextDayPrs.length >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
+          sleep_to_peak = { deltaPct, n: nextDayPrs.length, confidence: conf, bestWindow };
+        }
+      }
+
+      // ── (4) rhr_recovery_window: well-recovered days → best window ───
+      let rhr_recovery_window: PerformanceLift["rhr_recovery_window"] = null;
+      const rhrVals = (wearable as any[])
+        .filter((w) => typeof w.resting_heart_rate === "number" && w.resting_heart_rate > 0)
+        .map((w) => ({ date: w.summary_date as string, rhr: w.resting_heart_rate as number }));
+      if (rhrVals.length >= 7 && prsBaseline !== null) {
+        const rhrOnly = rhrVals.map((r) => r.rhr);
+        const rhrMean = mean(rhrOnly);
+        const rhrStd = Math.sqrt(mean(rhrOnly.map((v) => (v - rhrMean) ** 2)));
+        const threshold = rhrMean - rhrStd;
+        const recoveredDays = rhrVals.filter((r) => r.rhr <= threshold).map((r) => r.date);
+        const winAcc: Record<TimeWindow, number[]> = { morning: [], afternoon: [], evening: [] };
+        recoveredDays.forEach((d) => {
+          briefs.forEach((b: any) => {
+            if (b.local_date !== d || typeof b.score !== "number") return;
+            const tw = b.time_window as TimeWindow | null;
+            if (tw && winAcc[tw]) winAcc[tw].push(b.score);
+          });
+        });
+        let best: { window: TimeWindow; liftPct: number; n: number } | null = null;
+        (Object.keys(winAcc) as TimeWindow[]).forEach((w) => {
+          if (winAcc[w].length < MIN_OCCURRENCES_EMERGING) return;
+          const winBase = prsByWindow[w].length >= 3 ? mean(prsByWindow[w]) : prsBaseline!;
+          const lift = Math.round(pctDelta(mean(winAcc[w]), winBase) * 10) / 10;
+          if (!best || lift > best.liftPct) best = { window: w, liftPct: lift, n: winAcc[w].length };
+        });
+        if (best && best.liftPct > 0) {
+          const conf: Confidence = best.n >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
+          rhr_recovery_window = { ...best, confidence: conf };
+        }
+      }
+
+      // ── (5) recovery_streak_to_peak ──────────────────────────────────
+      let recovery_streak_to_peak: PerformanceLift["recovery_streak_to_peak"] = null;
+      if (rhrVals.length >= 7 && prsByDay.size >= 5) {
+        const rhrByDate = new Map(rhrVals.map((r) => [r.date, r.rhr]));
+        const rhrOnly = rhrVals.map((r) => r.rhr);
+        const rhrMean = mean(rhrOnly);
+        const rhrStd = Math.sqrt(mean(rhrOnly.map((v) => (v - rhrMean) ** 2)));
+        const threshold = rhrMean - rhrStd;
+        const prsList = [...prsByDay.values()].sort((a, b) => b - a);
+        const topQuartileCut = prsList[Math.max(0, Math.floor(prsList.length * 0.25) - 1)] ?? prsList[0];
+        const peakDays = [...prsByDay.entries()].filter(([, v]) => v >= topQuartileCut).map(([d]) => d);
+        const streaks: number[] = [];
+        peakDays.forEach((d) => {
+          let len = 0;
+          for (let k = 1; k <= 7; k++) {
+            const probe = ymd(addDays(new Date(d + "T00:00:00Z"), -k));
+            const rhr = rhrByDate.get(probe);
+            if (typeof rhr === "number" && rhr <= threshold) len++;
+            else break;
+          }
+          if (len > 0) streaks.push(len);
+        });
+        if (streaks.length >= MIN_OCCURRENCES_EMERGING) {
+          const conf: Confidence = streaks.length >= MIN_OCCURRENCES_STRONG ? "strong" : "emerging";
+          recovery_streak_to_peak = {
+            avgStreakLength: Math.round(mean(streaks) * 10) / 10,
+            n: streaks.length,
+            confidence: conf,
+          };
+        }
+      }
+
+      return {
+        hr_event_lift,
+        category_lift,
+        sleep_to_peak,
+        rhr_recovery_window,
+        recovery_streak_to_peak,
+        generatedAt: new Date().toISOString(),
+      };
+    })();
+
     // ── Build flat signal_summary for the unified pattern store ─────
     // Per-event-type lookups need a "lastSeen" date so smart-nudges can
     // weight recent patterns higher. We pick the most recent date in
@@ -1164,6 +1421,7 @@ serve(async (req) => {
       event_to_cognition: eventToCognition,
       sleep_to_prs,
       consecutive_load,
+      performance_lift,
       generatedAt: new Date().toISOString(),
     };
 
