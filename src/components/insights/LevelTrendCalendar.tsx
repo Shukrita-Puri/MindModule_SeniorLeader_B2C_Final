@@ -48,6 +48,8 @@ interface LevelTrendCalendarProps {
   palette?: LevelPalette;
   /** Caption shown below the streak wreath (e.g. "days of crystal clarity"). */
   streakLabel?: string;
+  /** Suppress the flame streak wreath entirely (used on Performance Rhythm tabs). */
+  hideStreak?: boolean;
 }
 
 interface DayCell {
