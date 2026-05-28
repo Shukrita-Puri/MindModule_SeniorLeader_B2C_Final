@@ -74,7 +74,6 @@ export async function shareInsightCard({ node, title, text, fileName = 'mind-mod
 
     // Clipboard fallback
     if (navigator.clipboard && 'write' in navigator.clipboard) {
-      // @ts-expect-error – ClipboardItem types vary across browsers
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       toast({ title: 'Image copied', description: 'Paste it into any chat or email.' });
       return;
