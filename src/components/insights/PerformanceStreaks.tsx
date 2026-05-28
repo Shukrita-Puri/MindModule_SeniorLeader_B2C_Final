@@ -70,7 +70,6 @@ const PerformanceStreaks = () => {
   }, [uid]);
 
   if (loading) return null;
-  if (streaks.peaks.length === 0 && streaks.frictions.length === 0) return null;
 
   return (
     <button
