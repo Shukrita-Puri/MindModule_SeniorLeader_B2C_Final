@@ -1,67 +1,44 @@
-import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface InsightSummaryRowProps {
   to: string;
-  icon: LucideIcon;
-  iconColor?: string;
+  /** Bold uppercase eyebrow — now carries the full card title. */
   eyebrow: string;
-  title: string;
+  /** One signal-bearing line, derived from already-loaded state. */
   value?: string | null;
-  subValue?: string | null;
   loading?: boolean;
 }
 
 /**
  * Apple-Health-style collapsed summary row for the /insights stack.
- * Tap → navigate to the full per-card detail page.
+ * Borderless glass card, no icon, no right-side metric — eyebrow + value + chevron.
  */
-const InsightSummaryRow = ({
-  to,
-  icon: Icon,
-  iconColor = 'text-foreground',
-  eyebrow,
-  title,
-  value,
-  subValue,
-  loading,
-}: InsightSummaryRowProps) => {
+const InsightSummaryRow = ({ to, eyebrow, value, loading }: InsightSummaryRowProps) => {
   const navigate = useNavigate();
   return (
     <button
       type="button"
       onClick={() => navigate(to)}
       className={cn(
-        'w-full text-left rounded-2xl bg-card/80 backdrop-blur-md',
-        'border border-border/40 hover:border-border/70',
-        'shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.08)]',
-        'transition-all duration-200 active:scale-[0.99]',
-        'px-4 py-4 flex items-start gap-3'
+        'w-full text-left rounded-2xl bg-white/65 backdrop-blur-[30px] backdrop-saturate-150',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]',
+        'transition-transform duration-200 active:scale-[0.99]',
+        'px-5 py-4 flex items-center gap-3'
       )}
     >
-      <div className={cn('flex-shrink-0 w-9 h-9 rounded-full bg-muted/40 flex items-center justify-center', iconColor)}>
-        <Icon className="w-4 h-4" />
-      </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className={cn('text-[11px] font-medium tracking-widest uppercase', iconColor)}>
-            {eyebrow}
-          </span>
-          <ChevronRight className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
-        </div>
-        <h3 className="text-[17px] font-headline text-foreground leading-tight mt-1 truncate">
-          {title}
-        </h3>
+        <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
+          {eyebrow}
+        </span>
         {loading ? (
-          <div className="mt-2 h-3 w-32 rounded bg-muted/40 animate-pulse" />
+          <div className="mt-2 h-3 w-40 rounded bg-muted/40 animate-pulse" />
         ) : value ? (
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{value}</p>
+          <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{value}</p>
         ) : null}
-        {subValue && !loading && (
-          <p className="text-xs text-muted-foreground/70 mt-0.5">{subValue}</p>
-        )}
       </div>
+      <ChevronRight className="w-5 h-5 text-muted-foreground/60 flex-shrink-0" />
     </button>
   );
 };
