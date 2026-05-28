@@ -1,42 +1,86 @@
-Reuse existing DBs — no new tables, no new writes to `inner_readiness_scores`.
+# Insights cards — share, badges, copy + pattern logic recap
 
-## What we already have
+## 1. Suppress flame "PEAK CLARITY" badge on the four trend tabs
 
-- `brief_snapshots` — one row per generated brief, scoped to `(user_id, local_date, time_window)`. Stores `score`, `tier`, `checkin_snapshot`, `daily_checkin_id`. This is the same table the side panel ("past briefs") reads via `brief-history`.
-- `daily_checkins` — already powers the Performance Rhythm trend calendars (Clarity / Emotion / Pressure / Regulation) via the `level-trend-calendar` edge function.
+In `When You Perform Best` (`PerformanceRhythmCard`), each tab renders a `LevelTrendCalendar` (Clarity / Emotion / Pressure / Regulation) and that component shows the engraved flame `StreakWreath` in the header (top-right, e.g. "5 PEAK CLARITY" in the screenshot).
 
-Both tables are scoped by Auth0 `userId` inside edge functions using the service role. RLS deny-by-default is preserved.
+- Add an opt-out prop `hideStreak?: boolean` to `LevelTrendCalendar` and skip the `<StreakWreath … />` block when true.
+- Pass `hideStreak` from all four `LevelTrendCalendar` usages inside `PerformanceRhythmCard`.
+- No data change; the streak just no longer renders on these four tabs.
 
-## 1. Inner Readiness Dial — read from `brief_snapshots`
+## 2. Shared image title = `Mind Module — [Card Name]`
 
-- Extend `brief-history` (or add a thin sibling action) to accept a date range and return:
-  `{ local_date, time_window, score, tier, created_at }` for the requested week.
-- `InnerReadinessDial` calls this endpoint instead of reading `inner_readiness_scores` / `daily_checkins` directly.
-- Daily dot resolution:
-  1. Group all snapshot rows for the day.
-  2. If ≥1 numeric `score`, average them → tier.
-  3. Else dot stays empty.
-- Today's centre number continues to come from `useOuterReadiness` (live brief).
-- No writes to `inner_readiness_scores`. We leave that table alone.
+Confirm the shared image / native share-sheet title reads exactly:
+- "Mind Module — Your Performance Trajectory"
+- "Mind Module — When You Perform Best"
+- "Mind Module — What Drains Your Performance"
+- "Mind Module — What Restores Your Performance"
 
-## 2. Performance Streaks — read from `daily_checkins` (same source as Rhythm card)
+Today `InsightDetail` passes `title={`Mind Module — ${card.title}`}` and `shareInsightCard` forwards it verbatim — no double-prefix bug found, so no change needed beyond verifying the file name (`mind-module-{cardId}.png`) and the native dialog title both surface this string. Will spot-check in the share util to be certain nothing strips/replaces it.
 
-- Add a new action `GET_MONTHLY_LEVELS` to the existing `daily-checkins` edge function returning, for the current calendar month and authenticated user:
-  `[{ checkin_date, clarity_level, emotion_level, pressure_level, regulation_level }]`.
-- `PerformanceStreaks` calls this action via `supabase.functions.invoke('daily-checkins', …)` — exactly the auth-scoped pattern Rhythm already uses — instead of `supabase.from('daily_checkins')` directly from the browser (which RLS deny-by-default blocks for Auth0 sessions, leaving the card empty).
-- Counting logic in `computeDimensionStreaks` is unchanged: Peak = any slot ≥4, Friction = any slot ≤2, neutral excluded, a day can contribute to both.
+## 3. Full scrollable card in the shared image (not just the visible viewport)
 
-## 3. Validation
+Today `shareInsightCard` snapshots the on-screen DOM node, so the export clips to the visible area. Rhythm calendar's months and any tall card lose content.
 
-- Confirm dial dots populate for Mon–today from `brief_snapshots` for the active user.
-- Confirm Performance Streak thumbs show non-zero counts matching the DB cross-check already run (clarity peak 20, friction 3; emotion 11/1; pressure 11/1; regulation 11/0 for this month).
-- Confirm both cards render for an Auth0-authenticated user (not just DEV_MODE) and no direct `supabase.from(...)` browser reads remain on protected tables for these two cards.
+Fix in `src/utils/shareInsightCard.ts`:
 
-## Files touched
+- Before `toPng`, walk the captured node + descendants; save original `overflow`, `maxHeight`, `height`, `width`, and any horizontal-scroll container's `scrollLeft`.
+- Set overflow to `visible`, drop fixed heights/maxHeights so intrinsic content lays out fully.
+- Call `toPng` with `width: node.scrollWidth`, `height: node.scrollHeight`.
+- Restore everything in `finally` (alongside the existing `[data-share-hide]` restore).
 
-- `supabase/functions/brief-history/index.ts` — accept optional `startDate`/`endDate` filter and project the lightweight fields the dial needs.
-- `supabase/functions/daily-checkins/index.ts` — add `GET_MONTHLY_LEVELS` action.
-- `src/components/insights/InnerReadinessDial.tsx` — call the brief-history endpoint, drop direct table reads.
-- `src/components/insights/PerformanceStreaks.tsx` — call `daily-checkins` edge function, drop direct table read.
+Result: sharing the Rhythm card exports the entire month-wide calendar; every other card exports its full content even if a section was scrolled out of view.
 
-No migrations. No new tables. No new writes.
+## 4. Rename "Mind Rhythm Patterns" → "Performance Patterns" (+ refreshed direction)
+
+In `PerformanceRhythmCard.tsx` (~lines 1107–1111):
+
+- Section heading and `InsightInfoModal` title both change to **Performance Patterns**.
+- Update the modal explanation to reflect the new analysis direction:
+  > "The strongest day-of-week × time-of-day patterns across your check-ins — when you peak, when you slip, and the repeating rhythm behind it."
+
+### Analysis direction for "Performance Patterns" (this card only)
+Server-side ranker (in `compute-daily-intelligence` → `mindRhythmPatterns.topThree`, sourced from `causality_findings.signal_summary`) must prioritise findings that surface:
+
+1. **Strongest day-of-week** — which weekday consistently runs highest / lowest on the active dimension (e.g. "Mondays run sharpest on Energy — 88% vs 29% on Thursdays").
+2. **Strongest time-of-day** — which slot (Morning / Midday / Evening) the user peaks or slips in (e.g. "Mornings carry your clarity; evenings repeatedly drop a tier").
+3. **Day × time intersection** — the single recurring cell that explains the most variance (e.g. "Thursday evenings have slipped 4 of the last 5 weeks").
+
+Ranker rules (unchanged from prior governance, reasserted here):
+- Minimum 7 check-ins before any pattern renders.
+- Personal noise excluded; only repetitions with statistical weight surface.
+- Phrasing must pass `mem://features/performance-readiness/phrase-validation-standard` (no wellness tropes, executive tone).
+- Top-three only; the rest go to the weekly email.
+
+This will be enforced by tightening the prompt/scorer for `mindRhythmPatterns` in the edge function — to be wired in the implementation step.
+
+## 5. Files touched
+
+- `src/components/insights/LevelTrendCalendar.tsx` — add `hideStreak` prop.
+- `src/components/insights/PerformanceRhythmCard.tsx` — pass `hideStreak` on 4 tabs; rename heading + modal copy.
+- `src/utils/shareInsightCard.ts` — expand node to full scroll size during capture.
+- `supabase/functions/compute-daily-intelligence/*` — re-prioritise `mindRhythmPatterns` ranker around day-of-week × time-of-day (details in §4).
+
+No DB schema changes, no behavioural changes to other cards.
+
+---
+
+## Reminder — current "pattern" direction for every Insights card
+
+### Your Performance Trajectory (Leadership Patterns)
+- Source: `state-patterns-insights` over `brief_snapshots` (the side-panel past-briefs store) + check-in deltas.
+- Direction: PRS shifts — momentum, regressions, plateaux — over 30/60/90 days; references show-up streaks.
+
+### When You Perform Best — "Performance Patterns" (this update)
+- Source: `compute-daily-intelligence.mindRhythmPatterns.topThree` ← `causality_findings.signal_summary`.
+- Direction: strongest **day-of-week × time-of-day** repetitions per active dimension (see §4 above).
+
+### What Drains Your Performance (Causality)
+- Source: `event-load-correlation` → `causality_findings` (stress/burnout tags). 30-day wearable × calendar crossover.
+- Direction: per-event-window peak-HR delta vs resting baseline, weekly-load patterns; only renders when both wearable and calendar coverage exist.
+
+### What Restores Your Performance (Practice Effectiveness)
+- Source: post-practice ratings × next-session check-ins (`practice_effectiveness`).
+- Direction: rank practices by lift on the dimension the user is currently struggling with; suppressed until enough sessions are logged.
+
+All four share the same governance: patterns are summarised server-side, never client-derived; min-data thresholds prevent thin-evidence claims; phrasing must pass the executive phrase-validation standard.

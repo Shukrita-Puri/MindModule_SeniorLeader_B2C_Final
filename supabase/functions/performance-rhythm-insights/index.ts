@@ -927,18 +927,18 @@ serve(async (req) => {
       longPositiveLabel: 'Unshakable/Certain (4–5)', longNegativeLabel: 'Uncertain/Reactive (1–2)',
     });
 
-    // ── Chief-of-Staff prioritization ──
-    // A Chief of Staff surfaces what changes the executive's NEXT decision —
-    // active risks first, then concrete protect-this windows, then troughs to
-    // avoid scheduling into. Generic peaks and celebratory streaks rank lower.
+    // ── Performance Patterns prioritization ──
+    // Surface the strongest day-of-week, time-of-day, and their intersection
+    // (the three asks of the "Performance Patterns" section). Recurring risks
+    // still rank, but pure celebratory streaks stay at the bottom.
     const KIND_WEIGHT: Record<RhythmKind, number> = {
-      'consecutive-neg': 1.0, // active risk — recurring drops
-      'cell-peak'      : 0.8, // concrete day×time to protect
-      'low-day'        : 0.7, // recurring trough — avoid scheduling here
-      'peak-window'    : 0.5, // useful but generic
-      'peak-day'       : 0.4, // informational
-      'consecutive-pos': 0.3, // celebratory, non-actionable
-      'low-window'     : 0.5,
+      'cell-peak'      : 1.00, // day × time intersection (single strongest cell)
+      'peak-day'       : 0.90, // strongest day-of-week
+      'low-day'        : 0.85, // weakest day-of-week
+      'peak-window'    : 0.85, // strongest time-of-day
+      'low-window'     : 0.80, // weakest time-of-day
+      'consecutive-neg': 0.70, // recurring drop (active risk)
+      'consecutive-pos': 0.30, // celebratory, non-actionable
     };
     // Decision-quality signals first, then fuel, then slow-mover.
     const DIMENSION_BONUS: Record<RhythmDimension, number> = {

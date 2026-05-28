@@ -48,6 +48,8 @@ interface LevelTrendCalendarProps {
   palette?: LevelPalette;
   /** Caption shown below the streak wreath (e.g. "days of crystal clarity"). */
   streakLabel?: string;
+  /** Suppress the flame streak wreath entirely (used on Performance Rhythm tabs). */
+  hideStreak?: boolean;
 }
 
 interface DayCell {
@@ -165,7 +167,7 @@ const tierFor = (tiers: Tier[], v: number | null) => {
 const MILESTONES = [3, 7, 14, 21, 30] as const;
 type Milestone = (typeof MILESTONES)[number];
 
-const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel }: LevelTrendCalendarProps) => {
+const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, palette, streakLabel, hideStreak }: LevelTrendCalendarProps) => {
   const LEVEL_TIERS = tiersFor(palette, vocabulary);
   const [days, setDays] = useState<DayCell[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -399,13 +401,15 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           <InsightInfoModal title={title} explanation={explanation} />
           <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll for past weeks</span>
         </div>
-        <div className="flex-shrink-0">
-          <StreakWreath
-            count={streak}
-            label={streak > 0 ? (streakLabel ?? 'day streak') : 'start your streak'}
-            milestone={activeMilestone}
-          />
-        </div>
+        {!hideStreak && (
+          <div className="flex-shrink-0">
+            <StreakWreath
+              count={streak}
+              label={streak > 0 ? (streakLabel ?? 'day streak') : 'start your streak'}
+              milestone={activeMilestone}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex">

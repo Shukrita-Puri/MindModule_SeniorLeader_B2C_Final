@@ -1062,6 +1062,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 vocabulary={{ 5: 'Crystal', 4: 'Lucid', 3: 'Neutral', 2: 'Obscured', 1: 'Clouded' }}
                 palette="clarity"
                 streakLabel="Peak Clarity"
+                hideStreak
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'emotion' && (
@@ -1073,6 +1074,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 vocabulary={{ 5: 'Open', 4: 'Composed', 3: 'Balanced', 2: 'Unsettled', 1: 'Reactive' }}
                 palette="emotion"
                 streakLabel="Open Days"
+                hideStreak
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'pressure' && (
@@ -1084,6 +1086,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 vocabulary={{ 5: 'Spacious', 4: 'Light', 3: 'Manageable', 2: 'Elevated', 1: 'Overloaded' }}
                 palette="pressure"
                 streakLabel="Spacious Days"
+                hideStreak
               />
             )}
             {data.checkInCount >= 5 && activeTrend === 'regulation' && (
@@ -1095,6 +1098,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 vocabulary={{ 5: 'In Control', 4: 'Strong', 3: 'Holding', 2: 'Low', 1: 'Reactive' }}
                 palette="regulation"
                 streakLabel="In-Control Days"
+                hideStreak
               />
             )}
 
@@ -1104,11 +1108,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
                   <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Mind Rhythm Patterns
+                    Performance Patterns
                   </span>
                   <InsightInfoModal
-                    title="Mind Rhythm Patterns"
-                    explanation="The strongest patterns from your check-ins — when you’re sharpest, where you slip, and what’s repeating. The full list arrives in your weekly email."
+                    title="Performance Patterns"
+                    explanation="The strongest day-of-week × time-of-day patterns across your check-ins — when you peak, when you slip, and the repeating rhythm behind it."
                   />
                 </div>
                 <ul className="pl-6 space-y-1.5">
