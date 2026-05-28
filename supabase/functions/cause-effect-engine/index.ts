@@ -1210,6 +1210,14 @@ serve(async (req) => {
           f.recoveryDays > 0,
       );
       if (rhrFindings.length === 0) return null;
+      // Compute last-seen per event-type inline (lastSeenByEventType isn't
+      // built until further below in the signal-summary section).
+      const lastSeenLocal = new Map<string, string>();
+      eventTypeDays.forEach((set, label) => {
+        let max = "";
+        set.forEach((d) => { if (d > max) max = d; });
+        if (max) lastSeenLocal.set(label, max);
+      });
       const entries: RecoveryByEventEntry[] = rhrFindings
         .map((f) => ({
           eventType: f.cause,
@@ -1217,7 +1225,7 @@ serve(async (req) => {
           rhrDeltaBpm: f.deltaAbs,
           n: f.n,
           confidence: f.confidence,
-          lastSeen: lastSeenByEventType.get(f.cause) || "",
+          lastSeen: lastSeenLocal.get(f.cause) || "",
         }))
         .sort((a, b) => b.recoveryDays - a.recoveryDays)
         .slice(0, 6);
