@@ -8,6 +8,10 @@ import { cn } from '@/lib/utils';
 
 type Tier = 'green' | 'amber' | 'red' | null;
 
+// Score → tier ranges (canonical, also shown to the user in copy):
+//   Red    (Depleted)  : score <  40
+//   Amber  (Recovering): 40 ≤ score < 67
+//   Green  (Strong)    : score ≥ 67
 function tierFor(score: number | null | undefined, energyTier?: string | null): Tier {
   if (typeof score !== 'number') {
     if (energyTier === 'peak' || energyTier === 'strong') return 'green';
@@ -40,24 +44,71 @@ interface DayDot {
   isFuture: boolean;
 }
 
+// Local composite mirroring the spirit of energyStateEngine.overallBalance:
+// average of the four dimensions on a 0–100 scale, with pressure inverted
+// (low pressure_level = overloaded → low score).
+function checkinComposite(c: {
+  clarity_level?: number | null;
+  emotion_level?: number | null;
+  pressure_level?: number | null;
+  regulation_level?: number | null;
+}): number | null {
+  const toPct = (v: number | null | undefined) =>
+    typeof v === 'number' ? ((v - 1) / 4) * 100 : null;
+  const pressureInverted = typeof c.pressure_level === 'number'
+    ? ((5 - c.pressure_level) / 4) * 100
+    : null;
+  const parts = [toPct(c.clarity_level), toPct(c.emotion_level), pressureInverted, toPct(c.regulation_level)]
+    .filter((v): v is number => typeof v === 'number');
+  if (parts.length === 0) return null;
+  return parts.reduce((a, b) => a + b, 0) / parts.length;
+}
+
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [history, setHistory] = useState<Array<{ score_date: string; composite_score: number; energy_tier: string }>>([]);
+  const [checkinDaily, setCheckinDaily] = useState<Record<string, number>>({});
 
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
 
   useEffect(() => {
     if (!uid) return;
     const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const mondayISO = format(monday, 'yyyy-MM-dd');
     (async () => {
-      const { data } = await supabase
+      // Canonical source: inner_readiness_scores (server-written).
+      const innerPromise = supabase
         .from('inner_readiness_scores')
         .select('score_date, composite_score, energy_tier')
         .eq('user_id', uid)
-        .gte('score_date', format(monday, 'yyyy-MM-dd'))
+        .gte('score_date', mondayISO)
         .order('score_date', { ascending: true });
-      if (data) setHistory(data);
+      // Fallback source: daily_checkins. Average composites per day so a
+      // user who checks in multiple times still gets one final score for
+      // that day.
+      const checkPromise = supabase
+        .from('daily_checkins')
+        .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
+        .eq('user_id', uid)
+        .gte('checkin_date', mondayISO)
+        .order('checkin_date', { ascending: true });
+
+      const [innerRes, checkRes] = await Promise.all([innerPromise, checkPromise]);
+      if (innerRes.data) setHistory(innerRes.data);
+      if (checkRes.data) {
+        const grouped: Record<string, number[]> = {};
+        for (const row of checkRes.data as any[]) {
+          const c = checkinComposite(row);
+          if (c === null) continue;
+          (grouped[row.checkin_date] ||= []).push(c);
+        }
+        const avg: Record<string, number> = {};
+        for (const [d, arr] of Object.entries(grouped)) {
+          avg[d] = arr.reduce((a, b) => a + b, 0) / arr.length;
+        }
+        setCheckinDaily(avg);
+      }
     })();
   }, [uid]);
 
@@ -70,19 +121,26 @@ const InnerReadinessDial = () => {
     return Array.from({ length: 7 }).map((_, i) => {
       const d = addDays(monday, i);
       const ds = format(d, 'yyyy-MM-dd');
-      // pick the most recent score for that day
-      const rows = history.filter(h => h.score_date === ds);
-      const last = rows.length ? rows[rows.length - 1] : null;
       const isToday = ds === todayStr;
       const isFuture = d.getTime() > Date.now() && !isToday;
-      const t: Tier = isToday
-        ? todayTier
-        : last
-          ? tierFor(last.composite_score, last.energy_tier)
-          : null;
+      // Prefer the canonical inner_readiness_scores row when present
+      // (average if there is more than one); otherwise fall back to the
+      // averaged daily-checkin composite for that day.
+      const innerRows = history.filter(h => h.score_date === ds);
+      let t: Tier;
+      if (isToday) {
+        t = todayTier;
+      } else if (innerRows.length > 0) {
+        const avgInner = innerRows.reduce((a, b) => a + (b.composite_score ?? 0), 0) / innerRows.length;
+        t = tierFor(avgInner, innerRows[innerRows.length - 1].energy_tier);
+      } else if (typeof checkinDaily[ds] === 'number') {
+        t = tierFor(checkinDaily[ds]);
+      } else {
+        t = null;
+      }
       return { date: ds, label: format(d, 'EEEEE'), tier: t, isToday, isFuture };
     });
-  }, [history, todayTier]);
+  }, [history, checkinDaily, todayTier]);
 
   // Semicircular dial geometry
   const W = 180, H = 100, CX = 90, CY = 90, R = 72, STROKE = 10;
@@ -109,10 +167,10 @@ const InnerReadinessDial = () => {
     >
       <div className="mb-2">
         <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
-          Your Performance Trajectory · this week
+          Your Performance Trajectory
         </span>
         <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
-          Inner Readiness Score
+          Inner Readiness Streak · This Week
         </span>
       </div>
       <div className="flex items-center gap-4">
@@ -121,7 +179,7 @@ const InnerReadinessDial = () => {
             <path d={arcPath(aStart, aStart + seg)} stroke={tierColor.red} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'red' ? 1 : 0.28} />
             <path d={arcPath(aStart + seg, aStart + 2 * seg)} stroke={tierColor.amber} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'amber' ? 1 : 0.28} />
             <path d={arcPath(aStart + 2 * seg, aEnd)} stroke={tierColor.green} strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={todayTier === 'green' ? 1 : 0.28} />
-            <text x={CX} y={CY - 18} textAnchor="middle" className="font-headline" fontSize="32" fill={todayTier ? tierColor[todayTier] : 'hsl(var(--foreground))'} fontWeight={600}>
+            <text x={CX} y={CY - 18} textAnchor="middle" className="font-headline" fontSize="32" fill="hsl(var(--foreground))" fontWeight={600}>
               {todayScore !== null ? todayScore : '—'}
             </text>
           </svg>
