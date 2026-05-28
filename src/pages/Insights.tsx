@@ -964,76 +964,60 @@ const Insights = () => {
 
             {(sectionsHydratedRef.current || (!(patternsLoading || winsLoading) && insightsScriptDone)) && (
             <div className="animate-fade-in">
-      {/* Sticky Tab Bar – flat underlined tabs */}
-      <div className="sticky top-0 z-30 bg-transparent backdrop-blur-md">
-        <div className="max-w-lg mx-auto flex items-end gap-6 px-4 pt-2 h-11">
-          {INSIGHT_TABS.map(({ key, label }) => {
-            const active = activeTab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                aria-selected={active}
-                role="tab"
-                className={cn(
-                  'relative h-10 pb-2 transition-colors bg-transparent border-0',
-                  'text-[11px] uppercase tracking-[0.14em] font-body font-medium',
-                  active
-                    ? 'text-foreground'
-                    : 'text-muted-foreground/60 hover:text-foreground/80'
-                )}
-              >
-                {label}
-                {active && (
-                  <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-taupe rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tab Content – all rendered, toggle via display.
-          Bottom padding leaves room for the floating pill nav (≈64px) +
-          iOS safe-area-inset-bottom + breathing space so the final card is
-          never hidden behind the nav. Pill nav is sm:hidden, so the larger
-          padding is mobile-only. */}
+      {/* Apple-Health style stacked summary rows. Each row navigates to its
+          own /insights/:cardId detail page where the full card + native
+          share sheet live. */}
       <div
         className="flex-1 w-full sm:pb-16"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
       >
+        <div className="px-4 md:px-6 max-w-lg mx-auto pt-3 space-y-3" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
+          {/* Suppressed for now — keep import/component intact for easy re-enable */}
+          {false && <DailyShowUpCalendar userId={user?.id} />}
 
-        {/* PROGRESS tab — Trajectory + Practice Effectiveness + Wins Log */}
-        <div style={{ display: activeTab === 'progress' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 space-y-3" data-highlight="consecutive_low" data-highlight-alt="recovery_deficit">
-            {/* Suppressed for now — keep import/component intact for easy re-enable */}
-            {false && <DailyShowUpCalendar userId={user?.id} />}
+          <InsightSummaryRow
+            to="/insights/leadership-patterns"
+            icon={Activity}
+            iconColor="text-[hsl(122_22%_35%)]"
+            eyebrow="Trajectory"
+            title="Your Trajectory"
+            value={
+              statePatterns?.currentArchetypeTitle
+              || statePatterns?.typicalState
+              || 'Your evolving archetype, readiness score, and friction pattern.'
+            }
+            loading={patternsLoading && !statePatterns}
+          />
 
-            <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
+          <InsightSummaryRow
+            to="/insights/performance-rhythm"
+            icon={Sunrise}
+            iconColor="text-amber-600"
+            eyebrow="Rhythm"
+            title="When You Perform Best"
+            value="Your weekly rhythm — the times and days you tend to show up sharpest."
+          />
 
-            <LuxuryInsightCard>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Practice Effectiveness</span>
-                  <InsightInfoModal
-                    title="Practice Effectiveness"
-                    explanation="Which practices most often line up with a better next check-in — surfaced once you’ve used them enough for the pattern to be meaningful."
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <PracticeEffectiveness userId={user?.id} />
-              </CardContent>
-            </LuxuryInsightCard>
-          </div>
-        </div>
+          <InsightSummaryRow
+            to="/insights/performance-causality"
+            icon={AlertTriangle}
+            iconColor="text-[hsl(14_70%_52%)]"
+            eyebrow="Drains"
+            title="What Drains Your Performance"
+            value="Meeting load, recovery cost, and stress signals from your wearable + calendar."
+          />
 
-        {/* PATTERNS tab — Cause→Effect + Performance Rhythm */}
-        <div style={{ display: activeTab === 'patterns' ? 'block' : 'none' }}>
-          <div className="px-4 md:px-6 max-w-lg mx-auto pt-2 space-y-3">
-            <PerformanceCausalityCard userId={user?.id} />
-            <PerformanceRhythmCard userId={user?.id} />
+          <InsightSummaryRow
+            to="/insights/practice-effectiveness"
+            icon={Sparkles}
+            iconColor="text-[hsl(200_60%_45%)]"
+            eyebrow="Restores"
+            title="What Restores Your Performance"
+            value="The practices that most reliably lift your next check-in."
+          />
 
+          {/* SUPPRESSED — kept for future re-enable once data is more text-based */}
+          {false && (
             <LuxuryInsightCard>
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
@@ -1169,8 +1153,7 @@ const Insights = () => {
                 )}
               </CardContent>
             </LuxuryInsightCard>
-          </div>
-        </div>
+          )}
         </div>
             </div>
             )}
