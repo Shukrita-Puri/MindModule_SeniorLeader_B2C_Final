@@ -1,75 +1,42 @@
-## 1. Share button — move inside each card, per toggle
+Reuse existing DBs — no new tables, no new writes to `inner_readiness_scores`.
 
-**Problem:** Share currently sits in a footer strip in `InsightDetail.tsx`, outside the card. User wants it visually contained inside each card. Multi-tab capture is already supported (the ref captures whatever is rendered), but the ref needs to live inside each card so each toggle stays in frame.
+## What we already have
 
-**Change:**
-- Delete the footer `ShareCardButton` strip and the `captureRef` wrapping in `src/pages/InsightDetail.tsx`. Header stays back-button only.
-- Add an inline `ShareCardButton` inside each detail card component, anchored to the card's own DOM. Each card forwards an internal ref (the outer card container) that the button captures.
-  - `LeadershipPatternsCard.tsx`
-  - `PerformanceRhythmCard.tsx`
-  - `PerformanceCausalityCard.tsx`
-  - `PracticeEffectiveness.tsx` (wrapped card in InsightDetail moves into the component, or we add a small share row at the top of the existing card)
-- Placement inside the card: top-right, **left of the existing `i` tooltip** (`right-10 top-2`-style positioning relative to the card), so it never overlaps the tooltip and always sits within the card's visual frame. Because the capture target is now the same DOM node that contains the share button, the share button is excluded from the captured PNG via a temporary `data-share-hide` class that `shareInsightCard` already (or will) hide during capture.
-- Add a 1-line `hideSelectors` option to `src/utils/shareInsightCard.ts` so the share button (and any element marked `data-share-hide`) is hidden during `html-to-image` capture and restored after. This keeps the button visually in-card but absent from the share image.
-- Toggle support: because the ref is the card root, switching tabs/segments inside a card (Causality stress/burnout, Rhythm dimension toggle, Practice category toggle, etc.) is already captured live — verify each card's toggle re-renders inside the same ref'd container.
+- `brief_snapshots` — one row per generated brief, scoped to `(user_id, local_date, time_window)`. Stores `score`, `tier`, `checkin_snapshot`, `daily_checkin_id`. This is the same table the side panel ("past briefs") reads via `brief-history`.
+- `daily_checkins` — already powers the Performance Rhythm trend calendars (Clarity / Emotion / Pressure / Regulation) via the `level-trend-calendar` edge function.
 
-## 2. Inner Readiness Dial — fill past-day dots Mon→today
+Both tables are scoped by Auth0 `userId` inside edge functions using the service role. RLS deny-by-default is preserved.
 
-`src/components/insights/InnerReadinessDial.tsx`
+## 1. Inner Readiness Dial — read from `brief_snapshots`
 
-The fallback to averaged `daily_checkins` is wired but dots still show empty because:
-- `inner_readiness_scores` rows can have `composite_score === null`, and the current code falls through to `tierFor(0, …)` → red instead of using the check-in fallback.
-- Rows from `inner_readiness_scores` take precedence even when the check-in average is the better signal.
+- Extend `brief-history` (or add a thin sibling action) to accept a date range and return:
+  `{ local_date, time_window, score, tier, created_at }` for the requested week.
+- `InnerReadinessDial` calls this endpoint instead of reading `inner_readiness_scores` / `daily_checkins` directly.
+- Daily dot resolution:
+  1. Group all snapshot rows for the day.
+  2. If ≥1 numeric `score`, average them → tier.
+  3. Else dot stays empty.
+- Today's centre number continues to come from `useOuterReadiness` (live brief).
+- No writes to `inner_readiness_scores`. We leave that table alone.
 
-**Fix (mandatory):**
-- Treat an `inner_readiness_scores` row as valid only when `composite_score` is a finite number; otherwise fall through to the check-in composite for that day.
-- When multiple `inner_readiness_scores` rows exist on the same day, **average them** (already implemented — keep).
-- When multiple `daily_checkins` rows exist on the same day, **average their composites** (already implemented via `checkinComposite` + per-day grouping — keep, verify).
-- Final per-day tier resolution: `today → live outer.innerReadinessScore`; `past day → avg(inner_readiness_scores valid) ?? avg(daily_checkins composite) ?? null`.
-- Add a quick console.debug behind `DEV_MODE` listing the resolved score+source per Mon→Sun day so we can confirm Mon/Tue/Wed populate.
+## 2. Performance Streaks — read from `daily_checkins` (same source as Rhythm card)
 
-No backend/edge-function changes.
+- Add a new action `GET_MONTHLY_LEVELS` to the existing `daily-checkins` edge function returning, for the current calendar month and authenticated user:
+  `[{ checkin_date, clarity_level, emotion_level, pressure_level, regulation_level }]`.
+- `PerformanceStreaks` calls this action via `supabase.functions.invoke('daily-checkins', …)` — exactly the auth-scoped pattern Rhythm already uses — instead of `supabase.from('daily_checkins')` directly from the browser (which RLS deny-by-default blocks for Auth0 sessions, leaving the card empty).
+- Counting logic in `computeDimensionStreaks` is unchanged: Peak = any slot ≥4, Friction = any slot ≤2, neutral excluded, a day can contribute to both.
 
-## 3. Performance Streaks card — non-clickable
+## 3. Validation
 
-`src/components/insights/PerformanceStreaks.tsx`
-
-- Replace the wrapping `<button onClick={navigate(...)}>` with a `<div>` (same classes, drop `active:scale`, `onClick`, `aria-label` → `role="group"`).
-- Remove the navigation import.
-
-## 4. Peak / Friction thumbs — cumulative monthly count
-
-`src/utils/dimensionTiers.ts`
-
-Current logic counts a **consecutive** streak ending today and breaks on the first miss, so a user with any off-day shows 0. User asked for a cumulative monthly trend that resets on the 1st (consistent with the earlier "cumulative till end of the month and then resets" rule).
-
-**Change `computeDimensionStreaks`:**
-- For each dimension, iterate every in-month day with at least one check-in for that dimension.
-- **Peak count** = number of in-month days where ANY slot value ≥ 4.
-- **Friction count** = number of in-month days where ANY slot value ≤ 2.
-- Neutral days (only value 3) count toward neither.
-- A single day can contribute to **both** peak and friction (e.g. morning 5, evening 2) — this matches how the flame chips read independently.
-- Resets implicitly on the 1st because the query window is `startOfMonth(now)`.
-
-Add a short JSDoc note flagging the semantic change from "consecutive streak" → "monthly cumulative count" so future readers don't mistake the function for the flame-card streak (which stays consecutive in `LevelTrendCalendar`).
-
-Copy under the card stays `Performance Streak · This Month` but the footer line becomes: `Counts reset on the 1st. Peak = any slot at level 4–5. Friction = any slot at level 1–2.`
-
-## 5. Audit / verification
-
-- Load `/insights` in dev mode, confirm Mon→today dots fill (with the dev `console.debug` printout from §2).
-- Open each detail card (`/insights/leadership-patterns`, `performance-rhythm`, `performance-causality`, `practice-effectiveness`), toggle every segmented control, hit Share, confirm the captured PNG matches the visible toggle and excludes the share icon.
-- Tap the Performance Streaks card on the summary — confirm no navigation.
-- Spot-check thumbs counts for the current month against `daily_checkins` rows via a quick `supabase--read_query` for DEV_USER to confirm count arithmetic.
+- Confirm dial dots populate for Mon–today from `brief_snapshots` for the active user.
+- Confirm Performance Streak thumbs show non-zero counts matching the DB cross-check already run (clarity peak 20, friction 3; emotion 11/1; pressure 11/1; regulation 11/0 for this month).
+- Confirm both cards render for an Auth0-authenticated user (not just DEV_MODE) and no direct `supabase.from(...)` browser reads remain on protected tables for these two cards.
 
 ## Files touched
-- `src/pages/InsightDetail.tsx` (remove footer share + capture wrapper)
-- `src/components/insights/ShareCardButton.tsx` (accept `hideOnCapture` flag, default true)
-- `src/utils/shareInsightCard.ts` (hide `[data-share-hide]` nodes during capture)
-- `src/components/insights/LeadershipPatternsCard.tsx`
-- `src/components/insights/PerformanceRhythmCard.tsx`
-- `src/components/insights/PerformanceCausalityCard.tsx`
-- `src/components/insights/PracticeEffectiveness.tsx` (or its InsightDetail wrapper)
-- `src/components/insights/InnerReadinessDial.tsx`
-- `src/components/insights/PerformanceStreaks.tsx`
-- `src/utils/dimensionTiers.ts`
+
+- `supabase/functions/brief-history/index.ts` — accept optional `startDate`/`endDate` filter and project the lightweight fields the dial needs.
+- `supabase/functions/daily-checkins/index.ts` — add `GET_MONTHLY_LEVELS` action.
+- `src/components/insights/InnerReadinessDial.tsx` — call the brief-history endpoint, drop direct table reads.
+- `src/components/insights/PerformanceStreaks.tsx` — call `daily-checkins` edge function, drop direct table read.
+
+No migrations. No new tables. No new writes.

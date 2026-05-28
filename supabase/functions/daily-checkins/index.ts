@@ -21,7 +21,8 @@ interface RequestBody {
     | 'GET_CHECKIN_FOR_WINDOW'
     | 'GET_ALL_CHECKINS_TODAY'
     | 'INFER_CURRENT_STATE'
-    | 'GET_RECENT_CHECKINS';
+    | 'GET_RECENT_CHECKINS'
+    | 'GET_MONTHLY_LEVELS';
   days?: number;
   startDate?: string;
   endDate?: string;
