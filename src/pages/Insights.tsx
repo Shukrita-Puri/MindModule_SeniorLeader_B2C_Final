@@ -1155,6 +1155,7 @@ const Insights = () => {
             </LuxuryInsightCard>
           )}
         </div>
+        </div>
             </div>
             )}
           </div>
