@@ -401,13 +401,15 @@ const LevelTrendCalendar = ({ userId, field, title, explanation, vocabulary, pal
           <InsightInfoModal title={title} explanation={explanation} />
           <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap">← scroll for past weeks</span>
         </div>
-        <div className="flex-shrink-0">
-          <StreakWreath
-            count={streak}
-            label={streak > 0 ? (streakLabel ?? 'day streak') : 'start your streak'}
-            milestone={activeMilestone}
-          />
-        </div>
+        {!hideStreak && (
+          <div className="flex-shrink-0">
+            <StreakWreath
+              count={streak}
+              label={streak > 0 ? (streakLabel ?? 'day streak') : 'start your streak'}
+              milestone={activeMilestone}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex">
