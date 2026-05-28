@@ -131,6 +131,13 @@ interface Payload {
   // is never inspectable from the client.
   stressMatrix?: StressMatrix;
   burnoutMatrix?: BurnoutMatrix;
+  /**
+   * v5 — per event-type recovery time (in days) after that event class,
+   * derived from Heart Rate (RHR) returning within ±5% of baseline. HRV
+   * intentionally excluded — too coarse for event-level recovery tracking.
+   * Uses the canonical A–H event taxonomy via lensA findings.
+   */
+  recoveryByEvent?: RecoveryByEvent | null;
   // Computed silently per spec — engine measures these so the UI can
   // surface them later without a separate backfill. The card does not
   // currently render these tabs.
