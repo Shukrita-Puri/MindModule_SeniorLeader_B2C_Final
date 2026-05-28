@@ -5,6 +5,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getAuthToken } from '@/services/authTokenService';
 
 type Tier = 'green' | 'amber' | 'red' | null;
 
@@ -67,8 +68,7 @@ function checkinComposite(c: {
 const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
-  const [history, setHistory] = useState<Array<{ score_date: string; composite_score: number; energy_tier: string }>>([]);
-  const [checkinDaily, setCheckinDaily] = useState<Record<string, number>>({});
+  const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
 
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
 
@@ -76,38 +76,35 @@ const InnerReadinessDial = () => {
     if (!uid) return;
     const monday = startOfWeek(new Date(), { weekStartsOn: 1 });
     const mondayISO = format(monday, 'yyyy-MM-dd');
+    const sundayISO = format(addDays(monday, 6), 'yyyy-MM-dd');
     (async () => {
-      // Canonical source: inner_readiness_scores (server-written).
-      const innerPromise = supabase
-        .from('inner_readiness_scores')
-        .select('score_date, composite_score, energy_tier')
-        .eq('user_id', uid)
-        .gte('score_date', mondayISO)
-        .order('score_date', { ascending: true });
-      // Fallback source: daily_checkins. Average composites per day so a
-      // user who checks in multiple times still gets one final score for
-      // that day.
-      const checkPromise = supabase
-        .from('daily_checkins')
-        .select('checkin_date, clarity_level, emotion_level, pressure_level, regulation_level')
-        .eq('user_id', uid)
-        .gte('checkin_date', mondayISO)
-        .order('checkin_date', { ascending: true });
-
-      const [innerRes, checkRes] = await Promise.all([innerPromise, checkPromise]);
-      if (innerRes.data) setHistory(innerRes.data);
-      if (checkRes.data) {
-        const grouped: Record<string, number[]> = {};
-        for (const row of checkRes.data as any[]) {
-          const c = checkinComposite(row);
-          if (c === null) continue;
-          (grouped[row.checkin_date] ||= []).push(c);
+      // Canonical source: brief_snapshots via brief-history edge function.
+      // Same table that powers the "past briefs" side panel — one row per
+      // generated brief carries the score/tier that already drove the dial
+      // at that moment in time.
+      try {
+        const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
+        const base = `https://${projectId}.supabase.co/functions/v1/brief-history`;
+        const url = `${base}?startDate=${mondayISO}&endDate=${sundayISO}&limit=100`;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (DEV_MODE) {
+          const anon = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+          if (anon) headers['Authorization'] = `Bearer ${anon}`;
+        } else {
+          const token = await getAuthToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
         }
-        const avg: Record<string, number> = {};
-        for (const [d, arr] of Object.entries(grouped)) {
-          avg[d] = arr.reduce((a, b) => a + b, 0) / arr.length;
+        const res = await fetch(url, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setSnapshots((json?.briefs || []).map((b: any) => ({
+            local_date: b.local_date,
+            score: typeof b.score === 'number' ? b.score : null,
+            tier: b.tier ?? null,
+          })));
         }
-        setCheckinDaily(avg);
+      } catch (err) {
+        console.error('[InnerReadinessDial] brief-history fetch failed:', err);
       }
     })();
   }, [uid]);
@@ -123,27 +120,22 @@ const InnerReadinessDial = () => {
       const ds = format(d, 'yyyy-MM-dd');
       const isToday = ds === todayStr;
       const isFuture = d.getTime() > Date.now() && !isToday;
-      // Prefer the canonical inner_readiness_scores row when present
-      // (average if there is more than one) AND only if it carries a real
-      // numeric composite_score — otherwise fall back to the averaged
-      // daily-checkin composite for that day.
-      const innerRows = history.filter(
-        h => h.score_date === ds && typeof h.composite_score === 'number' && Number.isFinite(h.composite_score),
-      );
+      // Average every brief snapshot recorded for that local date — if the
+      // user got multiple briefs (morning / afternoon / evening) we collapse
+      // them to one daily colour.
+      const dayRows = snapshots.filter(s => s.local_date === ds && typeof s.score === 'number' && Number.isFinite(s.score as number));
       let t: Tier;
       if (isToday) {
         t = todayTier;
-      } else if (innerRows.length > 0) {
-        const avgInner = innerRows.reduce((a, b) => a + (b.composite_score as number), 0) / innerRows.length;
-        t = tierFor(avgInner, innerRows[innerRows.length - 1].energy_tier);
-      } else if (typeof checkinDaily[ds] === 'number') {
-        t = tierFor(checkinDaily[ds]);
+      } else if (dayRows.length > 0) {
+        const avg = dayRows.reduce((a, b) => a + (b.score as number), 0) / dayRows.length;
+        t = tierFor(avg, dayRows[dayRows.length - 1].tier);
       } else {
         t = null;
       }
       return { date: ds, label: format(d, 'EEEEE'), tier: t, isToday, isFuture };
     });
-  }, [history, checkinDaily, todayTier]);
+  }, [snapshots, todayTier]);
 
   // Semicircular dial geometry
   const W = 180, H = 100, CX = 90, CY = 90, R = 72, STROKE = 10;
