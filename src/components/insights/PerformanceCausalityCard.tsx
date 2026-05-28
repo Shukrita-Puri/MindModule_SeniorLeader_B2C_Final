@@ -359,7 +359,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
   const [isMock, setIsMock] = useState(false);
-  const [tab, setTab] = useState<'stress' | 'burnout'>('stress');
+  const [tab, setTab] = useState<'stress' | 'burnout' | 'recovery'>('stress');
 
   useEffect(() => {
     let cancelled = false;
@@ -479,6 +479,9 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               <TabPill active={tab === 'burnout'} onClick={() => setTab('burnout')}>
                 Burnout Risk
               </TabPill>
+              <TabPill active={tab === 'recovery'} onClick={() => setTab('recovery')}>
+                Recovery Time
+              </TabPill>
             </div>
 
             {partialBanner && (
@@ -495,11 +498,19 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
                   Need a few more wearable days during meetings to populate.
                 </p>
               )
-            ) : data.burnoutMatrix ? (
-              <BurnoutRiskTab matrix={data.burnoutMatrix} />
+            ) : tab === 'burnout' ? (
+              data.burnoutMatrix ? (
+                <BurnoutRiskTab matrix={data.burnoutMatrix} />
+              ) : (
+                <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
+                  Need a few more weeks of wearable + calendar data to populate.
+                </p>
+              )
+            ) : data.recoveryByEvent ? (
+              <RecoveryTimeTab data={data.recoveryByEvent} />
             ) : (
               <p className="text-xs text-muted-foreground/80 py-6 px-1 text-center">
-                Need a few more weeks of wearable + calendar data to populate.
+                Need a few more wearable days after meetings to measure recovery time.
               </p>
             )}
           </>
