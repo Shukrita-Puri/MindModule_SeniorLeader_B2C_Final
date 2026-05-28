@@ -1421,6 +1421,7 @@ serve(async (req) => {
       event_to_cognition: eventToCognition,
       sleep_to_prs,
       consecutive_load,
+      performance_lift,
       generatedAt: new Date().toISOString(),
     };
 
