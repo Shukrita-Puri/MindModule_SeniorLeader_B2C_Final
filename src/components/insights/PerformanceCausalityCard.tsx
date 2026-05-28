@@ -52,6 +52,19 @@ interface BurnoutMatrix {
   cardTrajectory: 'escalating' | 'stable' | 'improving';
   bannerCopy: string;
 }
+interface RecoveryByEventEntry {
+  eventType: string;
+  recoveryDays: number;
+  rhrDeltaBpm: number;
+  n: number;
+  confidence: Confidence;
+  lastSeen: string;
+}
+interface RecoveryByEvent {
+  entries: RecoveryByEventEntry[];
+  maxRecoveryDays: number;
+  topEntry: RecoveryByEventEntry | null;
+}
 interface Coverage {
   hasCalendar: boolean;
   hasWearable: boolean;
@@ -60,6 +73,7 @@ interface CausalityPayload {
   coverage: Coverage;
   stressMatrix?: StressMatrix;
   burnoutMatrix?: BurnoutMatrix;
+  recoveryByEvent?: RecoveryByEvent | null;
   version?: number;
   cached?: boolean;
 }
