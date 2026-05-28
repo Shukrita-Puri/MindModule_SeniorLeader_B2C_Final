@@ -74,18 +74,7 @@ const InsightDetail = () => {
         className="px-4 max-w-lg mx-auto pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 140px)' }}
       >
-        <div className="relative">
-          {/* Share button overlaid on each card. Captures whatever toggle/tab is
-              currently active inside the card via the same captureRef. */}
-          {/* Sit to the LEFT of each card's info ("i") icon so the two
-              header affordances never overlap. */}
-          <div className="absolute top-1 right-10 z-10">
-            <ShareCardButton
-              targetRef={captureRef}
-              title={card.title}
-              fileName={`mind-module-${cardId}.png`}
-            />
-          </div>
+        <div>
           <div ref={captureRef}>
             <Suspense
               fallback={
@@ -96,6 +85,17 @@ const InsightDetail = () => {
             >
               {card.render(user?.id)}
             </Suspense>
+          </div>
+          {/* Share lives in a low-emphasis footer strip below the card so it
+              never collides with the header info ("i") tooltip. The
+              captureRef intentionally excludes this row so the share image
+              doesn't include the share button itself. */}
+          <div className="flex justify-end mt-2 pr-1">
+            <ShareCardButton
+              targetRef={captureRef}
+              title={card.title}
+              fileName={`mind-module-${cardId}.png`}
+            />
           </div>
         </div>
       </div>
