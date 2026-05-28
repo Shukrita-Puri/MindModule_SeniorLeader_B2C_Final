@@ -175,6 +175,21 @@ interface RecoveryTimeline {
   rolling7: (number | null)[];
 }
 
+// ── v5: Per event-type recovery time (Heart Rate based) ────────────────
+interface RecoveryByEventEntry {
+  eventType: string;          // canonical A–H taxonomy label (from lensA.cause)
+  recoveryDays: number;       // mean days for RHR to return within ±5% of baseline
+  rhrDeltaBpm: number;        // mean event-day RHR − baseline (bpm), positive = elevation
+  n: number;                  // sample size of event days
+  confidence: Confidence;
+  lastSeen: string;           // ISO date of most recent event in this category
+}
+interface RecoveryByEvent {
+  entries: RecoveryByEventEntry[];          // sorted desc by recoveryDays
+  maxRecoveryDays: number;                  // for client-side bar scaling
+  topEntry: RecoveryByEventEntry | null;
+}
+
 // ── Unified pattern store: flat projection for fast O(1) reads by other
 // edge functions (smart-nudges in particular). Mirrors values already in
 // `payload` but in a shape that does not require parsing the full Insights
