@@ -370,7 +370,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Mental Performance Threats
+            What Drains Your Performance
           </span>
           <div className="flex items-center gap-2">
             {isMock && (
@@ -379,7 +379,7 @@ const PerformanceCausalityCard = ({ userId }: { userId?: string }) => {
               </span>
             )}
             <InsightInfoModal
-              title="Mental Performance Threats"
+              title="What Drains Your Performance"
               explanation="How your meeting types and weekly load are showing up in your body. Patterns only appear once there is enough wearable + calendar data."
             />
           </div>

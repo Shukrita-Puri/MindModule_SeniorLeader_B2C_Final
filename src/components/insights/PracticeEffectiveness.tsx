@@ -136,10 +136,10 @@ const PracticeEffectiveness = ({ userId }: PracticeEffectivenessProps) => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
-            Practice effectiveness
+            What Restores Your Performance
           </span>
           <InsightInfoModal
-            title="Practice Effectiveness"
+            title="What Restores Your Performance"
             explanation="Three lenses on your practice: what works, when it works, and the cognitive + physical lift it produces. Built from your post-session check-ins, ratings, favourites and wearable signals over the last 30 days."
           />
         </div>
