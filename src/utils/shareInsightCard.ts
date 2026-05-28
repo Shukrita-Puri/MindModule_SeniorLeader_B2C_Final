@@ -16,20 +16,74 @@ interface ShareOpts {
 
 async function snapshotPng(node: HTMLElement): Promise<string> {
   // Hide any in-card chrome marked [data-share-hide] (e.g. the Share button
-  // itself) during capture, then restore it afterwards. This lets the share
-  // affordance live INSIDE the card without appearing in the exported PNG.
+  // itself) during capture so the affordance doesn't appear in the exported PNG.
   const hidden = Array.from(node.querySelectorAll<HTMLElement>('[data-share-hide]'));
-  const prev = hidden.map(el => el.style.visibility);
+  const prevVisibility = hidden.map(el => el.style.visibility);
   hidden.forEach(el => { el.style.visibility = 'hidden'; });
+
+  // Expand every scroll container inside the captured tree so the snapshot
+  // includes the FULL intrinsic content (e.g. the entire month-wide Rhythm
+  // calendar, not just the visible week). We save originals and restore them
+  // in finally so the live DOM is untouched after capture.
+  const scrollables: HTMLElement[] = [node];
+  node.querySelectorAll<HTMLElement>('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    if (/(auto|scroll|hidden)/.test(cs.overflow + cs.overflowX + cs.overflowY)) {
+      scrollables.push(el);
+    }
+  });
+  const prevStyles = scrollables.map(el => ({
+    overflow: el.style.overflow,
+    overflowX: el.style.overflowX,
+    overflowY: el.style.overflowY,
+    maxHeight: el.style.maxHeight,
+    maxWidth: el.style.maxWidth,
+    height: el.style.height,
+    width: el.style.width,
+    scrollLeft: el.scrollLeft,
+    scrollTop: el.scrollTop,
+  }));
+  scrollables.forEach(el => {
+    el.style.overflow = 'visible';
+    el.style.overflowX = 'visible';
+    el.style.overflowY = 'visible';
+    el.style.maxHeight = 'none';
+    el.style.maxWidth = 'none';
+    el.style.height = 'auto';
+  });
+
+  // Force a layout pass before measuring scrollWidth/Height.
+  void node.offsetHeight;
+  const fullWidth = Math.max(node.scrollWidth, node.offsetWidth);
+  const fullHeight = Math.max(node.scrollHeight, node.offsetHeight);
+
   try {
     return await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: '#ffffff',
       skipFonts: true,
+      width: fullWidth,
+      height: fullHeight,
+      style: {
+        width: `${fullWidth}px`,
+        height: `${fullHeight}px`,
+      },
     });
   } finally {
-    hidden.forEach((el, i) => { el.style.visibility = prev[i]; });
+    scrollables.forEach((el, i) => {
+      const p = prevStyles[i];
+      el.style.overflow = p.overflow;
+      el.style.overflowX = p.overflowX;
+      el.style.overflowY = p.overflowY;
+      el.style.maxHeight = p.maxHeight;
+      el.style.maxWidth = p.maxWidth;
+      el.style.height = p.height;
+      el.style.width = p.width;
+      el.scrollLeft = p.scrollLeft;
+      el.scrollTop = p.scrollTop;
+    });
+    hidden.forEach((el, i) => { el.style.visibility = prevVisibility[i]; });
   }
 }
 
