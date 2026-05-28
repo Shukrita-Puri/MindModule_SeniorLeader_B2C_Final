@@ -25,3 +25,12 @@ type: feature
 **Bucket vocabulary** is kept in sync between writer and reader via `EVENT_TYPE_KEYWORDS` (cause-effect-engine) and `NUDGE_EVENT_TYPE_KEYWORDS` (smart-nudges). Both must update together.
 
 **Extension rule:** new proactive pattern families (e.g. `meeting_density_to_recovery`) add new top-level keys to `signal_summary`, never new tables.
+
+**v4 — `performance_lift` (positive-side correlations).** Powers the "When You Perform Best" card. Keys:
+- `hr_event_lift[]` — per EVENT_TYPE subtype (id + bucket + categoryId from `events/event-subtypes.ts`): mean event-window peak HR vs resting baseline (bpm) + same-day PRS lift (%).
+- `category_lift[]` — rollup to A–H pillars from `events/event-categories.ts`.
+- `sleep_to_peak` — high-sleep nights (≥ user P70) → next-day PRS delta + best window.
+- `rhr_recovery_window` — well-recovered days (RHR ≤ baseline − 1σ) → window with highest lift.
+- `recovery_streak_to_peak` — mean consecutive low-RHR streak preceding top-quartile PRS days.
+
+Event correlation uses **heart rate (peak HR within `[event.start, event.end]` from `wearable_data.hr_samples`)**, not HRV — HRV is a daily morning signal and is too coarse for per-event causation. Classification uses `classifyEvent` from `events/event-classifier.ts`; the legacy `EVENT_TYPE_KEYWORDS` map must not be re-introduced.
