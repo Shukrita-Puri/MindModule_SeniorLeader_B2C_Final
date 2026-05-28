@@ -66,8 +66,13 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * resting baseline, sleep → next-day lift, RHR-recovery best-window,
  * recovery-streak → peak). Reads from the new A–H event taxonomy via
  * `classifyEventCanonical`. See mem://architecture/unified-pattern-store.
+ *
+ * v5 adds `recoveryByEvent` to the payload — per event-type (A–H taxonomy)
+ * recovery-days based on Heart Rate (RHR). HRV is intentionally excluded
+ * here because it's a daily morning signal and too coarse for event-level
+ * recovery tracking; Heart Rate is the canonical event-window signal.
  */
-const ENGINE_VERSION = 4;
+const ENGINE_VERSION = 5;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
