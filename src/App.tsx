@@ -40,6 +40,7 @@ const Terms = lazy(() => import("./pages/Terms"));
 const PoweredByAI = lazy(() => import("./pages/PoweredByAI"));
 const SelfMasteryCoach = lazy(() => import("./pages/SelfMasteryCoach"));
 const Insights = lazy(() => import("./pages/Insights"));
+const InsightDetail = lazy(() => import("./pages/InsightDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
@@ -182,6 +183,10 @@ const router = createBrowserRouter([
       {
         path: "insights",
         element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "insights/:cardId",
+        element: <Suspense fallback={<RouteSkeleton />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><InsightDetail /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "profile",
