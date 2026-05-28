@@ -1082,6 +1082,10 @@ serve(async (req) => {
       // New: positive-rate stat for Trajectory scorecard ("Consistency").
       positiveRate,
 
+      // v4 — flat performance-lift projection from causality_findings.
+      // See mem://architecture/unified-pattern-store. Null for new users.
+      performanceLift,
+
       // Calendar Pattern + Cause-Effect remain on their own cards.
       calendarInsight,
       causeEffectInsight,
