@@ -19,7 +19,8 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import PerformanceCausalityCard from '@/components/insights/PerformanceCausalityCard';
 import DailyShowUpCalendar from '@/components/insights/DailyShowUpCalendar';
 import InsightSummaryRow from '@/components/insights/InsightSummaryRow';
-import { Activity, Sunrise, AlertTriangle, Sparkles } from 'lucide-react';
+import InnerReadinessDial from '@/components/insights/InnerReadinessDial';
+import PerformanceStreaks from '@/components/insights/PerformanceStreaks';
 // BaselineReferenceCard removed – archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -975,44 +976,39 @@ const Insights = () => {
           {/* Suppressed for now — keep import/component intact for easy re-enable */}
           {false && <DailyShowUpCalendar userId={user?.id} />}
 
-          <InsightSummaryRow
-            to="/insights/leadership-patterns"
-            icon={Activity}
-            iconColor="text-[hsl(122_22%_35%)]"
-            eyebrow="Trajectory"
-            title="Your Trajectory"
-            value={
-              statePatterns?.currentArchetypeTitle
-              || statePatterns?.typicalState
-              || 'Your evolving archetype, readiness score, and friction pattern.'
-            }
-            loading={patternsLoading && !statePatterns}
-          />
+          {/* Inner Readiness dial (resets weekly) + Performance Streaks (resets monthly) */}
+          <InnerReadinessDial />
+          <PerformanceStreaks />
+
+          {/* Trajectory row suppressed — dial taps already deep-link to /insights/leadership-patterns */}
+          {false && (
+            <InsightSummaryRow
+              to="/insights/leadership-patterns"
+              eyebrow="Your Performance Trajectory"
+              value={
+                statePatterns?.currentArchetypeTitle
+                  ? `${statePatterns.currentArchetypeTitle}${statePatterns.trendDirection ? ` · ${statePatterns.trendDirection} vs baseline` : ''}`
+                  : statePatterns?.typicalState || 'Your evolving archetype and readiness trend.'
+              }
+              loading={patternsLoading && !statePatterns}
+            />
+          )}
 
           <InsightSummaryRow
             to="/insights/performance-rhythm"
-            icon={Sunrise}
-            iconColor="text-amber-600"
-            eyebrow="Rhythm"
-            title="When You Perform Best"
+            eyebrow="When You Perform Best"
             value="Your weekly rhythm — the times and days you tend to show up sharpest."
           />
 
           <InsightSummaryRow
             to="/insights/performance-causality"
-            icon={AlertTriangle}
-            iconColor="text-[hsl(14_70%_52%)]"
-            eyebrow="Drains"
-            title="What Drains Your Performance"
+            eyebrow="What Drains Your Performance"
             value="Meeting load, recovery cost, and stress signals from your wearable + calendar."
           />
 
           <InsightSummaryRow
             to="/insights/practice-effectiveness"
-            icon={Sparkles}
-            iconColor="text-[hsl(200_60%_45%)]"
-            eyebrow="Restores"
-            title="What Restores Your Performance"
+            eyebrow="What Restores Your Performance"
             value="The practices that most reliably lift your next check-in."
           />
 
