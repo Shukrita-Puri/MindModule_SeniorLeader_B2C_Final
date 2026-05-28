@@ -97,11 +97,6 @@ const InnerReadinessDial = () => {
   const aStart = Math.PI;
   const aEnd = 2 * Math.PI;
   const seg = (aEnd - aStart) / 3;
-  const score = todayScore ?? 0;
-  const needleAngle = aStart + (Math.max(0, Math.min(100, score)) / 100) * (aEnd - aStart);
-  const needleLen = R - 4;
-  const nx = CX + needleLen * Math.cos(needleAngle);
-  const ny = CY + needleLen * Math.sin(needleAngle);
 
   return (
     <div
