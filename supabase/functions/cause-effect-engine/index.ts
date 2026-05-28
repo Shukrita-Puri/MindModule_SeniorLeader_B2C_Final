@@ -310,10 +310,25 @@ serve(async (req) => {
 
   try {
     let userId: string | null = null;
-    try {
-      userId = await verifyAuth0JWT(req);
-    } catch (authErr: any) {
-      console.log("[cause-effect-engine] auth rejected:", authErr?.message || authErr);
+    let body: any = {};
+    try { body = await req.json(); } catch { /* empty body ok */ }
+
+    // Server-to-server backfill path: caller must share our runtime
+    // SUPABASE_SERVICE_ROLE_KEY and pass target_user_id in body.
+    const adminHeader = req.headers.get("x-admin-secret");
+    if (
+      adminHeader &&
+      SUPABASE_SERVICE_ROLE_KEY &&
+      adminHeader === SUPABASE_SERVICE_ROLE_KEY &&
+      typeof body?.target_user_id === "string"
+    ) {
+      userId = body.target_user_id;
+    } else {
+      try {
+        userId = await verifyAuth0JWT(req);
+      } catch (authErr: any) {
+        console.log("[cause-effect-engine] auth rejected:", authErr?.message || authErr);
+      }
     }
     if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -322,8 +337,6 @@ serve(async (req) => {
       });
     }
 
-    let body: any = {};
-    try { body = await req.json(); } catch { /* empty body ok */ }
     const force = body?.force === true || body?.force === 1;
     const days = Math.min(Math.max(Number(body?.days) || WINDOW_DAYS, 14), 90);
 
