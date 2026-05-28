@@ -76,27 +76,26 @@ export function computeDimensionStreaks(
       .map(c => c[key] as number | null | undefined)
       .filter((v): v is number => typeof v === 'number')
       .sort((a, b) => a - b);
-    if (base.length < 6) continue; // not enough history to be honest
-
     // For inverted dims, "peak" means LOW values (bottom quartile of raw),
     // "friction" means HIGH values (top quartile of raw).
-    const lo = quantile(base, 0.25);
-    const hi = quantile(base, 0.75);
     const inverted = INVERTED[d];
-
     let peakCount = 0;
     let frictionCount = 0;
-    for (const c of monthly) {
-      const v = c[key] as number | null | undefined;
-      if (typeof v !== 'number') continue;
-      const isHigh = v >= hi;
-      const isLow = v <= lo;
-      if (inverted) {
-        if (isLow) peakCount++;
-        else if (isHigh) frictionCount++;
-      } else {
-        if (isHigh) peakCount++;
-        else if (isLow) frictionCount++;
+    if (base.length >= 6) {
+      const lo = quantile(base, 0.25);
+      const hi = quantile(base, 0.75);
+      for (const c of monthly) {
+        const v = c[key] as number | null | undefined;
+        if (typeof v !== 'number') continue;
+        const isHigh = v >= hi;
+        const isLow = v <= lo;
+        if (inverted) {
+          if (isLow) peakCount++;
+          else if (isHigh) frictionCount++;
+        } else {
+          if (isHigh) peakCount++;
+          else if (isLow) frictionCount++;
+        }
       }
     }
 
