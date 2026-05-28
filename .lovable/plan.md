@@ -1,56 +1,75 @@
-## 1. Inner Readiness Dial (top card)
+## 1. Share button — move inside each card, per toggle
+
+**Problem:** Share currently sits in a footer strip in `InsightDetail.tsx`, outside the card. User wants it visually contained inside each card. Multi-tab capture is already supported (the ref captures whatever is rendered), but the ref needs to live inside each card so each toggle stays in frame.
+
+**Change:**
+- Delete the footer `ShareCardButton` strip and the `captureRef` wrapping in `src/pages/InsightDetail.tsx`. Header stays back-button only.
+- Add an inline `ShareCardButton` inside each detail card component, anchored to the card's own DOM. Each card forwards an internal ref (the outer card container) that the button captures.
+  - `LeadershipPatternsCard.tsx`
+  - `PerformanceRhythmCard.tsx`
+  - `PerformanceCausalityCard.tsx`
+  - `PracticeEffectiveness.tsx` (wrapped card in InsightDetail moves into the component, or we add a small share row at the top of the existing card)
+- Placement inside the card: top-right, **left of the existing `i` tooltip** (`right-10 top-2`-style positioning relative to the card), so it never overlaps the tooltip and always sits within the card's visual frame. Because the capture target is now the same DOM node that contains the share button, the share button is excluded from the captured PNG via a temporary `data-share-hide` class that `shareInsightCard` already (or will) hide during capture.
+- Add a 1-line `hideSelectors` option to `src/utils/shareInsightCard.ts` so the share button (and any element marked `data-share-hide`) is hidden during `html-to-image` capture and restored after. This keeps the button visually in-card but absent from the share image.
+- Toggle support: because the ref is the card root, switching tabs/segments inside a card (Causality stress/burnout, Rhythm dimension toggle, Practice category toggle, etc.) is already captured live — verify each card's toggle re-renders inside the same ref'd container.
+
+## 2. Inner Readiness Dial — fill past-day dots Mon→today
 
 `src/components/insights/InnerReadinessDial.tsx`
 
-- **Copy:** Title → `Your Performance Trajectory`. Subheadline (grey, same `text-[11px] uppercase tracking-[0.12em]` style) → `Inner Readiness Streak · This Week`.
-- **Number colour:** Force black (`hsl(var(--foreground))`) regardless of tier — keep the arc segment as the colour cue.
-- **Score ranges (documented in code comment, also shown in the info tooltip):**
-  - Red (Depleted): `< 40`
-  - Amber (Recovering): `40 – 66`
-  - Green (Strong): `≥ 67`
-- **Past-day colouring (root cause of empty dots):** `inner_readiness_scores` is only written when an `outer-readiness` brief runs, so most historical days are blank. Fix by:
-  1. In parallel with the existing `inner_readiness_scores` fetch, query `daily_checkins` for the same Mon→Sun window (`clarity_level, emotion_level, pressure_level, regulation_level, checkin_date, created_at`).
-  2. Group check-ins by `checkin_date`; per day compute a composite using the same weighting already used by `energyStateScoring` (or a small helper here that mirrors it: avg of clarity/emotion/regulation + inverted pressure, scaled to 0–100). When a day has multiple check-ins, **average the per-check-in composites** to get the day's final score, then map through `tierFor` for the dot colour.
-  3. Prefer the `inner_readiness_scores` row when present (canonical), otherwise fall back to the averaged check-in composite. Today's dot continues to use the live `outer.innerReadinessScore`.
-- Keep dot future-state dimming and today's ring as today.
+The fallback to averaged `daily_checkins` is wired but dots still show empty because:
+- `inner_readiness_scores` rows can have `composite_score === null`, and the current code falls through to `tierFor(0, …)` → red instead of using the check-in fallback.
+- Rows from `inner_readiness_scores` take precedence even when the check-in average is the better signal.
 
-## 2. Performance Streaks card
+**Fix (mandatory):**
+- Treat an `inner_readiness_scores` row as valid only when `composite_score` is a finite number; otherwise fall through to the check-in composite for that day.
+- When multiple `inner_readiness_scores` rows exist on the same day, **average them** (already implemented — keep).
+- When multiple `daily_checkins` rows exist on the same day, **average their composites** (already implemented via `checkinComposite` + per-day grouping — keep, verify).
+- Final per-day tier resolution: `today → live outer.innerReadinessScore`; `past day → avg(inner_readiness_scores valid) ?? avg(daily_checkins composite) ?? null`.
+- Add a quick console.debug behind `DEV_MODE` listing the resolved score+source per Mon→Sun day so we can confirm Mon/Tue/Wed populate.
 
-`src/components/insights/PerformanceStreaks.tsx` + `src/utils/dimensionTiers.ts`
+No backend/edge-function changes.
 
-- **Copy:** Eyebrow stays `Your Performance Trajectory` *(if we keep one header line — confirm)*. Add a grey subhead line in the same style as the dial's: `Performance Streak · This Month`.
-- **Wire to the same flame logic the dimension trends use.** Today the streaks use 90-day personal quartiles; the user wants parity with the flame on the *Performance Rhythm* trends (`LevelTrendCalendar`), which counts **consecutive days in the current calendar month where any slot value ≥ 4**. Replace `computeDimensionStreaks` with that rule:
-  - **Peak (👍):** consecutive in-month days where any of morning/midday/evening for that dimension was **level 4 or 5** (i.e. Lucid+Crystal, Composed+Open, Light+Spacious, Strong+In-Control). **Neutral (3) is excluded** — matches the existing flame.
-  - **Friction (👎):** consecutive in-month days where any slot for that dimension was **level 1 or 2** (Clouded/Obscured, Reactive/Unsettled, Elevated/Overloaded, Low/Reactive). For pressure the raw levels already encode "overloaded = low", so the same `≤ 2` rule applies after the existing inversion swap.
-  - Streak resets on the 1st of the month and on any day in-month where the dimension had a check-in but did not meet the band.
-- Query source: same `daily_checkins` rows the dial pulls; we can share the fetch via a tiny hook (`useWeekMonthCheckins`) to avoid duplicate round-trips.
-- Counts in the chips become the streak length (matches the "5" flame in the screenshot), not a monthly tally.
+## 3. Performance Streaks card — non-clickable
 
-## 3. Share button placement (UX recommendation)
+`src/components/insights/PerformanceStreaks.tsx`
 
-Current placement (overlaid in the top-right of each card, just left of the `i` icon) still competes visually with the tooltip trigger and forces a small 36px hit target into a dense corner.
+- Replace the wrapping `<button onClick={navigate(...)}>` with a `<div>` (same classes, drop `active:scale`, `onClick`, `aria-label` → `role="group"`).
+- Remove the navigation import.
 
-**Recommendation: move Share to the card footer, right-aligned, on its own row.**
+## 4. Peak / Friction thumbs — cumulative monthly count
 
-- Pattern used by Apple Health / Notes / Strava detail screens: primary content owns the top, share is a low-emphasis action at the bottom-right.
-- Avoids any collision with the info tooltip, and the capture target (the whole card) is unchanged so multi-tab share still works.
-- Implementation: in `src/pages/InsightDetail.tsx`, drop the absolute-positioned `ShareCardButton` overlay and instead render a thin footer strip after `card.render(...)`:
-  ```text
-  ┌── card content (captured) ──┐
-  │ …                           │
-  └─────────────────────────────┘
-     [ Share ↗ ]   ← right-aligned, 12px above bottom safe area
-  ```
-- Keep `captureRef` wrapping only the card body (not the footer) so the share PNG doesn't include the share button itself.
+`src/utils/dimensionTiers.ts`
 
-## 4. Out of scope / unchanged
+Current logic counts a **consecutive** streak ending today and breaks on the first miss, so a user with any off-day shows 0. User asked for a cumulative monthly trend that resets on the 1st (consistent with the earlier "cumulative till end of the month and then resets" rule).
 
-- No backend / edge-function changes. All new math is client-side off existing tables (`daily_checkins`, `inner_readiness_scores`).
-- `PerformanceRhythmCard` flame logic is the reference and remains untouched.
-- No copy changes on other insight cards.
+**Change `computeDimensionStreaks`:**
+- For each dimension, iterate every in-month day with at least one check-in for that dimension.
+- **Peak count** = number of in-month days where ANY slot value ≥ 4.
+- **Friction count** = number of in-month days where ANY slot value ≤ 2.
+- Neutral days (only value 3) count toward neither.
+- A single day can contribute to **both** peak and friction (e.g. morning 5, evening 2) — this matches how the flame chips read independently.
+- Resets implicitly on the 1st because the query window is `startOfMonth(now)`.
+
+Add a short JSDoc note flagging the semantic change from "consecutive streak" → "monthly cumulative count" so future readers don't mistake the function for the flame-card streak (which stays consecutive in `LevelTrendCalendar`).
+
+Copy under the card stays `Performance Streak · This Month` but the footer line becomes: `Counts reset on the 1st. Peak = any slot at level 4–5. Friction = any slot at level 1–2.`
+
+## 5. Audit / verification
+
+- Load `/insights` in dev mode, confirm Mon→today dots fill (with the dev `console.debug` printout from §2).
+- Open each detail card (`/insights/leadership-patterns`, `performance-rhythm`, `performance-causality`, `practice-effectiveness`), toggle every segmented control, hit Share, confirm the captured PNG matches the visible toggle and excludes the share icon.
+- Tap the Performance Streaks card on the summary — confirm no navigation.
+- Spot-check thumbs counts for the current month against `daily_checkins` rows via a quick `supabase--read_query` for DEV_USER to confirm count arithmetic.
 
 ## Files touched
+- `src/pages/InsightDetail.tsx` (remove footer share + capture wrapper)
+- `src/components/insights/ShareCardButton.tsx` (accept `hideOnCapture` flag, default true)
+- `src/utils/shareInsightCard.ts` (hide `[data-share-hide]` nodes during capture)
+- `src/components/insights/LeadershipPatternsCard.tsx`
+- `src/components/insights/PerformanceRhythmCard.tsx`
+- `src/components/insights/PerformanceCausalityCard.tsx`
+- `src/components/insights/PracticeEffectiveness.tsx` (or its InsightDetail wrapper)
 - `src/components/insights/InnerReadinessDial.tsx`
 - `src/components/insights/PerformanceStreaks.tsx`
-- `src/utils/dimensionTiers.ts` (replace quartile logic with flame-parity rule)
-- `src/pages/InsightDetail.tsx` (relocate share button)
+- `src/utils/dimensionTiers.ts`

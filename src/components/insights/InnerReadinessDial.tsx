@@ -124,14 +124,17 @@ const InnerReadinessDial = () => {
       const isToday = ds === todayStr;
       const isFuture = d.getTime() > Date.now() && !isToday;
       // Prefer the canonical inner_readiness_scores row when present
-      // (average if there is more than one); otherwise fall back to the
-      // averaged daily-checkin composite for that day.
-      const innerRows = history.filter(h => h.score_date === ds);
+      // (average if there is more than one) AND only if it carries a real
+      // numeric composite_score — otherwise fall back to the averaged
+      // daily-checkin composite for that day.
+      const innerRows = history.filter(
+        h => h.score_date === ds && typeof h.composite_score === 'number' && Number.isFinite(h.composite_score),
+      );
       let t: Tier;
       if (isToday) {
         t = todayTier;
       } else if (innerRows.length > 0) {
-        const avgInner = innerRows.reduce((a, b) => a + (b.composite_score ?? 0), 0) / innerRows.length;
+        const avgInner = innerRows.reduce((a, b) => a + (b.composite_score as number), 0) / innerRows.length;
         t = tierFor(avgInner, innerRows[innerRows.length - 1].energy_tier);
       } else if (typeof checkinDaily[ds] === 'number') {
         t = tierFor(checkinDaily[ds]);

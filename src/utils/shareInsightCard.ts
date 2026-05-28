@@ -15,13 +15,22 @@ interface ShareOpts {
 }
 
 async function snapshotPng(node: HTMLElement): Promise<string> {
-  // Returns base64 data URL (image/png)
-  return await toPng(node, {
-    cacheBust: true,
-    pixelRatio: 2,
-    backgroundColor: '#ffffff',
-    skipFonts: true,
-  });
+  // Hide any in-card chrome marked [data-share-hide] (e.g. the Share button
+  // itself) during capture, then restore it afterwards. This lets the share
+  // affordance live INSIDE the card without appearing in the exported PNG.
+  const hidden = Array.from(node.querySelectorAll<HTMLElement>('[data-share-hide]'));
+  const prev = hidden.map(el => el.style.visibility);
+  hidden.forEach(el => { el.style.visibility = 'hidden'; });
+  try {
+    return await toPng(node, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      skipFonts: true,
+    });
+  } finally {
+    hidden.forEach((el, i) => { el.style.visibility = prev[i]; });
+  }
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {

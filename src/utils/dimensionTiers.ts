@@ -50,22 +50,23 @@ export interface MonthlyCheckin {
 }
 
 /**
- * Flame-parity streak math.
+ * Monthly cumulative Peak / Friction counts (NOT a consecutive streak).
  *
- * Mirrors the consecutive-day flame on the "When You Perform Best" trend
- * cards (LevelTrendCalendar): for each dimension we count consecutive
- * in-month days ending at today (or yesterday if today is not yet logged)
- * where ANY slot for that dimension hit the band.
+ * For each dimension we count, across the current calendar month, how many
+ * days had at least one check-in that met the band:
  *
- *   Peak (👍)    : any slot value ≥ 4   (top two levels — neutral is NOT included)
+ *   Peak (👍)    : any slot value ≥ 4   (top two levels — neutral excluded)
  *   Friction (👎): any slot value ≤ 2   (bottom two levels)
  *
- * For pressure the raw 1–5 scale already encodes "1 = overloaded" / "5 =
- * spacious", so the same ≥4 / ≤2 rules apply directly — the INVERTED flag
- * only matters for the legacy quartile path, which we no longer use.
+ * A single day can contribute to BOTH peak and friction (e.g. morning 5,
+ * evening 2) — peak and friction are independent monthly tallies.
  *
- * The streak resets on the 1st of the month and on any in-month day that
- * had a check-in but did not meet the band.
+ * For pressure the raw 1–5 scale already encodes "1 = overloaded" / "5 =
+ * spacious", so the same ≥4 / ≤2 rules apply directly.
+ *
+ * The tally resets on the 1st of the month (driven by the caller's query
+ * window, e.g. `startOfMonth(now)`). This is intentionally different from
+ * the consecutive-day flame on LevelTrendCalendar.
  *
  * @param baseline  kept for signature compatibility — unused.
  * @param monthly   Check-ins inside the current calendar month.
@@ -85,47 +86,19 @@ export function computeDimensionStreaks(
     arr.push(c);
     byDate.set(c.checkin_date, arr);
   }
-  const datesAsc = Array.from(byDate.keys()).sort();
-  const todayStr = new Date().toLocaleDateString('en-CA');
 
   for (const d of dims) {
     const key = `${d}_level` as keyof MonthlyCheckin;
-
-    // Walk from the most-recent in-month date backwards, but skip today if
- // today has no check-in yet (matches LevelTrendCalendar behaviour).
-    let i = datesAsc.length - 1;
-    if (i >= 0 && datesAsc[i] === todayStr) {
-      const todayRows = byDate.get(datesAsc[i]) ?? [];
-      const hasAny = todayRows.some(r => typeof r[key] === 'number');
-      if (!hasAny) i -= 1;
-    }
-
-    const dayMatches = (rows: MonthlyCheckin[], predicate: (v: number) => boolean): 'hit' | 'miss' | 'empty' => {
+    let peakCount = 0;
+    let frictionCount = 0;
+    for (const rows of byDate.values()) {
       const vals = rows
         .map(r => r[key] as number | null | undefined)
         .filter((v): v is number => typeof v === 'number');
-      if (vals.length === 0) return 'empty';
-      return vals.some(predicate) ? 'hit' : 'miss';
-    };
-
-    let peakCount = 0;
-    for (let j = i; j >= 0; j--) {
-      const rows = byDate.get(datesAsc[j]) ?? [];
-      const r = dayMatches(rows, v => v >= 4);
-      if (r === 'hit') peakCount += 1;
-      else if (r === 'miss') break;
-      // 'empty' days are skipped (no check-in that day for this dim) —
-      // they don't extend or break the streak.
+      if (vals.length === 0) continue;
+      if (vals.some(v => v >= 4)) peakCount += 1;
+      if (vals.some(v => v <= 2)) frictionCount += 1;
     }
-
-    let frictionCount = 0;
-    for (let j = i; j >= 0; j--) {
-      const rows = byDate.get(datesAsc[j]) ?? [];
-      const r = dayMatches(rows, v => v <= 2);
-      if (r === 'hit') frictionCount += 1;
-      else if (r === 'miss') break;
-    }
-
     peaks.push({ dimension: d, kind: 'peak', count: peakCount, label: DIMENSION_LABELS[d].peak });
     frictions.push({ dimension: d, kind: 'friction', count: frictionCount, label: DIMENSION_LABELS[d].friction });
   }
