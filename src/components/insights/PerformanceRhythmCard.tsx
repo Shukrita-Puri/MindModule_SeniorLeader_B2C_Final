@@ -64,6 +64,13 @@ interface PerformanceRhythmData {
   // v3 — positive-rate stat surfaced inline (also exposed by state-patterns).
   positiveRate?: { pct: number; n: number } | null;
 
+  /**
+   * v4 — flat performance-lift projection from causality_findings.signal_summary
+   * (written by cause-effect-engine). Drives the three new chart blocks under
+   * Performance Patterns. Null for new users — blocks gate gracefully.
+   */
+  performanceLift?: PerformanceLift | null;
+
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
@@ -89,6 +96,34 @@ interface RhythmFinding {
   confidence: number;
   observations: number;
   priorityScore: number;
+}
+
+type LiftConfidence = 'strong' | 'emerging';
+type LiftWindow = 'morning' | 'afternoon' | 'evening';
+interface PerformanceLift {
+  hr_event_lift: Array<{
+    eventTypeId: string;
+    bucket: string;
+    categoryId: string;
+    categoryName: string;
+    hrDeltaBpm: number;
+    compositeLift: number;
+    n: number;
+    confidence: LiftConfidence;
+    lastSeen: string;
+  }>;
+  category_lift: Array<{
+    categoryId: string;
+    categoryName: string;
+    hrDeltaBpm: number;
+    compositeLift: number;
+    n: number;
+    confidence: LiftConfidence;
+  }>;
+  sleep_to_peak: { deltaPct: number; n: number; confidence: LiftConfidence; bestWindow: LiftWindow | null } | null;
+  rhr_recovery_window: { window: LiftWindow; liftPct: number; n: number; confidence: LiftConfidence } | null;
+  recovery_streak_to_peak: { avgStreakLength: number; n: number; confidence: LiftConfidence } | null;
+  generatedAt: string;
 }
 
 interface PerformanceRhythmCardProps {
