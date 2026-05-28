@@ -1195,6 +1195,42 @@ serve(async (req) => {
     payload.recoveryCostTimeline = recoveryCostTimeline;
 
     // ════════════════════════════════════════════════════════════════════
+    // v5: RECOVERY BY EVENT — Heart Rate based per A–H event taxonomy
+    // ════════════════════════════════════════════════════════════════════
+    // Surfaces "after which events does recovery take longest" inside the
+    // Drains card. Pulls from existing lensA RHR findings that already
+    // carry per-event recoveryDays (days for RHR to return within ±5% of
+    // baseline). HRV is intentionally excluded — too coarse for events.
+    const recoveryByEvent: RecoveryByEvent | null = (() => {
+      const rhrFindings = lensA.filter(
+        (f) =>
+          f.effectSignal === "RHR" &&
+          f.cause !== "High-load calendar days" &&
+          typeof f.recoveryDays === "number" &&
+          f.recoveryDays > 0,
+      );
+      if (rhrFindings.length === 0) return null;
+      const entries: RecoveryByEventEntry[] = rhrFindings
+        .map((f) => ({
+          eventType: f.cause,
+          recoveryDays: f.recoveryDays as number,
+          rhrDeltaBpm: f.deltaAbs,
+          n: f.n,
+          confidence: f.confidence,
+          lastSeen: lastSeenByEventType.get(f.cause) || "",
+        }))
+        .sort((a, b) => b.recoveryDays - a.recoveryDays)
+        .slice(0, 6);
+      const maxRecoveryDays = entries.reduce((m, e) => Math.max(m, e.recoveryDays), 0);
+      return {
+        entries,
+        maxRecoveryDays,
+        topEntry: entries[0] || null,
+      };
+    })();
+    payload.recoveryByEvent = recoveryByEvent;
+
+    // ════════════════════════════════════════════════════════════════════
     // v4: PERFORMANCE LIFT — positive-side correlations
     // ════════════════════════════════════════════════════════════════════
     // Drives the "When You Perform Best" card. Uses event-window peak HR
