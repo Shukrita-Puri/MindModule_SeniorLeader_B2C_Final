@@ -77,7 +77,9 @@ const InsightDetail = () => {
         <div className="relative">
           {/* Share button overlaid on each card. Captures whatever toggle/tab is
               currently active inside the card via the same captureRef. */}
-          <div className="absolute top-2 right-2 z-10">
+          {/* Sit to the LEFT of each card's info ("i") icon so the two
+              header affordances never overlap. */}
+          <div className="absolute top-1 right-10 z-10">
             <ShareCardButton
               targetRef={captureRef}
               title={card.title}
