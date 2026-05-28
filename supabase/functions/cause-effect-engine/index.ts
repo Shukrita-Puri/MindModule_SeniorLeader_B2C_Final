@@ -192,6 +192,48 @@ interface SignalSummary {
   }>;
   sleep_to_prs: { lowSleepPrsDeltaPct: number; n: number; confidence: Confidence } | null;
   consecutive_load: { tailDeltaPct: number; n: number; confidence: Confidence } | null;
+  /**
+   * v4 — positive correlations powering the "When You Perform Best" card.
+   * Heart Rate (not HRV) for event windows — HRV is a daily morning signal
+   * and is too coarse for per-event causation. Daily HRV stays elsewhere in
+   * this summary as recovery context only.
+   */
+  performance_lift?: PerformanceLift;
+  generatedAt: string;
+}
+
+// ── v4: Performance Lift projections ──────────────────────────────────
+// Shape mirrors the unified-pattern-store extension rule: small, flat,
+// pre-projected arrays the UI can render with no client-side math.
+type TimeWindow = "morning" | "afternoon" | "evening";
+interface PerformanceLift {
+  /** Per EVENT_TYPE subtype: mean event-window peak HR delta + composite lift. */
+  hr_event_lift: Array<{
+    eventTypeId: string;
+    bucket: string;
+    categoryId: EventCategoryId;
+    categoryName: string;
+    hrDeltaBpm: number;       // mean peak HR − resting baseline (bpm)
+    compositeLift: number;    // pct delta in same-day PRS vs window baseline
+    n: number;
+    confidence: Confidence;
+    lastSeen: string;
+  }>;
+  /** Rollup of hr_event_lift to A–H categories. */
+  category_lift: Array<{
+    categoryId: EventCategoryId;
+    categoryName: string;
+    hrDeltaBpm: number;
+    compositeLift: number;
+    n: number;
+    confidence: Confidence;
+  }>;
+  /** Nights with sleep ≥ user P70 → next-day PRS lift + best window. */
+  sleep_to_peak: { deltaPct: number; n: number; confidence: Confidence; bestWindow: TimeWindow | null } | null;
+  /** Well-recovered mornings (RHR ≤ baseline − 1σ) → window with highest lift. */
+  rhr_recovery_window: { window: TimeWindow; liftPct: number; n: number; confidence: Confidence } | null;
+  /** Mean streak length of low-RHR days preceding a top-quartile PRS day. */
+  recovery_streak_to_peak: { avgStreakLength: number; n: number; confidence: Confidence } | null;
   generatedAt: string;
 }
 
