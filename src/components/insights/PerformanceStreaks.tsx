@@ -83,9 +83,12 @@ const PerformanceStreaks = () => {
       )}
       aria-label="Performance streaks this month"
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[13px] font-medium tracking-[0.14em] uppercase text-muted-foreground">
-          Performance Streaks · this month
+      <div className="mb-2">
+        <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
+          Your Performance Trajectory
+        </span>
+        <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
+          Performance Streak · This Month
         </span>
       </div>
       {/* Peak row */}
