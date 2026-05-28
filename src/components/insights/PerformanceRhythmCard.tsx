@@ -1167,6 +1167,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
+            {/* v4 — Performance Lift blocks (wearable + calendar fusion) */}
+            {data.performanceLift && (
+              <PerformanceLiftBlocks lift={data.performanceLift} hasCalendar={data.hasCalendar} />
+            )}
+
             {/* Empty-state when ≥7 check-ins but no findings yet */}
             {data.checkInCount >= 7 && data.mindRhythmPatterns !== null && data.mindRhythmPatterns?.topThree.length === 0 && (
               <div className="p-3 rounded-xl bg-muted/15 border border-border/30">
