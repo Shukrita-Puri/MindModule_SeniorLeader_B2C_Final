@@ -205,7 +205,7 @@ export function startTimezoneWatcher(): () => void {
   };
 }
 
-export async function manualTravelRefresh(): Promise<TravelStateSnapshot | null> {
+export async function manualTravelRefresh(userId?: string | null): Promise<TravelStateSnapshot | null> {
   try {
     if (LocationBridgeNative) {
       await LocationBridgeNative.requestOneShotLocation();
@@ -226,7 +226,6 @@ export async function manualTravelRefresh(): Promise<TravelStateSnapshot | null>
       meta: { area: 'travel_manual_refresh', message: (e as Error).message },
     });
   }
-  // Caller passes user id via the hook; this helper returns null when
-  // unknown so the UI can decide whether to refresh.
-  return null;
+  if (!userId) return getCachedTravelState();
+  return fetchTravelState(userId);
 }
