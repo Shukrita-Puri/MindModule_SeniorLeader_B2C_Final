@@ -298,27 +298,11 @@ export default function Stage7ContextConnection() {
 
           {/* Integration Options with Toggles */}
           <div className="space-y-3">
-            {/* Google Calendar */}
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-              <div className="flex items-center gap-3">
-                <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 rounded-lg object-contain" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Google Calendar</span>
-                  <span className="text-xs text-muted-foreground">
-                    {checkingStatus
-                      ? "Checking…"
-                      : calendarEnabled
-                        ? "Connected"
-                        : "Sync your schedule"}
-                  </span>
-                </div>
-              </div>
-              <Switch
-                checked={calendarEnabled}
-                onCheckedChange={handleCalendarToggle}
-                disabled={loading || checkingStatus}
-              />
-            </div>
+            {/* Calendar — unified picker for Apple / Google / Microsoft */}
+            <CalendarProviderPicker
+              redirectPath="/onboarding/context-connection"
+              onChanged={() => { verifyConnection(); }}
+            />
 
             {/* Apple Health */}
             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
