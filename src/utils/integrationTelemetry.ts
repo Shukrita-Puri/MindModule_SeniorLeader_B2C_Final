@@ -16,6 +16,7 @@ export type IntegrationProvider =
   | 'apple-calendar'
   | 'google-calendar'
   | 'microsoft-calendar'
+  | 'oura'
   | 'notification'
   | 'system';
 
@@ -42,6 +43,9 @@ export type IntegrationEventName =
   | 'sync_partial'
   | 'sync_failed'
   | 'sync_stale_detected'
+  | 'sync_temporary_unavailable'
+  | 'auto_recovery_success'
+  | 'manual_sync_triggered'
   // listeners / app lifecycle
   | 'app_resume_refresh'
   | 'listener_registered'
