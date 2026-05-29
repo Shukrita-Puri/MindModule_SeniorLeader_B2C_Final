@@ -119,7 +119,7 @@ serve(async (req) => {
         // we surface its performance_lift key on the "When You Perform Best"
         // card without recomputing anything client-side.
         sb.from("causality_findings")
-          .select("signal_summary, computed_for_date")
+          .select("signal_summary, payload, computed_for_date")
           .eq("user_id", userId)
           .eq("pattern_kind", "cause_effect_v2")
           .order("computed_for_date", { ascending: false })
@@ -140,6 +140,10 @@ serve(async (req) => {
     // Latest performance_lift projection (may be absent for new users —
     // card falls back to the existing patterns block).
     const performanceLift = (causalityRes?.data as any)?.signal_summary?.performance_lift ?? null;
+    // v6 — gate-failure diagnostics so the UI can render data-honest
+    // "awaiting <reason>" lines when a block is null instead of a silent gap.
+    const performanceDiagnostics =
+      (causalityRes?.data as any)?.payload?.diagnostics ?? null;
 
     // BUG 1 fix: Scope dialogue_messages by user's session IDs
     const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
@@ -1085,6 +1089,8 @@ serve(async (req) => {
       // v4 — flat performance-lift projection from causality_findings.
       // See mem://architecture/unified-pattern-store. Null for new users.
       performanceLift,
+      // v6 — paired diagnostics (always present after engine v6 runs).
+      performanceDiagnostics,
 
       // Calendar Pattern + Cause-Effect remain on their own cards.
       calendarInsight,
