@@ -1526,6 +1526,58 @@ serve(async (req) => {
       generatedAt: new Date().toISOString(),
     };
 
+    // ── v6: Wearable signal diagnostics ─────────────────────────────
+    // Pure helper, runs on the same inputs the engine just used. Decides
+    // *why* each Apple Health-derived block is or is not present. Never
+    // mutates the payload or relaxes a gate.
+    const diagnostics = buildWearableDiagnostics(
+      {
+        wearable: wearable as any[],
+        events: events as any[],
+        briefs: briefs as any[],
+        hrSamplesByDay,
+        restingBaseline,
+        prsBaseline: (() => {
+          const xs: number[] = [];
+          (briefs as any[]).forEach((b) => { if (typeof b.score === "number") xs.push(b.score); });
+          return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+        })(),
+        performanceLift: performance_lift,
+      },
+      {
+        windowDays: days,
+        engineVersion: ENGINE_VERSION,
+        minOccurrencesEmerging: MIN_OCCURRENCES_EMERGING,
+      },
+    );
+    payload.diagnostics = diagnostics;
+
+    // Log every run for edge-function-logs visibility.
+    console.log("[cause-effect-engine][diag]", JSON.stringify({
+      user_id: userId,
+      counts: diagnostics.counts,
+      gate_reasons: diagnostics.gateReasons,
+    }));
+
+    // Persist diagnostic audit row. Failures here must not block the
+    // payload response — diagnostics are observability, not correctness.
+    const { error: diagErr } = await supabase
+      .from("wearable_signal_diagnostics")
+      .insert({
+        user_id: userId,
+        window_days: diagnostics.windowDays,
+        engine_version: diagnostics.engineVersion,
+        sleep_score_day_count: diagnostics.counts.sleepScoreDays,
+        rhr_day_count: diagnostics.counts.rhrDays,
+        hrv_day_count: diagnostics.counts.hrvDays,
+        hr_samples_day_count: diagnostics.counts.hrSamplesDays,
+        rhr_recovered_day_count: diagnostics.counts.rhrRecoveredDays,
+        rhr_window_bucket_counts: diagnostics.counts.rhrWindowBucketCounts,
+        event_days_with_hr: diagnostics.counts.eventDaysWithHr,
+        gate_reasons: diagnostics.gateReasons,
+      });
+    if (diagErr) console.error("[cause-effect-engine][diag] persist failed:", diagErr);
+
     const { error: upsertErr } = await supabase
       .from("causality_findings")
       .upsert({
