@@ -23,8 +23,8 @@ const calendarProviders: Provider[] = [
 ];
 
 const wearableProviders: Provider[] = [
-  { id: 'oura', name: 'Oura Ring', status: 'available', icon: '💍' },
-  { id: 'apple-watch', name: 'Apple Watch', status: 'available', icon: '⌚' },
+  { id: 'apple-health', name: 'Apple Health (Apple Watch, Oura via Apple Health)', status: 'available', icon: '🍎' },
+  { id: 'oura', name: 'Oura Ring (via Apple Health on iPhone)', status: 'available', icon: '💍' },
   { id: 'whoop', name: 'Whoop', status: 'coming-soon', launchDate: 'May 2024', icon: '📊' },
   { id: 'garmin', name: 'Garmin', status: 'coming-soon', launchDate: 'May 2024', icon: '🏃' },
 ];
