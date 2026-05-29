@@ -376,6 +376,7 @@ export async function refreshNativeTokens(): Promise<boolean> {
 export async function nativeLogin(options?: {
   returnTo?: string;
   screenHint?: 'signup' | 'login';
+  connection?: string;
 }): Promise<NativeLoginResult> {
   if (!isNativeiOS()) return { status: 'not_native' };
 
@@ -432,6 +433,7 @@ export async function nativeLogin(options?: {
     code_challenge_method: 'S256',
   });
   if (options?.screenHint) params.set('screen_hint', options.screenHint);
+  if (options?.connection) params.set('connection', options.connection);
 
   const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
 
