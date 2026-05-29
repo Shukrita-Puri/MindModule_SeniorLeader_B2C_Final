@@ -12,7 +12,6 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
 import { startFirstSessionTour } from "@/utils/firstSessionTour";
 import { useQueryClient } from "@tanstack/react-query";
-import { openUrl } from "@/utils/openUrl";
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import uspConstellation from '@/assets/onboarding/usp-constellation.jpg';
 import CalendarProviderPicker, { fetchCalendarProvidersState } from '@/components/calendar/CalendarProviderPicker';
