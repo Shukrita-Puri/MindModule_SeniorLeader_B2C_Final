@@ -29,6 +29,7 @@ const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
 const ExecutiveHome = lazy(() => import("./pages/ExecutiveHome"));
 const PlanPage = lazy(() => import("./pages/PlanPage"));
 const NudgeSettings = lazy(() => import("./pages/NudgeSettings"));
+const TravelSettings = lazy(() => import("./pages/TravelSettings"));
 const NudgeSimulator = lazy(() => import("./pages/NudgeSimulator"));
 const RecalibrateMode = lazy(() => import("./pages/RecalibrateMode"));
 const SoundscapePlayer = lazy(() => import("./pages/SoundscapePlayer"));
@@ -229,6 +230,10 @@ const router = createBrowserRouter([
       {
         path: "nudge-settings",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><NudgeSettings /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "travel-settings",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><TravelSettings /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "nudge-simulator",
