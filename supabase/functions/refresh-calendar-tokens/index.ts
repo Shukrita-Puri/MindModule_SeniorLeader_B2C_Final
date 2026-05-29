@@ -67,6 +67,8 @@ serve(async (req) => {
 
     const googleClientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
     const googleClientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '';
+    const msClientId = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_ID') ?? '';
+    const msClientSecret = Deno.env.get('MICROSOFT_CALENDAR_CLIENT_SECRET') ?? '';
 
     // Find active connections with tokens expiring within the refresh window
     const cutoff = new Date(Date.now() + REFRESH_WINDOW_MS).toISOString();
@@ -186,8 +188,53 @@ serve(async (req) => {
           await serviceClient.from('calendar_connections').update(updatePayload).eq('id', conn.id);
           refreshedCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'refreshed' });
+        } else if (conn.provider === 'microsoft') {
+          const refreshRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: msClientId,
+              client_secret: msClientSecret,
+              refresh_token: refreshToken,
+              grant_type: 'refresh_token',
+              scope: 'offline_access openid profile email Calendars.Read',
+            }),
+          });
+
+          const refreshData = await refreshRes.json();
+
+          if (refreshData.error) {
+            console.error('[refresh-calendar-tokens] microsoft token_refresh_failed user:', conn.user_id, 'error:', refreshData.error);
+            await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+            reconnectCount++;
+            details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: `refresh_failed:${refreshData.error}` });
+            continue;
+          }
+
+          const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
+          const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: refreshData.access_token }, encKeyB64);
+
+          const updatePayload: Record<string, unknown> = {
+            access_token_enc: newAccessEnc,
+            token_iv: newAccessIv,
+            token_expires_at: newExpiresAt,
+          };
+
+          // Microsoft typically returns a new refresh token on every refresh
+          if (refreshData.refresh_token) {
+            const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
+            updatePayload.refresh_token_enc = newRefreshEnc;
+            updatePayload.refresh_token_iv = newRefreshIv;
+            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', conn.user_id, '– rotated refresh token');
+          } else {
+            console.log('[refresh-calendar-tokens] microsoft token_refresh_success user:', conn.user_id, '– kept existing refresh token');
+          }
+
+          await serviceClient.from('calendar_connections').update(updatePayload).eq('id', conn.id);
+          refreshedCount++;
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'refreshed' });
         } else {
-          // Outlook or other providers – skip for now
+          // Apple Calendar uses on-device permission, no token refresh needed
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'skipped', reason: 'unsupported_provider' });
         }
       } catch (err) {

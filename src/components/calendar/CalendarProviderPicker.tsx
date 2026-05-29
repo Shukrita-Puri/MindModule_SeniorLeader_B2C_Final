@@ -1,0 +1,289 @@
+import { useEffect, useState, useCallback } from 'react';
+import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { getAuthToken } from '@/services/authTokenService';
+import { openUrl } from '@/utils/openUrl';
+import {
+  isAppleCalendarSupported,
+  requestAppleCalendarPermission,
+} from '@/utils/appleCalendar';
+import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
+import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
+import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
+
+export type CalendarProviderId = 'google' | 'microsoft' | 'apple';
+
+export interface ProviderStatus {
+  connected: boolean;
+  lastSync: string | null;
+  needsReconnect?: boolean;
+  accountIdentifier?: string | null;
+}
+
+export interface CalendarProvidersState {
+  google?: ProviderStatus;
+  microsoft?: ProviderStatus;
+  apple?: ProviderStatus;
+}
+
+/**
+ * Fetches the per-provider calendar connection state from the unified
+ * check-connections-status edge function. Falls back to a disconnected shape
+ * on any failure so the picker is always renderable.
+ */
+export async function fetchCalendarProvidersState(): Promise<CalendarProvidersState> {
+  try {
+    const token = await getAuthToken();
+    if (!token) return {};
+    const { data, error } = await supabase.functions.invoke('check-connections-status', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (error || !data) return {};
+    const providers = (data as any)?.calendar?.providers ?? {};
+    return {
+      google: providers.google
+        ? { connected: !!providers.google.connected, lastSync: providers.google.lastSync ?? null }
+        : { connected: false, lastSync: null },
+      microsoft: providers.microsoft
+        ? { connected: !!providers.microsoft.connected, lastSync: providers.microsoft.lastSync ?? null }
+        : { connected: false, lastSync: null },
+      apple: providers.apple
+        ? { connected: !!providers.apple.connected, lastSync: providers.apple.lastSync ?? null }
+        : { connected: false, lastSync: null },
+    };
+  } catch (err) {
+    console.warn('[CalendarProviderPicker] fetch state failed:', err);
+    return {};
+  }
+}
+
+async function startOAuthConnect(provider: 'google' | 'microsoft', redirectPath: string) {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+  const { data, error } = await supabase.functions.invoke('calendar-auth', {
+    body: { action: 'connect', provider, redirectPath },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (error) throw error;
+  if (!data?.authUrl) throw new Error('No auth URL returned');
+  await openUrl(data.authUrl);
+}
+
+async function disconnectOAuth(provider: 'google' | 'microsoft' | 'apple') {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+  const { error } = await supabase.functions.invoke('calendar-auth', {
+    body: { action: 'disconnect', provider },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (error) throw error;
+}
+
+function relativeLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+interface ProviderRowProps {
+  provider: CalendarProviderId;
+  label: string;
+  iconSrc?: string;
+  status: ProviderStatus | undefined;
+  redirectPath: string;
+  onChanged?: () => void;
+  disabled?: boolean;
+}
+
+function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged, disabled }: ProviderRowProps) {
+  const [busy, setBusy] = useState(false);
+  const isApple = provider === 'apple';
+  const appleAvailable = isApple ? isAppleCalendarSupported() : true;
+
+  const connected = !!status?.connected;
+  const needsReconnect = !!status?.needsReconnect;
+  const lastSyncLabel = relativeLabel(status?.lastSync);
+
+  const handleConnect = useCallback(async () => {
+    if (disabled || busy) return;
+    setBusy(true);
+    try {
+      if (isApple) {
+        if (!appleAvailable) {
+          toast.info('Apple Calendar is available in the iOS app');
+          return;
+        }
+        const granted = await requestAppleCalendarPermission();
+        if (!granted) {
+          toast.error('Calendar permission denied. Enable in Settings → Privacy → Calendars.');
+          return;
+        }
+        const result = await syncAppleCalendarToBackend();
+        if (result?.success !== false) {
+          toast.success('Apple Calendar connected');
+        } else {
+          toast.warning('Connected, but initial sync will retry shortly');
+        }
+      } else {
+        await startOAuthConnect(provider, redirectPath);
+      }
+      onChanged?.();
+    } catch (err) {
+      console.error('[CalendarProviderPicker] connect failed:', err);
+      toast.error(`Failed to connect ${label}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [appleAvailable, busy, disabled, isApple, label, onChanged, provider, redirectPath]);
+
+  const handleDisconnect = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await disconnectOAuth(provider);
+      toast.success(`${label} disconnected`);
+      onChanged?.();
+    } catch (err) {
+      console.error('[CalendarProviderPicker] disconnect failed:', err);
+      toast.error(`Failed to disconnect ${label}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, label, onChanged, provider]);
+
+  const pill = needsReconnect ? (
+    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px]">
+      <AlertCircle className="w-3 h-3 mr-1" /> Reconnect
+    </Badge>
+  ) : connected ? (
+    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30 text-[10px]">
+      <Check className="w-3 h-3 mr-1" /> Connected
+    </Badge>
+  ) : null;
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+      <div className="flex items-center gap-3 min-w-0">
+        {iconSrc ? (
+          <img src={iconSrc} alt={label} className="w-8 h-8 rounded-lg object-contain" />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-xs font-semibold">
+            {label.charAt(0)}
+          </div>
+        )}
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium truncate">{label}</span>
+            {pill}
+          </div>
+          <span className="text-xs text-muted-foreground truncate">
+            {isApple && !appleAvailable
+              ? 'Available in the iOS app'
+              : connected
+                ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
+                : needsReconnect
+                  ? 'Permission revoked'
+                  : 'Not connected'}
+          </span>
+        </div>
+      </div>
+      <div>
+        {connected || needsReconnect ? (
+          <Button
+            size="sm"
+            variant={needsReconnect ? 'default' : 'ghost'}
+            onClick={needsReconnect ? handleConnect : handleDisconnect}
+            disabled={busy || disabled}
+          >
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : needsReconnect ? 'Reconnect' : 'Disconnect'}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleConnect}
+            disabled={busy || disabled || (isApple && !appleAvailable)}
+          >
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface CalendarProviderPickerProps {
+  redirectPath: string;
+  /** Hide the Apple row entirely (e.g. desktop-only contexts). */
+  hideApple?: boolean;
+  /** Optional callback fired whenever a provider state change is initiated. */
+  onChanged?: () => void;
+}
+
+/**
+ * Unified picker that lets the user connect/disconnect Apple Calendar (native
+ * iOS), Google Calendar, and Microsoft Outlook through a single consistent UI.
+ * Reads state from the multi-provider check-connections-status endpoint.
+ */
+export default function CalendarProviderPicker({ redirectPath, hideApple, onChanged }: CalendarProviderPickerProps) {
+  const [state, setState] = useState<CalendarProvidersState>({});
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const next = await fetchCalendarProvidersState();
+    setState(next);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const handleChanged = useCallback(() => {
+    onChanged?.();
+    // Small delay before refreshing to allow backend writes to settle.
+    setTimeout(() => { refresh(); }, 400);
+  }, [onChanged, refresh]);
+
+  return (
+    <div className="space-y-3">
+      <ProviderRow
+        provider="google"
+        label="Google Calendar"
+        iconSrc={googleCalendarLogo}
+        status={state.google}
+        redirectPath={redirectPath}
+        onChanged={handleChanged}
+        disabled={loading}
+      />
+      <ProviderRow
+        provider="microsoft"
+        label="Microsoft Outlook"
+        iconSrc={microsoftCalendarLogo}
+        status={state.microsoft}
+        redirectPath={redirectPath}
+        onChanged={handleChanged}
+        disabled={loading}
+      />
+      {!hideApple && (
+        <ProviderRow
+          provider="apple"
+          label="Apple Calendar"
+          status={state.apple}
+          redirectPath={redirectPath}
+          onChanged={handleChanged}
+          disabled={loading}
+        />
+      )}
+    </div>
+  );
+}
