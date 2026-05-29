@@ -69,7 +69,7 @@ function copyForPhase(phase: Phase, tz: string | null): { title: string; body: s
   const ph = EVENT_PHASE_MAP.G[phaseKey];
   // Canonical fallback: empty contract shouldn't happen for G but stay safe.
   if (!ph) {
-    return { title: TRAVEL_TITLE[phase](tz), body: EVENT_CATEGORIES.G.label };
+    return { title: TRAVEL_TITLE[phase](tz), body: EVENT_CATEGORIES.G.name };
   }
   const combo = PROTOCOL_COMBOS[ph.combo];
   // Body: derived from the canonical phase goal + protocol combo outcome so
