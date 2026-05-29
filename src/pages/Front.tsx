@@ -233,9 +233,9 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
                 "radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0) 75%)",
             }}
           />
-          <img src={mmLogoCircle} alt="Mind Module logo" className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+          <img src={mmLogoCircle} alt="Mind Module logo" className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shadow-lg" />
           <h1
-            className="relative text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none"
+            className="relative text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-saffron tracking-wider leading-none"
             style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
           >
             MIND MODULE
@@ -300,7 +300,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
               aria-label="Accept Privacy Policy and Terms of Service"
               onClick={() => persistAccepted(!accepted)}
               className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                accepted ? 'bg-white/90' : 'bg-white/25'
+                accepted ? 'bg-saffron' : 'bg-white/25'
               }`}
             >
               <span
