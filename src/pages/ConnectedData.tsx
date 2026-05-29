@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
+import { startOuraOAuth, triggerOuraSync } from '@/services/ouraSyncService';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
 import { clearLocalCalendarData, clearLocalWearableData } from '@/services/localDataStore';
@@ -65,6 +66,17 @@ interface ConnectionStatus {
     hasHistoricalData?: boolean;
     needsReconnect?: boolean;
     disconnectedAt?: string | null;
+    lastError?: string | null;
+    lastErrorAt?: string | null;
+    statusUpdatedAt?: string | null;
+  };
+  oura?: {
+    connected: boolean;
+    connectionStatus?: 'disconnected' | 'connecting' | 'connected' | 'permission_revoked' | 'error';
+    syncStatus?: 'unknown' | 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error';
+    lastSync: string | null;
+    lastSampleAt?: string | null;
+    needsReconnect?: boolean;
     lastError?: string | null;
     lastErrorAt?: string | null;
     statusUpdatedAt?: string | null;
