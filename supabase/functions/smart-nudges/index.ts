@@ -220,6 +220,23 @@ import {
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { TRAVEL_TITLE_RX } from '../_shared/ceo-behaviour/travel.ts';
+import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
+import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
+
+// ── Canonical Travel-phase copy adapter ──
+// Mirrors the `copyForPhase` pattern used by `travel-notifications`. Smart-
+// nudges layers a CTA-ready body on top of the canonical §4 Travel (G) phase
+// contract so Brief / Plan / Notifications / Nudges all narrate Pre / During /
+// Post travel from one source of truth. Variant IDs and titles are kept
+// intact because they carry telemetry meaning; only the body framing is
+// derived from EVENT_PHASE_MAP.G + PROTOCOL_COMBOS.
+type TravelPhaseKey = 'pre' | 'during' | 'post';
+function travelPhaseFraming(phase: TravelPhaseKey): { goal: string; outcome: string } {
+  const ph = EVENT_PHASE_MAP.G[phase];
+  const goal = ph?.goal ?? '';
+  const combo = ph ? PROTOCOL_COMBOS[ph.combo] : null;
+  return { goal, outcome: combo?.outcome ?? '' };
+}
 
 function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
@@ -1867,26 +1884,29 @@ function getFallbackNudgeTwoConsecutiveLowCopy(daysLow: number): NudgeCopy {
 // mind-prep CTA contract.
 function getFallbackNudgeOnePreFlightCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
+  const { goal } = travelPhaseFraming('pre');
   return {
     title: 'Travel ahead',
-    body: `${ev} in ~${minutesUntil} min. Two minutes of paced breathing now keeps the body out of debt before takeoff — log in to prep your state.`,
+    body: `${ev} in ~${minutesUntil} min. ${goal} — log in to prep your state.`,
     variantId: 'nudge_one_pre_flight',
   };
 }
 
 function getFallbackNudgeTwoInFlightCopy(eventTitle: string): NudgeCopy {
   const ev = truncateEventTitle(eventTitle);
+  const { goal, outcome } = travelPhaseFraming('during');
   return {
     title: 'Mid-air reset',
-    body: `You're in the air on ${ev}. A short breath protocol now blunts the jet-lag tax — open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
+    body: `You're in the air on ${ev}. ${goal}. ${outcome} — open in the app, or run it yourself: 4-in / 6-out for 2 minutes.`,
     variantId: 'nudge_two_in_flight',
   };
 }
 
 function getFallbackNudgeOnePostArrivalCopy(): NudgeCopy {
+  const { goal } = travelPhaseFraming('post');
   return {
     title: 'Recovery context',
-    body: `Yesterday included travel — body may still be carrying load. Settle in first — check in to recalibrate.`,
+    body: `Yesterday included travel — body may still be carrying load. ${goal} — check in to recalibrate.`,
     variantId: 'nudge_one_post_arrival',
   };
 }
