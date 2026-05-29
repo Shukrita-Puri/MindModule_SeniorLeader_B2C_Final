@@ -1200,22 +1200,42 @@ const ConnectedData = () => {
     {
       id: 'oura',
       name: 'Oura Ring',
-      description: 'Share HRV, resting HR, sleep and recovery so your readiness reflects your real physiology — on every wearable surface, not just one.',
+      description: isNativeApp()
+        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
+            ? 'Oura data is flowing in through Apple Health. No separate connection needed.'
+            : 'On iPhone, Mind Module reads Oura data from Apple Health. Open the Oura app → Settings → Apple Health, and enable sharing for Heart Rate, HRV, Resting HR and Sleep. Then make sure Apple Health is connected above.')
+        : 'Share HRV, resting HR, sleep and recovery so your readiness reflects your real physiology — on every wearable surface, not just one.',
       logo: (
         <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
           OURA
         </div>
       ),
-      connected: ouraState.isHealthyConnected,
-      linked: ouraState.isLinked,
-      lastSync: formatLastSync(status?.oura?.lastSync ?? null),
-      statusLabel: ouraState.statusLabel,
-      statusNote: ouraState.statusNote,
-      showReconnect: ouraState.showReconnect,
-      onConnect: handleConnectOura,
+      // On iOS, treat Oura as a derived source of Apple Health (no separate OAuth).
+      // On web/Android, retain the existing direct Oura OAuth path.
+      connected: isNativeApp()
+        ? !!status?.appleWatch?.ouraDetectedViaAppleHealth
+        : ouraState.isHealthyConnected,
+      linked: isNativeApp()
+        ? !!status?.appleWatch?.ouraDetectedViaAppleHealth
+        : ouraState.isLinked,
+      lastSync: isNativeApp()
+        ? formatLastSync(status?.appleWatch?.lastSampleAt ?? status?.appleWatch?.lastSync ?? null)
+        : formatLastSync(status?.oura?.lastSync ?? null),
+      statusLabel: isNativeApp()
+        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
+            ? 'Detected via Apple Health'
+            : (appleHealthState.isHealthyConnected ? 'No Oura samples yet' : 'Connect Apple Health first'))
+        : ouraState.statusLabel,
+      statusNote: isNativeApp()
+        ? (status?.appleWatch?.ouraDetectedViaAppleHealth
+            ? 'Mind Module is reading Oura data written to Apple Health.'
+            : 'Open Oura → Settings → Apple Health → enable all categories.')
+        : ouraState.statusNote,
+      showReconnect: isNativeApp() ? false : ouraState.showReconnect,
+      onConnect: isNativeApp() ? undefined : handleConnectOura,
       onDisconnect: undefined,
-      onSync: handleSyncOura,
-      canSync: true,
+      onSync: isNativeApp() ? handleSyncAppleHealth : handleSyncOura,
+      canSync: isNativeApp() ? isNativeApp() : true,
     },
   ];
 
