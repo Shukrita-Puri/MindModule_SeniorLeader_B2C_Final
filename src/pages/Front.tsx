@@ -222,8 +222,8 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
       {/* Content layer */}
       <div className="relative z-10 flex flex-col items-center justify-between text-center h-full w-full px-5 max-w-4xl mx-auto pt-[max(env(safe-area-inset-top),2rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         
-        {/* Brand cluster — anchored to upper sky region */}
-        <div className="relative flex flex-col items-center space-y-3 sm:space-y-4 mt-2 sm:mt-6">
+        {/* Brand cluster — anchored high, just below the safe-area inset */}
+        <div className="relative flex flex-col items-center space-y-2 sm:space-y-3 mt-0 sm:mt-1">
           {/* Invisible-edged atmospheric scrim — reads as cloud shading, not a container */}
           <div
             aria-hidden="true"
@@ -233,9 +233,9 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
                 "radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0) 75%)",
             }}
           />
-          <img src={mmLogoCircle} alt="Mind Module logo" className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shadow-lg" />
+          <img src={mmLogoCircle} alt="Mind Module logo" className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg" />
           <h1
-            className="relative text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none"
+            className="relative text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-white tracking-wider leading-none"
             style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
           >
             MIND MODULE
