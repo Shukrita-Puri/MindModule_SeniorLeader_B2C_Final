@@ -1,13 +1,19 @@
-import { useState, useEffect } from "react";
-import { Loader2, Shield } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Loader2, Mail, AlertCircle } from "lucide-react";
 import mmLogoCircle from "@/assets/brand/mm-logo-circle.png";
 import heroIllustration from "@/assets/onboarding/usp-sky-light.jpeg";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
+import {
+  getRedirectUri,
+  nativeLogin,
+  nativeLoginHandled,
+  getSanitisedAuth0Audience,
+  resetStaleNativeAuth,
+  NATIVE_AUTH_CANCELLED_EVENT,
+} from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard, isLogoutGuardActive } from "@/utils/logoutGuard";
 import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
@@ -15,10 +21,40 @@ import { getResumeRoute } from "@/utils/onboardingStatus";
 import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
 const CANONICAL_HOME = '/daily-check-in';
+const LEGAL_KEY = 'mm_legal_accepted_v1';
+
+const GOOGLE_CONNECTION = 'google-oauth2';
+const MICROSOFT_CONNECTION =
+  (import.meta.env.VITE_AUTH0_MICROSOFT_CONNECTION as string | undefined) || 'windowslive';
+const EMAIL_CONNECTION = import.meta.env.VITE_AUTH0_EMAIL_CONNECTION as string | undefined;
+
+type Provider = 'google' | 'microsoft' | 'email';
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8a12 12 0 110-24c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 1024 44c11 0 20-8 20-20 0-1.2-.1-2.3-.4-3.5z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 006.3 14.7z"/>
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5A20 20 0 0024 44z"/>
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3a12 12 0 01-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.2-.1-2.3-.4-3.5z"/>
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+      <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
+      <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
+      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
+    </svg>
+  );
+}
 
 const Front = () => {
   if (DEV_MODE) {
-    return <FrontContent onSignIn={() => {}} onLetsGo={async () => {}} isAuthenticated={false} user={null} />;
+    return <FrontContent onProvider={async () => {}} isAuthenticated={false} user={null} />;
   }
   return <Auth0Front />;
 };
@@ -59,85 +95,47 @@ const Auth0Front = () => {
     }
   }, [loading, isAuthenticated, user, navigate, logoutGuardActive]);
 
-  const handleSignIn = async () => {
+  const handleProvider = async (connection: string | undefined) => {
     clearLogoutGuard();
 
+    // Already-authenticated paths — route them correctly without starting auth.
     if (isAuthenticated && user?.onboarding_completed_at && hasValidAccess(user)) {
       navigate(CANONICAL_HOME);
       return;
     }
-
     if (isAuthenticated && user && !user.onboarding_completed_at) {
       try {
         const resumeRoute = await getResumeRoute();
-        console.log('[Front] Resuming onboarding from sign in at:', resumeRoute);
         navigate(resumeRoute);
       } catch {
         navigate('/onboarding');
       }
       return;
     }
-
     if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
       navigate(PAYMENT_PAGE_SUPPRESSED ? CANONICAL_HOME : '/onboarding/payment');
       return;
     }
 
-    const result = await nativeLogin({ returnTo: CANONICAL_HOME });
+    // Fresh signup/login — clear any onboarding stub so new users start clean.
+    clearSession();
+    resetStaleNativeAuth();
+
+    const result = await nativeLogin({ returnTo: CANONICAL_HOME, connection });
     if (result.status === 'opened') return;
+    if (nativeLoginHandled(result)) return;
 
-    if (result.status !== 'not_native' && result.status !== 'failed') {
-      navigate(`/login?returnTo=${encodeURIComponent(CANONICAL_HOME)}`);
-      return;
-    }
-
-    loginWithRedirect({
+    await loginWithRedirect({
       appState: { returnTo: CANONICAL_HOME },
       authorizationParams: {
         redirect_uri: getRedirectUri(),
         audience: getSanitisedAuth0Audience(),
         scope: 'openid profile email offline_access',
-      }
+        ...(connection ? { connection } : {}),
+      },
     });
-  };
-
-  const handleLetsGo = async () => {
-    // Case 1: Logged-in + onboarding complete + valid subscription → go to app
-    if (isAuthenticated && user?.onboarding_completed_at && hasValidAccess(user)) {
-      navigate(CANONICAL_HOME);
-      return;
-    }
-
-    // Case 2: Logged-in + onboarding incomplete → resume at correct step
-    if (isAuthenticated && user && !user.onboarding_completed_at) {
-      try {
-        const resumeRoute = await getResumeRoute();
-        console.log('[Front] Resuming onboarding at:', resumeRoute);
-        navigate(resumeRoute);
-      } catch {
-        navigate('/onboarding');
-      }
-      return;
-    }
-
-    // Case 3: Logged-in + onboarding complete + no valid subscription
-    if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
-      if (PAYMENT_PAGE_SUPPRESSED) {
-        navigate(CANONICAL_HOME);
-        return;
-      }
-
-      if (isWithin60DaysOfCancellation(user as any)) {
-        navigate('/onboarding/payment');
-      } else {
-        navigate('/onboarding/payment');
-      }
-      return;
-    }
-
-    // Case 4: Not logged in → start fresh onboarding
-    clearSession();
-    navigate('/onboarding');
+    // Silence unused-var lint for isWithin60DaysOfCancellation in this slim path.
+    void isWithin60DaysOfCancellation;
   };
 
   if (!logoutGuardActive && (loading || isAuthenticated)) {
@@ -146,8 +144,7 @@ const Auth0Front = () => {
 
   return (
     <FrontContent
-      onSignIn={handleSignIn}
-      onLetsGo={handleLetsGo}
+      onProvider={handleProvider}
       isAuthenticated={logoutGuardActive ? false : isAuthenticated}
       user={logoutGuardActive ? null : user}
     />
@@ -160,34 +157,54 @@ const FrontLoading = () => (
   </div>
 );
 
-const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
-  onSignIn: () => void;
-  onLetsGo: () => Promise<void>;
+const FrontContent = ({ onProvider, isAuthenticated, user }: {
+  onProvider: (connection: string | undefined) => Promise<void>;
   isAuthenticated: boolean;
   user: any;
 }) => {
   const navigate = useNavigate();
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [busy, setBusy] = useState<Provider | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState<boolean>(() => {
+    try { return localStorage.getItem(LEGAL_KEY) === '1'; } catch { return false; }
+  });
 
-  const handleGetStarted = async () => {
-    setIsTransitioning(true);
+  useEffect(() => {
+    const onCancel = () => setBusy(null);
+    window.addEventListener(NATIVE_AUTH_CANCELLED_EVENT, onCancel);
+    return () => window.removeEventListener(NATIVE_AUTH_CANCELLED_EVENT, onCancel);
+  }, []);
+
+  const persistAccepted = useCallback((value: boolean) => {
+    setAccepted(value);
     try {
-      await onLetsGo();
-    } finally {
-      // Reset in case navigation didn't happen (e.g. error)
-      setTimeout(() => setIsTransitioning(false), 500);
+      if (value) localStorage.setItem(LEGAL_KEY, '1');
+      else localStorage.removeItem(LEGAL_KEY);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleProvider = async (provider: Provider) => {
+    if (!accepted || busy) return;
+    if (DEV_MODE) { navigate(CANONICAL_HOME); return; }
+    setError(null);
+    setBusy(provider);
+    const connection =
+      provider === 'google' ? GOOGLE_CONNECTION :
+      provider === 'microsoft' ? MICROSOFT_CONNECTION :
+      EMAIL_CONNECTION;
+    try {
+      await onProvider(connection);
+    } catch (e) {
+      console.error('[Front] Auth failed:', e);
+      setBusy(null);
+      setError("We couldn't open sign in. Please try again.");
     }
   };
 
-  const handleSignIn = async () => {
-    if (DEV_MODE) {
-      navigate(CANONICAL_HOME);
-      return;
-    }
-    await onSignIn();
-  };
+  void isAuthenticated; void user;
+  const disabled = !accepted || busy !== null;
 
-  return <div className={`relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className="relative h-screen h-[100dvh] flex flex-col items-center overflow-hidden">
       
       {/* Full-bleed background illustration */}
       <img 
@@ -238,48 +255,101 @@ const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
           </h2>
         </div>
 
-        {/* Bottom zone: CTAs + trust badge */}
-        <div className="flex flex-col items-center w-full">
-          {/* CTA Buttons */}
-          <div className="flex flex-row items-center justify-center gap-3 w-full px-2">
-            <Button
-              onClick={handleSignIn}
-              size="lg"
-              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-semibold tracking-wide bg-white/95 text-foreground border border-white/70 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:bg-white hover:-translate-y-0.5 rounded-2xl transition-all duration-300"
-            >
-              Log In
-            </Button>
+        {/* Bottom zone: provider buttons + legal + reassurance */}
+        <div className="flex flex-col items-stretch w-full space-y-3">
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-foreground/90 bg-white/90 backdrop-blur rounded-xl px-4 py-2.5 border border-black/[0.06]">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span className="text-left">{error}</span>
+            </div>
+          )}
 
-            <Button
-              onClick={handleGetStarted}
-              variant="critical"
-              size="lg"
-              className="flex-1 max-w-[46%] h-12 px-3 text-sm font-semibold tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 rounded-2xl"
+          <ProviderPill
+            label="Continue with Google"
+            icon={<GoogleIcon />}
+            busy={busy === 'google'}
+            disabled={disabled}
+            onClick={() => handleProvider('google')}
+          />
+          <ProviderPill
+            label="Continue with Microsoft"
+            icon={<MicrosoftIcon />}
+            busy={busy === 'microsoft'}
+            disabled={disabled}
+            onClick={() => handleProvider('microsoft')}
+          />
+          <ProviderPill
+            label="Continue with Email"
+            icon={<Mail className="w-5 h-5 text-foreground/70" />}
+            busy={busy === 'email'}
+            disabled={disabled}
+            onClick={() => handleProvider('email')}
+          />
+
+          <div className="pt-3 flex items-center justify-between gap-4">
+            <label htmlFor="legal-accept" className="text-[13px] text-white/85 leading-snug select-none text-left drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+              I accept the{' '}
+              <Link to="/privacy" className="underline underline-offset-2">Privacy Policy</Link>{' '}&amp;{' '}
+              <Link to="/terms" className="underline underline-offset-2">Terms of Service</Link>
+            </label>
+            <button
+              id="legal-accept"
+              type="button"
+              role="switch"
+              aria-checked={accepted}
+              aria-label="Accept Privacy Policy and Terms of Service"
+              onClick={() => persistAccepted(!accepted)}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                accepted ? 'bg-white/90' : 'bg-white/25'
+              }`}
             >
-              Sign up
-            </Button>
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+                  accepted ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                }`}
+              />
+            </button>
           </div>
 
-          {/* Privacy Trust Badge */}
-          <div className="flex flex-col items-center gap-1 pt-5 mt-5 border-t border-white/10 w-full">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-white/60">
-              <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
-              <span className="font-body tracking-wide">Privacy by Design</span>
-            </div>
-            <span className="text-xs text-white/40 font-body tracking-wide">
-              Local &amp; End-to-End Encrypted
-            </span>
+          <p className="pt-1 text-[11.5px] leading-relaxed text-white/65 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+            Privacy by design. Local-first where possible. End-to-end encrypted.{' '}
             <button
+              type="button"
               onClick={() => navigate('/powered-by-ai')}
-              className="text-xs text-white/40 hover:text-white/60 font-body tracking-wide transition-colors mt-1"
+              className="underline underline-offset-2 hover:text-white/85 transition-colors"
             >
               Powered by AI →
             </button>
-          </div>
+          </p>
         </div>
       </div>
       
     </div>;
 };
+
+function ProviderPill({
+  label, icon, busy, disabled, onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="relative w-full h-[54px] rounded-full bg-white/95 backdrop-blur-sm border border-white/70 shadow-[0_2px_8px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.18)] flex items-center justify-center px-5 text-[15.5px] font-medium text-foreground/90 transition active:scale-[0.985] disabled:opacity-60 disabled:active:scale-100"
+    >
+      <span className="absolute left-5 flex items-center justify-center">
+        {busy ? <Loader2 className="w-5 h-5 animate-spin text-foreground/60" /> : icon}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
 
 export default Front;
