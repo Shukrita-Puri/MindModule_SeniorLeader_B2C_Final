@@ -249,9 +249,16 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
         </div>
 
         {/* Tagline — owns the middle zone */}
-        <div className="flex flex-col items-center justify-center flex-1 px-2">
-          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
-            Designed for Leaders to Stay Mentally Ahead
+        <div className="flex flex-col items-center justify-center flex-1 px-4">
+          <h2
+            className="text-center font-editorial font-normal text-white text-[2.25rem] sm:text-5xl lg:text-6xl leading-[1.1] tracking-tight"
+            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.45)" }}
+          >
+            Designed for Leaders
+            <br />
+            to Stay Mentally
+            <br />
+            Ahead.
           </h2>
         </div>
 
