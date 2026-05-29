@@ -33,6 +33,10 @@ import {
   type Pillar,
 } from "../_shared/executive-state-taxonomy.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
+import {
+  buildWearableDiagnostics,
+  type WearableDiagnostics,
+} from "./_diagnostics.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -71,8 +75,15 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * recovery-days based on Heart Rate (RHR). HRV is intentionally excluded
  * here because it's a daily morning signal and too coarse for event-level
  * recovery tracking; Heart Rate is the canonical event-window signal.
+ *
+ * v6 adds `diagnostics` — explicit gate-failure reasons + raw counts
+ * (sleep_score_day_count, rhr_day_count, hr_samples_day_count,
+ * recovered-day count, per-window bucket counts) so a missing block
+ * always reports WHY. Persisted to `wearable_signal_diagnostics`. No
+ * existing gate is loosened. See _diagnostics.ts and
+ * mem://reliability/wearable-signal-diagnostics.
  */
-const ENGINE_VERSION = 5;
+const ENGINE_VERSION = 6;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -143,6 +154,12 @@ interface Payload {
   // currently render these tabs.
   sleepDisruptionMatrix?: StressMatrix | null;
   recoveryCostTimeline?: RecoveryTimeline | null;
+  /**
+   * v6 — gate-failure diagnostics for the Apple Health-derived blocks.
+   * Always present so the UI can render a data-honest reason line when
+   * a block is null. See `_diagnostics.ts` for the sentinel taxonomy.
+   */
+  diagnostics?: WearableDiagnostics;
 }
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
