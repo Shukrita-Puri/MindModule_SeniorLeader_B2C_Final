@@ -138,6 +138,11 @@ export function useWearableSync(): WearableSyncState {
     setError(null);
 
     try {
+      // Telemetry: manual button distinguishes from scheduled auto-syncs.
+      try {
+        const { emitIntegrationEvent } = await import('@/utils/integrationTelemetry');
+        emitIntegrationEvent({ provider: 'apple-health', event: 'manual_sync_triggered' });
+      } catch { /* telemetry must never throw */ }
       // Always re-request permission on manual trigger to handle first-time + re-grant
       const granted = await requestHealthKitPermissions();
       if (!granted) {

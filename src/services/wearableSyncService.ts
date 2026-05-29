@@ -249,7 +249,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
         console.warn('[WearableSync] HealthKit temporarily unavailable – keeping connection state soft');
         emitIntegrationEvent({
           provider: 'apple-health',
-          event: 'sync_failed',
+          event: 'sync_temporary_unavailable',
           errorCode: 'healthkit_unavailable',
           errorMessage: accessStatus.errorMessage ?? undefined,
         });

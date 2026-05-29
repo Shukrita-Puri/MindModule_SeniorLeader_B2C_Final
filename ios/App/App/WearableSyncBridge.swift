@@ -123,11 +123,18 @@ import Security
 
         for type in observedTypes {
             registerObserver(for: type)
-            healthStore.enableBackgroundDelivery(for: type, frequency: .hourly) { success, error in
+            // Prefer .immediate where iOS allows (HRV/HR/Sleep emit through the day);
+            // iOS still coalesces these to roughly 30-min windows, giving us the
+            // half-hourly preferred cadence without manual scheduling. RHR is only
+            // emitted ~1x/day by Apple — keep it on .hourly to avoid useless wakes.
+            let frequency: HKUpdateFrequency = (type.identifier == HKQuantityTypeIdentifier.restingHeartRate.rawValue)
+                ? .hourly
+                : .immediate
+            healthStore.enableBackgroundDelivery(for: type, frequency: frequency) { success, error in
                 if let error = error {
                     NSLog("[WearableSyncBridge] enableBackgroundDelivery error for \(type.identifier): \(error.localizedDescription)")
                 } else {
-                    NSLog("[WearableSyncBridge] Background delivery enabled for \(type.identifier): \(success)")
+                    NSLog("[WearableSyncBridge] Background delivery enabled for \(type.identifier) at \(frequency): \(success)")
                 }
             }
         }
