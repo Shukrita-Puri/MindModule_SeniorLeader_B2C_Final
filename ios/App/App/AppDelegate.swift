@@ -31,6 +31,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // granted (handled by JS layer); if not, observers fire harmlessly.
         WearableSyncBridge.shared.registerBackgroundObservers()
 
+        // Activate travel-aware location monitoring if the user already
+        // granted location authorization. The JS layer handles the in-app
+        // permission prompt the first time; we never re-prompt natively.
+        LocationBridge.shared.startIfAuthorized()
+
         // Register BGAppRefreshTask handler. iOS chooses the actual cadence
         // based on usage, battery, and network conditions. We also keep the
         // legacy performFetchWithCompletionHandler path below as a belt-and-
