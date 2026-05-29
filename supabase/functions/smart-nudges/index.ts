@@ -917,14 +917,13 @@ async function buildNudgeContext(
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
       // v5.3 — Travel arc sub-flags. Travel today = a calendar event whose
-      // title matches a TRAVEL_KEYWORDS (flight/airport/boarding/...).
+      // title matches TRAVEL_TITLE_REGEX (flight/airport/boarding/...).
       let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
       let inFlight: { eventTitle: string; minutesUntil: number } | null = null;
       if (today.kind === 'travel-day') {
         const nowMs = now.getTime();
         const travelEvents = todayEvents.filter(e => {
-          const t = (e.title || '').toLowerCase();
-          return TRAVEL_KEYWORDS.some(kw => t.includes(kw));
+          return TRAVEL_TITLE_REGEX.test(e.title || '');
         });
         // pre-flight: first travel event starting in 60–240 min
         for (const e of travelEvents) {
