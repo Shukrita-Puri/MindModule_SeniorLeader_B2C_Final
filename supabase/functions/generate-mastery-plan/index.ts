@@ -3540,7 +3540,7 @@ const MVP_JIT_HORIZON_MINUTES = 24 * 60;
 
 const PTO_RX = /(ooo|out of office|vacation|annual leave|\bpto\b|on leave|holiday day)/i;
 const PUBLIC_HOLIDAY_RX = /(public holiday|bank holiday|national holiday)/i;
-const TRAVEL_RX = /(flight|airport|red-eye|red eye|long haul|long-haul)/i;
+const TRAVEL_RX = TRAVEL_TITLE_RX;
 const BOARD_RX = /(board|investor|vc\b|earnings|town hall|all-hands|all hands|keynote)/i;
 const DRAIN_RX = /(1:1|1-on-1|performance review|layoff|restructure|escalation|difficult conversation|hr\b)/i;
 
