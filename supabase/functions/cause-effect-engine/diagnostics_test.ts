@@ -88,11 +88,17 @@ Deno.test("all gates pass ⇒ every reason: ok", () => {
   }));
   const hrSamplesByDay = new Map<string, unknown[]>();
   hrSamplesByDay.set(dateBack(0), [{ t: REF.toISOString(), v: 120 }]);
+  // 3 morning briefs on recovered days so the bucket gate passes.
+  const briefs = [
+    { local_date: dateBack(0), time_window: "morning", score: 70 },
+    { local_date: dateBack(1), time_window: "morning", score: 72 },
+    { local_date: dateBack(2), time_window: "morning", score: 71 },
+  ];
   const diag = buildWearableDiagnostics(
     {
       wearable,
       events: [{ start_time: REF.toISOString() }],
-      briefs: [],
+      briefs,
       hrSamplesByDay,
       restingBaseline: 60,
       prsBaseline: 50,
