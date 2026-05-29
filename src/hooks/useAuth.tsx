@@ -682,8 +682,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  const effectiveAuthenticated = isAuthenticated || nativeAuthed;
-
   // Loading = true until:
   // 1. Auth0 SDK has finished loading AND
   // 2. Auth resolution is complete (native hydration attempted) AND
