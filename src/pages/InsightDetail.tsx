@@ -67,7 +67,13 @@ const InsightDetail = () => {
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-        <span className="w-10" aria-hidden />
+        <div data-share-hide>
+          <ShareCardButton
+            targetRef={captureRef}
+            title={card.title}
+            fileName={`mind-module-${cardId}.png`}
+          />
+        </div>
       </header>
 
       <div
@@ -89,16 +95,6 @@ const InsightDetail = () => {
           >
             {card.render(user?.id)}
           </Suspense>
-          <div
-            data-share-hide
-            className="absolute top-2 right-12 z-20"
-          >
-            <ShareCardButton
-              targetRef={captureRef}
-              title={card.title}
-              fileName={`mind-module-${cardId}.png`}
-            />
-          </div>
         </div>
       </div>
     </div>
