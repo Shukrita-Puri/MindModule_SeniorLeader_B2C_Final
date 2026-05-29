@@ -227,9 +227,11 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
 const PerformanceLiftBlocks = ({
   lift,
   hasCalendar,
+  diagnostics,
 }: {
   lift: PerformanceLift;
   hasCalendar: boolean;
+  diagnostics?: PerformanceDiagnostics | null;
 }) => {
   const sleep = lift.sleep_to_peak;
   const rec = lift.rhr_recovery_window;
@@ -244,7 +246,23 @@ const PerformanceLiftBlocks = ({
   );
 
   const anyToShow = !!sleep || !!rec || !!streak || thriving.length > 0 || draining.length > 0;
-  if (!anyToShow) return null;
+  const reasons = diagnostics?.gateReasons;
+  const reasonLines: string[] = [];
+  if (reasons) {
+    if (!sleep && reasons.sleep_to_peak !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.sleep_to_peak];
+      if (copy) reasonLines.push(`Sleep → Next-Day Peak — ${copy}`);
+    }
+    if (!rec && reasons.rhr_recovery_window !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.rhr_recovery_window];
+      if (copy) reasonLines.push(`Recovery → Best Window — ${copy}`);
+    }
+    if (thriving.length === 0 && draining.length === 0 && reasons.hr_event_lift !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.hr_event_lift];
+      if (copy) reasonLines.push(`Event Categories — ${copy}`);
+    }
+  }
+  if (!anyToShow && reasonLines.length === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -352,6 +370,15 @@ const PerformanceLiftBlocks = ({
               />
             ))}
           </div>
+        </div>
+      )}
+      {reasonLines.length > 0 && (
+        <div className="p-3 rounded-xl bg-muted/15 border border-border/30 space-y-1">
+          {reasonLines.map((line, i) => (
+            <p key={i} className="text-[11px] text-muted-foreground/80 leading-relaxed">
+              {line}
+            </p>
+          ))}
         </div>
       )}
     </div>
