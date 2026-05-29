@@ -250,7 +250,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
 
         {/* Tagline — owns the middle zone */}
         <div className="flex flex-col items-center justify-center flex-1 px-2">
-          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-saffron font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
+          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
             Designed for Leaders to Stay Mentally Ahead
           </h2>
         </div>
