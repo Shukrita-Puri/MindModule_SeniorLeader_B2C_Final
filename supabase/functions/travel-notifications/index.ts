@@ -24,6 +24,9 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { EVENT_PHASE_MAP } from "../_shared/events/event-phase-map.ts";
+import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
+import { PROTOCOL_COMBOS } from "../_shared/protocols/protocol-combos.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,25 +45,38 @@ function phaseForTransition(prev: string, next: string): Phase | null {
   return null;
 }
 
+// Travel notification copy is derived from the canonical Travel category (G)
+// in EVENT_PHASE_MAP plus PROTOCOL_COMBOS. We never re-author travel framing
+// inline — the §4 phase contract is the single source of truth so Brief,
+// Plan, and Notifications speak the same language about Pre / During / Post.
+const TRAVEL_PHASE_KEY: Record<Phase, "pre" | "during" | "post"> = {
+  pre_travel: "pre",
+  during_travel: "during",
+  post_travel: "post",
+};
+
+const TRAVEL_TITLE: Record<Phase, (tz: string | null) => string> = {
+  pre_travel: () => "Travel ahead",
+  during_travel: (tz) => {
+    const label = tz ? tz.split("/").pop()?.replace(/_/g, " ") ?? tz : null;
+    return label ? `Travelling (${label})` : "Travelling";
+  },
+  post_travel: () => "Welcome back",
+};
+
 function copyForPhase(phase: Phase, tz: string | null): { title: string; body: string } {
-  const tzLabel = tz ? ` (${tz.split("/").pop()?.replace(/_/g, " ") ?? tz})` : "";
-  switch (phase) {
-    case "pre_travel":
-      return {
-        title: "Travel ahead",
-        body: "Your routine will adapt as you move. We'll quietly retune your nudges to your destination time.",
-      };
-    case "during_travel":
-      return {
-        title: `Travelling${tzLabel}`,
-        body: "Readiness brief is now anchored to your current local time. Lean light today.",
-      };
-    case "post_travel":
-      return {
-        title: "Welcome back",
-        body: "Re-orient: light morning anchor, hydrate, and a short reset session before deep work.",
-      };
+  const phaseKey = TRAVEL_PHASE_KEY[phase];
+  const ph = EVENT_PHASE_MAP.G[phaseKey];
+  // Canonical fallback: empty contract shouldn't happen for G but stay safe.
+  if (!ph) {
+    return { title: TRAVEL_TITLE[phase](tz), body: EVENT_CATEGORIES.G.name };
   }
+  const combo = PROTOCOL_COMBOS[ph.combo];
+  // Body: derived from the canonical phase goal + protocol combo outcome so
+  // notification copy stays aligned with what Brief and Plan are surfacing
+  // for the same Travel phase.
+  const body = combo ? `${ph.goal}. ${combo.outcome}.` : `${ph.goal}.`;
+  return { title: TRAVEL_TITLE[phase](tz), body };
 }
 
 Deno.serve(async (req) => {

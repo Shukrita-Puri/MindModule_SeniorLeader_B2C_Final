@@ -2,33 +2,15 @@
 //
 // patternHit READS `causality_findings.signal_summary` (canonical store
 // per mem://architecture/unified-pattern-store) and never recomputes.
-// Bucket vocabulary intentionally mirrors smart-nudges'
-// NUDGE_EVENT_TYPE_KEYWORDS so writer/reader stay in sync.
-
-const PATTERN_BUCKETS: Array<{ label: string; words: string[] }> = [
-  { label: 'School & family',         words: ['school', 'parents evening', 'open evening', 'parents', 'governor'] },
-  { label: 'Board / governance',      words: ['board', 'governance'] },
-  { label: 'Investor calls',          words: ['investor', 'vc ', ' vc', 'fundraise', 'raise', 'pitch deck'] },
-  { label: 'Reviews',                 words: ['review', 'qbr', 'quarterly'] },
-  { label: '1:1s',                    words: ['1:1', '1-1', 'one on one', '1on1'] },
-  { label: 'All-hands',               words: ['all-hands', 'all hands', 'town hall', 'townhall'] },
-  { label: 'Client meetings',         words: ['client', 'customer', 'stakeholder'] },
-  { label: 'Interviews',              words: ['interview', 'candidate'] },
-  { label: 'Deep work blocks',        words: ['deep work', 'focus block', 'writing time'] },
-  { label: 'Exec / leadership',       words: ['exec', 'executive', 'leadership', 'ceo ', ' ceo', 'cto ', ' cto'] },
-  { label: 'Networking & community',  words: ['meetup', 'summit', 'expo', 'conference', 'info session', 'community'] },
-  { label: 'Intro / discovery calls', words: ['intro', 'discovery', 'chemistry'] },
-  { label: 'Catch-ups & syncs',       words: ['catchup', 'catch-up', 'catch up', 'sync', 'check-in', 'check in', 'weekly', 'standup', 'stand-up'] },
-  { label: 'Internal builds',         words: ['debug', 'dashboard', 'engineering', 'sprint', 'planning'] },
-];
+// Bucket vocabulary is the SINGLE canonical legacy table in
+// `../events/event-classifier.ts` (EVENT_TYPE_KEYWORDS /
+// classifyByLegacyTable). We re-export it under the historical name so
+// JIT writers/readers and the persisted causality store stay in sync
+// without a parallel taxonomy.
+import { classifyByLegacyTable } from '../events/event-classifier.ts';
 
 export function classifyEventBucket(title: string | null | undefined): string | null {
-  if (!title) return null;
-  const t = ` ${title.toLowerCase()} `;
-  for (const b of PATTERN_BUCKETS) {
-    if (b.words.some((w) => t.includes(w))) return b.label;
-  }
-  return null;
+  return classifyByLegacyTable(title);
 }
 
 export interface PatternSignal {
