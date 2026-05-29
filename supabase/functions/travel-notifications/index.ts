@@ -72,8 +72,10 @@ function copyForPhase(phase: Phase, tz: string | null): { title: string; body: s
     return { title: TRAVEL_TITLE[phase](tz), body: EVENT_CATEGORIES.G.label };
   }
   const combo = PROTOCOL_COMBOS[ph.combo];
-  // Body: short, derived from the canonical goal + protocol combo summary.
-  const body = `${ph.goal} — ${combo?.summary ?? ph.combo}`;
+  // Body: derived from the canonical phase goal + protocol combo outcome so
+  // notification copy stays aligned with what Brief and Plan are surfacing
+  // for the same Travel phase.
+  const body = combo ? `${ph.goal}. ${combo.outcome}.` : `${ph.goal}.`;
   return { title: TRAVEL_TITLE[phase](tz), body };
 }
 
