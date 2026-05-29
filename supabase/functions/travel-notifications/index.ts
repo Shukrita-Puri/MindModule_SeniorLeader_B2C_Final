@@ -1,0 +1,181 @@
+/**
+ * travel-notifications
+ *
+ * Idempotent scheduler/canceller for travel-aware notifications.
+ * Triggered by persist-travel-location whenever travel_state transitions,
+ * and also callable manually (e.g. when the user marks "travel planned"
+ * in the UI).
+ *
+ * Notification phases:
+ *   - pre_travel:    state → travel_planned         "Heads up: travel coming up"
+ *   - during_travel: state → en_route | arrived     "You're away — readiness adapts"
+ *   - post_travel:   state → returning | not_travelling  "Welcome back — re-orient"
+ *
+ * Stale cancellation rules:
+ *   - Any pending notification whose state_at_schedule no longer matches
+ *     the user's current state is cancelled with reason 'state_changed'.
+ *   - Any pending notification scheduled more than 24h ago without delivery
+ *     is cancelled with reason 'stale_window'.
+ *
+ * Idempotency:
+ *   - (user_id, phase, anchor_key) is unique. anchor_key encodes the
+ *     state transition + local date so re-firing the scheduler for the
+ *     same transition collapses to one row.
+ */
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+type Phase = "pre_travel" | "during_travel" | "post_travel";
+
+function phaseForTransition(prev: string, next: string): Phase | null {
+  if (next === "travel_planned") return "pre_travel";
+  if (next === "en_route" || next === "arrived") return "during_travel";
+  if (next === "returning" || (prev !== "not_travelling" && next === "not_travelling")) {
+    return "post_travel";
+  }
+  return null;
+}
+
+function copyForPhase(phase: Phase, tz: string | null): { title: string; body: string } {
+  const tzLabel = tz ? ` (${tz.split("/").pop()?.replace(/_/g, " ") ?? tz})` : "";
+  switch (phase) {
+    case "pre_travel":
+      return {
+        title: "Travel ahead",
+        body: "Your routine will adapt as you move. We'll quietly retune your nudges to your destination time.",
+      };
+    case "during_travel":
+      return {
+        title: `Travelling${tzLabel}`,
+        body: "Readiness brief is now anchored to your current local time. Lean light today.",
+      };
+    case "post_travel":
+      return {
+        title: "Welcome back",
+        body: "Re-orient: light morning anchor, hydrate, and a short reset session before deep work.",
+      };
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const userId: string | undefined = body.user_id;
+    const prevState: string = body.prev_state ?? "not_travelling";
+    const newState: string = body.new_state ?? "not_travelling";
+    const tz: string | null = body.tz ?? null;
+
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "user_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const todayKey = nowIso.slice(0, 10);
+
+    // 1. Cancel any pending notifications whose snapshot no longer matches
+    // current state, OR that are older than 24h with no delivery.
+    const { data: pending } = await supabase
+      .from("travel_notifications")
+      .select("id, phase, state_at_schedule, scheduled_for")
+      .eq("user_id", userId)
+      .is("delivered_at", null)
+      .is("cancelled_at", null);
+
+    const stale: { id: string; reason: string }[] = [];
+    for (const n of pending ?? []) {
+      if (n.state_at_schedule !== newState) {
+        stale.push({ id: n.id, reason: "state_changed" });
+      } else if (
+        new Date(n.scheduled_for).getTime() <
+        now.getTime() - 24 * 60 * 60 * 1000
+      ) {
+        stale.push({ id: n.id, reason: "stale_window" });
+      }
+    }
+    if (stale.length) {
+      for (const s of stale) {
+        await supabase
+          .from("travel_notifications")
+          .update({
+            cancelled_at: nowIso,
+            cancel_reason: s.reason,
+            updated_at: nowIso,
+          })
+          .eq("id", s.id);
+      }
+      console.log(`[travel-notifications] cancelled ${stale.length} stale rows for ${userId}`);
+    }
+
+    // 2. Schedule the new notification for this transition (if any).
+    const phase = phaseForTransition(prevState, newState);
+    let scheduledId: string | null = null;
+    if (phase) {
+      const anchorKey = `${prevState}->${newState}:${todayKey}`;
+      const { title, body: msg } = copyForPhase(phase, tz);
+
+      // Pre-travel fires ~2h before user-set departure (best-effort: we
+      // don't have a known departure time here, so just schedule for
+      // "soon" — the JS layer can re-call with a known time later).
+      const scheduledFor = new Date(now.getTime() + 60 * 1000); // 1 min from now
+
+      const { data: inserted, error } = await supabase
+        .from("travel_notifications")
+        .upsert(
+          {
+            user_id: userId,
+            phase,
+            state_at_schedule: newState,
+            scheduled_for: scheduledFor.toISOString(),
+            anchor_key: anchorKey,
+            title,
+            body: msg,
+            payload: { prev_state: prevState, tz },
+            updated_at: nowIso,
+          },
+          { onConflict: "user_id,phase,anchor_key" },
+        )
+        .select("id")
+        .maybeSingle();
+      if (error) {
+        console.error("[travel-notifications] upsert error", error);
+      } else {
+        scheduledId = inserted?.id ?? null;
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        cancelled: stale.length,
+        scheduled_phase: phase,
+        scheduled_id: scheduledId,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (e) {
+    console.error("[travel-notifications] error", e);
+    return new Response(
+      JSON.stringify({ error: (e as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+});
