@@ -25,8 +25,11 @@ import {
   type SignalCoverageInput,
 } from "./brief-signal-coverage.ts";
 
+// Default ON: Brief, Plan, and Notifications must reason from the canonical
+// CEO behaviour + event taxonomy modules. Set SHARED_MODULES_ENABLED=false
+// in env to opt out for a single function (escape hatch only).
 export const SHARED_MODULES_ENABLED =
-  (Deno.env.get("SHARED_MODULES_ENABLED") ?? "").toLowerCase() === "true";
+  (Deno.env.get("SHARED_MODULES_ENABLED") ?? "true").toLowerCase() !== "false";
 
 export interface BehaviourWiringResult {
   flags: BehaviourFlag[];
