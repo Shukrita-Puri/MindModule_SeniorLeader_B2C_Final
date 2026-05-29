@@ -53,12 +53,12 @@ Deno.serve(async (req) => {
     const appleConn = (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
     const primaryConn = googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
 
-    // Check Oura connection
+    // Check Oura connection (full state model)
     const { data: ouraConn } = await db
       .from("oura_connections")
-      .select("id, is_active, last_sync")
+      .select("id, is_active, last_sync, last_sample_at, last_error, last_error_at, connection_status, sync_status, created_at, updated_at")
       .eq("user_id", userId)
-      .eq("is_active", true)
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -106,6 +106,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Same 24h stale heuristic for Oura
+    let ouraConnectionStatus = ouraConn?.connection_status ?? "disconnected";
+    let ouraSyncStatus = ouraConn?.sync_status ?? "unknown";
+    if (
+      ouraConn?.is_active &&
+      ouraConnectionStatus === "connected" &&
+      ouraSyncStatus === "synced" &&
+      ouraConn.last_sync
+    ) {
+      const ms = new Date(ouraConn.last_sync).getTime();
+      if (!Number.isNaN(ms) && (Date.now() - ms) / 3_600_000 >= 24) {
+        ouraSyncStatus = "sync_delayed";
+      }
+    }
+
     console.log("[check-connections-status] Apple Watch:", JSON.stringify({
       connectionStatus, syncStatus, hasHistoricalData,
       latestSummaryDate: anyWearable?.summary_date,
@@ -146,8 +161,16 @@ Deno.serve(async (req) => {
         },
       },
       oura: {
-        connected: !!ouraConn,
+        connected: !!ouraConn?.is_active && ouraConnectionStatus === "connected",
+        connectionStatus: ouraConnectionStatus,
+        syncStatus: ouraSyncStatus,
+        hasHistoricalData,
+        needsReconnect: ouraConnectionStatus === "permission_revoked",
         lastSync: ouraConn?.last_sync || null,
+        lastSampleAt: ouraConn?.last_sample_at || null,
+        lastError: ouraConn?.last_error || null,
+        lastErrorAt: ouraConn?.last_error_at || null,
+        statusUpdatedAt: ouraConn?.updated_at || null,
       },
       appleWatch: {
         connected: connectionStatus === "connected",

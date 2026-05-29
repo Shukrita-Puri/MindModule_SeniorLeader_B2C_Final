@@ -1,247 +1,376 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+/**
+ * Oura sync.
+ *
+ * Two invocation modes:
+ *  - User-authenticated (Auth0 JWT): sync the caller's connection.
+ *  - Admin/cron (x-admin-bypass: SERVICE_ROLE_KEY): sync a specific user.
+ *
+ * Pulls last 7 days of daily_sleep + sleep + daily_readiness + heartrate from
+ * Oura API v2, maps to the canonical wearable_data shape with source='oura',
+ * upserts on (user_id, summary_date). Per-column merge: never null-out columns
+ * we don't fetch — preserves data from other sources (e.g. Apple Health).
+ *
+ * Refresh-on-401 + telemetry. Never flips to disconnected on transient errors.
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-admin-bypass, x-outbox-item-id",
 };
 
-function toNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+const OURA_BASE = "https://api.ouraring.com/v2/usercollection";
+const OURA_TOKEN = "https://api.ouraring.com/oauth/token";
+
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
-function toMinutes(value: unknown): number | null {
-  const numeric = toNumber(value);
-  return numeric === null ? null : Math.round(numeric / 60);
+function log(event: string, payload: Record<string, unknown> = {}) {
+  console.log(
+    `[sync-oura] ${event}`,
+    JSON.stringify({ event, ts: new Date().toISOString(), ...payload }),
+  );
 }
 
-function mapSeries(series: unknown): Array<{ t: string; v: number }> {
-  if (!series || (typeof series !== 'object' && !Array.isArray(series))) return [];
-  const items = Array.isArray(series)
-    ? series
-    : (series as { items?: unknown; data?: unknown }).items ?? (series as { items?: unknown; data?: unknown }).data;
-  if (!Array.isArray(items)) return [];
-
-  return items
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const row = item as Record<string, unknown>;
-      const timestamp =
-        typeof row.timestamp === 'string' ? row.timestamp :
-        typeof row.datetime === 'string' ? row.datetime :
-        typeof row.start_datetime === 'string' ? row.start_datetime :
-        typeof row.end_datetime === 'string' ? row.end_datetime :
-        typeof row.date === 'string' ? row.date :
-        null;
-      const value =
-        toNumber(row.bpm) ??
-        toNumber(row.value) ??
-        toNumber(row.hrv) ??
-        toNumber(row.heart_rate);
-      if (!timestamp || value === null) return null;
-      return { t: timestamp, v: Math.round(value) };
-    })
-    .filter((item): item is { t: string; v: number } => !!item);
+interface ConnectionRow {
+  id: string;
+  user_id: string;
+  access_token_expires_at: string | null;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+async function getAccessToken(db: ReturnType<typeof createClient>, connId: string): Promise<string | null> {
+  const { data, error } = await db.rpc("get_oura_access_token", { _connection_id: connId });
+  if (error) {
+    log("vault_read_access_failed", { error: error.message });
+    return null;
+  }
+  return data as string | null;
+}
+async function getRefreshToken(db: ReturnType<typeof createClient>, connId: string): Promise<string | null> {
+  const { data, error } = await db.rpc("get_oura_refresh_token", { _connection_id: connId });
+  if (error) {
+    log("vault_read_refresh_failed", { error: error.message });
+    return null;
+  }
+  return data as string | null;
+}
+
+async function refreshAccessToken(
+  db: ReturnType<typeof createClient>,
+  conn: ConnectionRow,
+): Promise<string | null> {
+  const refresh = await getRefreshToken(db, conn.id);
+  if (!refresh) return null;
+  const clientId = Deno.env.get("OURA_CLIENT_ID");
+  const clientSecret = Deno.env.get("OURA_CLIENT_SECRET");
+  if (!clientId || !clientSecret) return null;
+
+  const res = await fetch(OURA_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refresh,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }).toString(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    log("token_refresh_failed", { status: res.status, body: text.slice(0, 200) });
+    if (res.status === 400 || res.status === 401) {
+      // Refresh token rejected → permission must be re-granted.
+      await db
+        .from("oura_connections")
+        .update({
+          connection_status: "permission_revoked",
+          sync_status: "error",
+          last_error: "refresh_token_rejected",
+          last_error_at: new Date().toISOString(),
+        })
+        .eq("id", conn.id);
+    }
+    return null;
+  }
+  const tok = await res.json() as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
+  const expiresAt = new Date(Date.now() + ((tok.expires_in ?? 86400) * 1000)).toISOString();
+  await db.rpc("store_oura_access_token", {
+    _connection_id: conn.id,
+    _token: tok.access_token,
+    _expires_at: expiresAt,
+  });
+  if (tok.refresh_token) {
+    await db.rpc("store_oura_refresh_token", {
+      _connection_id: conn.id,
+      _token: tok.refresh_token,
+    });
+  }
+  log("token_refresh_success");
+  return tok.access_token;
+}
+
+async function ouraFetch(token: string, path: string, params: Record<string, string>): Promise<{ status: number; json?: unknown }> {
+  const url = new URL(`${OURA_BASE}/${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  if (!res.ok) return { status: res.status };
+  return { status: 200, json: await res.json() };
+}
+
+/** Map Oura responses → per-day partial rows for wearable_data. */
+function buildDailyRows(opts: {
+  daily_sleep?: { data?: Array<{ day: string; score?: number }> };
+  sleep?: { data?: Array<{ day?: string; bedtime_start?: string; total_sleep_duration?: number; deep_sleep_duration?: number; rem_sleep_duration?: number; average_hrv?: number; average_heart_rate?: number; lowest_heart_rate?: number }> };
+  daily_readiness?: { data?: Array<{ day: string; contributors?: { resting_heart_rate?: number; hrv_balance?: number } }> };
+  heartrate?: { data?: Array<{ timestamp: string; bpm: number; source?: string }> };
+}): Array<Record<string, unknown>> {
+  const byDay = new Map<string, Record<string, unknown>>();
+  const get = (day: string): Record<string, unknown> => {
+    let r = byDay.get(day);
+    if (!r) {
+      r = { summary_date: day };
+      byDay.set(day, r);
+    }
+    return r;
+  };
+
+  for (const ds of opts.daily_sleep?.data ?? []) {
+    if (!ds?.day) continue;
+    if (typeof ds.score === "number") get(ds.day).sleep_score = Math.round(ds.score);
   }
 
-  try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error('Unauthorized');
+  for (const s of opts.sleep?.data ?? []) {
+    const day = s.day ?? (s.bedtime_start ? s.bedtime_start.slice(0, 10) : null);
+    if (!day) continue;
+    const r = get(day);
+    if (typeof s.total_sleep_duration === "number") {
+      r.total_sleep_minutes = Math.round(s.total_sleep_duration / 60);
     }
-
-    // Get Oura connection
-    const { data: connection, error: connError } = await supabaseClient
-      .from('oura_connections')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (connError || !connection) {
-      throw new Error('No active Oura connection found');
+    if (typeof s.deep_sleep_duration === "number") {
+      r.deep_sleep_minutes = Math.round(s.deep_sleep_duration / 60);
     }
-
-    // Retrieve decrypted access token from vault
-    const { data: accessToken, error: tokenError } = await supabaseClient
-      .rpc('get_oura_access_token', { _connection_id: connection.id });
-
-    if (tokenError || !accessToken) {
-      throw new Error('Failed to retrieve Oura access token');
+    if (typeof s.rem_sleep_duration === "number") {
+      r.rem_sleep_minutes = Math.round(s.rem_sleep_duration / 60);
     }
+    if (typeof s.average_hrv === "number") r.hrv = s.average_hrv;
+    if (typeof s.lowest_heart_rate === "number") r.resting_heart_rate = s.lowest_heart_rate;
+    if (typeof s.average_heart_rate === "number") r.heart_rate = Math.round(s.average_heart_rate);
+  }
 
-    // Fetch comprehensive data from Oura API v2
-    const OURA_API_BASE = 'https://api.ouraring.com/v2/usercollection';
-    
-    // Get yesterday's date (Oura data is typically available next day)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().split('T')[0];
-    
-    // Fetch from all 4 endpoints
-    const headers = {
-      'Authorization': `Bearer ${accessToken}`
+  for (const dr of opts.daily_readiness?.data ?? []) {
+    if (!dr?.day) continue;
+    const r = get(dr.day);
+    const rhr = dr.contributors?.resting_heart_rate;
+    if (typeof rhr === "number" && r.resting_heart_rate == null) r.resting_heart_rate = rhr;
+  }
+
+  // hr_samples: bucket per-day, store as [{t, v}]
+  if (opts.heartrate?.data?.length) {
+    const samplesByDay = new Map<string, Array<{ t: string; v: number }>>();
+    for (const hr of opts.heartrate.data) {
+      if (!hr.timestamp || typeof hr.bpm !== "number") continue;
+      const day = hr.timestamp.slice(0, 10);
+      const arr = samplesByDay.get(day) ?? [];
+      arr.push({ t: hr.timestamp, v: Math.round(hr.bpm) });
+      samplesByDay.set(day, arr);
+    }
+    for (const [day, samples] of samplesByDay.entries()) {
+      const r = get(day);
+      r.hr_samples = samples;
+    }
+  }
+
+  return Array.from(byDay.values());
+}
+
+async function loadConnection(db: ReturnType<typeof createClient>, userId: string): Promise<ConnectionRow | null> {
+  const { data, error } = await db
+    .from("oura_connections")
+    .select("id, user_id, access_token_expires_at, is_active")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    log("connection_lookup_failed", { error: error.message });
+    return null;
+  }
+  return data as ConnectionRow | null;
+}
+
+async function persistRows(
+  db: ReturnType<typeof createClient>,
+  userId: string,
+  rows: Array<Record<string, unknown>>,
+): Promise<{ written: number; errors: number; latest: string | null }> {
+  let written = 0;
+  let errors = 0;
+  let latest: string | null = null;
+  for (const r of rows) {
+    const summaryDate = r.summary_date as string | undefined;
+    if (!summaryDate) {
+      errors++;
+      continue;
+    }
+    // Skip empty rows (no metrics at all).
+    const hasMetric =
+      r.hrv != null || r.resting_heart_rate != null || r.heart_rate != null
+      || r.total_sleep_minutes != null || r.sleep_score != null
+      || (Array.isArray(r.hr_samples) && (r.hr_samples as unknown[]).length > 0);
+    if (!hasMetric) continue;
+
+    const row: Record<string, unknown> = {
+      ...r,
+      user_id: userId,
+      source: "oura",
+      updated_at: new Date().toISOString(),
     };
-    
-    try {
-      // 1. Daily Readiness
-      const readinessRes = await fetch(
-        `${OURA_API_BASE}/daily_readiness?start_date=${dateStr}&end_date=${dateStr}`,
-        { headers }
-      );
-      const readinessData = readinessRes.ok ? await readinessRes.json() : null;
-      
-      // 2. Daily Sleep
-      const sleepRes = await fetch(
-        `${OURA_API_BASE}/daily_sleep?start_date=${dateStr}&end_date=${dateStr}`,
-        { headers }
-      );
-      const sleepData = sleepRes.ok ? await sleepRes.json() : null;
-      
-      // 3. Daily Activity
-      const activityRes = await fetch(
-        `${OURA_API_BASE}/daily_activity?start_date=${dateStr}&end_date=${dateStr}`,
-        { headers }
-      );
-      const activityData = activityRes.ok ? await activityRes.json() : null;
-      
-      // 4. Heart Rate (for HRV)
-      const heartRateRes = await fetch(
-        `${OURA_API_BASE}/heartrate?start_date=${dateStr}&end_date=${dateStr}`,
-        { headers }
-      );
-      const heartRateData = heartRateRes.ok ? await heartRateRes.json() : null;
-      
-      // Extract metrics from responses
-      const readiness = readinessData?.data?.[0];
-      const sleep = sleepData?.data?.[0];
-      const activity = activityData?.data?.[0];
-      const heartRate = heartRateData?.data?.[0];
-      const hrvSamples = mapSeries(sleep?.hrv);
-      const hrSamples = [
-        ...mapSeries(sleep?.heart_rate),
-        ...mapSeries(heartRateData?.data),
-      ];
-      const readinessScore = toNumber(readiness?.score);
-      const sleepScore = toNumber(sleep?.efficiency ?? sleep?.score ?? sleep?.contributors?.total_sleep_duration);
-      const activityScore = toNumber(activity?.score);
-      const hrv = toNumber(sleep?.average_hrv ?? hrvSamples[0]?.v);
-      const restingHeartRate = toNumber(heartRate?.source === 'rest' ? heartRate?.bpm : null) ?? toNumber(sleep?.lowest_heart_rate);
-      const heartRateAvg = toNumber(sleep?.average_heart_rate ?? heartRate?.bpm);
-      const totalSleepMinutes = toMinutes(sleep?.total_sleep_duration);
-      const deepSleepMinutes = toMinutes(sleep?.deep_sleep_duration);
-      const remSleepMinutes = toMinutes(sleep?.rem_sleep_duration);
-      const steps = toNumber(activity?.steps);
-      const activeCalories = toNumber(activity?.active_calories);
-      
-      // Store in database
-      const { error: insertError } = await supabaseClient
-        .from('oura_daily_data')
-        .upsert({
-          user_id: user.id,
-          summary_date: dateStr,
-          readiness_score: readinessScore,
-          sleep_score: sleepScore,
-          activity_score: activityScore,
-          hrv,
-          resting_heart_rate: restingHeartRate,
-          raw_data: {
-            readiness: readiness || {},
-            sleep: sleep || {},
-            activity: activity || {},
-            heartrate: heartRate || {}
-          }
-        }, {
-          onConflict: 'user_id,summary_date'
-        });
-      
-      if (insertError) {
-        throw insertError;
-      }
-
-      const { error: wearableError } = await supabaseClient
-        .from('wearable_data')
-        .upsert({
-          user_id: user.id,
-          summary_date: dateStr,
-          source: 'oura',
-          sleep_score: sleepScore,
-          hrv,
-          resting_heart_rate: restingHeartRate,
-          heart_rate: heartRateAvg,
-          hr_samples: hrSamples,
-          hrv_samples: hrvSamples,
-          total_sleep_minutes: totalSleepMinutes,
-          deep_sleep_minutes: deepSleepMinutes,
-          rem_sleep_minutes: remSleepMinutes,
-          active_calories: activeCalories,
-          steps,
-          raw_data: {
-            provider: 'oura',
-            readiness_score: readinessScore,
-            activity_score: activityScore,
-            readiness: readiness || {},
-            sleep: sleep || {},
-            activity: activity || {},
-            heartrate: heartRate || {},
-          },
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id,summary_date',
-        });
-
-      if (wearableError) {
-        throw wearableError;
-      }
-      
-    } catch (apiError) {
-      // Continue to update last_sync even if API call fails
+    const { error } = await db
+      .from("wearable_data")
+      .upsert(row, { onConflict: "user_id,summary_date" });
+    if (error) {
+      errors++;
+      log("upsert_failed", { summary_date: summaryDate, error: error.message });
+    } else {
+      written++;
+      if (!latest || summaryDate > latest) latest = summaryDate;
     }
-    
-    // Update last sync timestamp
-    await supabaseClient
-      .from('oura_connections')
-      .update({ last_sync: new Date().toISOString() })
-      .eq('id', connection.id);
+  }
+  return { written, errors, latest };
+}
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Oura sync completed successfully',
-        synced_date: dateStr
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const url = new URL(req.url);
+    const isManual = url.searchParams.get("manual") === "true";
+    const adminBypass = req.headers.get("x-admin-bypass");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    let userId: string;
+
+    if (adminBypass && adminBypass === serviceKey) {
+      const body = await req.json().catch(() => ({})) as { user_id?: string };
+      if (!body.user_id) {
+        return new Response(JSON.stringify({ error: "user_id required for admin invocation" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+      userId = body.user_id;
+    } else {
+      const auth = await authenticateRequest(req, corsHeaders);
+      if (auth.errorResponse) return auth.errorResponse;
+      userId = auth.userId;
+    }
+
+    if (isManual) log("manual_sync_triggered", { userId });
+    log("sync_started", { userId, manual: isManual });
+
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const conn = await loadConnection(db, userId);
+    if (!conn) {
+      log("no_active_connection", { userId });
+      return new Response(JSON.stringify({ error: "no_active_oura_connection" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let token = await getAccessToken(db, conn.id);
+    const expired = conn.access_token_expires_at && new Date(conn.access_token_expires_at) < new Date();
+    if (!token || expired) {
+      log("access_token_expired_refreshing");
+      token = await refreshAccessToken(db, conn);
+    }
+    if (!token) {
+      return new Response(JSON.stringify({ error: "permission_revoked" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const end = new Date();
+    const start = new Date(end.getTime() - 7 * 86400_000);
+    const startDay = ymd(start);
+    const endDay = ymd(end);
+    const startIso = start.toISOString();
+    const endIso = end.toISOString();
+
+    async function fetchOrRefresh(path: string, params: Record<string, string>): Promise<unknown | null> {
+      const r1 = await ouraFetch(token!, path, params);
+      if (r1.status === 200) return r1.json;
+      if (r1.status === 401) {
+        const newToken = await refreshAccessToken(db, conn);
+        if (!newToken) return null;
+        token = newToken;
+        const r2 = await ouraFetch(token, path, params);
+        return r2.status === 200 ? r2.json : null;
       }
-    );
+      log("oura_api_error", { path, status: r1.status });
+      return null;
+    }
+
+    const [daily_sleep, sleep, daily_readiness, heartrate] = await Promise.all([
+      fetchOrRefresh("daily_sleep", { start_date: startDay, end_date: endDay }),
+      fetchOrRefresh("sleep", { start_date: startDay, end_date: endDay }),
+      fetchOrRefresh("daily_readiness", { start_date: startDay, end_date: endDay }),
+      fetchOrRefresh("heartrate", { start_datetime: startIso, end_datetime: endIso }),
+    ]);
+
+    const rows = buildDailyRows({
+      daily_sleep: daily_sleep as never,
+      sleep: sleep as never,
+      daily_readiness: daily_readiness as never,
+      heartrate: heartrate as never,
+    });
+
+    if (rows.length === 0) {
+      // Ring may simply be off-finger — never disconnect on this.
+      await db.from("oura_connections").update({
+        connection_status: "connected",
+        sync_status: "waiting_for_data",
+        last_sync: new Date().toISOString(),
+        last_error: null,
+        last_error_at: null,
+      }).eq("id", conn.id);
+      log("sync_waiting_for_data", { userId });
+      return new Response(JSON.stringify({
+        success: true, written: 0, sync_status: "waiting_for_data",
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { written, errors, latest } = await persistRows(db, userId, rows);
+    const syncStatus = errors > 0 ? "sync_delayed" : "synced";
+
+    await db.from("oura_connections").update({
+      connection_status: "connected",
+      sync_status: syncStatus,
+      last_sync: new Date().toISOString(),
+      last_sample_at: latest ? `${latest}T00:00:00.000Z` : null,
+      last_error: errors > 0 ? `partial_persist_errors:${errors}` : null,
+      last_error_at: errors > 0 ? new Date().toISOString() : null,
+    }).eq("id", conn.id);
+
+    log("sync_success", { userId, written, errors, latest, manual: isManual });
+    return new Response(JSON.stringify({
+      success: true, written, errors, sync_status: syncStatus, latest,
+    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (err) {
+    console.error("[sync-oura] fatal:", err);
+    return new Response(JSON.stringify({ error: "internal_error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
+import { startOuraOAuth, triggerOuraSync } from '@/services/ouraSyncService';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
 import { clearLocalCalendarData, clearLocalWearableData } from '@/services/localDataStore';
@@ -65,6 +66,17 @@ interface ConnectionStatus {
     hasHistoricalData?: boolean;
     needsReconnect?: boolean;
     disconnectedAt?: string | null;
+    lastError?: string | null;
+    lastErrorAt?: string | null;
+    statusUpdatedAt?: string | null;
+  };
+  oura?: {
+    connected: boolean;
+    connectionStatus?: 'disconnected' | 'connecting' | 'connected' | 'permission_revoked' | 'error';
+    syncStatus?: 'unknown' | 'synced' | 'waiting_for_data' | 'sync_delayed' | 'error';
+    lastSync: string | null;
+    lastSampleAt?: string | null;
+    needsReconnect?: boolean;
     lastError?: string | null;
     lastErrorAt?: string | null;
     statusUpdatedAt?: string | null;
@@ -998,6 +1010,81 @@ const ConnectedData = () => {
     ? getAppleHealthState()
     : { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
 
+  /* ─── Oura Ring ─── */
+
+  const handleConnectOura = useCallback(async () => {
+    setConnecting('oura');
+    try {
+      const { url, error } = await startOuraOAuth();
+      if (error || !url) {
+        toast.error('Could not start Oura connection');
+        return;
+      }
+      // Redirect user to Oura authorize page. Capacitor's openUrl handles
+      // both web and native (Safari View Controller on iOS).
+      await openUrl(url);
+    } catch (err) {
+      console.error('[ConnectedData] Oura connect error:', err);
+      toast.error('Failed to connect Oura');
+    } finally {
+      setConnecting(null);
+    }
+  }, []);
+
+  const handleSyncOura = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const r = await triggerOuraSync(true);
+      if (r.ok) toast.success('Oura data synced');
+      else toast.warning('Oura sync could not complete — will retry automatically');
+      await fetchStatus();
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchStatus]);
+
+  const getOuraState = () => {
+    const o = status?.oura;
+    if (!o) return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected' as string, statusNote: undefined as string | undefined, showReconnect: false };
+    if (o.connectionStatus === 'connected') {
+      const sub = o.syncStatus;
+      const lastSyncNote = o.lastSync ? `Last synced ${formatDistanceToNowStrict(new Date(o.lastSync), { addSuffix: true })}` : undefined;
+      if (sub === 'waiting_for_data') {
+        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Waiting for data', statusNote: 'Wear the ring overnight to resume', showReconnect: false };
+      }
+      if (sub === 'sync_delayed') {
+        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync delayed', statusNote: lastSyncNote, showReconnect: false };
+      }
+      return { isLinked: true, isHealthyConnected: true, statusLabel: 'Connected', statusNote: lastSyncNote, showReconnect: false };
+    }
+    if (o.connectionStatus === 'permission_revoked') {
+      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission revoked', statusNote: 'Reconnect to resume syncing', showReconnect: true };
+    }
+    if (o.connectionStatus === 'connecting') {
+      return { isLinked: false, isHealthyConnected: false, statusLabel: 'Verifying…', statusNote: 'Completing Oura authorization', showReconnect: false };
+    }
+    return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
+  };
+
+  const ouraState = getOuraState();
+
+  // OAuth-return handler — show toast based on callback query string.
+  useEffect(() => {
+    const cb = searchParams.get('oura_connected');
+    if (cb === null) return;
+    const ok = cb === 'true';
+    const reason = searchParams.get('reason');
+    searchParams.delete('oura_connected');
+    searchParams.delete('reason');
+    setSearchParams(searchParams, { replace: true });
+    if (ok) {
+      toast.success('Oura connected. Pulling your last 7 days…');
+      fetchStatus();
+    } else {
+      toast.error(`Oura connect failed${reason ? `: ${reason}` : ''}`);
+    }
+  }, [searchParams, setSearchParams, fetchStatus]);
+
   /* ─── Connection Data ─── */
 
   const googleConnected = status?.calendar.providers?.google?.connected
@@ -1107,6 +1194,26 @@ const ConnectedData = () => {
       onSync: handleSyncAppleHealth,
       canSync: isNativeApp(),
     },
+    {
+      id: 'oura',
+      name: 'Oura Ring',
+      description: 'Share HRV, resting HR, sleep and recovery so your readiness reflects your real physiology — on every wearable surface, not just one.',
+      logo: (
+        <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
+          OURA
+        </div>
+      ),
+      connected: ouraState.isHealthyConnected,
+      linked: ouraState.isLinked,
+      lastSync: formatLastSync(status?.oura?.lastSync ?? null),
+      statusLabel: ouraState.statusLabel,
+      statusNote: ouraState.statusNote,
+      showReconnect: ouraState.showReconnect,
+      onConnect: handleConnectOura,
+      onDisconnect: undefined,
+      onSync: handleSyncOura,
+      canSync: true,
+    },
   ];
 
   return (
@@ -1138,7 +1245,7 @@ const ConnectedData = () => {
                     {conn.statusNote && (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
                     )}
-                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-calendar' || conn.id === 'apple-health') && (
+                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-calendar' || conn.id === 'apple-health' || conn.id === 'oura') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
                       </p>
