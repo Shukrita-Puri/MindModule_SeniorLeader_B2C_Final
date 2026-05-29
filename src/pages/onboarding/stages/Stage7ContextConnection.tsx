@@ -13,80 +13,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { startFirstSessionTour } from "@/utils/firstSessionTour";
 import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@/utils/openUrl";
-import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import uspConstellation from '@/assets/onboarding/usp-constellation.jpg';
-
-/** Backend-verified calendar connection status. */
-async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
-  try {
-    const token = await getAuthToken();
-    if (!token) return { connected: false, provider: null };
-
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/check-calendar-status`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!res.ok) {
-      console.warn("[Stage7] check-calendar-status failed:", res.status);
-      return { connected: false, provider: null };
-    }
-
-    const data = await res.json();
-    return { connected: !!data.connected, provider: data.provider ?? null };
-  } catch (err) {
-    console.warn("[Stage7] check-calendar-status error:", err);
-    return { connected: false, provider: null };
-  }
-}
-
-/** Request a Google OAuth URL from the calendar-auth edge function. */
-async function requestCalendarAuthUrl(redirectPath: string): Promise<string | null> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      console.error("[Stage7] No auth token available for calendar connect");
-      return null;
-    }
-
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "connect",
-          provider: "google",
-          redirectPath,
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[Stage7] calendar-auth connect failed:", res.status, errText);
-      return null;
-    }
-
-    const data = await res.json();
-    return data.authUrl || null;
-  } catch (err) {
-    console.error("[Stage7] calendar-auth connect error:", err);
-    return null;
-  }
-}
+import CalendarProviderPicker, { fetchCalendarProvidersState } from '@/components/calendar/CalendarProviderPicker';
 
 // This is dot index 4 in the 5-dot sequence (intro=0, usp1=1, usp2=2, usp3=3, context=4)
 const TOTAL_DOTS = 5;
@@ -106,15 +35,19 @@ export default function Stage7ContextConnection() {
   // Default = true (no surprise data loss for users who don't actively choose).
   const [selfCheckInsEnabled, setSelfCheckInsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [connectedCalendarProvider, setConnectedCalendarProvider] = useState<'google' | 'microsoft' | 'apple' | null>(null);
 
-  // On mount: check existing connection status from backend
+  // On mount: check existing per-provider connection status
   const verifyConnection = useCallback(async () => {
-    setCheckingStatus(true);
-    const status = await checkCalendarStatus();
-    setCalendarEnabled(status.connected);
-    setCheckingStatus(false);
-    return status;
+    const state = await fetchCalendarProvidersState();
+    const provider =
+      state.google?.connected ? 'google' :
+      state.microsoft?.connected ? 'microsoft' :
+      state.apple?.connected ? 'apple' :
+      null;
+    setConnectedCalendarProvider(provider);
+    setCalendarEnabled(!!provider);
+    return { connected: !!provider, provider };
   }, []);
 
   useEffect(() => {
@@ -148,7 +81,7 @@ export default function Stage7ContextConnection() {
       verifyConnection().then(async (status) => {
         if (status.connected) {
           console.log("[Stage7] ✅ Calendar verified connected after callback");
-          toast.success("Google Calendar connected successfully");
+          toast.success("Calendar connected successfully");
           
           try {
             const token = await getAuthToken();
@@ -163,7 +96,7 @@ export default function Stage7ContextConnection() {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                   },
-                  body: JSON.stringify({ provider: status.provider || "google" }),
+                body: JSON.stringify({ provider: status.provider || "google" }),
                 }
               );
               if (syncRes.ok) {
@@ -196,41 +129,6 @@ export default function Stage7ContextConnection() {
       verifyConnection();
     }
   }, [verifyConnection, searchParams, setSearchParams, queryClient, recordStep, refreshProfile]);
-
-  // Handle Google Calendar toggle
-  const handleCalendarToggle = async (checked: boolean) => {
-    if (!checked) {
-      setCalendarEnabled(false);
-      return;
-    }
-
-    if (!isAuthenticated) {
-      toast.error("Please complete sign-up first to connect your calendar");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      console.log("[Stage7] Starting Google Calendar connect via calendar-auth edge function");
-      const authUrl = await requestCalendarAuthUrl("/onboarding/context-connection");
-
-      if (!authUrl) {
-        toast.error("Failed to start calendar connection");
-        setLoading(false);
-        return;
-      }
-
-      console.log("[Stage7] Redirecting to Google OAuth (via edge function URL)");
-      await openUrl(authUrl);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Stage7] Calendar connect failed:", msg);
-      toast.error("Failed to start calendar connection");
-      setCalendarEnabled(false);
-      setLoading(false);
-    }
-  };
 
   // Handle Apple Health toggle
   const handleWatchToggle = async (checked: boolean) => {
