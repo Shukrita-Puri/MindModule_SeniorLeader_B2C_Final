@@ -697,7 +697,8 @@ serve(async (req) => {
     // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
     type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-    type RhythmDimension = 'energy' | 'clarity' | 'sharpness' | 'confidence';
+    // Energy and Sharpness dimensions retired — no longer tracked product-wide.
+    type RhythmDimension = 'clarity' | 'confidence';
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
@@ -919,25 +920,13 @@ serve(async (req) => {
       return deduped;
     };
 
-    const energySeries     = buildOutcomeSeries();
     const claritySeries    = buildLevelSeries('clarity_level');
-    const sharpnessSeries  = buildLevelSeries('mental_sharpness_level');
     const confidenceSeries = buildLevelSeries('confidence_level');
 
-    const energyFindings = mineSeries(energySeries, {
-      dimension: 'energy', appLabel: 'Energy',
-      positivePhrase: 'focused', negativePhrase: 'drained',
-      longPositiveLabel: "'focused' / 'steady'", longNegativeLabel: "'drained' / 'overwhelmed'",
-    });
     const clarityFindings = mineSeries(claritySeries, {
       dimension: 'clarity', appLabel: 'Clarity',
       positivePhrase: 'clear', negativePhrase: 'clouded',
       longPositiveLabel: 'Crystal/Lucid (4–5)', longNegativeLabel: 'Obscured/Clouded (1–2)',
-    });
-    const sharpnessFindings = mineSeries(sharpnessSeries, {
-      dimension: 'sharpness', appLabel: 'Sharpness',
-      positivePhrase: 'sharp', negativePhrase: 'dull',
-      longPositiveLabel: 'Peak/Acute (4–5)', longNegativeLabel: 'Dull/Depleted (1–2)',
     });
     const confidenceFindings = mineSeries(confidenceSeries, {
       dimension: 'confidence', appLabel: 'Confidence',
@@ -958,16 +947,14 @@ serve(async (req) => {
       'consecutive-neg': 0.70, // recurring drop (active risk)
       'consecutive-pos': 0.30, // celebratory, non-actionable
     };
-    // Decision-quality signals first, then fuel, then slow-mover.
+    // Decision-quality signals first, then slow-mover.
     const DIMENSION_BONUS: Record<RhythmDimension, number> = {
-      sharpness: 0.20,
       clarity: 0.15,
-      energy: 0.10,
       confidence: 0.05,
     };
 
     const allFindings: RhythmFinding[] = [
-      ...energyFindings, ...clarityFindings, ...sharpnessFindings, ...confidenceFindings,
+      ...clarityFindings, ...confidenceFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],
