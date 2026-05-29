@@ -516,33 +516,11 @@ interface QualifiedNudge {
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
 
-// Mirror of the EVENT_TYPE_KEYWORDS table in cause-effect-engine so smart-nudges
-// can look up an event's bucket against the persisted pattern store.
-const NUDGE_EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
-  { label: 'School & family',         words: ['school', 'parents evening', 'open evening', 'parents', 'governor'] },
-  { label: 'Board / governance',      words: ['board', 'governance'] },
-  { label: 'Investor calls',          words: ['investor', 'vc ', ' vc', 'fundraise', 'raise', 'pitch deck'] },
-  { label: 'Reviews',                 words: ['review', 'qbr', 'quarterly'] },
-  { label: '1:1s',                    words: ['1:1', '1-1', 'one on one', '1on1'] },
-  { label: 'All-hands',               words: ['all-hands', 'all hands', 'town hall', 'townhall'] },
-  { label: 'Client meetings',         words: ['client', 'customer', 'stakeholder'] },
-  { label: 'Interviews',              words: ['interview', 'candidate'] },
-  { label: 'Deep work blocks',        words: ['deep work', 'focus block', 'writing time'] },
-  { label: 'Exec / leadership',       words: ['exec', 'executive', 'leadership', 'ceo ', ' ceo', 'cto ', ' cto'] },
-  { label: 'Networking & community',  words: ['meetup', 'summit', 'expo', 'conference', 'info session', 'community'] },
-  { label: 'Intro / discovery calls', words: ['intro', 'discovery', 'chemistry'] },
-  { label: 'Catch-ups & syncs',       words: ['catchup', 'catch-up', 'catch up', 'sync', 'check-in', 'check in', 'weekly', 'standup', 'stand-up'] },
-  { label: 'Internal builds',         words: ['debug', 'dashboard', 'engineering', 'sprint', 'planning'] },
-];
-
-function classifyEventForPattern(title: string | null | undefined): string | null {
-  if (!title) return null;
-  const t = title.toLowerCase();
-  for (const ec of NUDGE_EVENT_TYPE_KEYWORDS) {
-    if (ec.words.some((w) => t.includes(w))) return ec.label;
-  }
-  return null;
-}
+// Event→bucket lookup against the persisted pattern store is delegated to
+// the canonical legacy table in `_shared/events/event-classifier.ts`. The
+// same function powers cause-effect-engine and JIT tactical-signals so the
+// writer and reader of `causality_findings.signal_summary` never drift.
+import { classifyByLegacyTable as classifyEventForPattern } from '../_shared/events/event-classifier.ts';
 
 async function loadPatternSummary(
   supabase: ReturnType<typeof createClient>,
