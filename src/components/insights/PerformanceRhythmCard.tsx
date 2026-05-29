@@ -1434,7 +1434,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
             {/* v4 — Performance Lift blocks (wearable + calendar fusion) */}
             {data.performanceLift && (
-              <PerformanceLiftBlocks lift={data.performanceLift} hasCalendar={data.hasCalendar} />
+              <PerformanceLiftBlocks
+                lift={data.performanceLift}
+                hasCalendar={data.hasCalendar}
+                diagnostics={data.performanceDiagnostics ?? null}
+              />
             )}
 
             {/* Empty-state when ≥7 check-ins but no findings yet */}
