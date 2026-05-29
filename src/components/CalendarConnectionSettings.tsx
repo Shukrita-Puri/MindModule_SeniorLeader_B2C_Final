@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card';
 import { Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import CalendarProviderPicker, { fetchCalendarProvidersState } from '@/components/calendar/CalendarProviderPicker';
 
@@ -16,7 +15,6 @@ const CalendarConnectionSettings = ({
   compact = false
 }: CalendarConnectionSettingsProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
