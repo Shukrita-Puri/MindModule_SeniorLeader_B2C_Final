@@ -503,6 +503,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   refreshProfileRef.current = refreshProfile;
 
+  const effectiveAuthenticated = isAuthenticated || nativeAuthed;
+
   useEffect(() => {
     if (!authResolved || !effectiveAuthenticated) return;
     let cancelled = false;
@@ -679,8 +681,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       },
     });
   };
-
-  const effectiveAuthenticated = isAuthenticated || nativeAuthed;
 
   // Loading = true until:
   // 1. Auth0 SDK has finished loading AND
