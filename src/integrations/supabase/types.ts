@@ -3062,6 +3062,63 @@ export type Database = {
         }
         Relationships: []
       }
+      oura_connections: {
+        Row: {
+          access_token_expires_at: string | null
+          connection_status: string
+          created_at: string
+          encrypted_access_token_id: string | null
+          encrypted_refresh_token_id: string | null
+          id: string
+          is_active: boolean
+          last_error: string | null
+          last_error_at: string | null
+          last_sample_at: string | null
+          last_sync: string | null
+          oauth_state: string | null
+          oauth_state_expires_at: string | null
+          sync_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_expires_at?: string | null
+          connection_status?: string
+          created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          last_sample_at?: string | null
+          last_sync?: string | null
+          oauth_state?: string | null
+          oauth_state_expires_at?: string | null
+          sync_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_expires_at?: string | null
+          connection_status?: string
+          created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          last_sample_at?: string | null
+          last_sync?: string | null
+          oauth_state?: string | null
+          oauth_state_expires_at?: string | null
+          sync_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       persona_definitions: {
         Row: {
           background_context: string | null
@@ -4746,6 +4803,14 @@ export type Database = {
         Returns: undefined
       }
       store_calendar_refresh_token: {
+        Args: { _connection_id: string; _token: string }
+        Returns: undefined
+      }
+      store_oura_access_token: {
+        Args: { _connection_id: string; _expires_at: string; _token: string }
+        Returns: undefined
+      }
+      store_oura_refresh_token: {
         Args: { _connection_id: string; _token: string }
         Returns: undefined
       }
