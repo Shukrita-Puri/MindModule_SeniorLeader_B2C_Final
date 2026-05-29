@@ -2993,7 +2993,9 @@ export type Database = {
       onboarding_progress: {
         Row: {
           completed_at: string | null
+          connections_at: string | null
           context_calendar_enabled: boolean | null
+          context_confirmed_at: string | null
           context_connection_at: string | null
           context_watch_enabled: boolean | null
           current_step: string
@@ -3002,8 +3004,11 @@ export type Database = {
           growth_intention_at: string | null
           id: string
           identity_at: string | null
+          linkedin_at: string | null
           mental_clarity_at: string | null
+          onboarding_completed_at: string | null
           payment_at: string | null
+          pricing_at: string | null
           recovery_patterns_at: string | null
           results_at: string | null
           selected_plan: string | null
@@ -3016,7 +3021,9 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          connections_at?: string | null
           context_calendar_enabled?: boolean | null
+          context_confirmed_at?: string | null
           context_connection_at?: string | null
           context_watch_enabled?: boolean | null
           current_step?: string
@@ -3025,8 +3032,11 @@ export type Database = {
           growth_intention_at?: string | null
           id?: string
           identity_at?: string | null
+          linkedin_at?: string | null
           mental_clarity_at?: string | null
+          onboarding_completed_at?: string | null
           payment_at?: string | null
+          pricing_at?: string | null
           recovery_patterns_at?: string | null
           results_at?: string | null
           selected_plan?: string | null
@@ -3039,7 +3049,9 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          connections_at?: string | null
           context_calendar_enabled?: boolean | null
+          context_confirmed_at?: string | null
           context_connection_at?: string | null
           context_watch_enabled?: boolean | null
           current_step?: string
@@ -3048,8 +3060,11 @@ export type Database = {
           growth_intention_at?: string | null
           id?: string
           identity_at?: string | null
+          linkedin_at?: string | null
           mental_clarity_at?: string | null
+          onboarding_completed_at?: string | null
           payment_at?: string | null
+          pricing_at?: string | null
           recovery_patterns_at?: string | null
           results_at?: string | null
           selected_plan?: string | null
@@ -3343,6 +3358,7 @@ export type Database = {
           beta_user: boolean | null
           biggest_pressure: string | null
           component_scores: Json | null
+          confirmed_priorities: string[] | null
           created_at: string | null
           current_streak: number | null
           current_timezone: string | null
@@ -3361,8 +3377,14 @@ export type Database = {
           home_timezone: string | null
           id: string
           identity_role: string | null
+          inferred_priorities: string[] | null
           last_login_at: string | null
           last_streak_celebration: number | null
+          leadership_context: Json | null
+          linkedin_analyzed_at: string | null
+          linkedin_intake_mode: string | null
+          linkedin_raw_markdown: string | null
+          linkedin_url: string | null
           location_permission_state: string | null
           longest_streak: number | null
           mental_fitness_baseline: number | null
@@ -3409,6 +3431,7 @@ export type Database = {
           beta_user?: boolean | null
           biggest_pressure?: string | null
           component_scores?: Json | null
+          confirmed_priorities?: string[] | null
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
@@ -3427,8 +3450,14 @@ export type Database = {
           home_timezone?: string | null
           id: string
           identity_role?: string | null
+          inferred_priorities?: string[] | null
           last_login_at?: string | null
           last_streak_celebration?: number | null
+          leadership_context?: Json | null
+          linkedin_analyzed_at?: string | null
+          linkedin_intake_mode?: string | null
+          linkedin_raw_markdown?: string | null
+          linkedin_url?: string | null
           location_permission_state?: string | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
@@ -3475,6 +3504,7 @@ export type Database = {
           beta_user?: boolean | null
           biggest_pressure?: string | null
           component_scores?: Json | null
+          confirmed_priorities?: string[] | null
           created_at?: string | null
           current_streak?: number | null
           current_timezone?: string | null
@@ -3493,8 +3523,14 @@ export type Database = {
           home_timezone?: string | null
           id?: string
           identity_role?: string | null
+          inferred_priorities?: string[] | null
           last_login_at?: string | null
           last_streak_celebration?: number | null
+          leadership_context?: Json | null
+          linkedin_analyzed_at?: string | null
+          linkedin_intake_mode?: string | null
+          linkedin_raw_markdown?: string | null
+          linkedin_url?: string | null
           location_permission_state?: string | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
