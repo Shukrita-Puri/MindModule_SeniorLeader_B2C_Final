@@ -219,14 +219,15 @@ import {
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
+import { TRAVEL_TITLE_RX } from '../_shared/ceo-behaviour/travel.ts';
 
 function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
 function isHighStakes(title: string | null): boolean { return isHighStakesTitle(title); }
 
-// Local travel-keyword list retained for the v5.3 pre-flight / in-flight sub-arc
-// detection (a more specific concern than the shared day-kind detector).
-const TRAVEL_KEYWORDS = ['flight','airport','boarding','departure','arrival','layover','transit','train','red-eye','redeye'];
+// Travel-event detection for the v5.3 pre-flight / in-flight sub-arc — sourced
+// from the canonical ceo-behaviour module so Brief/Plan/Nudges stay in sync.
+const TRAVEL_TITLE_REGEX = TRAVEL_TITLE_RX;
 
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
