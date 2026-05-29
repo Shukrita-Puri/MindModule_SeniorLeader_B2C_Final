@@ -32,6 +32,27 @@
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 
 /**
+ * Canonical travel-title regex. Single source of truth for detecting whether a
+ * calendar event title represents a travel leg (flight / airport / boarding /
+ * landing / long-haul / red-eye / layover / transit / train).
+ *
+ * All consumers (brief-signal-coverage, generate-mastery-plan, smart-nudges)
+ * MUST import this rather than re-declaring their own regex/keyword list, to
+ * keep travel detection consistent across Brief / Plan / Nudges.
+ *
+ * Pure shape — does NOT classify whether a long gap is a true connection vs
+ * personal time; that triangulation lives in the Edge consumer that populates
+ * `inFlightConnectionMinutes`.
+ */
+export const TRAVEL_TITLE_RX =
+  /\b(flight|flying|fly to|airport|boarding|depart(?:ure)?|arrival|arriving|landing|long[- ]haul|red[- ]?eye|layover|transit|train)\b/i;
+
+/** Convenience predicate over the canonical travel regex. */
+export function isTravelTitle(title: string | null | undefined): boolean {
+  return !!title && TRAVEL_TITLE_RX.test(title);
+}
+
+/**
  * Compute the post-landing protected window.
  *   - If a meeting exists within 30-60min of landing → that meeting drives prep
  *     (window collapses to "prep ahead of it" framing).
