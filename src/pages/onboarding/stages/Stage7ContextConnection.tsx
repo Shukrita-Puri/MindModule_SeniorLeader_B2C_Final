@@ -209,7 +209,7 @@ export default function Stage7ContextConnection() {
       if (token) {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const body = JSON.stringify({
-          calendar_provider: calendarEnabled ? "google" : null,
+          calendar_provider: connectedCalendarProvider,
           watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
           // No wearable → self check-ins always enabled (Mode C). With a wearable, honour the toggle.
           self_check_ins_enabled: watchEnabled ? selfCheckInsEnabled : true,
