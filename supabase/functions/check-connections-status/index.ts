@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
 
     const { data: anyWearable } = await db
       .from("wearable_data")
-      .select("id, updated_at, summary_date")
+      .select("id, updated_at, summary_date, source_provider, source_apps")
       .eq("user_id", userId)
       .order("summary_date", { ascending: false })
       .limit(1)
@@ -88,6 +88,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const hasHistoricalData = !!anyWearable;
+    // Detect Oura-via-Apple-Health from latest day. `source_provider` is
+    // set by the iOS native bridge when HealthKit sample sources resolve to Oura.
+    const sourceProvider = (anyWearable as { source_provider?: string } | null)?.source_provider ?? null;
+    const ouraDetectedViaAppleHealth = sourceProvider === "oura_via_apple_health";
     const connectionStatus = watchIntegration?.watch_connection_status
       ?? (watchIntegration?.watch_type ? "connected" : "disconnected");
     let syncStatus = watchIntegration?.watch_sync_status ?? "unknown";
@@ -185,6 +189,9 @@ Deno.serve(async (req) => {
         lastError: watchIntegration?.watch_last_error || null,
         lastErrorAt: watchIntegration?.watch_last_error_at || null,
         statusUpdatedAt: watchIntegration?.watch_status_updated_at || null,
+        sourceProvider,
+        ouraDetectedViaAppleHealth,
+        sourceApps: (anyWearable as { source_apps?: Record<string, string[]> } | null)?.source_apps ?? null,
       },
     };
 

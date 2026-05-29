@@ -191,18 +191,34 @@ import Security
         let group = DispatchGroup()
         // dayKey -> partial sample
         var dailySamples: [String: [String: Any]] = [:]
+        // dayKey -> { metric -> Set<bundleId> }
+        var sourcesPerDay: [String: [String: Set<String>]] = [:]
         let lock = NSLock()
+
+        // Track the most recent Oura-sourced sample we observed across this run
+        // for diagnostics + UI ("last Oura sample seen via Apple Health").
+        var latestOuraSampleAt: Date? = nil
+
+        func mergeSources(day: String, metric: String, bundles: [String]) {
+            var byMetric = sourcesPerDay[day] ?? [:]
+            var set = byMetric[metric] ?? Set<String>()
+            for b in bundles where !b.isEmpty { set.insert(b) }
+            byMetric[metric] = set
+            sourcesPerDay[day] = byMetric
+        }
 
         // ----- HRV -----
         if let hrvType = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) {
             group.enter()
-            queryQuantityDaily(type: hrvType, unit: HKUnit.secondUnit(with: .milli), start: startDate, end: endDate) { dayMap in
+            queryQuantityDaily(type: hrvType, unit: HKUnit.secondUnit(with: .milli), start: startDate, end: endDate) { dayMap, sourceMap, latestOura in
                 lock.lock()
                 for (day, value) in dayMap {
                     var entry = dailySamples[day] ?? ["summary_date": day]
                     entry["hrv"] = value
                     dailySamples[day] = entry
                 }
+                for (day, bundles) in sourceMap { mergeSources(day: day, metric: "hrv", bundles: bundles) }
+                if let t = latestOura, latestOuraSampleAt == nil || t > (latestOuraSampleAt ?? .distantPast) { latestOuraSampleAt = t }
                 lock.unlock()
                 group.leave()
             }
@@ -211,13 +227,15 @@ import Security
         // ----- RHR -----
         if let rhrType = HKObjectType.quantityType(forIdentifier: .restingHeartRate) {
             group.enter()
-            queryQuantityDaily(type: rhrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap in
+            queryQuantityDaily(type: rhrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap, sourceMap, latestOura in
                 lock.lock()
                 for (day, value) in dayMap {
                     var entry = dailySamples[day] ?? ["summary_date": day]
                     entry["resting_heart_rate"] = Int(round(value))
                     dailySamples[day] = entry
                 }
+                for (day, bundles) in sourceMap { mergeSources(day: day, metric: "resting_heart_rate", bundles: bundles) }
+                if let t = latestOura, latestOuraSampleAt == nil || t > (latestOuraSampleAt ?? .distantPast) { latestOuraSampleAt = t }
                 lock.unlock()
                 group.leave()
             }
@@ -226,13 +244,15 @@ import Security
         // ----- HR (avg) -----
         if let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) {
             group.enter()
-            queryQuantityDaily(type: hrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap in
+            queryQuantityDaily(type: hrType, unit: HKUnit(from: "count/min"), start: startDate, end: endDate) { dayMap, sourceMap, latestOura in
                 lock.lock()
                 for (day, value) in dayMap {
                     var entry = dailySamples[day] ?? ["summary_date": day]
                     entry["heart_rate"] = Int(round(value))
                     dailySamples[day] = entry
                 }
+                for (day, bundles) in sourceMap { mergeSources(day: day, metric: "heart_rate", bundles: bundles) }
+                if let t = latestOura, latestOuraSampleAt == nil || t > (latestOuraSampleAt ?? .distantPast) { latestOuraSampleAt = t }
                 lock.unlock()
                 group.leave()
             }
@@ -259,7 +279,7 @@ import Security
         // ----- Sleep -----
         if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
             group.enter()
-            querySleepDaily(type: sleepType, start: startDate, end: endDate) { dayMap in
+            querySleepDaily(type: sleepType, start: startDate, end: endDate) { dayMap, sourceMap, latestOura in
                 lock.lock()
                 for (day, sleep) in dayMap {
                     var entry = dailySamples[day] ?? ["summary_date": day]
@@ -269,6 +289,8 @@ import Security
                     if let score = sleep["score"] { entry["sleep_score"] = score }
                     dailySamples[day] = entry
                 }
+                for (day, bundles) in sourceMap { mergeSources(day: day, metric: "sleep", bundles: bundles) }
+                if let t = latestOura, latestOuraSampleAt == nil || t > (latestOuraSampleAt ?? .distantPast) { latestOuraSampleAt = t }
                 lock.unlock()
                 group.leave()
             }
@@ -276,7 +298,18 @@ import Security
 
         group.notify(queue: .global(qos: .background)) { [weak self] in
             guard let self = self else { done(); return }
-            let samples = Array(dailySamples.values)
+            // Attach per-day source attribution + resolved provider label.
+            var samples: [[String: Any]] = []
+            for (day, var entry) in dailySamples {
+                if let byMetric = sourcesPerDay[day] {
+                    var sourceApps: [String: [String]] = [:]
+                    for (metric, bundles) in byMetric { sourceApps[metric] = Array(bundles).sorted() }
+                    entry["source_apps"] = sourceApps
+                    entry["source_provider"] = WearableSyncBridge.resolveProvider(sourceApps: sourceApps)
+                }
+                samples.append(entry)
+            }
+            if let t = latestOuraSampleAt { NativeSyncDiagnostics.shared.recordOuraSample(at: t) }
             if !samples.isEmpty {
                 // Persist payload to native outbox FIRST so a process kill mid-upload
                 // never loses the data.
@@ -293,6 +326,44 @@ import Security
             // removes the item; each failure bumps retry metadata.
             self.drainOutbox(token: token, done: done)
         }
+    }
+
+    // MARK: - Source detection helpers
+
+    /// Classify a HealthKit sample's source bundle ID into a high-level provider tag.
+    /// Examples:
+    ///   com.ouraring.oura            -> "oura"
+    ///   com.apple.health             -> "apple_health"
+    ///   com.apple.HealthDataDaemon   -> "apple_health"
+    ///   com.apple.Health             -> "apple_health"
+    ///   *.applewatch / Watch device  -> "apple_watch"
+    static func providerForBundle(_ bundleId: String) -> String {
+        let b = bundleId.lowercased()
+        if b.contains("ouraring") || b.contains("oura") { return "oura" }
+        if b.contains("whoop") { return "whoop" }
+        if b.contains("garmin") { return "garmin" }
+        if b.contains("polar") { return "polar" }
+        if b.contains("fitbit") { return "fitbit" }
+        if b.contains("apple") { return "apple_health" }
+        return "other"
+    }
+
+    /// Resolve a single top-level provider label from per-metric bundle IDs.
+    /// Priority: if Oura is the source for at least one of HRV/RHR/HR/Sleep,
+    /// tag the day `oura_via_apple_health`. Else Apple Watch via Apple Health.
+    /// Else generic apple_health. Mixed-third-party = `mixed_via_apple_health`.
+    static func resolveProvider(sourceApps: [String: [String]]) -> String {
+        var providers = Set<String>()
+        for (_, bundles) in sourceApps {
+            for b in bundles { providers.insert(providerForBundle(b)) }
+        }
+        if providers.contains("oura") { return "oura_via_apple_health" }
+        let thirdParty = providers.subtracting(["apple_health", "other"])
+        if thirdParty.count > 1 { return "mixed_via_apple_health" }
+        if let only = thirdParty.first { return "\(only)_via_apple_health" }
+        // Apple-only — assume Apple Watch when HR/HRV/RHR present (iPhone alone can't measure HRV).
+        if sourceApps["hrv"] != nil || sourceApps["resting_heart_rate"] != nil { return "apple_watch_via_apple_health" }
+        return "apple_health"
     }
 
     /// Public entry point used by the plugin and AppDelegate to drain the outbox
@@ -372,20 +443,22 @@ import Security
         unit: HKUnit,
         start: Date,
         end: Date,
-        completion: @escaping ([String: Double]) -> Void
+        completion: @escaping (_ avgByDay: [String: Double], _ sourcesByDay: [String: [String]], _ latestOuraSampleAt: Date?) -> Void
     ) {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
             if let error = error {
                 NSLog("[WearableSyncBridge] Quantity query failed for \(type.identifier): \(error.localizedDescription)")
-                completion([:])
+                completion([:], [:], nil)
                 return
             }
             guard let quantitySamples = samples as? [HKQuantitySample] else {
-                completion([:])
+                completion([:], [:], nil)
                 return
             }
             var byDay: [String: [Double]] = [:]
+            var sourcesByDay: [String: Set<String>] = [:]
+            var latestOura: Date? = nil
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
             formatter.timeZone = TimeZone.current
@@ -394,13 +467,22 @@ import Security
                 let value = s.quantity.doubleValue(for: unit)
                 if value <= 0 { continue }
                 byDay[dayKey, default: []].append(value)
+                let bundle = s.sourceRevision.source.bundleIdentifier
+                if !bundle.isEmpty {
+                    sourcesByDay[dayKey, default: Set()].insert(bundle)
+                    if WearableSyncBridge.providerForBundle(bundle) == "oura" {
+                        if latestOura == nil || s.endDate > (latestOura ?? .distantPast) { latestOura = s.endDate }
+                    }
+                }
             }
             var avg: [String: Double] = [:]
             for (day, vals) in byDay {
                 let sum = vals.reduce(0, +)
                 avg[day] = sum / Double(vals.count)
             }
-            completion(avg)
+            var sourceArrays: [String: [String]] = [:]
+            for (day, set) in sourcesByDay { sourceArrays[day] = Array(set) }
+            completion(avg, sourceArrays, latestOura)
         }
         healthStore.execute(query)
     }
@@ -454,17 +536,17 @@ import Security
         type: HKCategoryType,
         start: Date,
         end: Date,
-        completion: @escaping ([String: [String: Int]]) -> Void
+        completion: @escaping (_ byDay: [String: [String: Int]], _ sourcesByDay: [String: [String]], _ latestOuraSampleAt: Date?) -> Void
     ) {
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
             if let error = error {
                 NSLog("[WearableSyncBridge] Sleep query failed: \(error.localizedDescription)")
-                completion([:])
+                completion([:], [:], nil)
                 return
             }
             guard let categorySamples = samples as? [HKCategorySample] else {
-                completion([:])
+                completion([:], [:], nil)
                 return
             }
             let formatter = DateFormatter()
@@ -477,12 +559,21 @@ import Security
             var deep: [String: Int] = [:]
             var rem: [String: Int] = [:]
             var inBed: [String: Int] = [:]
+            var sourcesByDay: [String: Set<String>] = [:]
+            var latestOura: Date? = nil
 
             for s in categorySamples {
                 let day = formatter.string(from: s.endDate)
                 let mins = Int(s.endDate.timeIntervalSince(s.startDate) / 60.0)
                 if mins <= 0 { continue }
                 guard let value = HKCategoryValueSleepAnalysis(rawValue: s.value) else { continue }
+                let bundle = s.sourceRevision.source.bundleIdentifier
+                if !bundle.isEmpty {
+                    sourcesByDay[day, default: Set()].insert(bundle)
+                    if WearableSyncBridge.providerForBundle(bundle) == "oura" {
+                        if latestOura == nil || s.endDate > (latestOura ?? .distantPast) { latestOura = s.endDate }
+                    }
+                }
                 switch value {
                 case .asleepDeep:
                     deep[day, default: 0] += mins
@@ -522,7 +613,9 @@ import Security
                 }
                 result[day] = entry
             }
-            completion(result)
+            var sourceArrays: [String: [String]] = [:]
+            for (day, set) in sourcesByDay { sourceArrays[day] = Array(set) }
+            completion(result, sourceArrays, latestOura)
         }
         healthStore.execute(query)
     }

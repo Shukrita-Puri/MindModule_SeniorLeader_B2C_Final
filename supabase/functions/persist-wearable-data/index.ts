@@ -183,6 +183,17 @@ Deno.serve(async (req) => {
         if (sample.rem_sleep_minutes != null) row.rem_sleep_minutes = sample.rem_sleep_minutes;
         if (sample.sleep_score != null) row.sleep_score = sample.sleep_score;
 
+        // Per-day HealthKit source attribution. `source_apps` is a small map
+        // like { hrv: ["com.ouraring.oura"], sleep: ["com.apple.health"] };
+        // `source_provider` is the resolved top-level label
+        // (apple_health | oura_via_apple_health | apple_watch_via_apple_health | mixed_via_apple_health).
+        if (sample.source_apps && typeof sample.source_apps === "object") {
+          row.source_apps = sample.source_apps;
+        }
+        if (typeof sample.source_provider === "string" && sample.source_provider.length > 0) {
+          row.source_provider = sample.source_provider;
+        }
+
         if (body.raw_data) {
           row.raw_data = body.raw_data;
         }

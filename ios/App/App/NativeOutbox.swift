@@ -240,6 +240,8 @@ import Foundation
     private let kUploadLatencyMs = "mm.diag.lastUploadLatencyMs"
     private let kUploadSuccessCount = "mm.diag.uploadSuccessCount"
     private let kUploadFailureCount = "mm.diag.uploadFailureCount"
+    private let kLastOuraSampleAt = "mm.diag.lastOuraSampleAt"
+    private let kOuraDetected = "mm.diag.ouraDetected"
 
     public func recordHealthObserver() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthObserver) }
     public func recordHealthUpload() { defaults.set(Date().timeIntervalSince1970, forKey: kLastHealthUpload) }
@@ -263,6 +265,11 @@ import Foundation
         defaults.set(ms, forKey: kUploadLatencyMs)
         defaults.set(defaults.integer(forKey: kUploadSuccessCount) + 1, forKey: kUploadSuccessCount)
     }
+    /// Record that a HealthKit sample sourced from the Oura app was seen.
+    public func recordOuraSample(at date: Date) {
+        defaults.set(date.timeIntervalSince1970, forKey: kLastOuraSampleAt)
+        defaults.set(true, forKey: kOuraDetected)
+    }
 
     public func snapshot() -> [String: Any] {
         return [
@@ -278,6 +285,8 @@ import Foundation
             "lastUploadLatencyMs": defaults.object(forKey: kUploadLatencyMs) ?? NSNull(),
             "uploadSuccessCount": defaults.integer(forKey: kUploadSuccessCount),
             "uploadFailureCount": defaults.integer(forKey: kUploadFailureCount),
+            "lastOuraSampleAt": defaults.object(forKey: kLastOuraSampleAt) ?? NSNull(),
+            "ouraDetected": defaults.bool(forKey: kOuraDetected),
         ]
     }
 }

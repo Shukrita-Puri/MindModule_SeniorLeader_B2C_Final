@@ -4705,6 +4705,8 @@ export type Database = {
           sleep_quality: string | null
           sleep_score: number | null
           source: string
+          source_apps: Json
+          source_provider: string | null
           steps: number | null
           summary_date: string
           total_sleep_minutes: number | null
@@ -4729,6 +4731,8 @@ export type Database = {
           sleep_quality?: string | null
           sleep_score?: number | null
           source?: string
+          source_apps?: Json
+          source_provider?: string | null
           steps?: number | null
           summary_date: string
           total_sleep_minutes?: number | null
@@ -4753,6 +4757,8 @@ export type Database = {
           sleep_quality?: string | null
           sleep_score?: number | null
           source?: string
+          source_apps?: Json
+          source_provider?: string | null
           steps?: number | null
           summary_date?: string
           total_sleep_minutes?: number | null
