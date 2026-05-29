@@ -2,3 +2,9 @@ project_id = "iyilcpvercoywaweybpc"
 
 [functions.calendar-webhook]
 verify_jwt = false
+
+[functions.persist-travel-location]
+verify_jwt = false
+
+[functions.travel-notifications]
+verify_jwt = false
