@@ -1,85 +1,112 @@
+## Goal
 
-# Upgrade: "When You Perform Best" — wearable + calendar fusion
+Make it impossible for an Apple Health-derived block (`sleep_to_peak`, `rhr_recovery_window`, `hr_event_lift`, `category_lift`) to disappear silently. When a block is null, the exact reason — and the counts behind it — must be queryable from the DB and visible in edge logs. No gates are loosened.
 
-## Why this exists
-Today the card is built **only** from `daily_checkins` (clarity / emotion / pressure / regulation). Wearable rows and calendar events are fetched but never correlated into the positive patterns. Meanwhile the negative-side card ("What Drains Your Performance") already runs `cause-effect-engine` over the same data and persists rich projections to `causality_findings.signal_summary`. We're sitting on the data — we just aren't surfacing the positive half.
+## Findings (no fix needed in ingestion)
 
-## Storage decision: reuse, don't recreate
-Per `mem://architecture/unified-pattern-store`, `causality_findings.signal_summary jsonb` is the canonical store for all proactive pattern signals, and the documented extension rule is *add a new top-level key, never a new table*. So:
+Confirmed by reading `src/utils/healthKitCapacitor.ts` and `supabase/functions/persist-wearable-data/index.ts`:
 
-- **No new DB table.** Add one new key: `signal_summary.performance_lift`.
-- **No new edge function.** Extend `cause-effect-engine` to compute it in the same nightly pass — it already has baselines, dedupe, HR-sample loading, and event classification loaded.
-- `performance-rhythm-insights` (the card's edge fn) reads that key and merges it into its payload. Card stays one card.
-- Bump `ENGINE_VERSION` 3 → 4 → one silent recompute per user on next card load (same convention as the v3 rollout).
+- HealthKit bridge already reads HRV, RHR, minute-level HR, and sleep samples (`healthKitCapacitor.ts:278`) and forwards `hr_samples` per day (`:435`).
+- `persist-wearable-data` already maps `resting_heart_rate`, `hr_samples`, `sleep_score` into `wearable_data` (`:176`, `:180`, `:184`).
+- For user `google-oauth2|111878424918915566691`, the ingestion path is wired. Root cause is **HealthKit on that device is not returning `sleep_score` or minute-level HR samples** (likely no sleep tracking + no Apple Watch worn during events). Not a code bug.
 
-## Data-science framing — Heart Rate over HRV for event correlation
-HRV is a **daily** signal (morning reading), too coarse for *"how did this 11am board meeting feel?"*. For event-level correlation we use **peak HR vs same-day resting baseline** sampled from `wearable_data.hr_samples` whose `t` falls inside `[event.start_time, event.end_time]` — the exact mechanism `stressMatrix` already uses. HRV stays in the picture only as a **next-day recovery cost** read, never as an in-event signal.
+Conclusion: the fix is **observability**, not ingestion. We add a structured diagnostic block written to DB on every engine run.
 
-## New event taxonomy (mandatory)
-All event references — keys, labels, and user-facing strings — use the new taxonomy in `supabase/functions/_shared/events/`:
+## Plan
 
-- `event-categories.ts` → 8 A–H pillars (`FRAMEWORK_PILLARS`) — the rollup unit for charts (Visibility & Communication, Deep Work & Strategy, etc.).
-- `event-subtypes.ts` → 30 `EVENT_TYPES` rows with `categoryId`, `bucket`, `keywords`, `primaryPillar`, `demandProfile` — the classification unit.
-- `event-classifier.ts` → `classifyEvent` is the **only** way calendar titles get bucketed. We do **not** keep the old `EVENT_TYPE_KEYWORDS` map in `cause-effect-engine`; we replace its call sites with `classifyEvent`.
-- Charts and copy use **`bucket`** (e.g. "High-Stakes Governance", "Influence & Persuasion") or **category name** for rollups, never the legacy `board`/`investor` shorthand.
+### 1. New DB table: `wearable_signal_diagnostics`
 
-## New projections (added to `signal_summary.performance_lift`)
-Each is a small pre-projected array. Same shape pattern as `event_to_hrv` so the client stays O(1). All run through `classifyEvent` and dedupe.
+One row per `(user_id, computed_at)` cause-effect-engine run. Columns:
 
-1. **`hr_event_lift`** — per **EVENT_TYPE subtype** (with `categoryId` + `bucket` attached), mean peak-HR-over-baseline (bpm) AND mean same-day-same-window check-in composite. Tags subtypes where the user thrives = *low HR delta + high composite*. Output: `[{ eventTypeId, bucket, categoryId, hrDeltaBpm, compositeLift, n, confidence }]`.
-2. **`category_lift`** — rollup of (1) to A–H pillars: mean HR delta and composite lift per category. Output: `[{ categoryId, categoryName, hrDeltaBpm, compositeLift, n, confidence }]`.
-3. **`sleep_to_peak`** — nights where `total_sleep_minutes` and `sleep_score` are both ≥ user's 30-day P70 → next-day mean composite + best-window. Output: `{ deltaPct, n, confidence, bestWindow }`.
-4. **`rhr_recovery_window`** — days where morning RHR ≤ baseline−1σ → which time-window's check-ins score highest. Output: `{ window, liftPct, n, confidence }`.
-5. **`recovery_streak_to_peak`** — N consecutive low-RHR days preceding a top-quartile composite day. Output: `{ avgStreakLength, n, confidence }`.
+- `user_id text`
+- `computed_at timestamptz default now()`
+- `window_days int` (60)
+- `engine_version int`
+- `sleep_score_day_count int`         — days with `sleep_score > 0`
+- `rhr_day_count int`                  — days with `resting_heart_rate > 0`
+- `hrv_day_count int`
+- `hr_samples_day_count int`           — days where `hr_samples` array is non-empty
+- `rhr_recovered_day_count int`        — days passing `rhrMean − 1σ`
+- `rhr_window_bucket_counts jsonb`     — `{morning, afternoon, evening}` brief counts on recovered days
+- `event_days_with_hr int`             — calendar event count whose day has `hr_samples`
+- `gate_reasons jsonb`                 — `{ sleep_to_peak: "...", rhr_recovery_window: "...", hr_event_lift: "...", category_lift: "..." }`. Each value is either `"ok"` or one of the named gates below.
 
-Governance (inherited, unchanged):
-- Min thresholds: ≥7 check-ins, ≥14 wearable days, ≥10 classified events for (1)/(2).
-- Personal noise excluded; `phrase-validation-standard` applied to all copy.
-- All weights/formulas stay server-side per `mem://security/proprietary-logic-protection`. Client renders pre-baked numbers only.
+RLS: deny by default. `service_role` ALL. `authenticated` SELECT scoped to `user_id = auth.jwt() ->> 'sub'` so users can see their own diagnostics.
 
-## What the card renders — 3 new chart blocks
-Added **below** the existing day×time-of-day heatmap, inside "Performance Patterns". The 4 trend tabs (clarity / emotion / pressure / regulation) and the flame-suppression/share work from the last round are untouched.
+### 2. Engine instrumentation (`supabase/functions/cause-effect-engine/index.ts`)
 
-**A. "Sleep → Next-Day Peak"** — small line + band
-- X = sleep-duration buckets (<6h, 6–7, 7–8, 8+); Y = mean next-day composite.
-- Caption (deterministic, from `sleep_to_peak`): *"After 7–8h sleep, your readiness runs +18% above your baseline (n=12)."*
+Inside the `performance_lift` IIFE, replace silent early-returns with named reasons. Sentinel values:
 
-**B. "Recovery → Best Window"** — three small bars (Morning / Afternoon / Evening)
-- Driven by `rhr_recovery_window` + `recovery_streak_to_peak`. Highlights the window where well-recovered days actually peak.
-- Caption: *"On well-recovered mornings (RHR ≤ baseline −1σ), your afternoon check-ins lead by +14% (n=9)."*
+- `sleep_to_peak`:
+  - `no_sleep_score_rows` (count == 0)
+  - `insufficient_sleep_days` (count < 7)
+  - `no_prs_baseline`
+  - `insufficient_next_day_prs` (`nextDayPrs.length < MIN_OCCURRENCES_EMERGING`)
+  - `ok`
+- `rhr_recovery_window`:
+  - `no_rhr_rows`
+  - `insufficient_rhr_days` (< 7)
+  - `no_recovered_days_after_filter` (recoveredDays empty after `mean − 1σ`)
+  - `bucket_below_min_occurrences` (all windows < `MIN_OCCURRENCES_EMERGING`)
+  - `no_positive_lift`
+  - `ok`
+- `hr_event_lift`:
+  - `no_hr_samples` (`hrSamplesByDay` empty)
+  - `no_resting_baseline`
+  - `no_event_day_overlap` (had samples but no event start/end fell inside any sample)
+  - `all_subtypes_below_min_occurrences`
+  - `ok`
+- `category_lift`: same pattern, derived from `hr_event_lift` outcome.
 
-**C. "Event Categories Where You Thrive"** — diverging bar by A–H category
-- Reuses the coral ramp from the drain card, mirrored to a sage ramp for lift. Right-side bars = thriving categories (low HR delta + high composite), left-side = draining (re-uses `event_to_hrv` so user sees both sides on one axis).
-- Labels are pillar names from `FRAMEWORK_PILLARS` ("Deep Work & Strategy", "Visibility & Communication", …).
-- Tap-through reveals top 3 contributing subtypes from `hr_event_lift` with their `bucket` label, n, and confidence dot. Emerging items at 0.6 opacity.
+Counts (`sleepDayCount`, `rhrDayCount`, `recoveredDayCount`, `winAcc` lengths, `hrSamplesByDay.size`, `eventDaysWithHr`) are accumulated inline and returned alongside the reason. Engine still computes and returns the same `performance_lift` shape — the diagnostics ride alongside.
 
-Gating (matches drain card):
-- Wearable missing → blocks A/B/C all show "Add a wearable" prompt routing to `/connected-data`.
-- Calendar missing → only C hides with "Add your calendar" prompt.
-- Both present but thin data → block shows "Need a few more weeks to populate" instead of disappearing.
+After computing, insert one row into `wearable_signal_diagnostics`. Also `console.log("[cause-effect][diag]", JSON.stringify(diag))` so it appears in edge function logs.
 
-## Files touched
-```text
-supabase/functions/cause-effect-engine/index.ts
-  - replace EVENT_TYPE_KEYWORDS calls with classifyEvent
-  - add performance_lift projections (hr_event_lift, category_lift,
-    sleep_to_peak, rhr_recovery_window, recovery_streak_to_peak)
-  - bump ENGINE_VERSION 3 → 4
-supabase/functions/performance-rhythm-insights/index.ts
-  - read signal_summary.performance_lift
-  - emit 3 new payload blocks (sleep, recovery-window, category-lift)
-  - keep day×time heatmap untouched
-src/components/insights/PerformanceRhythmCard.tsx
-  - render 3 chart blocks under "Performance Patterns"
-  - reuse existing gating / coral ramp / share scaffolding
-mem/architecture/unified-pattern-store.md
-  - document new performance_lift key + that it uses classifyEvent and HR (not HRV)
+Engine version bump → `6`.
+
+### 3. Surface in payload
+
+Add `diagnostics: WearableDiagnostics` to the engine response (and the `signal_summary.performance_lift_diagnostics` key on `causality_findings`) so downstream consumers and the existing card can display *"sleep block unavailable because no sleep_score rows"* instead of a blank.
+
+### 4. UI hint (small, isolated)
+
+In `PerformanceLiftBlocks` (consumed by `PerformanceRhythmCard`), when a block is null AND a diagnostic reason exists, render a single muted line: `Awaiting <reason>` (mapped to human strings). No layout change, no new card.
+
+### 5. Tests (`supabase/functions/cause-effect-engine/diagnostics_test.ts`)
+
+Deno tests exercising the diagnostic builder as a pure function (extracted into `buildPerformanceLift(...)` so it's unit-testable):
+
+- Zero sleep_score rows → `sleep_to_peak.reason === "no_sleep_score_rows"`, `sleepDayCount === 0`.
+- 11 RHR days, only 2 pass mean−1σ → `rhr_recovery_window.reason === "no_recovered_days_after_filter"` or `bucket_below_min_occurrences` depending on bucket counts.
+- No `hr_samples` anywhere → `hr_event_lift.reason === "no_hr_samples"`.
+- All gates pass with synthetic 14-day perfect data → all `ok`.
+
+### 6. Manual verification
+
+After deploy, hit `admin-backfill-causality` for the 3 active users, then:
+
+```sql
+select user_id, computed_at, gate_reasons, sleep_score_day_count,
+       rhr_day_count, rhr_recovered_day_count, hr_samples_day_count
+from wearable_signal_diagnostics
+order by computed_at desc limit 9;
 ```
-No DB migration. No new edge function. No change to the 4 trend tabs, flame suppression, or share-image work from the last round.
 
-## Open question before build
-Confirm one of:
-- **(a)** Ship all three blocks (A + B + C) now — single engine pass, full causal chain visible.
-- **(b)** Ship only block **C "Event Categories Where You Thrive"** first (highest insight density, directly mirrors the drain card), then A + B in a follow-up.
+Expectation for `google-oauth2|111878424918915566691`:
+`gate_reasons.sleep_to_peak = "no_sleep_score_rows"`, `sleep_score_day_count = 0`, `hr_event_lift = "no_hr_samples"`, `rhr_recovery_window = "bucket_below_min_occurrences"` with `rhr_recovered_day_count ≈ 2`.
 
-Recommendation: **(a)** — incremental cost is small, and the three together give the user the full *sleep → physiology → event* story they're asking for.
+## Out of scope
+
+- HealthKit bridge changes — already writes everything required.
+- Relaxing any gate (`MIN_OCCURRENCES_EMERGING`, ≥7-day, mean−1σ) — explicitly forbidden.
+- Phase 2 Recovery Time tab — already shipped.
+
+## Files changed
+
+```text
+supabase/migrations/<ts>_wearable_signal_diagnostics.sql   (new)
+supabase/functions/cause-effect-engine/index.ts            (+ diagnostics, engine v6)
+supabase/functions/cause-effect-engine/diagnostics_test.ts (new)
+src/components/insights/PerformanceCausalityCard.tsx       (or PerformanceRhythmCard — "Awaiting X" line)
+mem://reliability/wearable-signal-diagnostics.md           (new memory)
+```

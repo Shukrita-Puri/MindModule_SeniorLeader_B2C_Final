@@ -4518,6 +4518,54 @@ export type Database = {
         }
         Relationships: []
       }
+      wearable_signal_diagnostics: {
+        Row: {
+          computed_at: string
+          engine_version: number
+          event_days_with_hr: number
+          gate_reasons: Json
+          hr_samples_day_count: number
+          hrv_day_count: number
+          id: string
+          rhr_day_count: number
+          rhr_recovered_day_count: number
+          rhr_window_bucket_counts: Json
+          sleep_score_day_count: number
+          user_id: string
+          window_days: number
+        }
+        Insert: {
+          computed_at?: string
+          engine_version: number
+          event_days_with_hr?: number
+          gate_reasons?: Json
+          hr_samples_day_count?: number
+          hrv_day_count?: number
+          id?: string
+          rhr_day_count?: number
+          rhr_recovered_day_count?: number
+          rhr_window_bucket_counts?: Json
+          sleep_score_day_count?: number
+          user_id: string
+          window_days: number
+        }
+        Update: {
+          computed_at?: string
+          engine_version?: number
+          event_days_with_hr?: number
+          gate_reasons?: Json
+          hr_samples_day_count?: number
+          hrv_day_count?: number
+          id?: string
+          rhr_day_count?: number
+          rhr_recovered_day_count?: number
+          rhr_window_bucket_counts?: Json
+          sleep_score_day_count?: number
+          user_id?: string
+          window_days?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       event_physiology_join: {

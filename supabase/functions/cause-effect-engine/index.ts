@@ -33,6 +33,10 @@ import {
   type Pillar,
 } from "../_shared/executive-state-taxonomy.ts";
 import { EVENT_CATEGORIES, type EventCategoryId } from "../_shared/events/event-categories.ts";
+import {
+  buildWearableDiagnostics,
+  type WearableDiagnostics,
+} from "./_diagnostics.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -71,8 +75,15 @@ const RECOVERY_LOOKAHEAD_DAYS = 4;
  * recovery-days based on Heart Rate (RHR). HRV is intentionally excluded
  * here because it's a daily morning signal and too coarse for event-level
  * recovery tracking; Heart Rate is the canonical event-window signal.
+ *
+ * v6 adds `diagnostics` — explicit gate-failure reasons + raw counts
+ * (sleep_score_day_count, rhr_day_count, hr_samples_day_count,
+ * recovered-day count, per-window bucket counts) so a missing block
+ * always reports WHY. Persisted to `wearable_signal_diagnostics`. No
+ * existing gate is loosened. See _diagnostics.ts and
+ * mem://reliability/wearable-signal-diagnostics.
  */
-const ENGINE_VERSION = 5;
+const ENGINE_VERSION = 6;
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Lens = "A" | "B" | "C" | "D";
@@ -143,6 +154,12 @@ interface Payload {
   // currently render these tabs.
   sleepDisruptionMatrix?: StressMatrix | null;
   recoveryCostTimeline?: RecoveryTimeline | null;
+  /**
+   * v6 — gate-failure diagnostics for the Apple Health-derived blocks.
+   * Always present so the UI can render a data-honest reason line when
+   * a block is null. See `_diagnostics.ts` for the sentinel taxonomy.
+   */
+  diagnostics?: WearableDiagnostics;
 }
 
 // ── Tabbed-card matrix shapes (presentation-ready, formula-free) ────────
@@ -1508,6 +1525,58 @@ serve(async (req) => {
       performance_lift,
       generatedAt: new Date().toISOString(),
     };
+
+    // ── v6: Wearable signal diagnostics ─────────────────────────────
+    // Pure helper, runs on the same inputs the engine just used. Decides
+    // *why* each Apple Health-derived block is or is not present. Never
+    // mutates the payload or relaxes a gate.
+    const diagnostics = buildWearableDiagnostics(
+      {
+        wearable: wearable as any[],
+        events: events as any[],
+        briefs: briefs as any[],
+        hrSamplesByDay,
+        restingBaseline,
+        prsBaseline: (() => {
+          const xs: number[] = [];
+          (briefs as any[]).forEach((b) => { if (typeof b.score === "number") xs.push(b.score); });
+          return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+        })(),
+        performanceLift: performance_lift,
+      },
+      {
+        windowDays: days,
+        engineVersion: ENGINE_VERSION,
+        minOccurrencesEmerging: MIN_OCCURRENCES_EMERGING,
+      },
+    );
+    payload.diagnostics = diagnostics;
+
+    // Log every run for edge-function-logs visibility.
+    console.log("[cause-effect-engine][diag]", JSON.stringify({
+      user_id: userId,
+      counts: diagnostics.counts,
+      gate_reasons: diagnostics.gateReasons,
+    }));
+
+    // Persist diagnostic audit row. Failures here must not block the
+    // payload response — diagnostics are observability, not correctness.
+    const { error: diagErr } = await supabase
+      .from("wearable_signal_diagnostics")
+      .insert({
+        user_id: userId,
+        window_days: diagnostics.windowDays,
+        engine_version: diagnostics.engineVersion,
+        sleep_score_day_count: diagnostics.counts.sleepScoreDays,
+        rhr_day_count: diagnostics.counts.rhrDays,
+        hrv_day_count: diagnostics.counts.hrvDays,
+        hr_samples_day_count: diagnostics.counts.hrSamplesDays,
+        rhr_recovered_day_count: diagnostics.counts.rhrRecoveredDays,
+        rhr_window_bucket_counts: diagnostics.counts.rhrWindowBucketCounts,
+        event_days_with_hr: diagnostics.counts.eventDaysWithHr,
+        gate_reasons: diagnostics.gateReasons,
+      });
+    if (diagErr) console.error("[cause-effect-engine][diag] persist failed:", diagErr);
 
     const { error: upsertErr } = await supabase
       .from("causality_findings")

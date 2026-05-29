@@ -71,6 +71,13 @@ interface PerformanceRhythmData {
    */
   performanceLift?: PerformanceLift | null;
 
+  /**
+   * v6 — gate-failure diagnostics from cause-effect-engine. Lets the UI
+   * render a data-honest "Awaiting …" line when a Performance Lift block
+   * is null instead of a silent gap.
+   */
+  performanceDiagnostics?: PerformanceDiagnostics | null;
+
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
@@ -126,6 +133,50 @@ interface PerformanceLift {
   generatedAt: string;
 }
 
+type GateReason =
+  | 'ok'
+  | 'no_sleep_score_rows'
+  | 'insufficient_sleep_days'
+  | 'no_prs_baseline'
+  | 'insufficient_next_day_prs'
+  | 'no_rhr_rows'
+  | 'insufficient_rhr_days'
+  | 'no_recovered_days_after_filter'
+  | 'bucket_below_min_occurrences'
+  | 'no_positive_lift'
+  | 'no_hr_samples'
+  | 'no_resting_baseline'
+  | 'no_event_day_overlap'
+  | 'all_subtypes_below_min_occurrences'
+  | 'all_categories_below_min_occurrences';
+
+interface PerformanceDiagnostics {
+  gateReasons: {
+    sleep_to_peak: GateReason;
+    rhr_recovery_window: GateReason;
+    hr_event_lift: GateReason;
+    category_lift: GateReason;
+  };
+}
+
+const GATE_REASON_COPY: Record<GateReason, string> = {
+  ok: '',
+  no_sleep_score_rows: 'Awaiting sleep score data from Apple Health.',
+  insufficient_sleep_days: 'Need at least 7 nights of sleep score to compute.',
+  no_prs_baseline: 'Awaiting more check-ins to establish a baseline.',
+  insufficient_next_day_prs: 'Awaiting more morning briefs after high-sleep nights.',
+  no_rhr_rows: 'Awaiting resting heart rate data from Apple Health.',
+  insufficient_rhr_days: 'Need at least 7 days of resting heart rate.',
+  no_recovered_days_after_filter: 'No well-recovered days detected in this window.',
+  bucket_below_min_occurrences: 'Recovered days exist but not enough briefs in any single window yet.',
+  no_positive_lift: 'Recovered days did not show a measurable lift this window.',
+  no_hr_samples: 'Awaiting minute-level heart rate from Apple Watch.',
+  no_resting_baseline: 'Awaiting more resting heart rate readings.',
+  no_event_day_overlap: 'Heart-rate data and calendar events have not overlapped yet.',
+  all_subtypes_below_min_occurrences: 'Not enough events per type to compute lift.',
+  all_categories_below_min_occurrences: 'Not enough events per category to compute lift.',
+};
+
 interface PerformanceRhythmCardProps {
   userId?: string;
 }
@@ -176,9 +227,11 @@ function windowLabel(w: 'morning' | 'afternoon' | 'evening' | null | undefined):
 const PerformanceLiftBlocks = ({
   lift,
   hasCalendar,
+  diagnostics,
 }: {
   lift: PerformanceLift;
   hasCalendar: boolean;
+  diagnostics?: PerformanceDiagnostics | null;
 }) => {
   const sleep = lift.sleep_to_peak;
   const rec = lift.rhr_recovery_window;
@@ -193,7 +246,23 @@ const PerformanceLiftBlocks = ({
   );
 
   const anyToShow = !!sleep || !!rec || !!streak || thriving.length > 0 || draining.length > 0;
-  if (!anyToShow) return null;
+  const reasons = diagnostics?.gateReasons;
+  const reasonLines: string[] = [];
+  if (reasons) {
+    if (!sleep && reasons.sleep_to_peak !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.sleep_to_peak];
+      if (copy) reasonLines.push(`Sleep → Next-Day Peak — ${copy}`);
+    }
+    if (!rec && reasons.rhr_recovery_window !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.rhr_recovery_window];
+      if (copy) reasonLines.push(`Recovery → Best Window — ${copy}`);
+    }
+    if (thriving.length === 0 && draining.length === 0 && reasons.hr_event_lift !== 'ok') {
+      const copy = GATE_REASON_COPY[reasons.hr_event_lift];
+      if (copy) reasonLines.push(`Event Categories — ${copy}`);
+    }
+  }
+  if (!anyToShow && reasonLines.length === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -301,6 +370,15 @@ const PerformanceLiftBlocks = ({
               />
             ))}
           </div>
+        </div>
+      )}
+      {reasonLines.length > 0 && (
+        <div className="p-3 rounded-xl bg-muted/15 border border-border/30 space-y-1">
+          {reasonLines.map((line, i) => (
+            <p key={i} className="text-[11px] text-muted-foreground/80 leading-relaxed">
+              {line}
+            </p>
+          ))}
         </div>
       )}
     </div>
@@ -1356,7 +1434,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
             {/* v4 — Performance Lift blocks (wearable + calendar fusion) */}
             {data.performanceLift && (
-              <PerformanceLiftBlocks lift={data.performanceLift} hasCalendar={data.hasCalendar} />
+              <PerformanceLiftBlocks
+                lift={data.performanceLift}
+                hasCalendar={data.hasCalendar}
+                diagnostics={data.performanceDiagnostics ?? null}
+              />
             )}
 
             {/* Empty-state when ≥7 check-ins but no findings yet */}
