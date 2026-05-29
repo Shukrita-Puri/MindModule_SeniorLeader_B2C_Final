@@ -235,7 +235,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
           />
           <img src={mmLogoCircle} alt="Mind Module logo" className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full shadow-lg" />
           <h1
-            className="relative text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-saffron tracking-wider leading-none"
+            className="relative text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-white tracking-wider leading-none"
             style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
           >
             MIND MODULE
@@ -250,7 +250,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
 
         {/* Tagline — owns the middle zone */}
         <div className="flex flex-col items-center justify-center flex-1 px-2">
-          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-white font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
+          <h2 className="text-[1.75rem] sm:text-3xl lg:text-4xl font-editorial italic text-saffron font-bold tracking-wide leading-snug drop-shadow-[0_4px_10px_rgba(0,0,0,0.7)]">
             Designed for Leaders to Stay Mentally Ahead
           </h2>
         </div>
