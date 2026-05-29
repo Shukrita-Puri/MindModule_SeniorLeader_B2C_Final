@@ -92,7 +92,13 @@ export type IntegrationEventName =
   | 'notification_pending_dump'
   | 'notification_scheduled_cleared'
   | 'notification_received_foreground'
-  | 'notification_action_performed';
+  | 'notification_action_performed'
+  // travel detection
+  | 'travel_state_changed'
+  | 'travel_notification_scheduled'
+  | 'travel_notification_cancelled_stale'
+  | 'travel_location_update_failed'
+  | 'travel_offline_fallback_used';
 
 export interface IntegrationEvent {
   ts: string;                       // ISO timestamp

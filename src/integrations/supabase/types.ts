@@ -3355,11 +3355,15 @@ export type Database = {
           founding_member_granted_at: string | null
           full_name: string | null
           growth_priority: string | null
+          home_lat: number | null
+          home_lng: number | null
+          home_location_set_at: string | null
           home_timezone: string | null
           id: string
           identity_role: string | null
           last_login_at: string | null
           last_streak_celebration: number | null
+          location_permission_state: string | null
           longest_streak: number | null
           mental_fitness_baseline: number | null
           meta_skill_scores: Json | null
@@ -3390,6 +3394,7 @@ export type Database = {
           timezone_offset: number | null
           total_self_mastery_points: number | null
           total_social_mastery_points: number | null
+          travel_notifications_enabled: boolean | null
           trial_ends_at: string | null
           updated_at: string | null
           user_archetype: string | null
@@ -3416,11 +3421,15 @@ export type Database = {
           founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
+          home_lat?: number | null
+          home_lng?: number | null
+          home_location_set_at?: string | null
           home_timezone?: string | null
           id: string
           identity_role?: string | null
           last_login_at?: string | null
           last_streak_celebration?: number | null
+          location_permission_state?: string | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
@@ -3451,6 +3460,7 @@ export type Database = {
           timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
+          travel_notifications_enabled?: boolean | null
           trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
@@ -3477,11 +3487,15 @@ export type Database = {
           founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
+          home_lat?: number | null
+          home_lng?: number | null
+          home_location_set_at?: string | null
           home_timezone?: string | null
           id?: string
           identity_role?: string | null
           last_login_at?: string | null
           last_streak_celebration?: number | null
+          location_permission_state?: string | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
@@ -3512,6 +3526,7 @@ export type Database = {
           timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
+          travel_notifications_enabled?: boolean | null
           trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
@@ -4162,6 +4177,141 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      travel_location_pings: {
+        Row: {
+          accuracy_m: number | null
+          captured_at: string
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          source: string
+          timezone: string | null
+          user_id: string
+        }
+        Insert: {
+          accuracy_m?: number | null
+          captured_at?: string
+          created_at?: string
+          id?: string
+          lat: number
+          lng: number
+          source?: string
+          timezone?: string | null
+          user_id: string
+        }
+        Update: {
+          accuracy_m?: number | null
+          captured_at?: string
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          source?: string
+          timezone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      travel_notifications: {
+        Row: {
+          anchor_key: string
+          body: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          delivered_at: string | null
+          id: string
+          payload: Json
+          phase: string
+          scheduled_for: string
+          state_at_schedule: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anchor_key: string
+          body: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          payload?: Json
+          phase: string
+          scheduled_for: string
+          state_at_schedule: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anchor_key?: string
+          body?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          payload?: Json
+          phase?: string
+          scheduled_for?: string
+          state_at_schedule?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      travel_state: {
+        Row: {
+          created_at: string
+          distance_from_home_km: number | null
+          last_known_accuracy_m: number | null
+          last_known_lat: number | null
+          last_known_lng: number | null
+          last_known_timezone: string | null
+          last_location_at: string | null
+          last_state_change_at: string
+          last_timezone_change_at: string | null
+          meta: Json
+          state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          distance_from_home_km?: number | null
+          last_known_accuracy_m?: number | null
+          last_known_lat?: number | null
+          last_known_lng?: number | null
+          last_known_timezone?: string | null
+          last_location_at?: string | null
+          last_state_change_at?: string
+          last_timezone_change_at?: string | null
+          meta?: Json
+          state?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          distance_from_home_km?: number | null
+          last_known_accuracy_m?: number | null
+          last_known_lat?: number | null
+          last_known_lng?: number | null
+          last_known_timezone?: string | null
+          last_location_at?: string | null
+          last_state_change_at?: string
+          last_timezone_change_at?: string | null
+          meta?: Json
+          state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       usage_occasion_definitions: {
         Row: {
