@@ -69,6 +69,9 @@ interface ConnectionStatus {
     lastError?: string | null;
     lastErrorAt?: string | null;
     statusUpdatedAt?: string | null;
+    sourceProvider?: string | null;
+    ouraDetectedViaAppleHealth?: boolean;
+    sourceApps?: Record<string, string[]> | null;
   };
   oura?: {
     connected: boolean;
