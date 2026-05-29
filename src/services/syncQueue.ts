@@ -13,7 +13,7 @@
 
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
 
-export type SyncQueueKind = 'apple-health' | 'apple-calendar';
+export type SyncQueueKind = 'apple-health' | 'apple-calendar' | 'oura';
 
 export interface SyncQueueItem<P = unknown> {
   id: string;
@@ -34,7 +34,7 @@ function isValidItem(x: unknown): x is SyncQueueItem {
   const o = x as Record<string, unknown>;
   return (
     typeof o.id === 'string' &&
-    (o.kind === 'apple-health' || o.kind === 'apple-calendar') &&
+    (o.kind === 'apple-health' || o.kind === 'apple-calendar' || o.kind === 'oura') &&
     'payload' in o &&
     typeof o.enqueuedAt === 'string' &&
     typeof o.attempts === 'number' &&
@@ -154,6 +154,7 @@ export function depthByKind(): Record<SyncQueueKind, number> {
   return {
     'apple-health': items.filter((i) => i.kind === 'apple-health').length,
     'apple-calendar': items.filter((i) => i.kind === 'apple-calendar').length,
+    'oura': items.filter((i) => i.kind === 'oura').length,
   };
 }
 
