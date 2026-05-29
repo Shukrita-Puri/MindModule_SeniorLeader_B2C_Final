@@ -18,6 +18,23 @@ declare global {
   }
 }
 
+function getCurrentTimezoneSnapshot() {
+  const timezoneOffset = -(new Date().getTimezoneOffset());
+  const currentTimezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+      return null;
+    }
+  })();
+
+  return {
+    timezoneOffset,
+    currentTimezone,
+    signature: `${timezoneOffset}|${currentTimezone || ''}`,
+  };
+}
+
 interface AppUser {
   id: string;
   email: string;
@@ -45,7 +62,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<boolean>;
   updateDisplayName: (name: string) => Promise<{ success: boolean; error?: string }>;
   isAuthenticated: boolean;
 }
@@ -59,7 +76,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: DEV_USER, 
         loading: false, 
         signOut: async () => console.log('[DEV MODE] Sign out called'),
-        refreshProfile: async () => console.log('[DEV MODE] Refresh profile called'),
+        refreshProfile: async () => {
+          console.log('[DEV MODE] Refresh profile called');
+          return true;
+        },
         updateDisplayName: async (name: string) => {
           console.log('[DEV MODE] updateDisplayName called with:', name);
           return { success: true };
@@ -82,6 +102,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authResolved, setAuthResolved] = useState(false);
   const syncAttempted = useRef(false);
   const nativeHydrationAttempted = useRef(false);
+  const lastTimezoneSignatureRef = useRef<string | null>(null);
+  const timezoneSyncInFlightRef = useRef(false);
+  const refreshProfileRef = useRef<() => Promise<boolean>>(async () => false);
+  const syncingRef = useRef(false);
 
   // Expose Auth0 client globally for utility functions that can't use hooks
   useEffect(() => {
@@ -202,6 +226,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Now attempt profile sync with native token
       try {
         setSyncing(true);
+        const timezoneSnapshot = getCurrentTimezoneSnapshot();
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const freshTokens = getNativeTokens();
         const tokenToUse = freshTokens?.access_token || tokens.access_token;
@@ -217,8 +242,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: payload.email,
               name: payload.name || payload.nickname,
               picture: payload.picture,
-              timezone_offset: -(new Date().getTimezoneOffset()),
-              current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
+              timezone_offset: timezoneSnapshot.timezoneOffset,
+              current_timezone: timezoneSnapshot.currentTimezone,
             }),
           }
         );
@@ -226,6 +251,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (response.ok) {
           const { profile } = await response.json();
           console.log('[useAuth] ✅ Native profile synced:', profile.id);
+          lastTimezoneSignatureRef.current = timezoneSnapshot.signature;
           setAppUser({
             id: profile.id,
             email: profile.email,
@@ -280,6 +306,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       try {
         const token = await getAccessTokenSilently();
+        const timezoneSnapshot = getCurrentTimezoneSnapshot();
 
         // TIER 4: Client-side token validation
         try {
@@ -313,8 +340,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: auth0User.email,
               name: auth0User.name,
               picture: auth0User.picture,
-              timezone_offset: -(new Date().getTimezoneOffset()),
-              current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
+              timezone_offset: timezoneSnapshot.timezoneOffset,
+              current_timezone: timezoneSnapshot.currentTimezone,
             }),
           }
         );
@@ -327,6 +354,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             'subscription_status:', profile.subscription_status,
             'subscription_tier:', profile.subscription_tier);
           lastSyncedSub.current = currentSub || profile.id;
+          lastTimezoneSignatureRef.current = timezoneSnapshot.signature;
 
           const mappedUser: AppUser = {
             id: profile.id,
@@ -401,6 +429,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshProfile = async () => {
     try {
       console.log('[useAuth] 🔄 Refreshing profile...');
+      const timezoneSnapshot = getCurrentTimezoneSnapshot();
       let token: string;
       if (window.__auth0Client) {
         token = await window.__auth0Client.getAccessTokenSilently();
@@ -418,8 +447,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            timezone_offset: -(new Date().getTimezoneOffset()),
-            current_timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; } })(),
+            timezone_offset: timezoneSnapshot.timezoneOffset,
+            current_timezone: timezoneSnapshot.currentTimezone,
           }),
         }
       );
@@ -433,6 +462,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           'beta_expires_at:', profile.beta_expires_at,
           'subscription_status:', profile.subscription_status,
           'subscription_tier:', profile.subscription_tier);
+        lastTimezoneSignatureRef.current = timezoneSnapshot.signature;
         setAppUser(prev => prev ? {
           ...prev,
           name: profile.display_name || profile.auth_name || profile.full_name || prev.name,
@@ -462,8 +492,76 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (err) {
       console.warn('[useAuth] Profile refresh error:', err);
+      return false;
     }
+    return true;
   };
+
+  useEffect(() => {
+    syncingRef.current = syncing;
+  }, [syncing]);
+
+  refreshProfileRef.current = refreshProfile;
+
+  useEffect(() => {
+    if (!authResolved || !effectiveAuthenticated) return;
+    let cancelled = false;
+
+    const maybeRefreshTimezone = async () => {
+      if (cancelled || timezoneSyncInFlightRef.current || syncingRef.current) return;
+      const snapshot = getCurrentTimezoneSnapshot();
+      if (snapshot.signature === lastTimezoneSignatureRef.current) return;
+
+      timezoneSyncInFlightRef.current = true;
+      try {
+        console.log('[useAuth] Detected timezone change, refreshing profile');
+        const ok = await refreshProfileRef.current();
+        if (ok) {
+          lastTimezoneSignatureRef.current = snapshot.signature;
+        }
+      } finally {
+        timezoneSyncInFlightRef.current = false;
+      }
+    };
+
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void maybeRefreshTimezone();
+      }
+    };
+
+    window.addEventListener('focus', onVisibilityOrFocus);
+    window.addEventListener('pageshow', onVisibilityOrFocus);
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+
+    let appListener: { remove: () => void } | null = null;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        if (cancelled) return;
+        appListener = await App.addListener('appStateChange', (state) => {
+          if (state.isActive) {
+            void maybeRefreshTimezone();
+          }
+        });
+      } catch (err) {
+        console.warn('[useAuth] Native timezone listener setup skipped:', err);
+      }
+    })();
+
+    const intervalId = window.setInterval(() => {
+      void maybeRefreshTimezone();
+    }, 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onVisibilityOrFocus);
+      window.removeEventListener('pageshow', onVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      window.clearInterval(intervalId);
+      appListener?.remove();
+    };
+  }, [authResolved, effectiveAuthenticated]);
 
   const updateDisplayName = async (name: string): Promise<{ success: boolean; error?: string }> => {
     try {

@@ -205,8 +205,8 @@ export function useWearableSync(): WearableSyncState {
             console.log('[useWearableSync] Init: HealthKit explicitly denied – marking permission_revoked');
             setConnectionState('permission_revoked');
           } else {
-            console.log('[useWearableSync] Init: HealthKit not verified yet – staying optimistic, will retry');
-            // Leave connectionState as-is; background re-verify will resolve later.
+            console.log('[useWearableSync] Init: HealthKit temporarily unavailable – marking sync_delayed');
+            setConnectionState('sync_delayed');
           }
           setLastVerifiedAt(new Date());
         }

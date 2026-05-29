@@ -1,6 +1,14 @@
 // Wearable Context Analyzer - Unified interface for all wearable metrics
 import { supabase } from "@/integrations/supabase/client";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 export interface WearableContext {
   // Core metrics
   readinessScore: number | null;
@@ -69,12 +77,17 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
         .maybeSingle();
 
       if (wearable && !error) {
-        const rawData = wearable.raw_data as any;
+        const rawData = isRecord(wearable.raw_data) ? wearable.raw_data : null;
+        const readinessRecord = isRecord(rawData?.readiness) ? rawData.readiness : null;
+        const activityRecord = isRecord(rawData?.activity) ? rawData.activity : null;
+        const source = typeof wearable.source === 'string' ? wearable.source : 'apple-healthkit';
+        const readinessScore = getNumber(rawData?.readiness_score) ?? getNumber(readinessRecord?.score) ?? null;
+        const activityScore = getNumber(rawData?.activity_score) ?? getNumber(activityRecord?.score) ?? null;
         
         context = {
-          readinessScore: null, // No readiness score in HealthKit
+          readinessScore,
           sleepScore: wearable.sleep_score,
-          activityScore: null,
+          activityScore,
           hrv: wearable.hrv ? Number(wearable.hrv) : null,
           restingHeartRate: wearable.resting_heart_rate,
           totalSleepMinutes: wearable.total_sleep_minutes,
@@ -82,14 +95,16 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
           remSleepMinutes: wearable.rem_sleep_minutes,
           steps: wearable.steps,
           activeCalories: wearable.active_calories,
-          temperatureDeviation: null,
+          temperatureDeviation: getNumber(rawData?.temperatureDeviation) ?? getNumber(rawData?.temperature_deviation) ?? getNumber(readinessRecord?.temperature_deviation) ?? null,
           sleepQuality: classifySleepQuality(wearable.sleep_score),
-          energyLevel: calculateEnergyLevel(null, wearable.sleep_score),
+          energyLevel: calculateEnergyLevel(readinessScore, wearable.sleep_score),
           hrvStatus: await classifyHRVStatus(wearable.hrv ? Number(wearable.hrv) : null, userId),
-          recoveryStatus: wearable.recovery_status as any || 'unknown',
+          recoveryStatus: typeof wearable.recovery_status === 'string'
+            ? (wearable.recovery_status as WearableContext['recoveryStatus'])
+            : 'unknown',
           activityReadiness: 'unknown',
           hasData: true,
-          dataSource: 'apple-watch',
+          dataSource: source === 'oura' ? 'oura' : 'apple-watch',
           lastUpdated: new Date(wearable.created_at)
         };
         return context;
@@ -103,6 +118,7 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
   const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || localStorage.getItem('wearableData') || '{}');
 
   if (appleWatchData.hrv) {
+    const source = appleWatchData.source === 'oura' ? 'oura' : 'apple-watch';
     context = {
       readinessScore: null,
       sleepScore: appleWatchData.sleepScore || null,
@@ -121,7 +137,7 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
       recoveryStatus: 'unknown',
       activityReadiness: 'unknown',
       hasData: true,
-      dataSource: 'apple-watch',
+      dataSource: source,
       lastUpdated: null
     };
   }
@@ -325,13 +341,15 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
       total++;
 
       // Time-of-day from hrv_samples if available
-      const samples = row.hrv_samples as any[];
+      const samples = Array.isArray(row.hrv_samples) ? row.hrv_samples as Array<{ hour?: unknown; value?: unknown }> : [];
       if (Array.isArray(samples)) {
         for (const s of samples) {
-          const h = s.hour;
-          if (h >= 6 && h < 12) morningValues.push(s.value);
-          else if (h >= 12 && h < 18) afternoonValues.push(s.value);
-          else eveningValues.push(s.value);
+          const h = getNumber(s.hour);
+          const v = getNumber(s.value);
+          if (h === null || v === null) continue;
+          if (h >= 6 && h < 12) morningValues.push(v);
+          else if (h >= 12 && h < 18) afternoonValues.push(v);
+          else eveningValues.push(v);
         }
       }
     }

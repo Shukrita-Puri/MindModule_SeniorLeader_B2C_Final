@@ -41,6 +41,15 @@ export interface HealthKitWearableData {
   dailySummaries: DailyWearableSummary[];
 }
 
+export interface HealthKitAccessStatus {
+  permissionGranted: boolean;
+  readAuthorized: string[];
+  readDenied: string[];
+  temporarilyUnavailable: boolean;
+  explicitDenied: boolean;
+  errorMessage: string | null;
+}
+
 import { Capacitor } from '@capacitor/core';
 import { emitIntegrationEvent } from './integrationTelemetry';
 
@@ -53,6 +62,14 @@ const HEALTHKIT_READ_TYPES = [
 
 interface HealthReader {
   readSamples(opts: { dataType: string; startDate: string; endDate: string }): Promise<unknown>;
+}
+
+function classifyHealthKitError(message: string): { temporarilyUnavailable: boolean; explicitDenied: boolean } {
+  const lowered = message.toLowerCase();
+  const temporarilyUnavailable = /health data unavailable|healthdataunavailable|databaseinaccessible|device is locked|protected and the device is locked|not available/i.test(message)
+    || /unavailable/.test(lowered);
+  const explicitDenied = /authorizationdenied|permission denied|access denied|denied/i.test(message) && !temporarilyUnavailable;
+  return { temporarilyUnavailable, explicitDenied };
 }
 
 /** Returns true when running inside the Capacitor native shell */
@@ -116,8 +133,24 @@ export async function getHealthKitAuthorization(): Promise<{
   readAuthorized: string[];
   readDenied: string[];
 }> {
+  const status = await getHealthKitAccessStatus();
+  return {
+    permissionGranted: status.permissionGranted,
+    readAuthorized: status.readAuthorized,
+    readDenied: status.readDenied,
+  };
+}
+
+export async function getHealthKitAccessStatus(): Promise<HealthKitAccessStatus> {
   if (!isNativeApp()) {
-    return { permissionGranted: false, readAuthorized: [], readDenied: [...HEALTHKIT_READ_TYPES] };
+    return {
+      permissionGranted: false,
+      readAuthorized: [],
+      readDenied: [...HEALTHKIT_READ_TYPES],
+      temporarilyUnavailable: false,
+      explicitDenied: false,
+      errorMessage: null,
+    };
   }
 
   try {
@@ -133,7 +166,14 @@ export async function getHealthKitAuthorization(): Promise<{
     const permissionGranted = readAuthorized.includes('heartRateVariability');
 
     console.log('[HealthKit] checkAuthorization:', JSON.stringify({ readAuthorized, readDenied, permissionGranted }));
-    return { permissionGranted, readAuthorized, readDenied };
+    return {
+      permissionGranted,
+      readAuthorized,
+      readDenied,
+      temporarilyUnavailable: false,
+      explicitDenied: !permissionGranted && readDenied.length > 0,
+      errorMessage: null,
+    };
   } catch (error) {
     console.error('[HealthKit] checkAuthorization failed:', error);
     const message = error instanceof Error ? error.message : String(error);
@@ -142,7 +182,15 @@ export async function getHealthKitAuthorization(): Promise<{
         error: message,
       });
     }
-    return { permissionGranted: false, readAuthorized: [], readDenied: [...HEALTHKIT_READ_TYPES] };
+    const classification = classifyHealthKitError(message);
+    return {
+      permissionGranted: false,
+      readAuthorized: [],
+      readDenied: classification.explicitDenied ? [...HEALTHKIT_READ_TYPES] : [],
+      temporarilyUnavailable: classification.temporarilyUnavailable,
+      explicitDenied: classification.explicitDenied,
+      errorMessage: message,
+    };
   }
 }
 

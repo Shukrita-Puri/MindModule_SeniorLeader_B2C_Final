@@ -6,6 +6,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function toNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toMinutes(value: unknown): number | null {
+  const numeric = toNumber(value);
+  return numeric === null ? null : Math.round(numeric / 60);
+}
+
+function mapSeries(series: unknown): Array<{ t: string; v: number }> {
+  if (!series || (typeof series !== 'object' && !Array.isArray(series))) return [];
+  const items = Array.isArray(series)
+    ? series
+    : (series as { items?: unknown; data?: unknown }).items ?? (series as { items?: unknown; data?: unknown }).data;
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const timestamp =
+        typeof row.timestamp === 'string' ? row.timestamp :
+        typeof row.datetime === 'string' ? row.datetime :
+        typeof row.start_datetime === 'string' ? row.start_datetime :
+        typeof row.end_datetime === 'string' ? row.end_datetime :
+        typeof row.date === 'string' ? row.date :
+        null;
+      const value =
+        toNumber(row.bpm) ??
+        toNumber(row.value) ??
+        toNumber(row.hrv) ??
+        toNumber(row.heart_rate);
+      if (!timestamp || value === null) return null;
+      return { t: timestamp, v: Math.round(value) };
+    })
+    .filter((item): item is { t: string; v: number } => !!item);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -98,6 +136,22 @@ serve(async (req) => {
       const sleep = sleepData?.data?.[0];
       const activity = activityData?.data?.[0];
       const heartRate = heartRateData?.data?.[0];
+      const hrvSamples = mapSeries(sleep?.hrv);
+      const hrSamples = [
+        ...mapSeries(sleep?.heart_rate),
+        ...mapSeries(heartRateData?.data),
+      ];
+      const readinessScore = toNumber(readiness?.score);
+      const sleepScore = toNumber(sleep?.efficiency ?? sleep?.score ?? sleep?.contributors?.total_sleep_duration);
+      const activityScore = toNumber(activity?.score);
+      const hrv = toNumber(sleep?.average_hrv ?? hrvSamples[0]?.v);
+      const restingHeartRate = toNumber(heartRate?.source === 'rest' ? heartRate?.bpm : null) ?? toNumber(sleep?.lowest_heart_rate);
+      const heartRateAvg = toNumber(sleep?.average_heart_rate ?? heartRate?.bpm);
+      const totalSleepMinutes = toMinutes(sleep?.total_sleep_duration);
+      const deepSleepMinutes = toMinutes(sleep?.deep_sleep_duration);
+      const remSleepMinutes = toMinutes(sleep?.rem_sleep_duration);
+      const steps = toNumber(activity?.steps);
+      const activeCalories = toNumber(activity?.active_calories);
       
       // Store in database
       const { error: insertError } = await supabaseClient
@@ -105,11 +159,11 @@ serve(async (req) => {
         .upsert({
           user_id: user.id,
           summary_date: dateStr,
-          readiness_score: readiness?.score || null,
-          sleep_score: sleep?.contributors?.total_sleep_duration || null,
-          activity_score: activity?.score || null,
-          hrv: heartRate?.bpm || null,
-          resting_heart_rate: heartRate?.source === 'rest' ? heartRate?.bpm : null,
+          readiness_score: readinessScore,
+          sleep_score: sleepScore,
+          activity_score: activityScore,
+          hrv,
+          resting_heart_rate: restingHeartRate,
           raw_data: {
             readiness: readiness || {},
             sleep: sleep || {},
@@ -122,6 +176,41 @@ serve(async (req) => {
       
       if (insertError) {
         throw insertError;
+      }
+
+      const { error: wearableError } = await supabaseClient
+        .from('wearable_data')
+        .upsert({
+          user_id: user.id,
+          summary_date: dateStr,
+          source: 'oura',
+          sleep_score: sleepScore,
+          hrv,
+          resting_heart_rate: restingHeartRate,
+          heart_rate: heartRateAvg,
+          hr_samples: hrSamples,
+          hrv_samples: hrvSamples,
+          total_sleep_minutes: totalSleepMinutes,
+          deep_sleep_minutes: deepSleepMinutes,
+          rem_sleep_minutes: remSleepMinutes,
+          active_calories: activeCalories,
+          steps,
+          raw_data: {
+            provider: 'oura',
+            readiness_score: readinessScore,
+            activity_score: activityScore,
+            readiness: readiness || {},
+            sleep: sleep || {},
+            activity: activity || {},
+            heartrate: heartRate || {},
+          },
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,summary_date',
+        });
+
+      if (wearableError) {
+        throw wearableError;
       }
       
     } catch (apiError) {

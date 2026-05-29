@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
+import { requestHealthKitPermissions, isNativeApp, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
 import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 import { clear as clearPersistent, cacheKeys, localISODate } from '@/utils/persistentBriefCache';
@@ -185,17 +185,32 @@ const ConnectedData = () => {
         backendSyncStatus: backendStatus.appleWatch.syncStatus,
       });
       if (!verified) {
-        next = {
-          ...next,
-          appleWatch: {
-            ...next.appleWatch,
-            connected: false,
-            connectionStatus: 'permission_revoked',
-            syncStatus: 'error',
-            lastError: 'healthkit_authorization_not_verified',
-            statusUpdatedAt: new Date().toISOString(),
-          },
-        };
+        const auth = await getHealthKitAuthorization();
+        if (auth.permissionGranted === false && (auth.readDenied?.length ?? 0) > 0) {
+          next = {
+            ...next,
+            appleWatch: {
+              ...next.appleWatch,
+              connected: false,
+              connectionStatus: 'permission_revoked',
+              syncStatus: 'error',
+              lastError: 'healthkit_authorization_not_verified',
+              statusUpdatedAt: new Date().toISOString(),
+            },
+          };
+        } else {
+          next = {
+            ...next,
+            appleWatch: {
+              ...next.appleWatch,
+              connected: true,
+              connectionStatus: 'connected',
+              syncStatus: 'sync_delayed',
+              lastError: 'healthkit_unavailable',
+              statusUpdatedAt: new Date().toISOString(),
+            },
+          };
+        }
       }
     }
 

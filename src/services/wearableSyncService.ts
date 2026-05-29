@@ -3,7 +3,7 @@
  * Syncs ALL daily wearable summaries (HRV, RHR, HR, Sleep – up to 30 days) in a single bulk request.
  * Only active on native iOS – no-op on web.
  */
-import { isNativeApp, queryHealthKitData, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
+import { isNativeApp, queryHealthKitData, verifyHealthKitAccess, getHealthKitAccessStatus } from '@/utils/healthKitCapacitor';
 import { getAuthToken } from '@/services/authTokenService';
 import { saveWearableDataLocally } from '@/services/localDataStore';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
@@ -242,8 +242,32 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       watch_type: 'apple',
     });
 
+    const accessStatus = await getHealthKitAccessStatus();
     const hasAccess = await verifyHealthKitAccess();
     if (!hasAccess) {
+      if (accessStatus.temporarilyUnavailable && !accessStatus.explicitDenied) {
+        console.warn('[WearableSync] HealthKit temporarily unavailable – keeping connection state soft');
+        emitIntegrationEvent({
+          provider: 'apple-health',
+          event: 'sync_failed',
+          errorCode: 'healthkit_unavailable',
+          errorMessage: accessStatus.errorMessage ?? undefined,
+        });
+        await persistWatchStatus({
+          watch_connection_status: 'connected',
+          watch_sync_status: 'sync_delayed',
+          watch_last_sync_at: startedAt,
+          watch_last_error: 'healthkit_unavailable',
+          watch_type: 'apple',
+        });
+        return fail({
+          permissionGranted: true,
+          connectionState: 'sync_delayed',
+          syncStatus: 'sync_delayed',
+          errorCode: 'healthkit_unavailable',
+        });
+      }
+
       console.warn('[WearableSync] HealthKit access verification failed – permission likely revoked');
       clearHealthKitPermission();
       emitIntegrationEvent({
