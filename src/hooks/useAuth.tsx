@@ -503,6 +503,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   refreshProfileRef.current = refreshProfile;
 
+  const effectiveAuthenticated = isAuthenticated || nativeAuthed;
+
   useEffect(() => {
     if (!authResolved || !effectiveAuthenticated) return;
     let cancelled = false;
