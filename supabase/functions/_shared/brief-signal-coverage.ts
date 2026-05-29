@@ -15,6 +15,7 @@
 
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
+import { TRAVEL_TITLE_RX } from "./ceo-behaviour/travel.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
@@ -83,13 +84,9 @@ export interface SignalCoverageInput {
 
 const HIGH_STAKES_LEVELS = new Set(["board", "external", "investor"]);
 
-// Travel-event detection. Mirrors smart-nudges TRAVEL_RX. Used to identify the
-// first travel event of the day for preFlightWindowMinutes. Pure shape — does
-// not classify whether a long gap is a true connection vs personal time; that
-// triangulation lives in the Edge consumer that populates
-// `inFlightConnectionMinutes`.
-const TRAVEL_RX =
-  /\b(flight|flying|fly to|airport|depart|arrival|arriving|landing|long[- ]haul|red[- ]eye)\b/i;
+// Travel-event detection now sourced from the canonical ceo-behaviour module.
+// Used to identify the first travel event of the day for preFlightWindowMinutes.
+const TRAVEL_RX = TRAVEL_TITLE_RX;
 
 // --- Conference / Summit cluster (v2) -------------------------------------
 // Tier-1 regex. Tier-2 (day-N inference) groups consecutive days containing
