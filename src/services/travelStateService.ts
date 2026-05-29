@@ -8,6 +8,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { emitIntegrationEvent } from '@/utils/integrationTelemetry';
+import { getAuthToken } from '@/services/authTokenService';
 
 export type TravelState =
   | 'not_travelling'
@@ -59,10 +60,7 @@ function writeCache(snap: TravelStateSnapshot): void {
 }
 
 async function authToken(): Promise<string | null> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ?? null;
-  } catch { return null; }
+  try { return await getAuthToken(); } catch { return null; }
 }
 
 export async function fetchTravelState(userId: string): Promise<TravelStateSnapshot> {
@@ -228,7 +226,7 @@ export async function manualTravelRefresh(): Promise<TravelStateSnapshot | null>
       meta: { area: 'travel_manual_refresh', message: (e as Error).message },
     });
   }
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.id) return null;
-  return fetchTravelState(user.id);
+  // Caller passes user id via the hook; this helper returns null when
+  // unknown so the UI can decide whether to refresh.
+  return null;
 }
