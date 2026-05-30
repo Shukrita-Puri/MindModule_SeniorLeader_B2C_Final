@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8, synthesizeCosProfile } from "@/utils/onboardingV8";
+import { BRIEF_TIMING, RESET_MODALITY, WEEKEND_SIGNALS } from "@/utils/onboardingV8Validation";
 
 type Row = { key: string; label: string; note: string; options: string[]; hint?: string };
 
@@ -37,6 +38,18 @@ export default function StageBriefPrefs() {
   const [saving, setSaving] = useState(false);
 
   const next = async () => {
+    const timingOk = (BRIEF_TIMING as readonly string[]).includes(prefs.timing);
+    const resetOk = (RESET_MODALITY as readonly string[]).includes(prefs.reset);
+    const weekendsOk = (WEEKEND_SIGNALS as readonly string[]).includes(prefs.weekends);
+    if (!timingOk || !resetOk || !weekendsOk) {
+      // Reset corrupted local state to safe defaults and refuse to advance.
+      setPrefs({
+        timing: timingOk ? prefs.timing : "Morning",
+        reset: resetOk ? prefs.reset : "Sound",
+        weekends: weekendsOk ? prefs.weekends : "Reduce",
+      });
+      return;
+    }
     setSaving(true);
     await saveV8(
       {
