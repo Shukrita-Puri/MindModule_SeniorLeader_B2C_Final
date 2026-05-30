@@ -45,20 +45,6 @@ function isSameDay(a: string, b: string): boolean {
   return a.split("T")[0] === b.split("T")[0];
 }
 
-const HIGH_STAKES_KEYWORDS = [
-  "board", "board meeting", "board of directors",
-  "investor", "vc", "funding", "pitch",
-  "crisis", "urgent", "emergency",
-  "negotiation", "deal", "contract",
-  "all hands", "town hall", "company meeting",
-  "interview", "media", "press",
-  "performance review", "annual review",
-  "termination", "layoff", "difficult conversation",
-  "quarterly", "qbr", "earnings",
-  "product launch", "go live",
-  "keynote", "conference", "speaking", "presentation",
-];
-
 const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
   board: ["board", "board meeting", "board of directors", "board deck"],
   investor: ["investor", "vc", "funding", "pitch", "fundraise"],
