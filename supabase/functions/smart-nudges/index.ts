@@ -219,7 +219,11 @@ import {
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
-import { isTravelTitle } from '../_shared/ceo-behaviour/travel.ts';
+import {
+  isTravelTitle,
+  detectPreFlightTravelEvent,
+  detectInFlightTravelEvent,
+} from '../_shared/ceo-behaviour/travel.ts';
 import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
 import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
 
@@ -933,31 +937,15 @@ async function buildNudgeContext(
     dayContext: (() => {
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
-      // v5.3 — Travel arc sub-flags. Travel today = a calendar event whose
-      // title matches the canonical `isTravelTitle` (flight/airport/boarding/...).
+      // v5.3 — Travel arc sub-flags. Travel-event detection AND the pre-flight
+      // / in-flight windowing are delegated to the canonical ceo-behaviour
+      // module so Brief / Plan / Nudges share one travel sub-arc taxonomy.
       let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
       let inFlight: { eventTitle: string; minutesUntil: number } | null = null;
       if (today.kind === 'travel-day') {
-        const nowMs = now.getTime();
-        const travelEvents = todayEvents.filter(e => {
-          return isTravelTitle(e.title);
-        });
-        // pre-flight: first travel event starting in 60–240 min
-        for (const e of travelEvents) {
-          const startMs = new Date(e.start_time).getTime();
-          const m = Math.round((startMs - nowMs) / 60000);
-          if (m >= 60 && m <= 240) { preFlight = { eventTitle: e.title || 'Travel', minutesUntil: m }; break; }
-        }
-        // in-flight: now is inside a travel event ≥ 90 min long
-        for (const e of travelEvents) {
-          const startMs = new Date(e.start_time).getTime();
-          const endMs = new Date(e.end_time).getTime();
-          const lengthMin = (endMs - startMs) / 60000;
-          if (lengthMin >= 90 && nowMs >= startMs && nowMs <= endMs) {
-            const m = Math.round((nowMs - startMs) / 60000);
-            inFlight = { eventTitle: e.title || 'Flight', minutesUntil: m };
-            break;
-          }
+        preFlight = detectPreFlightTravelEvent(todayEvents, now);
+        inFlight = detectInFlightTravelEvent(todayEvents, now);
+      }
         }
       }
       return {
