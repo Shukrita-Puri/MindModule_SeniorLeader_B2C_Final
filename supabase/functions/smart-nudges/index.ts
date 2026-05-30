@@ -219,7 +219,7 @@ import {
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
-import { TRAVEL_TITLE_RX } from '../_shared/ceo-behaviour/travel.ts';
+import { TRAVEL_TITLE_RX, isTravelTitle } from '../_shared/ceo-behaviour/travel.ts';
 import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
 import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
 
@@ -242,9 +242,9 @@ function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
 function isHighStakes(title: string | null): boolean { return isHighStakesTitle(title); }
 
-// Travel-event detection for the v5.3 pre-flight / in-flight sub-arc — sourced
-// from the canonical ceo-behaviour module so Brief/Plan/Nudges stay in sync.
-const TRAVEL_TITLE_REGEX = TRAVEL_TITLE_RX;
+// Travel-event detection for the v5.3 pre-flight / in-flight sub-arc is
+// sourced from the canonical ceo-behaviour module (`isTravelTitle`) so
+// Brief/Plan/Nudges stay in sync.
 
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
