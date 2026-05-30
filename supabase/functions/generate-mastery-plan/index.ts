@@ -247,6 +247,14 @@ interface ExecutiveScenario {
   name: string;
   contextLabel: string;
   triggers: {
+    /**
+     * @deprecated Do not use for runtime scenario detection.
+     * Scenario classification MUST go through `scenarioIdFor()` / the canonical
+     * event classifier in `_shared/events/event-classifier.ts`.
+     * These arrays are retained only as human-readable documentation of which
+     * calendar phrasings the canonical classifier is expected to cover for each
+     * scenario id, and must not be read at runtime.
+     */
     calendarKeywords?: string[];
     hoursAhead?: number;
     wearableCondition?: string;
