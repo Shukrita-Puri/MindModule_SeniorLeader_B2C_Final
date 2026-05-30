@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
+import { saveV8 } from "@/utils/onboardingV8";
 
 const CAL = [
   { id: "google", name: "Google Calendar", note: "Reads event titles and times only" },
@@ -18,6 +19,7 @@ export default function StagePermissions() {
   const [cal, setCal] = useState<Set<string>>(new Set());
   const [wear, setWear] = useState<Set<string>>(new Set());
   const [warn, setWarn] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
     const n = new Set(set);
@@ -26,11 +28,20 @@ export default function StagePermissions() {
     setWarn(false);
   };
 
-  const tryContinue = () => {
+  const tryContinue = async () => {
     if (cal.size === 0 || wear.size === 0) {
       setWarn(true);
       return;
     }
+    setSaving(true);
+    await saveV8(
+      {
+        calendar_selections: Array.from(cal),
+        wearable_selections: Array.from(wear),
+      },
+      "permissions",
+    );
+    setSaving(false);
     navigate("/onboarding/done");
   };
 
@@ -86,8 +97,8 @@ export default function StagePermissions() {
       title="Give Mind Module the daily context it needs"
       footer={
         <>
-          <PrimaryCTA tone="coral" onClick={tryContinue}>
-            Mind Module is ready — let's go →
+          <PrimaryCTA tone="coral" onClick={tryContinue} disabled={saving}>
+            {saving ? "Saving…" : "Mind Module is ready — let's go →"}
           </PrimaryCTA>
           <SkipLink onClick={() => navigate("/onboarding/done")}>Skip for now</SkipLink>
         </>
