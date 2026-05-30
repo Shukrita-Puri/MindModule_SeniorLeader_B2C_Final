@@ -219,7 +219,7 @@ import {
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
-import { TRAVEL_TITLE_RX } from '../_shared/ceo-behaviour/travel.ts';
+import { isTravelTitle } from '../_shared/ceo-behaviour/travel.ts';
 import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
 import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
 
@@ -242,9 +242,9 @@ function isNoiseEvent(title: string): boolean { return isNoiseTitle(title); }
 function scoreEvent(title: string | null): number { return highStakesScore(title); }
 function isHighStakes(title: string | null): boolean { return isHighStakesTitle(title); }
 
-// Travel-event detection for the v5.3 pre-flight / in-flight sub-arc — sourced
-// from the canonical ceo-behaviour module so Brief/Plan/Nudges stay in sync.
-const TRAVEL_TITLE_REGEX = TRAVEL_TITLE_RX;
+// Travel-event detection for the v5.3 pre-flight / in-flight sub-arc is
+// sourced from the canonical ceo-behaviour module (`isTravelTitle`) so
+// Brief/Plan/Nudges stay in sync.
 
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -934,13 +934,13 @@ async function buildNudgeContext(
       const today = detectDayKindFromEvents(todayEvents);
       const yesterday = detectDayKindFromEvents((yesterdayEventsRaw || []) as Array<{ title?: string | null }>);
       // v5.3 — Travel arc sub-flags. Travel today = a calendar event whose
-      // title matches TRAVEL_TITLE_REGEX (flight/airport/boarding/...).
+      // title matches the canonical `isTravelTitle` (flight/airport/boarding/...).
       let preFlight: { eventTitle: string; minutesUntil: number } | null = null;
       let inFlight: { eventTitle: string; minutesUntil: number } | null = null;
       if (today.kind === 'travel-day') {
         const nowMs = now.getTime();
         const travelEvents = todayEvents.filter(e => {
-          return TRAVEL_TITLE_REGEX.test(e.title || '');
+          return isTravelTitle(e.title);
         });
         // pre-flight: first travel event starting in 60–240 min
         for (const e of travelEvents) {
