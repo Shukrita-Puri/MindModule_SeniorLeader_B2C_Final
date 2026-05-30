@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import {
+  sanitizePayload,
+  validateStep,
+  validateForCompletion,
+  type StepKey,
+  type V8Payload,
+} from "../_shared/onboardingV8Validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,91 +21,13 @@ function json(status: number, body: unknown) {
   });
 }
 
-// Whitelist of fields that may be patched from the client. All others ignored.
-const ALLOWED_FIELDS = new Set([
-  "linkedin_url",
-  "writing_urls",
-  "freetext_context",
-  "stakes_chips",
-  "load_chips",
-  "burden_chips",
-  "goals",
-  "brief_timing",
-  "reset_modality",
-  "weekend_signals",
-  "calendar_selections",
-  "wearable_selections",
-]);
-
-function sanitizeWritingUrls(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const cleaned = value
-    .filter((v) => typeof v === "string")
-    .map((v) => String(v).trim())
-    .filter((v) => v.length > 0 && v.length <= 2048)
-    .slice(0, 2); // cap at 2
-  return cleaned;
-}
-
-function sanitizeStringArray(value: unknown, max = 64, maxLen = 200): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  return value
-    .filter((v) => typeof v === "string")
-    .map((v) => String(v).trim())
-    .filter((v) => v.length > 0 && v.length <= maxLen)
-    .slice(0, max);
-}
-
-function sanitizeString(value: unknown, maxLen = 4000): string | null | undefined {
-  if (value === null) return null;
-  if (typeof value !== "string") return undefined;
-  const t = value.trim();
-  if (t.length === 0) return null;
-  return t.slice(0, maxLen);
-}
-
-function buildPatch(input: Record<string, unknown>) {
-  const patch: Record<string, unknown> = {};
-  for (const key of Object.keys(input)) {
-    if (!ALLOWED_FIELDS.has(key)) continue;
-    const v = input[key];
-    switch (key) {
-      case "linkedin_url":
-      case "brief_timing":
-      case "reset_modality":
-      case "weekend_signals":
-        {
-          const s = sanitizeString(v, 2048);
-          if (s !== undefined) patch[key] = s;
-        }
-        break;
-      case "freetext_context":
-        {
-          const s = sanitizeString(v, 8000);
-          if (s !== undefined) patch[key] = s;
-        }
-        break;
-      case "writing_urls":
-        {
-          const arr = sanitizeWritingUrls(v);
-          if (arr !== undefined) patch[key] = arr;
-        }
-        break;
-      case "stakes_chips":
-      case "load_chips":
-      case "burden_chips":
-      case "goals":
-      case "calendar_selections":
-      case "wearable_selections":
-        {
-          const arr = sanitizeStringArray(v);
-          if (arr !== undefined) patch[key] = arr;
-        }
-        break;
-    }
-  }
-  return patch;
-}
+const VALID_STEPS: StepKey[] = [
+  "leadership_context",
+  "cognitive_load",
+  "protect_goals",
+  "brief_prefs",
+  "permissions",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -134,11 +63,22 @@ Deno.serve(async (req) => {
     if (action === "UPSERT" || action === "COMPLETE_STEP") {
       const fields = (body as any)?.fields ?? {};
       const step = (body as any)?.step;
-      const patch = buildPatch(fields && typeof fields === "object" ? fields : {});
+      const raw: V8Payload = fields && typeof fields === "object" ? fields : {};
+      const patch = sanitizePayload(raw);
 
-      // Build step_status merge if provided
+      // Step-scoped validation (only for known step keys). Unknown values are
+      // already dropped during sanitization, so errors here are about counts
+      // and required fields.
+      if (typeof step === "string" && (VALID_STEPS as string[]).includes(step)) {
+        const stepErrors = validateStep(step as StepKey, patch);
+        if (stepErrors.length > 0) {
+          return json(400, { error: "validation_failed", step, errors: stepErrors });
+        }
+      }
+
+      // Build step_status merge if provided (only canonical step keys allowed).
       let stepStatusMerge: Record<string, string> | null = null;
-      if (typeof step === "string" && step.length > 0 && step.length <= 64) {
+      if (typeof step === "string" && (VALID_STEPS as string[]).includes(step)) {
         stepStatusMerge = { [step]: new Date().toISOString() };
       }
 
@@ -175,6 +115,22 @@ Deno.serve(async (req) => {
     }
 
     if (action === "MARK_COMPLETE") {
+      // Re-read persisted row and gate completion on canonical validation.
+      const { data: existingRow, error: fetchErr } = await db
+        .from("onboarding_v8_responses")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (fetchErr) {
+        console.error("[onboarding-v8-save] MARK_COMPLETE fetch error:", fetchErr);
+        return json(500, { error: "complete_failed" });
+      }
+      const sanitized = sanitizePayload((existingRow ?? {}) as V8Payload);
+      const completionErrors = validateForCompletion(sanitized);
+      if (completionErrors.length > 0) {
+        return json(400, { error: "validation_failed", step: "completion", errors: completionErrors });
+      }
+
       const { data, error } = await db
         .from("onboarding_v8_responses")
         .upsert(
