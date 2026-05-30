@@ -60,7 +60,11 @@ import {
   postTripReentry,
   travelInFlightConnection,
 } from "./travel.ts";
-import { advancePrep24h } from "./high-stakes-prep.ts";
+import { advancePrep24h, postGovernanceOffload } from "./high-stakes-prep.ts";
+import { influencePersuasionPrep } from "./influence-persuasion.ts";
+import { visibilityCommsPrep } from "./visibility-comms.ts";
+import { deepWorkProtection } from "./deep-work.ts";
+import { morningBaseline, eveningShutdown } from "./daily-baseline.ts";
 import {
   backToBackLoadOverride,
   meetingPrepCliff,
@@ -140,6 +144,13 @@ export {
   nudgeSuppressDND,
   nudgeStaleSkip,
   nudgeBatchOnReturn,
+  // Part 1 coverage expansion
+  postGovernanceOffload,
+  influencePersuasionPrep,
+  visibilityCommsPrep,
+  deepWorkProtection,
+  morningBaseline,
+  eveningShutdown,
 };
 
 /**
@@ -220,4 +231,18 @@ export const ALL_RULES: ScopedRule[] = [
   { scopes: ["nudge"],                  fn: nudgeSuppressDND },
   { scopes: ["nudge"],                  fn: nudgeStaleSkip },
   { scopes: ["nudge"],                  fn: nudgeBatchOnReturn },
+
+  // --- Part 1: Coverage expansion — seven CEO behaviour domains ---
+  { scopes: ["brief", "plan", "nudge"], fn: influencePersuasionPrep,
+    slotBoost: { slot: "midday", practiceType: "prepare", severities: ["high", "medium"] } },
+  { scopes: ["brief", "plan", "nudge"], fn: visibilityCommsPrep,
+    slotBoost: { slot: "midday", practiceType: "prepare", severities: ["high", "medium"] } },
+  { scopes: ["brief", "plan", "nudge"], fn: deepWorkProtection,
+    slotBoost: { slot: "midday", practiceType: "prepare", severities: ["medium", "low"] } },
+  { scopes: ["brief", "plan"],          fn: postGovernanceOffload,
+    slotBoost: { slot: "start_of_day", practiceType: "integrate", severities: ["medium", "high"] } },
+  { scopes: ["brief", "plan", "nudge"], fn: morningBaseline,
+    slotBoost: { slot: "start_of_day", practiceType: "align", severities: ["low"] } },
+  { scopes: ["brief", "plan", "nudge"], fn: eveningShutdown,
+    slotBoost: { slot: "end_of_day", practiceType: "align", severities: ["low"] } },
 ];

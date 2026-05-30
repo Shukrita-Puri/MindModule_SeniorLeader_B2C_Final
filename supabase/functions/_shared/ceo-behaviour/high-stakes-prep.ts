@@ -43,3 +43,29 @@ export function advancePrep24h(ctx: RuleContext): BehaviourFlag | null {
       "prime tomorrow now — one prep micro-block today, protect sleep tonight; do not let the event hijack this evening",
   };
 }
+
+/**
+ * postGovernanceOffload — after a high-stakes governance block (A: board,
+ * investor, earnings, M&A) ends, the system should prescribe a recovery
+ * window. Today we proxy on `signals.postPeakWindow` AND no upcoming high-
+ * stakes event in the look-ahead, which together describe the morning-after
+ * a governance peak. When the dedicated `recentlyEndedHighStakesMinutesAgo`
+ * field lands upstream, swap the gate for that exact signal.
+ *
+ * Co-exists with `postPeakHangover`: that rule additionally requires a
+ * recovery deficit; this one prescribes the offload regardless of felt state.
+ */
+export function postGovernanceOffload(ctx: RuleContext): BehaviourFlag | null {
+  const s = ctx.signals;
+  if (s.isHighVisibilityToday) return null;
+  if (s.travelLandingDetected || s.travelDay) return null;
+  if (!s.postPeakWindow) return null;
+  return {
+    rule: "postGovernanceOffload",
+    severity: "medium",
+    evidence: ["high-output yesterday", "look-ahead clear today"],
+    stake: "Physical Recovery",
+    copyHint:
+      "post-governance offload · Somatic-Reenergise this morning + Mindset-Pause to capture the lesson; do not stack a second peak today · open-plan",
+  };
+}

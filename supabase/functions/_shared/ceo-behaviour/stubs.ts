@@ -36,8 +36,25 @@ import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
  * Detector needed: joint stakes detector reading signals.highStakesEventInNext24h
  * AND signals.emotionalDrainEventInNext4h on the same calendar day.
  */
-export function stackedStakes(_ctx: RuleContext): BehaviourFlag | null {
-  return null;
+export function stackedStakes(ctx: RuleContext): BehaviourFlag | null {
+  const s = ctx.signals;
+  const stakes = s.highStakesEventInNext24h;
+  const drain = s.emotionalDrainEventInNext4h;
+  if (!stakes || !drain) return null;
+  if (stakes.minutesUntil > 24 * 60) return null;
+  if (s.travelLandingDetected || s.travelDay) return null;
+  return {
+    rule: "stackedStakes",
+    severity: "high",
+    evidence: [
+      `stakes "${stakes.title}" in ${Math.round(stakes.minutesUntil / 30) * 30}m`,
+      `drain "${drain.title}" in ${Math.round(drain.minutesUntil / 15) * 15}m`,
+    ],
+    anchorEvent: stakes.title,
+    stake: "Strategic Composure",
+    copyHint:
+      "stacked stakes day · protect the second block from the first's residue; Mindset-Pause between, do not let either bleed forward · open-plan",
+  };
 }
 
 /**
@@ -57,8 +74,23 @@ export function crisisInjection(_ctx: RuleContext): BehaviourFlag | null {
  * Detector needed: topic classifier on event titles; pairwise domain diff in
  * the 4h window.
  */
-export function contextSwitchingCost(_ctx: RuleContext): BehaviourFlag | null {
-  return null;
+export function contextSwitchingCost(ctx: RuleContext): BehaviourFlag | null {
+  if (ctx.signals.travelLandingDetected || ctx.signals.travelDay) return null;
+
+  const inWindow = ctx.upcomingEvents
+    .filter((e) => e.minutesUntil >= 0 && e.minutesUntil <= 4 * 60)
+    .filter((e) => !!e.categoryId);
+  const distinct = new Set(inWindow.map((e) => e.categoryId!));
+  if (distinct.size < 3) return null;
+
+  return {
+    rule: "contextSwitchingCost",
+    severity: "medium",
+    evidence: [`${distinct.size} distinct event categories in next 4h`],
+    stake: "Mental Bandwidth",
+    copyHint:
+      "context-switch tax · name the cognitive transitions, insert 2-3 min Mindset-Pause between blocks of different categories · open-plan",
+  };
 }
 
 /**

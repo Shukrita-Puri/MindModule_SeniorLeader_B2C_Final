@@ -50,6 +50,25 @@ export function evaluate(
  */
 export function deriveSlotBoosts(flags: BehaviourFlag[]): SlotBoost[] {
   const boosts: SlotBoost[] = [];
+  // Registry-driven path: any rule that declared a `slotBoost` descriptor in
+  // ALL_RULES participates automatically. Adding a new behaviour with a boost
+  // descriptor wires it into the Plan with zero edits here.
+  const byRule = new Map<string, BehaviourFlag>();
+  for (const f of flags) byRule.set(f.rule, f);
+  for (const rule of ALL_RULES) {
+    if (!rule.slotBoost) continue;
+    const flag = byRule.get((rule.id ?? rule.fn.name) as BehaviourFlag["rule"]);
+    if (!flag) continue;
+    const allowed = rule.slotBoost.severities ?? ["high"];
+    if (!allowed.includes(flag.severity)) continue;
+    boosts.push(withCombo({
+      slot: rule.slotBoost.slot,
+      practiceType: rule.slotBoost.practiceType,
+      reason: flag.rule,
+      severity: flag.severity,
+    }));
+  }
+  // Legacy hardcoded boosts (kept for backward compat with existing tests).
   for (const f of flags) {
     if (f.rule === "vetoRisk" && f.severity === "high") {
       boosts.push(withCombo({

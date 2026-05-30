@@ -69,7 +69,14 @@ export type BehaviourRule =
   | "dropInSpeakingHighStakes"
   | "conferenceMidSessionReset"
   | "conferenceCarryFatigue"
-  | "postConferenceReentry";
+  | "postConferenceReentry"
+  // --- Coverage expansion (Part 1): seven CEO domains as first-class behaviours
+  | "influencePersuasionPrep"     // category B — negotiation, fundraise pitch, investor pitch, sales pitch
+  | "visibilityCommsPrep"         // category C — keynote, media, all-hands, press
+  | "deepWorkProtection"          // category E — deep work / strategy block ≥90min
+  | "morningBaseline"             // daily rhythm — first 60min after wake, no high-stakes
+  | "eveningShutdown"             // daily rhythm — end-of-work-day shutdown ritual
+  | "postGovernanceOffload";      // post-board / investor / earnings offload window
 
 export type Severity = "low" | "medium" | "high";
 
@@ -78,8 +85,27 @@ export type RuleScope = "brief" | "nudge" | "plan";
 
 /** A rule + the surfaces it applies to. Used by behaviour-evaluator. */
 export interface ScopedRule {
+  /**
+   * Stable identifier — defaults to the rule function name. Used by the
+   * registry contract test and (optionally) by slot-boost lookups so consumers
+   * never enumerate rule names by hand.
+   */
+  id?: string;
   scopes: readonly RuleScope[];
   fn: (ctx: RuleContext) => BehaviourFlag | null;
+  /**
+   * Optional plan-side slot-boost descriptor. When present, the behaviour
+   * evaluator emits a SlotBoost any time this rule fires at the listed
+   * severities. Replaces the legacy hardcoded if/else cascade in
+   * `deriveSlotBoosts` — adding a new rule with a boost descriptor wires it
+   * into the Plan automatically.
+   */
+  slotBoost?: {
+    slot: SlotBoost["slot"];
+    practiceType: SlotBoost["practiceType"];
+    /** Severities that should produce a boost. Defaults to ["high"]. */
+    severities?: ReadonlyArray<Severity>;
+  };
 }
 
 /**
@@ -325,6 +351,12 @@ export interface RuleContext {
     source?: string;
     startsAtMinutesFromNow?: number;
     endsAtMinutesFromNow?: number;
+    /** §3 category from the canonical event taxonomy (enrichEvent.categoryId). */
+    categoryId?: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | null;
+    /** True when the event title classifies as interpersonal (1:1, review,
+     *  difficult conversation, layoff, HR, conflict). Set upstream by the
+     *  event classifier — never inline-detect from title in a rule. */
+    isInterpersonal?: boolean;
   }>;
   // Local hour at the user's timezone, used by §2.12 (midday window).
   localHour: number;
