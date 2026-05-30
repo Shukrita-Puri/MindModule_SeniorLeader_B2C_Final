@@ -1,8 +1,8 @@
 # Smart Nudges — Comprehensive Architecture Document
 
-> Last updated: 2026-04-13
+> Last updated: 2026-05-30
 > Edge Function: `supabase/functions/smart-nudges/index.ts`
-> Architecture: MVP 3-Nudge System (v4)
+> Architecture: MVP 3-Nudge System — v8 meaning-forward copy, registry-driven CEO-behaviour wiring, 2-model AI cascade (Claude → Gemini), v5.3 Chief-of-Staff overlays (travel sub-arcs, pattern-promotion, PTO collapse, look-ahead).
 
 ---
 
@@ -12,10 +12,31 @@ Smart Nudges is a **signal-first, context-aware push notification engine** that 
 
 ### MVP Design Philosophy
 
-- **3 nudges max per day** — no notification fatigue
+- **3 nudges max per day** — hard ceiling on `notification_log` rows per local day (`DAILY_NOTIFICATION_CAP = 3`). Travel sub-arc, pattern-promotion, and look-ahead all *ride* the existing slots — never a 4th send.
 - **Every nudge is action-linked** — check-in → plan, plan directly, or coach/reset
 - **Calendar-aware timing** — adapts to first meeting, not fixed windows
 - **Nudges are numbered 1, 2, 3** — not "morning/evening" — because Nudge 1 could be JIT prep
+
+### How the 3/day budget actually fills
+
+The cron tick (`smart-nudges-every-15m`, pg_cron jobid 4) **selects at most one nudge per user per run** — `deduped[0]` from the comparator. Across the day, the 3 slots fill through *separate* cron passes:
+
+| Tick window (local) | Slot most likely to win | Why |
+|---|---|---|
+| 08:00–10:30 | `nudge_one` (morning / JIT) | Morning outranks afternoon/evening in `SLOT_RANK` |
+| 12:00–16:00 | `nudge_two` (priorities / JIT / recalibrate) | `nudge_one` is in `alreadySentTypes`, returns null |
+| 17:00–21:30 | `nudge_three` (evening close / look-ahead) | Both prior slots resolved |
+
+If a user is seeing only **1 nudge/day** rather than 3, walk the suppression stack in this order — these are the realistic culprits:
+
+1. **2-hour cooldown** — Nudge 2 cannot fire within 2h of Nudge 1 unless it's a JIT variant (`deepLinkRoute === '/executive-home'`). Tight morning + early-afternoon meetings can collapse the Nudge 2 window.
+2. **60-min app-open cooldown** (`APP_OPEN_COOLDOWN_MS`) — if the user opened the app within the last 60 min the entire run is skipped (`continue`), not just the matched slot.
+3. **Global window** — `GLOBAL_EARLIEST_LOCAL=08:00`, `GLOBAL_LATEST_LOCAL=21:30`. Anything outside is logged as `outside global window (H.M). Skipping.`
+4. **Engagement-learning suppression** — `getUserEngagementProfile` can mark a `nudge_one/two/three` family as suppressed; a deterministic 50% coin (hash on `userId+type+date`) drops the run.
+5. **Already-sent gate** — `evaluateNudge{One,Two,Three}` short-circuits if the family is in today's log (`already_sent_today` log line).
+6. **DND / quiet days / in-meeting / PTO collapse** — `dayContext.ptoMode` (`away-day`/`ooo`) limits to a single morning light-touch send and explicitly skips Nudge 2, 3, and JIT.
+
+The cap of 3 is therefore an *upper bound that the cascade is designed to reach* — not a guarantee. If the 1/day pattern persists for an active user with no PTO and no engagement suppression, the most common cause in production is **#2 (60-min app-open cooldown)** — opening the app shortly after the morning nudge silences the rest of the day.
 
 ### KPIs Driven
 
@@ -43,20 +64,27 @@ Smart Nudges is a **signal-first, context-aware push notification engine** that 
 │  1. FETCH USERS — notification_device_tokens → user list       │
 │  2. BATCH FETCH — profiles, preferences, engagements           │
 │  3. PER-USER SUPPRESSION STACK                                 │
-│     Quiet hours (22:00-06:30) → DND → Quiet days →            │
-│     Daily cap (3) → 2h cooldown → 30min app-open →            │
-│     In-meeting check                                          │
+│     Global window (08:00–21:30) → DND → Quiet days →          │
+│     Daily cap (3) → 60-min app-open → engagement-learning →   │
+│     2h cooldown (per-run, JIT-exempt) → In-meeting check      │
 │  4. SIGNAL ASSEMBLY — buildNudgeContext()                      │
-│     13 parallel DB queries → NudgeContext object               │
+│     13 parallel DB queries → NudgeContext + dayContext        │
+│     + loadPatternSummary (causality_findings.signal_summary)  │
 │  5. MVP 3-NUDGE CASCADE                                        │
-│     Nudge 1 → Nudge 2 → Nudge 3                              │
-│     Each fires at most once per day                            │
-│  6. AI COPY GENERATION                                        │
-│     Claude Haiku → JSON parse → fabrication validation         │
-│     Fallback: static signal-aware copy variants               │
+│     evaluateNudgeOne → Two → Three (Post-MVP gated behind      │
+│     MVP_POST_LAUNCH=false). Comparator picks ONE per run:     │
+│     slot rank → JIT > STATE → signalStrength → priority       │
+│  6. CEO-BEHAVIOUR WIRING (Phase 2)                             │
+│     evaluateForScope('nudge', ctx) → flags + slotBoosts        │
+│     surface as `behaviour` block inside the LLM userPrompt    │
+│  7. AI COPY GENERATION — 2-model cascade + static fallback    │
+│     Claude Haiku → Gemini 3 Flash Preview → static library    │
+│     V8 contract check (meaning sentence, named context,       │
+│     qualified mind-prep CTA, ≤22 words / ≤140 chars)          │
 │  7. DELIVERY                                                  │
 │     notification_log INSERT → APNs HTTP/2 push                │
-│     Deep link route in payload                                │
+│     Deep link, badge count, apns-collapse-id, apns-expiration │
+│     aiProvider stamped: 'claude' | 'gemini' | 'static'        │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -214,12 +242,86 @@ All 7 layers apply to all nudge types:
 
 ---
 
-## 6. AI Copy Generation
+## 6. AI Copy Generation — Two-Model Cascade
 
-- **Model**: `claude-haiku-3-5-20241022` via shared Anthropic helper
-- **Timeout**: 6 seconds
-- **Fallback**: Static signal-aware copy variants per nudge type
-- **Fabrication prevention**: 3-layer defence (omission → per-field omission → post-generation validation)
+Implemented in `tryAIProvider()` (smart-nudges/index.ts ~L1612). Each provider gets a 6-second `AbortController` timeout and must return JSON-parseable copy that survives the V8 contract checks; otherwise the cascade advances.
+
+| Order | Provider | Model | Why |
+|---|---|---|---|
+| 1 | Anthropic Claude | `claude-haiku-4-5` (`CLAUDE_MODELS.HAIKU`) | Best executive tone for ≤22-word, meaning-forward copy; fast and cheap at Haiku tier |
+| 2 | Lovable AI Gateway | `google/gemini-3-flash-preview` | Newest fast model on the gateway. Recommended over `gemini-2.5-flash` and `gemini-2.5-flash-lite` for nudge copy: stronger instruction-following on the V8 contract (forbidden-word list, qualified mind-prep CTA), still sub-second at 256-token outputs. Cheaper / faster than `gemini-2.5-pro`. Use `gemini-2.5-flash-lite` only if cost becomes a problem at scale — lite drops nuance on the meaning-sentence rule |
+| 3 | Static library | `validateStaticFallbackCopy()` | Variant-specific copy in `getFallback*Copy()`; tagged `aiProvider='static'` |
+
+**Validation chain (applied to every AI candidate before acceptance):**
+
+1. `containsFabricatedWearableData` — rejects HRV/RHR/sleep claims when the underlying context has no value
+2. Per-metric guards — bare keyword scan rejects `hrv`, `rhr`, `sleep score` when the corresponding `ctx.wearable.*` field is null
+3. `violatesCopyContractV8` — meaning-sentence, named-context token, forbidden-word list, qualified mind-prep CTA, ≤22 words / ≤140 chars
+4. On failure → log `[smart-nudges v8 {provider}] Rejected ...` and fall through
+
+**Provider telemetry:** every shipped payload is stamped with `aiProvider` (`claude` | `gemini` | `static`) and the dispatch row carries `ai_fallback_chain: 'claude-haiku → gemini-flash → static'` for analytics.
+
+**Fallback chain when Anthropic is unavailable:** the run-log line `[anthropic] HTTP 400: ... credit balance is too low` is non-fatal — `tryAIProvider('claude')` returns null, the cascade falls through to Gemini, and only if Gemini also fails does the static library serve. The `qualified=0` summary observed in the latest log was driven by V8 contract rejections (no named context token), not by provider failures.
+
+---
+
+## 6a. CEO-Behaviour Delegation
+
+Smart Nudges is one of three consumers of the shared `_shared/ceo-behaviour/*` registry. The registry is also consumed by Brief generation (`generate-readiness-brief`) and Plan generation (`generate-mastery-plan`) — editing one rule shifts all three surfaces in lockstep.
+
+### Registry layout (`_shared/ceo-behaviour/`)
+
+| Module | Rule(s) it owns | Category |
+|---|---|---|
+| `high-stakes-prep.ts` | Board/investor pre-load, `postGovernanceOffload` | A |
+| `influence-persuasion.ts` | Negotiation / pitch persuasion load | B |
+| `visibility-comms.ts` | Keynote / media / all-hands stage exposure | C |
+| `interpersonal.ts` | `interpersonalMeetingContext` (1:1, mediation, conflict) | D |
+| `deep-work.ts` | Weekday deep-work blocks ≥90 min, context-switching | E |
+| `delivery.ts` | Delivery/launch sequences | F |
+| `travel.ts` | Pre-flight / in-flight / post-arrival sub-arcs, `TRAVEL_TITLE_RX` | G |
+| `daily-baseline.ts` | `morningBaseline`, `eveningShutdown` anchors on quiet days | — |
+| `back-to-back.ts`, `decision-density.ts`, `post-peak.ts`, `conference.ts`, `upward-reporting.ts`, `multi-calendar.ts`, `calendar-dedupe.ts`, `empty-slot.ts`, `pto-holiday.ts`, `weekend.ts`, `workweek.ts` | Day-shape and load modifiers | mixed |
+| `stubs.ts` | `contextSwitchingCost`, `stackedStakes` | mixed |
+| `index.ts` | `ALL_RULES` typed export — single source of truth for the registry | — |
+| `registry.contract.test.ts` | Auto-discovers `ALL_RULES`, validates every module emits well-formed `BehaviourFlag` outputs and that declared `slotBoost` descriptors trigger correctly | — |
+
+### How smart-nudges consumes the registry
+
+```text
+enrich-event.ts                       (per-event RuleContext: categoryId A–H, isInterpersonal, …)
+        │
+        ▼
+ALL_RULES.forEach(rule.evaluate(ctx)) (each module returns BehaviourFlag[] + optional slotBoost)
+        │
+        ▼
+behaviour-evaluator.ts                (deriveSlotBoosts: registry-driven, no hardcoded switch)
+        │
+        ▼
+behaviour-wiring.ts                   (evaluateForScope('nudge', ctx) — scope filter: brief|plan|nudge)
+        │
+        ▼
+smart-nudges/index.ts ~L1483          (wiring → behaviour block injected into LLM userPrompt;
+                                       slot boosts adjust `signalStrength` in comparator)
+```
+
+**Adding a new behaviour domain** is a 3-step contract:
+
+1. Add a module under `_shared/ceo-behaviour/<domain>.ts` exporting `BehaviourModule` (`id`, `scopes`, `evaluate`, optional `slotBoost`)
+2. Register it in `_shared/ceo-behaviour/index.ts` → `ALL_RULES`
+3. The `registry.contract.test.ts` suite auto-discovers it and asserts non-empty `copyHint`, valid `severity`, `evidence.length > 0`, non-empty `promptBlock`, and valid slot boosts. CI fails if any of these are missing.
+
+No edits are needed inside `smart-nudges/index.ts`, `generate-readiness-brief/index.ts`, or `generate-mastery-plan/index.ts` — the consumer-side wiring is registry-driven.
+
+### Travel sub-arcs (v5.3, owned by `travel.ts`)
+
+| `dayContext` flag | Window | Variant | TTL | Collapse-id key |
+|---|---|---|---|---|
+| `preFlight` | 60–240 min before flight | `nudge_one_pre_flight` | 45 min | `travel-${localDate}` |
+| `inFlight` | inside a ≥90-min flight event | `nudge_two_in_flight` | 90 min | `travel-${localDate}` |
+| `postArrival` | day after a travel event | `nudge_one_post_arrival` | 3 h | `travel-${localDate}` |
+
+These ride the existing `nudge_one`/`nudge_two`/`nudge_three` slots — no 4th send, no `travel_*` notification type.
 
 ---
 
@@ -273,3 +375,24 @@ To activate: set `const MVP_POST_LAUNCH = true` in `smart-nudges/index.ts`.
 | `state_aware_nudge` | ❌ | `/daily-check-in` | `state_aware_nudge_enabled` |
 | `pattern_alert` | ❌ | `/insights` | `pattern_alert_enabled` |
 | `daily_fallback` | ❌ | `/executive-home` | — |
+
+---
+
+## 10. Variant Matrix (v5.3 + v8)
+
+Variants are sub-types within a `nudge_one/two/three` family. The family is what counts against `DAILY_NOTIFICATION_CAP` and APNs `apns-collapse-id`.
+
+| Variant | Family | Anchor | TTL | Notes |
+|---|---|---|---|---|
+| `nudge_one_morning` | nudge_one | STATE / day-shape | 3 h | Default morning anchor |
+| `nudge_one_jit` | nudge_one | JIT | 45 min | Overrides 2 h cooldown |
+| `nudge_one_jit_post_travel` | nudge_one | JIT + post-travel | 45 min | Lead acknowledges yesterday's travel |
+| `nudge_one_pre_flight` | nudge_one | JIT travel arc | 45 min | 60–240 min pre-flight |
+| `nudge_one_post_arrival` | nudge_one | STATE travel arc | 3 h | Day after travel |
+| `nudge_two_jit` | nudge_two | JIT | 45 min | Overrides 2 h cooldown |
+| `nudge_two_priorities` | nudge_two | STATE | 2 h | Open priorities in PM |
+| `nudge_two_recalibrate` | nudge_two | STATE | 2 h | Started low + heavy PM |
+| `nudge_two_reserves` | nudge_two | STATE | 2 h | Wearable reserves dip |
+| `nudge_two_in_flight` | nudge_two | JIT travel arc | 90 min | Self-sufficient body (no app open needed) |
+| `nudge_three` | nudge_three | STATE | 6 h | Evening close |
+| `nudge_three_lookahead` | nudge_three | STATE + tomorrow JIT | 10 h | Any evening where tomorrow has a high-stakes event in next 18 h |
