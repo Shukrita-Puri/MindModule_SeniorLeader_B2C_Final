@@ -377,6 +377,8 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     timezoneShift48hHours: input.timezone.shift48hHours,
     travelDay: input.timezone.travelDay ?? false,
 
+    ptoTodayAllDay: ptoTodayAllDayDerived,
+
     yesterdayScore: input.scoreYesterday,
     todayScore: input.scoreToday,
     postPeakWindow,
