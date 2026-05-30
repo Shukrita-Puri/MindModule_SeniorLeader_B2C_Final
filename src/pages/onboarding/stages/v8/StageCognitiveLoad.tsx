@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
+import { STAKES_CHIPS, LOAD_CHIPS, BURDEN_CHIPS } from "@/utils/onboardingV8Validation";
 
 const GROUPS: { key: "stakes" | "load" | "burden"; title: string; chips: string[] }[] = [
   {
@@ -51,11 +52,14 @@ export default function StageCognitiveLoad() {
 
   const next = async () => {
     setSaving(true);
+    const stakesAllowed = new Set<string>(STAKES_CHIPS);
+    const loadAllowed = new Set<string>(LOAD_CHIPS);
+    const burdenAllowed = new Set<string>(BURDEN_CHIPS);
     await saveV8(
       {
-        stakes_chips: Array.from(selected.stakes),
-        load_chips: Array.from(selected.load),
-        burden_chips: Array.from(selected.burden),
+        stakes_chips: Array.from(new Set(Array.from(selected.stakes).filter((c) => stakesAllowed.has(c)))),
+        load_chips: Array.from(new Set(Array.from(selected.load).filter((c) => loadAllowed.has(c)))),
+        burden_chips: Array.from(new Set(Array.from(selected.burden).filter((c) => burdenAllowed.has(c)))),
       },
       "cognitive_load",
     );

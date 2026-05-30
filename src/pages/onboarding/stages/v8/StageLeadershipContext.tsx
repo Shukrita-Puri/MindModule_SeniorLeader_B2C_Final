@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
 import { makeDebouncedSaver, saveV8 } from "@/utils/onboardingV8";
+import {
+  isHttpUrl,
+  isLinkedInUrl,
+  normalizeUrl,
+  parseWritingUrlsInput,
+  MAX_WRITING_URLS,
+  MAX_FREETEXT_LEN,
+} from "@/utils/onboardingV8Validation";
 
 type Key = "linkedin" | "writing" | "notes";
 
@@ -38,34 +46,49 @@ export default function StageLeadershipContext() {
   const [selected, setSelected] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [values, setValues] = useState<Record<Key, string>>({ linkedin: "", writing: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
 
-  // Debounced autosave whenever text values change
+  // Compute validation each render (cheap).
+  const writingArr = parseWritingUrlsInput(values.writing);
+  const linkedinValid = !selected.linkedin || values.linkedin.trim() === "" || isLinkedInUrl(values.linkedin);
+  const writingInvalid = selected.writing && writingArr.some((u) => !isHttpUrl(u));
+  const writingOverLimit = selected.writing && values.writing
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean).length > MAX_WRITING_URLS;
+
+  // Debounced autosave whenever text values change — only persist sanitized values.
   useEffect(() => {
-    const writingArr = values.writing
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 2);
     debouncedSave({
-      linkedin_url: selected.linkedin ? (values.linkedin.trim() || null) : null,
-      writing_urls: selected.writing ? writingArr : [],
-      freetext_context: selected.notes ? (values.notes.trim() || null) : null,
+      linkedin_url:
+        selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
+          ? normalizeUrl(values.linkedin)
+          : null,
+      writing_urls: selected.writing ? writingArr.filter(isHttpUrl).map(normalizeUrl) : [],
+      freetext_context: selected.notes
+        ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null)
+        : null,
     });
-  }, [values, selected, debouncedSave]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, selected]);
+
+  const canContinue = linkedinValid && !writingInvalid && !writingOverLimit;
 
   const next = async () => {
+    if (!canContinue) {
+      setTouched({ linkedin: true, writing: true, notes: true });
+      return;
+    }
     setSaving(true);
-    const writingArr = values.writing
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 2);
     await saveV8(
       {
-        linkedin_url: selected.linkedin ? (values.linkedin.trim() || null) : null,
-        writing_urls: selected.writing ? writingArr : [],
-        freetext_context: selected.notes ? (values.notes.trim() || null) : null,
+        linkedin_url:
+          selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
+            ? normalizeUrl(values.linkedin)
+            : null,
+        writing_urls: selected.writing ? writingArr.filter(isHttpUrl).map(normalizeUrl) : [],
+        freetext_context: selected.notes ? (values.notes.trim().slice(0, MAX_FREETEXT_LEN) || null) : null,
       },
       "leadership_context",
     );
@@ -79,7 +102,7 @@ export default function StageLeadershipContext() {
       title="Help Mind Module understand your Leadership Context"
       footer={
         <>
-          <PrimaryCTA onClick={next} disabled={saving}>
+          <PrimaryCTA onClick={next} disabled={saving || !canContinue}>
             {saving ? "Saving…" : "Continue →"}
           </PrimaryCTA>
           <SkipLink onClick={next}>Skip — Mind Module will learn from behaviour</SkipLink>
@@ -99,6 +122,8 @@ export default function StageLeadershipContext() {
       <div className="space-y-2.5">
         {CARDS.map((c) => {
           const sel = selected[c.key];
+          const showLinkedInErr = c.key === "linkedin" && sel && touched.linkedin && values.linkedin.trim() !== "" && !isLinkedInUrl(values.linkedin);
+          const showWritingErr = c.key === "writing" && sel && touched.writing && (writingInvalid || writingOverLimit);
           return (
             <div
               key={c.key}
@@ -127,6 +152,8 @@ export default function StageLeadershipContext() {
                     value={values[c.key]}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => setValues((p) => ({ ...p, [c.key]: e.target.value }))}
+                    onBlur={() => setTouched((p) => ({ ...p, [c.key]: true }))}
+                    maxLength={MAX_FREETEXT_LEN}
                     className="w-full mt-2.5 text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a] resize-none"
                   />
                 ) : (
@@ -135,9 +162,20 @@ export default function StageLeadershipContext() {
                     value={values[c.key]}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => setValues((p) => ({ ...p, [c.key]: e.target.value }))}
+                    onBlur={() => setTouched((p) => ({ ...p, [c.key]: true }))}
                     className="w-full mt-2.5 text-xs px-3 py-2.5 rounded-[10px] border border-[#cfc7b8] bg-[#f5f0e8] text-[#1a1712] outline-none focus:border-[#1a6b4a]"
                   />
                 )
+              )}
+              {showLinkedInErr && (
+                <div className="mt-2 text-[11px] text-[#e8714a]">Add a valid LinkedIn URL (e.g. linkedin.com/in/yourname)</div>
+              )}
+              {showWritingErr && (
+                <div className="mt-2 text-[11px] text-[#e8714a]">
+                  {writingOverLimit
+                    ? `You can add up to ${MAX_WRITING_URLS} writing links`
+                    : "Each writing link must be a valid URL"}
+                </div>
               )}
             </div>
           );

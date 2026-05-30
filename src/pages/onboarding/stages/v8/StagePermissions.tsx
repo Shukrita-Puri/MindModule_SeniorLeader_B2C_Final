@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
+import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
 
 const CAL = [
   { id: "google", name: "Google Calendar", note: "Reads event titles and times only" },
@@ -33,11 +34,19 @@ export default function StagePermissions() {
       setWarn(true);
       return;
     }
+    const calAllowed = new Set<string>(CALENDAR_PROVIDERS);
+    const wearAllowed = new Set<string>(WEARABLE_PROVIDERS);
+    const calClean = Array.from(new Set(Array.from(cal).filter((c) => calAllowed.has(c))));
+    const wearClean = Array.from(new Set(Array.from(wear).filter((w) => wearAllowed.has(w))));
+    if (calClean.length === 0 || wearClean.length === 0) {
+      setWarn(true);
+      return;
+    }
     setSaving(true);
     await saveV8(
       {
-        calendar_selections: Array.from(cal),
-        wearable_selections: Array.from(wear),
+        calendar_selections: calClean,
+        wearable_selections: wearClean,
       },
       "permissions",
     );

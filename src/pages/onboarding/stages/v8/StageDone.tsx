@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
@@ -5,12 +6,36 @@ import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
 export default function StageDone() {
   const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const enter = async () => {
+    setBusy(true);
+    setError(null);
     // Ensure synthesis has at least been triggered (idempotent), then finalize.
     try { synthesizeCosProfile().catch(() => {}); } catch { /* non-blocking */ }
-    try { await markV8Complete(); } catch { /* non-blocking */ }
-    // Mark legacy onboarding completion so existing guards stop redirecting.
+    const res = await markV8Complete();
+    if (!res.ok) {
+      setBusy(false);
+      if (res.error === "validation_failed") {
+        const fields = (res.validationErrors ?? []).map((e) => e.field);
+        if (fields.includes("calendar_selections") || fields.includes("wearable_selections")) {
+          setError("Connect at least one calendar and one wearable to finish.");
+          setTimeout(() => navigate("/onboarding/permissions"), 1200);
+          return;
+        }
+        if (fields.includes("goals")) {
+          setError("Select at least 1 goal to finish.");
+          setTimeout(() => navigate("/onboarding/protect-goals"), 1200);
+          return;
+        }
+        setError("Some onboarding info is missing — please complete the previous steps.");
+        return;
+      }
+      setError("Couldn't finalise onboarding. Please try again.");
+      return;
+    }
+    // Only mark legacy onboarding completion after server-side completion succeeded.
     try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
     navigate("/daily-check-in");
   };
@@ -69,11 +94,17 @@ export default function StageDone() {
       </div>
 
       <div className="px-5 pt-3 pb-7 shrink-0">
+        {error && (
+          <div className="text-[11px] text-[#e8714a] mb-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+            {error}
+          </div>
+        )}
         <button
           onClick={enter}
-          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] text-white text-sm font-medium transition-colors"
+          disabled={busy}
+          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] text-white text-sm font-medium transition-colors disabled:opacity-60"
         >
-          Enter the brief →
+          {busy ? "Finalising…" : "Enter the brief →"}
         </button>
       </div>
     </div>
