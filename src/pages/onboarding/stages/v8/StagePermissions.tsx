@@ -6,7 +6,7 @@ import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Vali
 import googleCalLogo from "@/assets/shared/google-calendar-logo.avif";
 import outlookLogo from "@/assets/shared/microsoft-calendar-logo.png";
 import appleCalLogo from "@/assets/shared/apple-calendar-logo.png";
-import appleWatchLogo from "@/assets/shared/apple-watch-logo.jpg";
+import appleHealthLogo from "@/assets/shared/apple-health-logo.png";
 import ouraLogo from "@/assets/shared/oura-ring-logo.png";
 import whoopLogo from "@/assets/shared/whoop-logo.png";
 
@@ -16,7 +16,7 @@ const CAL = [
   { id: "apple", name: "Apple Calendar", note: "Reads event titles and times only", logo: appleCalLogo },
 ];
 const WEAR = [
-  { id: "apple-watch", name: "Apple Watch", note: "HRV, sleep, and recovery as background signal", logo: appleWatchLogo },
+  { id: "apple-watch", name: "Apple Watch", note: "HRV, sleep, and recovery as background signal", logo: appleHealthLogo },
   { id: "oura", name: "Oura Ring", note: "HRV, sleep, and recovery as background signal", logo: ouraLogo },
   { id: "whoop", name: "Whoop", note: "HRV, strain, and recovery as background signal", logo: whoopLogo },
 ];
