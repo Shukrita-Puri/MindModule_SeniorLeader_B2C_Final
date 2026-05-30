@@ -22,28 +22,44 @@ export default function Stage1Welcome() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 max-w-4xl mx-auto">
-        {/* Top section — logo + brand */}
-        <div className="flex flex-col items-center space-y-4">
-          <img src={mmLogo} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
-
-          <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
+        {/* Top section — logo + brand (matches Front page lockup) */}
+        <div className="relative flex flex-col items-center space-y-2 sm:space-y-3">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[340px] blur-2xl"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0) 75%)",
+            }}
+          />
+          <img src={mmLogo} alt="Mind Module logo" className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg" />
+          <h1
+            className="relative text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold text-white tracking-wider leading-none"
+            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.45)" }}
+          >
             MIND MODULE
           </h1>
-          <p className="text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-1 sm:-mt-3">
+          <p
+            className="relative text-xs tracking-[0.35em] uppercase text-white/90 font-body"
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)" }}
+          >
             Executive Edition
           </p>
 
           {/* Descriptive text — glass card for readability */}
           <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl p-6 mt-8 max-w-sm mx-auto">
             <div className="space-y-4">
-              <p className="text-[15px] text-white/90 font-body leading-relaxed">
-                Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated or burnt out.
+              <p className="text-[15px] text-white font-body leading-relaxed">
+                Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated, or burnt out.
               </p>
               <p className="text-[15px] text-white/90 font-body leading-relaxed">
-                Six questions build your Leadership Performance Profile – the intelligence layer that makes everything personal to you and your day.
+                Mind Module is the executive cognitive performance layer for how you actually show up — under pressure, between decisions, across the week.
               </p>
               <p className="text-[15px] text-white/90 font-body leading-relaxed">
-                The more honest you are, the sharper it gets.
+                The next few minutes are a two-way calibration: you get to know the app, and Mind Module gets to know your leadership context, your pressure points, and how your mind works under load.
+              </p>
+              <p className="text-[15px] text-white/90 font-body leading-relaxed">
+                This isn't self-improvement. It's Self Mastery.
               </p>
             </div>
           </div>

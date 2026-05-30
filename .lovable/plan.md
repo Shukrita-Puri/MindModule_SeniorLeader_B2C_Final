@@ -1,85 +1,49 @@
-## New onboarding narrative
+## Scope
 
-Six screens, in order:
+Single file: `src/pages/onboarding/stages/Stage1Welcome.tsx`. Background image, CTA route (`/onboarding/app-intro`), Privacy footer, and overall layout structure remain untouched.
 
-1. **Welcome / Value Pitch** (`/onboarding`) — reframed Stage1. Explains what the app does, what data it uses (LinkedIn + calendar + wearable), what the user gets back (personalized briefs, mastery plan, notifications). Single CTA: "See pricing".
-2. **Pricing & Trial** (`/onboarding/pricing`) — moved earlier. Shows £X/mo, 7-day free trial, cancel anytime, what's included. Stripe checkout. User commits to trial here, *before* sharing any personal data. On success, returns to step 3.
-3. **LinkedIn intake** (`/onboarding/linkedin`) — paste LinkedIn URL + explicit consent checkbox ("Analyze my public profile to personalize the app"). Calls `analyze-linkedin-profile` edge function which scrapes via Firecrawl + LLM-summarizes. Fallback "I'd rather type a few details" link → short manual path (role, seniority, top challenge — 3 fields max).
-4. **Context confirmation** (`/onboarding/context`) — shows the LLM-inferred leadership context summary + 3 suggested priority themes as chips. User confirms or edits priorities (max 3, pick from 8). Nothing else asked.
-5. **Connect calendar + wearable** (`/onboarding/connect`) — hard gate. Reuses `CalendarProviderPicker` (Apple/Google/Microsoft) + wearable connection UI (HealthKit/Oura). "Continue" disabled until ≥1 calendar AND ≥1 wearable connected. Copy explains why both are required and what reduced experience looks like (but doesn't offer it).
-6. **Done** (`/onboarding/done`) — brief confirmation, "Set up first daily check-in" → `/daily-check-in`.
+## 1. Match the Front-page brand lockup
 
-Deleted stages: Stage2Identity, Stage3EmotionalAwareness, Stage4StressResponse, Stage5RecoveryPatterns, Stage6MentalClarity, Stage7GrowthIntention, Stage8Results, Stage8SignupStep, StageUSPIntro. Their LLM-derived equivalents come from the LinkedIn analysis in step 3.
+The auth/Front page (`src/pages/Front.tsx`, lines 226–249) uses a specific lockup that the screenshot shows. Today `/onboarding` uses a heavier, larger version. Align it:
 
-## Database changes (one migration)
+- Logo: drop from `w-20 h-20 sm:w-24 sm:h-24` → `w-12 h-12 sm:w-14 sm:h-14`.
+- Headline `MIND MODULE`: switch sizing to `text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold tracking-wider leading-none`, with the same dual `textShadow` Front uses.
+- Subtitle `Executive Edition`: `text-xs tracking-[0.35em] uppercase text-white/90 font-body` with matching textShadow.
+- Wrap the cluster in the same atmospheric scrim div (radial-gradient blur) Front uses so the type reads cleanly against the cloud illustration.
+- Anchor the cluster high (small top margin) instead of vertically centered, so the silhouette matches the screenshot.
 
-Add to `profiles`:
-- `linkedin_url text`
-- `linkedin_raw_markdown text` (cached scrape, for re-analysis without re-scraping)
-- `leadership_context jsonb` — `{ seniority, role_complexity, communication_style, event_pressure_profile, summary_paragraph }`
-- `inferred_priorities text[]` — LLM-suggested
-- `confirmed_priorities text[]` — what user confirmed/edited
-- `linkedin_analyzed_at timestamptz`
+## 2. Final body copy (single, crisp, CEO-tuned)
 
-Add to `onboarding_progress` (replace old milestone columns; keep old ones for backward compatibility but stop writing them):
-- `pricing_at timestamptz` — Stripe trial started
-- `linkedin_at timestamptz`
-- `context_confirmed_at timestamptz`
-- `connections_at timestamptz` — both calendar AND wearable verified
-- `onboarding_completed_at timestamptz`
+Evaluation of the supplied copy: it lands the diagnosis well ("scattered, ruminated or burnt out") and the reframe ("Self Mastery, not self improvement"), but it has three small problems for a CEO reader: (1) the exclamation marks soften the authority, (2) "A new era…is here" reads as marketing rather than product, and (3) it doesn't tell the user what is about to happen next — which is the whole job of an onboarding intro.
 
-## New edge function: `analyze-linkedin-profile`
+Recommended final copy (replaces the three-paragraph glass card):
 
-Input: `{ linkedin_url }`. Steps:
-1. Validate URL (must be linkedin.com/in/...)
-2. Scrape with Firecrawl (`scrape` endpoint, markdown format)
-3. Send markdown to Lovable AI Gateway (`google/gemini-3-flash-preview`) with a structured-output tool-call to return `{ seniority, role_complexity, communication_style, event_pressure_profile, summary_paragraph, suggested_priorities[3] }`
-4. Write to `profiles` and stamp `onboarding_progress.linkedin_at`
-5. Return the synthesized context
+> **Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated, or burnt out.**
+>
+> Mind Module is the executive cognitive performance layer for how you actually show up — under pressure, between decisions, across the week.
+>
+> The next few minutes are a two-way calibration: you get to know the app, and Mind Module gets to know your leadership context, your pressure points, and how your mind works under load.
+>
+> This isn't self-improvement. It's Self Mastery.
 
-Prompt constraint: the LLM must only synthesize from supplied profile text — no invented credentials. If the scrape returns thin content (<200 chars), return a `low_confidence: true` flag so the UI nudges the user to the manual fallback.
+Rationale:
+- Keeps the user's exact opening diagnosis verbatim.
+- Replaces "new era…is here" with a one-line product definition that earns the claim.
+- Adds the missing onboarding frame — explicitly says this is mutual calibration, sets expectation for what the next screens do, without listing steps.
+- Closes on the user's "Self Mastery" reframe as a standalone line for emphasis.
+- Drops exclamation marks; CEO voice doesn't shout.
 
-## Gating rewrite (`onboardingStatus.ts`)
+The glass card container (`bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl`) stays. Paragraph type stays at `text-[15px] text-white/90 font-body leading-relaxed` with `space-y-4`. The opening line is rendered slightly stronger (`text-white` rather than `text-white/90`) so the diagnosis lands first.
 
-New resume logic, in order:
-1. No `pricing_at` → `/onboarding/pricing`
-2. No `linkedin_at` (and no manual-fallback flag) → `/onboarding/linkedin`
-3. No `context_confirmed_at` → `/onboarding/context`
-4. No `connections_at` → `/onboarding/connect`
-5. Otherwise → `/onboarding/done` or `/daily-check-in`
+## 3. Untouched
 
-`connections_at` is set server-side by a small edge function `verify-onboarding-connections` that checks `calendar_connections` and (Oura row OR healthkit telemetry) exist for the user. The connect screen polls this after each connection completes; "Continue" enables when verified true.
+- Route on CTA stays `/onboarding/app-intro`.
+- "Let's begin" label, button styling, Privacy by Design footer, background image, and gradient scrim are unchanged.
+- No changes to any other onboarding stage, routing, or edge functions.
 
-`validateStageAccess` rewritten to enforce the new sequence — user can't deep-link past their current milestone.
+## Acceptance
 
-## Frontend touch points
-
-- New: `src/pages/onboarding/stages/StagePricing.tsx`, `StageLinkedIn.tsx`, `StageContext.tsx`, `StageConnect.tsx`, `StageDone.tsx`
-- Rewrite: `src/pages/onboarding/stages/Stage1Welcome.tsx` (new copy, single CTA)
-- Rewrite: `src/pages/onboarding/OnboardingFlow.tsx` (new STAGE_ROUTES, new back-nav map, new progress weights)
-- Rewrite: `src/App.tsx` onboarding routes block
-- Rewrite: `src/utils/onboardingStatus.ts` resume + gating
-- Update: `src/utils/onboardingCompletion.ts` completion check (uses `onboarding_completed_at`)
-- Update: `src/components/onboarding/ResumeOnboardingBanner.tsx` (new step labels)
-- Update: `src/components/OnboardingGuard.tsx` if it hardcodes old paths
-- Delete: 9 stage files listed above + their lazy imports in App.tsx
-- Reuse: `src/components/calendar/CalendarProviderPicker.tsx` and existing wearable connection UI inside StageConnect
-
-## Connector and secrets
-
-- Connect Firecrawl via `standard_connectors--connect` (`firecrawl`). Gateway-based, injects `FIRECRAWL_API_KEY`.
-- Stripe already enabled (BYOK keys present in secrets). Pricing page uses existing `STRIPE_TEST_PRICE_*` env vars and existing Stripe checkout edge function.
-
-## Test plan
-
-1. Fresh user → Welcome → Pricing → Stripe test checkout → returns to LinkedIn → paste a real LinkedIn URL → context screen renders LLM summary → confirm priorities → connect Apple calendar (sim) + Oura → Done → /daily-check-in
-2. User clicks "I'd rather type" on LinkedIn step → 3-field manual form → context screen pre-fills from manual input
-3. User tries to deep-link `/onboarding/connect` without finishing pricing → redirected back to `/onboarding/pricing`
-4. User connects only calendar, not wearable → "Continue" stays disabled with clear copy
-
-## Out of scope (explicit)
-
-- LinkedIn OAuth (user chose paste-URL via Firecrawl)
-- Soft-gate connections (user chose hard gate)
-- Keeping any of the old questionnaire stages
-- Migrating old onboarding_progress data into new columns (the old questionnaire is gone; existing completed users keep `onboarding_completed_at` if already set)
+- `/onboarding` brand cluster visually matches `/` (auth) brand cluster on mobile (390×844).
+- Body copy reads as the single block above.
+- CTA still routes to `/onboarding/app-intro`.
+- No regressions elsewhere.
