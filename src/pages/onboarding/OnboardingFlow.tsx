@@ -37,6 +37,20 @@ const calculateWeightedProgress = (stageIndex: number): number => {
   return weights[stageIndex as keyof typeof weights] || 0;
 };
 
+// v8 onboarding flow paths — these screens are full-bleed (fixed inset-0)
+// and own their own back/skip navigation, so the OnboardingFlow chrome
+// (top bar + progress) is suppressed for them. Stage gating is also
+// bypassed because they are the new entry path for fresh users.
+const V8_PATHS = new Set([
+  '/onboarding/app-intro',
+  '/onboarding/leadership-context',
+  '/onboarding/cognitive-load',
+  '/onboarding/protect-goals',
+  '/onboarding/brief-prefs',
+  '/onboarding/permissions',
+  '/onboarding/done',
+]);
+
 export default function OnboardingFlow() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +76,7 @@ export default function OnboardingFlow() {
   // previously diverged from the canonical decision.
   useEffect(() => {
     if (location.pathname === '/onboarding') return;
+    if (V8_PATHS.has(location.pathname)) return;
     if (gateChecked.current === location.pathname) return;
     gateChecked.current = location.pathname;
 
@@ -96,7 +111,7 @@ export default function OnboardingFlow() {
   }, [currentStage]);
 
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
-  const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup');
+  const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup') || V8_PATHS.has(location.pathname);
 
   // Determine if we should show back button.
   // Stages 1–6 (questionnaire) and the payment page always show one.
@@ -106,7 +121,8 @@ export default function OnboardingFlow() {
   // discard a freshly-created session, which is more confusing than helpful.
   const isPaymentPage = location.pathname === '/onboarding/payment';
   const isSignupStep = location.pathname === '/onboarding/signup-step';
-  const showBackButton = (currentStageIndex >= 1 && !isSignupStep);
+  const isV8 = V8_PATHS.has(location.pathname);
+  const showBackButton = (currentStageIndex >= 1 && !isSignupStep && !isV8);
   const handleBack = () => {
     if (isPaymentPage) {
       // Upgrade visit (completed onboarding or explicit source) → executive home

@@ -56,7 +56,7 @@ export default function Stage1Welcome() {
           <Button
             size="lg"
             variant="critical"
-            onClick={() => navigate("/onboarding/identity")}
+            onClick={() => navigate("/onboarding/app-intro")}
             className="w-full max-w-sm text-[15px] font-medium py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl"
           >
             Let's begin

@@ -188,6 +188,19 @@ function getResumeRouteFromLocal(): string {
  * Returns the correct redirect route if they can't, or null if access is allowed.
  */
 export async function validateStageAccess(targetPath: string): Promise<string | null> {
+  // v8 onboarding flow paths are the new entry path for fresh users and
+  // are not gated by the legacy questionnaire prerequisites.
+  const V8_PATHS = new Set([
+    '/onboarding/app-intro',
+    '/onboarding/leadership-context',
+    '/onboarding/cognitive-load',
+    '/onboarding/protect-goals',
+    '/onboarding/brief-prefs',
+    '/onboarding/permissions',
+    '/onboarding/done',
+  ]);
+  if (V8_PATHS.has(targetPath)) return null;
+
   if (PAYMENT_PAGE_SUPPRESSED && targetPath === '/onboarding/payment') {
     return '/onboarding/app-intro';
   }

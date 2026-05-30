@@ -77,6 +77,14 @@ const StageUSPIntro = lazy(() => import("./pages/onboarding/stages/StageUSPIntro
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
+// v8 onboarding flow (replaces legacy questionnaire for new users)
+const StageLeadershipContext = lazy(() => import("./pages/onboarding/stages/v8/StageLeadershipContext"));
+const StageCognitiveLoad = lazy(() => import("./pages/onboarding/stages/v8/StageCognitiveLoad"));
+const StageProtectGoals = lazy(() => import("./pages/onboarding/stages/v8/StageProtectGoals"));
+const StageBriefPrefs = lazy(() => import("./pages/onboarding/stages/v8/StageBriefPrefs"));
+const StagePermissions = lazy(() => import("./pages/onboarding/stages/v8/StagePermissions"));
+const StageDone = lazy(() => import("./pages/onboarding/stages/v8/StageDone"));
+
 // Loading fallback — silent for fast (<3s) lazy-load transitions, then falls
 // back to a single generic loader. Page-specific loaders (Brief, Plan,
 // Insights, Onboarding Results) own their own visible loading UI.
@@ -283,6 +291,12 @@ const router = createBrowserRouter([
           { path: "payment", element: PAYMENT_PAGE_SUPPRESSED ? <Navigate to="/onboarding/app-intro" replace /> : <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "app-intro", element: <Suspense fallback={<LoadingFallback />}><StageUSPIntro /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
+          { path: "leadership-context", element: <Suspense fallback={<LoadingFallback />}><StageLeadershipContext /></Suspense> },
+          { path: "cognitive-load", element: <Suspense fallback={<LoadingFallback />}><StageCognitiveLoad /></Suspense> },
+          { path: "protect-goals", element: <Suspense fallback={<LoadingFallback />}><StageProtectGoals /></Suspense> },
+          { path: "brief-prefs", element: <Suspense fallback={<LoadingFallback />}><StageBriefPrefs /></Suspense> },
+          { path: "permissions", element: <Suspense fallback={<LoadingFallback />}><StagePermissions /></Suspense> },
+          { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
         ],
       },
     ],
