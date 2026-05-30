@@ -247,6 +247,14 @@ interface ExecutiveScenario {
   name: string;
   contextLabel: string;
   triggers: {
+    /**
+     * @deprecated Do not use for runtime scenario detection.
+     * Scenario classification MUST go through `scenarioIdFor()` / the canonical
+     * event classifier in `_shared/events/event-classifier.ts`.
+     * These arrays are retained only as human-readable documentation of which
+     * calendar phrasings the canonical classifier is expected to cover for each
+     * scenario id, and must not be read at runtime.
+     */
     calendarKeywords?: string[];
     hoursAhead?: number;
     wearableCondition?: string;
@@ -2621,9 +2629,13 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     // Check for pattern observations related to this event type
     let patternMatched = false;
     if (scenario && req.patternInsight) {
-      const patternState = (req.patternInsight.state || '').toLowerCase();
-      const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
-      patternMatched = scenarioKeywords.some(kw => patternState.includes(kw));
+      // Canonical pattern↔scenario match: route the pattern state text through
+      // the same classifier used to detect the scenario. No local keyword table.
+      const patternState = (req.patternInsight.state || '').trim();
+      if (patternState) {
+        const patternScenarioId = scenarioIdFor(patternState);
+        patternMatched = !!patternScenarioId && patternScenarioId === scenario.id;
+      }
     }
 
     // Aggressively replace context – coach memory and HRV take priority over generic text
