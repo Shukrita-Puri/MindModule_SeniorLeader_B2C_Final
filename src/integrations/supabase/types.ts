@@ -3077,6 +3077,87 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_v8_responses: {
+        Row: {
+          brief_timing: string | null
+          burden_chips: string[]
+          calendar_selections: string[]
+          completed_at: string | null
+          cos_profile: Json | null
+          cos_profile_error: string | null
+          cos_profile_generated_at: string | null
+          cos_profile_html: string | null
+          cos_profile_status: string
+          created_at: string
+          freetext_context: string | null
+          goals: string[]
+          linkedin_scrape: Json | null
+          linkedin_url: string | null
+          load_chips: string[]
+          reset_modality: string | null
+          stakes_chips: string[]
+          step_status: Json
+          updated_at: string
+          user_id: string
+          wearable_selections: string[]
+          weekend_signals: string | null
+          writing_scrapes: Json | null
+          writing_urls: string[]
+        }
+        Insert: {
+          brief_timing?: string | null
+          burden_chips?: string[]
+          calendar_selections?: string[]
+          completed_at?: string | null
+          cos_profile?: Json | null
+          cos_profile_error?: string | null
+          cos_profile_generated_at?: string | null
+          cos_profile_html?: string | null
+          cos_profile_status?: string
+          created_at?: string
+          freetext_context?: string | null
+          goals?: string[]
+          linkedin_scrape?: Json | null
+          linkedin_url?: string | null
+          load_chips?: string[]
+          reset_modality?: string | null
+          stakes_chips?: string[]
+          step_status?: Json
+          updated_at?: string
+          user_id: string
+          wearable_selections?: string[]
+          weekend_signals?: string | null
+          writing_scrapes?: Json | null
+          writing_urls?: string[]
+        }
+        Update: {
+          brief_timing?: string | null
+          burden_chips?: string[]
+          calendar_selections?: string[]
+          completed_at?: string | null
+          cos_profile?: Json | null
+          cos_profile_error?: string | null
+          cos_profile_generated_at?: string | null
+          cos_profile_html?: string | null
+          cos_profile_status?: string
+          created_at?: string
+          freetext_context?: string | null
+          goals?: string[]
+          linkedin_scrape?: Json | null
+          linkedin_url?: string | null
+          load_chips?: string[]
+          reset_modality?: string | null
+          stakes_chips?: string[]
+          step_status?: Json
+          updated_at?: string
+          user_id?: string
+          wearable_selections?: string[]
+          weekend_signals?: string | null
+          writing_scrapes?: Json | null
+          writing_urls?: string[]
+        }
+        Relationships: []
+      }
       oura_connections: {
         Row: {
           access_token_expires_at: string | null
