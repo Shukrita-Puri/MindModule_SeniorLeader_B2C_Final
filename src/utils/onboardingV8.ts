@@ -16,7 +16,12 @@ export type V8Fields = Partial<{
   wearable_selections: string[];
 }>;
 
-async function postEdge<T = any>(fn: string, body: unknown): Promise<{ ok: boolean; data?: T; error?: string }> {
+export type EdgeValidationError = { field: string; message: string };
+
+async function postEdge<T = any>(
+  fn: string,
+  body: unknown,
+): Promise<{ ok: boolean; data?: T; error?: string; validationErrors?: EdgeValidationError[] }> {
   try {
     const token = await getAuthToken();
     if (!token) return { ok: false, error: "no_auth" };
@@ -27,7 +32,10 @@ async function postEdge<T = any>(fn: string, body: unknown): Promise<{ ok: boole
       body: JSON.stringify(body ?? {}),
     });
     const json = await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, error: (json as any)?.error ?? `http_${res.status}` };
+    if (!res.ok) {
+      const errs = Array.isArray((json as any)?.errors) ? ((json as any).errors as EdgeValidationError[]) : undefined;
+      return { ok: false, error: (json as any)?.error ?? `http_${res.status}`, validationErrors: errs };
+    }
     return { ok: true, data: json as T };
   } catch (e) {
     console.warn(`[onboardingV8] ${fn} error:`, e);
