@@ -4711,13 +4711,12 @@ function buildHorizonModules(
   const _dow = _localNow.getUTCDay(); // 0 Sun .. 6 Sat
   const _isWeekday = _dow >= 1 && _dow <= 5;
   const _hasAnyJit = !!preEventPlan;
-  const _ptoHolidayRx = /(ooo|out of office|vacation|annual leave|pto|on leave|public holiday|bank holiday|national holiday|\bholiday\b)/i;
+  // PTO / public-holiday detection delegated to canonical ceo-behaviour module.
   const _isPtoOrHoliday = (req.calendarEvents || []).some((e: any) => {
-    const t = String(e.title || '');
     const s = new Date(e.startTime).getTime();
     const en = new Date(e.endTime || e.startTime).getTime();
     const allDay = (en - s) >= 20 * 3600 * 1000;
-    return allDay && _ptoHolidayRx.test(t);
+    return allDay && isPtoOrHolidayTitle(String(e.title || ''));
   });
   let _minSlots = 1;
   if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
