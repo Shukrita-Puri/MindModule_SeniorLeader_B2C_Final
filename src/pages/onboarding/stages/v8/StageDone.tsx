@@ -1,12 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
+import { markV8Complete, synthesizeCosProfile } from "@/utils/onboardingV8";
 
 export default function StageDone() {
   const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
 
   const enter = async () => {
-    // Mark onboarding completed so guards stop sending the user back here.
+    // Ensure synthesis has at least been triggered (idempotent), then finalize.
+    try { synthesizeCosProfile().catch(() => {}); } catch { /* non-blocking */ }
+    try { await markV8Complete(); } catch { /* non-blocking */ }
+    // Mark legacy onboarding completion so existing guards stop redirecting.
     try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
     navigate("/daily-check-in");
   };

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
+import { saveV8 } from "@/utils/onboardingV8";
 
-const GROUPS: { title: string; chips: string[] }[] = [
+const GROUPS: { key: "stakes" | "load" | "burden"; title: string; chips: string[] }[] = [
   {
+    key: "stakes",
     title: "High-stakes events",
     chips: [
       "Board session", "Investor meeting", "Fundraise / capital raise", "M&A or due diligence",
@@ -12,6 +14,7 @@ const GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
+    key: "load",
     title: "Trends that weigh on you",
     chips: [
       "Market pressure or headwinds", "Competitive disruption", "Regulatory or compliance shifts",
@@ -20,6 +23,7 @@ const GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
+    key: "burden",
     title: "Operating burdens",
     chips: [
       "Regular travel", "Multi-day conferences", "Back-to-back intensity", "Timezone shifting",
@@ -30,21 +34,40 @@ const GROUPS: { title: string; chips: string[] }[] = [
 
 export default function StageCognitiveLoad() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Record<"stakes" | "load" | "burden", Set<string>>>({
+    stakes: new Set(),
+    load: new Set(),
+    burden: new Set(),
+  });
+  const [saving, setSaving] = useState(false);
 
-  const toggle = (c: string) => {
+  const toggle = (group: "stakes" | "load" | "burden", c: string) => {
     setSelected((prev) => {
-      const n = new Set(prev);
+      const n = new Set(prev[group]);
       n.has(c) ? n.delete(c) : n.add(c);
-      return n;
+      return { ...prev, [group]: n };
     });
+  };
+
+  const next = async () => {
+    setSaving(true);
+    await saveV8(
+      {
+        stakes_chips: Array.from(selected.stakes),
+        load_chips: Array.from(selected.load),
+        burden_chips: Array.from(selected.burden),
+      },
+      "cognitive_load",
+    );
+    setSaving(false);
+    navigate("/onboarding/protect-goals");
   };
 
   return (
     <ParchScreen
       step="Step 1 of 3 · continued"
       title="What creates cognitive load for you?"
-      footer={<PrimaryCTA onClick={() => navigate("/onboarding/protect-goals")}>Continue →</PrimaryCTA>}
+      footer={<PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>}
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-4">
         Select all that apply — to help Mind Module understand your environment and prepare for those most relevant to you.
@@ -56,11 +79,11 @@ export default function StageCognitiveLoad() {
           <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">{g.title}</div>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {g.chips.map((c) => {
-              const on = selected.has(c);
+              const on = selected[g.key].has(c);
               return (
                 <button
                   key={c}
-                  onClick={() => toggle(c)}
+                  onClick={() => toggle(g.key, c)}
                   className={`px-3.5 py-2 rounded-full text-xs border transition-colors whitespace-nowrap ${
                     on
                       ? "bg-[#1a1712] border-[#1a1712] text-[#f5f0e8]"

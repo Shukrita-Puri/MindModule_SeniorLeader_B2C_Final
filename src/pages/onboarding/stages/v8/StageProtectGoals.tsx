@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
+import { saveV8 } from "@/utils/onboardingV8";
 
 const GOALS = [
   { id: "regulated", main: "Stay regulated under sustained pressure", sub: "Composure and clarity across high-intensity periods", tag: "Available now" },
@@ -18,6 +19,13 @@ export default function StageProtectGoals() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showLimit, setShowLimit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const next = async () => {
+    setSaving(true);
+    await saveV8({ goals: Array.from(selected) }, "protect_goals");
+    setSaving(false);
+    navigate("/onboarding/brief-prefs");
+  };
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -42,8 +50,8 @@ export default function StageProtectGoals() {
       step="Step 2 of 3"
       title="What should Mind Module protect?"
       footer={
-        <PrimaryCTA disabled={selected.size === 0} onClick={() => navigate("/onboarding/brief-prefs")}>
-          Continue →
+        <PrimaryCTA disabled={selected.size === 0 || saving} onClick={next}>
+          {saving ? "Saving…" : "Continue →"}
         </PrimaryCTA>
       }
     >
