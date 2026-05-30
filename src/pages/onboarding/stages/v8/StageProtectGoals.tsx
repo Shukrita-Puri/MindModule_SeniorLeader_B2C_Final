@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
+import { GOAL_IDS, MAX_GOALS } from "@/utils/onboardingV8Validation";
 
 const GOALS = [
   { id: "regulated", main: "Stay regulated under sustained pressure", sub: "Composure and clarity across high-intensity periods", tag: "Available now" },
@@ -13,7 +14,8 @@ const GOALS = [
   { id: "models", main: "Build stronger mental models under pressure", sub: "Structured thinking frameworks for ambiguity and complexity", tag: "Expanding soon" },
   { id: "patterns", main: "Understand my own performance patterns", sub: "Learn when I'm sharpest, what depletes me, how to prepare more effectively", tag: "Expanding soon" },
 ];
-const MAX = 3;
+const MAX = MAX_GOALS;
+const ALLOWED_GOAL_IDS = new Set<string>(GOAL_IDS);
 
 export default function StageProtectGoals() {
   const navigate = useNavigate();
@@ -21,8 +23,10 @@ export default function StageProtectGoals() {
   const [showLimit, setShowLimit] = useState(false);
   const [saving, setSaving] = useState(false);
   const next = async () => {
+    if (selected.size === 0 || selected.size > MAX) return;
     setSaving(true);
-    await saveV8({ goals: Array.from(selected) }, "protect_goals");
+    const goals = Array.from(new Set(Array.from(selected).filter((g) => ALLOWED_GOAL_IDS.has(g)))).slice(0, MAX);
+    await saveV8({ goals }, "protect_goals");
     setSaving(false);
     navigate("/onboarding/brief-prefs");
   };
