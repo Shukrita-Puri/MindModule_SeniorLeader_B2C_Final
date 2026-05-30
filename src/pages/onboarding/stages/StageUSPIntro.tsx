@@ -1,215 +1,102 @@
-import { useState, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useSwipeHandler } from "@/hooks/useSwipeHandler";
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
-import uspPulseSignal from "@/assets/onboarding/usp-pulse-signal.jpg";
-import uspConstellation from "@/assets/onboarding/usp-constellation.jpg";
-import mmLogo from "@/assets/brand/mm-logo-circle.png";
-import heroBg from "@/assets/onboarding/onboarding-intro-active.jpg";
-import { PAYMENT_PAGE_SUPPRESSED } from "@/config/payments";
 
-interface Slide {
-  headline: string;
-  subtitle: string;
-  image: string;
-  alt: string;
-}
+/**
+ * USP Carousel — new onboarding v8 intro.
+ * Dark 4-slide carousel. Final CTA → Leadership Context.
+ * Reuses an existing onboarding asset as the hero image (no new imagery).
+ */
 
-const slides: Slide[] = [
+const SLIDES = [
   {
-    headline: "Peak performers don\u2019t react. They anticipate.",
-    subtitle: "Your day mapped. Your state read. Your plan ready \u2013 before you need it.",
-    image: uspSunriseEngraved,
-    alt: "Engraved sky illustration",
+    title: "Stay Mentally Ahead",
+    body:
+      "MindModule acts as a proactive Chief of Staff for your mind — reading your cognitive state, anticipating what the day demands, and deploying the right protocols before performance slips.",
   },
   {
-    headline: "Every elite athlete has a performance team. Now you do too.",
-    subtitle: "A thinking partner. A preparation system. A recalibration space. A performance intelligence layer. Always on.",
-    image: uspConstellation,
-    alt: "Constellation of intelligence",
+    title: "Prepare for what the day demands.",
+    body:
+      "Today combines your calendar, cognitive load, recovery signals, and work patterns to help you stay sharp through critical moments.",
   },
   {
-    headline: "You stop guessing. The intelligence does the work.",
-    subtitle: "Your context connected. Your patterns learnt. Your history decoded \u2013 before your day begins.",
-    image: uspPulseSignal,
-    alt: "Pulse and data signal",
+    title: "Protect your cognitive edge for key moments.",
+    body:
+      "Your plan gives you interventions to protect composure, clarity and capacity — and prevent mental noise, stress accumulation, emotional hijack and recovery debt. All, before cognitive performance declines.",
+  },
+  {
+    title: "Learn how you perform at your best.",
+    body:
+      "Performance Patterns identifies the signals behind your cognitive performance — from recovery and workload to focus, stress, and decision quality.",
   },
 ];
 
-const TOTAL_DOTS = 5;
+const NEXT_ROUTE = "/onboarding/leadership-context";
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const resumeSlide = (location.state as { resumeSlide?: number } | null)?.resumeSlide;
-  const [currentSlide, setCurrentSlide] = useState(resumeSlide ?? -1);
+  const [idx, setIdx] = useState(0);
+  const isFinal = idx === SLIDES.length - 1;
 
-  const isIntro = currentSlide === -1;
-  const activeDot = isIntro ? 0 : currentSlide + 1;
-
-  const goNext = useCallback(() => {
-    if (isIntro) {
-      setCurrentSlide(0);
-    } else if (currentSlide < slides.length - 1) {
-      setCurrentSlide((s) => s + 1);
-    } else {
-      navigate("/onboarding/context-connection", { replace: true });
-    }
-  }, [currentSlide, isIntro, navigate]);
-
-  const goPrev = useCallback(() => {
-    if (currentSlide === -1) {
-      navigate(PAYMENT_PAGE_SUPPRESSED ? "/onboarding/results" : "/onboarding/payment");
-    } else {
-      setCurrentSlide((s) => s - 1);
-    }
-  }, [currentSlide, navigate]);
-
-  const skip = useCallback(() => {
-    navigate("/onboarding/context-connection", { replace: true });
-  }, [navigate]);
-
-  useSwipeHandler({ onSwipeLeft: goNext, onSwipeRight: goPrev, threshold: 50 });
-
-  /* ── Dot indicators ── */
-  const dots = (inactiveDotClass = "w-2 bg-white/30") => (
-    <div className="flex justify-center gap-2 mb-6">
-      {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
-        <div
-          key={i}
-          className={`h-2 rounded-full transition-all duration-300 ${
-            i === activeDot
-              ? "w-6 bg-saffron"
-              : inactiveDotClass
-          }`}
-        />
-      ))}
-    </div>
-  );
-
-  /* ── Back button top bar ── */
-  const topBar = (
-    <div className={`fixed top-0 left-0 right-0 z-50 safe-area-top ${isIntro ? 'bg-black/30 backdrop-blur-md border-b border-white/[0.08]' : 'bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]'}`}>
-      <div className="flex items-center justify-between px-4 py-2">
-        <Button variant="glass" size="sm" onClick={goPrev} className={isIntro ? "text-white" : "text-foreground"}>
-          <ArrowLeft size={20} />
-        </Button>
-        <div />
-      </div>
-    </div>
-  );
-
-  /* ── Intro screen ── */
-  if (isIntro) {
-    return (
-      <div className="fixed inset-0 flex flex-col items-center overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
-        {topBar}
-
-        {/* Full-bleed background matching Stage1Welcome / Front */}
-        <img
-          src={heroBg}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover"
-          width={1080}
-          height={1920}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center text-center h-full w-full px-6">
-          <div className="flex flex-col items-center space-y-3 mt-[38%] sm:mt-auto sm:flex-1 sm:justify-center">
-            <img src={mmLogo} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
-
-            <h1 className="text-5xl sm:text-7xl font-headline font-bold text-white tracking-wider leading-none uppercase">
-              MIND MODULE
-            </h1>
-            <p className="text-xs tracking-[0.35em] uppercase text-white/50 font-body -mt-0.5 sm:-mt-2">
-              Executive Edition
-            </p>
-
-            <div className="bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl px-5 py-4 mt-6 max-w-sm mx-auto">
-              <h2 className="font-headline text-[1.5rem] sm:text-[2rem] font-bold leading-[1.15] tracking-tight text-white">
-                A new era of executive performance.
-              </h2>
-              <p className="font-body text-[0.9375rem] sm:text-base text-white/70 leading-relaxed mt-2">
-                This isn't self-improvement. This is self-mastery.
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom: dots + CTA */}
-          <div className="w-full mt-auto mb-[14%] sm:mb-auto sm:mt-8">
-            {dots()}
-            <Button
-              variant="critical"
-              size="lg"
-              className="w-full rounded-2xl"
-              onClick={goNext}
-            >
-              See how it works →
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── USP slides ── */
-  const slide = slides[currentSlide];
-  const isLastSlide = currentSlide === slides.length - 1;
+  const next = useCallback(() => {
+    if (isFinal) navigate(NEXT_ROUTE);
+    else setIdx((i) => i + 1);
+  }, [isFinal, navigate]);
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col">
-      {topBar}
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1712] text-[#f5f0e8] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+      {/* Logo row */}
+      <div className="flex items-center justify-between px-6 pt-4 shrink-0">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] border border-white/[0.12] py-1.5 pl-1.5 pr-3.5">
+          <span className="w-6 h-6 rounded-full bg-[#2bc075]" />
+          <span className="text-[10px] tracking-[2px] uppercase text-white/60">Mind Module</span>
+        </div>
+        <span className="text-[9px] tracking-[2px] uppercase text-white/25">Executive</span>
+      </div>
 
-      {/* Contained image window */}
-      <div className="pt-[calc(3.5rem+env(safe-area-inset-top,0px))] px-4">
-        <div className="relative rounded-2xl overflow-hidden" style={{ height: '42vh' }}>
-          <img
-            src={slide.image}
-            alt={slide.alt}
-            className="absolute inset-0 w-full h-full object-cover"
+      {/* Hero image (reuses existing asset) */}
+      <div className="relative shrink-0 h-[34vh] mt-3 overflow-hidden">
+        <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1a1712]" />
+      </div>
+
+      {/* Title + body */}
+      <div className="flex-1 flex flex-col items-center justify-center px-7 text-center">
+        <h1 className="font-headline text-[28px] leading-[1.22] text-[#f5f0e8]">
+          {SLIDES[idx].title}
+        </h1>
+        <div className="w-7 h-px bg-white/10 my-4" />
+        <p className="text-[13px] leading-[1.7] text-white/55 max-w-[300px]">
+          {SLIDES[idx].body}
+        </p>
+      </div>
+
+      {/* Pagination dots */}
+      <div className="flex justify-center gap-1.5 pb-3">
+        {SLIDES.map((_, i) => (
+          <span
+            key={i}
+            className={`h-[7px] rounded-full transition-all duration-300 ${
+              i === idx ? "w-[22px] bg-[#e8714a]" : "w-[7px] bg-white/[0.18]"
+            }`}
           />
-          {/* Bottom fade into background */}
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background to-transparent" />
-        </div>
+        ))}
       </div>
 
-      {/* Text below image */}
-      <div className="flex-1 flex flex-col px-6 pt-5">
-        <div className="space-y-3 text-center">
-          <h1 className="font-headline text-[1.75rem] sm:text-3xl font-bold italic leading-tight tracking-tight text-foreground">
-            {slide.headline}
-          </h1>
-          <p className="font-body text-[1rem] sm:text-lg text-muted-foreground leading-relaxed max-w-sm mx-auto">
-            {slide.subtitle}
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom: dots + CTAs pinned */}
-      <div className="px-6 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-        {dots("w-2 bg-muted-foreground/30")}
-
-        <div className="space-y-3">
-          <button
-            onClick={skip}
-            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors py-2"
-          >
-            Skip
-          </button>
-          <Button
-            variant="critical"
-            size="lg"
-            className="w-full rounded-2xl"
-            onClick={goNext}
-          >
-            {isLastSlide ? "Connect your Intelligence" : "Continue"}
-          </Button>
-        </div>
+      {/* Footer */}
+      <div className="px-6 pb-7 shrink-0">
+        <button
+          onClick={next}
+          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] transition-colors text-white text-sm font-medium"
+        >
+          {isFinal ? "Get started →" : "Continue"}
+        </button>
+        <button
+          onClick={() => navigate(NEXT_ROUTE)}
+          className="block w-full text-center text-xs text-white/30 mt-3 py-2"
+        >
+          Skip tour
+        </button>
       </div>
     </div>
   );
