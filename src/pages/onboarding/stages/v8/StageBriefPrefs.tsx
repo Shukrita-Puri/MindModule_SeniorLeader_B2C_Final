@@ -36,8 +36,10 @@ export default function StageBriefPrefs() {
     weekends: "Reduce",
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const next = async () => {
+    if (saving) return;
     const timingOk = (BRIEF_TIMING as readonly string[]).includes(prefs.timing);
     const resetOk = (RESET_MODALITY as readonly string[]).includes(prefs.reset);
     const weekendsOk = (WEEKEND_SIGNALS as readonly string[]).includes(prefs.weekends);
@@ -51,7 +53,8 @@ export default function StageBriefPrefs() {
       return;
     }
     setSaving(true);
-    await saveV8(
+    setSaveError(null);
+    const res = await saveV8(
       {
         brief_timing: prefs.timing,
         reset_modality: prefs.reset,
@@ -59,9 +62,15 @@ export default function StageBriefPrefs() {
       },
       "brief_prefs",
     );
+    setSaving(false);
+    if (!res.ok) {
+      const msg = res.validationErrors?.[0]?.message
+        ?? (res.error === "no_auth" ? "Please sign in again to continue." : "Couldn't save — please try again.");
+      setSaveError(msg);
+      return;
+    }
     // Fire-and-forget synthesis after steps 1–3 are complete
     synthesizeCosProfile().catch(() => { /* non-blocking */ });
-    setSaving(false);
     navigate("/onboarding/permissions");
   };
 
@@ -69,7 +78,16 @@ export default function StageBriefPrefs() {
     <ParchScreen
       step="Step 3 of 3"
       title="How your brief works"
-      footer={<PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>}
+      footer={
+        <div className="w-full">
+          {saveError && (
+            <div className="text-[11px] text-[#e8714a] mb-2 px-3 py-2 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+              {saveError}
+            </div>
+          )}
+          <PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>
+        </div>
+      }
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-1">
         Your brief is built whenever you check in — Mind Module reads the time of day, your calendar, and your cognitive state to generate a 24-hour mental performance plan with protocols allocated to your priorities.
