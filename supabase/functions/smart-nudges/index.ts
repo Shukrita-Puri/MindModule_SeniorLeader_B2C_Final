@@ -219,7 +219,7 @@ import {
   classifyEventBucket,
 } from '../_shared/executive-state-taxonomy.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
-import { TRAVEL_TITLE_RX, isTravelTitle } from '../_shared/ceo-behaviour/travel.ts';
+import { isTravelTitle } from '../_shared/ceo-behaviour/travel.ts';
 import { EVENT_PHASE_MAP } from '../_shared/events/event-phase-map.ts';
 import { PROTOCOL_COMBOS } from '../_shared/protocols/protocol-combos.ts';
 

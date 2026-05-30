@@ -33,7 +33,7 @@ import {
   EVENT_TYPE_TO_SCENARIO_ID,
 } from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
-import { TRAVEL_TITLE_RX } from '../_shared/ceo-behaviour/travel.ts';
+import { TRAVEL_TITLE_RX, isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
@@ -3540,7 +3540,6 @@ const MVP_JIT_HORIZON_MINUTES = 24 * 60;
 
 const PTO_RX = /(ooo|out of office|vacation|annual leave|\bpto\b|on leave|holiday day)/i;
 const PUBLIC_HOLIDAY_RX = /(public holiday|bank holiday|national holiday)/i;
-const TRAVEL_RX = TRAVEL_TITLE_RX;
 const BOARD_RX = /(board|investor|vc\b|earnings|town hall|all-hands|all hands|keynote)/i;
 const DRAIN_RX = /(1:1|1-on-1|performance review|layoff|restructure|escalation|difficult conversation|hr\b)/i;
 
@@ -3571,7 +3570,7 @@ function detectCeoRealities(req: PlanRequest, shared: SharedContext): CeoReality
   if (events.some(e => PTO_RX.test(e.title || ''))) tags.push('personal_pto');
 
   // Travel / circadian
-  if (within48h.some(e => TRAVEL_RX.test(e.title || ''))) tags.push('circadian_travel');
+  if (within48h.some(e => isTravelTitleCanonical(e.title))) tags.push('circadian_travel');
 
   // Board-level outcome
   if (within24h.some(e => BOARD_RX.test(e.title || ''))) tags.push('board_outcome');
@@ -4181,7 +4180,7 @@ function buildHorizonModules(
   };
   const tomorrowLeadEvent = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
   const todayLeadEvent = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
-  const isTravelTitle = (t: string | null | undefined) => !!t && /flight|airport|travel|long[- ]haul|red[- ]eye|layover/i.test(t);
+  const isTravelTitle = (t: string | null | undefined) => isTravelTitleCanonical(t);
 
   // ── Slot-anchor bookkeeper (variable slot count + dedup) ──
   // Each emitted slot pushes its anchor event id (null for pure
