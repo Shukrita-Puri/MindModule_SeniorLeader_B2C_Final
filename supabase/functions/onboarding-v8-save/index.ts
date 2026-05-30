@@ -127,6 +127,15 @@ Deno.serve(async (req) => {
       }
       const sanitized = sanitizePayload((existingRow ?? {}) as V8Payload);
       const completionErrors = validateForCompletion(sanitized);
+      // Gate completion on successful COS synthesis.
+      const cosStatus = (existingRow as any)?.cos_profile_status ?? null;
+      const hasProfile = !!(existingRow as any)?.cos_profile;
+      if (cosStatus !== "ready" || !hasProfile) {
+        completionErrors.push({
+          field: "cos_profile",
+          message: "Profile calibration has not completed yet.",
+        });
+      }
       if (completionErrors.length > 0) {
         return json(400, { error: "validation_failed", step: "completion", errors: completionErrors });
       }
