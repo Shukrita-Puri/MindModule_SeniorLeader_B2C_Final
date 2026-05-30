@@ -22,12 +22,21 @@ export default function StageProtectGoals() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showLimit, setShowLimit] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const next = async () => {
+    if (saving) return;
     if (selected.size === 0 || selected.size > MAX) return;
     setSaving(true);
+    setSaveError(null);
     const goals = Array.from(new Set(Array.from(selected).filter((g) => ALLOWED_GOAL_IDS.has(g)))).slice(0, MAX);
-    await saveV8({ goals }, "protect_goals");
+    const res = await saveV8({ goals }, "protect_goals");
     setSaving(false);
+    if (!res.ok) {
+      const msg = res.validationErrors?.[0]?.message
+        ?? (res.error === "no_auth" ? "Please sign in again to continue." : "Couldn't save — please try again.");
+      setSaveError(msg);
+      return;
+    }
     navigate("/onboarding/brief-prefs");
   };
 
@@ -67,6 +76,9 @@ export default function StageProtectGoals() {
       </p>
       {showLimit && (
         <div className="text-[11px] text-[#e8714a] mb-2">Maximum 3 selected — deselect one to change</div>
+      )}
+      {saveError && (
+        <div className="text-[11px] text-[#e8714a] mb-2">{saveError}</div>
       )}
 
       <div className="space-y-2">
