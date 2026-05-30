@@ -1,49 +1,81 @@
 ## Scope
 
-Single file: `src/pages/onboarding/stages/Stage1Welcome.tsx`. Background image, CTA route (`/onboarding/app-intro`), Privacy footer, and overall layout structure remain untouched.
+Visual-only changes across the v8 onboarding surface. No flow, route, button, validation, or business-logic changes.
 
-## 1. Match the Front-page brand lockup
+App palette in use:
+- Parchment bg `#f5f0e8`
+- Ink/charcoal `#1a1712`
+- Taupe `#7a7060`
+- Saffron `#ba7517` (critical accent)
+- Coral `#e8714a` (CTA)
+- Cream surface `#ede8dc`, border `#cfc7b8`
 
-The auth/Front page (`src/pages/Front.tsx`, lines 226–249) uses a specific lockup that the screenshot shows. Today `/onboarding` uses a heavier, larger version. Align it:
+## Changes
 
-- Logo: drop from `w-20 h-20 sm:w-24 sm:h-24` → `w-12 h-12 sm:w-14 sm:h-14`.
-- Headline `MIND MODULE`: switch sizing to `text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-headline font-bold tracking-wider leading-none`, with the same dual `textShadow` Front uses.
-- Subtitle `Executive Edition`: `text-xs tracking-[0.35em] uppercase text-white/90 font-body` with matching textShadow.
-- Wrap the cluster in the same atmospheric scrim div (radial-gradient blur) Front uses so the type reads cleanly against the cloud illustration.
-- Anchor the cluster high (small top margin) instead of vertically centered, so the silhouette matches the screenshot.
+### 1. Top nav with back button on v8 pages
 
-## 2. Final body copy (single, crisp, CEO-tuned)
+File: `src/pages/onboarding/OnboardingFlow.tsx`
+- Remove v8 routes from the back-button exclusion so `UnifiedTopBar` renders on:
+  `/onboarding/app-intro`, `/onboarding/leadership-context`, `/onboarding/cognitive-load`, `/onboarding/protect-goals`, `/onboarding/brief-prefs`, `/onboarding/permissions`.
+  (Still excluded: `/onboarding/done` — terminal screen.)
+- Extend `backMap` for the v8 chain:
+  - `leadership-context → app-intro`
+  - `cognitive-load → leadership-context`
+  - `protect-goals → cognitive-load`
+  - `brief-prefs → protect-goals`
+  - `permissions → brief-prefs`
 
-Evaluation of the supplied copy: it lands the diagnosis well ("scattered, ruminated or burnt out") and the reframe ("Self Mastery, not self improvement"), but it has three small problems for a CEO reader: (1) the exclamation marks soften the authority, (2) "A new era…is here" reads as marketing rather than product, and (3) it doesn't tell the user what is about to happen next — which is the whole job of an onboarding intro.
+File: `src/components/navigation/UnifiedTopBar.tsx`
+- Add an optional right-side brand lockup (small Mind Module circle logo + "MIND MODULE" wordmark + tiny "Executive" tag) shown when a new `showBrand` prop is true.
+- Charcoal text on the existing white/blur bar so it reads against the new light v8 backgrounds.
 
-Recommended final copy (replaces the three-paragraph glass card):
+`OnboardingFlow.tsx` passes `showBrand` only on v8 routes.
 
-> **Most leaders don't fail from lack of strategy. They fail from showing up scattered, ruminated, or burnt out.**
->
-> Mind Module is the executive cognitive performance layer for how you actually show up — under pressure, between decisions, across the week.
->
-> The next few minutes are a two-way calibration: you get to know the app, and Mind Module gets to know your leadership context, your pressure points, and how your mind works under load.
->
-> This isn't self-improvement. It's Self Mastery.
+### 2. App-intro slides → parchment background, charcoal/taupe text
 
-Rationale:
-- Keeps the user's exact opening diagnosis verbatim.
-- Replaces "new era…is here" with a one-line product definition that earns the claim.
-- Adds the missing onboarding frame — explicitly says this is mutual calibration, sets expectation for what the next screens do, without listing steps.
-- Closes on the user's "Self Mastery" reframe as a standalone line for emphasis.
-- Drops exclamation marks; CEO voice doesn't shout.
+File: `src/pages/onboarding/stages/StageUSPIntro.tsx`
+- Root `bg-[#1a1712] text-[#f5f0e8]` → `bg-[#f5f0e8] text-[#1a1712]`.
+- Remove the dark "Mind Module" pill at top (now lives in the global top nav).
+- Hero image bottom gradient overlay fades to `#f5f0e8` (not `#1a1712`).
+- Title stays `#1a1712`; body copy `text-white/55` → `text-[#7a7060]`.
+- Pagination dot inactive `bg-white/[0.18]` → `bg-[#cfc7b8]`; active stays coral.
+- Skip link text → `text-[#7a7060]`.
+- Add top padding so content clears the new fixed top nav.
 
-The glass card container (`bg-white/15 backdrop-blur-md border border-white/40 rounded-3xl`) stays. Paragraph type stays at `text-[15px] text-white/90 font-body leading-relaxed` with `space-y-4`. The opening line is rendered slightly stronger (`text-white` rather than `text-white/90`) so the diagnosis lands first.
+### 3. Art-band behind step titles → app artwork (no saffron fill, no black gradient)
 
-## 3. Untouched
+File: `src/pages/onboarding/stages/v8/ShellV8.tsx`
+- Replace the solid `bg-[#1a1712]` art band in `ParchScreen` with an actual onboarding art image (reuse existing asset `src/assets/onboarding/usp-sunrise-engraved.jpg` — same engraved nature-true art family already used in app-intro and aligned with the Active Calm imagery memory).
+- Image set as `object-cover` filling the band; subtle parchment tint overlay (`bg-[#f5f0e8]/25`) for cohesion with the page body.
+- Bottom edge fades from `transparent` → `#f5f0e8` (existing gradient) so the band reads as woven into the parchment, not as a separate black strip.
+- Eyebrow (`Step 1 of 3`) and title sit over a small bottom-anchored scrim (`bg-gradient-to-t from-[#f5f0e8] via-[#f5f0e8]/85 to-transparent`) so the type stays charcoal `#1a1712` and remains readable without any dark band or saffron fill.
+- Add top padding so the band sits below the new fixed top nav.
 
-- Route on CTA stays `/onboarding/app-intro`.
-- "Let's begin" label, button styling, Privacy by Design footer, background image, and gradient scrim are unchanged.
-- No changes to any other onboarding stage, routing, or edge functions.
+This automatically updates all v8 step pages: `leadership-context`, `cognitive-load`, `protect-goals`, `brief-prefs`, `permissions`.
+
+### 4. Replace green selection states with palette colors
+
+Green is not in the palette. Selected states move to ink/charcoal (already used elsewhere in the v8 flow).
+
+File: `src/pages/onboarding/stages/v8/StagePermissions.tsx`
+- Selected toggle card border/bg: `#1a6b4a/40` and `#1a6b4a/[0.04]` → `#1a1712/35` and `#1a1712/[0.04]`.
+- Toggle thumb "on" track stays coral `#e8714a` (in-palette CTA accent).
+
+File: `src/pages/onboarding/stages/v8/StageDone.tsx`
+- Green success circle (`bg-[#e1f0e8]`, stroke `#1a6b4a`, border `#1a6b4a/20`) → cream `bg-[#ede8dc]` with stroke `#1a1712` and border `#1a1712/15`.
+- Tiny green dot in the "Mind Module" pill (`bg-[#2bc075]`) → saffron `#ba7517`.
+- Inside the dark info card, the green row icon tint (`rgba(26,107,74,…)`) → saffron tint (`rgba(186,117,23,…)`); coral and amber rows stay.
+
+### 5. Sweep of other onboarding pages
+
+- `StageProtectGoals.tsx` — already uses saffron `#ba7517` for selected state. No change.
+- `StageCognitiveLoad.tsx`, `StageBriefPrefs.tsx`, `StageLeadershipContext.tsx` — selection styling already on ink `#1a1712` / saffron; no green present. No change.
+- Legacy questionnaire stages (`Stage2Identity` … `Stage8Results`, `Stage7ContextConnection`) — outside the revised v8 flow path; not touched. Verified no green leaks into the v8 journey.
 
 ## Acceptance
 
-- `/onboarding` brand cluster visually matches `/` (auth) brand cluster on mobile (390×844).
-- Body copy reads as the single block above.
-- CTA still routes to `/onboarding/app-intro`.
-- No regressions elsewhere.
+- All v8 pages show the fixed top nav with back button (left) and Mind Module brand lockup (right). `/onboarding/done` still has no back.
+- The 4 app-intro carousel slides render on parchment with charcoal/taupe text.
+- The step header band on every v8 step page uses app artwork (engraved nature-true image) fading into parchment — no solid black band, no saffron fill.
+- No green appears anywhere in the v8 onboarding journey; selection states use ink or saffron from the app palette.
+- No flow, route, or business-logic changes.
