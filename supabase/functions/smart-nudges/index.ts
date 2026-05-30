@@ -1012,14 +1012,25 @@ function buildDayShapeLine(ctx: NudgeContext): string {
   if (dc.kind === 'normal' && !dc.postTravel) return '';
   const parts: string[] = [];
   if (dc.kind === 'travel-day') {
-    parts.push('Today shape: travel on the calendar — name "travel" verbatim (no long/short-haul).');
+    // Travel framing goal is sourced from the canonical §4 Travel (G) phase
+    // map so Brief / Plan / Nudges share one travel intent. The naming
+    // discipline ("travel" verbatim, no long/short-haul) is prompt hygiene,
+    // not taxonomy, and stays local.
+    const travelGoal = EVENT_PHASE_MAP.G.pre?.goal ?? '';
+    parts.push(
+      `Today shape: travel on the calendar — name "travel" verbatim (no long/short-haul)${travelGoal ? `. Frame intent: ${travelGoal}.` : '.'}`,
+    );
   } else if (dc.kind === 'away-day') {
     parts.push('Today shape: away-day — acknowledge the day away.');
   } else if (dc.kind === 'ooo') {
     parts.push('Today shape: out of office — acknowledge it.');
   }
   if (dc.postTravel) {
-    parts.push('Recovery context: yesterday included travel — body may still be carrying load. Lead the meaning sentence with this awareness.');
+    // Post-travel recovery goal also sourced from canonical G.post phase.
+    const postGoal = EVENT_PHASE_MAP.G.post?.goal ?? '';
+    parts.push(
+      `Recovery context: yesterday included travel — body may still be carrying load${postGoal ? ` (${postGoal})` : ''}. Lead the meaning sentence with this awareness.`,
+    );
   }
   return parts.join('\n');
 }
