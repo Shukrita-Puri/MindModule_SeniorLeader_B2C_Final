@@ -1,14 +1,16 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import mmLogo from "@/assets/brand/mm-logo-circle.png";
 
 interface UnifiedTopBarProps {
   backPath?: string;
   onBack?: () => void;
   hideCoach?: boolean;
+  showBrand?: boolean;
 }
 
-const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
+const UnifiedTopBar = ({ backPath, onBack, showBrand }: UnifiedTopBarProps) => {
   const navigate = useNavigate();
 
   const handleBack = () => {
@@ -28,7 +30,21 @@ const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
         <Button variant="glass" size="sm" onClick={handleBack}>
           <ArrowLeft size={20} />
         </Button>
-        <div className="w-10" />
+        {showBrand ? (
+          <div className="flex items-center gap-2 pr-1">
+            <img src={mmLogo} alt="" aria-hidden className="w-6 h-6 rounded-full" />
+            <div className="flex flex-col items-end leading-none">
+              <span className="text-[11px] font-headline font-bold tracking-[0.18em] text-[#1a1712]">
+                MIND MODULE
+              </span>
+              <span className="text-[8px] tracking-[0.25em] uppercase text-[#7a7060] mt-0.5">
+                Executive
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="w-10" />
+        )}
       </div>
     </div>
   );
