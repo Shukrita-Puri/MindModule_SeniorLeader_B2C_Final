@@ -381,6 +381,9 @@ const Profile = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* LinkedIn import */}
+        <LinkedInImportCard />
       </div>
 
       {/* Edit Name Dialog */}
