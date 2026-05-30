@@ -33,7 +33,7 @@ import {
   EVENT_TYPE_TO_SCENARIO_ID,
 } from '../_shared/events/event-subtypes.ts';
 import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
-import { TRAVEL_TITLE_RX, isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
+import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
