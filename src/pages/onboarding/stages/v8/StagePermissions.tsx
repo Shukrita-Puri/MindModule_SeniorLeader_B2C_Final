@@ -3,16 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
+import googleCalLogo from "@/assets/shared/google-calendar-logo.avif";
+import outlookLogo from "@/assets/shared/microsoft-calendar-logo.png";
+import appleCalLogo from "@/assets/shared/apple-calendar-logo.png";
+import appleWatchLogo from "@/assets/shared/apple-watch-logo.jpg";
+import ouraLogo from "@/assets/shared/oura-ring-logo.png";
+import whoopLogo from "@/assets/shared/whoop-logo.png";
 
 const CAL = [
-  { id: "google", name: "Google Calendar", note: "Reads event titles and times only" },
-  { id: "outlook", name: "Microsoft Outlook", note: "Reads event titles and times only" },
-  { id: "apple", name: "Apple Calendar", note: "Reads event titles and times only" },
+  { id: "google", name: "Google Calendar", note: "Reads event titles and times only", logo: googleCalLogo },
+  { id: "outlook", name: "Microsoft Outlook", note: "Reads event titles and times only", logo: outlookLogo },
+  { id: "apple", name: "Apple Calendar", note: "Reads event titles and times only", logo: appleCalLogo },
 ];
 const WEAR = [
-  { id: "apple-watch", name: "Apple Watch", note: "HRV, sleep, and recovery as background signal" },
-  { id: "oura", name: "Oura Ring", note: "HRV, sleep, and recovery as background signal" },
-  { id: "whoop", name: "Whoop", note: "HRV, strain, and recovery as background signal" },
+  { id: "apple-watch", name: "Apple Watch", note: "HRV, sleep, and recovery as background signal", logo: appleWatchLogo },
+  { id: "oura", name: "Oura Ring", note: "HRV, sleep, and recovery as background signal", logo: ouraLogo },
+  { id: "whoop", name: "Whoop", note: "HRV, strain, and recovery as background signal", logo: whoopLogo },
 ];
 
 export default function StagePermissions() {
@@ -64,17 +70,13 @@ export default function StagePermissions() {
   };
 
   const renderCard = (
-    items: { id: string; name: string; note: string }[],
+    items: { id: string; name: string; note: string; logo: string }[],
     state: Set<string>,
     setter: (s: Set<string>) => void,
-    icon: string,
-    iconBg: string,
     requiredOk: boolean,
-    firstRequired: boolean,
   ) =>
     items.map((it, i) => {
       const on = state.has(it.id);
-      const showFirst = firstRequired && i === 0;
       const cls = warn && !requiredOk
         ? "border-[#e8714a]/50 bg-[#e8714a]/[0.04]"
         : requiredOk
@@ -83,17 +85,17 @@ export default function StagePermissions() {
       return (
         <div key={it.id} className={`flex items-center justify-between gap-3 p-3.5 rounded-[14px] border mb-2 transition-colors ${cls}`}>
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 text-lg`} style={{ background: iconBg }}>
-              {icon}
-            </div>
+            <img
+              src={it.logo}
+              alt=""
+              loading="lazy"
+              width={36}
+              height={36}
+              className="w-9 h-9 rounded-[10px] object-contain bg-white p-1 border border-[#cfc7b8] shrink-0"
+            />
             <div className="min-w-0">
               <div className="text-[13px] font-medium text-[#1a1712]">{it.name}</div>
               <div className="text-[11px] text-[#7a7060] mt-0.5">{it.note}</div>
-              {showFirst && (
-                <div className="text-[9px] mt-1 px-2 py-0.5 rounded-full bg-[#e8714a]/12 text-[#e8714a] font-medium tracking-[0.3px] inline-block">
-                  Required — select one
-                </div>
-              )}
             </div>
           </div>
           <button
@@ -135,15 +137,15 @@ export default function StagePermissions() {
       )}
 
       <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2 mt-3">
-        Calendar <span className="text-[#e8714a] font-semibold">· required</span>
+        Calendar <span className="text-[#e8714a] font-semibold">· Required – select one</span>
       </div>
-      {renderCard(CAL, cal, setCal, "📅", "#e8f0fe", cal.size > 0, cal.size === 0)}
+      {renderCard(CAL, cal, setCal, cal.size > 0)}
 
       <div className="h-px bg-[#cfc7b8] my-3" />
       <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
-        Wearable <span className="text-[#e8714a] font-semibold">· required</span>
+        Wearable <span className="text-[#e8714a] font-semibold">· Required – select one</span>
       </div>
-      {renderCard(WEAR, wear, setWear, "⌚", "#f3e8ff", wear.size > 0, wear.size === 0)}
+      {renderCard(WEAR, wear, setWear, wear.size > 0)}
     </ParchScreen>
   );
 }

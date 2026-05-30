@@ -136,7 +136,7 @@ export default function OnboardingFlow() {
     }
     // Stage 2 (Identity) has an internal Q1→Q2 step; let the page handle its
     // own back navigation via a custom event before we leave the route.
-    if (location.pathname === '/onboarding/identity') {
+    if (location.pathname === '/onboarding/identity' || location.pathname === '/onboarding/app-intro') {
       const event = new CustomEvent('onboarding:back', { cancelable: true });
       window.dispatchEvent(event);
       // If the page called preventDefault, it absorbed the back press.
@@ -156,7 +156,7 @@ export default function OnboardingFlow() {
       '/onboarding/growth-intention': '/onboarding/mental-clarity',
       // Post-questionnaire stages
       '/onboarding/results': '/onboarding/growth-intention',
-      '/onboarding/app-intro': '/onboarding/results',
+      '/onboarding/app-intro': '/onboarding',
       '/onboarding/context-connection': '/onboarding/app-intro',
       // v8 chain
       '/onboarding/leadership-context': '/onboarding/app-intro',

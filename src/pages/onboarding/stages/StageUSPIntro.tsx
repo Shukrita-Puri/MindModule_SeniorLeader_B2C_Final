@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 
@@ -42,6 +42,19 @@ export default function StageUSPIntro() {
     if (isFinal) navigate(NEXT_ROUTE);
     else setIdx((i) => i + 1);
   }, [isFinal, navigate]);
+
+  // Carousel-aware back: when not on the first slide, absorb the top-nav back
+  // press and step the carousel backwards instead of leaving the route.
+  useEffect(() => {
+    const onBack = (e: Event) => {
+      if (idx > 0) {
+        e.preventDefault();
+        setIdx((i) => Math.max(0, i - 1));
+      }
+    };
+    window.addEventListener("onboarding:back", onBack as EventListener);
+    return () => window.removeEventListener("onboarding:back", onBack as EventListener);
+  }, [idx]);
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
