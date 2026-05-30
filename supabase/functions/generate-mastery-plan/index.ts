@@ -10,6 +10,7 @@ import {
   eventClusterSignal,
   eventPressureFlag,
 } from '../_shared/executive-state-taxonomy.ts';
+import { isHighStakesTitle } from '../_shared/events/event-classifier.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
@@ -3538,11 +3539,6 @@ function buildSequenceReasoning(practiceTypes: string[], ctx: SlotContextInput):
 
 const MVP_JIT_HORIZON_MINUTES = 24 * 60;
 
-const PTO_RX = /(ooo|out of office|vacation|annual leave|\bpto\b|on leave|holiday day)/i;
-const PUBLIC_HOLIDAY_RX = /(public holiday|bank holiday|national holiday)/i;
-const BOARD_RX = /(board|investor|vc\b|earnings|town hall|all-hands|all hands|keynote)/i;
-const DRAIN_RX = /(1:1|1-on-1|performance review|layoff|restructure|escalation|difficult conversation|hr\b)/i;
-
 type CeoRealityTag =
   | 'veto_risk'
   | 'circadian_travel'
@@ -3553,65 +3549,102 @@ type CeoRealityTag =
   | 'public_holiday'
   | 'personal_pto';
 
+/**
+ * Map a canonical BehaviourFlag.rule → legacy CeoRealityTag consumed by the
+ * Strategic/Tactical/Immediate clause builders. The tag union is preserved
+ * verbatim so downstream copy logic (`strategicAnchorClause`, `tacticalClause`,
+ * `immediateClause`, `detectMorningFusionEvent`) is untouched.
+ *
+ * Note: canonical pto-holiday rules collapse public_holiday into a single
+ * `ptoTodayAllDay` signal — we surface that as `personal_pto`. The Strategic
+ * clause already treats both legacy tags identically, so the user-visible
+ * output is unchanged.
+ */
+const CEO_RULE_TO_TAG: Record<string, CeoRealityTag> = {
+  vetoRisk: 'veto_risk',
+  postPeakHangover: 'post_peak_hangover',
+  boardLevelOutcome: 'board_outcome',
+  decisionLeakageGuard: 'decision_leakage',
+  decisionLeakageGuardPlan: 'decision_leakage',
+  personalFrictionInference: 'personal_friction',
+  travelPreFlightMandatory: 'circadian_travel',
+  travelLandingOffload: 'circadian_travel',
+  travelLandingPlusHighStakes: 'circadian_travel',
+  longHaulRecovery: 'circadian_travel',
+  postTripReentry: 'circadian_travel',
+  travelInFlightConnection: 'circadian_travel',
+  holidayReducedTouch: 'personal_pto',
+  ptoWithMeetingFallback: 'personal_pto',
+};
+
 function detectCeoRealities(req: PlanRequest, shared: SharedContext): CeoRealityTag[] {
-  const tags: CeoRealityTag[] = [];
-  const events = req.calendarEvents || [];
-  const within24h = events.filter(e => {
-    const t = new Date(e.startTime).getTime() - Date.now();
-    return t >= 0 && t <= MVP_JIT_HORIZON_MINUTES * 60 * 1000;
-  });
-  const within48h = events.filter(e => {
-    const t = new Date(e.startTime).getTime() - Date.now();
-    return t >= -24 * 60 * 60 * 1000 && t <= 48 * 60 * 60 * 1000;
-  });
-
-  // Public holiday / PTO — checked first; suppress heavier flags downstream
-  if (events.some(e => PUBLIC_HOLIDAY_RX.test(e.title || ''))) tags.push('public_holiday');
-  if (events.some(e => PTO_RX.test(e.title || ''))) tags.push('personal_pto');
-
-  // Travel / circadian
-  if (within48h.some(e => isTravelTitleCanonical(e.title))) tags.push('circadian_travel');
-
-  // Board-level outcome
-  if (within24h.some(e => BOARD_RX.test(e.title || ''))) tags.push('board_outcome');
-
-  // Veto risk — masked fatigue
-  const w = req.wearableContext;
-  const sharpHigh = (req.confidenceLevel ?? 0) >= 4 || (req.clarityLevel ?? 0) >= 4;
-  if (w?.hasData && sharpHigh) {
-    const hrvNeg = w.hrvDeviation !== null && w.hrvDeviation < -10;
-    const lowSleep = w.sleepScore !== null && w.sleepScore < 65;
-    if (hrvNeg || lowSleep) tags.push('veto_risk');
-  }
-
-  // Decision leakage
-  const drained = (req.checkInOutcome || '').toLowerCase().includes('depleted') ||
-                  (req.checkInOutcome || '').toLowerCase().includes('managing');
-  const wearableEmoProxy = w?.hasData && (w.hrvDeviation !== null && w.hrvDeviation < -15);
-  if ((drained || wearableEmoProxy) && within24h.some(e => DRAIN_RX.test(e.title || ''))) {
-    tags.push('decision_leakage');
-  }
-
-  // Post-peak hangover — uses score trend if available
-  const trend: any = (shared as any)?.innerReadinessPattern;
-  if (trend?.values && trend.values.length >= 2) {
-    const yest = trend.values[trend.values.length - 2];
-    const tdy = trend.values[trend.values.length - 1];
-    if (typeof yest === 'number' && typeof tdy === 'number' && yest >= 75 && (yest - tdy) >= 10) {
-      tags.push('post_peak_hangover');
+  // P1 — route through canonical behaviour evaluator. Local regex/keyword
+  // detection (travel / board / PTO / drain / fragmentation) has been removed
+  // — those signals now flow from `_shared/ceo-behaviour/*` via
+  // `evaluateForScope`. Compatibility is preserved by mapping canonical
+  // BehaviourFlag.rule names back to the legacy CeoRealityTag union.
+  const tags = new Set<CeoRealityTag>();
+  try {
+    const w = req.wearableContext;
+    const wearableForCtx = w?.hasData
+      ? {
+          hrvDeviationPct: w.hrvDeviation ?? null,
+          // sleepScore is 0-100, not hours; leave hours null so canonical
+          // sleep thresholds use deviation/proxy only.
+          sleepHours: null as number | null,
+          sleepDeviationPct: null as number | null,
+          rhrDeviationPct: null as number | null,
+        }
+      : null;
+    const planEvents = (req.calendarEvents || [])
+      .filter((e) => e.title && e.startTime)
+      .map((e) => ({
+        title: e.title,
+        startTime: e.startTime,
+        endTime: e.endTime ?? null,
+        stakesLevel: null as string | null,
+      }));
+    const now = new Date();
+    const input = {
+      wearable: wearableForCtx,
+      checkIn: {
+        emotionalSelfDeclared: req.checkInOutcome ?? null,
+        mentalSharpness: null,
+        confidence: req.confidenceLevel ?? null,
+        clarity: req.clarityLevel ?? null,
+      },
+      scoreToday: req.innerReadinessScore ?? null,
+      scoreYesterday: (() => {
+        const trend: any = (shared as any)?.innerReadinessPattern;
+        if (trend?.values && trend.values.length >= 2) {
+          const yest = trend.values[trend.values.length - 2];
+          return typeof yest === 'number' ? yest : null;
+        }
+        return null;
+      })(),
+      timezone: {
+        offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
+        shift48hHours: null,
+        travelDay: false,
+      },
+      events: planEvents,
+      now,
+    } as const;
+    // Run plan-scope rules + brief-scope rules. `personalFrictionInference`
+    // is brief-scoped only; without the brief pass the plan would silently
+    // drop the `personal_friction` tag.
+    for (const scope of ['plan', 'brief'] as const) {
+      const wiring = evaluateForScope(input as any, scope, { dayOfWeek: now.getDay() });
+      if (!wiring) continue;
+      for (const flag of wiring.flags) {
+        const mapped = CEO_RULE_TO_TAG[flag.rule];
+        if (mapped) tags.add(mapped);
+      }
     }
+  } catch (e) {
+    console.warn('[generate-mastery-plan] detectCeoRealities canonical pass failed:', e);
   }
-
-  // Personal friction — Sun pm / Mon am declining self-decl, no wearable degradation
-  const day = new Date().getDay();
-  const hour = new Date().getHours();
-  const sundayPm = day === 0 && hour >= 14;
-  const mondayAm = day === 1 && hour < 12;
-  if ((sundayPm || mondayAm) && drained && !(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10)) {
-    tags.push('personal_friction');
-  }
-
-  return tags;
+  return Array.from(tags);
 }
 
 /**
@@ -3803,7 +3836,7 @@ function detectMorningFusionEvent(req: PlanRequest, ceo: CeoRealityTag[]): strin
   const events = req.calendarEvents || [];
   for (const e of events) {
     const minsUntil = (new Date(e.startTime).getTime() - Date.now()) / 60000;
-    if (minsUntil >= 0 && minsUntil <= 240 && BOARD_RX.test(e.title || '')) {
+    if (minsUntil >= 0 && minsUntil <= 240 && isHighStakesTitle(e.title)) {
       return e.title;
     }
   }
