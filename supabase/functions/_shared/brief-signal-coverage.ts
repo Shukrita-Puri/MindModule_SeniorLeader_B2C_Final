@@ -16,6 +16,7 @@
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
 import { isTravelTitle } from "./ceo-behaviour/travel.ts";
+import { isPtoOrHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
