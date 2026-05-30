@@ -147,6 +147,11 @@ export default function OnboardingFlow() {
       navigate('/onboarding/identity', { state: { returnToQuestion: 2 } });
       return;
     }
+    // From v8 leadership-context, go back to the LAST slide of the app-intro carousel.
+    if (location.pathname === '/onboarding/leadership-context') {
+      navigate('/onboarding/app-intro', { state: { startAtLast: true } });
+      return;
+    }
 
     const backMap: Record<string, string> = {
       '/onboarding/identity': '/onboarding',

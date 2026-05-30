@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import uspSunriseEngraved from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 
 /**
@@ -35,7 +35,10 @@ const NEXT_ROUTE = "/onboarding/leadership-context";
 
 export default function StageUSPIntro() {
   const navigate = useNavigate();
-  const [idx, setIdx] = useState(0);
+  const location = useLocation();
+  const startAtLast =
+    !!(location.state && typeof location.state === "object" && (location.state as { startAtLast?: boolean }).startAtLast);
+  const [idx, setIdx] = useState(startAtLast ? SLIDES.length - 1 : 0);
   const isFinal = idx === SLIDES.length - 1;
 
   const next = useCallback(() => {
