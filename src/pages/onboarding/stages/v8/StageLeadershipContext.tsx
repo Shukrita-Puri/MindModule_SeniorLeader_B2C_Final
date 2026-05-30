@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
+import { makeDebouncedSaver, saveV8 } from "@/utils/onboardingV8";
 
 type Key = "linkedin" | "writing" | "notes";
 
@@ -36,8 +37,41 @@ export default function StageLeadershipContext() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [values, setValues] = useState<Record<Key, string>>({ linkedin: "", writing: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
 
-  const next = () => navigate("/onboarding/cognitive-load");
+  // Debounced autosave whenever text values change
+  useEffect(() => {
+    const writingArr = values.writing
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+    debouncedSave({
+      linkedin_url: selected.linkedin ? (values.linkedin.trim() || null) : null,
+      writing_urls: selected.writing ? writingArr : [],
+      freetext_context: selected.notes ? (values.notes.trim() || null) : null,
+    });
+  }, [values, selected, debouncedSave]);
+
+  const next = async () => {
+    setSaving(true);
+    const writingArr = values.writing
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+    await saveV8(
+      {
+        linkedin_url: selected.linkedin ? (values.linkedin.trim() || null) : null,
+        writing_urls: selected.writing ? writingArr : [],
+        freetext_context: selected.notes ? (values.notes.trim() || null) : null,
+      },
+      "leadership_context",
+    );
+    setSaving(false);
+    navigate("/onboarding/cognitive-load");
+  };
 
   return (
     <ParchScreen
@@ -45,7 +79,9 @@ export default function StageLeadershipContext() {
       title="Help Mind Module understand your Leadership Context"
       footer={
         <>
-          <PrimaryCTA onClick={next}>Continue →</PrimaryCTA>
+          <PrimaryCTA onClick={next} disabled={saving}>
+            {saving ? "Saving…" : "Continue →"}
+          </PrimaryCTA>
           <SkipLink onClick={next}>Skip — Mind Module will learn from behaviour</SkipLink>
         </>
       }
