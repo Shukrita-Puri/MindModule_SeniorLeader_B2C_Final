@@ -946,8 +946,6 @@ async function buildNudgeContext(
         preFlight = detectPreFlightTravelEvent(todayEvents, now);
         inFlight = detectInFlightTravelEvent(todayEvents, now);
       }
-        }
-      }
       return {
         kind: today.kind,
         signalToken: today.signalToken,
