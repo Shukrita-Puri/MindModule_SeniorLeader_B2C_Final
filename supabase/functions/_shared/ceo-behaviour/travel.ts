@@ -197,3 +197,83 @@ export function travelInFlightConnection(ctx: RuleContext): BehaviourFlag | null
       `during-flight self-regulation pass — one body-down practice before "${title}"; do not over-program the layover`,
   };
 }
+
+// --- Canonical travel sub-arc window detection -----------------------------
+// These thresholds encode the §4 Travel (G) timing contract for downstream
+// nudge/notification consumers. Mirrors EVENT_PHASE_MAP.G.pre `T-3h pre-flight`
+// (we accept 60–240min to allow earlier surfacing without losing intent) and
+// the `in-flight` phase (≥90min duration so a mid-air protocol is realistic).
+//
+// Any consumer that needs to detect pre-flight or in-flight calendar windows
+// MUST import these helpers rather than re-implementing the math, to keep
+// Brief / Plan / Nudges aligned to a single travel sub-arc taxonomy.
+
+export const TRAVEL_PRE_FLIGHT_WINDOW_MIN_MINUTES = 60;
+export const TRAVEL_PRE_FLIGHT_WINDOW_MAX_MINUTES = 240;
+export const TRAVEL_IN_FLIGHT_MIN_DURATION_MINUTES = 90;
+
+export interface TravelEventLike {
+  title?: string | null;
+  start_time: string;
+  end_time: string;
+}
+
+export interface TravelSubArcMatch {
+  eventTitle: string;
+  minutesUntil: number;
+}
+
+/**
+ * Detect the first pre-flight travel event currently inside the canonical
+ * pre-flight window (60–240 min before start). Returns null if no qualifying
+ * travel event exists. Event titles are filtered via `isTravelTitle` so the
+ * taxonomy match is single-sourced.
+ */
+export function detectPreFlightTravelEvent(
+  events: ReadonlyArray<TravelEventLike>,
+  now: Date,
+): TravelSubArcMatch | null {
+  const nowMs = now.getTime();
+  for (const e of events) {
+    if (!isTravelTitle(e.title)) continue;
+    const startMs = new Date(e.start_time).getTime();
+    const m = Math.round((startMs - nowMs) / 60000);
+    if (
+      m >= TRAVEL_PRE_FLIGHT_WINDOW_MIN_MINUTES &&
+      m <= TRAVEL_PRE_FLIGHT_WINDOW_MAX_MINUTES
+    ) {
+      return { eventTitle: e.title || "Travel", minutesUntil: m };
+    }
+  }
+  return null;
+}
+
+/**
+ * Detect an in-flight travel event the user is currently inside, provided the
+ * leg is long enough (≥90min) for a mid-flight protocol to be realistic.
+ * `minutesUntil` is reported as minutes elapsed since start (matches the
+ * existing smart-nudges field semantics for the in-flight sub-arc).
+ */
+export function detectInFlightTravelEvent(
+  events: ReadonlyArray<TravelEventLike>,
+  now: Date,
+): TravelSubArcMatch | null {
+  const nowMs = now.getTime();
+  for (const e of events) {
+    if (!isTravelTitle(e.title)) continue;
+    const startMs = new Date(e.start_time).getTime();
+    const endMs = new Date(e.end_time).getTime();
+    const lengthMin = (endMs - startMs) / 60000;
+    if (
+      lengthMin >= TRAVEL_IN_FLIGHT_MIN_DURATION_MINUTES &&
+      nowMs >= startMs &&
+      nowMs <= endMs
+    ) {
+      return {
+        eventTitle: e.title || "Flight",
+        minutesUntil: Math.round((nowMs - startMs) / 60000),
+      };
+    }
+  }
+  return null;
+}
