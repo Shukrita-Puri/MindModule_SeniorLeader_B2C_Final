@@ -17,6 +17,7 @@ import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStor
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
+import LinkedInImportCard from '@/components/profile/LinkedInImportCard';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
