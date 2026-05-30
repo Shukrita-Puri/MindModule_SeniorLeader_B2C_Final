@@ -44,29 +44,24 @@ export default function StageUSPIntro() {
   }, [isFinal, navigate]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1712] text-[#f5f0e8] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
-      {/* Logo row */}
-      <div className="flex items-center justify-between px-6 pt-4 shrink-0">
-        <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] border border-white/[0.12] py-1.5 pl-1.5 pr-3.5">
-          <span className="w-6 h-6 rounded-full bg-[#2bc075]" />
-          <span className="text-[10px] tracking-[2px] uppercase text-white/60">Mind Module</span>
-        </div>
-        <span className="text-[9px] tracking-[2px] uppercase text-white/25">Executive</span>
-      </div>
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+      {/* Spacer for fixed top nav */}
+      <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
-      {/* Hero image (reuses existing asset) */}
-      <div className="relative shrink-0 h-[34vh] mt-3 overflow-hidden">
-        <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-70" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1a1712]" />
+      {/* Hero image (reuses existing engraved asset) */}
+      <div className="relative shrink-0 h-[34vh] overflow-hidden">
+        <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-[#f5f0e8]/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#f5f0e8]" />
       </div>
 
       {/* Title + body */}
       <div className="flex-1 flex flex-col items-center justify-center px-7 text-center">
-        <h1 className="font-headline text-[28px] leading-[1.22] text-[#f5f0e8]">
+        <h1 className="font-headline text-[28px] leading-[1.22] text-[#1a1712]">
           {SLIDES[idx].title}
         </h1>
-        <div className="w-7 h-px bg-white/10 my-4" />
-        <p className="text-[13px] leading-[1.7] text-white/55 max-w-[300px]">
+        <div className="w-7 h-px bg-[#1a1712]/15 my-4" />
+        <p className="text-[13px] leading-[1.7] text-[#7a7060] max-w-[300px]">
           {SLIDES[idx].body}
         </p>
       </div>
@@ -77,7 +72,7 @@ export default function StageUSPIntro() {
           <span
             key={i}
             className={`h-[7px] rounded-full transition-all duration-300 ${
-              i === idx ? "w-[22px] bg-[#e8714a]" : "w-[7px] bg-white/[0.18]"
+              i === idx ? "w-[22px] bg-[#e8714a]" : "w-[7px] bg-[#cfc7b8]"
             }`}
           />
         ))}
@@ -93,7 +88,7 @@ export default function StageUSPIntro() {
         </button>
         <button
           onClick={() => navigate(NEXT_ROUTE)}
-          className="block w-full text-center text-xs text-white/30 mt-3 py-2"
+          className="block w-full text-center text-xs text-[#7a7060] mt-3 py-2"
         >
           Skip tour
         </button>

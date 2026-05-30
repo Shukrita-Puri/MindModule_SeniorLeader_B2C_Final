@@ -122,7 +122,8 @@ export default function OnboardingFlow() {
   const isPaymentPage = location.pathname === '/onboarding/payment';
   const isSignupStep = location.pathname === '/onboarding/signup-step';
   const isV8 = V8_PATHS.has(location.pathname);
-  const showBackButton = (currentStageIndex >= 1 && !isSignupStep && !isV8);
+  const isV8Done = location.pathname === '/onboarding/done';
+  const showBackButton = (currentStageIndex >= 1 && !isSignupStep && !isV8Done) || (isV8 && !isV8Done);
   const handleBack = () => {
     if (isPaymentPage) {
       // Upgrade visit (completed onboarding or explicit source) → executive home
@@ -157,6 +158,12 @@ export default function OnboardingFlow() {
       '/onboarding/results': '/onboarding/growth-intention',
       '/onboarding/app-intro': '/onboarding/results',
       '/onboarding/context-connection': '/onboarding/app-intro',
+      // v8 chain
+      '/onboarding/leadership-context': '/onboarding/app-intro',
+      '/onboarding/cognitive-load': '/onboarding/leadership-context',
+      '/onboarding/protect-goals': '/onboarding/cognitive-load',
+      '/onboarding/brief-prefs': '/onboarding/protect-goals',
+      '/onboarding/permissions': '/onboarding/brief-prefs',
     };
     navigate(backMap[location.pathname] ?? '/onboarding');
   };
@@ -167,7 +174,7 @@ export default function OnboardingFlow() {
       
       {/* Fixed Top Bar with Back Arrow */}
       {showBackButton && (
-        <UnifiedTopBar hideCoach onBack={handleBack} />
+        <UnifiedTopBar hideCoach onBack={handleBack} showBrand={isV8} />
       )}
       
       <div className="relative z-10">

@@ -78,7 +78,7 @@ export default function StagePermissions() {
       const cls = warn && !requiredOk
         ? "border-[#e8714a]/50 bg-[#e8714a]/[0.04]"
         : requiredOk
-        ? "border-[#1a6b4a]/40 bg-[#1a6b4a]/[0.04]"
+        ? "border-[#1a1712]/35 bg-[#1a1712]/[0.04]"
         : "border-[#cfc7b8] bg-white";
       return (
         <div key={it.id} className={`flex items-center justify-between gap-3 p-3.5 rounded-[14px] border mb-2 transition-colors ${cls}`}>

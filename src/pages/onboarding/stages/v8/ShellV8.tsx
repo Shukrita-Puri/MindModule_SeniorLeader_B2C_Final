@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import artBand from "@/assets/onboarding/usp-sunrise-engraved.jpg";
 
 /**
  * Shared light/parchment screen shell for the v8 onboarding flow.
@@ -16,10 +17,22 @@ export function ParchScreen({
   footer: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
-      {/* Art band */}
-      <div className="relative shrink-0 h-[120px] bg-[#1a1712] overflow-hidden">
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-[#f5f0e8]" />
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+      {/* Spacer for the fixed top nav (back + brand lockup) */}
+      <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
+
+      {/* Art band — uses app artwork (engraved nature-true) fading into parchment */}
+      <div className="relative shrink-0 h-[140px] overflow-hidden">
+        <img
+          src={artBand}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* Parchment tint so artwork blends with body */}
+        <div className="absolute inset-0 bg-[#f5f0e8]/25" />
+        {/* Bottom scrim → seamless fade into parchment for readable charcoal type */}
+        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-[#f5f0e8] via-[#f5f0e8]/85 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
           <div className="text-[9px] tracking-[2.5px] uppercase text-[#7a7060] mb-1">{step}</div>
           <div className="font-headline text-[20px] leading-[1.2] text-[#1a1712]">{title}</div>

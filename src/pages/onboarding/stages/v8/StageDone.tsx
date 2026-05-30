@@ -59,16 +59,16 @@ export default function StageDone() {
     <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
       <div className="flex items-center justify-between px-6 pt-4 shrink-0">
         <div className="inline-flex items-center gap-2 rounded-full bg-[#1a1712]/5 border border-[#1a1712]/10 py-1.5 pl-1.5 pr-3.5">
-          <span className="w-6 h-6 rounded-full bg-[#2bc075]" />
+          <span className="w-6 h-6 rounded-full bg-[#ba7517]" />
           <span className="text-[10px] tracking-[2px] uppercase text-[#1a1712]/40">Mind Module</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pt-4 flex flex-col items-center">
-        <div className="w-[60px] h-[60px] rounded-full bg-[#e1f0e8] border border-[#1a6b4a]/20 flex items-center justify-center mb-3.5 mt-3 shrink-0">
+        <div className="w-[60px] h-[60px] rounded-full bg-[#ede8dc] border border-[#1a1712]/15 flex items-center justify-center mb-3.5 mt-3 shrink-0">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="13" stroke="#1a6b4a" strokeWidth="1" />
-            <path d="M8 14.5l4.5 4.5 7.5-9" stroke="#1a6b4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="14" cy="14" r="13" stroke="#1a1712" strokeWidth="1" />
+            <path d="M8 14.5l4.5 4.5 7.5-9" stroke="#1a1712" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
@@ -85,7 +85,7 @@ export default function StageDone() {
           <div className="space-y-2.5">
             {[
               { c: "rgba(232,113,74,0.15)", b: "rgba(232,113,74,0.3)", icon: "◎", t: "Check in → Today, Brief & Plan", d: "Mind Module reads your cognitive state and calendar — builds a 24-hour mental performance plan with protocols allocated to your priorities" },
-              { c: "rgba(26,107,74,0.2)", b: "rgba(26,107,74,0.35)", icon: "◈", t: "Recalibrate between moments", d: "Pause → Composure · Focus → Clarity · Reenergise → Capacity. Use whenever you need to reset." },
+              { c: "rgba(186,117,23,0.18)", b: "rgba(186,117,23,0.35)", icon: "◈", t: "Recalibrate between moments", d: "Pause → Composure · Focus → Clarity · Reenergise → Capacity. Use whenever you need to reset." },
               { c: "rgba(186,117,23,0.15)", b: "rgba(186,117,23,0.3)", icon: "◑", t: "Performance Patterns", d: "Builds over time. Explore whenever you're ready — no action needed today." },
             ].map((r) => (
               <div key={r.t} className="flex items-start gap-2.5">
