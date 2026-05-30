@@ -111,7 +111,7 @@ export default function OnboardingFlow() {
   }, [currentStage]);
 
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
-  const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup');
+  const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup') || V8_PATHS.has(location.pathname);
 
   // Determine if we should show back button.
   // Stages 1–6 (questionnaire) and the payment page always show one.
