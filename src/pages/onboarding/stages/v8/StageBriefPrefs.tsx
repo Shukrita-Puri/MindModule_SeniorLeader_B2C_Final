@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
+import { saveV8, synthesizeCosProfile } from "@/utils/onboardingV8";
 
 type Row = { key: string; label: string; note: string; options: string[]; hint?: string };
 
@@ -33,12 +34,29 @@ export default function StageBriefPrefs() {
     reset: "Sound",
     weekends: "Reduce",
   });
+  const [saving, setSaving] = useState(false);
+
+  const next = async () => {
+    setSaving(true);
+    await saveV8(
+      {
+        brief_timing: prefs.timing,
+        reset_modality: prefs.reset,
+        weekend_signals: prefs.weekends,
+      },
+      "brief_prefs",
+    );
+    // Fire-and-forget synthesis after steps 1–3 are complete
+    synthesizeCosProfile().catch(() => { /* non-blocking */ });
+    setSaving(false);
+    navigate("/onboarding/permissions");
+  };
 
   return (
     <ParchScreen
       step="Step 3 of 3"
       title="How your brief works"
-      footer={<PrimaryCTA onClick={() => navigate("/onboarding/permissions")}>Continue →</PrimaryCTA>}
+      footer={<PrimaryCTA onClick={next} disabled={saving}>{saving ? "Saving…" : "Continue →"}</PrimaryCTA>}
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-1">
         Your brief is built whenever you check in — Mind Module reads the time of day, your calendar, and your cognitive state to generate a 24-hour mental performance plan with protocols allocated to your priorities.
