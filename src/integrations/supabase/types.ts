@@ -4515,6 +4515,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_external_profiles: {
+        Row: {
+          created_at: string
+          extracted_data: Json
+          id: string
+          profile_url: string
+          scrape_error: string | null
+          scrape_status: string
+          scraped_at: string | null
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          profile_url: string
+          scrape_error?: string | null
+          scrape_status?: string
+          scraped_at?: string | null
+          source: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          profile_url?: string
+          scrape_error?: string | null
+          scrape_status?: string
+          scraped_at?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_favorites: {
         Row: {
           category: string
