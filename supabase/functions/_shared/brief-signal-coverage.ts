@@ -16,6 +16,7 @@
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
 import { isTravelTitle } from "./ceo-behaviour/travel.ts";
+import { isPtoOrHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
@@ -192,6 +193,15 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       : null;
   const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
+  // --- PTO / public-holiday auto-derivation (canonical regex). When any
+  //     today event is all-day AND its title matches the canonical PTO/holiday
+  //     regex, surface the signal. Edge consumers may also pre-populate it
+  //     when they have richer context — we only set it here when truthy.
+  const ptoTodayAllDayDerived =
+    input.events.some(
+      (e) => e.isAllDay === true && isPtoOrHolidayTitle(e.title),
+    ) || undefined;
+
   // ---------------------------------------------------------------------------
   // Conference / Summit cluster (v2) — mechanical signals.
   // All inputs are optional; missing inputs yield null/0 and the rule layer
@@ -366,6 +376,8 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     timezoneOffsetMinutes: input.timezone.offsetMinutes,
     timezoneShift48hHours: input.timezone.shift48hHours,
     travelDay: input.timezone.travelDay ?? false,
+
+    ptoTodayAllDay: ptoTodayAllDayDerived,
 
     yesterdayScore: input.scoreYesterday,
     todayScore: input.scoreToday,

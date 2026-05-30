@@ -19,6 +19,23 @@
 import type { BehaviourFlag, RuleContext } from "../brief-context.ts";
 import { isHighStakesTitle } from "../executive-state-taxonomy.ts";
 
+/**
+ * Canonical PTO / public-holiday title regex. Single source of truth for
+ * detecting whether a calendar event title represents an off-day marker
+ * (OOO / PTO / Vacation / Holiday / Out of Office).
+ *
+ * Consumers (brief-signal-coverage, generate-mastery-plan, smart-nudges)
+ * MUST import this rather than re-declaring local PTO/holiday regexes.
+ * Mirrors the detection rule documented in the module header.
+ */
+export const PTO_TITLE_RX =
+  /\b(ooo|out\s*of\s*office|pto|vacation|annual\s+leave|on\s+leave|holiday|public\s+holiday|bank\s+holiday|national\s+holiday)\b/i;
+
+/** Convenience predicate over the canonical PTO/holiday regex. */
+export function isPtoOrHolidayTitle(title: string | null | undefined): boolean {
+  return !!title && PTO_TITLE_RX.test(title);
+}
+
 function ptoActive(ctx: RuleContext): boolean {
   return (
     ctx.signals.ptoTodayAllDay === true ||
