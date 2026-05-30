@@ -46,6 +46,7 @@ export default function StageLeadershipContext() {
   const [selected, setSelected] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const [values, setValues] = useState<Record<Key, string>>({ linkedin: "", writing: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
   const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
 
@@ -76,12 +77,14 @@ export default function StageLeadershipContext() {
   const canContinue = linkedinValid && !writingInvalid && !writingOverLimit;
 
   const next = async () => {
+    if (saving) return;
     if (!canContinue) {
       setTouched({ linkedin: true, writing: true, notes: true });
       return;
     }
     setSaving(true);
-    await saveV8(
+    setSaveError(null);
+    const res = await saveV8(
       {
         linkedin_url:
           selected.linkedin && values.linkedin.trim() && isLinkedInUrl(values.linkedin)
@@ -93,6 +96,12 @@ export default function StageLeadershipContext() {
       "leadership_context",
     );
     setSaving(false);
+    if (!res.ok) {
+      const msg = res.validationErrors?.[0]?.message
+        ?? (res.error === "no_auth" ? "Please sign in again to continue." : "Couldn't save — please try again.");
+      setSaveError(msg);
+      return;
+    }
     navigate("/onboarding/cognitive-load");
   };
 
@@ -118,6 +127,9 @@ export default function StageLeadershipContext() {
           Read once. Used to calibrate. Never re-accessed.
         </span>
       </div>
+      {saveError && (
+        <div className="text-[11px] text-[#e8714a] mb-2">{saveError}</div>
+      )}
 
       <div className="space-y-2.5">
         {CARDS.map((c) => {

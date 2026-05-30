@@ -41,6 +41,7 @@ export default function StageCognitiveLoad() {
     burden: new Set(),
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggle = (group: "stakes" | "load" | "burden", c: string) => {
     setSelected((prev) => {
@@ -51,11 +52,13 @@ export default function StageCognitiveLoad() {
   };
 
   const next = async () => {
+    if (saving) return;
     setSaving(true);
+    setSaveError(null);
     const stakesAllowed = new Set<string>(STAKES_CHIPS);
     const loadAllowed = new Set<string>(LOAD_CHIPS);
     const burdenAllowed = new Set<string>(BURDEN_CHIPS);
-    await saveV8(
+    const res = await saveV8(
       {
         stakes_chips: Array.from(new Set(Array.from(selected.stakes).filter((c) => stakesAllowed.has(c)))),
         load_chips: Array.from(new Set(Array.from(selected.load).filter((c) => loadAllowed.has(c)))),
@@ -64,6 +67,12 @@ export default function StageCognitiveLoad() {
       "cognitive_load",
     );
     setSaving(false);
+    if (!res.ok) {
+      const msg = res.validationErrors?.[0]?.message
+        ?? (res.error === "no_auth" ? "Please sign in again to continue." : "Couldn't save — please try again.");
+      setSaveError(msg);
+      return;
+    }
     navigate("/onboarding/protect-goals");
   };
 
@@ -76,6 +85,9 @@ export default function StageCognitiveLoad() {
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-4">
         Select all that apply — to help Mind Module understand your environment and prepare for those most relevant to you.
       </p>
+      {saveError && (
+        <div className="text-[11px] text-[#e8714a] mb-3">{saveError}</div>
+      )}
 
       {GROUPS.map((g, gi) => (
         <div key={g.title}>

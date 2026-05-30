@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ParchScreen, PrimaryCTA, SkipLink } from "./ShellV8";
+import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
 
@@ -21,6 +21,7 @@ export default function StagePermissions() {
   const [wear, setWear] = useState<Set<string>>(new Set());
   const [warn, setWarn] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
     const n = new Set(set);
@@ -30,6 +31,7 @@ export default function StagePermissions() {
   };
 
   const tryContinue = async () => {
+    if (saving) return;
     if (cal.size === 0 || wear.size === 0) {
       setWarn(true);
       return;
@@ -43,7 +45,8 @@ export default function StagePermissions() {
       return;
     }
     setSaving(true);
-    await saveV8(
+    setSaveError(null);
+    const res = await saveV8(
       {
         calendar_selections: calClean,
         wearable_selections: wearClean,
@@ -51,6 +54,12 @@ export default function StagePermissions() {
       "permissions",
     );
     setSaving(false);
+    if (!res.ok) {
+      const msg = res.validationErrors?.[0]?.message
+        ?? (res.error === "no_auth" ? "Please sign in again to continue." : "Couldn't save — please try again.");
+      setSaveError(msg);
+      return;
+    }
     navigate("/onboarding/done");
   };
 
@@ -105,12 +114,9 @@ export default function StagePermissions() {
       step="Connections"
       title="Give Mind Module the daily context it needs"
       footer={
-        <>
-          <PrimaryCTA tone="coral" onClick={tryContinue} disabled={saving}>
-            {saving ? "Saving…" : "Mind Module is ready — let's go →"}
-          </PrimaryCTA>
-          <SkipLink onClick={() => navigate("/onboarding/done")}>Skip for now</SkipLink>
-        </>
+        <PrimaryCTA tone="coral" onClick={tryContinue} disabled={saving}>
+          {saving ? "Saving…" : "Mind Module is ready — let's go →"}
+        </PrimaryCTA>
       }
     >
       <p className="text-xs text-[#7a7060] leading-[1.65] mb-2">
@@ -120,6 +126,11 @@ export default function StagePermissions() {
       {warn && (
         <div className="text-[11px] text-[#e8714a] my-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
           Connect at least one calendar and one wearable to continue.
+        </div>
+      )}
+      {saveError && (
+        <div className="text-[11px] text-[#e8714a] my-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+          {saveError}
         </div>
       )}
 

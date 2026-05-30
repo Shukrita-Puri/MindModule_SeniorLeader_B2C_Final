@@ -10,10 +10,21 @@ export default function StageDone() {
   const [error, setError] = useState<string | null>(null);
 
   const enter = async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
-    // Ensure synthesis has at least been triggered (idempotent), then finalize.
-    try { synthesizeCosProfile().catch(() => {}); } catch { /* non-blocking */ }
+
+    // 1. Await COS synthesis. It's idempotent — returns cached profile if already ready.
+    const syn = await synthesizeCosProfile();
+    if (!syn.ok) {
+      setBusy(false);
+      if (syn.error === "rate_limited") setError("Mind Module is busy — please retry in a moment.");
+      else if (syn.error === "payment_required") setError("AI credits unavailable. Please contact support.");
+      else setError("Couldn't finish calibrating your profile. Please try again.");
+      return;
+    }
+
+    // 2. Only mark complete after synthesis succeeded.
     const res = await markV8Complete();
     if (!res.ok) {
       setBusy(false);
@@ -29,13 +40,17 @@ export default function StageDone() {
           setTimeout(() => navigate("/onboarding/protect-goals"), 1200);
           return;
         }
+        if (fields.includes("cos_profile")) {
+          setError("Profile calibration didn't complete. Please try again.");
+          return;
+        }
         setError("Some onboarding info is missing — please complete the previous steps.");
         return;
       }
       setError("Couldn't finalise onboarding. Please try again.");
       return;
     }
-    // Only mark legacy onboarding completion after server-side completion succeeded.
+    // 3. Only mark legacy onboarding completion after server-side completion succeeded.
     try { await recordStep("context_connection", { completed: true }); } catch { /* non-blocking */ }
     navigate("/daily-check-in");
   };
@@ -104,7 +119,7 @@ export default function StageDone() {
           disabled={busy}
           className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] text-white text-sm font-medium transition-colors disabled:opacity-60"
         >
-          {busy ? "Finalising…" : "Enter the brief →"}
+          {busy ? "Calibrating your profile…" : "Enter the brief →"}
         </button>
       </div>
     </div>
