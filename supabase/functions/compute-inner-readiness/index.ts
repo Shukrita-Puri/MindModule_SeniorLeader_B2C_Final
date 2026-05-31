@@ -514,9 +514,19 @@ function selectSignalsForStatement(
 // ==================== MAIN SCORING ====================
 
 interface ComputeRequest {
+  // MRS v2 — primary scoring inputs.
+  demandScore?: number | null;
+  patternSignals?: PatternSignalsLite | null;
+  weightingMode?: WeightingMode | null;
+
+  // Legacy check-in inputs — accepted for backwards compatibility but
+  // intentionally IGNORED by scoring. The check-in surface was removed; these
+  // remain so we can resurface a felt-state input later without a client churn.
   checkInOutcome: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
+
+  // Wearable + cold-start configuration (unchanged).
   wearableHRV: number | null;
   wearableBaseline: number | null;
   hasCheckIn: boolean;
