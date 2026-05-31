@@ -13,6 +13,10 @@ import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
+import {
+  computeDivergenceFlag,
+  computePhysiologicalComposite,
+} from "../_shared/signal-engine/divergence-flag.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -4606,19 +4610,22 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           };
 
           // ── Divergence flag + weighting mode (MRS v2 §3.3 / §3.4) ──
-          let supplyDemandGapFlag:
-            | 'ALIGNED' | 'SUPPLY_DEMAND_GAP' | 'RECOVERY_UNDERWAY' | 'LIGHT_DAY_STRONG_STATE'
-            = 'ALIGNED';
-          if (hrvValue != null) {
-            const bodyStrong = (typeof hrvDeviation === 'number' && hrvDeviation > 5)
-              || patternSignals.hrv_3day_trend === 'improving';
-            const bodyWeak = (typeof hrvDeviation === 'number' && hrvDeviation < -10)
-              || patternSignals.hrv_3day_trend === 'declining';
-            const demandHigh = calendarLoad === 'high' || calendarPressure === 'high' || _hasStakes;
-            if (bodyWeak && demandHigh) supplyDemandGapFlag = 'SUPPLY_DEMAND_GAP';
-            else if (bodyStrong && !demandHigh) supplyDemandGapFlag = 'LIGHT_DAY_STRONG_STATE';
-            else if (bodyStrong && patternSignals.hrv_3day_trend === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
-          }
+          // Composite math via shared classifier — single source of truth.
+          const physComposite = hasWearable
+            ? computePhysiologicalComposite({
+                hrvDeviationPct: typeof hrvDeviation === 'number' ? hrvDeviation : null,
+                sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
+                sleepHours: typeof sleepDuration === 'number' ? sleepDuration : null,
+                // RHR trend isn't computed at this layer yet; leave null so
+                // composite degrades to HRV+Sleep weighting.
+                rhrTrend: null,
+              })
+            : null;
+          const supplyDemandGapFlag = computeDivergenceFlag({
+            physComposite,
+            demandScore: calendarDemandScore,
+            hrvRecovering: patternSignals.hrv_3day_trend === 'improving',
+          });
           const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
             !hasWearable
               ? 'no_wearable'

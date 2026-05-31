@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  computeDivergenceFlag,
+  computePhysiologicalComposite,
+  type RhrTrend,
+} from "../_shared/signal-engine/divergence-flag.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,17 +67,8 @@ type WeightingMode =
   | 'supply_demand_gap'
   | 'recovery_window';
 
-/**
- * MRS v2 §3.3 — supply / demand divergence detector.
- * physComposite is the wearable-only inner score (HRV + sleep + RHR).
- * demandScore is the 0–100 calendar demand from demand-scorer.
- */
-function getDivergenceFlag(physComposite: number, demandScore: number): DivergenceFlag {
-  if (demandScore >= 65 && physComposite <= 50) return 'SUPPLY_DEMAND_GAP';
-  if (physComposite >= 65 && demandScore <= 35) return 'LIGHT_DAY_STRONG_STATE';
-  if (physComposite >= 55 && demandScore >= 60) return 'RECOVERY_UNDERWAY';
-  return 'ALIGNED';
-}
+// Divergence detector lives in `_shared/signal-engine/divergence-flag.ts`
+// — single source of truth for the composite math (MRS v2 §3.3).
 
 // MRS v2 §3.1 — map demand score onto the 20/50/80 band.
 function getDemandStateScore(demandScore: number | null): number {
@@ -541,6 +537,10 @@ interface ComputeRequest {
   consecutiveStreak?: { tier: string; count: number } | null;
   sleepScore?: number | null;
   rhrElevated?: boolean;
+  /** Optional explicit RHR 3-day trend. Wins over `rhrElevated` derivation. */
+  rhrTrend?: RhrTrend | null;
+  /** Optional last-night sleep duration (hours). Used by phys composite. */
+  sleepHours?: number | null;
 }
 
 serve(async (req) => {
@@ -594,15 +594,32 @@ serve(async (req) => {
       hrvDeviation = getHRVDeviation(body.wearableHRV, body.wearableBaseline);
     }
 
-    // ─── Divergence + weighting mode (MRS v2 §3.2 / §3.3) ───────────────
-    // physComposite is the wearable-only physiological signal compared
-    // against demandScore (calendar). Pattern feeds the score but is not
-    // part of the divergence check.
-    const physComposite = hasWearable ? wearableScore : 50;
+    // ─── Physiological composite (MRS v2 §3.3) ──────────────────────────
+    // HRV (50%) + Sleep (35%) + RHR-trend (15%). Composite is `null` when
+    // no component is available; the classifier degrades to ALIGNED.
+    const rhrTrendInput: RhrTrend | null =
+      body.rhrTrend ?? (body.rhrElevated === true
+        ? 'rising'
+        : body.rhrElevated === false ? 'stable' : null);
+    const physCompositeRaw = hasWearable
+      ? computePhysiologicalComposite({
+          hrvDeviationPct: hrvDeviation,
+          sleepScore: body.sleepScore ?? null,
+          sleepHours: body.sleepHours ?? null,
+          rhrTrend: rhrTrendInput,
+        })
+      : null;
+    // Keep `physComposite` numeric for downstream weighting (0–100).
+    const physComposite = physCompositeRaw ?? (hasWearable ? wearableScore : 50);
     const dScore = demandScore ?? 50;
+    const hrvRecovering = body.patternSignals?.hrv_3day_trend === 'improving';
     const divergenceFlag: DivergenceFlag = !hasWearable
       ? 'ALIGNED'
-      : getDivergenceFlag(physComposite, dScore);
+      : computeDivergenceFlag({
+          physComposite: physCompositeRaw,
+          demandScore: dScore,
+          hrvRecovering,
+        });
 
     const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
 
