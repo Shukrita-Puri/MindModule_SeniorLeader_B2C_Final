@@ -19,6 +19,22 @@ import {
 } from "../_shared/signal-engine/divergence-flag.ts";
 import { computeCognitiveFragmentation } from "../_shared/signal-engine/cognitive-fragmentation.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
+import {
+  getServerCalendarMetrics,
+  type CalendarMetricsResult,
+} from "../_shared/signal-engine/db-queries.ts";
+import {
+  getUserTime,
+  getTimeOfDay,
+  isLateEvening,
+  getDayContext,
+  type DayContext,
+} from "../_shared/signal-engine/day-kind-detector.ts";
+import {
+  isAppleSleepSource,
+  hasMeaningfulDemand,
+  coldStartLabel,
+} from "../_shared/signal-engine/context-builder.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
