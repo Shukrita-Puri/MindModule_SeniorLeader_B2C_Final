@@ -4448,9 +4448,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
             contributors: {
               hrvValue, hrvDeviation,
-              clarityLevel, mentalSharpnessLevel,
               sleepDuration, sleepScore: sleepScoreVal,
-              checkInOutcome: checkInOutcome || null,
+              wearableTrend7d, calendarLoad, calendarPressure,
             },
           },
           {
@@ -4470,12 +4469,35 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tier: resilienceTier,
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             contributors: {
-              checkInOutcome: checkInOutcome || null,
               hrvValue, hrvDeviation,
-              confidenceLevel,
+              wearableTrend7d, scoreTrajectory7d, calendarPressure,
             },
           },
         ];
+
+        // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
+        // Best-effort, non-blocking (errors are logged inside the helper).
+        try {
+          const strategic = await resolveStrategicContext(db, userId);
+          await upsertDailyContextSnapshot(db, {
+            userId,
+            localDate: userLocalDate,
+            patternSignals: null,
+            strategicContext: strategic,
+            calendarDemandScore: null,
+            demandLoad: (calendarLoad as any) ?? null,
+            demandPressure: (calendarPressure as any) ?? null,
+            hasHighStakes: (calendarResult.highStakesEvents?.length ?? 0) > 0,
+            innerScore: innerReadinessScore ?? null,
+            innerTier: safeTier ?? null,
+            pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
+            weightingMode: null,
+            supplyDemandGapFlag: null,
+            signalPills: signalPillsPayload,
+          });
+        } catch (snapErr) {
+          console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
+        }
 
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
