@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  computeDivergenceFlag,
+  computePhysiologicalComposite,
+  type RhrTrend,
+} from "../_shared/signal-engine/divergence-flag.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,17 +67,8 @@ type WeightingMode =
   | 'supply_demand_gap'
   | 'recovery_window';
 
-/**
- * MRS v2 §3.3 — supply / demand divergence detector.
- * physComposite is the wearable-only inner score (HRV + sleep + RHR).
- * demandScore is the 0–100 calendar demand from demand-scorer.
- */
-function getDivergenceFlag(physComposite: number, demandScore: number): DivergenceFlag {
-  if (demandScore >= 65 && physComposite <= 50) return 'SUPPLY_DEMAND_GAP';
-  if (physComposite >= 65 && demandScore <= 35) return 'LIGHT_DAY_STRONG_STATE';
-  if (physComposite >= 55 && demandScore >= 60) return 'RECOVERY_UNDERWAY';
-  return 'ALIGNED';
-}
+// Divergence detector lives in `_shared/signal-engine/divergence-flag.ts`
+// — single source of truth for the composite math (MRS v2 §3.3).
 
 // MRS v2 §3.1 — map demand score onto the 20/50/80 band.
 function getDemandStateScore(demandScore: number | null): number {
