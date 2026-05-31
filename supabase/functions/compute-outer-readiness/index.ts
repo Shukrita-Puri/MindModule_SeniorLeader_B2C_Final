@@ -4667,9 +4667,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 hrvDeviationPct: typeof hrvDeviation === 'number' ? hrvDeviation : null,
                 sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
                 sleepHours: typeof sleepDuration === 'number' ? sleepDuration : null,
-                // RHR trend isn't computed at this layer yet; leave null so
-                // composite degrades to HRV+Sleep weighting.
-                rhrTrend: null,
+                // RHR 3-day trend (P2): contributes 15% to the composite
+                // when known. Falls through to HRV+Sleep when 'unknown'.
+                rhrTrend: rhr3dTrend,
               })
             : null;
           const supplyDemandGapFlag = computeDivergenceFlag({
