@@ -537,6 +537,10 @@ interface ComputeRequest {
   consecutiveStreak?: { tier: string; count: number } | null;
   sleepScore?: number | null;
   rhrElevated?: boolean;
+  /** Optional explicit RHR 3-day trend. Wins over `rhrElevated` derivation. */
+  rhrTrend?: RhrTrend | null;
+  /** Optional last-night sleep duration (hours). Used by phys composite. */
+  sleepHours?: number | null;
 }
 
 serve(async (req) => {
@@ -590,15 +594,32 @@ serve(async (req) => {
       hrvDeviation = getHRVDeviation(body.wearableHRV, body.wearableBaseline);
     }
 
-    // ─── Divergence + weighting mode (MRS v2 §3.2 / §3.3) ───────────────
-    // physComposite is the wearable-only physiological signal compared
-    // against demandScore (calendar). Pattern feeds the score but is not
-    // part of the divergence check.
-    const physComposite = hasWearable ? wearableScore : 50;
+    // ─── Physiological composite (MRS v2 §3.3) ──────────────────────────
+    // HRV (50%) + Sleep (35%) + RHR-trend (15%). Composite is `null` when
+    // no component is available; the classifier degrades to ALIGNED.
+    const rhrTrendInput: RhrTrend | null =
+      body.rhrTrend ?? (body.rhrElevated === true
+        ? 'rising'
+        : body.rhrElevated === false ? 'stable' : null);
+    const physCompositeRaw = hasWearable
+      ? computePhysiologicalComposite({
+          hrvDeviationPct: hrvDeviation,
+          sleepScore: body.sleepScore ?? null,
+          sleepHours: body.sleepHours ?? null,
+          rhrTrend: rhrTrendInput,
+        })
+      : null;
+    // Keep `physComposite` numeric for downstream weighting (0–100).
+    const physComposite = physCompositeRaw ?? (hasWearable ? wearableScore : 50);
     const dScore = demandScore ?? 50;
+    const hrvRecovering = body.patternSignals?.hrv_3day_trend === 'improving';
     const divergenceFlag: DivergenceFlag = !hasWearable
       ? 'ALIGNED'
-      : getDivergenceFlag(physComposite, dScore);
+      : computeDivergenceFlag({
+          physComposite: physCompositeRaw,
+          demandScore: dScore,
+          hrvRecovering,
+        });
 
     const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
 
