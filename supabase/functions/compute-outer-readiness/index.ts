@@ -4479,20 +4479,73 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // Best-effort, non-blocking (errors are logged inside the helper).
         try {
           const strategic = await resolveStrategicContext(db, userId);
+
+          // ── Derive demand score from already-computed load/pressure/stakes ──
+          // Mirrors the band used by demand-scorer.ts so inner-readiness and the
+          // snapshot agree without re-fetching events.
+          const _hasStakes = (calendarResult.highStakesEvents?.length ?? 0) > 0;
+          const loadComponent = calendarLoad === 'high' ? 70 : calendarLoad === 'medium' ? 40 : 0;
+          const pressureComponent = calendarPressure === 'high' ? 25 : calendarPressure === 'medium' ? 15 : 0;
+          const stakesBonus = _hasStakes ? 10 : 0;
+          const calendarDemandScore = Math.max(0, Math.min(100, loadComponent + pressureComponent + stakesBonus));
+
+          // ── Derive pattern signals from existing variables (no extra queries) ──
+          // hrv_3day_trend is sourced from the 7-day wearable trend already
+          // computed upstream; consecutive_high_load_days is approximated from
+          // today's calendar load (history-aware variant lives in pattern-engine.ts
+          // and will be wired once a 3-day load query is added).
+          const todayLoadIsHigh = calendarLoad === 'high';
+          const sustainedDeficit = (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
+          const patternSignals = {
+            hrv_3day_trend: (wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
+              ? wearableTrend7d
+              : 'unknown',
+            consecutive_high_load_days: todayLoadIsHigh ? 1 : 0,
+            dow_historical_pattern: {
+              typical_hrv_for_dow: null,
+              typical_load_for_dow: null,
+              samples: 0,
+            },
+            sustained_deficit_flag: sustainedDeficit,
+          } as const;
+
+          // ── Divergence flag + weighting mode (MRS v2 §3.3 / §3.4) ──
+          let supplyDemandGapFlag:
+            | 'ALIGNED' | 'SUPPLY_DEMAND_GAP' | 'RECOVERY_UNDERWAY' | 'LIGHT_DAY_STRONG_STATE'
+            = 'ALIGNED';
+          if (hrvValue != null) {
+            const bodyStrong = (typeof hrvDeviation === 'number' && hrvDeviation > 5)
+              || patternSignals.hrv_3day_trend === 'improving';
+            const bodyWeak = (typeof hrvDeviation === 'number' && hrvDeviation < -10)
+              || patternSignals.hrv_3day_trend === 'declining';
+            const demandHigh = calendarLoad === 'high' || calendarPressure === 'high' || _hasStakes;
+            if (bodyWeak && demandHigh) supplyDemandGapFlag = 'SUPPLY_DEMAND_GAP';
+            else if (bodyStrong && !demandHigh) supplyDemandGapFlag = 'LIGHT_DAY_STRONG_STATE';
+            else if (bodyStrong && wearableTrend7d === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
+          }
+          const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
+            !hasWearable
+              ? 'no_wearable'
+              : supplyDemandGapFlag === 'SUPPLY_DEMAND_GAP'
+                ? 'supply_demand_gap'
+                : supplyDemandGapFlag === 'RECOVERY_UNDERWAY'
+                  ? 'recovery_window'
+                  : 'aligned';
+
           await upsertDailyContextSnapshot(db, {
             userId,
             localDate: userLocalDate,
-            patternSignals: null,
+            patternSignals: patternSignals as any,
             strategicContext: strategic,
-            calendarDemandScore: null,
+            calendarDemandScore,
             demandLoad: (calendarLoad as any) ?? null,
             demandPressure: (calendarPressure as any) ?? null,
-            hasHighStakes: (calendarResult.highStakesEvents?.length ?? 0) > 0,
+            hasHighStakes: _hasStakes,
             innerScore: innerReadinessScore ?? null,
             innerTier: safeTier ?? null,
             pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
-            weightingMode: null,
-            supplyDemandGapFlag: null,
+            weightingMode,
+            supplyDemandGapFlag,
             signalPills: signalPillsPayload,
           });
         } catch (snapErr) {
