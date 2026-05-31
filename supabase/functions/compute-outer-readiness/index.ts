@@ -2,12 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
-import {
-  isNoiseTitle,
-  rankByStakes,
-  selectLeadEvent,
-  survivesAttendeeOrDurationFloor,
-} from "../_shared/executive-state-taxonomy.ts";
+import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
@@ -17,8 +12,23 @@ import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
 } from "../_shared/signal-engine/divergence-flag.ts";
-import { computeCognitiveFragmentation } from "../_shared/signal-engine/cognitive-fragmentation.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
+import {
+  getServerCalendarMetrics,
+  type CalendarMetricsResult,
+} from "../_shared/signal-engine/db-queries.ts";
+import {
+  getUserTime,
+  getTimeOfDay,
+  isLateEvening,
+  getDayContext,
+  type DayContext,
+} from "../_shared/signal-engine/day-kind-detector.ts";
+import {
+  isAppleSleepSource,
+  hasMeaningfulDemand,
+  coldStartLabel,
+} from "../_shared/signal-engine/context-builder.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -149,23 +159,8 @@ interface ComputeRequest {
 }
 
 // ==================== SERVER-SIDE CALENDAR METRICS ====================
-interface CalendarMetricsResult {
-  load: CalendarLevel;
-  pressure: CalendarLevel;
-  eventCount: number;
-  meetingCount: number;        // Filtered: excludes all-day blocks, personal blocks
-  remainingMeetings: number;   // Filtered remaining meetings only
-  state: 'active' | 'connected_no_events' | 'not_connected';
-  highStakesEvents: string[];
-  remainingEvents: number;
-  remainingHighStakes: string[];
-  /** MRS v2 §3.5 — cognitive fragmentation score (0–100) from today's events. */
-  fragmentationScore: number;
-  /** Count of < 15-min gaps between adjacent meetings today. */
-  shortGapCount: number;
-  /** Total wall-clock hours inside back-to-back meeting chains today. */
-  backToBackHours: number;
-}
+// `CalendarMetricsResult` + `getServerCalendarMetrics` now live in
+// `_shared/signal-engine/db-queries.ts` (MRS v2 §5.1).
 
 interface WearableContext {
   hrv: number | null;
@@ -184,12 +179,7 @@ interface WearableContext {
 // Apple sleep sources that report "time in bed" rather than asleep —
 // keep this list as the SSOT so new native onboarding paths (HealthKit,
 // Apple Watch direct stream, Oura HealthKit bridge) all stay aligned.
-function isAppleSleepSource(source: string | null | undefined): boolean {
-  if (!source) return false;
-  const s = source.toLowerCase();
-  return s === 'apple-healthkit' || s === 'apple_healthkit'
-      || s === 'apple-watch'     || s === 'apple_watch';
-}
+// `isAppleSleepSource` lives in `_shared/signal-engine/context-builder.ts`.
 
 type BriefSignalItem = { signal: string; source: string };
 type LlmBriefPackage = {
@@ -205,148 +195,10 @@ type LlmBriefPackage = {
 // `inferRelationshipPressure` were deleted in Phase C — the shared module
 // is bit-equivalent and is exercised by Phase E tests.
 
-async function getServerCalendarMetrics(
-  db: ReturnType<typeof createClient>,
-  userId: string,
-  timezoneOffset: number = 0,
-  dayOffset: number = 0,
-): Promise<CalendarMetricsResult> {
-  const now = new Date();
-  const userNow = new Date(now.getTime() - timezoneOffset * 60000);
-  const targetDay = new Date(userNow);
-  targetDay.setUTCDate(targetDay.getUTCDate() + dayOffset);
-
-  const userStartOfDay = new Date(Date.UTC(
-    targetDay.getUTCFullYear(), targetDay.getUTCMonth(), targetDay.getUTCDate(), 0, 0, 0, 0
-  ));
-  const userEndOfDay = new Date(Date.UTC(
-    targetDay.getUTCFullYear(), targetDay.getUTCMonth(), targetDay.getUTCDate(), 23, 59, 59, 999
-  ));
-  const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
-  const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
-
-  const { data: activeConnections, error: connError } = await db
-    .from('calendar_connections')
-    .select('provider, last_sync')
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .limit(1);
-
-  if (connError) {
-    console.error('[compute-outer-readiness] Calendar connection query error:', connError);
-  }
-
-  if (!activeConnections || activeConnections.length === 0) {
-    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
-  }
-
-  // Treat a connection that hasn't synced in > 7 days as effectively
-  // disconnected so the "Connect Calendar" pill reappears and we don't
-  // present users with stale event data as if it were live.
-  const lastSyncRaw = (activeConnections[0] as any)?.last_sync as string | null | undefined;
-  if (lastSyncRaw) {
-    const lastSyncMs = new Date(lastSyncRaw).getTime();
-    if (Number.isFinite(lastSyncMs) && (Date.now() - lastSyncMs) > 7 * 86400000) {
-      console.log('[compute-outer-readiness] Calendar connection stale (>7d), treating as not_connected', { lastSyncRaw });
-      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
-    }
-  }
-
-  const { data: events, error } = await db
-    .from('primary_calendar_events')
-    .select('start_time, end_time, is_organizer, attendees_count, is_recurring, title, event_metadata')
-    .eq('user_id', userId)
-    .gte('start_time', startUTC.toISOString())
-    .lte('start_time', endUTC.toISOString());
-
-  if (error) {
-    console.error('[compute-outer-readiness] Calendar events query error:', error);
-  }
-
-  const eventList = (events || []);
-
-  if (eventList.length > 0) {
-    const demand = computeCalendarDemand(eventList as any);
-    const metrics = { load: demand.load as CalendarLevel, pressure: demand.pressure as CalendarLevel };
-
-    // Identify high-stakes events using the shared executive-state taxonomy.
-    // RELEVANCE RULE: noise (personal blocks, errands, travel placeholders) is dropped
-    // via shared isNoiseTitle(); ranking uses canonical stakesScore(category) so a
-    // Board Meeting outranks a Leadership 1:1 even if the 1:1 starts earlier.
-    const futureEvents = eventList.filter((e: any) => new Date(e.start_time) > now);
-    const futureRanked = rankByStakes(futureEvents as any, 5);
-    const highStakesEvents: string[] = futureRanked
-      .filter((s) => s.stakes >= 60 && s.event.title)
-      .map((s) => s.event.title as string)
-      .slice(0, 2);
-
-    // Compute remaining events (events that haven't started yet relative to user's local time)
-    const remainingEventsList = futureEvents;
-    const remainingEvents = remainingEventsList.length;
-
-    // Remaining high-stakes events — ranked by stakes (matches highStakesEvents above)
-    const remainingHighStakes: string[] = highStakesEvents.slice(0, 2);
-
-    // ── Filtered meeting count: excludes all-day blocks and personal blocks via shared helpers ──
-    // Used for user-facing text ("You've navigated X meetings") – raw eventCount stays for load/pressure scoring
-    const isMeeting = (e: any): boolean => {
-      if (isNoiseTitle(e.title)) return false;
-      return survivesAttendeeOrDurationFloor(e);
-    };
-    const meetingList = eventList.filter(isMeeting);
-    const meetingCount = meetingList.length;
-    const remainingMeetings = meetingList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime())).length;
-
-    // Debug: log filtered-out events
-    const filteredOut = eventList.filter((e: any) => !isMeeting(e));
-    if (filteredOut.length > 0) {
-      console.log('[compute-outer-readiness] Filtered non-meeting events:', filteredOut.map((e: any) => {
-        const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
-        return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees)`;
-      }));
-    }
-
-    // Cognitive fragmentation is derived from meetings (noise/all-day already
-    // filtered) so an "8 standups + 1 dentist block" day doesn't poison it.
-    const frag = computeCognitiveFragmentation(meetingList as any);
-    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes, fragmentationScore: frag.fragmentation_score, shortGapCount: frag.short_gap_count, backToBackHours: frag.back_to_back_hours };
-  }
-
-  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
-}
-
-// ==================== TIME HELPERS ====================
-function getUserTime(timezoneOffset: number): Date {
-  const now = new Date();
-  return new Date(now.getTime() - timezoneOffset * 60000);
-}
-
-function getTimeOfDay(hour: number): 'morning' | 'afternoon' | 'evening' {
-  if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 18) return 'afternoon';
-  return 'evening';
-}
-
-function isLateEvening(hour: number): boolean {
-  return hour >= 21 || hour < 5;
-}
-
-type DayContext = 'weekday' | 'friday' | 'saturday' | 'sunday';
-function getDayContext(dayOfWeek: number): DayContext {
-  if (dayOfWeek === 5) return 'friday';
-  if (dayOfWeek === 6) return 'saturday';
-  if (dayOfWeek === 0) return 'sunday';
-  return 'weekday';
-}
-
-function hasMeaningfulDemand(
-  load: CalendarLevel | null,
-  pressure: CalendarLevel | null,
-  highStakes?: string[],
-  meetingCount?: number,
-): boolean {
-  return Boolean(highStakes?.length) || load === 'high' || pressure === 'high' || (meetingCount ?? 0) >= 3;
-}
+// `getServerCalendarMetrics`, time-window helpers (`getUserTime`,
+// `getTimeOfDay`, `isLateEvening`, `getDayContext`, `DayContext`) and
+// `hasMeaningfulDemand` were extracted to `_shared/signal-engine/` per
+// MRS v2 §5.1 and are imported at the top of this file.
 
 // ==================== CONTEXT SUFFIX BUILDER ====================
 // Generates 1–2 sentence dynamic suffix connecting body signals to calendar demands.
@@ -4584,12 +4436,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           },
         };
 
+        // MRS v2 §3.6 — cold-start labelling. All three pills depend (directly
+        // or via demand×physiology cross-signals) on the wearable baseline, so
+        // the same `wearableDaysConnected` window gates every label.
+        const pillColdStart = coldStartLabel(wearableDaysConnected);
+
         const signalPillsPayload = [
           {
             key: 'decision_readiness',
             label: 'Decision Readiness',
             tier: cognitiveTier,
             tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               hrvValue, hrvDeviation,
               sleepDuration, sleepScore: sleepScoreVal,
@@ -4606,6 +4464,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             label: 'Physical Reserves',
             tier: physicalTier,
             tierLabel: PILL_TIER_LABELS.physical_reserves[physicalTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
               rhrValue, rhrDeviation,
@@ -4619,6 +4478,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             label: 'Resilience Capacity',
             tier: resilienceTier,
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               consecutive_high_load_days: consecutiveHighLoadDays,
               sustained_deficit_flag: sustainedDeficitFlag,
