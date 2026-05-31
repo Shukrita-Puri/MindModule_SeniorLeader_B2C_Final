@@ -2938,6 +2938,35 @@ serve(async (req) => {
       // v7 — hydrate unified pattern store (causality_findings.signal_summary)
       ctx.pattern = await loadPatternSummary(supabase, userId);
 
+      // MRS v2 Phase D — snapshot-first cadence gating.
+      //   LIGHT_DAY_STRONG_STATE → suppress all nudges for this user today.
+      //   SUPPLY_DEMAND_GAP + sustained_deficit_flag → escalate (override 2h
+      //   suppression so urgent prep gets through).
+      // Never throws: missing snapshot row falls back to existing behaviour.
+      let mrsEscalate = false;
+      try {
+        const { data: snapRow } = await supabase
+          .from('daily_context_snapshot')
+          .select('supply_demand_gap_flag, pattern_signals')
+          .eq('user_id', userId)
+          .eq('local_date', todayStr)
+          .maybeSingle();
+        const gapFlag = (snapRow as any)?.supply_demand_gap_flag ?? null;
+        const ps = (snapRow as any)?.pattern_signals ?? null;
+        if (gapFlag === 'LIGHT_DAY_STRONG_STATE' && !isForcedUser) {
+          console.log(`[smart-nudges][mrs-v2] User ${userId} LIGHT_DAY_STRONG_STATE → suppressing all nudges.`);
+          continue;
+        }
+        if (gapFlag === 'SUPPLY_DEMAND_GAP' && ps?.sustained_deficit_flag === true) {
+          mrsEscalate = true;
+          console.log(`[smart-nudges][mrs-v2] User ${userId} SUPPLY_DEMAND_GAP + sustained_deficit → escalate (bypass 2h suppression).`);
+        }
+      } catch (snapErr) {
+        console.warn('[smart-nudges][mrs-v2] snapshot read failed:',
+          snapErr instanceof Error ? snapErr.message : snapErr);
+      }
+      const suppressedEffective = suppressed && !mrsEscalate;
+
       // Already-sent types today
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
@@ -2954,12 +2983,12 @@ serve(async (req) => {
       }
 
       // Nudge 2: Mid-day Action (exempt from signal gate, respects 2h suppression unless JIT)
-      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('nudge_two') && !suppressed) {
+      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('nudge_two') && !suppressedEffective) {
         const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge) qualified.push(nudge);
       }
       // If suppressed but has JIT, still allow Nudge 2 JIT variant
-      if (suppressed && (prefs?.pre_event_prep_enabled ?? true)) {
+      if (suppressedEffective && (prefs?.pre_event_prep_enabled ?? true)) {
         const nudge = await evaluateNudgeTwo(ctx, alreadySentTypes, sentEventRefs, supabase);
         if (nudge && nudge.deepLinkRoute === '/executive-home') {
           // JIT variant — override suppression
@@ -2968,7 +2997,7 @@ serve(async (req) => {
       }
 
       // Nudge 3: Evening Close (exempt from signal richness gate for MVP)
-      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('nudge_three') && !suppressed) {
+      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('nudge_three') && !suppressedEffective) {
         const nudge = await evaluateNudgeThree(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
