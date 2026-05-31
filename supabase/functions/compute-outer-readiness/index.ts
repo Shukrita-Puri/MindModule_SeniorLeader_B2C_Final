@@ -17,6 +17,8 @@ import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
 } from "../_shared/signal-engine/divergence-flag.ts";
+import { computeCognitiveFragmentation } from "../_shared/signal-engine/cognitive-fragmentation.ts";
+import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -157,6 +159,12 @@ interface CalendarMetricsResult {
   highStakesEvents: string[];
   remainingEvents: number;
   remainingHighStakes: string[];
+  /** MRS v2 §3.5 — cognitive fragmentation score (0–100) from today's events. */
+  fragmentationScore: number;
+  /** Count of < 15-min gaps between adjacent meetings today. */
+  shortGapCount: number;
+  /** Total wall-clock hours inside back-to-back meeting chains today. */
+  backToBackHours: number;
 }
 
 interface WearableContext {
