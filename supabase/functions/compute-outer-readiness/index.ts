@@ -2292,6 +2292,9 @@ serve(async (req) => {
     let rhrBaseline: number | null = null;
     let hrBaseline: number | null = null;
     let hrValue: number | null = wearableContext?.hr ?? null;
+    // MRS v2 §3.5 — RHR 3-day trend (Physical Reserves input). Computed
+    // from the same 30-day baseline pull below so we avoid a second query.
+    let rhr3dTrend: 'declining' | 'stable' | 'rising' | 'unknown' = 'unknown';
 
     // ── HR / RHR live-freshness gate ─────────────────────────────────────
     // HR and RHR are real-time metrics and must never appear as "live" if
@@ -2312,7 +2315,7 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source')
+          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source, summary_date')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2357,6 +2360,16 @@ serve(async (req) => {
               wearableContext.rhrElevated = rhrDeviation > 10;
             }
           }
+
+          // RHR 3-day trend: feed the trailing rhr samples (date + value)
+          // into the shared pattern-engine helper. Returns 'unknown' when
+          // < 4 valid days — null-safe.
+          rhr3dTrend = computeRhr3DayTrend(
+            (baseline as any[]).map((r) => ({
+              date: r.summary_date,
+              rhr: r.resting_heart_rate,
+            })),
+          );
 
           // HR baseline (real average daily HR — preferred over HRV-derived proxy)
           const hrRows = baseline.filter((r: any) => r.heart_rate != null && r.heart_rate > 0);
