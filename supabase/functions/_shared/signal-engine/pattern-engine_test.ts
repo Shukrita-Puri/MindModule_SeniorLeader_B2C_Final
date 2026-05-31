@@ -147,6 +147,7 @@ Deno.test('patternToScore: depleted (3+ high load) → 20', () => {
       consecutive_high_load_days: 3,
       dow_historical_pattern: { typical_hrv_for_dow: null, typical_load_for_dow: null, samples: 0 },
       sustained_deficit_flag: false,
+      hrv_low_high_demand_cooccurrence_7d: { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 },
     }),
     20,
   );
