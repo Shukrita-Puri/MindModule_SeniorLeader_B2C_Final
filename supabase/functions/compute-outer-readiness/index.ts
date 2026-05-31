@@ -2,12 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
-import {
-  isNoiseTitle,
-  rankByStakes,
-  selectLeadEvent,
-  survivesAttendeeOrDurationFloor,
-} from "../_shared/executive-state-taxonomy.ts";
+import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
@@ -17,7 +12,6 @@ import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
 } from "../_shared/signal-engine/divergence-flag.ts";
-import { computeCognitiveFragmentation } from "../_shared/signal-engine/cognitive-fragmentation.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 import {
   getServerCalendarMetrics,
