@@ -4565,13 +4565,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tier: resilienceTier,
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             contributors: {
-              hrvValue, hrvDeviation,
-              hrv_3day_trend: hrv3dTrend,
               consecutive_high_load_days: consecutiveHighLoadDays,
+              sustained_deficit_flag: sustainedDeficitFlag,
+              hrv_low_high_demand_cooccurrence_7d: cooccurrence7d,
+              typical_load_for_dow: typicalLoadForDow,
               calendarPressure,
-              activePatternCount,
-              hasRecentDepletion,
-              hasRecoveryDebt,
+              calendarLoad,
               protectionGoalsCount: protectionGoals.length,
             },
           },
@@ -4603,6 +4602,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               samples: 0,
             },
             sustained_deficit_flag: sustainedDeficitFlag,
+            hrv_low_high_demand_cooccurrence_7d: cooccurrence7d,
           };
 
           // ── Divergence flag + weighting mode (MRS v2 §3.3 / §3.4) ──
