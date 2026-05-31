@@ -181,6 +181,16 @@ interface WearableContext {
   sourceRowDate: string | null; // summary_date of the row used
 }
 
+// Apple sleep sources that report "time in bed" rather than asleep —
+// keep this list as the SSOT so new native onboarding paths (HealthKit,
+// Apple Watch direct stream, Oura HealthKit bridge) all stay aligned.
+function isAppleSleepSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  return s === 'apple-healthkit' || s === 'apple_healthkit'
+      || s === 'apple-watch'     || s === 'apple_watch';
+}
+
 type BriefSignalItem = { signal: string; source: string };
 type LlmBriefPackage = {
   phrase: string;
