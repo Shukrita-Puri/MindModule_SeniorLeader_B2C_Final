@@ -17,6 +17,8 @@ import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
 } from "../_shared/signal-engine/divergence-flag.ts";
+import { computeCognitiveFragmentation } from "../_shared/signal-engine/cognitive-fragmentation.ts";
+import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -157,6 +159,12 @@ interface CalendarMetricsResult {
   highStakesEvents: string[];
   remainingEvents: number;
   remainingHighStakes: string[];
+  /** MRS v2 §3.5 — cognitive fragmentation score (0–100) from today's events. */
+  fragmentationScore: number;
+  /** Count of < 15-min gaps between adjacent meetings today. */
+  shortGapCount: number;
+  /** Total wall-clock hours inside back-to-back meeting chains today. */
+  backToBackHours: number;
 }
 
 interface WearableContext {
@@ -171,6 +179,16 @@ interface WearableContext {
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
   sourceRowDate: string | null; // summary_date of the row used
+}
+
+// Apple sleep sources that report "time in bed" rather than asleep —
+// keep this list as the SSOT so new native onboarding paths (HealthKit,
+// Apple Watch direct stream, Oura HealthKit bridge) all stay aligned.
+function isAppleSleepSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  return s === 'apple-healthkit' || s === 'apple_healthkit'
+      || s === 'apple-watch'     || s === 'apple_watch';
 }
 
 type BriefSignalItem = { signal: string; source: string };
@@ -219,7 +237,7 @@ async function getServerCalendarMetrics(
   }
 
   if (!activeConnections || activeConnections.length === 0) {
-    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
   }
 
   // Treat a connection that hasn't synced in > 7 days as effectively
@@ -230,7 +248,7 @@ async function getServerCalendarMetrics(
     const lastSyncMs = new Date(lastSyncRaw).getTime();
     if (Number.isFinite(lastSyncMs) && (Date.now() - lastSyncMs) > 7 * 86400000) {
       console.log('[compute-outer-readiness] Calendar connection stale (>7d), treating as not_connected', { lastSyncRaw });
-      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
     }
   }
 
@@ -288,10 +306,13 @@ async function getServerCalendarMetrics(
       }));
     }
 
-    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
+    // Cognitive fragmentation is derived from meetings (noise/all-day already
+    // filtered) so an "8 standups + 1 dentist block" day doesn't poison it.
+    const frag = computeCognitiveFragmentation(meetingList as any);
+    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes, fragmentationScore: frag.fragmentation_score, shortGapCount: frag.short_gap_count, backToBackHours: frag.back_to_back_hours };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
 }
 
 // ==================== TIME HELPERS ====================
@@ -1820,8 +1841,10 @@ serve(async (req) => {
         const source = wearableRow.source ?? null;
         wearableDataSource = source;
 
-        // Apple Health correction: reported duration includes "in bed" time
-        const sleepDuration = (rawSleepDuration !== null && source === 'apple-healthkit')
+        // Apple correction: HealthKit & Apple Watch report "time in bed",
+        // not asleep — apply the standard 0.85 multiplier. Oura/Whoop
+        // already report true sleep duration so they're left alone.
+        const sleepDuration = (rawSleepDuration !== null && isAppleSleepSource(source))
           ? Math.round(rawSleepDuration * 0.85)
           : rawSleepDuration;
 
@@ -2269,6 +2292,9 @@ serve(async (req) => {
     let rhrBaseline: number | null = null;
     let hrBaseline: number | null = null;
     let hrValue: number | null = wearableContext?.hr ?? null;
+    // MRS v2 §3.5 — RHR 3-day trend (Physical Reserves input). Computed
+    // from the same 30-day baseline pull below so we avoid a second query.
+    let rhr3dTrend: 'declining' | 'stable' | 'rising' | 'unknown' = 'unknown';
 
     // ── HR / RHR live-freshness gate ─────────────────────────────────────
     // HR and RHR are real-time metrics and must never appear as "live" if
@@ -2289,7 +2315,7 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
         const { data: baseline } = await db
           .from('wearable_data')
-          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source')
+          .select('hrv, sleep_score, resting_heart_rate, heart_rate, total_sleep_minutes, source, summary_date')
           .eq('user_id', userId)
           .gte('summary_date', thirtyDaysAgo)
           .order('summary_date', { ascending: false })
@@ -2313,7 +2339,7 @@ serve(async (req) => {
             // Duration-based fallback (Apple Health)
             const durRows = baseline.filter((r: any) => r.total_sleep_minutes != null && r.total_sleep_minutes > 0);
             if (durRows.length >= 3) {
-              const isApple = wearableDataSource === 'apple-healthkit';
+              const isApple = isAppleSleepSource(wearableDataSource);
               const avgDur = durRows.reduce((s: number, r: any) => {
                 const raw = r.total_sleep_minutes;
                 return s + (isApple ? raw * 0.85 : raw);
@@ -2334,6 +2360,16 @@ serve(async (req) => {
               wearableContext.rhrElevated = rhrDeviation > 10;
             }
           }
+
+          // RHR 3-day trend: feed the trailing rhr samples (date + value)
+          // into the shared pattern-engine helper. Returns 'unknown' when
+          // < 4 valid days — null-safe.
+          rhr3dTrend = computeRhr3DayTrend(
+            (baseline as any[]).map((r) => ({
+              date: r.summary_date,
+              rhr: r.resting_heart_rate,
+            })),
+          );
 
           // HR baseline (real average daily HR — preferred over HRV-derived proxy)
           const hrRows = baseline.filter((r: any) => r.heart_rate != null && r.heart_rate > 0);
@@ -4426,6 +4462,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         if (consecutiveHighLoadDays >= 3) cogTiers.push('amber');
         // Calendar fragmentation: high load AND high pressure → cognitive drag.
         if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
+        // MRS v2 §3.5 — direct cognitive fragmentation score from today's
+        // calendar shape (back-to-back chains + sub-15-min gap density).
+        // Bands: ≥ 75 → red (chopped day), 50–74 → amber, < 50 → no signal.
+        const fragmentationScore = calendarResult.fragmentationScore ?? 0;
+        if (fragmentationScore >= 75) cogTiers.push('red');
+        else if (fragmentationScore >= 50) cogTiers.push('amber');
         const cognitiveTier: PillTier = cogTiers.length === 0
           ? 'neutral'
           : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
@@ -4454,6 +4496,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         } else if (rhrDeviation != null) {
           physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
         }
+        // MRS v2 §3.5 — RHR 3-day trend (lower = better). Rising trend is
+        // a sympathetic-load tell that often shows up before deviation
+        // breaches; declining trend is a recovery nudge.
+        if (rhr3dTrend === 'rising') physTiers.push('amber');
+        else if (rhr3dTrend === 'declining') physTiers.push('green');
         // MRS v2 §3.5 — sustained physiological deficit beyond a single-day
         // reading escalates Physical Reserves to red.
         if (sustainedDeficitFlag) physTiers.push('red');
@@ -4549,6 +4596,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               hrv_3day_trend: hrv3dTrend,
               consecutive_high_load_days: consecutiveHighLoadDays,
               calendarLoad, calendarPressure,
+              cognitive_fragmentation_score: fragmentationScore,
+              short_gap_count: calendarResult.shortGapCount ?? 0,
+              back_to_back_hours: calendarResult.backToBackHours ?? 0,
             },
           },
           {
@@ -4561,6 +4611,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               rhrValue, rhrDeviation,
               hrValue, hrDeviation,
               sustained_deficit_flag: sustainedDeficitFlag,
+              rhr_3day_trend: rhr3dTrend,
             },
           },
           {
@@ -4615,10 +4666,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             ? computePhysiologicalComposite({
                 hrvDeviationPct: typeof hrvDeviation === 'number' ? hrvDeviation : null,
                 sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
-                sleepHours: typeof sleepDuration === 'number' ? sleepDuration : null,
-                // RHR trend isn't computed at this layer yet; leave null so
-                // composite degrades to HRV+Sleep weighting.
-                rhrTrend: null,
+                // sleepDuration is stored in minutes; composite expects hours.
+                sleepHours: typeof sleepDuration === 'number' ? sleepDuration / 60 : null,
+                // RHR 3-day trend (P2): contributes 15% to the composite
+                // when known. Falls through to HRV+Sleep when 'unknown'.
+                rhrTrend: rhr3dTrend,
               })
             : null;
           const supplyDemandGapFlag = computeDivergenceFlag({
