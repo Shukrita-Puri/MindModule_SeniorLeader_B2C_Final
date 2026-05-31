@@ -177,87 +177,11 @@ type LlmBriefPackage = {
   watchFor: BriefSignalItem[];
 };
 
-function inferRelationshipPressure(metadata: any, title: string, attendeeCount: number): number {
-  const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
-  if (/(client|customer|vendor|supplier|partner|account|proposal|demo)/.test(lower)) return 2;
-  if (/(boss|manager|director|vp|1:1|one-on-one|one on one|feedback|review|performance|skip level)/.test(lower)) return 2;
-  if (/(direct report|mentee|coaching|onboarding|candidate|interview)/.test(lower)) return 1;
-  if (/(team|sync|standup|working session|planning|retro)/.test(lower)) return 1;
-  if ((metadata?.attendeeSignals?.attendees || []).some((a: any) => a?.responseStatus === 'declined')) return 1;
-  if (attendeeCount >= 6) return 1;
-  return 0;
-}
-
-function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean; title?: string | null; event_metadata?: any }>): { load: CalendarLevel; pressure: CalendarLevel } {
-  const now = new Date();
-  const allEvents = events;
-  const count = allEvents.length;
-
-  // Sort events chronologically for gap analysis
-  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-
-  // Calculate gaps between consecutive events
-  const gaps: number[] = [];
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
-    gaps.push(gap);
-  }
-  const avgGap = gaps.length > 0 ? gaps.reduce((s, g) => s + g, 0) / gaps.length : Infinity;
-  const totalGapTime = gaps.length > 0 ? gaps.reduce((s, g) => s + Math.max(0, g), 0) : Infinity;
-
-  // Load – density-aware thresholds
-  let load: CalendarLevel = 'low';
-  if (count >= 4) load = 'high';
-  else if (count >= 3 && avgGap < 20) load = 'high';
-  else if (count >= 3) load = 'medium';
-
-  // Pressure – weighted scoring
-  let totalPressure = 0;
-  for (const event of allEvents) {
-    let p = 0;
-    if (event.is_organizer) p += 2;
-    const att = event.attendees_count || 0;
-    if (att > 5) p += 3; else if (att > 2) p += 1;
-    const start = new Date(event.start_time);
-    const end = new Date(event.end_time);
-    const dur = (end.getTime() - start.getTime()) / 60000;
-    if (dur > 60) p += 2; else if (dur >= 30) p += 1;
-    if (!event.is_recurring) p += 1;
-    const hr = start.getHours();
-    if ((hr >= 9 && hr < 12) || (hr >= 14 && hr < 16)) p += 1;
-    p += inferRelationshipPressure(event.event_metadata, event.title || '', att);
-
-    // Upcoming events carry full weight; past events carry half weight
-    if (start >= now) {
-      totalPressure += p;
-    } else {
-      totalPressure += Math.ceil(p * 0.5);
-    }
-  }
-
-  // Stronger back-to-back detection
-  for (const gap of gaps) {
-    if (gap < 5) totalPressure += 3;
-    else if (gap < 15) totalPressure += 2;
-  }
-
-  // Meeting density boost: total gap < 30 min across 3+ meetings
-  if (count >= 3 && totalGapTime < 30) {
-    totalPressure += 3;
-  }
-
-  // Intensity multiplier: >50% non-recurring AND organizer → 1.5x pressure
-  const intenseMeetings = allEvents.filter(e => !e.is_recurring && e.is_organizer).length;
-  if (count > 0 && intenseMeetings / count > 0.5) {
-    totalPressure = Math.ceil(totalPressure * 1.5);
-  }
-
-  let pressure: CalendarLevel = 'low';
-  if (totalPressure >= 6) pressure = 'high';
-  else if (totalPressure >= 3) pressure = 'medium';
-
-  return { load, pressure };
-}
+// Calendar metrics (load + pressure) are now derived by
+// `computeCalendarDemand` from `_shared/signal-engine/demand-scorer.ts`,
+// the MRS v2 SSOT. The legacy inline `computeCalendarMetrics` +
+// `inferRelationshipPressure` were deleted in Phase C — the shared module
+// is bit-equivalent and is exercised by Phase E tests.
 
 async function getServerCalendarMetrics(
   db: ReturnType<typeof createClient>,
@@ -320,7 +244,8 @@ async function getServerCalendarMetrics(
   const eventList = (events || []);
 
   if (eventList.length > 0) {
-    const metrics = computeCalendarMetrics(eventList);
+    const demand = computeCalendarDemand(eventList as any);
+    const metrics = { load: demand.load as CalendarLevel, pressure: demand.pressure as CalendarLevel };
 
     // Identify high-stakes events using the shared executive-state taxonomy.
     // RELEVANCE RULE: noise (personal blocks, errands, travel placeholders) is dropped
