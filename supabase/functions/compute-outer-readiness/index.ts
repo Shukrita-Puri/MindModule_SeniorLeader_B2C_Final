@@ -13,6 +13,10 @@ import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
+import {
+  computeDivergenceFlag,
+  computePhysiologicalComposite,
+} from "../_shared/signal-engine/divergence-flag.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
