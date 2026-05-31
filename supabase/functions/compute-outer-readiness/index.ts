@@ -1831,8 +1831,10 @@ serve(async (req) => {
         const source = wearableRow.source ?? null;
         wearableDataSource = source;
 
-        // Apple Health correction: reported duration includes "in bed" time
-        const sleepDuration = (rawSleepDuration !== null && source === 'apple-healthkit')
+        // Apple correction: HealthKit & Apple Watch report "time in bed",
+        // not asleep — apply the standard 0.85 multiplier. Oura/Whoop
+        // already report true sleep duration so they're left alone.
+        const sleepDuration = (rawSleepDuration !== null && isAppleSleepSource(source))
           ? Math.round(rawSleepDuration * 0.85)
           : rawSleepDuration;
 
@@ -2324,7 +2326,7 @@ serve(async (req) => {
             // Duration-based fallback (Apple Health)
             const durRows = baseline.filter((r: any) => r.total_sleep_minutes != null && r.total_sleep_minutes > 0);
             if (durRows.length >= 3) {
-              const isApple = wearableDataSource === 'apple-healthkit';
+              const isApple = isAppleSleepSource(wearableDataSource);
               const avgDur = durRows.reduce((s: number, r: any) => {
                 const raw = r.total_sleep_minutes;
                 return s + (isApple ? raw * 0.85 : raw);
