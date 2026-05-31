@@ -165,23 +165,8 @@ interface ComputeRequest {
 }
 
 // ==================== SERVER-SIDE CALENDAR METRICS ====================
-interface CalendarMetricsResult {
-  load: CalendarLevel;
-  pressure: CalendarLevel;
-  eventCount: number;
-  meetingCount: number;        // Filtered: excludes all-day blocks, personal blocks
-  remainingMeetings: number;   // Filtered remaining meetings only
-  state: 'active' | 'connected_no_events' | 'not_connected';
-  highStakesEvents: string[];
-  remainingEvents: number;
-  remainingHighStakes: string[];
-  /** MRS v2 §3.5 — cognitive fragmentation score (0–100) from today's events. */
-  fragmentationScore: number;
-  /** Count of < 15-min gaps between adjacent meetings today. */
-  shortGapCount: number;
-  /** Total wall-clock hours inside back-to-back meeting chains today. */
-  backToBackHours: number;
-}
+// `CalendarMetricsResult` + `getServerCalendarMetrics` now live in
+// `_shared/signal-engine/db-queries.ts` (MRS v2 §5.1).
 
 interface WearableContext {
   hrv: number | null;
