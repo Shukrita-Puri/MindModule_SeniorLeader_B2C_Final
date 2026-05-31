@@ -4391,15 +4391,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           ? 'neutral'
           : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
 
-        // Resilience Capacity — Outcome + HRV (strict band) + Confidence
+        // MRS v2 §3.5 — Resilience Capacity.
+        // Source change: was outcome + HRV (strict band) + confidence. Now
+        // HRV (strict band) + sustained-low pattern proxy + calendar pressure
+        // co-occurrence. Check-in fields dropped.
         const resTiers: PillTier[] = [];
-        if (checkInOutcome === 'overwhelmed') resTiers.push('red');
-        else if (checkInOutcome === 'drained') resTiers.push('red');
-        else if (checkInOutcome === 'anxious' || checkInOutcome === 'frustrated') resTiers.push('amber');
-        else if (
-          checkInOutcome === 'steady' || checkInOutcome === 'calm' ||
-          checkInOutcome === 'energised' || checkInOutcome === 'thriving'
-        ) resTiers.push('green');
         if (hrvValue != null) {
           if (hrvDeviation != null) {
             resTiers.push(hrvDeviation <= -25 ? 'red' : hrvDeviation < -15 ? 'amber' : 'green');
@@ -4407,8 +4403,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             resTiers.push(hrvValue < 18 ? 'red' : hrvValue < 35 ? 'amber' : 'green');
           }
         }
-        if (confidenceLevel != null) {
-          resTiers.push(confidenceLevel <= 2 ? 'red' : confidenceLevel === 3 ? 'amber' : 'green');
+        // Sustained low pattern (HRV/score declining for multiple days).
+        if (wearableTrend7d === 'declining' || scoreTrajectory7d === 'declining') {
+          resTiers.push('amber');
+        }
+        // Co-occurrence: low HRV AND high calendar demand erodes reserve.
+        if ((hrvDeviation != null && hrvDeviation < -15) && calendarPressure === 'high') {
+          resTiers.push('red');
         }
         const resilienceTier: PillTier = resTiers.length === 0
           ? 'neutral'
