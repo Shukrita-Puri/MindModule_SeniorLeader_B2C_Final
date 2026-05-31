@@ -258,3 +258,57 @@ Deno.test('cooccurrence: buildPatternSignals exposes 7-day cooccurrence', () => 
   assertEquals(out.hrv_low_high_demand_cooccurrence_7d.cooccurrence_count, 1);
   assertEquals(out.hrv_low_high_demand_cooccurrence_7d.days_observed, 1);
 });
+// ─── RHR 3-day trend ────────────────────────────────────────────────────
+
+Deno.test('rhr-trend: empty → unknown', () => {
+  assertEquals(computeRhr3DayTrend([]), 'unknown');
+});
+
+Deno.test('rhr-trend: today ≤ −5% vs 3d ago → declining (recovery)', () => {
+  // today 55, 3d-ago 60 → −8.3% → declining.
+  assertEquals(
+    computeRhr3DayTrend([
+      { date: '2026-01-04', rhr: 55 },
+      { date: '2026-01-03', rhr: 57 },
+      { date: '2026-01-02', rhr: 58 },
+      { date: '2026-01-01', rhr: 60 },
+    ]),
+    'declining',
+  );
+});
+
+Deno.test('rhr-trend: today ≥ +5% vs 3d ago → rising (load)', () => {
+  // today 65, 3d-ago 60 → +8.3% → rising.
+  assertEquals(
+    computeRhr3DayTrend([
+      { date: '2026-01-04', rhr: 65 },
+      { date: '2026-01-03', rhr: 62 },
+      { date: '2026-01-02', rhr: 61 },
+      { date: '2026-01-01', rhr: 60 },
+    ]),
+    'rising',
+  );
+});
+
+Deno.test('rhr-trend: within ±5% → stable', () => {
+  assertEquals(
+    computeRhr3DayTrend([
+      { date: '2026-01-04', rhr: 61 },
+      { date: '2026-01-03', rhr: 60 },
+      { date: '2026-01-02', rhr: 60 },
+      { date: '2026-01-01', rhr: 60 },
+    ]),
+    'stable',
+  );
+});
+
+Deno.test('rhr-trend: filters nulls/zeros without throwing', () => {
+  assertEquals(
+    computeRhr3DayTrend([
+      { date: '2026-01-04', rhr: null },
+      { date: '2026-01-03', rhr: 0 },
+      { date: '2026-01-02', rhr: 60 },
+    ]),
+    'unknown',
+  );
+});
