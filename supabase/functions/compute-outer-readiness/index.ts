@@ -10,7 +10,7 @@ import {
 } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
-import { upsertDailyContextSnapshot } from "../_shared/signal-engine/build-daily-context.ts";
+import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 
@@ -4331,6 +4331,91 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
+        // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
+        // Pull the orchestrator-derived pattern signals (real 14d HRV trend,
+        // 3-day load count, DOW pattern, sustained deficit) and the three
+        // Resilience side-inputs (active coach patterns, recent memory
+        // depletion flags, profile protection goals). Every fetch is
+        // null-safe; pill build must never throw on missing data.
+        let composedPatternSignals: {
+          hrv_3day_trend: 'improving' | 'stable' | 'declining' | 'unknown';
+          consecutive_high_load_days: number;
+          dow_historical_pattern: {
+            typical_hrv_for_dow: number | null;
+            typical_load_for_dow: 'low' | 'medium' | 'high' | null;
+            samples: number;
+          };
+          sustained_deficit_flag: boolean;
+        } | null = null;
+        try {
+          const composed = await composeDailyContext(db as any, userId, userLocalDate, {
+            timezone: effectiveCurrentTz || undefined,
+            dryRun: true,
+          });
+          composedPatternSignals = composed.patternSignals as any;
+        } catch (composeErr) {
+          console.warn('[mrs-v2:composeDailyContext] dry-run failed:', composeErr instanceof Error ? composeErr.message : composeErr);
+        }
+
+        let activePatternCount = 0;
+        let hasRecentDepletion = false;
+        let hasRecoveryDebt = false;
+        let depletionIsRedWeight = false; // ≤7d AND importance≥5
+        let protectionGoals: string[] = [];
+        try {
+          const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+          const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+          const [patternsRes, memoryRes, profileRes] = await Promise.all([
+            db.from('coach_pattern_observations')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('status', 'active')
+              .gte('last_observed_at', fourteenDaysAgo)
+              .then((r: any) => r, () => ({ count: 0 })),
+            db.from('coach_memory_index')
+              .select('memory_type, importance, created_at')
+              .eq('user_id', userId)
+              .in('memory_type', ['depletion', 'recovery_debt'])
+              .gte('created_at', fourteenDaysAgo)
+              .then((r: any) => r, () => ({ data: [] })),
+            db.from('profiles')
+              .select('protection_goals')
+              .eq('id', userId)
+              .maybeSingle()
+              .then((r: any) => r, () => ({ data: null })),
+          ]);
+          activePatternCount = Number((patternsRes as any)?.count ?? 0) || 0;
+          const memRows: Array<{ memory_type: string; importance: number | null; created_at: string }> =
+            ((memoryRes as any)?.data as any[]) || [];
+          for (const m of memRows) {
+            if (m.memory_type === 'depletion') hasRecentDepletion = true;
+            if (m.memory_type === 'recovery_debt') hasRecoveryDebt = true;
+            if ((m.importance ?? 0) >= 5 && m.created_at >= sevenDaysAgo) {
+              depletionIsRedWeight = true;
+            }
+          }
+          const pg = (profileRes as any)?.data?.protection_goals;
+          if (Array.isArray(pg)) protectionGoals = pg.filter(x => typeof x === 'string');
+          else if (pg && typeof pg === 'object') protectionGoals = Object.keys(pg);
+        } catch (resErr) {
+          console.warn('[mrs-v2:resilience-inputs] fetch failed:', resErr instanceof Error ? resErr.message : resErr);
+        }
+
+        // Effective pattern signals — prefer orchestrator, fall back to
+        // single-day approximations already in scope so pill build never
+        // collapses to neutral just because compose failed.
+        const hrv3dTrend: 'improving' | 'stable' | 'declining' | 'unknown' =
+          composedPatternSignals?.hrv_3day_trend
+          ?? ((wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
+              ? wearableTrend7d as any
+              : 'unknown');
+        const consecutiveHighLoadDays: number =
+          composedPatternSignals?.consecutive_high_load_days
+          ?? (calendarLoad === 'high' ? 1 : 0);
+        const sustainedDeficitFlag: boolean =
+          composedPatternSignals?.sustained_deficit_flag
+          ?? (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
+
         // ── Build structured signal_pills payload (server-side mirror of the
         // client pillar engine in DecisionReadinessBrief.tsx). We persist the
         // resolved tier ('green' | 'amber' | 'red' | 'neutral') for each of the
@@ -4355,8 +4440,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
           }
         }
-        // 3-day HRV trend acts as a fragmentation amplifier.
-        if (wearableTrend7d === 'declining') cogTiers.push('amber');
+        // 3-day HRV trend acts as a fragmentation amplifier (MRS v2: real
+        // 3-day trend from orchestrator, not the 7-day reading).
+        if (hrv3dTrend === 'declining') cogTiers.push('amber');
+        // Sustained-high-load fragmentation escalation (MRS v2 §3.5).
+        if (consecutiveHighLoadDays >= 3) cogTiers.push('amber');
         // Calendar fragmentation: high load AND high pressure → cognitive drag.
         if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
         const cognitiveTier: PillTier = cogTiers.length === 0
@@ -4387,14 +4475,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         } else if (rhrDeviation != null) {
           physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
         }
+        // MRS v2 §3.5 — sustained physiological deficit beyond a single-day
+        // reading escalates Physical Reserves to red.
+        if (sustainedDeficitFlag) physTiers.push('red');
         const physicalTier: PillTier = physTiers.length === 0
           ? 'neutral'
           : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
 
         // MRS v2 §3.5 — Resilience Capacity.
         // Source change: was outcome + HRV (strict band) + confidence. Now
-        // HRV (strict band) + sustained-low pattern proxy + calendar pressure
-        // co-occurrence. Check-in fields dropped.
+        // HRV (strict band) + consecutive_high_load_days + low HRV ×
+        // high-demand co-occurrence + coach pattern density + recent
+        // depletion/recovery-debt memory + protection-goal-under-pressure
+        // bias. Check-in fields dropped. Coach UI is suppressed but
+        // coach_pattern_observations / coach_memory_index remain valid
+        // background-derived signals.
         const resTiers: PillTier[] = [];
         if (hrvValue != null) {
           if (hrvDeviation != null) {
@@ -4403,13 +4498,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             resTiers.push(hrvValue < 18 ? 'red' : hrvValue < 35 ? 'amber' : 'green');
           }
         }
-        // Sustained low pattern (HRV/score declining for multiple days).
-        if (wearableTrend7d === 'declining' || scoreTrajectory7d === 'declining') {
-          resTiers.push('amber');
-        }
+        // Sustained-demand-day count (MRS v2 §3.5 primary resilience signal).
+        if (consecutiveHighLoadDays >= 3) resTiers.push('amber');
         // Co-occurrence: low HRV AND high calendar demand erodes reserve.
         if ((hrvDeviation != null && hrvDeviation < -15) && calendarPressure === 'high') {
           resTiers.push('red');
+        }
+        // Active coach pattern density (≥3 → amber).
+        if (activePatternCount >= 3) resTiers.push('amber');
+        // Recent depletion / recovery-debt memory. Red weight only when a
+        // high-importance signal landed in the last 7 days; otherwise amber.
+        if (hasRecoveryDebt || hasRecentDepletion) {
+          resTiers.push(depletionIsRedWeight ? 'red' : 'amber');
+        }
+        // Protection-goal-under-pressure bias (framing only — never raw
+        // presence). Goal exists AND today is demand-heavy → amber.
+        const _hasStakesEarly = (calendarResult.highStakesEvents?.length ?? 0) > 0;
+        if (protectionGoals.length > 0 && (calendarPressure === 'high' || _hasStakesEarly)) {
+          resTiers.push('amber');
         }
         const resilienceTier: PillTier = resTiers.length === 0
           ? 'neutral'
@@ -4449,7 +4555,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             contributors: {
               hrvValue, hrvDeviation,
               sleepDuration, sleepScore: sleepScoreVal,
-              wearableTrend7d, calendarLoad, calendarPressure,
+              hrv_3day_trend: hrv3dTrend,
+              consecutive_high_load_days: consecutiveHighLoadDays,
+              calendarLoad, calendarPressure,
             },
           },
           {
@@ -4461,6 +4569,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
               rhrValue, rhrDeviation,
               hrValue, hrDeviation,
+              sustained_deficit_flag: sustainedDeficitFlag,
             },
           },
           {
@@ -4470,7 +4579,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             contributors: {
               hrvValue, hrvDeviation,
-              wearableTrend7d, scoreTrajectory7d, calendarPressure,
+              hrv_3day_trend: hrv3dTrend,
+              consecutive_high_load_days: consecutiveHighLoadDays,
+              calendarPressure,
+              activePatternCount,
+              hasRecentDepletion,
+              hasRecoveryDebt,
+              protectionGoalsCount: protectionGoals.length,
             },
           },
         ];
@@ -4489,25 +4604,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const stakesBonus = _hasStakes ? 10 : 0;
           const calendarDemandScore = Math.max(0, Math.min(100, loadComponent + pressureComponent + stakesBonus));
 
-          // ── Derive pattern signals from existing variables (no extra queries) ──
-          // hrv_3day_trend is sourced from the 7-day wearable trend already
-          // computed upstream; consecutive_high_load_days is approximated from
-          // today's calendar load (history-aware variant lives in pattern-engine.ts
-          // and will be wired once a 3-day load query is added).
-          const todayLoadIsHigh = calendarLoad === 'high';
-          const sustainedDeficit = (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
-          const patternSignals = {
-            hrv_3day_trend: (wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
-              ? wearableTrend7d
-              : 'unknown',
-            consecutive_high_load_days: todayLoadIsHigh ? 1 : 0,
+          // ── Pattern signals: prefer orchestrator-derived (real 14d HRV
+          // trend, real 3-day load count, real DOW pattern). Fall back to
+          // single-day approximations only when compose failed upstream.
+          const patternSignals = composedPatternSignals ?? {
+            hrv_3day_trend: hrv3dTrend,
+            consecutive_high_load_days: consecutiveHighLoadDays,
             dow_historical_pattern: {
               typical_hrv_for_dow: null,
               typical_load_for_dow: null,
               samples: 0,
             },
-            sustained_deficit_flag: sustainedDeficit,
-          } as const;
+            sustained_deficit_flag: sustainedDeficitFlag,
+          };
 
           // ── Divergence flag + weighting mode (MRS v2 §3.3 / §3.4) ──
           let supplyDemandGapFlag:
@@ -4521,7 +4630,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const demandHigh = calendarLoad === 'high' || calendarPressure === 'high' || _hasStakes;
             if (bodyWeak && demandHigh) supplyDemandGapFlag = 'SUPPLY_DEMAND_GAP';
             else if (bodyStrong && !demandHigh) supplyDemandGapFlag = 'LIGHT_DAY_STRONG_STATE';
-            else if (bodyStrong && wearableTrend7d === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
+            else if (bodyStrong && patternSignals.hrv_3day_trend === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
           }
           const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
             !hasWearable
