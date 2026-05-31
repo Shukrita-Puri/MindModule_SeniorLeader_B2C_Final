@@ -48,8 +48,19 @@ Deno.test('demand-scorer: 3 events spaced wide → load=medium', () => {
 });
 
 Deno.test('demand-scorer: 3 events back-to-back → load=high (tight-gap upgrade)', () => {
-  const events = [ev(9, 30), ev(10, 30), ev(11, 30)];
-  const out = computeCalendarDemand(events);
+  // Three 30-minute meetings with ~5-minute gaps → avgGap < 20 ⇒ load upgraded to high.
+  const a = ev(9, 30);
+  const b = {
+    ...ev(9, 30),
+    start_time: new Date('2099-06-15T09:35:00Z').toISOString(),
+    end_time:   new Date('2099-06-15T10:05:00Z').toISOString(),
+  };
+  const c = {
+    ...ev(9, 30),
+    start_time: new Date('2099-06-15T10:10:00Z').toISOString(),
+    end_time:   new Date('2099-06-15T10:40:00Z').toISOString(),
+  };
+  const out = computeCalendarDemand([a, b, c]);
   assertEquals(out.load, 'high');
 });
 
