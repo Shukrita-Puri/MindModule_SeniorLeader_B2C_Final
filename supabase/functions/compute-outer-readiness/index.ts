@@ -4596,6 +4596,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               hrv_3day_trend: hrv3dTrend,
               consecutive_high_load_days: consecutiveHighLoadDays,
               calendarLoad, calendarPressure,
+              cognitive_fragmentation_score: fragmentationScore,
+              short_gap_count: calendarResult.shortGapCount ?? 0,
+              back_to_back_hours: calendarResult.backToBackHours ?? 0,
             },
           },
           {
@@ -4608,6 +4611,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               rhrValue, rhrDeviation,
               hrValue, hrDeviation,
               sustained_deficit_flag: sustainedDeficitFlag,
+              rhr_3day_trend: rhr3dTrend,
             },
           },
           {
