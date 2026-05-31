@@ -10,6 +10,9 @@ import {
 } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import { upsertDailyContextSnapshot } from "../_shared/signal-engine/build-daily-context.ts";
+import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
+import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
