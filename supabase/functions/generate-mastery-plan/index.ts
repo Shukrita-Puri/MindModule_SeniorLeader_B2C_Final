@@ -93,6 +93,27 @@ async function runJitV2Shadow(
     signalSummary = (data as any)?.signal_summary ?? null;
   } catch (_e) { /* null → tier T0 */ }
 
+  // MRS v2 Phase D — snapshot-first visibility of patternSignals (hrv_3day_trend,
+  // consecutive_high_load_days, sustained_deficit_flag). Tier weights still
+  // resolve from causality_findings.signal_summary (canonical proactive-pattern
+  // store per mem://architecture/unified-pattern-store); this snapshot read
+  // is observability + cold-start visibility for the shadow run. Never throws.
+  try {
+    const todayLocal = new Date().toISOString().split('T')[0];
+    const { data: snapRow } = await supabase
+      .from('daily_context_snapshot')
+      .select('pattern_signals, supply_demand_gap_flag, calendar_demand_score')
+      .eq('user_id', userId)
+      .eq('local_date', todayLocal)
+      .maybeSingle();
+    const ps = (snapRow as any)?.pattern_signals ?? null;
+    if (ps) {
+      console.log(`[generate-mastery-plan][mrs-v2] snapshot patternSignals: hrv_3day_trend=${ps.hrv_3day_trend ?? 'unknown'} consecutive_high_load_days=${ps.consecutive_high_load_days ?? 0} sustained_deficit=${ps.sustained_deficit_flag ? 'yes' : 'no'} gap=${(snapRow as any)?.supply_demand_gap_flag ?? 'none'} demandScore=${(snapRow as any)?.calendar_demand_score ?? 'null'}`);
+    } else {
+      console.log(`[generate-mastery-plan][mrs-v2] snapshot patternSignals: <missing for ${todayLocal}>`);
+    }
+  } catch (_e) { /* observability only — never block plan */ }
+
   // Resolved attendee roles for events in scope.
   const emails = new Set<string>();
   for (const fe of sourceEvents) {
