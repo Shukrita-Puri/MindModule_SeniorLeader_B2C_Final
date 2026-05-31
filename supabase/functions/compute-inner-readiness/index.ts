@@ -45,14 +45,58 @@ function getHRVDeviation(hrv: number, baseline: number): number {
 }
 
 // ==================== DIVERGENCE DETECTION ====================
-type DivergenceFlag = 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
+// MRS v2: divergence now compares the physiological composite vs calendar
+// demand instead of felt-state vs wearable. MASKED_HIGH retained in the type
+// so historical brief_snapshots rows still parse on read; never emitted.
+type DivergenceFlag =
+  | 'ALIGNED'
+  | 'SUPPLY_DEMAND_GAP'
+  | 'RECOVERY_UNDERWAY'
+  | 'LIGHT_DAY_STRONG_STATE'
+  | 'MASKED_HIGH';
 
-function getDivergenceFlag(feltScore: number, wearableScore: number): DivergenceFlag {
-  const gap = Math.abs(feltScore - wearableScore);
-  if (gap > 30) {
-    return feltScore > wearableScore ? 'MASKED_HIGH' : 'RECOVERY_UNDERWAY';
-  }
+type WeightingMode =
+  | 'no_wearable'
+  | 'wearable_early'
+  | 'aligned'
+  | 'supply_demand_gap'
+  | 'recovery_window';
+
+/**
+ * MRS v2 §3.3 — supply / demand divergence detector.
+ * physComposite is the wearable-only inner score (HRV + sleep + RHR).
+ * demandScore is the 0–100 calendar demand from demand-scorer.
+ */
+function getDivergenceFlag(physComposite: number, demandScore: number): DivergenceFlag {
+  if (demandScore >= 65 && physComposite <= 50) return 'SUPPLY_DEMAND_GAP';
+  if (physComposite >= 65 && demandScore <= 35) return 'LIGHT_DAY_STRONG_STATE';
+  if (physComposite >= 55 && demandScore >= 60) return 'RECOVERY_UNDERWAY';
   return 'ALIGNED';
+}
+
+// MRS v2 §3.1 — map demand score onto the 20/50/80 band.
+function getDemandStateScore(demandScore: number | null): number {
+  if (demandScore == null) return 50;
+  if (demandScore > 70) return 80;
+  if (demandScore >= 40) return 50;
+  return 20;
+}
+
+// MRS v2 §3.1 — map pattern signals onto the 20/30/50/70/80 band.
+interface PatternSignalsLite {
+  hrv_3day_trend?: 'improving' | 'stable' | 'declining' | 'unknown';
+  consecutive_high_load_days?: number;
+}
+function getPatternScore(p: PatternSignalsLite | null | undefined): number {
+  if (!p) return 50;
+  if ((p.consecutive_high_load_days ?? 0) >= 3) return 20;
+  if ((p.consecutive_high_load_days ?? 0) === 0 && p.hrv_3day_trend === 'improving') return 80;
+  switch (p.hrv_3day_trend) {
+    case 'declining': return 30;
+    case 'improving': return 70;
+    case 'stable':    return 50;
+    default:          return 50;
+  }
 }
 
 // ==================== TIER MAPPING ====================
