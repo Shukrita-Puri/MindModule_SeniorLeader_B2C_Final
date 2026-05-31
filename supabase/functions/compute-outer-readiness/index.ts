@@ -4666,7 +4666,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             ? computePhysiologicalComposite({
                 hrvDeviationPct: typeof hrvDeviation === 'number' ? hrvDeviation : null,
                 sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
-                sleepHours: typeof sleepDuration === 'number' ? sleepDuration : null,
+                // sleepDuration is stored in minutes; composite expects hours.
+                sleepHours: typeof sleepDuration === 'number' ? sleepDuration / 60 : null,
                 // RHR 3-day trend (P2): contributes 15% to the composite
                 // when known. Falls through to HRV+Sleep when 'unknown'.
                 rhrTrend: rhr3dTrend,
