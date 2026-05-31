@@ -20,6 +20,10 @@ const SUSTAINED_DEFICIT_MIN_DAYS = 2;
 const COOCCURRENCE_HRV_DEFICIT_PCT = -10; // HRV ≤ −10% vs 30-day baseline
 const COOCCURRENCE_WINDOW_DAYS = 7;
 
+// MRS v2 §3.5 — RHR 3-day trend band. Match HRV trend treatment for
+// symmetry (±5% defines a meaningful 3-day move).
+const RHR_TREND_BAND_PCT = 5;
+
 /**
  * Compute the four pattern signals.
  * @param raw           RawSignals built from db-queries.
@@ -202,4 +206,38 @@ export function patternToScore(p: PatternSignals | null): number {
     case 'stable':    return 50;
     default:          return 50;
   }
+}
+
+/**
+ * MRS v2 §3.5 — RHR 3-day trend classifier (Physical Reserves input).
+ *
+ * Compares today's RHR vs the value ~3 days back. RHR semantics are
+ * inverted from HRV — *declining* RHR is the good signal (parasympathetic
+ * recovery), *rising* RHR is the warning.
+ *
+ * Returns:
+ *   - 'declining' — today ≤ −5% vs 3d ago  (recovery)
+ *   - 'rising'    — today ≥ +5% vs 3d ago  (load accumulating)
+ *   - 'stable'    — within ±5%
+ *   - 'unknown'   — insufficient data
+ *
+ * Input shape mirrors the wearable trail used elsewhere — date + value.
+ * Pure / null-safe / never throws.
+ */
+export function computeRhr3DayTrend(
+  samples: Array<{ date: string; rhr: number | null | undefined }>,
+): 'declining' | 'stable' | 'rising' | 'unknown' {
+  if (!samples || samples.length === 0) return 'unknown';
+  const valid = samples
+    .filter((s) => s && s.date && s.rhr != null && Number.isFinite(Number(s.rhr)) && Number(s.rhr) > 0)
+    .map((s) => ({ date: s.date, rhr: Number(s.rhr) }))
+    .sort((a, b) => (new Date(b.date).getTime() - new Date(a.date).getTime()));
+  if (valid.length === 0) return 'unknown';
+  const today = valid[0]?.rhr;
+  const ref = valid[3]?.rhr ?? valid[valid.length - 1]?.rhr;
+  if (today == null || ref == null || ref <= 0) return 'unknown';
+  const pct = ((today - ref) / ref) * 100;
+  if (pct <= -RHR_TREND_BAND_PCT) return 'declining';
+  if (pct >= RHR_TREND_BAND_PCT) return 'rising';
+  return 'stable';
 }
