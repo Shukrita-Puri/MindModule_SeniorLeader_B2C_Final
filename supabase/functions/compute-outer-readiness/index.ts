@@ -4333,6 +4333,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             samples: number;
           };
           sustained_deficit_flag: boolean;
+          hrv_low_high_demand_cooccurrence_7d?: {
+            cooccurrence_count: number;
+            cooccurrence_ratio: number | null;
+            days_observed: number;
+          };
         } | null = null;
         try {
           const composed = await composeDailyContext(db as any, userId, userLocalDate, {
@@ -4344,43 +4349,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           console.warn('[mrs-v2:composeDailyContext] dry-run failed:', composeErr instanceof Error ? composeErr.message : composeErr);
         }
 
-        let activePatternCount = 0;
-        let hasRecentDepletion = false;
-        let hasRecoveryDebt = false;
-        let depletionIsRedWeight = false; // ≤7d AND importance≥5
+        // Coach feature is suppressed (see mem://features/coach/suppression-standard).
+        // Resilience reads only wearable + calendar patterns + onboarding
+        // protection_goals (framing only). Coach pattern / memory fetches
+        // have been removed from the Resilience pill path per MRS v2 §3.5.
         let protectionGoals: string[] = [];
         try {
-          const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-          const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-          const [patternsRes, memoryRes, profileRes] = await Promise.all([
-            db.from('coach_pattern_observations')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .eq('status', 'active')
-              .gte('last_observed_at', fourteenDaysAgo)
-              .then((r: any) => r, () => ({ count: 0 })),
-            db.from('coach_memory_index')
-              .select('memory_type, importance, created_at')
-              .eq('user_id', userId)
-              .in('memory_type', ['depletion', 'recovery_debt'])
-              .gte('created_at', fourteenDaysAgo)
-              .then((r: any) => r, () => ({ data: [] })),
-            db.from('profiles')
-              .select('protection_goals')
-              .eq('id', userId)
-              .maybeSingle()
-              .then((r: any) => r, () => ({ data: null })),
-          ]);
-          activePatternCount = Number((patternsRes as any)?.count ?? 0) || 0;
-          const memRows: Array<{ memory_type: string; importance: number | null; created_at: string }> =
-            ((memoryRes as any)?.data as any[]) || [];
-          for (const m of memRows) {
-            if (m.memory_type === 'depletion') hasRecentDepletion = true;
-            if (m.memory_type === 'recovery_debt') hasRecoveryDebt = true;
-            if ((m.importance ?? 0) >= 5 && m.created_at >= sevenDaysAgo) {
-              depletionIsRedWeight = true;
-            }
-          }
+          const profileRes = await db.from('profiles')
+            .select('protection_goals')
+            .eq('id', userId)
+            .maybeSingle()
+            .then((r: any) => r, () => ({ data: null }));
           const pg = (profileRes as any)?.data?.protection_goals;
           if (Array.isArray(pg)) protectionGoals = pg.filter(x => typeof x === 'string');
           else if (pg && typeof pg === 'object') protectionGoals = Object.keys(pg);
@@ -4402,6 +4381,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const sustainedDeficitFlag: boolean =
           composedPatternSignals?.sustained_deficit_flag
           ?? (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
+
+        // MRS v2 §3.5 — HRV-low × high-demand co-occurrence (last 7 days).
+        // Primary Resilience signal: how often this week the body was under-
+        // baseline AND the calendar hammered. Pure wearable-pattern signal —
+        // null-safe defaults so we never block on missing history.
+        const cooccurrence7d = composedPatternSignals?.hrv_low_high_demand_cooccurrence_7d
+          ?? { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 };
+        const typicalLoadForDow: 'low' | 'medium' | 'high' | null =
+          composedPatternSignals?.dow_historical_pattern?.typical_load_for_dow ?? null;
 
         // ── Build structured signal_pills payload (server-side mirror of the
         // client pillar engine in DecisionReadinessBrief.tsx). We persist the
@@ -4469,37 +4457,49 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           ? 'neutral'
           : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
 
-        // MRS v2 §3.5 — Resilience Capacity.
-        // Source change: was outcome + HRV (strict band) + confidence. Now
-        // HRV (strict band) + consecutive_high_load_days + low HRV ×
-        // high-demand co-occurrence + coach pattern density + recent
-        // depletion/recovery-debt memory + protection-goal-under-pressure
-        // bias. Check-in fields dropped. Coach UI is suppressed but
-        // coach_pattern_observations / coach_memory_index remain valid
-        // background-derived signals.
+        // MRS v2 §3.5 — Resilience Capacity (wearable-pattern only).
+        // Coach feature is suppressed; check-in fields are gone. Inputs are
+        // strictly:
+        //   1. consecutive_high_load_days  (calendar pattern)
+        //   2. sustained_deficit_flag      (HRV under baseline 2+ days)
+        //   3. hrv_low_high_demand_cooccurrence_7d (HRV × calendar correlation)
+        //   4. dow_historical_pattern.typical_load_for_dow (framing context)
+        //   5. profiles.protection_goals    (framing only — bias to amber on
+        //                                    demand-heavy days, never red)
+        // Any confidence_level / energy_balance / coach_pattern signal is
+        // intentionally NOT consumed here.
         const resTiers: PillTier[] = [];
-        if (hrvValue != null) {
-          if (hrvDeviation != null) {
-            resTiers.push(hrvDeviation <= -25 ? 'red' : hrvDeviation < -15 ? 'amber' : 'green');
-          } else {
-            resTiers.push(hrvValue < 18 ? 'red' : hrvValue < 35 ? 'amber' : 'green');
-          }
-        }
-        // Sustained-demand-day count (MRS v2 §3.5 primary resilience signal).
-        if (consecutiveHighLoadDays >= 3) resTiers.push('amber');
-        // Co-occurrence: low HRV AND high calendar demand erodes reserve.
-        if ((hrvDeviation != null && hrvDeviation < -15) && calendarPressure === 'high') {
+
+        // (1) Sustained-demand-day count.
+        if (consecutiveHighLoadDays >= 3) resTiers.push('red');
+        else if (consecutiveHighLoadDays === 2) resTiers.push('amber');
+
+        // (2) Sustained physiological deficit (HRV < −20% for 2+ consecutive days).
+        if (sustainedDeficitFlag) resTiers.push('red');
+
+        // (3) HRV-low × high-demand co-occurrence over the last 7 days.
+        //   - 3+ days  → red   (reserve actively eroding)
+        //   - 2 days   → amber
+        //   - ratio ≥ 0.5 with ≥2 observed days → amber (sparse but skewed)
+        if (cooccurrence7d.cooccurrence_count >= 3) {
           resTiers.push('red');
+        } else if (cooccurrence7d.cooccurrence_count === 2) {
+          resTiers.push('amber');
+        } else if (
+          cooccurrence7d.days_observed >= 2
+          && (cooccurrence7d.cooccurrence_ratio ?? 0) >= 0.5
+        ) {
+          resTiers.push('amber');
         }
-        // Active coach pattern density (≥3 → amber).
-        if (activePatternCount >= 3) resTiers.push('amber');
-        // Recent depletion / recovery-debt memory. Red weight only when a
-        // high-importance signal landed in the last 7 days; otherwise amber.
-        if (hasRecoveryDebt || hasRecentDepletion) {
-          resTiers.push(depletionIsRedWeight ? 'red' : 'amber');
+
+        // (4) Framing: today's load vs the day-of-week norm.
+        // High-load on a day that's historically light = unusual strain → amber.
+        if (typicalLoadForDow && typicalLoadForDow !== 'high' && calendarLoad === 'high') {
+          resTiers.push('amber');
         }
-        // Protection-goal-under-pressure bias (framing only — never raw
-        // presence). Goal exists AND today is demand-heavy → amber.
+
+        // (5) Protection-goal-under-pressure bias (framing only — never raw
+        // presence, never red). Goal exists AND today is demand-heavy → amber.
         const _hasStakesEarly = (calendarResult.highStakesEvents?.length ?? 0) > 0;
         if (protectionGoals.length > 0 && (calendarPressure === 'high' || _hasStakesEarly)) {
           resTiers.push('amber');
