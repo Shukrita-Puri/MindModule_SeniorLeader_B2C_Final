@@ -16,6 +16,10 @@ const HRV_TREND_BAND_PCT = 5;       // ±5% defines improving / declining
 const SUSTAINED_DEFICIT_PCT = -20;  // > 20% below baseline
 const SUSTAINED_DEFICIT_MIN_DAYS = 2;
 
+// MRS v2 §3.5 — Resilience co-occurrence thresholds.
+const COOCCURRENCE_HRV_DEFICIT_PCT = -10; // HRV ≤ −10% vs 30-day baseline
+const COOCCURRENCE_WINDOW_DAYS = 7;
+
 /**
  * Compute the four pattern signals.
  * @param raw           RawSignals built from db-queries.
@@ -57,6 +61,12 @@ export function buildPatternSignals(
   // ── D. sustained_deficit_flag ─────────────────────────────────────
   const sustained_deficit_flag = detectSustainedDeficit(raw);
 
+  // ── E. hrv_low_high_demand_cooccurrence_7d ────────────────────────
+  // Resilience-Capacity primary signal: how often the body is under-
+  // baseline AND the calendar is hammering, joined day-by-day over the
+  // trailing week. See computeHrvLoadCooccurrence for full contract.
+  const hrv_low_high_demand_cooccurrence_7d = computeHrvLoadCooccurrence(raw);
+
   return {
     hrv_3day_trend,
     consecutive_high_load_days,
@@ -66,6 +76,7 @@ export function buildPatternSignals(
       samples: dowRows.length,
     },
     sustained_deficit_flag,
+    hrv_low_high_demand_cooccurrence_7d,
   };
 }
 
@@ -103,6 +114,72 @@ function detectSustainedDeficit(raw: RawSignals): boolean {
     else break;
   }
   return streak >= SUSTAINED_DEFICIT_MIN_DAYS;
+}
+
+/**
+ * MRS v2 §3.5 — Resilience co-occurrence detector.
+ *
+ * Joins HRV samples (`raw.hrvRecent`) and per-day load tier
+ * (`raw.dowHistory` entries that include `date`) by ISO date over the
+ * trailing `days` window. Counts the days where:
+ *   - HRV deviation vs `raw.hrvBaseline30d` is ≤ COOCCURRENCE_HRV_DEFICIT_PCT
+ *     (default −10%), AND
+ *   - calendar load tier === 'high'.
+ *
+ * Returns:
+ *   - `cooccurrence_count`  — raw count of matching days
+ *   - `days_observed`       — days in the window with BOTH an HRV value
+ *                              and a load tier (denominator of the ratio)
+ *   - `cooccurrence_ratio`  — count / days_observed, or null when
+ *                              days_observed === 0
+ *
+ * Pure function — null-safe and never throws. Coach inputs are
+ * intentionally absent (coach feature suppressed; this is a
+ * wearable-pattern correlation only).
+ */
+export function computeHrvLoadCooccurrence(
+  raw: RawSignals,
+  days: number = COOCCURRENCE_WINDOW_DAYS,
+): { cooccurrence_count: number; cooccurrence_ratio: number | null; days_observed: number } {
+  const empty = { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 };
+  const baseline = raw.hrvBaseline30d;
+  if (!baseline || baseline <= 0) return empty;
+
+  // Build a date → HRV map from hrvRecent (most-recent-first; trim to window).
+  const hrvByDate = new Map<string, number>();
+  for (const s of raw.hrvRecent ?? []) {
+    if (s.date && Number.isFinite(s.hrv)) hrvByDate.set(s.date, s.hrv);
+  }
+
+  // Build a date → load map from dowHistory (date field is optional).
+  const loadByDate = new Map<string, 'low' | 'medium' | 'high'>();
+  for (const r of raw.dowHistory ?? []) {
+    if (r.date && r.load) loadByDate.set(r.date, r.load);
+  }
+
+  // Window is the most recent `days` dates we have HRV for. We anchor on
+  // HRV because dowHistory may be sparse (calendar-only days).
+  const sortedHrvDates = [...hrvByDate.keys()].sort((a, b) => (a < b ? 1 : -1));
+  const windowDates = sortedHrvDates.slice(0, days);
+
+  let cooccurrence_count = 0;
+  let days_observed = 0;
+  for (const date of windowDates) {
+    const hrv = hrvByDate.get(date);
+    const load = loadByDate.get(date);
+    if (hrv == null || load == null) continue;
+    days_observed++;
+    const dev = ((hrv - baseline) / baseline) * 100;
+    if (dev <= COOCCURRENCE_HRV_DEFICIT_PCT && load === 'high') {
+      cooccurrence_count++;
+    }
+  }
+
+  return {
+    cooccurrence_count,
+    days_observed,
+    cooccurrence_ratio: days_observed > 0 ? cooccurrence_count / days_observed : null,
+  };
 }
 
 /**

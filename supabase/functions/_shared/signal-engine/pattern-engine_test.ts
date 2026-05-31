@@ -3,7 +3,7 @@
 // mode, and sustained-deficit edge cases.
 
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { buildPatternSignals, patternToScore } from './pattern-engine.ts';
+import { buildPatternSignals, computeHrvLoadCooccurrence, patternToScore } from './pattern-engine.ts';
 import type { RawSignals } from './types.ts';
 
 function raw(p: Partial<RawSignals> = {}): RawSignals {
@@ -147,6 +147,7 @@ Deno.test('patternToScore: depleted (3+ high load) → 20', () => {
       consecutive_high_load_days: 3,
       dow_historical_pattern: { typical_hrv_for_dow: null, typical_load_for_dow: null, samples: 0 },
       sustained_deficit_flag: false,
+      hrv_low_high_demand_cooccurrence_7d: { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 },
     }),
     20,
   );
@@ -159,6 +160,7 @@ Deno.test('patternToScore: improving + zero high load → 80', () => {
       consecutive_high_load_days: 0,
       dow_historical_pattern: { typical_hrv_for_dow: null, typical_load_for_dow: null, samples: 0 },
       sustained_deficit_flag: false,
+      hrv_low_high_demand_cooccurrence_7d: { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 },
     }),
     80,
   );
@@ -169,6 +171,7 @@ Deno.test('patternToScore: declining → 30, stable → 50, improving → 70, un
     consecutive_high_load_days: 1,
     dow_historical_pattern: { typical_hrv_for_dow: null, typical_load_for_dow: null, samples: 0 },
     sustained_deficit_flag: false,
+    hrv_low_high_demand_cooccurrence_7d: { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 },
   };
   assertEquals(patternToScore({ ...base, hrv_3day_trend: 'declining' }), 30);
   assertEquals(patternToScore({ ...base, hrv_3day_trend: 'stable' }), 50);
@@ -178,4 +181,75 @@ Deno.test('patternToScore: declining → 30, stable → 50, improving → 70, un
 
 Deno.test('patternToScore: null input → 50 (safe default)', () => {
   assertEquals(patternToScore(null), 50);
+});
+
+// ── computeHrvLoadCooccurrence ─────────────────────────────────────────
+
+Deno.test('cooccurrence: no baseline → all-zero, ratio null', () => {
+  const out = computeHrvLoadCooccurrence(raw({
+    hrvRecent: [{ date: '2026-05-30', hrv: 40 }],
+    dowHistory: [{ date: '2026-05-30', dow: 6, hrv: 40, load: 'high' }],
+  }));
+  assertEquals(out, { cooccurrence_count: 0, cooccurrence_ratio: null, days_observed: 0 });
+});
+
+Deno.test('cooccurrence: HRV ≤ −10% AND load=high counts the day', () => {
+  const out = computeHrvLoadCooccurrence(raw({
+    hrvBaseline30d: 60,
+    hrvRecent: [
+      { date: '2026-05-30', hrv: 50 }, // −16.7% → deficit
+      { date: '2026-05-29', hrv: 55 }, // −8.3%  → not deficit
+      { date: '2026-05-28', hrv: 48 }, // −20%   → deficit
+    ],
+    dowHistory: [
+      { date: '2026-05-30', dow: 6, hrv: 50, load: 'high' },
+      { date: '2026-05-29', dow: 5, hrv: 55, load: 'high' },
+      { date: '2026-05-28', dow: 4, hrv: 48, load: 'medium' },
+    ],
+  }));
+  // Day 30: deficit + high → count.
+  // Day 29: not deficit → skip.
+  // Day 28: deficit but load=medium → skip.
+  assertEquals(out.cooccurrence_count, 1);
+  assertEquals(out.days_observed, 3);
+  assertEquals(out.cooccurrence_ratio, 1 / 3);
+});
+
+Deno.test('cooccurrence: load missing for a date → not counted in denominator', () => {
+  const out = computeHrvLoadCooccurrence(raw({
+    hrvBaseline30d: 60,
+    hrvRecent: [
+      { date: '2026-05-30', hrv: 40 },
+      { date: '2026-05-29', hrv: 40 },
+    ],
+    dowHistory: [
+      { date: '2026-05-30', dow: 6, hrv: 40, load: 'high' },
+      // 2026-05-29 has no load entry — skipped.
+    ],
+  }));
+  assertEquals(out.cooccurrence_count, 1);
+  assertEquals(out.days_observed, 1);
+  assertEquals(out.cooccurrence_ratio, 1);
+});
+
+Deno.test('cooccurrence: window cap respected (default 7 days)', () => {
+  const dates = Array.from({ length: 10 }, (_, i) => `2026-05-${String(31 - i).padStart(2, '0')}`);
+  const out = computeHrvLoadCooccurrence(raw({
+    hrvBaseline30d: 60,
+    hrvRecent: dates.map((d) => ({ date: d, hrv: 40 })),
+    dowHistory: dates.map((d) => ({ date: d, dow: 0, hrv: 40, load: 'high' as const })),
+  }));
+  // 10 candidate days but window=7.
+  assertEquals(out.days_observed, 7);
+  assertEquals(out.cooccurrence_count, 7);
+});
+
+Deno.test('cooccurrence: buildPatternSignals exposes 7-day cooccurrence', () => {
+  const out = buildPatternSignals(raw({
+    hrvBaseline30d: 60,
+    hrvRecent: [{ date: '2026-05-30', hrv: 45 }],
+    dowHistory: [{ date: '2026-05-30', dow: 6, hrv: 45, load: 'high' }],
+  }));
+  assertEquals(out.hrv_low_high_demand_cooccurrence_7d.cooccurrence_count, 1);
+  assertEquals(out.hrv_low_high_demand_cooccurrence_7d.days_observed, 1);
 });
