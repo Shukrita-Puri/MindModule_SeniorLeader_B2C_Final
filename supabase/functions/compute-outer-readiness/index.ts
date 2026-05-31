@@ -4343,7 +4343,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const stateMaxLocal = (a: PillTier, b: PillTier): PillTier =>
           stateRank[a] >= stateRank[b] ? a : b;
 
-        // Cognitive (Decision Readiness) — HRV + Sharpness + Clarity (+ Sleep cog) + Outcome
+        // MRS v2 §3.5 — Cognitive (Decision Readiness).
+        // Source change: was HRV + sharpness + clarity + outcome. Now HRV
+        // (primary) + 3-day HRV trend amplifier + cognitive fragmentation
+        // proxy via calendar load. Check-in fields are intentionally dropped.
         const cogTiers: PillTier[] = [];
         if (hrvValue != null) {
           if (hrvDeviation != null) {
@@ -4352,14 +4355,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
           }
         }
-        if (mentalSharpnessLevel != null) {
-          cogTiers.push(mentalSharpnessLevel <= 2 ? 'red' : mentalSharpnessLevel === 3 ? 'amber' : 'green');
-        }
-        if (clarityLevel != null) {
-          cogTiers.push(clarityLevel <= 2 ? 'red' : clarityLevel === 3 ? 'amber' : 'green');
-        }
-        if (checkInOutcome === 'scattered') cogTiers.push('red');
-        else if (checkInOutcome === 'focused' || checkInOutcome === 'thriving') cogTiers.push('green');
+        // 3-day HRV trend acts as a fragmentation amplifier.
+        if (wearableTrend7d === 'declining') cogTiers.push('amber');
+        // Calendar fragmentation: high load AND high pressure → cognitive drag.
+        if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
         const cognitiveTier: PillTier = cogTiers.length === 0
           ? 'neutral'
           : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
