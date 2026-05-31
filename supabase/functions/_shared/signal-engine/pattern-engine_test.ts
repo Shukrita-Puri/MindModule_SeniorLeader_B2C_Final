@@ -303,12 +303,22 @@ Deno.test('rhr-trend: within ±5% → stable', () => {
 });
 
 Deno.test('rhr-trend: filters nulls/zeros without throwing', () => {
+  // All-invalid → unknown.
+  assertEquals(
+    computeRhr3DayTrend([
+      { date: '2026-01-04', rhr: null },
+      { date: '2026-01-03', rhr: 0 },
+    ]),
+    'unknown',
+  );
+  // Mixed invalid + 1 valid sample → falls back to single-sample comparison
+  // against itself → stable (no throw).
   assertEquals(
     computeRhr3DayTrend([
       { date: '2026-01-04', rhr: null },
       { date: '2026-01-03', rhr: 0 },
       { date: '2026-01-02', rhr: 60 },
     ]),
-    'unknown',
+    'stable',
   );
 });
