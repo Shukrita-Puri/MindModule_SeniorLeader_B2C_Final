@@ -570,49 +570,107 @@ serve(async (req) => {
     const dayOfWeek = userTime.getDay();
     const timeOfDay = getTimeOfDay(hour);
 
-    // Signal 1: Felt State
-    const feltScore = getFeltStateScore(checkInOutcome);
+    // ─── MRS v2 inputs ──────────────────────────────────────────────────
+    // The two former check-in inputs (felt-state, C×C internal readiness) are
+    // replaced by calendar demand + wearable pattern. Legacy felt/IR helpers
+    // are kept above for resurfacing later.
+    const demandScore = body.demandScore ?? null;
+    const demandStateScore = getDemandStateScore(demandScore);
+    const patternScore = getPatternScore(body.patternSignals ?? null);
 
-    // Signal 2: Internal Readiness
-    const irScore = getIRScore(clarity, confidence);
-
-    // Signal 3: Circadian
+    // Circadian (unchanged).
     const circadianScore = getCircadianScore(hour, dayOfWeek);
 
-    // Signal 4: Wearable (if available)
+    // Wearable composite (unchanged in principle — still HRV-driven).
     let wearableScore = 0;
     let hrvDeviation: number | null = null;
-    let divergenceFlag: DivergenceFlag = 'ALIGNED';
-
-    if (hasWearable && body.wearableHRV != null && body.wearableBaseline != null && body.wearableBaseline > 0) {
+    if (
+      hasWearable &&
+      body.wearableHRV != null &&
+      body.wearableBaseline != null &&
+      body.wearableBaseline > 0
+    ) {
       wearableScore = getWearableScore(body.wearableHRV, body.wearableBaseline);
       hrvDeviation = getHRVDeviation(body.wearableHRV, body.wearableBaseline);
-      divergenceFlag = getDivergenceFlag(feltScore, wearableScore);
     }
 
-    // Compute final score based on weighting mode + baseline confidence
-    // Scale wearable weight by confidence: low=15%, medium=25%, high=full (25-35%)
+    // ─── Divergence + weighting mode (MRS v2 §3.2 / §3.3) ───────────────
+    // physComposite is the wearable-only physiological signal compared
+    // against demandScore (calendar). Pattern feeds the score but is not
+    // part of the divergence check.
+    const physComposite = hasWearable ? wearableScore : 50;
+    const dScore = demandScore ?? 50;
+    const divergenceFlag: DivergenceFlag = !hasWearable
+      ? 'ALIGNED'
+      : getDivergenceFlag(physComposite, dScore);
+
     const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
 
+    // Resolve weighting mode. Callers may override; otherwise derive from
+    // baseline confidence + divergence flag.
+    let weightingMode: WeightingMode;
+    if (body.weightingMode) weightingMode = body.weightingMode;
+    else if (!hasWearable) weightingMode = 'no_wearable';
+    else if (bConf === 'low') weightingMode = 'wearable_early';
+    else if (divergenceFlag === 'SUPPLY_DEMAND_GAP') weightingMode = 'supply_demand_gap';
+    else if (divergenceFlag === 'RECOVERY_UNDERWAY') weightingMode = 'recovery_window';
+    else weightingMode = 'aligned';
+
+    // Per MRS v2 §3.2 weight table (wearable, sleep+rhr already baked into
+    // wearableScore upstream; this layer composes wearable / demand / pattern
+    // / circadian).
     let score: number;
-    if (!hasWearable) {
-      // Mode 1: No wearable — felt 40%, C×C 45%, circadian 15%
-      score = Math.round(feltScore * 0.40 + irScore * 0.45 + circadianScore * 0.15);
-    } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High — wearable 40%, remainder split equally felt/C×C, circadian 10%
-      const wW = 0.40 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.10; // circadian stays 0.10
-      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
-    } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      // Mode 4: Recovery Underway — wearable 35%, remainder split equally felt/C×C, circadian 10%
+    if (weightingMode === 'no_wearable') {
+      // 0% wearable, 50% demand, 50% pattern (per §3.6 cold-start, compressed)
+      score = Math.round(demandStateScore * 0.50 + patternScore * 0.50);
+    } else if (weightingMode === 'wearable_early') {
+      // 25% wearable, 35% demand, 20% pattern, 20% circadian
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.20; // circadian fixed 0.20
+      const dW = remainder * (0.35 / (0.35 + 0.20));
+      const pW = remainder * (0.20 / (0.35 + 0.20));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.20,
+      );
+    } else if (weightingMode === 'supply_demand_gap') {
+      // 35% wearable, 20% demand, 10% pattern, 10% circadian, 25% physComposite floor
       const wW = 0.35 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
+      const dW = remainder * (0.20 / (0.20 + 0.10));
+      const pW = remainder * (0.10 / (0.20 + 0.10));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.10,
+      );
+    } else if (weightingMode === 'recovery_window') {
+      // State exceeds demand: 25% wearable, 25% demand, 15% pattern, 15% circadian, 20% balance
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.15;
+      const dW = remainder * (0.25 / (0.25 + 0.15));
+      const pW = remainder * (0.15 / (0.25 + 0.15));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.15,
+      );
     } else {
-      // Mode 2: Aligned — wearable 35%, felt 25%, C×C 30%, circadian 10%
-      const wW = 0.35 * wearableConfidenceScale;
+      // aligned — 30% wearable, 25% demand, 15% pattern, 10% circadian, 20% slack
+      const wW = 0.30 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder / (0.25 + 0.30) * 0.25) + irScore * (remainder / (0.25 + 0.30) * 0.30) + wearableScore * wW + circadianScore * 0.10);
+      const dW = remainder * (0.25 / (0.25 + 0.15));
+      const pW = remainder * (0.15 / (0.25 + 0.15));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.10,
+      );
     }
 
     // Clamp score
