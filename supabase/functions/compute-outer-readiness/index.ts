@@ -3706,6 +3706,68 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\n\n=== STRATEGIC CONTEXT ===`;
             userPrompt += `\npostPeakWindow: ${postPeakWindow ? 'yes' : 'no'}`;
             userPrompt += `\nisHighVisibilityToday: ${isHighVisibilityToday ? 'yes' : 'no'}`;
+
+            // MRS v2 Phase D — snapshot-first hydration of patternSignals +
+            // strategic_context + calendar_demand_score. Snapshot row is the
+            // canonical SSOT (written by compute-outer-readiness mirror block
+            // on every prior run; orchestrator backfills for cron callers).
+            // Falls back to a dry-run composeDailyContext when the row is
+            // missing (cold start) so the LLM still sees the v2 fields.
+            // Never throws — readiness must keep flowing.
+            try {
+              let snap: any = null;
+              try {
+                const { data: snapRow } = await (db as any)
+                  .from('daily_context_snapshot')
+                  .select('pattern_signals, strategic_context, calendar_demand_score, supply_demand_gap_flag')
+                  .eq('user_id', userId)
+                  .eq('local_date', userLocalDate)
+                  .maybeSingle();
+                snap = snapRow ?? null;
+              } catch (_snapErr) { /* fall through to compose */ }
+
+              let ps: any = snap?.pattern_signals ?? null;
+              let strat: any = snap?.strategic_context ?? null;
+              let demandScore: number | null = typeof snap?.calendar_demand_score === 'number' ? snap.calendar_demand_score : null;
+              const gapFlag: string | null = snap?.supply_demand_gap_flag ?? null;
+
+              if (!ps || !strat || demandScore == null) {
+                try {
+                  const composed = await composeDailyContext(db as any, userId, userLocalDate, {
+                    timezone: effectiveCurrentTz,
+                    dryRun: true,
+                  });
+                  ps = ps ?? composed.patternSignals;
+                  strat = strat ?? composed.strategicContext;
+                  demandScore = demandScore ?? composed.calendarDemandScore;
+                } catch (composeErr) {
+                  console.warn('[mrs-v2:brief] compose fallback failed:',
+                    composeErr instanceof Error ? composeErr.message : composeErr);
+                }
+              }
+
+              if (ps) {
+                userPrompt += `\nhrv_3day_trend: ${ps.hrv_3day_trend ?? 'unknown'}`;
+                userPrompt += `\nconsecutive_high_load_days: ${ps.consecutive_high_load_days ?? 0}`;
+                userPrompt += `\nsustained_deficit_flag: ${ps.sustained_deficit_flag ? 'yes' : 'no'}`;
+              }
+              if (demandScore != null) {
+                userPrompt += `\ncalendar_demand_score: ${demandScore}`;
+              }
+              if (gapFlag) {
+                userPrompt += `\nsupply_demand_gap_flag: ${gapFlag}`;
+              }
+              if (strat) {
+                if (strat.user_archetype) userPrompt += `\narchetype: ${strat.user_archetype}`;
+                if (strat.pressure_profile) userPrompt += `\npressure_profile: ${strat.pressure_profile}`;
+                if (Array.isArray(strat.protection_goals) && strat.protection_goals.length > 0) {
+                  userPrompt += `\nprotection_goals: ${strat.protection_goals.slice(0, 3).join(', ')}`;
+                }
+              }
+            } catch (e) {
+              console.warn('[mrs-v2:brief] snapshot hydration skipped:',
+                e instanceof Error ? e.message : e);
+            }
           }
 
           // === TRIANGULATION ===
