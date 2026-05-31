@@ -45,14 +45,58 @@ function getHRVDeviation(hrv: number, baseline: number): number {
 }
 
 // ==================== DIVERGENCE DETECTION ====================
-type DivergenceFlag = 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
+// MRS v2: divergence now compares the physiological composite vs calendar
+// demand instead of felt-state vs wearable. MASKED_HIGH retained in the type
+// so historical brief_snapshots rows still parse on read; never emitted.
+type DivergenceFlag =
+  | 'ALIGNED'
+  | 'SUPPLY_DEMAND_GAP'
+  | 'RECOVERY_UNDERWAY'
+  | 'LIGHT_DAY_STRONG_STATE'
+  | 'MASKED_HIGH';
 
-function getDivergenceFlag(feltScore: number, wearableScore: number): DivergenceFlag {
-  const gap = Math.abs(feltScore - wearableScore);
-  if (gap > 30) {
-    return feltScore > wearableScore ? 'MASKED_HIGH' : 'RECOVERY_UNDERWAY';
-  }
+type WeightingMode =
+  | 'no_wearable'
+  | 'wearable_early'
+  | 'aligned'
+  | 'supply_demand_gap'
+  | 'recovery_window';
+
+/**
+ * MRS v2 §3.3 — supply / demand divergence detector.
+ * physComposite is the wearable-only inner score (HRV + sleep + RHR).
+ * demandScore is the 0–100 calendar demand from demand-scorer.
+ */
+function getDivergenceFlag(physComposite: number, demandScore: number): DivergenceFlag {
+  if (demandScore >= 65 && physComposite <= 50) return 'SUPPLY_DEMAND_GAP';
+  if (physComposite >= 65 && demandScore <= 35) return 'LIGHT_DAY_STRONG_STATE';
+  if (physComposite >= 55 && demandScore >= 60) return 'RECOVERY_UNDERWAY';
   return 'ALIGNED';
+}
+
+// MRS v2 §3.1 — map demand score onto the 20/50/80 band.
+function getDemandStateScore(demandScore: number | null): number {
+  if (demandScore == null) return 50;
+  if (demandScore > 70) return 80;
+  if (demandScore >= 40) return 50;
+  return 20;
+}
+
+// MRS v2 §3.1 — map pattern signals onto the 20/30/50/70/80 band.
+interface PatternSignalsLite {
+  hrv_3day_trend?: 'improving' | 'stable' | 'declining' | 'unknown';
+  consecutive_high_load_days?: number;
+}
+function getPatternScore(p: PatternSignalsLite | null | undefined): number {
+  if (!p) return 50;
+  if ((p.consecutive_high_load_days ?? 0) >= 3) return 20;
+  if ((p.consecutive_high_load_days ?? 0) === 0 && p.hrv_3day_trend === 'improving') return 80;
+  switch (p.hrv_3day_trend) {
+    case 'declining': return 30;
+    case 'improving': return 70;
+    case 'stable':    return 50;
+    default:          return 50;
+  }
 }
 
 // ==================== TIER MAPPING ====================
@@ -470,9 +514,19 @@ function selectSignalsForStatement(
 // ==================== MAIN SCORING ====================
 
 interface ComputeRequest {
+  // MRS v2 — primary scoring inputs.
+  demandScore?: number | null;
+  patternSignals?: PatternSignalsLite | null;
+  weightingMode?: WeightingMode | null;
+
+  // Legacy check-in inputs — accepted for backwards compatibility but
+  // intentionally IGNORED by scoring. The check-in surface was removed; these
+  // remain so we can resurface a felt-state input later without a client churn.
   checkInOutcome: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
+
+  // Wearable + cold-start configuration (unchanged).
   wearableHRV: number | null;
   wearableBaseline: number | null;
   hasCheckIn: boolean;
@@ -516,49 +570,107 @@ serve(async (req) => {
     const dayOfWeek = userTime.getDay();
     const timeOfDay = getTimeOfDay(hour);
 
-    // Signal 1: Felt State
-    const feltScore = getFeltStateScore(checkInOutcome);
+    // ─── MRS v2 inputs ──────────────────────────────────────────────────
+    // The two former check-in inputs (felt-state, C×C internal readiness) are
+    // replaced by calendar demand + wearable pattern. Legacy felt/IR helpers
+    // are kept above for resurfacing later.
+    const demandScore = body.demandScore ?? null;
+    const demandStateScore = getDemandStateScore(demandScore);
+    const patternScore = getPatternScore(body.patternSignals ?? null);
 
-    // Signal 2: Internal Readiness
-    const irScore = getIRScore(clarity, confidence);
-
-    // Signal 3: Circadian
+    // Circadian (unchanged).
     const circadianScore = getCircadianScore(hour, dayOfWeek);
 
-    // Signal 4: Wearable (if available)
+    // Wearable composite (unchanged in principle — still HRV-driven).
     let wearableScore = 0;
     let hrvDeviation: number | null = null;
-    let divergenceFlag: DivergenceFlag = 'ALIGNED';
-
-    if (hasWearable && body.wearableHRV != null && body.wearableBaseline != null && body.wearableBaseline > 0) {
+    if (
+      hasWearable &&
+      body.wearableHRV != null &&
+      body.wearableBaseline != null &&
+      body.wearableBaseline > 0
+    ) {
       wearableScore = getWearableScore(body.wearableHRV, body.wearableBaseline);
       hrvDeviation = getHRVDeviation(body.wearableHRV, body.wearableBaseline);
-      divergenceFlag = getDivergenceFlag(feltScore, wearableScore);
     }
 
-    // Compute final score based on weighting mode + baseline confidence
-    // Scale wearable weight by confidence: low=15%, medium=25%, high=full (25-35%)
+    // ─── Divergence + weighting mode (MRS v2 §3.2 / §3.3) ───────────────
+    // physComposite is the wearable-only physiological signal compared
+    // against demandScore (calendar). Pattern feeds the score but is not
+    // part of the divergence check.
+    const physComposite = hasWearable ? wearableScore : 50;
+    const dScore = demandScore ?? 50;
+    const divergenceFlag: DivergenceFlag = !hasWearable
+      ? 'ALIGNED'
+      : getDivergenceFlag(physComposite, dScore);
+
     const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
 
+    // Resolve weighting mode. Callers may override; otherwise derive from
+    // baseline confidence + divergence flag.
+    let weightingMode: WeightingMode;
+    if (body.weightingMode) weightingMode = body.weightingMode;
+    else if (!hasWearable) weightingMode = 'no_wearable';
+    else if (bConf === 'low') weightingMode = 'wearable_early';
+    else if (divergenceFlag === 'SUPPLY_DEMAND_GAP') weightingMode = 'supply_demand_gap';
+    else if (divergenceFlag === 'RECOVERY_UNDERWAY') weightingMode = 'recovery_window';
+    else weightingMode = 'aligned';
+
+    // Per MRS v2 §3.2 weight table (wearable, sleep+rhr already baked into
+    // wearableScore upstream; this layer composes wearable / demand / pattern
+    // / circadian).
     let score: number;
-    if (!hasWearable) {
-      // Mode 1: No wearable — felt 40%, C×C 45%, circadian 15%
-      score = Math.round(feltScore * 0.40 + irScore * 0.45 + circadianScore * 0.15);
-    } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High — wearable 40%, remainder split equally felt/C×C, circadian 10%
-      const wW = 0.40 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.10; // circadian stays 0.10
-      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
-    } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      // Mode 4: Recovery Underway — wearable 35%, remainder split equally felt/C×C, circadian 10%
+    if (weightingMode === 'no_wearable') {
+      // 0% wearable, 50% demand, 50% pattern (per §3.6 cold-start, compressed)
+      score = Math.round(demandStateScore * 0.50 + patternScore * 0.50);
+    } else if (weightingMode === 'wearable_early') {
+      // 25% wearable, 35% demand, 20% pattern, 20% circadian
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.20; // circadian fixed 0.20
+      const dW = remainder * (0.35 / (0.35 + 0.20));
+      const pW = remainder * (0.20 / (0.35 + 0.20));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.20,
+      );
+    } else if (weightingMode === 'supply_demand_gap') {
+      // 35% wearable, 20% demand, 10% pattern, 10% circadian, 25% physComposite floor
       const wW = 0.35 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder * 0.50) + irScore * (remainder * 0.50) + wearableScore * wW + circadianScore * 0.10);
+      const dW = remainder * (0.20 / (0.20 + 0.10));
+      const pW = remainder * (0.10 / (0.20 + 0.10));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.10,
+      );
+    } else if (weightingMode === 'recovery_window') {
+      // State exceeds demand: 25% wearable, 25% demand, 15% pattern, 15% circadian, 20% balance
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.15;
+      const dW = remainder * (0.25 / (0.25 + 0.15));
+      const pW = remainder * (0.15 / (0.25 + 0.15));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.15,
+      );
     } else {
-      // Mode 2: Aligned — wearable 35%, felt 25%, C×C 30%, circadian 10%
-      const wW = 0.35 * wearableConfidenceScale;
+      // aligned — 30% wearable, 25% demand, 15% pattern, 10% circadian, 20% slack
+      const wW = 0.30 * wearableConfidenceScale;
       const remainder = 1 - wW - 0.10;
-      score = Math.round(feltScore * (remainder / (0.25 + 0.30) * 0.25) + irScore * (remainder / (0.25 + 0.30) * 0.30) + wearableScore * wW + circadianScore * 0.10);
+      const dW = remainder * (0.25 / (0.25 + 0.15));
+      const pW = remainder * (0.15 / (0.25 + 0.15));
+      score = Math.round(
+        wearableScore * wW +
+          demandStateScore * dW +
+          patternScore * pW +
+          circadianScore * 0.10,
+      );
     }
 
     // Clamp score
@@ -621,6 +733,12 @@ serve(async (req) => {
       tierLabel: getTierLabel(tier),
       // New: alreadyUsed[] relay for Compass
       alreadyUsed: selectedSignals.alreadyUsed,
+      // MRS v2 — surface the resolved mode + scoring inputs so callers can
+      // mirror them into daily_context_snapshot without re-deriving.
+      weightingMode,
+      demandStateScore,
+      patternScore,
+      physComposite,
     };
 
     return new Response(JSON.stringify(result), {

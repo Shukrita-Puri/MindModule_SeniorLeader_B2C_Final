@@ -1480,6 +1480,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_context_snapshot: {
+        Row: {
+          calendar_demand_score: number | null
+          created_at: string
+          demand_load: string | null
+          demand_pressure: string | null
+          has_high_stakes: boolean | null
+          id: string
+          inner_score: number | null
+          inner_tier: string | null
+          local_date: string
+          pattern_signals: Json | null
+          pillar_mode: string | null
+          signal_pills: Json | null
+          strategic_context: Json | null
+          supply_demand_gap_flag: string | null
+          updated_at: string
+          user_id: string
+          weighting_mode: string | null
+        }
+        Insert: {
+          calendar_demand_score?: number | null
+          created_at?: string
+          demand_load?: string | null
+          demand_pressure?: string | null
+          has_high_stakes?: boolean | null
+          id?: string
+          inner_score?: number | null
+          inner_tier?: string | null
+          local_date: string
+          pattern_signals?: Json | null
+          pillar_mode?: string | null
+          signal_pills?: Json | null
+          strategic_context?: Json | null
+          supply_demand_gap_flag?: string | null
+          updated_at?: string
+          user_id: string
+          weighting_mode?: string | null
+        }
+        Update: {
+          calendar_demand_score?: number | null
+          created_at?: string
+          demand_load?: string | null
+          demand_pressure?: string | null
+          has_high_stakes?: boolean | null
+          id?: string
+          inner_score?: number | null
+          inner_tier?: string | null
+          local_date?: string
+          pattern_signals?: Json | null
+          pillar_mode?: string | null
+          signal_pills?: Json | null
+          strategic_context?: Json | null
+          supply_demand_gap_flag?: string | null
+          updated_at?: string
+          user_id?: string
+          weighting_mode?: string | null
+        }
+        Relationships: []
+      }
       daily_ritual_completions: {
         Row: {
           completed_practice_ids: string[] | null
@@ -3475,8 +3535,10 @@ export type Database = {
           onboarding_session_id: string | null
           practice_priority_tag: string | null
           pressure_context_tag: string | null
+          pressure_profile: Json | null
           profile_description: string | null
           profile_type: string | null
+          protection_goals: Json | null
           q1_setback_response: string | null
           q2_pressure_response: string | null
           q3_communication_style: string | null
@@ -3548,8 +3610,10 @@ export type Database = {
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
           pressure_context_tag?: string | null
+          pressure_profile?: Json | null
           profile_description?: string | null
           profile_type?: string | null
+          protection_goals?: Json | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
@@ -3621,8 +3685,10 @@ export type Database = {
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
           pressure_context_tag?: string | null
+          pressure_profile?: Json | null
           profile_description?: string | null
           profile_type?: string | null
+          protection_goals?: Json | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null

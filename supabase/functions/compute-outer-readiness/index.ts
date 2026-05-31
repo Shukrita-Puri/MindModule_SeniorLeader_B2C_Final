@@ -10,6 +10,9 @@ import {
 } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import { upsertDailyContextSnapshot } from "../_shared/signal-engine/build-daily-context.ts";
+import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
+import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -4340,7 +4343,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const stateMaxLocal = (a: PillTier, b: PillTier): PillTier =>
           stateRank[a] >= stateRank[b] ? a : b;
 
-        // Cognitive (Decision Readiness) — HRV + Sharpness + Clarity (+ Sleep cog) + Outcome
+        // MRS v2 §3.5 — Cognitive (Decision Readiness).
+        // Source change: was HRV + sharpness + clarity + outcome. Now HRV
+        // (primary) + 3-day HRV trend amplifier + cognitive fragmentation
+        // proxy via calendar load. Check-in fields are intentionally dropped.
         const cogTiers: PillTier[] = [];
         if (hrvValue != null) {
           if (hrvDeviation != null) {
@@ -4349,14 +4355,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
           }
         }
-        if (mentalSharpnessLevel != null) {
-          cogTiers.push(mentalSharpnessLevel <= 2 ? 'red' : mentalSharpnessLevel === 3 ? 'amber' : 'green');
-        }
-        if (clarityLevel != null) {
-          cogTiers.push(clarityLevel <= 2 ? 'red' : clarityLevel === 3 ? 'amber' : 'green');
-        }
-        if (checkInOutcome === 'scattered') cogTiers.push('red');
-        else if (checkInOutcome === 'focused' || checkInOutcome === 'thriving') cogTiers.push('green');
+        // 3-day HRV trend acts as a fragmentation amplifier.
+        if (wearableTrend7d === 'declining') cogTiers.push('amber');
+        // Calendar fragmentation: high load AND high pressure → cognitive drag.
+        if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
         const cognitiveTier: PillTier = cogTiers.length === 0
           ? 'neutral'
           : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
@@ -4389,15 +4391,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           ? 'neutral'
           : physTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
 
-        // Resilience Capacity — Outcome + HRV (strict band) + Confidence
+        // MRS v2 §3.5 — Resilience Capacity.
+        // Source change: was outcome + HRV (strict band) + confidence. Now
+        // HRV (strict band) + sustained-low pattern proxy + calendar pressure
+        // co-occurrence. Check-in fields dropped.
         const resTiers: PillTier[] = [];
-        if (checkInOutcome === 'overwhelmed') resTiers.push('red');
-        else if (checkInOutcome === 'drained') resTiers.push('red');
-        else if (checkInOutcome === 'anxious' || checkInOutcome === 'frustrated') resTiers.push('amber');
-        else if (
-          checkInOutcome === 'steady' || checkInOutcome === 'calm' ||
-          checkInOutcome === 'energised' || checkInOutcome === 'thriving'
-        ) resTiers.push('green');
         if (hrvValue != null) {
           if (hrvDeviation != null) {
             resTiers.push(hrvDeviation <= -25 ? 'red' : hrvDeviation < -15 ? 'amber' : 'green');
@@ -4405,8 +4403,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             resTiers.push(hrvValue < 18 ? 'red' : hrvValue < 35 ? 'amber' : 'green');
           }
         }
-        if (confidenceLevel != null) {
-          resTiers.push(confidenceLevel <= 2 ? 'red' : confidenceLevel === 3 ? 'amber' : 'green');
+        // Sustained low pattern (HRV/score declining for multiple days).
+        if (wearableTrend7d === 'declining' || scoreTrajectory7d === 'declining') {
+          resTiers.push('amber');
+        }
+        // Co-occurrence: low HRV AND high calendar demand erodes reserve.
+        if ((hrvDeviation != null && hrvDeviation < -15) && calendarPressure === 'high') {
+          resTiers.push('red');
         }
         const resilienceTier: PillTier = resTiers.length === 0
           ? 'neutral'
@@ -4445,9 +4448,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
             contributors: {
               hrvValue, hrvDeviation,
-              clarityLevel, mentalSharpnessLevel,
               sleepDuration, sleepScore: sleepScoreVal,
-              checkInOutcome: checkInOutcome || null,
+              wearableTrend7d, calendarLoad, calendarPressure,
             },
           },
           {
@@ -4467,12 +4469,35 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tier: resilienceTier,
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             contributors: {
-              checkInOutcome: checkInOutcome || null,
               hrvValue, hrvDeviation,
-              confidenceLevel,
+              wearableTrend7d, scoreTrajectory7d, calendarPressure,
             },
           },
         ];
+
+        // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
+        // Best-effort, non-blocking (errors are logged inside the helper).
+        try {
+          const strategic = await resolveStrategicContext(db, userId);
+          await upsertDailyContextSnapshot(db, {
+            userId,
+            localDate: userLocalDate,
+            patternSignals: null,
+            strategicContext: strategic,
+            calendarDemandScore: null,
+            demandLoad: (calendarLoad as any) ?? null,
+            demandPressure: (calendarPressure as any) ?? null,
+            hasHighStakes: (calendarResult.highStakesEvents?.length ?? 0) > 0,
+            innerScore: innerReadinessScore ?? null,
+            innerTier: safeTier ?? null,
+            pillarMode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
+            weightingMode: null,
+            supplyDemandGapFlag: null,
+            signalPills: signalPillsPayload,
+          });
+        } catch (snapErr) {
+          console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
+        }
 
         const { data: upsertRow, error: upsertError } = await db
           .from('brief_snapshots')
