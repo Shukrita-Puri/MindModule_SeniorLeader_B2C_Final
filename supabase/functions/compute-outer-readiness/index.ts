@@ -4604,25 +4604,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const stakesBonus = _hasStakes ? 10 : 0;
           const calendarDemandScore = Math.max(0, Math.min(100, loadComponent + pressureComponent + stakesBonus));
 
-          // ── Derive pattern signals from existing variables (no extra queries) ──
-          // hrv_3day_trend is sourced from the 7-day wearable trend already
-          // computed upstream; consecutive_high_load_days is approximated from
-          // today's calendar load (history-aware variant lives in pattern-engine.ts
-          // and will be wired once a 3-day load query is added).
-          const todayLoadIsHigh = calendarLoad === 'high';
-          const sustainedDeficit = (typeof hrvDeviation === 'number' && hrvDeviation <= -20);
-          const patternSignals = {
-            hrv_3day_trend: (wearableTrend7d === 'improving' || wearableTrend7d === 'declining' || wearableTrend7d === 'stable')
-              ? wearableTrend7d
-              : 'unknown',
-            consecutive_high_load_days: todayLoadIsHigh ? 1 : 0,
+          // ── Pattern signals: prefer orchestrator-derived (real 14d HRV
+          // trend, real 3-day load count, real DOW pattern). Fall back to
+          // single-day approximations only when compose failed upstream.
+          const patternSignals = composedPatternSignals ?? {
+            hrv_3day_trend: hrv3dTrend,
+            consecutive_high_load_days: consecutiveHighLoadDays,
             dow_historical_pattern: {
               typical_hrv_for_dow: null,
               typical_load_for_dow: null,
               samples: 0,
             },
-            sustained_deficit_flag: sustainedDeficit,
-          } as const;
+            sustained_deficit_flag: sustainedDeficitFlag,
+          };
 
           // ── Divergence flag + weighting mode (MRS v2 §3.3 / §3.4) ──
           let supplyDemandGapFlag:
@@ -4636,7 +4630,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             const demandHigh = calendarLoad === 'high' || calendarPressure === 'high' || _hasStakes;
             if (bodyWeak && demandHigh) supplyDemandGapFlag = 'SUPPLY_DEMAND_GAP';
             else if (bodyStrong && !demandHigh) supplyDemandGapFlag = 'LIGHT_DAY_STRONG_STATE';
-            else if (bodyStrong && wearableTrend7d === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
+            else if (bodyStrong && patternSignals.hrv_3day_trend === 'improving' && demandHigh) supplyDemandGapFlag = 'RECOVERY_UNDERWAY';
           }
           const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
             !hasWearable
