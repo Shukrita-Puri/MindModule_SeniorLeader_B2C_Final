@@ -4462,6 +4462,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         if (consecutiveHighLoadDays >= 3) cogTiers.push('amber');
         // Calendar fragmentation: high load AND high pressure → cognitive drag.
         if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
+        // MRS v2 §3.5 — direct cognitive fragmentation score from today's
+        // calendar shape (back-to-back chains + sub-15-min gap density).
+        // Bands: ≥ 75 → red (chopped day), 50–74 → amber, < 50 → no signal.
+        const fragmentationScore = calendarResult.fragmentationScore ?? 0;
+        if (fragmentationScore >= 75) cogTiers.push('red');
+        else if (fragmentationScore >= 50) cogTiers.push('amber');
         const cognitiveTier: PillTier = cogTiers.length === 0
           ? 'neutral'
           : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
@@ -4490,6 +4496,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         } else if (rhrDeviation != null) {
           physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
         }
+        // MRS v2 §3.5 — RHR 3-day trend (lower = better). Rising trend is
+        // a sympathetic-load tell that often shows up before deviation
+        // breaches; declining trend is a recovery nudge.
+        if (rhr3dTrend === 'rising') physTiers.push('amber');
+        else if (rhr3dTrend === 'declining') physTiers.push('green');
         // MRS v2 §3.5 — sustained physiological deficit beyond a single-day
         // reading escalates Physical Reserves to red.
         if (sustainedDeficitFlag) physTiers.push('red');
