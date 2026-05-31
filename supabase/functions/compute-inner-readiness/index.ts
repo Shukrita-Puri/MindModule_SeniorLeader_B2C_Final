@@ -733,6 +733,12 @@ serve(async (req) => {
       tierLabel: getTierLabel(tier),
       // New: alreadyUsed[] relay for Compass
       alreadyUsed: selectedSignals.alreadyUsed,
+      // MRS v2 — surface the resolved mode + scoring inputs so callers can
+      // mirror them into daily_context_snapshot without re-deriving.
+      weightingMode,
+      demandStateScore,
+      patternScore,
+      physComposite,
     };
 
     return new Response(JSON.stringify(result), {
