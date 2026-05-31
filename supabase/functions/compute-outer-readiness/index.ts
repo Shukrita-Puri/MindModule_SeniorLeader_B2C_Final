@@ -4442,12 +4442,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           },
         };
 
+        // MRS v2 §3.6 — cold-start labelling. All three pills depend (directly
+        // or via demand×physiology cross-signals) on the wearable baseline, so
+        // the same `wearableDaysConnected` window gates every label.
+        const pillColdStart = coldStartLabel(wearableDaysConnected);
+
         const signalPillsPayload = [
           {
             key: 'decision_readiness',
             label: 'Decision Readiness',
             tier: cognitiveTier,
             tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               hrvValue, hrvDeviation,
               sleepDuration, sleepScore: sleepScoreVal,
@@ -4464,6 +4470,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             label: 'Physical Reserves',
             tier: physicalTier,
             tierLabel: PILL_TIER_LABELS.physical_reserves[physicalTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
               rhrValue, rhrDeviation,
@@ -4477,6 +4484,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             label: 'Resilience Capacity',
             tier: resilienceTier,
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
+            coldStartLabel: pillColdStart,
             contributors: {
               consecutive_high_load_days: consecutiveHighLoadDays,
               sustained_deficit_flag: sustainedDeficitFlag,
