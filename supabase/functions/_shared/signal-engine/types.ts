@@ -35,7 +35,13 @@ export interface RawSignals {
   /** Per-day load tier for the trailing 3 days (most recent last). */
   loadLast3Days: DemandLevel[];
   /** Wearable HRV samples and daily load joined by day-of-week, last 60d. */
-  dowHistory: Array<{ dow: number; hrv: number | null; load: DemandLevel | null }>;
+  dowHistory: Array<{
+    /** ISO date (YYYY-MM-DD). Optional for backwards-compat with older callers. */
+    date?: string;
+    dow: number;
+    hrv: number | null;
+    load: DemandLevel | null;
+  }>;
 }
 
 /** Pattern engine output — written into daily_context_snapshot.pattern_signals. */
@@ -48,6 +54,22 @@ export interface PatternSignals {
     samples: number;
   };
   sustained_deficit_flag: boolean;
+  /**
+   * MRS v2 §3.5 — Resilience-Capacity primary signal.
+   *
+   * Number of days in the trailing 7-day window where HRV was meaningfully
+   * below baseline (≤ −10%) AND the calendar load classified as 'high'.
+   * Captures the "sustained demand erodes reserve" pattern without any
+   * check-in or coach inputs.
+   *
+   * `cooccurrence_ratio` is `cooccurrence_count / days_with_both_signals`
+   * (0–1). Null when neither signal is present for the window.
+   */
+  hrv_low_high_demand_cooccurrence_7d: {
+    cooccurrence_count: number;
+    cooccurrence_ratio: number | null;
+    days_observed: number;
+  };
 }
 
 /** Calendar demand output — replaces felt-state input. */

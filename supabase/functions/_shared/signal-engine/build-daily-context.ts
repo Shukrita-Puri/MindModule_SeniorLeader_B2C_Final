@@ -290,7 +290,7 @@ async function fetchDowHistory(
   db: AnySupabase,
   userId: string,
   localDate: string,
-): Promise<Array<{ dow: number; hrv: number | null; load: DemandLevel | null }>> {
+): Promise<Array<{ date: string; dow: number; hrv: number | null; load: DemandLevel | null }>> {
   // 60-day join of wearable HRV by day + calendar load by day, grouped by
   // day-of-week. We fetch both raw streams and join in memory — pattern
   // engine handles the day-of-week aggregation.
@@ -333,14 +333,14 @@ async function fetchDowHistory(
     }
 
     const allDays = new Set<string>([...hrvByDay.keys(), ...eventsByDay.keys()]);
-    const out: Array<{ dow: number; hrv: number | null; load: DemandLevel | null }> = [];
+    const out: Array<{ date: string; dow: number; hrv: number | null; load: DemandLevel | null }> = [];
     for (const day of allDays) {
       const dow = new Date(day + 'T00:00:00Z').getUTCDay();
       if (Number.isNaN(dow)) continue;
       const hrv = hrvByDay.get(day) ?? null;
       const dayEvents = eventsByDay.get(day) ?? [];
       const load = dayEvents.length > 0 ? computeCalendarDemand(dayEvents).load : null;
-      out.push({ dow, hrv, load });
+      out.push({ date: day, dow, hrv, load });
     }
     return out;
   } catch {
