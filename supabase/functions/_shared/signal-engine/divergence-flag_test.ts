@@ -1,116 +1,143 @@
-// MRS v2 — golden tests for divergence-flag.
-// Walks a 5×5 phys × demand matrix to pin every cell of the classifier.
+// MRS v2 — golden tests for divergence-flag composite classifier (§3.3).
+// Walks the 5×5 phys × demand matrix to pin every cell.
 
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { computeDivergenceFlag } from './divergence-flag.ts';
-import type { DemandLevel, DivergenceFlag, HrvTrend } from './types.ts';
+import {
+  computeDivergenceFlag,
+  computePhysiologicalComposite,
+} from './divergence-flag.ts';
+import type { DivergenceFlag } from './types.ts';
 
-type PhysProfile = {
-  label: string;
-  hrvValue: number | null;
-  hrvDeviationPct: number | null;
-  hrv3dTrend: HrvTrend;
-};
-
-type DemandProfile = {
-  label: string;
-  calendarLoad: DemandLevel;
-  calendarPressure: DemandLevel;
-  hasHighStakes: boolean;
-};
-
-const phys: PhysProfile[] = [
-  { label: 'no-wearable',     hrvValue: null, hrvDeviationPct: null, hrv3dTrend: 'unknown' },
-  { label: 'body-weak-decl',  hrvValue: 40,   hrvDeviationPct: -25,  hrv3dTrend: 'declining' },
-  { label: 'body-stable',     hrvValue: 50,   hrvDeviationPct: 0,    hrv3dTrend: 'stable' },
-  { label: 'body-strong-imp', hrvValue: 65,   hrvDeviationPct: 10,   hrv3dTrend: 'improving' },
-  { label: 'body-strong-flat',hrvValue: 60,   hrvDeviationPct: 8,    hrv3dTrend: 'stable' },
+// Phys composite bands — picked to land cleanly on the spec thresholds.
+const physBands = [
+  { label: 'phys-null',    value: null as number | null }, // → ALIGNED always
+  { label: 'phys-30',      value: 30  }, // ≤ 50 (weak)
+  { label: 'phys-50',      value: 50  }, // boundary weak
+  { label: 'phys-65',      value: 65  }, // ≥ 65 (strong)
+  { label: 'phys-85',      value: 85  }, // strong
 ];
 
-const demand: DemandProfile[] = [
-  { label: 'idle',     calendarLoad: 'low',    calendarPressure: 'low',    hasHighStakes: false },
-  { label: 'light',    calendarLoad: 'low',    calendarPressure: 'medium', hasHighStakes: false },
-  { label: 'medium',   calendarLoad: 'medium', calendarPressure: 'medium', hasHighStakes: false },
-  { label: 'heavy',    calendarLoad: 'high',   calendarPressure: 'medium', hasHighStakes: false },
-  { label: 'stakes',   calendarLoad: 'high',   calendarPressure: 'high',   hasHighStakes: true  },
+// Demand bands — picked to cross the spec thresholds (35, 60, 65).
+const demandBands = [
+  { label: 'demand-0',  value: 0  }, // ≤ 35 (light)
+  { label: 'demand-35', value: 35 }, // boundary light
+  { label: 'demand-50', value: 50 }, // mid
+  { label: 'demand-65', value: 65 }, // ≥ 65 (gap)
+  { label: 'demand-85', value: 85 }, // heavy
 ];
 
-// Expected matrix [phys-row][demand-col]. Captures the canonical decision
-// table — every change to compute-outer-readiness's classifier must be
-// reflected here, never the other way around.
+// Expected matrix WITHOUT hrvRecovering (so RECOVERY_UNDERWAY never fires).
+// Rules:
+//   demand ≥ 65 AND phys ≤ 50 → SUPPLY_DEMAND_GAP
+//   phys ≥ 65 AND demand ≤ 35 → LIGHT_DAY_STRONG_STATE
+//   else                       → ALIGNED
 const expected: DivergenceFlag[][] = [
-  // no-wearable      → always ALIGNED
+  // phys=null → ALIGNED across the row
   ['ALIGNED', 'ALIGNED', 'ALIGNED', 'ALIGNED', 'ALIGNED'],
-  // body-weak-declining
+  // phys=30
   ['ALIGNED', 'ALIGNED', 'ALIGNED', 'SUPPLY_DEMAND_GAP', 'SUPPLY_DEMAND_GAP'],
-  // body-stable      → never strong/weak
-  ['ALIGNED', 'ALIGNED', 'ALIGNED', 'ALIGNED', 'ALIGNED'],
-  // body-strong-improving
-  ['LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'RECOVERY_UNDERWAY', 'RECOVERY_UNDERWAY'],
-  // body-strong-flat (no improving trend → RECOVERY rule doesn't fire)
-  ['LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'ALIGNED', 'ALIGNED'],
+  // phys=50 (boundary — still ≤ 50)
+  ['ALIGNED', 'ALIGNED', 'ALIGNED', 'SUPPLY_DEMAND_GAP', 'SUPPLY_DEMAND_GAP'],
+  // phys=65 (boundary — ≥ 65)
+  ['LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'ALIGNED', 'ALIGNED', 'ALIGNED'],
+  // phys=85
+  ['LIGHT_DAY_STRONG_STATE', 'LIGHT_DAY_STRONG_STATE', 'ALIGNED', 'ALIGNED', 'ALIGNED'],
 ];
 
-Deno.test('divergence-flag: 5×5 phys × demand matrix golden', () => {
-  for (let i = 0; i < phys.length; i++) {
-    for (let j = 0; j < demand.length; j++) {
+Deno.test('divergence-flag: 5×5 composite matrix (no recovery)', () => {
+  for (let i = 0; i < physBands.length; i++) {
+    for (let j = 0; j < demandBands.length; j++) {
       const got = computeDivergenceFlag({
-        hrvValue: phys[i].hrvValue,
-        hrvDeviationPct: phys[i].hrvDeviationPct,
-        hrv3dTrend: phys[i].hrv3dTrend,
-        calendarLoad: demand[j].calendarLoad,
-        calendarPressure: demand[j].calendarPressure,
-        hasHighStakes: demand[j].hasHighStakes,
+        physComposite: physBands[i].value,
+        demandScore: demandBands[j].value,
+        hrvRecovering: false,
       });
       assertEquals(
         got,
         expected[i][j],
-        `phys=${phys[i].label} demand=${demand[j].label} → expected ${expected[i][j]}, got ${got}`,
+        `${physBands[i].label} × ${demandBands[j].label} → expected ${expected[i][j]}, got ${got}`,
       );
     }
   }
 });
 
-Deno.test('divergence-flag: null HRV always returns ALIGNED regardless of trend', () => {
-  for (const trend of ['improving', 'declining', 'stable', 'unknown'] as HrvTrend[]) {
-    const got = computeDivergenceFlag({
-      hrvValue: null,
-      hrvDeviationPct: -50,
-      hrv3dTrend: trend,
-      calendarLoad: 'high',
-      calendarPressure: 'high',
-      hasHighStakes: true,
-    });
-    assertEquals(got, 'ALIGNED', `null hrvValue + trend=${trend} should be ALIGNED`);
+Deno.test('divergence-flag: null physComposite always returns ALIGNED', () => {
+  for (const recovering of [true, false]) {
+    assertEquals(
+      computeDivergenceFlag({ physComposite: null, demandScore: 85, hrvRecovering: recovering }),
+      'ALIGNED',
+    );
   }
 });
 
-Deno.test('divergence-flag: deviation-only (no trend) drives strong/weak', () => {
-  // Strong-by-deviation + light day → LIGHT_DAY_STRONG_STATE.
+Deno.test('divergence-flag: RECOVERY_UNDERWAY needs phys≥55 + recovering + demand≥60', () => {
+  // Hits all three → RECOVERY_UNDERWAY (priority over SUPPLY_DEMAND_GAP boundary).
   assertEquals(
-    computeDivergenceFlag({
-      hrvValue: 70, hrvDeviationPct: 12, hrv3dTrend: 'unknown',
-      calendarLoad: 'low', calendarPressure: 'low', hasHighStakes: false,
-    }),
-    'LIGHT_DAY_STRONG_STATE',
+    computeDivergenceFlag({ physComposite: 58, demandScore: 70, hrvRecovering: true }),
+    'RECOVERY_UNDERWAY',
   );
-  // Weak-by-deviation + heavy day → SUPPLY_DEMAND_GAP.
+  // Same vitals but not recovering → falls back (phys=58 > 50 so not gap → ALIGNED).
   assertEquals(
-    computeDivergenceFlag({
-      hrvValue: 30, hrvDeviationPct: -15, hrv3dTrend: 'unknown',
-      calendarLoad: 'high', calendarPressure: 'low', hasHighStakes: false,
-    }),
+    computeDivergenceFlag({ physComposite: 58, demandScore: 70, hrvRecovering: false }),
+    'ALIGNED',
+  );
+  // Recovering but phys < 55 → not RECOVERY_UNDERWAY, falls into SUPPLY_DEMAND_GAP.
+  assertEquals(
+    computeDivergenceFlag({ physComposite: 45, demandScore: 70, hrvRecovering: true }),
     'SUPPLY_DEMAND_GAP',
+  );
+  // Recovering + strong but demand low → LIGHT_DAY_STRONG_STATE wins (rule 3).
+  assertEquals(
+    computeDivergenceFlag({ physComposite: 70, demandScore: 20, hrvRecovering: true }),
+    'LIGHT_DAY_STRONG_STATE',
   );
 });
 
-Deno.test('divergence-flag: RECOVERY_UNDERWAY requires improving trend specifically', () => {
-  // Strong-by-deviation but not improving → ALIGNED on heavy day.
+Deno.test('divergence-flag: ALIGNED when |phys − demand| ≤ 25 in mid-band', () => {
+  for (const [phys, demand] of [[40, 50], [55, 55], [60, 40], [50, 60]]) {
+    assertEquals(
+      computeDivergenceFlag({ physComposite: phys, demandScore: demand, hrvRecovering: false }),
+      'ALIGNED',
+      `phys=${phys} demand=${demand}`,
+    );
+  }
+});
+
+// ─── computePhysiologicalComposite ──────────────────────────────────────
+
+Deno.test('phys-composite: returns null when no component is available', () => {
+  assertEquals(computePhysiologicalComposite({}), null);
   assertEquals(
-    computeDivergenceFlag({
-      hrvValue: 70, hrvDeviationPct: 12, hrv3dTrend: 'stable',
-      calendarLoad: 'high', calendarPressure: 'high', hasHighStakes: true,
+    computePhysiologicalComposite({ rhrTrend: 'unknown' }),
+    null,
+  );
+});
+
+Deno.test('phys-composite: HRV-only collapses to HRV component', () => {
+  // 0% deviation → 55. +15% → 95. −15% → 15.
+  assertEquals(computePhysiologicalComposite({ hrvDeviationPct: 0 }), 55);
+  assertEquals(computePhysiologicalComposite({ hrvDeviationPct: 15 }), 95);
+  assertEquals(computePhysiologicalComposite({ hrvDeviationPct: -15 }), 15);
+});
+
+Deno.test('phys-composite: weighted blend (HRV 50% / Sleep 35% / RHR 15%)', () => {
+  // HRV +10 → 82, Sleep 70, RHR declining → 75
+  // (82*0.50 + 70*0.35 + 75*0.15) / 1.00 = 41 + 24.5 + 11.25 = 76.75 → 77
+  assertEquals(
+    computePhysiologicalComposite({
+      hrvDeviationPct: 10,
+      sleepScore: 70,
+      rhrTrend: 'declining',
     }),
-    'ALIGNED',
+    77,
+  );
+});
+
+Deno.test('phys-composite: sleepScore wins over sleepHours when both present', () => {
+  // sleepHours=4 (would map to 25) but sleepScore=90 — score wins.
+  // HRV null, sleep=90 only → 90.
+  assertEquals(
+    computePhysiologicalComposite({ sleepScore: 90, sleepHours: 4 }),
+    90,
   );
 });
