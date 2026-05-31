@@ -227,7 +227,7 @@ async function getServerCalendarMetrics(
   }
 
   if (!activeConnections || activeConnections.length === 0) {
-    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
   }
 
   // Treat a connection that hasn't synced in > 7 days as effectively
@@ -238,7 +238,7 @@ async function getServerCalendarMetrics(
     const lastSyncMs = new Date(lastSyncRaw).getTime();
     if (Number.isFinite(lastSyncMs) && (Date.now() - lastSyncMs) > 7 * 86400000) {
       console.log('[compute-outer-readiness] Calendar connection stale (>7d), treating as not_connected', { lastSyncRaw });
-      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+      return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
     }
   }
 
@@ -296,10 +296,13 @@ async function getServerCalendarMetrics(
       }));
     }
 
-    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
+    // Cognitive fragmentation is derived from meetings (noise/all-day already
+    // filtered) so an "8 standups + 1 dentist block" day doesn't poison it.
+    const frag = computeCognitiveFragmentation(meetingList as any);
+    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes, fragmentationScore: frag.fragmentation_score, shortGapCount: frag.short_gap_count, backToBackHours: frag.back_to_back_hours };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [], fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0 };
 }
 
 // ==================== TIME HELPERS ====================
