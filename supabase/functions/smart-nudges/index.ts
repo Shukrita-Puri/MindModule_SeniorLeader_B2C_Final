@@ -3062,7 +3062,7 @@ serve(async (req) => {
         const isJitNudge = bestNudge.deepLinkRoute === '/executive-home' && 
           (bestNudge.type === 'nudge_one' || bestNudge.type === 'nudge_two');
 
-        if (suppressed && !isJitNudge) {
+        if (suppressedEffective && !isJitNudge) {
           console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
           // ── v5.3 — Receipt-feedback: stamp warning if last 3 sends for
