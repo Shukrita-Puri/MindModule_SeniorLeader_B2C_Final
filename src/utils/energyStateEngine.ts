@@ -254,6 +254,31 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
   const hasCalendar = calendarData.length > 0;
 
+  // MRS v2 — read the canonical daily_context_snapshot row (written by
+  // compute-outer-readiness). If today's row exists we forward the demand
+  // score + pattern signals to compute-inner-readiness so the score reflects
+  // the new calendar/wearable logic end-to-end. Missing row → backend falls
+  // back to neutral defaults; no client-side scoring.
+  let snapshotDemandScore: number | null = null;
+  let snapshotPatternSignals: any = null;
+  if (effectiveUserId) {
+    try {
+      const todayLocal = localISODate();
+      const { data: snap } = await supabase
+        .from('daily_context_snapshot')
+        .select('calendar_demand_score, pattern_signals')
+        .eq('user_id', effectiveUserId)
+        .eq('local_date', todayLocal)
+        .maybeSingle();
+      if (snap) {
+        snapshotDemandScore = (snap as any).calendar_demand_score ?? null;
+        snapshotPatternSignals = (snap as any).pattern_signals ?? null;
+      }
+    } catch (err) {
+      console.warn('[energyStateEngine] daily_context_snapshot fetch failed:', err);
+    }
+  }
+
   // 2. Fetch check-in data from DB (sole source of truth – no localStorage)
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
@@ -308,6 +333,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         hrvPatternContext: hasWearable ? hrvPatternContext : null,
         baselineConfidence: hasWearable ? baselineConfidence : undefined,
         sampleDays: hasWearable ? sampleDays : undefined,
+        // MRS v2 — calendar demand + pattern signals from the canonical
+        // daily_context_snapshot. Null means the snapshot hasn't been
+        // populated yet today; the backend handles defaults.
+        demandScore: snapshotDemandScore,
+        patternSignals: snapshotPatternSignals,
       },
     });
 
