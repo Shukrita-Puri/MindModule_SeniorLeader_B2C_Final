@@ -3,7 +3,7 @@
 // mode, and sustained-deficit edge cases.
 
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { buildPatternSignals, patternToScore } from './pattern-engine.ts';
+import { buildPatternSignals, computeHrvLoadCooccurrence, patternToScore } from './pattern-engine.ts';
 import type { RawSignals } from './types.ts';
 
 function raw(p: Partial<RawSignals> = {}): RawSignals {
