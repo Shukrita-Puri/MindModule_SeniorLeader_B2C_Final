@@ -1,12 +1,26 @@
 # Performance Readiness Brief – Complete Technical Documentation
 
-> **Version**: v6.2
-> **Last updated**: 2026-05-20
+> **Version**: v6.3
+> **Last updated**: 2026-06-01
 > **Edge functions**: `compute-inner-readiness`, `compute-outer-readiness`
 > **Client component**: `src/components/home/DecisionReadinessBrief.tsx`
 > **Persona**: *Chief of Staff for the Mind* — strategic register, wearable-first, never coaching imperatives
 > **Canonical LLM prompt**: `docs/PERFORMANCE_READINESS_BRIEF_LLM_PROMPT.md` (v4.0 with lovable deltas)
 > **CEO behaviour rules**: `_shared/ceo-behaviour/*` — catalogue in `docs/CEO_BEHAVIOUR_RULE_MAP.md`
+> **Scoring spec**: `docs/MRS_V3_SPECIFICATION.md` (MRS v3 two-state: baseline + refined ±15)
+> **Pill contract**: `mem://ui/performance-readiness/signal-pill-system` (Signal Pills v3)
+
+### v6.3 Changes Summary (2026-06-01)
+
+- **MRS v3 (two-state score) is now canonical.** The legacy single-state "inner readiness" model in §4 is superseded by `readiness_score_baseline` (always-on, wearable + calendar + patterns) and `readiness_score_refined` (baseline blended with the 4 Mind dimensions, hard-capped at ±15). The brief reads `refined` when present, otherwise `baseline`. Full contract: `docs/MRS_V3_SPECIFICATION.md`.
+- **4 Mind dimensions replace the legacy check-in inputs.** `clarity`, `emotion`, `pressure` (inverted), `regulation` (1–5 each) replace `outcome`, `mentalSharpness`, `confidence` in every downstream contract — pill composition, brief `input_signature`, validators, C×C modifier wiring. Old fields persist in `daily_checkins` for back-compat reads only.
+- **Signal Pills v3** — pill vocabulary is now MRS v3 tier-driven (e.g. "Mind Sharp", "Body Steady", "Reserve Thin"). Legacy state words (`STRAINED`, `DEPLETED`, `MASKED LOAD`, `RECOVERING`, etc. — §7.1–7.3) are deprecated; the visible tier word comes from the server-built `signalPills[].tierLabel`, not from local taxonomy. Each pill carries a small `(Baseline)` / `(Refined)` badge sourced from `pill.readinessState`.
+- **Bracketed qualifier contract** — pills surface `value (qualifier)` brackets sourced from the shared `checkin-pattern-aggregator` (`_shared/signal-engine/checkin-pattern-aggregator.ts`). The same module powers Insights "Performance Patterns", so per-dim streak / DoW / delta numbers MUST be identical across both surfaces. Tier is moment-only — brackets are display-only perspective and never re-tier.
+- **Six divergence flags** (`REGULATION_RISK`, `SUPPLY_DEMAND_GAP`, `EMOTION_RESIDUE`, `RECOVERY_UNDERWAY`, `LIGHT_DAY_STRONG_STATE`, `ALIGNED`) replace the legacy 3-value flag set (`MASKED_HIGH` retained read-only). See MRS v3 §5.
+- **State-1 input gate widened.** The brief no longer collapses to a cold-start "data unavailable" view when only a Mind check-in or a connected-but-empty calendar exists. `hasState1Input` now accepts any of: fresh wearable, active calendar, connected calendar (zero events), or today's check-in. When only a Mind check-in exists, `readiness_state = 'refined'` is computed off a neutral baseline of 50 and `signalPills` / `pillQualifiers` are still populated.
+- **HRV rendering hardened.** Every HRV / RHR display site (chips, cog/emo top lines, pill brackets) is now `Math.round`-wrapped — no more raw floats like `15.6868…ms`.
+- **`prompt_version` bumped to `v6.3`** — invalidates all v6.1/v6.2 cached briefs. `input_signature` drops `outcome`, `sharpness`, `confidence` and adds `clarity, emotion, pressure, regulation`.
+- **Wearable qualifiers** — `sleep_efficiency` is now a first-class persisted column on `wearable_data` and is exposed via `pillQualifiers.sleep_efficiency.{delta7d, streakLowDays, dowLow}` on the Resilience pill (parallel to HRV / Sleep on Decision Readiness).
 
 ### v6.2 Changes Summary (2026-05-20)
 
@@ -211,7 +225,18 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 
 ## 4. Inner Readiness Scoring
 
-(Edge function: `compute-inner-readiness` — unchanged from v5.)
+**v6.3 — MRS v3 is now canonical.** The legacy single-score model below is retained for historical reference, but the brief consumes the two-state MRS v3 score documented in full in `docs/MRS_V3_SPECIFICATION.md`. Pre-existing field names (`inner_score`, `inner_tier`) persist for back-compat and now carry the MRS v3 **baseline** value.
+
+### 4.0 MRS v3 Two-State Score (canonical)
+
+| State | Field | Inputs | When written | Where the brief uses it |
+|---|---|---|---|---|
+| **State 1** | `readiness_score_baseline` (0–100) | Physiological composite (HRV 50% / Sleep 35% / RHR 15%) + calendar demand (30%) + pattern signals (20%) + CEO `fired_rules` | Every 15 min cron + on any wearable / calendar refresh | Pre-population, pill base tier, nudges, JIT scoring |
+| **State 2** | `readiness_score_refined` (`baseline ± 15`) | Baseline (70%) blended with weighted 4 Mind dims (30%) | On Mind Check-in submission | The score the user sees on Executive Home after check-in |
+
+`readiness_state ∈ {'baseline','refined'}`. The brief reads `refined` when present, else `baseline`. `refined_contribution = refined − baseline` is a signed integer in `[-15, +15]` (0 when state = `baseline`). The ±15 hard cap is non-negotiable — subjective state can sharpen physiology + demand but never overpower them.
+
+**State-1 input gate (`hasState1Input`, v6.3)** — the brief renders a real readout when **any one** of these is present: (a) fresh wearable, (b) active calendar with events today, (c) connected calendar with zero events today, (d) today's Mind check-in. Cold-start "data unavailable" copy is shown only when all four are missing. When only (d) is present, baseline is set to a neutral 50 so the refined score and pill qualifiers can still be built.
 
 ### 4.1 Input Signals
 
@@ -222,6 +247,8 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 | Circadian | ~35–65 | Time-of-day ± day-of-week |
 | Wearable (HRV) | 0–100 | HRV vs 30-day baseline: >+15% → 80, <-15% → 20, else 50 |
 
+> ⚠️ v6.3 — the legacy `Felt State` + `Internal Readiness (C×C)` inputs above describe MRS v2. Under MRS v3 they are replaced by the 4 Mind dims (`clarity`, `emotion`, `pressure`, `regulation` — see MRS v3 §2 + §3.2). The C×C modifier copy in §8.2 is re-wired to read `(clarity, regulation, emotion)`; the eight copy strings themselves are unchanged.
+
 ### 4.2 Weighting Modes
 
 | Mode | Condition | Wearable | Felt | C×C | Circadian |
@@ -231,22 +258,35 @@ The **Performance Readiness Brief** answers three questions for a senior leader,
 | **Masked High** | felt − wearable > 30 | 40% | ~25% | ~25% | 10% |
 | **Recovery Underway** | wearable − felt > 30 | 35% | ~27.5% | ~27.5% | 10% |
 
+> ⚠️ v6.3 — superseded by MRS v3 §3. Refined-score weighting fixes the check-in contribution at **30%** total (Clarity 11% / Emotion 9% / Pressure 5% / Regulation 5%, with Clarity → Regulation 3% donation when `has_imminent_high_stakes = true`).
+
 ### 4.3 Tier Mapping
 
-| Score | Tier | Sub-Tiers |
-|-------|------|-----------|
-| 0–39 | `depleted` | very-low (≤15), low (≤25), low-mid (≤35) |
-| 40–59 | `managing` | mid (≤55) |
-| 60–74 | `strong` | mid-high (≤65), high (≤75) |
-| 75–100 | `peak` | very-high (>75) |
+v6.3 — MRS v3 5-tier mapping (applies to both `baseline` and `refined`):
+
+| Score | Tier | Label | Pill colour family |
+|-------|------|-------|--------------------|
+| 80–100 | **Peak** | Peak Readiness | Green |
+| 65–79 | **Strong** | Strong Readiness | Green-amber |
+| 50–64 | **Mixed** | Mixed Readiness | Amber |
+| 35–49 | **Compromised** | Compromised Readiness | Amber-red |
+| 0–34 | **Depleted** | Depleted | Red |
+
+Legacy 4-tier mapping (`depleted / managing / strong / peak`) is retained only in the deterministic phrase matrix `getTheme()` (§9.4) until E2 extraction lands.
 
 ### 4.4 Divergence Detection
 
-| Flag | Condition | Implication |
-|------|-----------|-------------|
-| `ALIGNED` | \|felt − wearable\| ≤ 30 | Body and mind agree |
-| `MASKED_HIGH` | felt − wearable > 30 | User feels better than body shows |
-| `RECOVERY_UNDERWAY` | wearable − felt > 30 | Body recovering faster than perceived |
+v6.3 — six MRS v3 flags (single value written to `daily_context_snapshot.supply_demand_gap_flag`, priority order):
+
+| # | Flag | Trigger (summary) | Brief effect |
+|---|------|--------------------|--------------|
+| 1 | `REGULATION_RISK` | `regulation ≤ 2` AND any cat A/B/C/D event today | Resilience pill force min AMBER; Watch For regulation-first suffix |
+| 2 | `SUPPLY_DEMAND_GAP` | (`demand ≥ 65` AND `phys ≤ 50`) OR `pressure ≤ 2` (paired with calendar high OR physio low) | Cognitive pill caps at AMBER if composed GREEN; brief body suffix |
+| 3 | `EMOTION_RESIDUE` | `emotion ≤ 2` and not flag #1/#2 | Resilience pill strong-RED contribution; `decisionLeakageGuard` fires more readily |
+| 4 | `RECOVERY_UNDERWAY` | `phys ≥ 55` AND HRV recovering AND `demand ≥ 60` | Recovery-under-load framing |
+| 5 | `LIGHT_DAY_STRONG_STATE` | `phys ≥ 65` AND `demand ≤ 35` | Deploy on highest-leverage work |
+| 6 | `ALIGNED` | All four Mind dims ≥ 3 AND `|phys − demand| ≤ 25` | Alignment confirmation; Lean On suffix |
+| — | `MASKED_HIGH` | Legacy — read-only for back-compat with old `brief_snapshots`. Never written by v3. | — |
 
 ---
 
@@ -451,7 +491,46 @@ The brief treats each returned `BehaviourFlag` (`rule`, `severity`, `evidence`, 
 
 ---
 
-## 7. Signal Pills v6 – 3 Executive Pillars
+## 7. Signal Pills v3 – 3 Executive Pillars
+
+> **v6.3 contract** — the pill tier word and badge are MRS v3 tier-driven and rendered from the server payload (`signalPills[].tier`, `signalPills[].tierLabel`, `signalPills[].readinessState`). The legacy local taxonomy described in §7.1–§7.3 (`STRAINED`, `DEPLETED`, `MASKED LOAD`, `RECOVERING`, etc.) is deprecated and remains documented only for historical reference; the client must prefer `serverPill.tierLabel` over any locally-derived word. Canonical pill rules live in `mem://ui/performance-readiness/signal-pill-system`.
+
+### 7.−1 Signal Pills v3 Headline Contract
+
+- **Three pills** in fixed order: **Decision Readiness** (Cognitive) · **Physical Reserves** (Physiology) · **Resilience Capacity**.
+- **Tier word** = `signalPills[i].tierLabel` (e.g. "Mind Sharp" / "Body Steady" / "Reserve Thin"). Server-built, MRS v3 vocabulary only.
+- **Header badge** = small muted `(Baseline)` / `(Refined)` next to the tier label — wrapped in parentheses so users do not confuse it with the tier word.
+- **Tier rule (MOMENT-ONLY)** — today's value alone drives the tier. Bracketed qualifiers (`delta3d`, `vsDow`, `peakStreak`, `vsBaselinePct`, `streakLowDays`, `dowLow`) are **display-only** perspective and never re-tier.
+- **Bracketed format** — `value (qualifier)` inline. Examples: `HRV 48ms (-6% vs baseline)` · `Clarity: Lucid 4/5 (5-day peak)` · `Sleep 78 (3-day streak below baseline)`. Source: `outerBrief.pillQualifiers`, built by the shared aggregator. Identical numbers MUST appear in Insights Performance Patterns.
+- **Hover / long-press** — `PillTooltip` (HoverCard) lists contributors + qualifiers + a one-line "why this tier".
+
+### 7.−1.1 Qualifier inputs (v6.3 — per pill)
+
+| Pill | Qualifier fields (display-only, sourced from `pillQualifiers`) |
+|------|------------------------------------------------------------------|
+| **Decision Readiness** | `hrv.{delta3d, vsBaselinePct, streakLowDays, dowLow}` · `sleep.{durationDelta7d, scoreVsBaseline, streakLowDays, dowLow}` · `clarity.{delta3d, vsDow, peakStreak}` |
+| **Physical Reserves**  | `rhr.{vsBaselinePct}` |
+| **Resilience Capacity** | `emotion` · `regulation` · `pressure` (each `{delta3d, vsDow, peakStreak}`; pressure inverted — positive band = value ≤ 2) · `sleep_efficiency.{delta7d, streakLowDays, dowLow}` |
+
+**Wearable qualifier bands** (must match `performance-rhythm-insights` exactly):
+
+| Dim | Negative band ("bad day") |
+|---|---|
+| `hrv` | value ≤ baseline × 0.90 |
+| `sleep_score` | ≤ 60 |
+| `sleep_efficiency` | ≤ 75 |
+
+`streakLowDays` = consecutive recent days in the negative band ending at the most recent observed date (only surfaces when ≥3). `dowLow` = true when ≥2 of the last 3 same-DoW observations were in the negative band.
+
+**Display priority** — Mind dims: `peakStreak ≥ 3` → `delta3d` → `vsDow`. Wearable dims: `streakLowDays ≥ 3` → `dowLow` → `delta3d` / `delta7d`.
+
+**Coherence guard (dev-only)** — `assertPillCoherence(mrsTier, pills)` runs after the deterministic pill build. If MRS = Depleted but no pill is RED, the weakest AMBER is escalated to RED. If MRS = Optimal and any pill is RED, those are downgraded to AMBER. The `coherenceWarning` string is logged + echoed to the client only when `APP_ENV !== 'production'`.
+
+---
+
+### 7. (legacy) Signal Pills v6 — 3 Executive Pillars
+
+> The following sub-sections (§7.0–§7.4) document the **legacy MRS v2 pill taxonomy**. They are retained for historical reference and to describe the per-input contribution functions still implemented in `DecisionReadinessBrief.tsx`. Where the legacy state words conflict with the v6.3 headline contract above, the **v6.3 contract wins** — the visible tier word and badge MUST come from `signalPills[].tierLabel` + `signalPills[].readinessState`, not from local taxonomy.
 
 The PRB renders **three glass capsules** above the body copy. Each pill composes multiple raw inputs through a severity-aware **median-of-tiers** rule with a **strong-red override**. State color appears on the icon badge only; the capsule body is neutral.
 
@@ -813,6 +892,8 @@ Worst case: ~10 s. On any failure, validation rejection, or both-attempt timeout
 **Key**: `(user_id, local_date, time_window, input_signature, prompt_version)`.
 
 **`input_signature`** is a deterministic hash over: tier, score (rounded), calendarLoad, calendarPressure, meetingCount, hrvDeviation, sleepDeviation, rhrDeviation, checkInOutcome, clarity, confidence, sharpness, isHoliday, isSundayEve, isMondayAm, isFridayEve. Two requests with the same signature in the same time window return the **same** brief.
+
+> ⚠️ **v6.3 — input_signature update.** The legacy MRS v2 check-in fields (`checkInOutcome`, `confidence`, `sharpness`) are removed from the signature. Added: `clarity, emotion, pressure, regulation` (the 4 MRS v3 Mind dimensions) plus `readinessState` (`baseline | refined`). `BRIEF_PROMPT_VERSION` is bumped to `v6.3`, which invalidates every v6.1 / v6.2 cached row on first lookup.
 
 **Cache hit path**: returns immediately with `briefSource = snapshot.brief_source`, no LLM call.
 
