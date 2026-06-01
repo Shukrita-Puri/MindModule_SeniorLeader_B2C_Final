@@ -537,6 +537,10 @@ export interface ExecutivePill {
   bottomLines: PillLine[];   // self-declared rows (bottom of glass box)
   topEmptyText?: string;
   bottomEmptyText?: string;
+  // Signal Pills v3 — per-pill State 1 / State 2 marker. 'baseline' when
+  // pill is computed from wearable + calendar only; 'refined' once any
+  // Mind Check-in dimension is present for the current period.
+  readinessState?: 'baseline' | 'refined';
 }
 
 const worstOf = (states: PillState[]): PillState => {
@@ -617,8 +621,12 @@ const computePillar = (contribs: PillarContrib[]): PillarComputation => {
 const composePillar = (contribs: PillarContrib[]): PillState => computePillar(contribs).tier;
 
 export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
+  // Signal Pills v3 — pills now render off State 1 inputs (wearable +
+  // calendar) and refine when any Mind Check-in dimension exists. The
+  // old `if (!checkInOutcome) return null` gate has been removed; baseline
+  // pills surface so users always see Cognitive / Physiology / Resilience
+  // at-a-glance the moment data lands.
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
-  if (!checkInOutcome) return null;
 
   const tier = getWearableTier(outerBrief);
   const wearableConnected = !!outerBrief?.wearableStatus?.isConnected;
@@ -639,6 +647,29 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
   const sharpness = outerBrief?.mentalSharpnessLevel as number | null;
+  // Signal Pills v3 — the 4 Mind dims fan-out to the right pillars:
+  //   • clarity → Cognitive
+  //   • emotion + regulation + pressure → Resilience
+  // Confidence + sharpness are retained for display continuity only and
+  // no longer drive the pill tier.
+  const emotion = outerBrief?.emotionLevel as number | null;
+  const pressure = outerBrief?.pressureLevel as number | null;
+  const regulation = outerBrief?.regulationLevel as number | null;
+  // Wearable anchor for Resilience (0–100). Distinct from sleepScore /
+  // sleepDuration. Null when provider doesn't expose it — the pill still
+  // renders, the contribution just stays neutral.
+  const sleepEfficiency = outerBrief?.sleepEfficiency as number | null;
+  // Divergence flags from compute-outer-readiness. supplyDemandGap caps
+  // Cognitive GREEN → AMBER; regulationRisk floors Resilience at AMBER.
+  const supplyDemandGap = !!outerBrief?.supplyDemandGap;
+  const regulationRisk = !!outerBrief?.regulationRisk
+    || (regulation != null && regulation <= 2);
+  // Per-pill State 1 / State 2 badge. Cognitive refines on clarity;
+  // Resilience refines on emotion/regulation/pressure; Physiology never
+  // refines (wearable-only by design).
+  const cogRefined: 'baseline' | 'refined' = clarity != null ? 'refined' : 'baseline';
+  const resRefined: 'baseline' | 'refined' =
+    (emotion != null || regulation != null || pressure != null) ? 'refined' : 'baseline';
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
 
@@ -769,20 +800,36 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
     return { tier: 'neutral' };
   };
 
-  // ── COGNITIVE PILLAR (v6.2 Hardware Veto) ──
-  // v6.3 weights (sleep present): HRV 0.5 (hardware veto at -20% dev),
-  //   Sharpness 0.25 (veto AMBER ≤2), Clarity 0.15 (veto AMBER ≤2),
-  //   Sleep cognitive 0.2 (mild red/amber only — never lifts), Outcome 0.2 (no veto).
-  // Fallback (no sleep tracking — older Apple Watches etc.):
-  //   HRV 0.6 with TIGHTER veto at -15% dev (compensates for missing recovery read),
-  //   Sharpness 0.25, Clarity 0.15, Outcome 0.2.
+  // ── COGNITIVE PILLAR (Signal Pills v3) ──
+  // Moment-only inputs: HRV (primary, wearable), Sleep duration + score
+  // (moved here from Physiology — sleep deprivation hits executive
+  // cognition far more than physical capacity), and the clarity Mind dim
+  // (1–5) once a check-in lands. Sharpness and the legacy Mental Energy
+  // outcome no longer drive Cognitive — clarity is the canonical
+  // cognitive self-report. SUPPLY_DEMAND_GAP caps the pill GREEN → AMBER.
   const hrvCogRaw = hrvCognitiveContrib();
-  const sharpRaw = sharpnessContrib();
-  const clarityRaw = clarityContrib();
-  const cogOutcomeRaw = cognitiveOutcomeContrib();
   const sleepCogRaw = sleepCognitiveContrib();
+  const clarityRaw = clarityContrib();
   const sleepCognitivelyKnown = (sleepDur != null) || (sleepScore != null);
-  // Tightened HRV veto threshold when sleep tracking is absent.
+  // Sleep promoted to a real Cognitive driver (was a floor-only contrib).
+  // Adequate sleep neutralises; below-threshold sleep raises tier.
+  const sleepCogDriver = (): PillarContrib => {
+    if (sleepDur == null && sleepScore == null) return { tier: 'neutral' };
+    if (sleepDur != null && sleepDur < 300) return { tier: 'red', severity: 'strong' };
+    if (sleepDur != null && sleepDur < 360) return { tier: 'red', severity: 'mild' };
+    if (sleepScore != null && sleepScore < 60) return { tier: 'red', severity: 'mild' };
+    if (sleepDur != null && sleepDur < 420) return { tier: 'amber' };
+    if (sleepScore != null && sleepScore < 70) return { tier: 'amber' };
+    return { tier: 'green' };
+  };
+  const sleepCogDriverRaw = sleepCogDriver();
+  const sleepCogVeto: PillState | undefined =
+    (sleepDur != null && sleepDur < 300) ? 'red'
+    : (sleepDur != null && sleepDur < 360) ? 'amber'
+    : (sleepScore != null && sleepScore < 60) ? 'amber'
+    : undefined;
+  // Tighten HRV veto when no sleep read is available so HRV carries the
+  // overnight signal alone.
   const hrvCogVeto: PillState | undefined = sleepCognitivelyKnown
     ? (hrvCogRaw.tier === 'red' && hrvCogRaw.severity === 'strong' ? 'red' : undefined)
     : (hrvDev != null && hrvDev <= -15) ? 'red'
@@ -790,26 +837,23 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       : undefined;
   const cogContribs: PillarContrib[] = sleepCognitivelyKnown
     ? [
-        { ...hrvCogRaw, weight: 0.5, source: 'hardware', veto: hrvCogVeto },
-        { ...sharpRaw, weight: 0.25, source: 'self',
-          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
-        { ...clarityRaw, weight: 0.15, source: 'self',
+        { ...hrvCogRaw,        weight: 0.40, source: 'hardware', veto: hrvCogVeto },
+        { ...sleepCogDriverRaw, weight: 0.40, source: 'hardware', veto: sleepCogVeto },
+        { ...clarityRaw,        weight: 0.20, source: 'self',
           veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
-        // Sleep cognitive read — secondary wearable input, gated to red/amber only.
-        { ...sleepCogRaw, weight: 0.2, source: 'hardware' },
-        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
       ]
     : [
-        // Fallback: no sleep data — HRV carries the full overnight read.
-        { ...hrvCogRaw, weight: 0.6, source: 'hardware', veto: hrvCogVeto },
-        { ...sharpRaw, weight: 0.25, source: 'self',
-          veto: (sharpness != null && sharpness <= 2) ? 'amber' : undefined },
-        { ...clarityRaw, weight: 0.15, source: 'self',
+        // No sleep read — HRV + clarity only.
+        { ...hrvCogRaw, weight: 0.70, source: 'hardware', veto: hrvCogVeto },
+        { ...clarityRaw, weight: 0.30, source: 'self',
           veto: (clarity != null && clarity <= 2) ? 'amber' : undefined },
-        { ...cogOutcomeRaw, weight: 0.2, source: 'self' },
       ];
   const cogComp = computePillar(cogContribs);
   let cogState = cogComp.tier;
+  // SUPPLY_DEMAND_GAP cap — body strain + heavy demand combined caps
+  // any optimistic GREEN read at AMBER (don't say "clear head" when the
+  // calendar will overrun the body).
+  if (supplyDemandGap && cogState === 'green') cogState = 'amber';
 
   // ── Wearable Authority on Cognitive ──
   // MASKED_HIGH: HRV red + self-reports green/amber → cap at AMBER minimum

@@ -190,6 +190,11 @@ interface WearableContext {
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
   sourceRowDate: string | null; // summary_date of the row used
+  // Signal Pills v3 — wearable anchor for the Resilience pill.
+  // Provider-reported overnight sleep efficiency (0–100). Distinct from
+  // sleepScore (overall sleep quality index) and sleepDuration (time
+  // asleep). Null when the provider does not expose efficiency.
+  sleepEfficiency?: number | null;
 }
 
 // Apple sleep sources that report "time in bed" rather than asleep —
@@ -1652,6 +1657,9 @@ serve(async (req) => {
       clarityLevel,
       confidenceLevel,
       mentalSharpnessLevel = null,
+      emotionLevel = null,
+      pressureLevel = null,
+      regulationLevel = null,
       checkInOutcome,
       timezoneOffset = 0,
       currentTimezone: clientCurrentTz = null,
@@ -1705,7 +1713,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, raw_data, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1726,6 +1734,25 @@ serve(async (req) => {
         const sleepDuration = (rawSleepDuration !== null && isAppleSleepSource(source))
           ? Math.round(rawSleepDuration * 0.85)
           : rawSleepDuration;
+
+        // Sleep efficiency (0–100) — used by Signal Pills v3 as the
+        // wearable anchor for the Resilience pill (capacity to absorb
+        // today). Prefer provider-reported efficiency (Oura raw_data),
+        // else derive from time-in-bed when available, else leave null
+        // so the pill renders NEUTRAL from this source per spec.
+        const rawAny = (wearableRow as any).raw_data ?? {};
+        let sleepEfficiency: number | null = null;
+        if (typeof rawAny?.efficiency === 'number') {
+          sleepEfficiency = Math.round(rawAny.efficiency);
+        } else if (typeof rawAny?.sleep?.efficiency === 'number') {
+          sleepEfficiency = Math.round(rawAny.sleep.efficiency);
+        } else if (typeof rawAny?.time_in_bed === 'number' && rawSleepDuration != null) {
+          const tib = rawAny.time_in_bed; // seconds in Oura; we don't know unit reliably — guard
+          const tibMin = tib > 1000 ? Math.round(tib / 60) : tib;
+          if (tibMin > 0) sleepEfficiency = Math.round((rawSleepDuration / tibMin) * 100);
+        }
+        if (sleepEfficiency != null) sleepEfficiency = Math.max(0, Math.min(100, sleepEfficiency));
+        (wearableRow as any)._sleepEfficiency = sleepEfficiency;
 
         // HRV stress: below 30ms absolute (low) – a simple heuristic (will be refined by deviation below)
         const hrvElevated = hrv !== null && hrv < 30;
@@ -1750,6 +1777,7 @@ serve(async (req) => {
           rhrElevated,
           dataSource: source,
           sourceRowDate: wearableRow.summary_date ?? null,
+          sleepEfficiency: (wearableRow as any)._sleepEfficiency ?? null,
         };
       }
     } catch (err) {
@@ -4787,6 +4815,28 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       clarityLevel: clarityLevel,
       confidenceLevel: confidenceLevel,
       mentalSharpnessLevel: mentalSharpnessLevel,
+      // Signal Pills v3 — Mind Check-in dimensions echoed verbatim so the
+      // Resilience + Cognitive pills can compute their refined-state tier
+      // client-side without re-querying daily_checkins.
+      emotionLevel: awaitingSignals ? null : emotionLevel,
+      pressureLevel: awaitingSignals ? null : pressureLevel,
+      regulationLevel: awaitingSignals ? null : regulationLevel,
+      // Wearable anchor for the Resilience pill — overnight restoration
+      // quality (0–100). Null when provider does not expose it.
+      sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
+      // Signal Pills v3 — divergence flags surfaced for pill cap/floor
+      // application. supplyDemandGap caps Cognitive GREEN → AMBER;
+      // regulationRisk floors Resilience at AMBER. Booleans only.
+      // Lightweight inline derivation so we don't depend on a flag that
+      // is only computed inside the snapshot-mirror try block.
+      supplyDemandGap: (() => {
+        const demandHigh = calendarLoad === 'high' || calendarPressure === 'high';
+        const bodyDown = (typeof (wearableContext as any)?.hrvDeviation === 'number' && (wearableContext as any).hrvDeviation <= -10)
+          || !!wearableContext?.poorSleep
+          || !!wearableContext?.hrvElevated;
+        return demandHigh && bodyDown;
+      })(),
+      regulationRisk: regulationLevel != null && regulationLevel <= 2,
       // New enrichment fields
       yesterdayScore,
       scoreTrend,
