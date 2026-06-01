@@ -4557,6 +4557,78 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           },
         ];
 
+        // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
+        // Qualifiers are display-only enrichment (delta3d / vsDow / peakStreak
+        // for Mind dims; delta3d / vsBaselinePct for wearable). Tiers above
+        // are already final — qualifiers never re-tier.
+        // Coherence guard is dev-only: if MRS tier disagrees with pill mix
+        // we auto-correct and log a warning when APP_ENV !== 'production'.
+        let pillQualifiersPayload: ReturnType<typeof getPillQualifiers> | null = null;
+        let coherenceWarning: string | null = null;
+        try {
+          const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+          const [ciHistRes, wHistRes] = await Promise.all([
+            db.from('daily_checkins')
+              .select('checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level')
+              .eq('user_id', userId)
+              .gte('checkin_date', fourteenAgo)
+              .order('checkin_date', { ascending: false })
+              .limit(40),
+            db.from('wearable_data')
+              .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes')
+              .eq('user_id', userId)
+              .gte('summary_date', fourteenAgo)
+              .order('summary_date', { ascending: false })
+              .limit(14),
+          ]);
+          pillQualifiersPayload = getPillQualifiers(
+            (ciHistRes.data || []) as PqCheckinRow[],
+            (wHistRes.data || []) as PqWearableRow[],
+            {
+              hrv: typeof hrvBaseline === 'number' ? hrvBaseline : null,
+              rhr: typeof rhrBaseline === 'number' ? rhrBaseline : null,
+              sleep: typeof sleepBaseline === 'number' ? sleepBaseline : null,
+            }
+          );
+
+          const { pills: coherentPills, warning } = assertPillCoherence(safeTier, [
+            { key: 'decision_readiness', tier: cognitiveTier as PqPillTier },
+            { key: 'physical_reserves',  tier: physicalTier  as PqPillTier },
+            { key: 'resilience_capacity', tier: resilienceTier as PqPillTier },
+          ]);
+          if (warning) {
+            coherenceWarning = warning;
+            // Apply silent auto-correction in all envs; surface the warning
+            // only on non-prod so QA can spot drift before it ships.
+            for (const cp of coherentPills) {
+              const p = signalPillsPayload.find((x: any) => x.key === cp.key);
+              if (p && p.tier !== cp.tier) {
+                p.tier = cp.tier;
+                p.tierLabel = (PILL_TIER_LABELS as any)[cp.key]?.[cp.tier] ?? p.tierLabel;
+              }
+            }
+            if ((Deno.env.get('APP_ENV') ?? 'development') !== 'production') {
+              console.warn('[signal-pills-v3]', warning);
+            }
+          }
+
+          // Attach qualifiers to each pill (additive, optional).
+          const q = pillQualifiersPayload;
+          for (const p of signalPillsPayload) {
+            if (p.key === 'decision_readiness') {
+              (p as any).qualifiers = { hrv: q.hrv, sleep: q.sleep, clarity: q.clarity };
+            } else if (p.key === 'physical_reserves') {
+              (p as any).qualifiers = { rhr: q.rhr };
+            } else if (p.key === 'resilience_capacity') {
+              (p as any).qualifiers = {
+                emotion: q.emotion, regulation: q.regulation, pressure: q.pressure,
+              };
+            }
+          }
+        } catch (qErr) {
+          console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
+        }
+
         // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
         // Best-effort, non-blocking (errors are logged inside the helper).
         try {
