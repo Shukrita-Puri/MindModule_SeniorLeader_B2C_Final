@@ -1641,11 +1641,16 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const awaitingSignalsRaw = !!(outerBrief as any)?.awaitingSignals;
   const hasCurrentPeriodSignal =
     (outerBrief as any)?.hasCurrentPeriodSignal ?? !awaitingSignalsRaw;
+  // MRS v3 — the score and tier render off State 1 (wearable + calendar). They
+  // are no longer gated on check-in; check-in only flips `readinessState` from
+  // 'baseline' to 'refined' (and shifts the number within ±15 of baseline).
   const score = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessScore ?? null) : null;
   const tier = hasCurrentPeriodSignal ? (outerBrief?.innerReadinessTier ?? 'default') : 'default';
   const hasCheckIn =
     ((outerBrief as any)?.hasCurrentPeriodCheckIn ?? false) ||
     (hasCurrentPeriodSignal && !!outerBrief?.checkInOutcome);
+  const readinessState: 'baseline' | 'refined' =
+    (outerBrief as any)?.innerReadinessState === 'refined' ? 'refined' : 'baseline';
   const checkInCountTotal = outerBrief?.checkInCountTotal ?? 0;
 
   // Build chips
@@ -1657,15 +1662,16 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // fresh signal the backend returns `awaitingSignals: true` with phrase/body
   // null — we render a single quiet prompt line in place of the phrase and
   // skip the body entirely. Pills/chips/calendar/score `--` continue to render.
+  // MRS v3 — `awaitingSignals` is now only true in the residual cold-start
+  // case (no wearable AND no calendar). Check-in is the State 2 refiner, not
+  // a precondition. Fallback copy no longer prompts a check-in.
   const awaitingSignals = awaitingSignalsRaw;
   const phrase = awaitingSignals
     ? null
-    : (outerBrief?.phrase || (hasCheckIn ? "Let's make today count." : "Begin with your check-in."));
+    : (outerBrief?.phrase || "Today's read.");
   const bodyText = awaitingSignals
     ? null
-    : (outerBrief?.bodyText || (hasCheckIn
-        ? null
-        : "Check in to activate your personalised intelligence — takes two minutes."));
+    : (outerBrief?.bodyText || null);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {
