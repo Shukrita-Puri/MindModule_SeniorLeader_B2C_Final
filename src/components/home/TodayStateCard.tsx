@@ -70,7 +70,11 @@ const TodayStateCard = () => {
   // Clean dashes from context statement
   const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/–/g, ' ').replace(/ – /g, ' ');
   
-  const tierLabel = getStateLabel(energyState.energyTier);
+  // MRS v3 — prefer the soft-guard displayed tier when present so the label
+  // reflects chronic load (e.g. caps Strong/Peak to Mixed when a sustained
+  // deficit is active). Score number remains the raw, uncapped value.
+  const displayedTier = (energyState as any).tierDisplayed ?? energyState.energyTier;
+  const tierLabel = getStateLabel(displayedTier);
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
