@@ -190,6 +190,11 @@ interface WearableContext {
   rhrElevated: boolean; // RHR elevated vs personal baseline (deviation-based)
   dataSource: string | null; // e.g. 'apple-healthkit', 'oura', 'whoop'
   sourceRowDate: string | null; // summary_date of the row used
+  // Signal Pills v3 — wearable anchor for the Resilience pill.
+  // Provider-reported overnight sleep efficiency (0–100). Distinct from
+  // sleepScore (overall sleep quality index) and sleepDuration (time
+  // asleep). Null when the provider does not expose efficiency.
+  sleepEfficiency?: number | null;
 }
 
 // Apple sleep sources that report "time in bed" rather than asleep —
