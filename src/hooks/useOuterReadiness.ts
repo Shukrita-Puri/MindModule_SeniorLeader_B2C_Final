@@ -162,6 +162,11 @@ export interface OuterReadinessData {
   // Inner readiness echoed from server — canonical source for the card
   innerReadinessScore?: number | null;
   innerReadinessTier?: string | null;
+  // MRS v3 — soft-guard tier cap echoed from server. UI components MUST
+  // render `innerReadinessTierDisplayed` when present (falls back to
+  // `innerReadinessTier` for the score number itself, which is uncapped).
+  innerReadinessTierDisplayed?: string | null;
+  innerReadinessTierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
   checkInOutcome?: string | null;
   briefSource?: 'llm' | 'deterministic';
   /**
