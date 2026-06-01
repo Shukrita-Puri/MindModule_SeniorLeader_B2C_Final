@@ -55,8 +55,30 @@ export interface MindQualifier {
 }
 
 export interface WearableQualifier {
-  hrv: { delta3d: number | null; vsBaselinePct: number | null };
-  sleep: { durationDelta7d: number | null; scoreVsBaseline: number | null };
+  hrv: {
+    delta3d: number | null;
+    vsBaselinePct: number | null;
+    /** Consecutive recent days in the negative band (HRV ≤ baseline×0.9). null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW values fell in the negative band. */
+    dowLow: boolean;
+  };
+  sleep: {
+    durationDelta7d: number | null;
+    scoreVsBaseline: number | null;
+    /** Consecutive recent days where sleep_score ≤ 60. null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW sleep_scores fell ≤ 60. */
+    dowLow: boolean;
+  };
+  sleep_efficiency: {
+    /** today − avg(prior 7d) sleep_efficiency, in efficiency points. */
+    delta7d: number | null;
+    /** Consecutive recent days where sleep_efficiency ≤ 75. null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW efficiency values fell ≤ 75. */
+    dowLow: boolean;
+  };
   rhr: { vsBaselinePct: number | null };
 }
 
@@ -67,6 +89,7 @@ export interface PillQualifiers {
   regulation: MindQualifier;
   hrv: WearableQualifier['hrv'];
   sleep: WearableQualifier['sleep'];
+  sleep_efficiency: WearableQualifier['sleep_efficiency'];
   rhr: WearableQualifier['rhr'];
 }
 
@@ -189,9 +212,52 @@ function wearableQualifiers(
     ? Math.round(((rhrToday - baselines.rhr) / baselines.rhr) * 100)
     : null;
 
+  // ── Streak / DoW enrichment (display-only) ────────────────────────────
+  // Reuses the same band engine that powers Insights Performance Patterns
+  // so the homepage pill brackets and Insights bullets cite the same
+  // "5-day streak below baseline" / "Mondays trend low" numbers.
+  const computeBaselines = {
+    hrv: baselines.hrv ?? null,
+    sleep_score: baselines.sleep ?? null,
+    sleep_duration: null,
+    sleep_efficiency: null,
+  };
+  const negStreak = (dim: WearableDim): number | null => {
+    const series = buildWearableDailySeries(sorted as WearableRow[], dim, computeBaselines);
+    if (series.length === 0) return null;
+    let n = 0;
+    for (const p of series) {
+      if (p.negative) n++;
+      else break;
+    }
+    return n >= 3 ? n : null;
+  };
+  const dowLowFlag = (dim: WearableDim): boolean => {
+    const series = buildWearableDailySeries(sorted as WearableRow[], dim, computeBaselines);
+    if (series.length === 0) return false;
+    const todayDi = series[0].di;
+    const sameDow = series.slice(1).filter((p) => p.di === todayDi).slice(0, 3);
+    if (sameDow.length < 2) return false;
+    return sameDow.filter((p) => p.negative).length >= 2;
+  };
+
+  const hrvStreak = negStreak('hrv');
+  const hrvDow = dowLowFlag('hrv');
+  const sleepStreak = negStreak('sleep_score');
+  const sleepDow = dowLowFlag('sleep_score');
+  const effStreak = negStreak('sleep_efficiency');
+  const effDow = dowLowFlag('sleep_efficiency');
+
+  // Sleep efficiency: today − avg(prior 7d)
+  const effToday = today?.sleep_efficiency ?? null;
+  const effPrior7 = prior7.map((r) => r.sleep_efficiency).filter((n): n is number => typeof n === 'number');
+  const effA7 = effPrior7.length >= 3 ? avg(effPrior7) : null;
+  const effDelta7d = effToday != null && effA7 != null ? Math.round(effToday - effA7) : null;
+
   return {
-    hrv: { delta3d: hrvDelta3d, vsBaselinePct: hrvVsBase },
-    sleep: { durationDelta7d: sleepDurationDelta7d, scoreVsBaseline: scoreVsBase },
+    hrv: { delta3d: hrvDelta3d, vsBaselinePct: hrvVsBase, streakLowDays: hrvStreak, dowLow: hrvDow },
+    sleep: { durationDelta7d: sleepDurationDelta7d, scoreVsBaseline: scoreVsBase, streakLowDays: sleepStreak, dowLow: sleepDow },
+    sleep_efficiency: { delta7d: effDelta7d, streakLowDays: effStreak, dowLow: effDow },
     rhr: { vsBaselinePct: rhrVsBase },
   };
 }
@@ -216,6 +282,7 @@ export function getPillQualifiers(
     regulation: mindDimQualifier(checkinsLast14d, 'regulation'),
     hrv: wq.hrv,
     sleep: wq.sleep,
+    sleep_efficiency: wq.sleep_efficiency,
     rhr: wq.rhr,
   };
 }

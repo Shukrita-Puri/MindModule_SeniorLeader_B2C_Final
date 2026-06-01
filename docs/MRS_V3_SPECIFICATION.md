@@ -182,11 +182,23 @@ Each pill is enriched with a `qualifiers` bundle sourced from the shared `checki
 
 | Pill | Qualifier inputs (display-only) |
 |---|---|
-| Decision Readiness | `hrv.{delta3d,vsBaselinePct}`, `sleep.{durationDelta7d,scoreVsBaseline}`, `clarity.{delta3d,vsDow,peakStreak}` |
+| Decision Readiness | `hrv.{delta3d,vsBaselinePct,streakLowDays,dowLow}`, `sleep.{durationDelta7d,scoreVsBaseline,streakLowDays,dowLow}`, `clarity.{delta3d,vsDow,peakStreak}` |
 | Physical Reserves | `rhr.{vsBaselinePct}` |
-| Resilience Capacity | `emotion`, `regulation`, `pressure` (each `{delta3d,vsDow,peakStreak}`; pressure inverted: positive band = value ≤ 2) |
+| Resilience Capacity | `emotion`, `regulation`, `pressure` (each `{delta3d,vsDow,peakStreak}`; pressure inverted: positive band = value ≤ 2), `sleep_efficiency.{delta7d,streakLowDays,dowLow}` |
 
-Rendering rule: `value (qualifier)` inline. Tier is driven by today's value alone — brackets never re-tier. Display priority: `peakStreak ≥ 3` → `delta3d` → `vsDow`.
+Rendering rule: `value (qualifier)` inline. Tier is driven by today's value alone — brackets never re-tier. Display priority (Mind dims): `peakStreak ≥ 3` → `delta3d` → `vsDow`. Display priority (wearable dims): `streakLowDays ≥ 3` → `dowLow` → `delta3d` / `delta7d`.
+
+#### 8.1.1 Wearable qualifier bands
+
+The wearable streak/DoW fields are produced by `buildWearableDailySeries` (in the shared aggregator) and are identical to the bands used by `performance-rhythm-insights` for the Insights "Performance Patterns" top-3. A finding that fires in Insights will produce the same number in the pill bracket.
+
+| Dim | Negative band ("bad day") |
+|---|---|
+| `hrv` | value ≤ baseline × 0.90 |
+| `sleep_score` | ≤ 60 |
+| `sleep_efficiency` | ≤ 75 |
+
+`streakLowDays` = consecutive recent days in the negative band ending at the most recent observed date (only surfaces when ≥3). `dowLow` = true when ≥2 of the last 3 same-DoW observations were in the negative band.
 
 ### 8.2 Coherence guard (dev-only)
 
