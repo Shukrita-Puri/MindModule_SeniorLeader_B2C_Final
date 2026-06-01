@@ -316,13 +316,13 @@ function buildSignalChips(
     // Back label: combined raw metrics
     const parts: string[] = [];
     if (hrvVal != null) {
-      let hrvPart = `HRV ${hrvVal}ms`;
-      if (hrvDev != null && hrvBaseline) hrvPart += ` · ${devSign(hrvDev)} vs ${hrvBaseline}ms`;
+      let hrvPart = `HRV ${Math.round(hrvVal)}ms`;
+      if (hrvDev != null && hrvBaseline) hrvPart += ` · ${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms`;
       parts.push(hrvPart);
     }
     if (rhrVal != null) {
-      let rhrPart = `RHR ${rhrVal}bpm`;
-      if (rhrDev != null && rhrBaseline) rhrPart += ` · ${devSign(rhrDev)} vs ${rhrBaseline}bpm`;
+      let rhrPart = `RHR ${Math.round(rhrVal)}bpm`;
+      if (rhrDev != null && rhrBaseline) rhrPart += ` · ${devSign(rhrDev)} vs ${Math.round(rhrBaseline)}bpm`;
       parts.push(rhrPart);
     }
     let backLabel = parts.join(' · ');
