@@ -199,6 +199,16 @@ Deno.serve(async (req) => {
           row.raw_data = body.raw_data;
         }
 
+        // Derive & persist sleep_efficiency (0–100) using the shared
+        // helper. Tries: sample.sleep_efficiency → raw_data.efficiency →
+        // raw_data.sleep.efficiency → time_in_bed + total_sleep_minutes.
+        if (typeof sample.sleep_efficiency === 'number') {
+          row.sleep_efficiency = Math.max(0, Math.min(100, Math.round(sample.sleep_efficiency)));
+        } else {
+          const eff = deriveSleepEfficiency(body.raw_data ?? sample.raw_data ?? null, sample.total_sleep_minutes ?? null);
+          if (eff != null) row.sleep_efficiency = eff;
+        }
+
         // Use upsert instead of select-then-update/insert to eliminate race conditions
         const { error } = await db
           .from("wearable_data")
