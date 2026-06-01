@@ -621,8 +621,12 @@ const computePillar = (contribs: PillarContrib[]): PillarComputation => {
 const composePillar = (contribs: PillarContrib[]): PillState => computePillar(contribs).tier;
 
 export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
+  // Signal Pills v3 — pills now render off State 1 inputs (wearable +
+  // calendar) and refine when any Mind Check-in dimension exists. The
+  // old `if (!checkInOutcome) return null` gate has been removed; baseline
+  // pills surface so users always see Cognitive / Physiology / Resilience
+  // at-a-glance the moment data lands.
   const checkInOutcome = outerBrief?.checkInOutcome as string | null;
-  if (!checkInOutcome) return null;
 
   const tier = getWearableTier(outerBrief);
   const wearableConnected = !!outerBrief?.wearableStatus?.isConnected;
@@ -643,6 +647,29 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const clarity = outerBrief?.clarityLevel as number | null;
   const confidence = outerBrief?.confidenceLevel as number | null;
   const sharpness = outerBrief?.mentalSharpnessLevel as number | null;
+  // Signal Pills v3 — the 4 Mind dims fan-out to the right pillars:
+  //   • clarity → Cognitive
+  //   • emotion + regulation + pressure → Resilience
+  // Confidence + sharpness are retained for display continuity only and
+  // no longer drive the pill tier.
+  const emotion = outerBrief?.emotionLevel as number | null;
+  const pressure = outerBrief?.pressureLevel as number | null;
+  const regulation = outerBrief?.regulationLevel as number | null;
+  // Wearable anchor for Resilience (0–100). Distinct from sleepScore /
+  // sleepDuration. Null when provider doesn't expose it — the pill still
+  // renders, the contribution just stays neutral.
+  const sleepEfficiency = outerBrief?.sleepEfficiency as number | null;
+  // Divergence flags from compute-outer-readiness. supplyDemandGap caps
+  // Cognitive GREEN → AMBER; regulationRisk floors Resilience at AMBER.
+  const supplyDemandGap = !!outerBrief?.supplyDemandGap;
+  const regulationRisk = !!outerBrief?.regulationRisk
+    || (regulation != null && regulation <= 2);
+  // Per-pill State 1 / State 2 badge. Cognitive refines on clarity;
+  // Resilience refines on emotion/regulation/pressure; Physiology never
+  // refines (wearable-only by design).
+  const cogRefined: 'baseline' | 'refined' = clarity != null ? 'refined' : 'baseline';
+  const resRefined: 'baseline' | 'refined' =
+    (emotion != null || regulation != null || pressure != null) ? 'refined' : 'baseline';
   const consecLowConf = outerBrief?.consecutiveLowConfidence ?? 0;
   const consecLowClarity = outerBrief?.consecutiveLowClarity ?? 0;
 
