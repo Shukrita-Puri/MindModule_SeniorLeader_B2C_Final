@@ -66,7 +66,7 @@ export default function StagePermissions() {
       setSaveError(msg);
       return;
     }
-    navigate("/onboarding/done");
+    navigate("/onboarding/connect");
   };
 
   const renderCard = (
