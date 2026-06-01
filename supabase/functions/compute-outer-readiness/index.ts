@@ -1720,7 +1720,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, raw_data, source, summary_date')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, sleep_efficiency, raw_data, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
