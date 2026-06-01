@@ -4592,6 +4592,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // MRS v3 — soft-guard tier cap mirror.
             tierDisplayed: safeTierDisplayed,
             tierCapReason: safeTierCapReason,
+            // MRS v3 §3.3 — refined-score split mirror. Falls back to the
+            // displayed `innerReadinessScore` when the client didn't forward
+            // a baseline (back-compat with older client builds).
+            readinessScoreBaseline: clientScoreBaseline ?? innerReadinessScore ?? null,
+            readinessScoreRefined: clientScoreRefined,
+            readinessState: clientReadinessState ?? 'baseline',
+            refinedContribution: clientRefinedContribution ?? 0,
           });
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
