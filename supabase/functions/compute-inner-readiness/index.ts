@@ -651,6 +651,15 @@ interface ComputeRequest {
   clarityLevel: number | null;
   confidenceLevel: number | null;
 
+  // MRS v3 §3.2 — Mind Check-in dimensions (1–5 or null). Optional, null=neutral.
+  // `clarityLevel` above is reused for the v3 Clarity dim (the column is
+  // `daily_checkins.clarity_level`); the other three are new wiring.
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
+  /** True when a JIT cat A/B event sits within the next 6h. Shifts 3% Clarity→Regulation weight. */
+  hasImminentHighStakes?: boolean;
+
   // Wearable + cold-start configuration (unchanged).
   wearableHRV: number | null;
   wearableBaseline: number | null;
