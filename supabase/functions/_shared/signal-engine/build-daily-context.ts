@@ -47,6 +47,9 @@ export interface UpsertContextSnapshotInput {
   weightingMode: WeightingMode | null;
   supplyDemandGapFlag: DivergenceFlag | null;
   signalPills: unknown | null;
+  // MRS v3 — soft-guard tier cap (see compute-inner-readiness §tier-cap).
+  tierDisplayed?: string | null;
+  tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
 }
 
 /**
@@ -74,6 +77,8 @@ export async function upsertDailyContextSnapshot(
       weighting_mode: input.weightingMode,
       supply_demand_gap_flag: input.supplyDemandGapFlag,
       signal_pills: input.signalPills,
+      tier_displayed: input.tierDisplayed ?? input.innerTier ?? null,
+      tier_cap_reason: input.tierCapReason ?? null,
     };
 
     const { error } = await db

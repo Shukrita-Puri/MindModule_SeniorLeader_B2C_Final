@@ -162,6 +162,11 @@ export interface OuterReadinessData {
   // Inner readiness echoed from server — canonical source for the card
   innerReadinessScore?: number | null;
   innerReadinessTier?: string | null;
+  // MRS v3 — soft-guard tier cap echoed from server. UI components MUST
+  // render `innerReadinessTierDisplayed` when present (falls back to
+  // `innerReadinessTier` for the score number itself, which is uncapped).
+  innerReadinessTierDisplayed?: string | null;
+  innerReadinessTierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
   checkInOutcome?: string | null;
   briefSource?: 'llm' | 'deterministic';
   /**
@@ -217,6 +222,10 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
       mentalSharpnessLevel: energyState.mentalSharpnessLevel ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
       timezoneOffset: new Date().getTimezoneOffset(),
+      // MRS v3 — forward soft-guard tier cap so the server can persist the
+      // displayed tier into daily_context_snapshot in one round trip.
+      tierDisplayed: energyState.tierDisplayed ?? energyState.energyTier,
+      tierCapReason: energyState.tierCapReason ?? null,
       // IANA timezone strings let the edge function format event times via Intl
       // in the user's CURRENT clock (correct for travelers) while keeping their
       // home zone available for circadian/jetlag commentary.

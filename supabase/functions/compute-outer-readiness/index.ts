@@ -133,6 +133,11 @@ interface OuterReadinessResult {
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
   innerReadinessScore: number;
+  // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
+  // The server mirrors these into daily_context_snapshot so the UI reads
+  // the canonical displayed tier without re-deriving from the raw score.
+  tierDisplayed?: EnergyTier | null;
+  tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
   calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
   calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
   archetype?: string | null;
@@ -1640,10 +1645,17 @@ serve(async (req) => {
       timezoneOffset = 0,
       currentTimezone: clientCurrentTz = null,
       homeTimezone: clientHomeTz = null,
+      tierDisplayed: clientTierDisplayed = null,
+      tierCapReason: clientTierCapReason = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
     const safeTier: EnergyTier = innerReadinessTier || 'managing';
+    // MRS v3 — fall back to the raw tier when the client did not forward
+    // the displayed value. Never raises a low tier; only mirrors the cap.
+    const safeTierDisplayed: EnergyTier = (clientTierDisplayed as EnergyTier | null) ?? safeTier;
+    const safeTierCapReason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null =
+      clientTierCapReason ?? null;
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
@@ -4562,6 +4574,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             weightingMode,
             supplyDemandGapFlag,
             signalPills: signalPillsPayload,
+            // MRS v3 — soft-guard tier cap mirror.
+            tierDisplayed: safeTierDisplayed,
+            tierCapReason: safeTierCapReason,
           });
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
@@ -4773,6 +4788,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // "live" when it should read awaiting.
       innerReadinessScore: awaitingSignals ? null : innerReadinessScore,
       innerReadinessTier: awaitingSignals ? null : safeTier,
+      // MRS v3 — echo the soft-guard displayed tier + reason so the UI
+      // renders the cap without a second round trip. Suppressed in the
+      // awaiting-signals window for the same reason as innerReadinessTier.
+      innerReadinessTierDisplayed: awaitingSignals ? null : safeTierDisplayed,
+      innerReadinessTierCapReason: awaitingSignals ? null : safeTierCapReason,
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this

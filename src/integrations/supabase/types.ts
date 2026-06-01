@@ -1496,6 +1496,8 @@ export type Database = {
           signal_pills: Json | null
           strategic_context: Json | null
           supply_demand_gap_flag: string | null
+          tier_cap_reason: string | null
+          tier_displayed: string | null
           updated_at: string
           user_id: string
           weighting_mode: string | null
@@ -1515,6 +1517,8 @@ export type Database = {
           signal_pills?: Json | null
           strategic_context?: Json | null
           supply_demand_gap_flag?: string | null
+          tier_cap_reason?: string | null
+          tier_displayed?: string | null
           updated_at?: string
           user_id: string
           weighting_mode?: string | null
@@ -1534,6 +1538,8 @@ export type Database = {
           signal_pills?: Json | null
           strategic_context?: Json | null
           supply_demand_gap_flag?: string | null
+          tier_cap_reason?: string | null
+          tier_displayed?: string | null
           updated_at?: string
           user_id?: string
           weighting_mode?: string | null

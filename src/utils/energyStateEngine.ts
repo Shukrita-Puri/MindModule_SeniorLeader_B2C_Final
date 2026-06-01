@@ -133,6 +133,11 @@ export interface CurrentEnergyState {
   tierLabel?: string;
   layersActive?: string[];
   layer3Statement?: string | null;
+  // MRS v3 — soft-guard tier cap. `tierDisplayed` is what the UI should
+  // render. `tierCapReason` explains the cap when present.
+  tierDisplayed?: 'depleted' | 'managing' | 'strong' | 'peak';
+  tierDisplayedLabel?: string;
+  tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
 }
 
 const ENERGY_STATE_CACHE_MS = 30_000;
@@ -391,6 +396,10 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       tierLabel: result.tierLabel,
       layersActive: result.layersActive || ['base'],
       layer3Statement: result.layer3Statement || null,
+      // MRS v3 — soft-guard tier cap passthrough.
+      tierDisplayed: result.tierDisplayed ?? result.tier,
+      tierDisplayedLabel: result.tierDisplayedLabel ?? result.tierLabel,
+      tierCapReason: result.tierCapReason ?? null,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
