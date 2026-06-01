@@ -287,8 +287,12 @@ Deno.serve(async (req) => {
 
   try {
     const auth = await authenticateRequest(req, corsHeaders);
-    if (auth.errorResponse) return auth.errorResponse;
+    if (auth.errorResponse) {
+      console.warn("[synthesize-cos] auth_missing — returning 401 from authenticateRequest");
+      return auth.errorResponse;
+    }
     const userId = auth.userId!;
+    console.info(`[synthesize-cos] start user_id=${userId}`);
 
     const body = await req.json().catch(() => ({}));
     const force = !!(body as any)?.force;
@@ -320,6 +324,7 @@ Deno.serve(async (req) => {
 
     // Idempotency: if already ready and not forced, return cached
     if (!force && row.cos_profile_status === "ready" && row.cos_profile) {
+      console.info(`[synthesize-cos] cached user_id=${userId}`);
       return json(200, {
         ok: true,
         cached: true,
@@ -346,6 +351,7 @@ Deno.serve(async (req) => {
       if (linkedinUrl && isValidHttpUrl(linkedinUrl) && !linkedinScrape) {
         const r = await firecrawlScrape(firecrawlKey, linkedinUrl);
         linkedinScrape = { url: linkedinUrl, ...r, scraped_at: new Date().toISOString() };
+        console.info(`[synthesize-cos] firecrawl linkedin ok=${!!r.ok} status=${r.ok ? "scraped" : r.error ?? "unknown"}`);
       }
       for (const u of writingUrls) {
         if (!isValidHttpUrl(u)) {
@@ -354,6 +360,7 @@ Deno.serve(async (req) => {
         }
         const r = await firecrawlScrape(firecrawlKey, u);
         writingScrapes.push({ url: u, ...r, scraped_at: new Date().toISOString() });
+        console.info(`[synthesize-cos] firecrawl writing ok=${!!r.ok}`);
       }
     } else {
       console.warn("[synthesize-cos] FIRECRAWL_API_KEY missing — skipping scrape");
@@ -393,6 +400,7 @@ Deno.serve(async (req) => {
     });
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
+    console.info(`[synthesize-cos] calling AI model=${AI_MODEL} user_id=${userId}`);
     const aiRes = await fetch(AI_GATEWAY_URL, {
       method: "POST",
       headers: {
@@ -468,6 +476,7 @@ Deno.serve(async (req) => {
       return json(500, { error: "persist_failed" });
     }
 
+    console.info(`[synthesize-cos] success user_id=${userId} linkedin_ok=${!!(linkedinScrape && linkedinScrape.ok)} writing_ok=${writingScrapes.filter((w) => w?.ok).length}/${writingScrapes.length}`);
     return json(200, {
       ok: true,
       cached: false,
