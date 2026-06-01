@@ -4912,10 +4912,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         return demandHigh && bodyDown;
       })(),
       regulationRisk: regulationLevel != null && regulationLevel <= 2,
-      // Signal Pills v3 — bracketed qualifier bundle (display-only).
-      // null when the late-stage computation block failed or skipped.
-      pillQualifiers: (typeof pillQualifiersPayload !== 'undefined' ? pillQualifiersPayload : null),
-      coherenceWarning: (typeof coherenceWarning !== 'undefined' ? coherenceWarning : null),
       // New enrichment fields
       yesterdayScore,
       scoreTrend,
