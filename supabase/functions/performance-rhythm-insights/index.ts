@@ -953,6 +953,39 @@ serve(async (req) => {
       longPositiveLabel: 'Regulated/Resourced (4–5)', longNegativeLabel: 'Depleted/Frayed (1–2)',
     });
 
+    // ── Wearable Body Rhythm series ──
+    // Same statistical engine; bands defined in the shared aggregator.
+    // tw is fixed at 0 (wearables emit one row/night), so the time-of-day
+    // patterns inside mineSeries naturally never trigger — only DOW and
+    // consecutive-same-DOW runs surface for these dims.
+    const wearableRowsTyped = wearableData as unknown as WearableRow[];
+    const baselines = computeWearableBaselines(wearableRowsTyped);
+    const mkWearableSeries = (dim: WearableDim): SeriesPoint[] =>
+      buildWearableDailySeries(wearableRowsTyped, dim, baselines).map(p => ({
+        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative,
+      }));
+
+    const hrvFindings = mineSeries(mkWearableSeries('hrv'), {
+      dimension: 'hrv', appLabel: 'HRV',
+      positivePhrase: 'recovered', negativePhrase: 'depressed',
+      longPositiveLabel: 'at/above baseline', longNegativeLabel: '≥10% below baseline',
+    });
+    const sleepScoreFindings = mineSeries(mkWearableSeries('sleep_score'), {
+      dimension: 'sleep_score', appLabel: 'Sleep Score',
+      positivePhrase: 'strong', negativePhrase: 'poor',
+      longPositiveLabel: 'Sleep Score ≥75', longNegativeLabel: 'Sleep Score ≤60',
+    });
+    const sleepDurationFindings = mineSeries(mkWearableSeries('sleep_duration'), {
+      dimension: 'sleep_duration', appLabel: 'Sleep Duration',
+      positivePhrase: 'well-rested', negativePhrase: 'short on sleep',
+      longPositiveLabel: '≥7h asleep', longNegativeLabel: '≤6h asleep',
+    });
+    const sleepEfficiencyFindings = mineSeries(mkWearableSeries('sleep_efficiency'), {
+      dimension: 'sleep_efficiency', appLabel: 'Sleep Efficiency',
+      positivePhrase: 'efficient', negativePhrase: 'restless',
+      longPositiveLabel: 'efficiency ≥85%', longNegativeLabel: 'efficiency ≤75%',
+    });
+
     // ── Performance Patterns prioritization ──
     // Surface the strongest day-of-week, time-of-day, and their intersection
     // (the three asks of the "Performance Patterns" section). Recurring risks
@@ -973,10 +1006,17 @@ serve(async (req) => {
       regulation: 0.12,
       emotion: 0.10,
       pressure: 0.08,
+      // Wearable dims: HRV ranks alongside regulation as a recovery
+      // anchor; sleep dims sit just below emotion; efficiency last.
+      hrv: 0.13,
+      sleep_score: 0.11,
+      sleep_duration: 0.11,
+      sleep_efficiency: 0.09,
     };
 
     const allFindings: RhythmFinding[] = [
       ...clarityFindings, ...emotionFindings, ...pressureFindings, ...regulationFindings,
+      ...hrvFindings, ...sleepScoreFindings, ...sleepDurationFindings, ...sleepEfficiencyFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],
