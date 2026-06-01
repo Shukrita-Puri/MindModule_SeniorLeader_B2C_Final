@@ -18,6 +18,7 @@ import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInImportCard from '@/components/profile/LinkedInImportCard';
+import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -315,7 +316,7 @@ const Profile = () => {
               data-tour="connected-data-btn"
             >
               <Database className="h-4 w-4" />
-              Connected Data Sources
+              Connected Data (details)
             </Button>
 
             {/* Travel detection */}
@@ -384,6 +385,17 @@ const Profile = () => {
 
         {/* LinkedIn import */}
         <LinkedInImportCard />
+
+        {/* Connections — shared panel reused by post-onboarding Connect step */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[15px] font-medium">Connections</CardTitle>
+            <CardDescription>Connect or reconnect your calendar and wearable</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConnectionsPanel redirectPath="/profile" />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Edit Name Dialog */}

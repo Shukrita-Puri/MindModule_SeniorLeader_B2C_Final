@@ -84,6 +84,7 @@ const StageProtectGoals = lazy(() => import("./pages/onboarding/stages/v8/StageP
 const StageBriefPrefs = lazy(() => import("./pages/onboarding/stages/v8/StageBriefPrefs"));
 const StagePermissions = lazy(() => import("./pages/onboarding/stages/v8/StagePermissions"));
 const StageDone = lazy(() => import("./pages/onboarding/stages/v8/StageDone"));
+const StageConnections = lazy(() => import("./pages/onboarding/stages/v8/StageConnections"));
 
 // Loading fallback — silent for fast (<3s) lazy-load transitions, then falls
 // back to a single generic loader. Page-specific loaders (Brief, Plan,
@@ -296,6 +297,7 @@ const router = createBrowserRouter([
           { path: "protect-goals", element: <Suspense fallback={<LoadingFallback />}><StageProtectGoals /></Suspense> },
           { path: "brief-prefs", element: <Suspense fallback={<LoadingFallback />}><StageBriefPrefs /></Suspense> },
           { path: "permissions", element: <Suspense fallback={<LoadingFallback />}><StagePermissions /></Suspense> },
+          { path: "connect", element: <Suspense fallback={<LoadingFallback />}><StageConnections /></Suspense> },
           { path: "done", element: <Suspense fallback={<LoadingFallback />}><StageDone /></Suspense> },
         ],
       },
