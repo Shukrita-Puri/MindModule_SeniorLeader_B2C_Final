@@ -12,7 +12,7 @@ import whoopLogo from "@/assets/shared/whoop-logo.png";
 
 const CAL = [
   { id: "google", name: "Google Calendar", note: "Reads event titles and times only", logo: googleCalLogo },
-  { id: "outlook", name: "Microsoft Outlook", note: "Reads event titles and times only", logo: outlookLogo },
+  { id: "microsoft", name: "Microsoft Outlook", note: "Reads event titles and times only", logo: outlookLogo },
   { id: "apple", name: "Apple Calendar", note: "Reads event titles and times only", logo: appleCalLogo },
 ];
 const WEAR = [

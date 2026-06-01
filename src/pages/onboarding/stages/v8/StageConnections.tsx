@@ -4,20 +4,16 @@ import { ParchScreen, PrimaryCTA } from './ShellV8';
 import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthToken } from '@/services/authTokenService';
+import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from '@/utils/onboardingV8Validation';
 import type { CalendarProviderId } from '@/components/calendar/CalendarProviderPicker';
 import type { WearableProviderId } from '@/components/connections/WearableProviderPicker';
 
-const CAL_MAP: Record<string, CalendarProviderId> = {
-  google: 'google',
-  outlook: 'microsoft',
-  microsoft: 'microsoft',
-  apple: 'apple',
-};
-const WEAR_MAP: Record<string, WearableProviderId> = {
-  'apple-watch': 'apple-watch',
-  oura: 'oura',
-  whoop: 'whoop',
-};
+// Backward-compat: legacy rows may have stored "outlook" instead of the
+// canonical "microsoft". sanitizePayload rewrites on write; this map covers
+// reads of pre-existing rows.
+const CAL_LEGACY: Record<string, CalendarProviderId> = { outlook: 'microsoft' };
+const CAL_ALLOWED = new Set<string>(CALENDAR_PROVIDERS);
+const WEAR_ALLOWED = new Set<string>(WEARABLE_PROVIDERS);
 
 /**
  * Post-onboarding Connections step. Renders the shared ConnectionsPanel
@@ -42,11 +38,10 @@ export default function StageConnections() {
           .select('calendar_selections, wearable_selections')
           .maybeSingle();
         const cal = (data?.calendar_selections ?? [])
-          .map((s: string) => CAL_MAP[s])
-          .filter(Boolean) as CalendarProviderId[];
+          .map((s: string) => CAL_LEGACY[s] ?? s)
+          .filter((s: string) => CAL_ALLOWED.has(s)) as CalendarProviderId[];
         const wear = (data?.wearable_selections ?? [])
-          .map((s: string) => WEAR_MAP[s])
-          .filter(Boolean) as WearableProviderId[];
+          .filter((s: string) => WEAR_ALLOWED.has(s)) as WearableProviderId[];
         if (cal.length) setCalOnly(cal);
         if (wear.length) setWearOnly(wear);
       } catch (err) {

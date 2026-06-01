@@ -28,7 +28,14 @@ export const BRIEF_TIMING = ["Morning", "Evening", "Use intelligence"] as const;
 export const RESET_MODALITY = ["Sound", "Guided", "Mindset", "Use intelligence"] as const;
 export const WEEKEND_SIGNALS = ["Reduce", "Keep"] as const;
 
-export const CALENDAR_PROVIDERS = ["google", "outlook", "apple"] as const;
+// Canonical calendar provider IDs. Aligned with CalendarProviderPicker
+// (`'google' | 'microsoft' | 'apple'`) so the same value flows from the UI
+// through validation, DB persistence, and the post-onboarding Connections
+// step without translation. `"outlook"` is kept as a backward-compat alias
+// for any pre-existing rows and is rewritten to `"microsoft"` by
+// `sanitizePayload`.
+export const CALENDAR_PROVIDERS = ["google", "microsoft", "apple"] as const;
+const CALENDAR_PROVIDER_ALIASES: Record<string, string> = { outlook: "microsoft" };
 export const WEARABLE_PROVIDERS = ["apple-watch", "oura", "whoop"] as const;
 
 export const MAX_GOALS = 3;
@@ -154,7 +161,14 @@ export function sanitizePayload(input: V8Payload): V8Payload {
     const v = typeof input.weekend_signals === "string" ? input.weekend_signals.trim() : input.weekend_signals;
     out.weekend_signals = (WEEKEND_SIGNALS as readonly string[]).includes(v as string) ? (v as string) : null;
   }
-  if ("calendar_selections" in input) out.calendar_selections = sanitizeArr(input.calendar_selections, CALENDAR_PROVIDERS);
+  if ("calendar_selections" in input) {
+    const aliased = Array.isArray(input.calendar_selections)
+      ? input.calendar_selections.map((v) =>
+          typeof v === "string" ? (CALENDAR_PROVIDER_ALIASES[v.trim().toLowerCase()] ?? v) : v,
+        )
+      : input.calendar_selections;
+    out.calendar_selections = sanitizeArr(aliased, CALENDAR_PROVIDERS);
+  }
   if ("wearable_selections" in input) out.wearable_selections = sanitizeArr(input.wearable_selections, WEARABLE_PROVIDERS);
 
   return out;
