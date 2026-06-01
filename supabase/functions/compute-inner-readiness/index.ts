@@ -116,6 +116,46 @@ function getEnergySubTier(score: number): EnergySubTier {
   return 'very-high';
 }
 
+// ==================== MRS v3 — TIER-CAP "SOFT GUARD" ====================
+// Patterns no longer move the score. Instead they can *cap the displayed tier*
+// down to 'managing' (UI label "Mixed") when chronic load is active AND the
+// user's physiological composite is not already in the Low band (<50).
+//
+// Invariants (see docs/MRS_V3_SPECIFICATION.md §4b):
+//   • The cap can NEVER raise a low score.
+//   • The cap can NEVER hide an acute crash — when physComposite < 50,
+//     today's reading already tells the truth, so we leave it alone.
+//   • The cap is suppressed during cold-start (baselineConfidence === 'low')
+//     because pattern signals are not yet trustworthy.
+function deriveTierCap(
+  rawTier: EnergyTier,
+  physComposite: number | null,
+  patterns: PatternSignalsLite | null | undefined,
+  baselineConfidence: 'low' | 'medium' | 'high',
+): { tierDisplayed: EnergyTier; tierCapReason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null } {
+  // Cold-start safety: pattern signals don't carry enough weight yet.
+  if (baselineConfidence === 'low') {
+    return { tierDisplayed: rawTier, tierCapReason: null };
+  }
+  // Only Strong/Peak are eligible for the cap.
+  if (rawTier !== 'strong' && rawTier !== 'peak') {
+    return { tierDisplayed: rawTier, tierCapReason: null };
+  }
+  // Acute crash precedence: if physio is already Low, the score reads
+  // honestly — never apply the cap (would mask the crash).
+  if (physComposite != null && physComposite < 50) {
+    return { tierDisplayed: rawTier, tierCapReason: null };
+  }
+  const sustainedDeficit = (patterns as any)?.sustained_deficit_flag === true;
+  if (sustainedDeficit) {
+    return { tierDisplayed: 'managing', tierCapReason: 'SUSTAINED_DEFICIT' };
+  }
+  if ((patterns?.consecutive_high_load_days ?? 0) >= 4) {
+    return { tierDisplayed: 'managing', tierCapReason: 'CONSECUTIVE_LOAD' };
+  }
+  return { tierDisplayed: rawTier, tierCapReason: null };
+}
+
 // ==================== TIER LABELS ====================
 function getTierLabel(tier: string): string {
   switch (tier) {
