@@ -129,7 +129,7 @@ async function ouraFetch(token: string, path: string, params: Record<string, str
 /** Map Oura responses → per-day partial rows for wearable_data. */
 function buildDailyRows(opts: {
   daily_sleep?: { data?: Array<{ day: string; score?: number }> };
-  sleep?: { data?: Array<{ day?: string; bedtime_start?: string; total_sleep_duration?: number; deep_sleep_duration?: number; rem_sleep_duration?: number; average_hrv?: number; average_heart_rate?: number; lowest_heart_rate?: number }> };
+  sleep?: { data?: Array<{ day?: string; bedtime_start?: string; total_sleep_duration?: number; deep_sleep_duration?: number; rem_sleep_duration?: number; time_in_bed?: number; efficiency?: number; average_hrv?: number; average_heart_rate?: number; lowest_heart_rate?: number }> };
   daily_readiness?: { data?: Array<{ day: string; contributors?: { resting_heart_rate?: number; hrv_balance?: number } }> };
   heartrate?: { data?: Array<{ timestamp: string; bpm: number; source?: string }> };
 }): Array<Record<string, unknown>> {
@@ -164,6 +164,16 @@ function buildDailyRows(opts: {
     if (typeof s.average_hrv === "number") r.hrv = s.average_hrv;
     if (typeof s.lowest_heart_rate === "number") r.resting_heart_rate = s.lowest_heart_rate;
     if (typeof s.average_heart_rate === "number") r.heart_rate = Math.round(s.average_heart_rate);
+    // Sleep efficiency: prefer Oura-reported `efficiency`, else derive
+    // from time_in_bed + total_sleep_duration (both in seconds).
+    if (typeof s.efficiency === "number") {
+      r.sleep_efficiency = Math.max(0, Math.min(100, Math.round(s.efficiency)));
+    } else if (
+      typeof s.time_in_bed === "number" && s.time_in_bed > 0 &&
+      typeof s.total_sleep_duration === "number"
+    ) {
+      r.sleep_efficiency = Math.max(0, Math.min(100, Math.round((s.total_sleep_duration / s.time_in_bed) * 100)));
+    }
   }
 
   for (const dr of opts.daily_readiness?.data ?? []) {
