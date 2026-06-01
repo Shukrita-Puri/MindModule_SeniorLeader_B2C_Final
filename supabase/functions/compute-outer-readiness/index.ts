@@ -29,6 +29,13 @@ import {
   hasMeaningfulDemand,
   coldStartLabel,
 } from "../_shared/signal-engine/context-builder.ts";
+import {
+  getPillQualifiers,
+  assertPillCoherence,
+  type CheckinRow as PqCheckinRow,
+  type WearableRow as PqWearableRow,
+  type PillTier as PqPillTier,
+} from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -4358,10 +4365,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         const stateMaxLocal = (a: PillTier, b: PillTier): PillTier =>
           stateRank[a] >= stateRank[b] ? a : b;
 
-        // MRS v2 §3.5 — Cognitive (Decision Readiness).
-        // Source change: was HRV + sharpness + clarity + outcome. Now HRV
-        // (primary) + 3-day HRV trend amplifier + cognitive fragmentation
-        // proxy via calendar load. Check-in fields are intentionally dropped.
+        // ── Inline supplyDemandGap (mirror of the response-level closure) ──
+        // Caps Cognitive GREEN → AMBER per Signal Pills v3.
+        const supplyDemandGapPill = (() => {
+          const demandHigh = calendarLoad === 'high' || calendarPressure === 'high';
+          const bodyDown =
+            (typeof (wearableContext as any)?.hrvDeviation === 'number' && (wearableContext as any).hrvDeviation <= -10)
+            || !!wearableContext?.poorSleep
+            || !!wearableContext?.hrvElevated;
+          return demandHigh && bodyDown;
+        })();
+        const regulationRiskPill =
+          (regulationLevel != null && regulationLevel <= 2)
+          || (pressureLevel != null && pressureLevel >= 4);
+
+        // Calendar fragmentation score kept for contributor surfacing.
+        const fragmentationScore = calendarResult.fragmentationScore ?? 0;
+
+        // ── Signal Pills v3: Cognitive (HRV 40% + Sleep 40% + Clarity 20%) ──
+        // Tier composition uses any-worst-wins on the three contributing
+        // bands. SUPPLY_DEMAND_GAP caps a final GREEN → AMBER.
         const cogTiers: PillTier[] = [];
         if (hrvValue != null) {
           if (hrvDeviation != null) {
@@ -4370,35 +4393,26 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             cogTiers.push(hrvValue < 20 ? 'red' : hrvValue < 40 ? 'amber' : 'green');
           }
         }
-        // 3-day HRV trend acts as a fragmentation amplifier (MRS v2: real
-        // 3-day trend from orchestrator, not the 7-day reading).
-        if (hrv3dTrend === 'declining') cogTiers.push('amber');
-        // Sustained-high-load fragmentation escalation (MRS v2 §3.5).
-        if (consecutiveHighLoadDays >= 3) cogTiers.push('amber');
-        // Calendar fragmentation: high load AND high pressure → cognitive drag.
-        if (calendarLoad === 'high' && calendarPressure === 'high') cogTiers.push('amber');
-        // MRS v2 §3.5 — direct cognitive fragmentation score from today's
-        // calendar shape (back-to-back chains + sub-15-min gap density).
-        // Bands: ≥ 75 → red (chopped day), 50–74 → amber, < 50 → no signal.
-        const fragmentationScore = calendarResult.fragmentationScore ?? 0;
-        if (fragmentationScore >= 75) cogTiers.push('red');
-        else if (fragmentationScore >= 50) cogTiers.push('amber');
-        const cognitiveTier: PillTier = cogTiers.length === 0
+        if (sleepDuration != null || sleepScoreVal != null) {
+          if (sleepDuration != null && sleepDuration < 360) cogTiers.push('red');
+          else if (sleepScoreVal != null && sleepScoreVal < 60) cogTiers.push('red');
+          else if (sleepScoreVal != null && sleepScoreVal < 70) cogTiers.push('amber');
+          else if (sleepDuration != null && sleepDuration < 420) cogTiers.push('amber');
+          else cogTiers.push('green');
+        }
+        if (clarityLevel != null) {
+          cogTiers.push(clarityLevel <= 2 ? 'red' : clarityLevel === 3 ? 'amber' : 'green');
+        }
+        let cognitiveTier: PillTier = cogTiers.length === 0
           ? 'neutral'
           : cogTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
+        // Divergence cap: GREEN → AMBER when supply ≠ demand.
+        if (cognitiveTier === 'green' && supplyDemandGapPill) cognitiveTier = 'amber';
 
-        // Physical Reserves — Sleep + RHR + HR-elevated proxy (hardware-only)
+        // ── Signal Pills v3: Physiology (RHR + HR-elevated proxy ONLY) ──
+        // Sleep moved to Cognitive — lack of sleep impacts the mind more
+        // than the body for wearable-equipped CEOs. RHR / HR remain.
         const physTiers: PillTier[] = [];
-        if (sleepDuration != null || sleepScoreVal != null) {
-          if (sleepDuration != null && sleepDuration < 300) physTiers.push('red');
-          else if (sleepDuration != null && sleepDuration < 360) physTiers.push('red');
-          else if (sleepScoreVal != null && sleepScoreVal < 60) physTiers.push('red');
-          else if (sleepDeviation != null && sleepDeviation < -15) physTiers.push('red');
-          else if (sleepDeviation != null && sleepDeviation < -8) physTiers.push('amber');
-          else if (sleepScoreVal != null && sleepScoreVal < 70) physTiers.push('amber');
-          else if (sleepDuration != null && sleepDuration < 420) physTiers.push('amber');
-          else physTiers.push('green');
-        }
         if (rhrValue != null) {
           if (rhrDeviation != null) {
             physTiers.push(rhrDeviation > 20 ? 'red' : rhrDeviation > 10 ? 'amber' : 'green');
@@ -4411,13 +4425,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         } else if (rhrDeviation != null) {
           physTiers.push(rhrDeviation > 25 ? 'red' : rhrDeviation > 15 ? 'amber' : 'green');
         }
-        // MRS v2 §3.5 — RHR 3-day trend (lower = better). Rising trend is
-        // a sympathetic-load tell that often shows up before deviation
-        // breaches; declining trend is a recovery nudge.
+        // RHR 3-day trend: rising = sympathetic load tell.
         if (rhr3dTrend === 'rising') physTiers.push('amber');
         else if (rhr3dTrend === 'declining') physTiers.push('green');
-        // MRS v2 §3.5 — sustained physiological deficit beyond a single-day
-        // reading escalates Physical Reserves to red.
         if (sustainedDeficitFlag) physTiers.push('red');
         const physicalTier: PillTier = physTiers.length === 0
           ? 'neutral'
@@ -4434,45 +4444,38 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         //                                    demand-heavy days, never red)
         // Any confidence_level / energy_balance / coach_pattern signal is
         // intentionally NOT consumed here.
+        // ── Signal Pills v3: Resilience (sleepEfficiency anchor + Mind overlay) ──
+        // State-1 wearable anchor lets this pill render even with no check-in.
+        // State-2 overlay refines once emotion/regulation/pressure arrive.
         const resTiers: PillTier[] = [];
-
-        // (1) Sustained-demand-day count.
-        if (consecutiveHighLoadDays >= 3) resTiers.push('red');
-        else if (consecutiveHighLoadDays === 2) resTiers.push('amber');
-
-        // (2) Sustained physiological deficit (HRV < −20% for 2+ consecutive days).
+        const sleepEffPill = wearableContext?.sleepEfficiency ?? null;
+        if (sleepEffPill != null) {
+          resTiers.push(sleepEffPill >= 85 ? 'green' : sleepEffPill >= 70 ? 'amber' : 'red');
+        }
+        // Check-in overlay (State 2).
+        if (emotionLevel != null) {
+          resTiers.push(emotionLevel <= 2 ? 'amber' : 'green');
+        }
+        if (regulationLevel != null) {
+          resTiers.push(regulationLevel <= 2 ? 'amber' : 'green');
+        }
+        if (pressureLevel != null) {
+          // Inverted: high pressure_level = under load.
+          resTiers.push(pressureLevel >= 4 ? 'amber' : 'green');
+        }
+        // Historical capacity erosion (kept as a calendar-pattern signal).
         if (sustainedDeficitFlag) resTiers.push('red');
-
-        // (3) HRV-low × high-demand co-occurrence over the last 7 days.
-        //   - 3+ days  → red   (reserve actively eroding)
-        //   - 2 days   → amber
-        //   - ratio ≥ 0.5 with ≥2 observed days → amber (sparse but skewed)
-        if (cooccurrence7d.cooccurrence_count >= 3) {
-          resTiers.push('red');
-        } else if (cooccurrence7d.cooccurrence_count === 2) {
-          resTiers.push('amber');
-        } else if (
-          cooccurrence7d.days_observed >= 2
-          && (cooccurrence7d.cooccurrence_ratio ?? 0) >= 0.5
-        ) {
-          resTiers.push('amber');
-        }
-
-        // (4) Framing: today's load vs the day-of-week norm.
-        // High-load on a day that's historically light = unusual strain → amber.
-        if (typicalLoadForDow && typicalLoadForDow !== 'high' && calendarLoad === 'high') {
-          resTiers.push('amber');
-        }
-
-        // (5) Protection-goal-under-pressure bias (framing only — never raw
-        // presence, never red). Goal exists AND today is demand-heavy → amber.
+        if (cooccurrence7d.cooccurrence_count >= 3) resTiers.push('red');
+        else if (cooccurrence7d.cooccurrence_count === 2) resTiers.push('amber');
         const _hasStakesEarly = (calendarResult.highStakesEvents?.length ?? 0) > 0;
         if (protectionGoals.length > 0 && (calendarPressure === 'high' || _hasStakesEarly)) {
           resTiers.push('amber');
         }
-        const resilienceTier: PillTier = resTiers.length === 0
+        let resilienceTier: PillTier = resTiers.length === 0
           ? 'neutral'
           : resTiers.reduce<PillTier>((a, b) => stateMaxLocal(a, b), 'neutral');
+        // REGULATION_RISK floor — never below AMBER when regulation/pressure flag fires.
+        if (regulationRiskPill && resilienceTier === 'green') resilienceTier = 'amber';
 
         // Human-readable short label per pill+tier. Mirrors the executive
         // vocabulary used across the dashboard (Active Calm; no wellness tropes).
@@ -4553,6 +4556,78 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             },
           },
         ];
+
+        // ── Signal Pills v3: bracketed qualifiers + coherence guard ──
+        // Qualifiers are display-only enrichment (delta3d / vsDow / peakStreak
+        // for Mind dims; delta3d / vsBaselinePct for wearable). Tiers above
+        // are already final — qualifiers never re-tier.
+        // Coherence guard is dev-only: if MRS tier disagrees with pill mix
+        // we auto-correct and log a warning when APP_ENV !== 'production'.
+        let pillQualifiersPayload: ReturnType<typeof getPillQualifiers> | null = null;
+        let coherenceWarning: string | null = null;
+        try {
+          const fourteenAgo = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+          const [ciHistRes, wHistRes] = await Promise.all([
+            db.from('daily_checkins')
+              .select('checkin_date, time_window, clarity_level, emotion_level, pressure_level, regulation_level')
+              .eq('user_id', userId)
+              .gte('checkin_date', fourteenAgo)
+              .order('checkin_date', { ascending: false })
+              .limit(40),
+            db.from('wearable_data')
+              .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes')
+              .eq('user_id', userId)
+              .gte('summary_date', fourteenAgo)
+              .order('summary_date', { ascending: false })
+              .limit(14),
+          ]);
+          pillQualifiersPayload = getPillQualifiers(
+            (ciHistRes.data || []) as PqCheckinRow[],
+            (wHistRes.data || []) as PqWearableRow[],
+            {
+              hrv: typeof hrvBaseline === 'number' ? hrvBaseline : null,
+              rhr: typeof rhrBaseline === 'number' ? rhrBaseline : null,
+              sleep: typeof sleepBaseline === 'number' ? sleepBaseline : null,
+            }
+          );
+
+          const { pills: coherentPills, warning } = assertPillCoherence(safeTier, [
+            { key: 'decision_readiness', tier: cognitiveTier as PqPillTier },
+            { key: 'physical_reserves',  tier: physicalTier  as PqPillTier },
+            { key: 'resilience_capacity', tier: resilienceTier as PqPillTier },
+          ]);
+          if (warning) {
+            coherenceWarning = warning;
+            // Apply silent auto-correction in all envs; surface the warning
+            // only on non-prod so QA can spot drift before it ships.
+            for (const cp of coherentPills) {
+              const p = signalPillsPayload.find((x: any) => x.key === cp.key);
+              if (p && p.tier !== cp.tier) {
+                p.tier = cp.tier;
+                p.tierLabel = (PILL_TIER_LABELS as any)[cp.key]?.[cp.tier] ?? p.tierLabel;
+              }
+            }
+            if ((Deno.env.get('APP_ENV') ?? 'development') !== 'production') {
+              console.warn('[signal-pills-v3]', warning);
+            }
+          }
+
+          // Attach qualifiers to each pill (additive, optional).
+          const q = pillQualifiersPayload;
+          for (const p of signalPillsPayload) {
+            if (p.key === 'decision_readiness') {
+              (p as any).qualifiers = { hrv: q.hrv, sleep: q.sleep, clarity: q.clarity };
+            } else if (p.key === 'physical_reserves') {
+              (p as any).qualifiers = { rhr: q.rhr };
+            } else if (p.key === 'resilience_capacity') {
+              (p as any).qualifiers = {
+                emotion: q.emotion, regulation: q.regulation, pressure: q.pressure,
+              };
+            }
+          }
+        } catch (qErr) {
+          console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
+        }
 
         // MRS v2 — mirror canonical pill payload + demand into daily_context_snapshot.
         // Best-effort, non-blocking (errors are logged inside the helper).
