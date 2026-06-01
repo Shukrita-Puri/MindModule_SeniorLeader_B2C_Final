@@ -176,6 +176,22 @@ Pill shape, algorithm, and visual structure unchanged. Only new nullable contrib
 | **Physiology** | Wearable-only (HRV, sleep, RHR) | **None** — by design. |
 | **Resilience** | `consecutive_load_days`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`, `protection_goals_under_pressure` (retained) | `emotionContrib` + `regulationContrib` (same mapping as clarity). Force min AMBER when `REGULATION_RISK` active. Drop legacy `confidence/outcome` contributions. |
 
+### 8.1 Bracketed qualifier contract (v3)
+
+Each pill is enriched with a `qualifiers` bundle sourced from the shared `checkin-pattern-aggregator` (`supabase/functions/_shared/signal-engine/checkin-pattern-aggregator.ts`). The same module powers Insights "Performance Patterns", so per-dim streak/DoW numbers MUST be identical across both surfaces.
+
+| Pill | Qualifier inputs (display-only) |
+|---|---|
+| Decision Readiness | `hrv.{delta3d,vsBaselinePct}`, `sleep.{durationDelta7d,scoreVsBaseline}`, `clarity.{delta3d,vsDow,peakStreak}` |
+| Physical Reserves | `rhr.{vsBaselinePct}` |
+| Resilience Capacity | `emotion`, `regulation`, `pressure` (each `{delta3d,vsDow,peakStreak}`; pressure inverted: positive band = value ≤ 2) |
+
+Rendering rule: `value (qualifier)` inline. Tier is driven by today's value alone — brackets never re-tier. Display priority: `peakStreak ≥ 3` → `delta3d` → `vsDow`.
+
+### 8.2 Coherence guard (dev-only)
+
+`assertPillCoherence(mrsTier, pills)` runs after the deterministic pill build. If `MRS = Depleted` but no pill is RED, the weakest AMBER is escalated to RED. If `MRS = Optimal` and any pill is RED, those are downgraded to AMBER. Auto-correction applies in all envs; the `coherenceWarning` string is logged + echoed to the client only when `APP_ENV !== 'production'`.
+
 ---
 
 ## 9. Persistence schema (`daily_context_snapshot` additions)

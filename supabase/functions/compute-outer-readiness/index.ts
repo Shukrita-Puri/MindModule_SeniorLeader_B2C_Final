@@ -4278,6 +4278,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       linkedDailyCheckinId = null;
     }
 
+    // Signal Pills v3 — hoisted echoes so the response builder (below) can
+    // surface server-built pills + qualifier qualifiers to the client.
+    let echoedSignalPills: any[] | null = null;
+    let echoedPillQualifiers: any = null;
+    let echoedCoherenceWarning: string | null = null;
+
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
@@ -4625,6 +4631,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               };
             }
           }
+
+          // Hoist for response echo (additive, optional fields).
+          echoedSignalPills = signalPillsPayload;
+          echoedPillQualifiers = pillQualifiersPayload;
+          echoedCoherenceWarning = coherenceWarning;
         } catch (qErr) {
           console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
         }
@@ -4960,6 +4971,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // request (cache hit OR successful upsert). The client uses this to
       // decide whether to track a brief_view event for Recent history.
       briefPersisted: resolvedBriefId !== null,
+      // Signal Pills v3 — echo server-built pill payload + bracketed
+      // qualifiers so the client renders identical numbers to Insights
+      // without recomputing aggregates. `coherenceWarning` is suppressed
+      // in production (dev/QA only — see assertPillCoherence).
+      signalPills: awaitingSignals ? null : echoedSignalPills,
+      pillQualifiers: awaitingSignals ? null : echoedPillQualifiers,
+      coherenceWarning: echoedCoherenceWarning,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({

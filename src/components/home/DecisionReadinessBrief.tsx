@@ -28,6 +28,7 @@ import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, Ca
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import PillarGlossaryModal from '@/components/home/PillarGlossaryModal';
+import PillTooltip, { type PillTooltipPill } from '@/components/home/PillTooltip';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
@@ -1138,6 +1139,76 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
             : 'Sleep not captured · partial physiology read')
         : undefined);
 
+  // ── Signal Pills v3 — bracketed qualifier enrichment (display-only) ──
+  // Pulls server-built `pillQualifiers` (SSOT with Insights Performance
+  // Patterns) and appends `(qualifier)` to the matching pill text. Tier is
+  // unchanged: today's value alone drives the tier; brackets are perspective.
+  const pq = (outerBrief as any)?.pillQualifiers as
+    | {
+        clarity?: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+        emotion?:    { delta3d: number | null; vsDow: number | null; peakStreak: number };
+        pressure?:   { delta3d: number | null; vsDow: number | null; peakStreak: number };
+        regulation?: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+        hrv?:   { delta3d: number | null; vsBaselinePct: number | null };
+        sleep?: { durationDelta7d: number | null; scoreVsBaseline: number | null };
+        rhr?:   { vsBaselinePct: number | null };
+      }
+    | null
+    | undefined;
+
+  const fmtMindBracket = (q: { delta3d: number | null; vsDow: number | null; peakStreak: number } | undefined): string | null => {
+    if (!q) return null;
+    if (q.peakStreak >= 3) return `${q.peakStreak}-day peak`;
+    if (q.delta3d != null && Math.abs(q.delta3d) >= 0.5) {
+      const s = q.delta3d > 0 ? `+${q.delta3d}` : `${q.delta3d}`;
+      return `${s} vs 3d`;
+    }
+    if (q.vsDow != null && Math.abs(q.vsDow) >= 0.5) {
+      const s = q.vsDow > 0 ? `+${q.vsDow}` : `${q.vsDow}`;
+      return `${s} vs ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()]}s`;
+    }
+    return null;
+  };
+  const fmtPctBracket = (n: number | null | undefined): string | null => {
+    if (n == null || Math.abs(n) < 2) return null;
+    return `${n > 0 ? '+' : ''}${n}% vs baseline`;
+  };
+  const fmtNumBracket = (n: number | null | undefined, unit: string): string | null => {
+    if (n == null || Math.abs(n) < 1) return null;
+    return `${n > 0 ? '+' : ''}${n}${unit} vs 3d`;
+  };
+
+  const appendBracket = (line: PillLine, bracket: string | null): void => {
+    if (!bracket) return;
+    // Avoid double-bracketing when text already ends with parens.
+    if (/\([^)]*\)\s*$/.test(line.text)) return;
+    line.text = `${line.text} (${bracket})`;
+  };
+
+  if (pq) {
+    // Cognitive: HRV + sleep + clarity
+    for (const l of cogTop) {
+      if (/^HRV\s+\d/.test(l.text)) appendBracket(l, fmtPctBracket(pq.hrv?.vsBaselinePct) ?? fmtNumBracket(pq.hrv?.delta3d ?? null, 'ms'));
+      else if (/^Sleep\b/.test(l.text)) appendBracket(l, fmtPctBracket(pq.sleep?.scoreVsBaseline) ?? fmtNumBracket(pq.sleep?.durationDelta7d ?? null, 'm'));
+    }
+    for (const l of cogBottom) if (/^Clarity:/.test(l.text)) appendBracket(l, fmtMindBracket(pq.clarity));
+    // Physiology: RHR
+    for (const l of physTop) if (/^RHR\s+\d/.test(l.text)) appendBracket(l, fmtPctBracket(pq.rhr?.vsBaselinePct));
+    // Resilience: emotion/regulation/pressure go on the self-declared lines
+    // (Mental Energy text already carries the outcome; we annotate it with
+    // whichever Mind dim has the strongest qualifier today).
+    const strongest = ([
+      ['Regulation', pq.regulation],
+      ['Emotion', pq.emotion],
+      ['Pressure', pq.pressure],
+    ] as const).find(([, q]) => fmtMindBracket(q));
+    if (strongest) {
+      const [name, q] = strongest;
+      const b = fmtMindBracket(q);
+      if (b) for (const l of emoBottom) { appendBracket(l, `${name}: ${b}`); break; }
+    }
+  }
+
   return [
     {
       id: 'cognitive',
@@ -1227,10 +1298,12 @@ function ExecutivePillCapsule({
   pill,
   expanded,
   onToggle,
+  serverPill,
 }: {
   pill: ExecutivePill;
   expanded: boolean;
   onToggle: () => void;
+  serverPill?: PillTooltipPill | null;
 }) {
   const c = PILL_COLORS[pill.state];
   const Icon = pill.Icon;
@@ -1253,7 +1326,8 @@ function ExecutivePillCapsule({
   const glossaryEntry = glossary[pill.id];
   return (
     <div className="flex flex-col w-full">
-      <button
+      <PillTooltip pill={serverPill}>
+        <button
         type="button"
         onClick={onToggle}
         className={cn(
@@ -1286,7 +1360,8 @@ function ExecutivePillCapsule({
             expanded && 'rotate-180'
           )}
         />
-      </button>
+        </button>
+      </PillTooltip>
 
       {/* Glass Box (top = wearable, bottom = self-declared) */}
       <div
@@ -1349,7 +1424,20 @@ function ExecutivePillCapsule({
   );
 }
 
-function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; inline?: boolean }) {
+function ExecutivePillRow({
+  pills,
+  inline = false,
+  serverPills,
+}: {
+  pills: ExecutivePill[];
+  inline?: boolean;
+  serverPills?: Array<PillTooltipPill> | null;
+}) {
+  const PILL_ID_TO_KEY: Record<ExecutivePill['id'], PillTooltipPill['key']> = {
+    cognitive: 'decision_readiness',
+    physiological: 'physical_reserves',
+    emotional: 'resilience_capacity',
+  };
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const items = pills.map((pill) => (
     <ExecutivePillCapsule
@@ -1357,6 +1445,7 @@ function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; i
       pill={pill}
       expanded={expandedId === pill.id}
       onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
+      serverPill={serverPills?.find((sp) => sp.key === PILL_ID_TO_KEY[pill.id]) ?? null}
     />
   ));
   if (inline) {
@@ -1826,7 +1915,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
               {getTierLabel(tier)}
             </span>
             <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/50 ml-1.5 font-body">
-              {readinessState === 'refined' ? 'Refined' : 'Baseline'}
+              {readinessState === 'refined' ? '(Refined)' : '(Baseline)'}
             </span>
           </>
         ) : (
@@ -1882,7 +1971,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             if (execPills) {
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                  <ExecutivePillRow pills={execPills} inline />
+                  <ExecutivePillRow
+                    pills={execPills}
+                    inline
+                    serverPills={(outerBrief as any)?.signalPills ?? null}
+                  />
                   <CalendarPills outerBrief={outerBrief} />
                 </div>
               );
