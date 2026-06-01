@@ -1102,9 +1102,9 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const emoTop: PillLine[] = [];
   if (hrvVal != null) {
     let q = '';
-    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline · buffer signal`;
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms baseline · buffer signal`;
     else q = 'autonomic buffer';
-    emoTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+    emoTop.push({ text: `HRV ${Math.round(hrvVal)}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   const emoBottom: PillLine[] = [];
   if (confidence != null && confidence >= 1 && confidence <= 5) {
