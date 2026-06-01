@@ -29,6 +29,13 @@ import {
   hasMeaningfulDemand,
   coldStartLabel,
 } from "../_shared/signal-engine/context-builder.ts";
+import {
+  getPillQualifiers,
+  assertPillCoherence,
+  type CheckinRow as PqCheckinRow,
+  type WearableRow as PqWearableRow,
+  type PillTier as PqPillTier,
+} from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
