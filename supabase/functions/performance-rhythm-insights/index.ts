@@ -486,19 +486,21 @@ serve(async (req) => {
       for (const ev of insightCalendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
-        let et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+        let et: string | undefined = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
           EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
         // Use actual event title when no keyword match
         if (!et) et = ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title;
+        if (!et) continue;
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
         const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
         const nextDayCI = checkIns.find(c => c.checkin_date === nextDate);
         const matchCI = nextDayCI || sameDayCI;
         if (matchCI?.outcome) {
-          if (!etOutcomes.has(et)) etOutcomes.set(et, []);
-          etOutcomes.get(et)!.push(matchCI.outcome);
+          const etKey = et as string;
+          if (!etOutcomes.has(etKey)) etOutcomes.set(etKey, []);
+          etOutcomes.get(etKey)!.push(matchCI.outcome);
         }
       }
       let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
