@@ -1,9 +1,6 @@
-
 # Mental Readiness Score (MRS) v3 — Consolidated Specification
 
 Single source of truth. Supersedes MRS v2 §3 only where noted; everything else in MRS v2 is retained. MRS v3 **replaces the legacy `inner_score`** wherever surfaced — the field name `inner_score` may persist for back-compat, but its value is now the MRS v3 baseline.
-
-On build approval, this spec will be written to `docs/MRS_V3_SPECIFICATION.md` and the existing `mem://architecture/readiness-scoring-weights-v2` memory entry updated to point to v3.
 
 ---
 
@@ -177,7 +174,7 @@ Pill shape, algorithm, and visual structure unchanged. Only new nullable contrib
 |---|---|---|
 | **Cognitive** | `hrv_deviation`, `fragmentation` | `clarityContrib`: 1→strong-RED, 2→mild-RED, 3→AMBER, 4–5→GREEN, null→NEUTRAL. Cap at AMBER if composed GREEN and `SUPPLY_DEMAND_GAP` active. |
 | **Physiology** | Wearable-only (HRV, sleep, RHR) | **None** — by design. |
-| **Resilience** | `consecutive_load_days`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`, `protection_goals_under_pressure` (per `.lovable/plan.md` Phase B, retained) | `emotionContrib` + `regulationContrib` (same mapping as clarity). Force min AMBER when `REGULATION_RISK` active. Drop legacy `confidence/outcome` contributions. |
+| **Resilience** | `consecutive_load_days`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`, `protection_goals_under_pressure` (retained) | `emotionContrib` + `regulationContrib` (same mapping as clarity). Force min AMBER when `REGULATION_RISK` active. Drop legacy `confidence/outcome` contributions. |
 
 ---
 
@@ -187,7 +184,7 @@ Pill shape, algorithm, and visual structure unchanged. Only new nullable contrib
 |---|---|---|
 | `readiness_score_baseline` | int | State 1, always written |
 | `readiness_score_refined` | int null | State 2, written on check-in |
-| `readiness_state` | text default `'baseline'` | `'baseline' | 'refined'` |
+| `readiness_state` | text default `'baseline'` | `'baseline' \| 'refined'` |
 | `check_in_contribution` | int null | Signed delta −15..+15 |
 | `has_imminent_high_stakes` | boolean default false | Cat A/B within 6h at compute time |
 | `supply_demand_gap_flag` | text null | One of the §5 flag values |
@@ -237,10 +234,4 @@ mind check-in submit ─► daily-checkins/SAVE_CHECKIN
 - MRS v2 §3.3 four divergence flags → replaced by the §5 six-value table.
 - MRS v2 "check-in inputs" (`outcome`, `sharpness`, `confidence`) → fully removed. Brief `input_signature` drops these and adds `clarity, emotion, pressure, regulation`. `prompt_version → v6.3` invalidates old cached briefs.
 - Single-state score concept → replaced by two-state (baseline / refined).
-- C×C modifier triggers in brief — rewired to (clarity, regulation, emotion) per §8 Part 8 of the source prompt; the eight C×C copy strings themselves are unchanged.
-
----
-
-## Deliverable on approval
-
-Write the spec above verbatim to `docs/MRS_V3_SPECIFICATION.md`. Update `mem://index.md` to swap the v2 memory entry for `mem://architecture/readiness-scoring-weights-v3` pointing at this file. No code or schema changes are part of this approval — those land in the previously planned Phase 1–3 implementation rounds.
+- C×C modifier triggers in brief — rewired to (clarity, regulation, emotion); the eight C×C copy strings themselves are unchanged.
