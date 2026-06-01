@@ -1422,7 +1422,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 </div>
                 <ul className="pl-6 space-y-1.5">
                   {data.mindRhythmPatterns.topThree.map((f, i) => {
-                    const dimLabel = f.dimension.charAt(0).toUpperCase() + f.dimension.slice(1);
+                    const DIM_LABELS: Record<RhythmFinding['dimension'], string> = {
+                      clarity: 'Clarity', emotion: 'Emotion', pressure: 'Pressure', regulation: 'Regulation',
+                      hrv: 'HRV', sleep_score: 'Sleep Score', sleep_duration: 'Sleep Duration', sleep_efficiency: 'Sleep Efficiency',
+                    };
+                    const dimLabel = DIM_LABELS[f.dimension] ?? f.dimension;
                     return (
                       <li key={i} className="text-xs text-foreground/85 leading-relaxed flex items-start gap-2">
                         <ArrowRight className="h-3 w-3 text-primary/60 flex-shrink-0 mt-0.5" />
