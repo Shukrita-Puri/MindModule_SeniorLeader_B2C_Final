@@ -167,7 +167,9 @@ const ExecutiveHome = () => {
   // Fetch outer readiness brief. This payload already echoes inner readiness,
   // so the home hero must not start a second computeEnergyState/check-in chain.
   const { data: outerBrief } = useOuterReadiness();
-  const heroEnergyTier = outerBrief?.innerReadinessTier || 'default';
+  // MRS v3 — prefer the soft-guard displayed tier so chronic-load capping
+  // shows in the hero. Falls back to the raw inner tier when not present.
+  const heroEnergyTier = outerBrief?.innerReadinessTierDisplayed || outerBrief?.innerReadinessTier || 'default';
   const heroDivergenceMode = outerBrief?.divergenceMode || null;
 
   // Track brief view once per persisted brief snapshot (keyed by briefId).
