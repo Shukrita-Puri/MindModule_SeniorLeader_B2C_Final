@@ -24,6 +24,95 @@ function getIRScore(clarity: number, confidence: number): number {
   return (clarity + confidence) * 8;
 }
 
+// ==================== MRS v3 §3.2-3.3 — REFINED-SCORE HELPERS ====================
+// Mind Check-in dimensions: clarity / emotion / pressure / regulation, each
+// stored as nullable int 1–5 on `daily_checkins`. Pressure inversion is baked
+// into the slider semantics (1=Overloaded, 5=Spacious), so all four dims use
+// the same numeric mapping below. Null → neutral (contributes 0 vs baseline).
+const MIND_SLIDER_MAP: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 10, 2: 30, 3: 55, 4: 80, 5: 100,
+};
+
+function sliderToScore(level: number | null | undefined, baseline: number): number {
+  if (level == null) return baseline;
+  const v = Math.round(level) as 1 | 2 | 3 | 4 | 5;
+  return MIND_SLIDER_MAP[v] ?? baseline;
+}
+
+/**
+ * Spec §3.2 — base 11/9/5/5 (sum 30). When `has_imminent_high_stakes` is true
+ * (JIT cat A/B event within next 6h), donate 3% from Clarity to Regulation.
+ * Sum is always 0.30 (expressed as fractions of the blended total).
+ */
+function getMindWeights(hasImminentHighStakes: boolean): {
+  clarity: number; emotion: number; pressure: number; regulation: number;
+} {
+  return hasImminentHighStakes
+    ? { clarity: 0.08, emotion: 0.09, pressure: 0.05, regulation: 0.08 }
+    : { clarity: 0.11, emotion: 0.09, pressure: 0.05, regulation: 0.05 };
+}
+
+export interface RefinedScoreResult {
+  scoreBaseline: number;       // unchanged input baseline (0–100)
+  scoreRefined: number;        // post-blend, post ±15 clamp
+  readinessState: 'baseline' | 'refined';
+  refinedContribution: number; // signed −15..+15
+  mindWeights: ReturnType<typeof getMindWeights>;
+}
+
+/**
+ * Spec §3.3 formula:
+ *   weightedCheckIn = Σ ( sub_score_i × weight_i ) / 0.30
+ *   blended         = baseline × 0.70 + weightedCheckIn × 0.30
+ *   refined         = clamp( round(blended), baseline − 15, baseline + 15 )
+ * Null dims short-circuit to the baseline (so they contribute zero net).
+ * When all four dims are null → state='baseline', refined=baseline.
+ */
+export function computeRefinedScore(args: {
+  baseline: number;
+  clarity: number | null;
+  emotion: number | null;
+  pressure: number | null;
+  regulation: number | null;
+  hasImminentHighStakes: boolean;
+}): RefinedScoreResult {
+  const { baseline, clarity, emotion, pressure, regulation, hasImminentHighStakes } = args;
+  const weights = getMindWeights(hasImminentHighStakes);
+
+  const allNull = clarity == null && emotion == null && pressure == null && regulation == null;
+  if (allNull) {
+    return {
+      scoreBaseline: baseline,
+      scoreRefined: baseline,
+      readinessState: 'baseline',
+      refinedContribution: 0,
+      mindWeights: weights,
+    };
+  }
+
+  const c = sliderToScore(clarity, baseline);
+  const e = sliderToScore(emotion, baseline);
+  const p = sliderToScore(pressure, baseline);
+  const r = sliderToScore(regulation, baseline);
+
+  const weightedSum =
+    c * weights.clarity + e * weights.emotion + p * weights.pressure + r * weights.regulation;
+  const weightedCheckIn = weightedSum / 0.30; // normalise back to 0–100
+  const blended = baseline * 0.70 + weightedCheckIn * 0.30;
+
+  const floor = baseline - 15;
+  const ceil  = baseline + 15;
+  const refined = Math.max(0, Math.min(100, Math.max(floor, Math.min(ceil, Math.round(blended)))));
+
+  return {
+    scoreBaseline: baseline,
+    scoreRefined: refined,
+    readinessState: 'refined',
+    refinedContribution: refined - baseline,
+    mindWeights: weights,
+  };
+}
+
 // ==================== CIRCADIAN SCORE ====================
 function getCircadianScore(hour: number, dayOfWeek: number): number {
   const timeAdj = hour >= 6 && hour < 12 ? 5 : hour >= 12 && hour < 18 ? 0 : -5;
@@ -562,6 +651,15 @@ interface ComputeRequest {
   clarityLevel: number | null;
   confidenceLevel: number | null;
 
+  // MRS v3 §3.2 — Mind Check-in dimensions (1–5 or null). Optional, null=neutral.
+  // `clarityLevel` above is reused for the v3 Clarity dim (the column is
+  // `daily_checkins.clarity_level`); the other three are new wiring.
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
+  /** True when a JIT cat A/B event sits within the next 6h. Shifts 3% Clarity→Regulation weight. */
+  hasImminentHighStakes?: boolean;
+
   // Wearable + cold-start configuration (unchanged).
   wearableHRV: number | null;
   wearableBaseline: number | null;
@@ -711,10 +809,28 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // MRS v3 — soft-guard tier cap. `tier` (raw) is what the score number
-    // resolves to; `tierDisplayed` is what the UI should render.
+    // ─── MRS v3 §3.3 — Refined-score path ──────────────────────────────
+    // Blend baseline with the 4 Mind Check-in dimensions, hard-capped at
+    // baseline ±15. When all four dims are null, refined === baseline.
+    const refined = computeRefinedScore({
+      baseline: score,
+      clarity: body.clarityLevel ?? null,
+      emotion: body.emotionLevel ?? null,
+      pressure: body.pressureLevel ?? null,
+      regulation: body.regulationLevel ?? null,
+      hasImminentHighStakes: body.hasImminentHighStakes === true,
+    });
+
+    // The "displayed" score & tier are refined when a check-in exists, else
+    // baseline. The number the UI shows tracks this, not the raw baseline.
+    const displayedScore = refined.scoreRefined;
+    const displayedTier = getEnergyTier(displayedScore);
+    const displayedSubTier = getEnergySubTier(displayedScore);
+
+    // MRS v3 — soft-guard tier cap. Runs on the displayed tier so a refined
+    // score that crossed a boundary still gets capped consistently.
     const { tierDisplayed, tierCapReason } = deriveTierCap(
-      tier,
+      displayedTier,
       hasWearable ? physComposite : null,
       body.patternSignals ?? null,
       bConf,
@@ -759,9 +875,12 @@ serve(async (req) => {
     const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);
 
     const result = {
-      score,
-      tier,
-      subTier,
+      // `score` keeps its back-compat contract — it is now the DISPLAYED
+      // number (refined when a check-in exists, else baseline). Downstream
+      // consumers that read `score` continue to read the user-visible value.
+      score: displayedScore,
+      tier: displayedTier,
+      subTier: displayedSubTier,
       contextStatement,
       layer3Statement,
       layersActive,
@@ -771,7 +890,7 @@ serve(async (req) => {
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
-      tierLabel: getTierLabel(tier),
+      tierLabel: getTierLabel(displayedTier),
       // New: alreadyUsed[] relay for Compass
       alreadyUsed: selectedSignals.alreadyUsed,
       // MRS v2 — surface the resolved mode + scoring inputs so callers can
@@ -786,6 +905,14 @@ serve(async (req) => {
       tierDisplayed,
       tierDisplayedLabel: getTierLabel(tierDisplayed),
       tierCapReason,
+      // MRS v3 §3.3 — refined-score surface. `scoreRefined` is null until a
+      // Mind Check-in exists for the window; `scoreBaseline` is always the
+      // raw State 1 value so the client can render baseline-vs-refined deltas.
+      scoreBaseline: refined.scoreBaseline,
+      scoreRefined: refined.readinessState === 'refined' ? refined.scoreRefined : null,
+      readinessState: refined.readinessState,
+      refinedContribution: refined.refinedContribution,
+      mindWeights: refined.mindWeights,
     };
 
     return new Response(JSON.stringify(result), {

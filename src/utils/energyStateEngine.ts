@@ -128,6 +128,10 @@ export interface CurrentEnergyState {
   clarityLevel?: number | null;
   confidenceLevel?: number | null;
   mentalSharpnessLevel?: number | null;
+  // MRS v3 §3.2 — the 4 Mind Check-in dimensions (1–5 or null).
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
   divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
   hrvDeviation?: number | null;
   tierLabel?: string;
@@ -138,6 +142,13 @@ export interface CurrentEnergyState {
   tierDisplayed?: 'depleted' | 'managing' | 'strong' | 'peak';
   tierDisplayedLabel?: string;
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score surface. `scoreBaseline` is the raw State 1
+  // value; `scoreRefined` is null until a Mind Check-in exists for the window.
+  // `overallBalance` already tracks the DISPLAYED score (refined when present).
+  scoreBaseline?: number | null;
+  scoreRefined?: number | null;
+  readinessState?: 'baseline' | 'refined';
+  refinedContribution?: number | null;
 }
 
 const ENERGY_STATE_CACHE_MS = 30_000;
@@ -288,6 +299,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
   let mentalSharpnessLevel: number | null = null;
+  let emotionLevel: number | null = null;
+  let pressureLevel: number | null = null;
+  let regulationLevel: number | null = null;
   let storedEnergyBalance: number | null = null;
   let checkInOutcome: string | null = null;
   let checkInTimeWindow: string | null = null;
@@ -299,6 +313,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       clarityLevel = dbCheckin.clarity_level ?? null;
       confidenceLevel = dbCheckin.confidence_level ?? null;
       mentalSharpnessLevel = dbCheckin.mental_sharpness_level ?? null;
+      emotionLevel = (dbCheckin as any).emotion_level ?? null;
+      pressureLevel = (dbCheckin as any).pressure_level ?? null;
+      regulationLevel = (dbCheckin as any).regulation_level ?? null;
       storedEnergyBalance = dbCheckin.energy_balance ?? null;
       checkInTimeWindow = dbCheckin.time_window ?? null;
       // DB is authoritative for outcome if available
@@ -324,12 +341,25 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
     const sampleDays = hrvPatternContext?.sampleDays ?? 0;
 
+    // MRS v3 §3.2 — imminent high-stakes hint. Proper derivation lives in
+    // JIT context (cat A/B in next 6h); as a client-side proxy we treat
+    // "high" calendar pressure in the next 4h as imminent. This only nudges
+    // mind-dim weighting (3% Clarity→Regulation) — never changes the score
+    // when no check-in exists.
+    const imminentMetricsHint = hasCalendar ? getCalendarMetrics(calendarData) : null;
+    const hasImminentHighStakes = imminentMetricsHint?.pressure === 'high';
+
     const response = await supabase.functions.invoke('compute-inner-readiness', {
       headers: authHeaders,
       body: {
         checkInOutcome: hasCheckIn ? checkInOutcome : null,
         clarityLevel,
         confidenceLevel,
+        // MRS v3 §3.2 — Mind Check-in dimensions.
+        emotionLevel,
+        pressureLevel,
+        regulationLevel,
+        hasImminentHighStakes,
         wearableHRV: hasWearable ? wearableHRV : null,
         wearableBaseline: hasWearable ? wearableBaseline : null,
         hasCheckIn,
@@ -391,6 +421,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       clarityLevel,
       confidenceLevel,
       mentalSharpnessLevel,
+      emotionLevel,
+      pressureLevel,
+      regulationLevel,
       divergenceFlag: result.divergenceFlag,
       hrvDeviation: result.hrvDeviation,
       tierLabel: result.tierLabel,
@@ -400,6 +433,12 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       tierDisplayed: result.tierDisplayed ?? result.tier,
       tierDisplayedLabel: result.tierDisplayedLabel ?? result.tierLabel,
       tierCapReason: result.tierCapReason ?? null,
+      // MRS v3 §3.3 — refined-score passthrough. `overallBalance` (= result.score)
+      // already tracks the displayed value; these expose the underlying split.
+      scoreBaseline: result.scoreBaseline ?? null,
+      scoreRefined: result.scoreRefined ?? null,
+      readinessState: result.readinessState ?? 'baseline',
+      refinedContribution: result.refinedContribution ?? 0,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);

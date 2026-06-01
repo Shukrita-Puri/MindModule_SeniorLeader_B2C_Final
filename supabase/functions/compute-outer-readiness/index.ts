@@ -138,12 +138,23 @@ interface ComputeRequest {
   // the canonical displayed tier without re-deriving from the raw score.
   tierDisplayed?: EnergyTier | null;
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score split forwarded by the client (the inner
+  // readiness EF already blended the dims into the score). Used here only
+  // for persistence + echoing so the UI gets a single round trip.
+  innerReadinessScoreBaseline?: number | null;
+  innerReadinessScoreRefined?: number | null;
+  innerReadinessState?: 'baseline' | 'refined' | null;
+  innerReadinessRefinedContribution?: number | null;
   calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
   calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
   archetype?: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
   mentalSharpnessLevel?: number | null;
+  // MRS v3 §3.2 — Mind Check-in dimensions (forwarded for persistence/echo only).
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
   /**
@@ -1647,6 +1658,10 @@ serve(async (req) => {
       homeTimezone: clientHomeTz = null,
       tierDisplayed: clientTierDisplayed = null,
       tierCapReason: clientTierCapReason = null,
+      innerReadinessScoreBaseline: clientScoreBaseline = null,
+      innerReadinessScoreRefined: clientScoreRefined = null,
+      innerReadinessState: clientReadinessState = null,
+      innerReadinessRefinedContribution: clientRefinedContribution = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
@@ -4577,6 +4592,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             // MRS v3 — soft-guard tier cap mirror.
             tierDisplayed: safeTierDisplayed,
             tierCapReason: safeTierCapReason,
+            // MRS v3 §3.3 — refined-score split mirror. Falls back to the
+            // displayed `innerReadinessScore` when the client didn't forward
+            // a baseline (back-compat with older client builds).
+            readinessScoreBaseline: clientScoreBaseline ?? innerReadinessScore ?? null,
+            readinessScoreRefined: clientScoreRefined,
+            readinessState: clientReadinessState ?? 'baseline',
+            refinedContribution: clientRefinedContribution ?? 0,
           });
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
@@ -4793,6 +4815,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // awaiting-signals window for the same reason as innerReadinessTier.
       innerReadinessTierDisplayed: awaitingSignals ? null : safeTierDisplayed,
       innerReadinessTierCapReason: awaitingSignals ? null : safeTierCapReason,
+      // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
+      // signals for the same reason as the tier/score fields above.
+      innerReadinessScoreBaseline: awaitingSignals ? null : clientScoreBaseline,
+      innerReadinessScoreRefined: awaitingSignals ? null : clientScoreRefined,
+      innerReadinessState: awaitingSignals ? null : (clientReadinessState ?? 'baseline'),
+      innerReadinessRefinedContribution: awaitingSignals ? null : (clientRefinedContribution ?? 0),
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this

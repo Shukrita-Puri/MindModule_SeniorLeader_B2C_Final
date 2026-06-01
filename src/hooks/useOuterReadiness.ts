@@ -167,6 +167,13 @@ export interface OuterReadinessData {
   // `innerReadinessTier` for the score number itself, which is uncapped).
   innerReadinessTierDisplayed?: string | null;
   innerReadinessTierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score surface echoed from server.
+  // `innerReadinessScore` keeps its contract (= the displayed number) so the
+  // hero and existing readers don't shift; these expose the underlying split.
+  innerReadinessScoreBaseline?: number | null;
+  innerReadinessScoreRefined?: number | null;
+  innerReadinessState?: 'baseline' | 'refined' | null;
+  innerReadinessRefinedContribution?: number | null;
   checkInOutcome?: string | null;
   briefSource?: 'llm' | 'deterministic';
   /**
@@ -220,12 +227,24 @@ async function fetchOuterReadinessFresh(userId: string | undefined): Promise<Out
       clarityLevel: energyState.clarityLevel ?? null,
       confidenceLevel: energyState.confidenceLevel ?? null,
       mentalSharpnessLevel: energyState.mentalSharpnessLevel ?? null,
+      // MRS v3 §3.2 — the 4 Mind Check-in dimensions. Server uses them only
+      // for echoing/persistence (the inner-readiness EF already blended them
+      // into the score via energyStateEngine).
+      emotionLevel: energyState.emotionLevel ?? null,
+      pressureLevel: energyState.pressureLevel ?? null,
+      regulationLevel: energyState.regulationLevel ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
       timezoneOffset: new Date().getTimezoneOffset(),
       // MRS v3 — forward soft-guard tier cap so the server can persist the
       // displayed tier into daily_context_snapshot in one round trip.
       tierDisplayed: energyState.tierDisplayed ?? energyState.energyTier,
       tierCapReason: energyState.tierCapReason ?? null,
+      // MRS v3 §3.3 — forward refined-score split so the server can persist
+      // it into daily_context_snapshot in the same round trip.
+      innerReadinessScoreBaseline: energyState.scoreBaseline ?? null,
+      innerReadinessScoreRefined: energyState.scoreRefined ?? null,
+      innerReadinessState: energyState.readinessState ?? 'baseline',
+      innerReadinessRefinedContribution: energyState.refinedContribution ?? 0,
       // IANA timezone strings let the edge function format event times via Intl
       // in the user's CURRENT clock (correct for travelers) while keeping their
       // home zone available for circadian/jetlag commentary.

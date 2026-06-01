@@ -1,99 +1,130 @@
+## Phase 1b — MRS v3 Refined-Score Path
 
-# MRS v3 — Revised Scoring Architecture (replaces §3 of `docs/MRS_V3_SPECIFICATION.md`)
+Replace the legacy "inner score" surface with the two-state MRS (Baseline + Refined ±15), wire the 4 Mind Check-in dimensions into the score, and show the refined number + tier on Executive Home.
 
-## 1. Principle
+---
 
-MRS answers one question only:
+### 1. What the user sees
 
-> **"Right now, can this CEO meet the demands immediately ahead?"**
+- The Executive Home hero number and tier label become the **Refined MRS** whenever a Mind Check-in exists for the current window; otherwise they stay on the Baseline MRS (today's behaviour).
+- Refined never moves more than ±15 from baseline (hard cap per spec §3.3).
+- Tier cap (`SUSTAINED_DEFICIT` / `CONSECUTIVE_LOAD`) keeps working — now applied to whichever score is being displayed.
+- No visual redesign in this phase. Only the **number, tier label and pill state** can change after a check-in. Signal Pill v3 contributors are Phase 2.
 
-That is an **immediate-capacity** question. Patterns answer a different question — *"is today normal for them, and are they running a debt?"* — which belongs in framing and risk, not in the number. Mixing the two lets chronic low-scorers (e.g. a CEO in budget week or vision-setting week) **mask a genuine acute crash**, which is the exact failure mode MRS exists to prevent.
+---
 
-## 2. State 1 — Baseline score (revised)
+### 2. Server: `compute-inner-readiness`
 
-| Pillar | Weight | Source |
+Add the refined-score branch alongside the existing baseline composer.
+
+**New inputs (all optional, null = neutral):**
+- `clarityLevel` *(reuse `clarity_level` 1–5)*
+- `emotionLevel` *(`emotion_level` 1–5)*
+- `pressureLevel` *(`pressure_level` 1–5, semantics already inverted at the slider)*
+- `regulationLevel` *(`regulation_level` 1–5)*
+- `hasImminentHighStakes` *(boolean — JIT cat A/B within next 6h)*
+
+**Helpers:**
+- `sliderToScore(v)` → `{1:10, 2:30, 3:55, 4:80, 5:100}`; `null` → returns the current baseline so the weighted contribution is zero.
+- `getMindWeights(hasImminentHighStakes)` → `{ clarity, emotion, pressure, regulation }`. Base = `{11, 9, 5, 5}`. When imminent high stakes: shift 3% from Clarity to Regulation → `{8, 9, 5, 8}`. Sum is always 30.
+
+**Formula (spec §3.3):**
+```
+weightedCheckIn = Σ ( sub_score_i × weight_i ) / 0.30
+blended         = baseline × 0.70 + weightedCheckIn × 0.30
+refined         = clamp( round(blended), baseline − 15, baseline + 15 )
+contribution    = refined − baseline                              // −15..+15
+state           = (all 4 dims null) ? 'baseline' : 'refined'
+```
+When state = `baseline`, `refined === baseline` and contribution = 0.
+
+**Tier cap order:**
+1. Compute `tierBaseline` from raw baseline score.
+2. Compute `tierRefined` from raw refined score.
+3. `deriveTierCap` runs on the **displayed** tier (= `tierRefined` when state is refined, else `tierBaseline`). Cap rules unchanged; physio-low guard still uses the same `physComposite` input.
+
+**New response fields:**
+```ts
+{
+  // Existing
+  score,            // now = refined when present, else baseline (back-compat)
+  tier, tierLabel, tierDisplayed, tierDisplayedLabel, tierCapReason,
+  // New
+  scoreBaseline,    // always present
+  scoreRefined,     // null when state='baseline'
+  readinessState,   // 'baseline' | 'refined'
+  refinedContribution, // signed integer −15..+15, 0 when baseline
+  mindWeights,      // echoed weights actually used
+}
+```
+The `score` field keeps its current contract (displayed number) so no downstream consumer breaks; new fields are additive.
+
+---
+
+### 3. Server: `compute-outer-readiness`
+
+- After the existing wearable / calendar fetches, read the **latest `daily_checkins` row for today** for this user (any time-window, latest `timestamp` wins) and pull `clarity_level / emotion_level / pressure_level / regulation_level`.
+- Derive `hasImminentHighStakes` from the already-loaded calendar metrics: any classified event with category A or B starting within the next 6h in user-local time. Fall back to `todayHighStakes` proximity if classification isn't on the row.
+- Pass the dims + flag through to `compute-inner-readiness` via the request body.
+- Persist the new fields on `daily_context_snapshot` (see §4) inside the existing snapshot write.
+- Continue echoing `tierDisplayed` / `tierCapReason` to the client; additionally echo `readinessState`, `scoreBaseline`, `scoreRefined`, `refinedContribution` so the client can render delta UI without re-deriving.
+
+---
+
+### 4. Database
+
+Add three nullable columns to `daily_context_snapshot`:
+
+| Column | Type | Purpose |
 |---|---|---|
-| Physiological composite (HRV 50% / Sleep 35% / RHR-trend 15%) | **65%** | `wearable_data` via `computePhysiologicalComposite()` |
-| Calendar demand score (0–100, inverted: higher demand → lower contribution) | **35%** | `calendar_events` via `demand-scorer` |
-| ~~Pattern signals~~ | **0% — removed** | Moved to §4 (Context Layer) |
+| `readiness_score_baseline` | `integer` | Raw State 1 score, always written. |
+| `readiness_score_refined` | `integer` | State 2 score after ±15 cap. Null until first check-in of the window. |
+| `readiness_state` | `text` | `'baseline'` or `'refined'`. |
+| `refined_contribution` | `integer` | Signed −15..+15. |
 
-Cold-start tiers shift to the new split:
+`inner_score` and `inner_tier` are kept and now mirror the **displayed** score/tier (refined when present, else baseline) so legacy readers keep working. `tier_displayed` / `tier_cap_reason` columns from Phase 1a are unchanged.
 
-- Wearable <7d → **30% physio / 70% demand**
-- Wearable 7–13d → **55% physio / 45% demand** (`sustained_deficit` suppressed; see §4)
-- Wearable ≥14d → **65 / 35** (full)
+No backfill — values populate on the next signal-assembly tick.
 
-## 3. State 2 — Refined score (unchanged)
+---
 
-State 2 still blends State 1 (70%) with the 4 Mind Check-in dimensions (30%), hard-capped at **±15** from baseline. No change to mind-dim weights (Clarity 11% / Emotion 9% / Pressure 5% inverted / Regulation 5%, or 8% when `has_imminent_high_stakes`).
+### 5. Client
 
-## 4. Pattern signals — promoted to Context Layer
+- `useOuterReadiness` (`src/hooks/useOuterReadiness.ts`): forward the four `daily_checkins` dims to `compute-outer-readiness` (`clarityLevel`, `emotionLevel`, `pressureLevel`, `regulationLevel`). Expose the new echoed fields (`readinessState`, `scoreBaseline`, `scoreRefined`, `refinedContribution`) on the hook return.
+- `energyStateEngine.ts`: pull the four dims from the latest `daily_checkins` row (it already reads `clarity_level`; extend the projection + interface). Surface the new score/state fields on the result.
+- `ExecutiveHome` hero + `TodayStateCard`: `displayedScore = scoreRefined ?? scoreBaseline ?? overallBalance`; `displayedTier = tierDisplayed ?? tier`. No new visual elements — same hero, same pills, just driven by refined when available. The "+N / −N vs baseline" badge is **out of scope** for this phase (Signal Pills phase will own delta UI).
 
-Patterns are now **read alongside** the score, not folded into it. Three jobs:
+---
 
-### 4a. Risk flags (write to `divergence_flags`)
-The existing six-flag set is retained and now carries all pattern-driven semantics:
-- `SUSTAINED_DEFICIT` (renamed from MRS v2 `RECOVERY_UNDERWAY` when 2+ consecutive days HRV below personal baseline)
-- `CONSECUTIVE_LOAD` (3+ days high-demand calendar)
-- `LIGHT_DAY_STRONG_STATE`, `EMOTION_RESIDUE`, `REGULATION_RISK`, `ALIGNED`
+### 6. Tests
 
-### 4b. Tier-display cap (the "soft guard")
-This is how patterns *guide* the score without distorting it:
+- New Deno tests in `compute-inner-readiness`:
+  - All-null dims → `state='baseline'`, refined = baseline, contribution = 0.
+  - All-5 dims → refined hits baseline + 15 cap.
+  - All-1 dims → refined hits baseline − 15 cap.
+  - `hasImminentHighStakes=true` → Regulation weight = 8%, Clarity = 8%, sum = 30%.
+  - Pressure-only low (others null) → contribution within bounds and signed correctly.
+- Update `compute-outer-readiness/redundancy.test.ts` cases that pass `clarityLevel/confidenceLevel` to additionally cover refined-score echoing without breaking.
 
-- If `SUSTAINED_DEFICIT` is active **and** today's physio composite is in the Mixed/Strong range (50–84), the **displayed tier is capped at "Mixed"**. Score number stays honest; tier label and pill colour reflect chronic debt.
-- If `SUSTAINED_DEFICIT` is active **and** today's physio is already Low (<50), no cap is needed — the acute reading already tells the truth. **This is the key invariant**: the cap can never *raise* a low score and never *hide* an acute crash. A budget-week CEO who finally crashes still sees the crash; a budget-week CEO whose body is coping reads as Mixed (not Strong), with the debt visible in flags.
-- `CONSECUTIVE_LOAD` ≥4 days applies the same cap.
-- Cap is **never** applied during the first 14 days post-wearable-connect (cold-start safety).
+---
 
-### 4c. Brief framing
-LLM brief receives the divergence flag list and renders the "why" of any cap (e.g. *"Score reads Mixed today despite a strong morning — 3rd day with HRV below your norm"*). No deterministic post-processing.
+### 7. Out of scope (later phases)
 
-## 5. Personal baselining — decision
+- Signal Pill v3 mind-dim contributors and `REGULATION_RISK`/`EMOTION_RESIDUE` divergence flags (Phase 2).
+- Context split into Morning/Afternoon/Evening (Phase 3).
+- Brief LLM phrase/body rebuild (Phase 4).
+- New CEO-behaviour rule triggers from mind dims (Phase 2 alongside pills).
+- Personal-baseline normalisation of the composite (rejected in revised spec).
 
-| Layer | Decision | Reason |
-|---|---|---|
-| HRV / Sleep / RHR sub-scores | **Already deviation-from-personal-baseline. Keep as-is.** | Physio composite is implicitly personalized — "their 70 = above their norm". |
-| Composite (pre-blend) | **Do NOT additionally normalize against the user's 30-day MRS distribution.** | Doing so reintroduces the exact masking the user is rejecting: a chronic low-scorer's bad day would round up to "normal for them". |
-| Pattern context | **All personal-vs-personal comparison lives in flags + brief**, never in the number. | Preserves immediate-capacity honesty. |
+---
 
-## 6. Schema delta vs the previous v3 spec
+### 8. Migration order
 
-- `daily_context_snapshot`
-  - `readiness_score_baseline` — formula changes to 65/35 physio/demand
-  - **NEW** `tier_displayed` text (the post-cap tier shown in UI)
-  - **NEW** `tier_cap_reason` text nullable (`SUSTAINED_DEFICIT` | `CONSECUTIVE_LOAD` | null)
-  - `pattern_tactical_aggregates` — retained, but consumed only by flag-builder and brief, **never** by score composer
-- `jit_event_context` — unchanged
-- `daily_checkins` — unchanged
+1. DB migration (3 new columns on `daily_context_snapshot`; types.ts will refresh automatically).
+2. `compute-inner-readiness` — refined-score branch + new response fields.
+3. `compute-outer-readiness` — fetch dims, derive imminent flag, pass through, persist, echo.
+4. Client hook + engine — forward dims, consume echoes.
+5. Hero / TodayStateCard — prefer refined score & tier.
+6. Tests — Deno + verify build.
 
-## 7. Code surface affected
-
-- `supabase/functions/compute-inner-readiness/index.ts` — drop `patternContribution` from baseline composer; add tier-cap step after score → tier mapping.
-- `supabase/functions/_shared/signal-engine/pattern-engine.ts` — keep emitting trends + flags; remove the `patternScoreContribution` export and its consumers.
-- `supabase/functions/_shared/signal-engine/divergence-flags.ts` — add `tier_cap_reason` derivation alongside flag emission.
-- `supabase/functions/compute-outer-readiness/index.ts` — Signal Pills already consume flags directly; no math change needed, only read `tier_displayed` instead of recomputing tier from raw score.
-- `supabase/functions/smart-nudges/index.ts` — already baseline-only; no change.
-- `supabase/functions/generate-brief-v6/index.ts` — receives new `tier_cap_reason` so it can author the "why" sentence; `prompt_version → v6.3` (already planned).
-- UI — reads `tier_displayed` instead of deriving tier from `readiness_score_baseline` in `ReadinessHero.tsx`, `SignalPills.tsx`.
-
-## 8. Docs & memory
-
-- Rewrite §3 and §7 of `docs/MRS_V3_SPECIFICATION.md` with the above.
-- Update `mem://architecture/readiness-scoring-weights-v3` body to: "Baseline 65/35 physio/demand. Patterns are context-only: flags + tier-cap + brief framing. Cap can never raise a score or hide an acute crash."
-- `mem://index.md` Core line for readiness scoring stays pointing at the same memory slug.
-
-## 9. Out of scope
-
-- Refined-score formula and ±15 cap — unchanged.
-- Signal Pill v3 mind-dim contributors — unchanged from the prior plan.
-- Context split (Morning/Afternoon/Evening) — still Phase 3, unaffected by this revision.
-- Brief LLM rebuild — still Phase 4.
-- No data backfill required; baseline scores will simply re-compute on the next cron tick.
-
-## 10. Implementation order (unchanged)
-
-1. **Phase 1a (this plan):** schema delta + rewrite baseline composer + tier-cap step + UI reads `tier_displayed`.
-2. Phase 1b: refined-score path (already specified).
-3. Phase 2: Signal Pills v3.
-4. Phase 3: Context split.
-5. Phase 4: Brief LLM rebuild.
+Each step is independently shippable; the older `score` contract is preserved throughout.
