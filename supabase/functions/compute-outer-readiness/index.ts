@@ -133,6 +133,11 @@ interface OuterReadinessResult {
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
   innerReadinessScore: number;
+  // MRS v3 — soft-guard tier cap (forwarded from compute-inner-readiness).
+  // The server mirrors these into daily_context_snapshot so the UI reads
+  // the canonical displayed tier without re-deriving from the raw score.
+  tierDisplayed?: EnergyTier | null;
+  tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
   calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
   calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
   archetype?: string | null;
