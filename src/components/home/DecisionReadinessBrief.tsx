@@ -1971,7 +1971,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             if (execPills) {
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                  <ExecutivePillRow pills={execPills} inline />
+                  <ExecutivePillRow
+                    pills={execPills}
+                    inline
+                    serverPills={(outerBrief as any)?.signalPills ?? null}
+                  />
                   <CalendarPills outerBrief={outerBrief} />
                 </div>
               );
