@@ -115,4 +115,9 @@ export interface DailyContextSnapshot {
   weighting_mode: WeightingMode | null;
   supply_demand_gap_flag: DivergenceFlag | null;
   signal_pills: unknown | null;
+  // MRS v3 — soft-guard tier cap. `tier_displayed` is what the UI should
+  // render (equal to `inner_tier` unless capped). `tier_cap_reason` is the
+  // pattern flag that caused the cap, or null when no cap is applied.
+  tier_displayed: string | null;
+  tier_cap_reason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
 }
