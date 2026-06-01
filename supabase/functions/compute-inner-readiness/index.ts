@@ -875,9 +875,12 @@ serve(async (req) => {
     const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);
 
     const result = {
-      score,
-      tier,
-      subTier,
+      // `score` keeps its back-compat contract — it is now the DISPLAYED
+      // number (refined when a check-in exists, else baseline). Downstream
+      // consumers that read `score` continue to read the user-visible value.
+      score: displayedScore,
+      tier: displayedTier,
+      subTier: displayedSubTier,
       contextStatement,
       layer3Statement,
       layersActive,
@@ -887,7 +890,7 @@ serve(async (req) => {
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
-      tierLabel: getTierLabel(tier),
+      tierLabel: getTierLabel(displayedTier),
       // New: alreadyUsed[] relay for Compass
       alreadyUsed: selectedSignals.alreadyUsed,
       // MRS v2 — surface the resolved mode + scoring inputs so callers can
@@ -902,6 +905,14 @@ serve(async (req) => {
       tierDisplayed,
       tierDisplayedLabel: getTierLabel(tierDisplayed),
       tierCapReason,
+      // MRS v3 §3.3 — refined-score surface. `scoreRefined` is null until a
+      // Mind Check-in exists for the window; `scoreBaseline` is always the
+      // raw State 1 value so the client can render baseline-vs-refined deltas.
+      scoreBaseline: refined.scoreBaseline,
+      scoreRefined: refined.readinessState === 'refined' ? refined.scoreRefined : null,
+      readinessState: refined.readinessState,
+      refinedContribution: refined.refinedContribution,
+      mindWeights: refined.mindWeights,
     };
 
     return new Response(JSON.stringify(result), {
