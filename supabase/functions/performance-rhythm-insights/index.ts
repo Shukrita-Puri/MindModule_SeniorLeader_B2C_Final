@@ -1060,7 +1060,14 @@ serve(async (req) => {
     let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? "s" : ""}`;
     if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? "s" : ""}`;
     if (hasCalendar) dataSourceNote += ", calendar data";
-    if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? "s" : ""}`;
+    if (wearableData.length > 0) {
+      const hrvCount = wearableData.filter((w: any) => typeof w.hrv === 'number').length;
+      const sleepCount = wearableData.filter((w: any) => typeof w.sleep_score === 'number' || typeof w.total_sleep_minutes === 'number').length;
+      const parts: string[] = [];
+      if (hrvCount > 0) parts.push(`${hrvCount} HRV reading${hrvCount !== 1 ? 's' : ''}`);
+      if (sleepCount > 0) parts.push(`${sleepCount} sleep night${sleepCount !== 1 ? 's' : ''}`);
+      if (parts.length > 0) dataSourceNote += `, ${parts.join(' & ')}`;
+    }
     dataSourceNote += ` over ${daySpan} days`;
 
     // ── BUILD FULL MONTH CALENDAR ──
