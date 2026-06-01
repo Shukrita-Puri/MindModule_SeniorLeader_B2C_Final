@@ -4827,7 +4827,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // Signal Pills v3 — divergence flags surfaced for pill cap/floor
       // application. supplyDemandGap caps Cognitive GREEN → AMBER;
       // regulationRisk floors Resilience at AMBER. Booleans only.
-      supplyDemandGap: supplyDemandGapFlag === 'SUPPLY_DEMAND_GAP',
+      // Lightweight inline derivation so we don't depend on a flag that
+      // is only computed inside the snapshot-mirror try block.
+      supplyDemandGap: (() => {
+        const demandHigh = calendarLoad === 'high' || calendarPressure === 'high';
+        const bodyDown = (typeof (wearableContext as any)?.hrvDeviation === 'number' && (wearableContext as any).hrvDeviation <= -10)
+          || !!wearableContext?.poorSleep
+          || !!wearableContext?.hrvElevated;
+        return demandHigh && bodyDown;
+      })(),
       regulationRisk: regulationLevel != null && regulationLevel <= 2,
       // New enrichment fields
       yesterdayScore,
