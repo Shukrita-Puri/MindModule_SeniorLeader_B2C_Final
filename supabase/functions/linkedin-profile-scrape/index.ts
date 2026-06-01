@@ -159,8 +159,12 @@ Deno.serve(async (req) => {
 
   try {
     const authResult = await authenticateRequest(req, corsHeaders);
-    if (authResult.errorResponse) return authResult.errorResponse;
+    if (authResult.errorResponse) {
+      console.warn("[linkedin-profile-scrape] auth_missing — returning 401");
+      return authResult.errorResponse;
+    }
     const userId = authResult.userId;
+    console.info(`[linkedin-profile-scrape] start user_id=${userId}`);
 
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!apiKey) {
@@ -192,6 +196,7 @@ Deno.serve(async (req) => {
     );
 
     const fc = await callFirecrawlScrape(apiKey, profileUrl);
+    console.info(`[linkedin-profile-scrape] firecrawl status=${fc.status} ok=${fc.ok}`);
 
     if (!fc.ok || !fc.body) {
       const errMsg =
@@ -250,6 +255,7 @@ Deno.serve(async (req) => {
       console.error("[linkedin-profile-scrape] DB upsert error:", dbErr);
       return json(500, { error: "persist_failed", message: "Failed to save profile" });
     }
+    console.info(`[linkedin-profile-scrape] upsert ok user_id=${userId} status=${status}`);
 
     if (status === "insufficient") {
       return json(200, {
