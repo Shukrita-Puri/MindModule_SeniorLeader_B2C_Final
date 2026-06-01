@@ -1493,6 +1493,10 @@ export type Database = {
           local_date: string
           pattern_signals: Json | null
           pillar_mode: string | null
+          readiness_score_baseline: number | null
+          readiness_score_refined: number | null
+          readiness_state: string | null
+          refined_contribution: number | null
           signal_pills: Json | null
           strategic_context: Json | null
           supply_demand_gap_flag: string | null
@@ -1514,6 +1518,10 @@ export type Database = {
           local_date: string
           pattern_signals?: Json | null
           pillar_mode?: string | null
+          readiness_score_baseline?: number | null
+          readiness_score_refined?: number | null
+          readiness_state?: string | null
+          refined_contribution?: number | null
           signal_pills?: Json | null
           strategic_context?: Json | null
           supply_demand_gap_flag?: string | null
@@ -1535,6 +1543,10 @@ export type Database = {
           local_date?: string
           pattern_signals?: Json | null
           pillar_mode?: string | null
+          readiness_score_baseline?: number | null
+          readiness_score_refined?: number | null
+          readiness_state?: string | null
+          refined_contribution?: number | null
           signal_pills?: Json | null
           strategic_context?: Json | null
           supply_demand_gap_flag?: string | null
