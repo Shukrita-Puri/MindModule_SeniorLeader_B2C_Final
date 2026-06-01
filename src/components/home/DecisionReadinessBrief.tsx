@@ -316,13 +316,13 @@ function buildSignalChips(
     // Back label: combined raw metrics
     const parts: string[] = [];
     if (hrvVal != null) {
-      let hrvPart = `HRV ${hrvVal}ms`;
-      if (hrvDev != null && hrvBaseline) hrvPart += ` · ${devSign(hrvDev)} vs ${hrvBaseline}ms`;
+      let hrvPart = `HRV ${Math.round(hrvVal)}ms`;
+      if (hrvDev != null && hrvBaseline) hrvPart += ` · ${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms`;
       parts.push(hrvPart);
     }
     if (rhrVal != null) {
-      let rhrPart = `RHR ${rhrVal}bpm`;
-      if (rhrDev != null && rhrBaseline) rhrPart += ` · ${devSign(rhrDev)} vs ${rhrBaseline}bpm`;
+      let rhrPart = `RHR ${Math.round(rhrVal)}bpm`;
+      if (rhrDev != null && rhrBaseline) rhrPart += ` · ${devSign(rhrDev)} vs ${Math.round(rhrBaseline)}bpm`;
       parts.push(rhrPart);
     }
     let backLabel = parts.join(' · ');
@@ -998,11 +998,11 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const cogTop: PillLine[] = [];
   if (hrvVal != null) {
     let q = '';
-    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms baseline`;
     if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     else if (wearableTrend === 'improving') q = q ? `${q} · trend improving` : 'trend improving';
     if (cogAuthorityFlag === 'masked-high') q = q ? `${q} · system signal ahead of felt state` : 'system signal ahead of felt state';
-    cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+    cogTop.push({ text: `HRV ${Math.round(hrvVal)}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   // Sleep cognitive line — render ONLY when sleep is materially contributing
   // to the cognitive pillar (red or amber). Adequate sleep stays silent so the
@@ -1102,9 +1102,9 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const emoTop: PillLine[] = [];
   if (hrvVal != null) {
     let q = '';
-    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline · buffer signal`;
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms baseline · buffer signal`;
     else q = 'autonomic buffer';
-    emoTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+    emoTop.push({ text: `HRV ${Math.round(hrvVal)}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   const emoBottom: PillLine[] = [];
   if (confidence != null && confidence >= 1 && confidence <= 5) {
@@ -1220,6 +1220,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomLines: cogBottom,
       topEmptyText: cogTop.length === 0 ? emptyWearable : undefined,
       bottomEmptyText: cogBottom.length === 0 ? 'No cognitive self-report yet' : undefined,
+      readinessState: cogRefined,
     },
     {
       id: 'physiological',
@@ -1233,6 +1234,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomEmptyText: physTop.length === 0
         ? undefined
         : (physEmpty ?? 'Body signals only'),
+      readinessState: 'baseline',
     },
     {
       id: 'emotional',
@@ -1244,6 +1246,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomLines: emoBottom,
       topEmptyText: emoTop.length === 0 ? emptyWearable : undefined,
       bottomEmptyText: emoBottom.length === 0 ? 'No confidence reading yet' : undefined,
+      readinessState: resRefined,
     },
   ];
 }
@@ -1305,7 +1308,17 @@ function ExecutivePillCapsule({
   onToggle: () => void;
   serverPill?: PillTooltipPill | null;
 }) {
-  const c = PILL_COLORS[pill.state];
+  // Signal Pills v3 SSOT: the visible tier + label come from the server-built
+  // `signalPills` payload when present. The local `buildExecutivePills` engine
+  // continues to produce the expanded glass-box body lines + qualifiers, but
+  // the headline word and pill colour MUST match the MRS v3 deterministic
+  // engine — otherwise users see legacy taxonomy ("HIDDEN DRAG",
+  // "PULLING WEIGHT") that no longer maps to the score.
+  const effectiveState: PillState = (serverPill?.tier as PillState | undefined) ?? pill.state;
+  const effectiveSignalWord = serverPill?.tierLabel
+    ? serverPill.tierLabel.toUpperCase()
+    : pill.signalWord;
+  const c = PILL_COLORS[effectiveState];
   const Icon = pill.Icon;
   // Plain-language glossary per pillar — what each pillar tracks, no calculations
   // or proprietary thresholds. Users see a single short definition.
@@ -1350,7 +1363,12 @@ function ExecutivePillCapsule({
             {pill.headline}
           </span>
           <span className={cn('text-sm font-semibold tracking-wide uppercase', PILL_SIGNAL)}>
-            {pill.signalWord}
+            {effectiveSignalWord}
+            {pill.readinessState && (
+              <span className="ml-1.5 text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-normal">
+                ({pill.readinessState === 'refined' ? 'Refined' : 'Baseline'})
+              </span>
+            )}
           </span>
         </div>
         <ChevronDown

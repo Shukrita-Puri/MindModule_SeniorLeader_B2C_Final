@@ -4213,7 +4213,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     // whenever any State 1 input exists; `awaitingSignals` is only true for the
     // residual cold-start case (no wearable AND no calendar).
     const hasCalendarSignal = calendarResult?.state === 'active';
-    const hasState1Input = hasFreshWearable || hasCalendarSignal;
+    // MRS v3 cold-start gate: brief renders if ANY of the following is true.
+    //   • fresh wearable today
+    //   • calendar integration produced active demand today
+    //   • calendar integration is connected (even with zero events — empty
+    //     load is still a valid State 1 demand reading of 0)
+    //   • a Mind check-in for today exists (State 2 alone is enough to
+    //     produce a refined-only brief from the neutral baseline anchor)
+    const hasCalendarConnected = calendarResult?.state && calendarResult.state !== 'not_connected';
+    const hasState1Input = hasFreshWearable || hasCalendarSignal || hasCalendarConnected || hasTodayCheckIn;
     const briefSignalContractMet = hasState1Input;
     const awaitingSignals = !briefSignalContractMet;
     const awaitingReason: string | null = awaitingSignals ? 'cold-start-no-context' : null;
