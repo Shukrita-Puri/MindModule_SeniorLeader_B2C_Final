@@ -1424,7 +1424,20 @@ function ExecutivePillCapsule({
   );
 }
 
-function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; inline?: boolean }) {
+function ExecutivePillRow({
+  pills,
+  inline = false,
+  serverPills,
+}: {
+  pills: ExecutivePill[];
+  inline?: boolean;
+  serverPills?: Array<PillTooltipPill> | null;
+}) {
+  const PILL_ID_TO_KEY: Record<ExecutivePill['id'], PillTooltipPill['key']> = {
+    cognitive: 'decision_readiness',
+    physiological: 'physical_reserves',
+    emotional: 'resilience_capacity',
+  };
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const items = pills.map((pill) => (
     <ExecutivePillCapsule
@@ -1432,6 +1445,7 @@ function ExecutivePillRow({ pills, inline = false }: { pills: ExecutivePill[]; i
       pill={pill}
       expanded={expandedId === pill.id}
       onToggle={() => setExpandedId(expandedId === pill.id ? null : pill.id)}
+      serverPill={serverPills?.find((sp) => sp.key === PILL_ID_TO_KEY[pill.id]) ?? null}
     />
   ));
   if (inline) {
