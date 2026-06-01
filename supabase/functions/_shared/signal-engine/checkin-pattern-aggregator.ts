@@ -225,6 +225,114 @@ export function getPillQualifiers(
 export type PillTier = 'green' | 'amber' | 'red' | 'neutral';
 export type CoherencePill = { key: string; tier: PillTier };
 
+// ── Wearable rhythm series (for Insights Performance Patterns) ─────────
+//
+// These helpers convert a 30-day wearable_data history into the same
+// `{ dateStr, di, tw, positive, negative }` shape that the rhythm edge
+// function's `mineSeries` consumes for Mind dimensions. This means a single
+// statistical engine drives DOW / consecutive-run findings across both
+// check-in dims and wearable dims.
+//
+// Bands (positive = "good day", negative = "bad day"):
+//   hrv               positive: value ≥ baseline           negative: value ≤ baseline × 0.90
+//   sleep_score       positive: ≥ 75                       negative: ≤ 60
+//   sleep_duration    positive: ≥ 420 min (7h)             negative: ≤ 360 min (6h)
+//   sleep_efficiency  positive: ≥ 85                       negative: ≤ 75
+
+export type WearableDim = 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
+
+export interface WearableSeriesPoint {
+  dateStr: string;
+  di: number;                // 0=Mon … 6=Sun (rhythm-fn convention)
+  tw: 0 | 1 | 2;             // always 0 — wearables write one row/night
+  positive: boolean;
+  negative: boolean;
+  value: number;
+}
+
+export interface WearableBaselines {
+  hrv?: number | null;
+  sleep_score?: number | null;
+  sleep_duration?: number | null;   // minutes
+  sleep_efficiency?: number | null;
+}
+
+function getDayIndex(dayOfWeek: number): number {
+  // Match performance-rhythm-insights: 0=Mon … 6=Sun
+  return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+}
+
+function valueForDim(row: WearableRow, dim: WearableDim): number | null {
+  switch (dim) {
+    case 'hrv':              return typeof row.hrv === 'number' ? row.hrv : null;
+    case 'sleep_score':      return typeof row.sleep_score === 'number' ? row.sleep_score : null;
+    case 'sleep_duration':   return typeof row.total_sleep_minutes === 'number' ? row.total_sleep_minutes : null;
+    case 'sleep_efficiency': return typeof row.sleep_efficiency === 'number' ? row.sleep_efficiency : null;
+  }
+}
+
+function classify(value: number, dim: WearableDim, baselines: WearableBaselines): { positive: boolean; negative: boolean } {
+  switch (dim) {
+    case 'hrv': {
+      const base = baselines.hrv ?? null;
+      if (base == null || base <= 0) return { positive: false, negative: false };
+      return { positive: value >= base, negative: value <= base * 0.9 };
+    }
+    case 'sleep_score':
+      return { positive: value >= 75, negative: value <= 60 };
+    case 'sleep_duration':
+      return { positive: value >= 420, negative: value <= 360 };
+    case 'sleep_efficiency':
+      return { positive: value >= 85, negative: value <= 75 };
+  }
+}
+
+/**
+ * Build a per-day series for one wearable dim. Caller passes the last 30d
+ * of wearable_data rows (any order). Output is one entry per `summary_date`
+ * with a non-null value for the requested dim.
+ */
+export function buildWearableDailySeries(
+  rows: WearableRow[],
+  dim: WearableDim,
+  baselines: WearableBaselines,
+): WearableSeriesPoint[] {
+  const out: WearableSeriesPoint[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (!r?.summary_date || seen.has(r.summary_date)) continue;
+    const v = valueForDim(r, dim);
+    if (v == null) continue;
+    seen.add(r.summary_date);
+    const d = new Date(r.summary_date + 'T00:00:00Z');
+    const { positive, negative } = classify(v, dim, baselines);
+    out.push({
+      dateStr: r.summary_date,
+      di: getDayIndex(d.getUTCDay()),
+      tw: 0,
+      positive,
+      negative,
+      value: v,
+    });
+  }
+  return out;
+}
+
+/** Compute simple mean baselines for any wearable dim from a row set. */
+export function computeWearableBaselines(rows: WearableRow[]): WearableBaselines {
+  const collect = (pick: (r: WearableRow) => number | null | undefined) => {
+    const vs = rows.map(pick).filter((n): n is number => typeof n === 'number');
+    if (vs.length === 0) return null;
+    return vs.reduce((a, b) => a + b, 0) / vs.length;
+  };
+  return {
+    hrv: collect((r) => r.hrv),
+    sleep_score: collect((r) => r.sleep_score),
+    sleep_duration: collect((r) => r.total_sleep_minutes),
+    sleep_efficiency: collect((r) => r.sleep_efficiency),
+  };
+}
+
 /**
  * MRS-vs-pills coherence guard (dev-only).
  *  • MRS = Depleted but no pill is RED → downgrade weakest AMBER → RED.
