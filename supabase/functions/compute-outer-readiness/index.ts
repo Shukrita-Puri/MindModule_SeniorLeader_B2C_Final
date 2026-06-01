@@ -4574,6 +4574,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             weightingMode,
             supplyDemandGapFlag,
             signalPills: signalPillsPayload,
+            // MRS v3 — soft-guard tier cap mirror.
+            tierDisplayed: safeTierDisplayed,
+            tierCapReason: safeTierCapReason,
           });
         } catch (snapErr) {
           console.warn('[daily_context_snapshot] mirror failed:', snapErr instanceof Error ? snapErr.message : snapErr);
