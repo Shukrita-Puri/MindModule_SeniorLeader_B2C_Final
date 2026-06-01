@@ -1658,6 +1658,10 @@ serve(async (req) => {
       homeTimezone: clientHomeTz = null,
       tierDisplayed: clientTierDisplayed = null,
       tierCapReason: clientTierCapReason = null,
+      innerReadinessScoreBaseline: clientScoreBaseline = null,
+      innerReadinessScoreRefined: clientScoreRefined = null,
+      innerReadinessState: clientReadinessState = null,
+      innerReadinessRefinedContribution: clientRefinedContribution = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
