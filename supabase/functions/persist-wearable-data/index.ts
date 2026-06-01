@@ -260,6 +260,7 @@ Deno.serve(async (req) => {
       deep_sleep_minutes = null,
       rem_sleep_minutes = null,
       raw_data = null,
+      sleep_efficiency: bodySleepEfficiency = null,
     } = body;
 
     if (!summary_date) {
@@ -285,6 +286,14 @@ Deno.serve(async (req) => {
       raw_data,
       updated_at: new Date().toISOString(),
     };
+
+    // Persist sleep_efficiency (explicit body value preferred, else derive).
+    if (typeof bodySleepEfficiency === 'number') {
+      row.sleep_efficiency = Math.max(0, Math.min(100, Math.round(bodySleepEfficiency)));
+    } else {
+      const eff = deriveSleepEfficiency(raw_data, total_sleep_minutes);
+      if (eff != null) row.sleep_efficiency = eff;
+    }
 
     // Use upsert instead of select-then-update/insert to eliminate race conditions
     const { error } = await db
