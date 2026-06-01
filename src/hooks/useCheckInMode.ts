@@ -74,12 +74,13 @@ export function useCheckInMode(): CheckInModeState {
         ? "wearable_only"
         : "self_declared_only";
 
+  // Body State Check-in (/check-in-detail) is now suppressed for all modes —
+  // the Mind Check-in on /daily-check-in is the sole check-in surface and
+  // routes directly to the Performance Readiness Brief on /executive-home.
   const showDailyCheckIn = mode !== "wearable_only";
-  const showCheckInDetail = mode === "self_declared_only";
-  const dailyCtaTarget: "/check-in-detail" | "/executive-home" =
-    mode === "wearable_plus_self" ? "/executive-home" : "/check-in-detail";
-  const dailyCtaLabel =
-    mode === "wearable_plus_self" ? "Continue to Today's Brief" : "Continue to Body State Check in";
+  const showCheckInDetail = false;
+  const dailyCtaTarget: "/check-in-detail" | "/executive-home" = "/executive-home";
+  const dailyCtaLabel = "Refine Performance Readiness Brief";
 
   return {
     mode,
