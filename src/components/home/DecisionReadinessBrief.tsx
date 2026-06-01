@@ -1326,7 +1326,8 @@ function ExecutivePillCapsule({
   const glossaryEntry = glossary[pill.id];
   return (
     <div className="flex flex-col w-full">
-      <button
+      <PillTooltip pill={serverPill}>
+        <button
         type="button"
         onClick={onToggle}
         className={cn(
@@ -1359,7 +1360,8 @@ function ExecutivePillCapsule({
             expanded && 'rotate-180'
           )}
         />
-      </button>
+        </button>
+      </PillTooltip>
 
       {/* Glass Box (top = wearable, bottom = self-declared) */}
       <div
