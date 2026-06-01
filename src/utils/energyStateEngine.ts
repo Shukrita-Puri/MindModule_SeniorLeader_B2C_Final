@@ -396,6 +396,10 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       tierLabel: result.tierLabel,
       layersActive: result.layersActive || ['base'],
       layer3Statement: result.layer3Statement || null,
+      // MRS v3 — soft-guard tier cap passthrough.
+      tierDisplayed: result.tierDisplayed ?? result.tier,
+      tierDisplayedLabel: result.tierDisplayedLabel ?? result.tierLabel,
+      tierCapReason: result.tierCapReason ?? null,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
