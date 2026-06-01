@@ -1772,6 +1772,7 @@ serve(async (req) => {
           rhrElevated,
           dataSource: source,
           sourceRowDate: wearableRow.summary_date ?? null,
+          sleepEfficiency: (wearableRow as any)._sleepEfficiency ?? null,
         };
       }
     } catch (err) {
