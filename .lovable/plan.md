@@ -48,15 +48,16 @@ Don't write a parallel "checkin-pattern-qualifiers" engine. Promote `performance
 - **Coherence assertion** (dev-only): after pill build, if MRS = Depleted and no RED pill exists → downgrade weakest AMBER to RED; if MRS = Optimal and any RED → upgrade to AMBER. Emit `coherence_warning` only when `APP_ENV !== 'production'`.
 
 ### Step 5 — Frontend
-- `useOuterReadiness.ts`: extend type with `pillQualifiers?`.
-- `DecisionReadinessBrief.tsx`: render `value (qualifier)` for each pill (e.g. `HRV 48 (−6% vs 3d)`, `Clarity 4 (5-day peak)`). Tier driven by today's value only; qualifier display-only.
-- Header label: small "Baseline" / "Refined" muted text based on `readinessState`.
-- New `PillTooltip.tsx` (`HoverCard`): lists contributors + qualifiers + one-line "why this tier".
+- ✅ `useOuterReadiness.ts`: type extended with `signalPills?` + `pillQualifiers?` + dev `coherenceWarning?`.
+- ✅ `DecisionReadinessBrief.tsx`: bracketed qualifier post-processing appended to existing top/bottom lines (HRV, Sleep, RHR, Clarity, Resilience Mind dim). Tier untouched.
+- ✅ Header badge wrapped in parens — `(Baseline)` / `(Refined)`.
+- ✅ New `PillTooltip.tsx` HoverCard wraps each pill header; surfaces contributors + qualifiers + one-line tier reason.
+- ✅ Edge function echoes `signalPills`, `pillQualifiers`, `coherenceWarning` (suppressed in awaiting-signals window).
 
 ### Step 6 — Docs & memory
-- `docs/MRS_V3_SPECIFICATION.md`: pillar inputs table, coherence rule, qualifier contract.
-- `mem://ui/performance-readiness/signal-pill-system`: moment-only tier rule + bracketed qualifier note.
-- New memory `mem://architecture/signal-engine/checkin-pattern-aggregator` — SSOT for Insights Performance Patterns and signal-pill qualifiers.
+- ✅ `docs/MRS_V3_SPECIFICATION.md` §8.1 qualifier contract + §8.2 coherence guard added.
+- ✅ `mem://ui/performance-readiness/signal-pill-system` written (moment-only tier + bracket format).
+- ✅ `mem://architecture/signal-engine/checkin-pattern-aggregator` written (SSOT note).
 
 ---
 
