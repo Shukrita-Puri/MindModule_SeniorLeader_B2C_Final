@@ -1827,7 +1827,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
               {getTierLabel(tier)}
             </span>
             <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/50 ml-1.5 font-body">
-              {readinessState === 'refined' ? 'Refined' : 'Baseline'}
+              {readinessState === 'refined' ? '(Refined)' : '(Baseline)'}
             </span>
           </>
         ) : (
