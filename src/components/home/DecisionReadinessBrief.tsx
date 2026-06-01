@@ -1298,10 +1298,12 @@ function ExecutivePillCapsule({
   pill,
   expanded,
   onToggle,
+  serverPill,
 }: {
   pill: ExecutivePill;
   expanded: boolean;
   onToggle: () => void;
+  serverPill?: PillTooltipPill | null;
 }) {
   const c = PILL_COLORS[pill.state];
   const Icon = pill.Icon;
