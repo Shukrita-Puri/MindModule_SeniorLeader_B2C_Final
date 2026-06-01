@@ -138,12 +138,23 @@ interface ComputeRequest {
   // the canonical displayed tier without re-deriving from the raw score.
   tierDisplayed?: EnergyTier | null;
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score split forwarded by the client (the inner
+  // readiness EF already blended the dims into the score). Used here only
+  // for persistence + echoing so the UI gets a single round trip.
+  innerReadinessScoreBaseline?: number | null;
+  innerReadinessScoreRefined?: number | null;
+  innerReadinessState?: 'baseline' | 'refined' | null;
+  innerReadinessRefinedContribution?: number | null;
   calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
   calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
   archetype?: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
   mentalSharpnessLevel?: number | null;
+  // MRS v3 §3.2 — Mind Check-in dimensions (forwarded for persistence/echo only).
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
   /**
