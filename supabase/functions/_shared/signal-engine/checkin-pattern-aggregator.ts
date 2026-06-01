@@ -36,6 +36,7 @@ export interface WearableRow {
   resting_heart_rate?: number | null;
   sleep_score?: number | null;
   total_sleep_minutes?: number | null;
+  sleep_efficiency?: number | null;
 }
 
 /** Compact qualifier returned per Mind dim. All fields nullable. */
