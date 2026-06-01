@@ -4588,7 +4588,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               .order('checkin_date', { ascending: false })
               .limit(40),
             db.from('wearable_data')
-              .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes')
+              .select('summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency')
               .eq('user_id', userId)
               .gte('summary_date', fourteenAgo)
               .order('summary_date', { ascending: false })
@@ -4635,6 +4635,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } else if (p.key === 'resilience_capacity') {
               (p as any).qualifiers = {
                 emotion: q.emotion, regulation: q.regulation, pressure: q.pressure,
+                sleep_efficiency: q.sleep_efficiency,
               };
             }
           }
