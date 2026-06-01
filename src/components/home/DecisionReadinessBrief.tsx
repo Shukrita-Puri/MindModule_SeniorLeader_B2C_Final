@@ -998,11 +998,11 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
   const cogTop: PillLine[] = [];
   if (hrvVal != null) {
     let q = '';
-    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${hrvBaseline}ms baseline`;
+    if (hrvDev != null && hrvBaseline) q = `${devSign(hrvDev)} vs ${Math.round(hrvBaseline)}ms baseline`;
     if (wearableTrend === 'declining') q = q ? `${q} · trend declining` : 'trend declining';
     else if (wearableTrend === 'improving') q = q ? `${q} · trend improving` : 'trend improving';
     if (cogAuthorityFlag === 'masked-high') q = q ? `${q} · system signal ahead of felt state` : 'system signal ahead of felt state';
-    cogTop.push({ text: `HRV ${hrvVal}ms`, qualifier: q || undefined, kind: 'wearable' });
+    cogTop.push({ text: `HRV ${Math.round(hrvVal)}ms`, qualifier: q || undefined, kind: 'wearable' });
   }
   // Sleep cognitive line — render ONLY when sleep is materially contributing
   // to the cognitive pillar (red or amber). Adequate sleep stays silent so the
