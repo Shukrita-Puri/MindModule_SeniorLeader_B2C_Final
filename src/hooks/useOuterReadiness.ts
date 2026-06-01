@@ -209,6 +209,31 @@ export interface OuterReadinessData {
   hasCurrentPeriodCheckIn?: boolean;
   hasFreshWearable?: boolean;
   hasCurrentPeriodSignal?: boolean;
+  // Signal Pills v3 — server-built pill payload + qualifier bundle.
+  // `signalPills` mirrors the deterministic 3-pill engine on the server.
+  // `pillQualifiers` is the SSOT bracketed enrichment (delta3d / vsDow /
+  // peakStreak for Mind dims; delta3d / vsBaselinePct for wearable).
+  // Tier is driven by today's value only — qualifiers are display-only.
+  signalPills?: Array<{
+    key: 'decision_readiness' | 'physical_reserves' | 'resilience_capacity';
+    label: string;
+    tier: 'green' | 'amber' | 'red' | 'neutral';
+    tierLabel?: string;
+    coldStartLabel?: string | null;
+    contributors?: Record<string, unknown>;
+    qualifiers?: Record<string, unknown>;
+  }> | null;
+  pillQualifiers?: {
+    clarity: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+    emotion: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+    pressure: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+    regulation: { delta3d: number | null; vsDow: number | null; peakStreak: number };
+    hrv: { delta3d: number | null; vsBaselinePct: number | null };
+    sleep: { durationDelta7d: number | null; scoreVsBaseline: number | null };
+    rhr: { vsBaselinePct: number | null };
+  } | null;
+  // Dev-only — populated when MRS tier and pill mix had to be reconciled.
+  coherenceWarning?: string | null;
 }
 
 async function fetchOuterReadinessFresh(userId: string | undefined): Promise<OuterReadinessData | null> {
