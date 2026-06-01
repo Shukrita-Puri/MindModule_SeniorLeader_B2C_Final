@@ -4971,6 +4971,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // request (cache hit OR successful upsert). The client uses this to
       // decide whether to track a brief_view event for Recent history.
       briefPersisted: resolvedBriefId !== null,
+      // Signal Pills v3 — echo server-built pill payload + bracketed
+      // qualifiers so the client renders identical numbers to Insights
+      // without recomputing aggregates. `coherenceWarning` is suppressed
+      // in production (dev/QA only — see assertPillCoherence).
+      signalPills: awaitingSignals ? null : echoedSignalPills,
+      pillQualifiers: awaitingSignals ? null : echoedPillQualifiers,
+      coherenceWarning: echoedCoherenceWarning,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
