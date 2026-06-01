@@ -50,6 +50,13 @@ export interface UpsertContextSnapshotInput {
   // MRS v3 — soft-guard tier cap (see compute-inner-readiness §tier-cap).
   tierDisplayed?: string | null;
   tierCapReason?: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score split. `readinessScoreBaseline` is the raw
+  // State 1 value; `readinessScoreRefined` is null until a Mind Check-in
+  // exists for the window. `readinessState` is 'baseline' | 'refined'.
+  readinessScoreBaseline?: number | null;
+  readinessScoreRefined?: number | null;
+  readinessState?: 'baseline' | 'refined' | null;
+  refinedContribution?: number | null;
 }
 
 /**
@@ -79,6 +86,11 @@ export async function upsertDailyContextSnapshot(
       signal_pills: input.signalPills,
       tier_displayed: input.tierDisplayed ?? input.innerTier ?? null,
       tier_cap_reason: input.tierCapReason ?? null,
+      // MRS v3 §3.3 — refined-score split mirror.
+      readiness_score_baseline: input.readinessScoreBaseline ?? null,
+      readiness_score_refined: input.readinessScoreRefined ?? null,
+      readiness_state: input.readinessState ?? null,
+      refined_contribution: input.refinedContribution ?? null,
     };
 
     const { error } = await db
