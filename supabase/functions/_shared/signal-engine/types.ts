@@ -120,4 +120,13 @@ export interface DailyContextSnapshot {
   // pattern flag that caused the cap, or null when no cap is applied.
   tier_displayed: string | null;
   tier_cap_reason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null;
+  // MRS v3 §3.3 — refined-score split. `readiness_score_baseline` is the
+  // raw State 1 value (always present once populated); `readiness_score_refined`
+  // is null until a Mind Check-in exists for the window. `readiness_state`
+  // = 'baseline' | 'refined'. `refined_contribution` = signed integer in
+  // [-15, +15] (0 when state='baseline').
+  readiness_score_baseline: number | null;
+  readiness_score_refined: number | null;
+  readiness_state: 'baseline' | 'refined' | null;
+  refined_contribution: number | null;
 }
