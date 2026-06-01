@@ -692,9 +692,12 @@ serve(async (req) => {
     // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
     type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-    // v3: 4 Mind check-in dims. `confidence` retained for backwards-compat reads
-    // but no longer surfaced as its own pattern stream.
-    type RhythmDimension = 'clarity' | 'emotion' | 'pressure' | 'regulation';
+    // v3: 4 Mind check-in dims + 4 wearable dims (Body Rhythm). Wearable
+    // findings compete in the same ranked list and are gated by the diversity
+    // guard below (≤2 per dim, ≤2 per kind) so the top-3 stays balanced.
+    type RhythmDimension =
+      | 'clarity' | 'emotion' | 'pressure' | 'regulation'
+      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
