@@ -1,87 +1,125 @@
-## Validation: is MRS truly check-in-independent?
+## Signal Pills v3 — revised (sleep→Cognitive, sleep_efficiency→Resilience, patterns as qualifiers only)
 
-**Partially. Two gates still treat check-in as a precondition.**
+### Locked decisions from this round
 
-### What IS already correct
-- `compute-inner-readiness` produces a **State 1 baseline score** from physiological composite + calendar demand. No check-in required.
-- `computeRefinedScore` correctly degrades to baseline when all four Mind dims are null (`readinessState = 'baseline'`, no shift).
-- `TodayStateCard` (Decision Readiness tile) renders `overallBalance` and `tierDisplayed` regardless of check-in.
-- `energyStateEngine` computes a score whether or not a check-in row exists.
-
-### What is STILL gated on check-in (the bug)
-
-**1. Brief score row hides behind `hasCheckIn`**
-`src/components/home/DecisionReadinessBrief.tsx` lines 1766-1781:
-```
-{hasCheckIn && score != null ? (<score>) : (<-- Not yet assessed>)}
-```
-Even when wearable + calendar are present and a real baseline MRS exists, the brief shows `--`. Contradicts MRS v3.
-
-**2. Brief signal contract counts check-in as a State 1 input (wrong)**
-`supabase/functions/compute-outer-readiness/index.ts` ~4167-4181:
-```
-briefSignalContractMet = hasTodayCheckIn || hasFreshWearable
-```
-This treats check-in as sufficient to "have a brief" — but conceptually State 1 = wearable + calendar; check-in is the State 2 refiner. Also, calendar-only users get suppressed today.
-
-**3. Awaiting-signal copy frames check-in as the trigger to "generate" the brief**
-- `DecisionReadinessBrief.tsx` line 1802: *"Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief."*
-- `DailyRitual.tsx` line 596: same copy on Plan card.
-- `DecisionReadinessBrief.tsx` line 1663 fallback phrase: *"Begin with your check-in."*
-- Line 1668 fallback body: *"Check in to activate your personalised intelligence — takes two minutes."*
-
-### Out of scope
-- `smart-nudges` push CTAs ("check in to set your intention" etc.) — still valid; they invite users into the *enhancer*, which is fine.
+1. **Sleep belongs in Cognitive, not Physiology.** For sedentary executives, sleep deprivation hits cognition (decision quality, working memory, emotional regulation) far more than physical capacity. A CEO can be physically rested in bed yet cognitively impaired by fragmented sleep. → Move `sleep_duration` + `sleep_score` into Cognitive.
+2. **Physiology stays wearable-only (RHR, HR-elevated proxy)** — pure cardiovascular/autonomic read, no sleep.
+3. **Resilience must have a wearable anchor** so the pill never sits empty pre-check-in (best practice: every pill renders from State 1). → `sleep_efficiency_today` (overnight restoration quality) is the chosen anchor. It is *physiologically distinct* from sleep duration/score: efficiency = how well the time-in-bed was actually used by the nervous system to restore — a direct read on "capacity to absorb today's load."
+4. **Patterns are never pill tier drivers.** They surface as bracketed qualifiers next to today's numbers, on **both wearable signals and check-in signals**. The pill word/colour only moves when today's numbers move.
+5. **Pressure is in Resilience.** Confirmed.
+6. **Pill words unchanged this round.** 1–2 word labels remain mandatory.
+7. **No double-counting with the Calendar Load pill.** `consecutive_high_load_days` and any calendar pattern stays in the Calendar Load pill — Cognitive and Resilience do not re-consume it.
 
 ---
 
-## Plan: separate State 1 (wearable + calendar) from State 2 (check-in)
+### 1. Inputs per pill (v3 final)
 
-### 1. Backend — `compute-outer-readiness` signal contract
-- Define **State 1 inputs** = `hasFreshWearable || hasCalendarSignal` (today's calendar events or recent wearable). Check-in does NOT count toward State 1.
-- New contract:
-  ```
-  hasState1Input    = hasFreshWearable || hasCalendarSignal
-  briefSignalContractMet = hasState1Input   // brief renders off State 1
-  awaitingSignals   = !hasState1Input       // only true for truly empty users
-                                            // (no wearable, no calendar)
-  awaitingReason    = awaitingSignals ? 'cold-start-no-context' : null
-  ```
-- Add a derived `hasCalendarSignal` check from the existing calendar fetch (use `calendarState === 'active'` or non-empty events list — whichever the function already computes).
-- `readinessState` echoed back to client stays `'refined'` when check-in present, `'baseline'` otherwise. No new field needed.
-- All downstream `awaitingSignals ? null : ...` short-circuits stay correct — they now only fire for the residual cold-start case.
+| Pill | Moment wearable / calendar inputs | Check-in dim (State 2) | Pattern qualifiers (display only) |
+|---|---|---|---|
+| **Cognitive** | `hrv_today` vs `hrv_baseline_30d`, `sleep_duration_today`, `sleep_score_today`, today's `cognitive_fragmentation_score` | `clarity` (1→strong-RED … 5→GREEN; null→NEUTRAL). GREEN→AMBER cap when `SUPPLY_DEMAND_GAP` active today. | HRV 3d trend, sleep delta vs 7d personal mean, clarity-trend-3d from Mind Readiness card |
+| **Physiology** | `rhr_today` vs baseline, `hr_today` vs baseline (HR-elevated proxy) | None — by design | RHR 3d trend (±% vs 3d avg), HR delta |
+| **Resilience** | `sleep_efficiency_today` (overnight restoration quality) | `pressure`, `emotion`, `regulation` (all 1–5) | sleep_efficiency 7d delta, regulation-trend-3d, emotion-trend-3d, pressure-typical-for-DOW |
 
-### 2. Frontend — `DecisionReadinessBrief.tsx`
-- **Score row (1766-1781)**: render the score whenever `score != null`, regardless of `hasCheckIn`. Drop the `--`/"Not yet assessed" branch (it now only appears in the residual cold-start state, handled by the awaiting block).
-- **State badge**: append a small muted caption beside the tier label — `"Baseline"` when `readinessState === 'baseline'`, `"Refined"` when `'refined'`. No new visual weight; uses existing muted token.
-- **Fallback phrase (1663)**: drop *"Begin with your check-in."* — use a neutral State 1 phrase such as *"Today's read."*
-- **Fallback body (1668)**: drop *"Check in to activate..."* — render nothing when no body, never a check-in prompt.
-- **Awaiting block (1796-1805)**: keep, but only render when truly cold-start (no wearable, no calendar). Rewrite copy:  
-  *"Connect your calendar or a wearable to start your readiness brief. A 2-min check-in then refines it to your felt state."*
+**Removed from current code:**
+- Cognitive: drop `consecutive_high_load_days` (lives in Calendar Load pill).
+- Physiology: drop sleep inputs (moved to Cognitive); drop `sustained_deficit_flag` as a tier driver (becomes qualifier).
+- Resilience: drop `consecutive_high_load_days`, `hrv_low_high_demand_cooccurrence_7d`, `dow_typical_load`, `protection_goals_under_pressure`, legacy `confidence`/`outcome`.
 
-### 3. Frontend — `DailyRitual.tsx`
-- Same copy swap on line 596:  
-  *"Connect your calendar or wearable to start your plan. A 2-min check-in then refines it."*
+**State 1 vs State 2 — pill renders in both states; check-in only sharpens.**
 
-### 4. Tier-cap / refined surfacing
-- No change. `tierDisplayed`, `tierCapReason`, `scoreBaseline`, `scoreRefined`, `readinessState`, `refinedContribution` are already plumbed end-to-end (Phase 1a + 1b). The brief card just needs to read them.
+```text
+                  State 1 (no check-in)                        State 2 (check-in)
+Cognitive    HRV + sleep_duration + sleep_score +        + clarityContrib
+             today's fragmentation                       + SUPPLY_DEMAND_GAP cap
+Physiology   RHR + HR proxy                              unchanged
+Resilience   sleep_efficiency_today                      + pressure + emotion + regulation
+                                                         + REGULATION_RISK floor
+```
 
-### 5. Verification
-- Unit test: existing `computeRefinedScore` tests still pass.
-- Manual:
-  - (a) wearable only, no check-in → score + tier + "Baseline" caption render.
-  - (b) calendar only, no wearable, no check-in → score + "Baseline" caption render.
-  - (c) wearable + check-in → score + "Refined" caption.
-  - (d) no wearable, no calendar, no check-in → new awaiting block (residual cold-start).
+Remove `if (!checkInOutcome) return null` in `buildExecutivePills`. Add muted `Baseline` / `Refined` badge beside the section header (reuses MRS badge token).
 
-### Files to touch
-- `supabase/functions/compute-outer-readiness/index.ts` (signal contract block ~4167-4181 + add `hasCalendarSignal` derivation if not already present)
-- `src/components/home/DecisionReadinessBrief.tsx` (score row + State badge + fallback strings + awaiting copy)
-- `src/components/home/DailyRitual.tsx` (awaiting copy line 596)
+---
 
-### Explicitly NOT touched
-- `smart-nudges` push CTAs
-- `compute-inner-readiness` (already correct)
-- `energyStateEngine`, `TodayStateCard` (already correct)
-- `useOuterReadiness` plumbing (already correct)
-- Database schema (already correct)
+### 2. Resilience composition weights (moment-only)
+
+```text
+sleep_efficiency  30%   pressure 20%   emotion 25%   regulation 25%
+veto: REGULATION_RISK today → floor at AMBER
+```
+
+`sleep_efficiency_today` tiering:
+
+```text
+≥ 90  → GREEN contrib
+80–89 → NEUTRAL
+70–79 → AMBER
+< 70  → RED
+null  → NEUTRAL  (pill still renders from any other inputs)
+```
+
+If both `sleep_efficiency` is null *and* no check-in exists, Resilience renders as **NEUTRAL** with the State badge `Baseline` and qualifier copy "Awaiting last night's restoration read" — never empty.
+
+---
+
+### 3. Pattern qualifiers — wearable AND check-in
+
+Bracketed text next to each contributor signal inside the pill tooltip (and the front line where space allows). **Never affects tier.**
+
+| Source | Qualifier examples |
+|---|---|
+| Wearable | `HR 72 (+3% vs 3d avg)` · `HRV 42 (3d ↘)` · `Sleep 6h12 (−45m vs 7d)` · `Sleep eff 78% (−6 vs 7d)` |
+| Calendar | `Fragmentation 0.7 (today's shape)` — already today-only |
+| **Check-in** *(new)* | `Clarity 2/5 (low for your Mondays)` · `Regulation 3/5 (↘ 3 days)` · `Emotion 4/5 (↑ since check-in resumed)` · `Pressure 2/5 (typical for week 4 of month)` |
+
+Source of check-in qualifiers: the same store the Insights **Mind Readiness card** already reads — `daily_checkins` aggregated by DOW / 7d window. We expose a thin server helper `getCheckinPatternQualifiers(userId, window)` returning `{ clarityTrend3d, regulationTrend3d, emotionTrend3d, pressureTypicalForDow }`. No new tables; reuses the existing aggregation logic.
+
+---
+
+### 4. MRS ↔ Pills coherence assertion
+
+Same payload feeds both, so contradictions should be impossible — but we add a deterministic guard with observability:
+
+```text
+score_tier 'Depleted' → ≥1 pill RED        else warn
+score_tier 'Peak'     → 0 pills RED        else warn
+score_tier 'Strong'   → ≤1 AMBER, 0 RED    else warn
+```
+
+Warnings emit to edge-function logs; never block UI.
+
+---
+
+### 5. Files to touch
+
+- `supabase/functions/compute-outer-readiness/index.ts` — pill build block:
+  - move sleep inputs from Physiology → Cognitive
+  - add `sleep_efficiency_today` derivation + Resilience contrib
+  - read 4 Mind dims; wire clarity → Cognitive, emotion+regulation+pressure → Resilience
+  - apply `SUPPLY_DEMAND_GAP` Cognitive cap, `REGULATION_RISK` Resilience floor
+  - emit qualifier metadata in `contributors`: `hrv_3d_trend`, `rhr_3d_trend`, `hr_delta_pct`, `sleep_delta_7d`, `sleep_eff_delta_7d`, `clarity_trend_3d`, `regulation_trend_3d`, `emotion_trend_3d`, `pressure_typical_dow`
+  - append `readinessState: 'baseline' | 'refined'` per pill
+  - run `assertCoherence(scoreTier, [cognitive, physical, resilience])`
+- `supabase/functions/_shared/signal-engine/checkin-pattern-qualifiers.ts` (new) — DOW + 3d aggregations over `daily_checkins`, mirroring the Insights Mind Readiness card source.
+- `src/components/home/DecisionReadinessBrief.tsx` — `buildExecutivePills`:
+  - remove `if (!checkInOutcome) return null`
+  - swap legacy confidence/outcome contribs for clarity/emotion/regulation/pressure
+  - move sleep contrib from Physical → Cognitive
+  - add sleep_efficiency contrib in Resilience
+  - render bracketed qualifiers on the existing pill line + tooltip
+  - add `Baseline` / `Refined` badge next to section header
+- `src/components/home/PillTooltip.tsx` (new) — HoverCard: name, tier word, State badge, top-3 contributor rows in `Signal · Value · (qualifier)` format, footer source icons (Wearable / Calendar / Check-in), "Refines after Mind check-in" line when baseline.
+- `docs/MRS_V3_SPECIFICATION.md` — append §8 amendment: pills are moment-only; sleep lives in Cognitive; sleep_efficiency anchors Resilience; check-in patterns surface as qualifiers via Mind Readiness store.
+- Memory update: `mem://ui/performance-readiness/signal-pill-system` (moment-only contract, sleep→Cognitive, sleep_efficiency→Resilience, pattern-as-qualifier rule, coherence assertion).
+
+### 6. Explicitly NOT changed
+
+- Pill labels (Decision Readiness / Physical Reserves / Resilience Capacity), tier words, colours, shape, order, animation.
+- Calendar Load pill (separate, untouched).
+- Brief LLM prompt and body copy (patterns continue to feed Brief perspective).
+- `smart-nudges` (baseline-only, already correct).
+- Insights Mind Readiness card (we only *read* its aggregation source, no UI changes).
+
+### 7. Tests
+
+- `pills_v3_test.ts`: cold-start renders 3 pills with State 1 inputs only; sleep deficit moves Cognitive (not Physiology); RHR spike moves Physiology (not Cognitive); sleep_efficiency low + null check-in → Resilience AMBER, not empty; Pressure 1 + check-in present → Resilience RED with hidden-load qualifier (word unchanged); REGULATION_RISK floor; SUPPLY_DEMAND_GAP Cognitive cap; coherence assertion fires only when tiers diverge from MRS.
+- Snapshot: same day before vs after check-in — pill identity stable, tier may sharpen, wearable qualifiers unchanged, check-in qualifiers populate.
