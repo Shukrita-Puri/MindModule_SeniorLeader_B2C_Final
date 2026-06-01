@@ -1,125 +1,78 @@
-## Signal Pills v3 — revised (sleep→Cognitive, sleep_efficiency→Resilience, patterns as qualifiers only)
+# Signal Pills v3 — Finalised Plan (with Performance Patterns audit)
 
-### Locked decisions from this round
+## Audit findings (now closed)
 
-1. **Sleep belongs in Cognitive, not Physiology.** For sedentary executives, sleep deprivation hits cognition (decision quality, working memory, emotional regulation) far more than physical capacity. A CEO can be physically rested in bed yet cognitively impaired by fragmented sleep. → Move `sleep_duration` + `sleep_score` into Cognitive.
-2. **Physiology stays wearable-only (RHR, HR-elevated proxy)** — pure cardiovascular/autonomic read, no sleep.
-3. **Resilience must have a wearable anchor** so the pill never sits empty pre-check-in (best practice: every pill renders from State 1). → `sleep_efficiency_today` (overnight restoration quality) is the chosen anchor. It is *physiologically distinct* from sleep duration/score: efficiency = how well the time-in-bed was actually used by the nervous system to restore — a direct read on "capacity to absorb today's load."
-4. **Patterns are never pill tier drivers.** They surface as bracketed qualifiers next to today's numbers, on **both wearable signals and check-in signals**. The pill word/colour only moves when today's numbers move.
-5. **Pressure is in Resilience.** Confirmed.
-6. **Pill words unchanged this round.** 1–2 word labels remain mandatory.
-7. **No double-counting with the Calendar Load pill.** `consecutive_high_load_days` and any calendar pattern stays in the Calendar Load pill — Cognitive and Resilience do not re-consume it.
+1. **`pressure_level`** exists in `daily_checkins` (screenshot + `PerformanceStreaks.tsx:63`, `InnerReadinessDial.tsx`). No migration.
+2. **`sleep_efficiency`** already derived in `compute-outer-readiness/index.ts:1744-1755` from Oura `efficiency` or computed from time-in-bed; exposed on payload + `useOuterReadiness`. HealthKit path falls back to TIB-derived efficiency. No wearable schema change.
+3. **Coherence** — dev-only check + silent auto-correct in prod.
+4. **Mind Readiness card "Performance Patterns"** — sourced from edge function `supabase/functions/performance-rhythm-insights/index.ts` (lines 683–943). Ephemeral (not persisted), fetched on demand by `/insights/performance-rhythm`. **Critical gap**: it mines only `clarity_level` and `confidence_level` (`RhythmDimension = 'clarity' | 'confidence'`). It does **not** cover `emotion_level`, `pressure_level`, or `regulation_level` — so 2 of the 4 Mind tabs in the card today show no patterns by design.
+5. **`consecutive_high_load_days`** stays in LLM brief prompt (line 3698 + 4334/4518/4546/4576) — only removed as a Cognitive pillar contributor.
 
 ---
 
-### 1. Inputs per pill (v3 final)
+## Strategy
 
-| Pill | Moment wearable / calendar inputs | Check-in dim (State 2) | Pattern qualifiers (display only) |
-|---|---|---|---|
-| **Cognitive** | `hrv_today` vs `hrv_baseline_30d`, `sleep_duration_today`, `sleep_score_today`, today's `cognitive_fragmentation_score` | `clarity` (1→strong-RED … 5→GREEN; null→NEUTRAL). GREEN→AMBER cap when `SUPPLY_DEMAND_GAP` active today. | HRV 3d trend, sleep delta vs 7d personal mean, clarity-trend-3d from Mind Readiness card |
-| **Physiology** | `rhr_today` vs baseline, `hr_today` vs baseline (HR-elevated proxy) | None — by design | RHR 3d trend (±% vs 3d avg), HR delta |
-| **Resilience** | `sleep_efficiency_today` (overnight restoration quality) | `pressure`, `emotion`, `regulation` (all 1–5) | sleep_efficiency 7d delta, regulation-trend-3d, emotion-trend-3d, pressure-typical-for-DOW |
+Don't write a parallel "checkin-pattern-qualifiers" engine. Promote `performance-rhythm-insights`'s series-mining as the single SSOT and reuse it from a thin shared helper used by both Insights and the signal pills.
 
-**Removed from current code:**
-- Cognitive: drop `consecutive_high_load_days` (lives in Calendar Load pill).
-- Physiology: drop sleep inputs (moved to Cognitive); drop `sustained_deficit_flag` as a tier driver (becomes qualifier).
-- Resilience: drop `consecutive_high_load_days`, `hrv_low_high_demand_cooccurrence_7d`, `dow_typical_load`, `protection_goals_under_pressure`, legacy `confidence`/`outcome`.
+### Step 1 — Extend `performance-rhythm-insights` to all 4 Mind dims
+- `RhythmDimension` → `'clarity' | 'emotion' | 'pressure' | 'regulation'` (drop `confidence` from output but keep field read for backwards-compat).
+- Add 3 new `buildLevelSeries` calls and 3 `mineSeries` invocations with proper vocab:
+  - Emotion: `appLabel: 'Emotion'`, positive `'steady'`, negative `'reactive'`.
+  - Pressure: invert (low pressure_level = overloaded). `appLabel: 'Pressure'`, positive `'composed'`, negative `'under load'`.
+  - Regulation: `appLabel: 'Regulation'`, positive `'composed'`, negative `'depleted'`.
+- Result: Insights "Performance Patterns" tabs for Emotion / Pressure / Regulation start producing the same DoW-streak / peak-window / peak-cell findings as Clarity does today.
 
-**State 1 vs State 2 — pill renders in both states; check-in only sharpens.**
+### Step 2 — Extract pure aggregation into `_shared/signal-engine/checkin-pattern-aggregator.ts`
+- Move `buildLevelSeries`, `mineSeries`, `runs`, `peak-window/peak-cell` helpers out of the edge function and into the shared module.
+- `performance-rhythm-insights` reimports them — zero behaviour change on Insights.
+- Export a new compact API for pills:
+  ```ts
+  getPillQualifiers(checkinsLast14d, wearableLast14d) → {
+    clarity:    { delta3d, vsDow, peakStreak },
+    emotion:    {...}, pressure: {...}, regulation: {...},
+    hrv:        { delta3d, vsBaselinePct },
+    sleep:      { durationDelta7d, scoreVsBaseline },
+    rhr:        { vsBaselinePct },
+  }
+  ```
+- Pure: takes pre-fetched rows, returns object. No DB calls inside.
 
-```text
-                  State 1 (no check-in)                        State 2 (check-in)
-Cognitive    HRV + sleep_duration + sleep_score +        + clarityContrib
-             today's fragmentation                       + SUPPLY_DEMAND_GAP cap
-Physiology   RHR + HR proxy                              unchanged
-Resilience   sleep_efficiency_today                      + pressure + emotion + regulation
-                                                         + REGULATION_RISK floor
-```
+### Step 3 — Wire `compute-outer-readiness` to the helper
+- After existing `signalPillsPayload` build, call `getPillQualifiers` with the already-fetched check-ins + wearable_recent samples.
+- Attach `pillQualifiers` to outer-brief payload (additive, optional).
 
-Remove `if (!checkInOutcome) return null` in `buildExecutivePills`. Add muted `Baseline` / `Refined` badge beside the section header (reuses MRS badge token).
+### Step 4 — Pillar reallocation in `compute-outer-readiness`
+- **Cognitive**: HRV 40% + sleep duration/score 40% + clarity 20% (already started). Apply SUPPLY_DEMAND_GAP cap (GREEN→AMBER).
+- **Physiology**: RHR + HR-elevated proxy only. Remove `sleepCognitiveContrib`; rebalance thresholds.
+- **Resilience**: State-1 anchor = `sleepEfficiency` (≥85 GREEN / 70–84 AMBER / <70 RED). State-2 overlay = emotion + regulation + inverted pressure; force min AMBER on REGULATION_RISK (`regulation_level ≤ 2` OR `pressure_level ≤ 2`).
+- **Coherence assertion** (dev-only): after pill build, if MRS = Depleted and no RED pill exists → downgrade weakest AMBER to RED; if MRS = Optimal and any RED → upgrade to AMBER. Emit `coherence_warning` only when `APP_ENV !== 'production'`.
 
----
+### Step 5 — Frontend
+- `useOuterReadiness.ts`: extend type with `pillQualifiers?`.
+- `DecisionReadinessBrief.tsx`: render `value (qualifier)` for each pill (e.g. `HRV 48 (−6% vs 3d)`, `Clarity 4 (5-day peak)`). Tier driven by today's value only; qualifier display-only.
+- Header label: small "Baseline" / "Refined" muted text based on `readinessState`.
+- New `PillTooltip.tsx` (`HoverCard`): lists contributors + qualifiers + one-line "why this tier".
 
-### 2. Resilience composition weights (moment-only)
-
-```text
-sleep_efficiency  30%   pressure 20%   emotion 25%   regulation 25%
-veto: REGULATION_RISK today → floor at AMBER
-```
-
-`sleep_efficiency_today` tiering:
-
-```text
-≥ 90  → GREEN contrib
-80–89 → NEUTRAL
-70–79 → AMBER
-< 70  → RED
-null  → NEUTRAL  (pill still renders from any other inputs)
-```
-
-If both `sleep_efficiency` is null *and* no check-in exists, Resilience renders as **NEUTRAL** with the State badge `Baseline` and qualifier copy "Awaiting last night's restoration read" — never empty.
-
----
-
-### 3. Pattern qualifiers — wearable AND check-in
-
-Bracketed text next to each contributor signal inside the pill tooltip (and the front line where space allows). **Never affects tier.**
-
-| Source | Qualifier examples |
-|---|---|
-| Wearable | `HR 72 (+3% vs 3d avg)` · `HRV 42 (3d ↘)` · `Sleep 6h12 (−45m vs 7d)` · `Sleep eff 78% (−6 vs 7d)` |
-| Calendar | `Fragmentation 0.7 (today's shape)` — already today-only |
-| **Check-in** *(new)* | `Clarity 2/5 (low for your Mondays)` · `Regulation 3/5 (↘ 3 days)` · `Emotion 4/5 (↑ since check-in resumed)` · `Pressure 2/5 (typical for week 4 of month)` |
-
-Source of check-in qualifiers: the same store the Insights **Mind Readiness card** already reads — `daily_checkins` aggregated by DOW / 7d window. We expose a thin server helper `getCheckinPatternQualifiers(userId, window)` returning `{ clarityTrend3d, regulationTrend3d, emotionTrend3d, pressureTypicalForDow }`. No new tables; reuses the existing aggregation logic.
+### Step 6 — Docs & memory
+- `docs/MRS_V3_SPECIFICATION.md`: pillar inputs table, coherence rule, qualifier contract.
+- `mem://ui/performance-readiness/signal-pill-system`: moment-only tier rule + bracketed qualifier note.
+- New memory `mem://architecture/signal-engine/checkin-pattern-aggregator` — SSOT for Insights Performance Patterns and signal-pill qualifiers.
 
 ---
 
-### 4. MRS ↔ Pills coherence assertion
+## Out of scope
 
-Same payload feeds both, so contradictions should be impossible — but we add a deterministic guard with observability:
-
-```text
-score_tier 'Depleted' → ≥1 pill RED        else warn
-score_tier 'Peak'     → 0 pills RED        else warn
-score_tier 'Strong'   → ≤1 AMBER, 0 RED    else warn
-```
-
-Warnings emit to edge-function logs; never block UI.
+- No DB migration (`pressure_level` and `sleep_efficiency` covered).
+- No HealthKit ingestion change.
+- No LLM brief prompt change (`consecutive_high_load_days` retained).
+- No rewrite of `PerformanceStreaks` / `InnerReadinessDial` — Step 1 alone surfaces the missing dim patterns inside `PerformanceCausalityCard` / rhythm card.
 
 ---
 
-### 5. Files to touch
+## Acceptance
 
-- `supabase/functions/compute-outer-readiness/index.ts` — pill build block:
-  - move sleep inputs from Physiology → Cognitive
-  - add `sleep_efficiency_today` derivation + Resilience contrib
-  - read 4 Mind dims; wire clarity → Cognitive, emotion+regulation+pressure → Resilience
-  - apply `SUPPLY_DEMAND_GAP` Cognitive cap, `REGULATION_RISK` Resilience floor
-  - emit qualifier metadata in `contributors`: `hrv_3d_trend`, `rhr_3d_trend`, `hr_delta_pct`, `sleep_delta_7d`, `sleep_eff_delta_7d`, `clarity_trend_3d`, `regulation_trend_3d`, `emotion_trend_3d`, `pressure_typical_dow`
-  - append `readinessState: 'baseline' | 'refined'` per pill
-  - run `assertCoherence(scoreTier, [cognitive, physical, resilience])`
-- `supabase/functions/_shared/signal-engine/checkin-pattern-qualifiers.ts` (new) — DOW + 3d aggregations over `daily_checkins`, mirroring the Insights Mind Readiness card source.
-- `src/components/home/DecisionReadinessBrief.tsx` — `buildExecutivePills`:
-  - remove `if (!checkInOutcome) return null`
-  - swap legacy confidence/outcome contribs for clarity/emotion/regulation/pressure
-  - move sleep contrib from Physical → Cognitive
-  - add sleep_efficiency contrib in Resilience
-  - render bracketed qualifiers on the existing pill line + tooltip
-  - add `Baseline` / `Refined` badge next to section header
-- `src/components/home/PillTooltip.tsx` (new) — HoverCard: name, tier word, State badge, top-3 contributor rows in `Signal · Value · (qualifier)` format, footer source icons (Wearable / Calendar / Check-in), "Refines after Mind check-in" line when baseline.
-- `docs/MRS_V3_SPECIFICATION.md` — append §8 amendment: pills are moment-only; sleep lives in Cognitive; sleep_efficiency anchors Resilience; check-in patterns surface as qualifiers via Mind Readiness store.
-- Memory update: `mem://ui/performance-readiness/signal-pill-system` (moment-only contract, sleep→Cognitive, sleep_efficiency→Resilience, pattern-as-qualifier rule, coherence assertion).
-
-### 6. Explicitly NOT changed
-
-- Pill labels (Decision Readiness / Physical Reserves / Resilience Capacity), tier words, colours, shape, order, animation.
-- Calendar Load pill (separate, untouched).
-- Brief LLM prompt and body copy (patterns continue to feed Brief perspective).
-- `smart-nudges` (baseline-only, already correct).
-- Insights Mind Readiness card (we only *read* its aggregation source, no UI changes).
-
-### 7. Tests
-
-- `pills_v3_test.ts`: cold-start renders 3 pills with State 1 inputs only; sleep deficit moves Cognitive (not Physiology); RHR spike moves Physiology (not Cognitive); sleep_efficiency low + null check-in → Resilience AMBER, not empty; Pressure 1 + check-in present → Resilience RED with hidden-load qualifier (word unchanged); REGULATION_RISK floor; SUPPLY_DEMAND_GAP Cognitive cap; coherence assertion fires only when tiers diverge from MRS.
-- Snapshot: same day before vs after check-in — pill identity stable, tier may sharpen, wearable qualifiers unchanged, check-in qualifiers populate.
+- `/insights/performance-rhythm` Performance Patterns now produces findings on **all 4** Mind tabs (Clarity / Emotion / Pressure / Regulation) when ≥3–7 obs gates pass.
+- Homepage signal pills render in Baseline (no check-in) and Refined (post check-in) states; each pill shows `value (qualifier)`.
+- Identical streak/DoW numbers appear in Insights and pill qualifiers (single aggregator).
+- MRS tier never contradicts pill mix (dev `coherence_warning` empty on staging fixtures).
+- LLM brief prompt unchanged; receives `consecutive_high_load_days`.

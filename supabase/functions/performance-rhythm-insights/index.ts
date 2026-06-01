@@ -82,7 +82,7 @@ serve(async (req) => {
     // Fetch all data in parallel
     const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes, causalityRes] =
       await Promise.all([
-        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level")
+        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level, emotion_level, pressure_level, regulation_level")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
         sb.from("calendar_connections").select("is_active")
           .eq("user_id", userId).eq("is_active", true).limit(1).maybeSingle(),
@@ -683,8 +683,9 @@ serve(async (req) => {
     // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
     type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-    // Energy and Sharpness dimensions retired — no longer tracked product-wide.
-    type RhythmDimension = 'clarity' | 'confidence';
+    // v3: 4 Mind check-in dims. `confidence` retained for backwards-compat reads
+    // but no longer surfaced as its own pattern stream.
+    type RhythmDimension = 'clarity' | 'emotion' | 'pressure' | 'regulation';
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
@@ -720,18 +721,26 @@ serve(async (req) => {
       return out;
     };
 
-    const buildLevelSeries = (field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level'): SeriesPoint[] => {
+    const buildLevelSeries = (
+      field: 'clarity_level' | 'mental_sharpness_level' | 'confidence_level' | 'emotion_level' | 'pressure_level' | 'regulation_level',
+      opts: { invert?: boolean } = {}
+    ): SeriesPoint[] => {
       const out: SeriesPoint[] = [];
       for (const ci of checkIns as any[]) {
         const v = ci[field];
         if (!ci.checkin_date || v == null) continue;
         const d = new Date(ci.checkin_date);
+        // For pressure_level, semantic is inverted: HIGH value (4–5) = "under load" (negative),
+        // LOW value (1–2) = "composed" (positive). The `invert` flag flips polarity so
+        // downstream pattern phrasing (positivePhrase / negativePhrase) stays correct.
+        const positive = opts.invert ? v <= 2 : v >= 4;
+        const negative = opts.invert ? v >= 4 : v <= 2;
         out.push({
           dateStr: ci.checkin_date,
           di: getDayIndex(d.getDay()),
           tw: ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2,
-          positive: v >= 4,
-          negative: v <= 2,
+          positive,
+          negative,
         });
       }
       return out;
@@ -907,17 +916,29 @@ serve(async (req) => {
     };
 
     const claritySeries    = buildLevelSeries('clarity_level');
-    const confidenceSeries = buildLevelSeries('confidence_level');
+    const emotionSeries    = buildLevelSeries('emotion_level');
+    const pressureSeries   = buildLevelSeries('pressure_level', { invert: true });
+    const regulationSeries = buildLevelSeries('regulation_level');
 
     const clarityFindings = mineSeries(claritySeries, {
       dimension: 'clarity', appLabel: 'Clarity',
       positivePhrase: 'clear', negativePhrase: 'clouded',
       longPositiveLabel: 'Crystal/Lucid (4–5)', longNegativeLabel: 'Obscured/Clouded (1–2)',
     });
-    const confidenceFindings = mineSeries(confidenceSeries, {
-      dimension: 'confidence', appLabel: 'Confidence',
-      positivePhrase: 'certain', negativePhrase: 'reactive',
-      longPositiveLabel: 'Unshakable/Certain (4–5)', longNegativeLabel: 'Uncertain/Reactive (1–2)',
+    const emotionFindings = mineSeries(emotionSeries, {
+      dimension: 'emotion', appLabel: 'Emotion',
+      positivePhrase: 'steady', negativePhrase: 'reactive',
+      longPositiveLabel: 'Steady/Grounded (4–5)', longNegativeLabel: 'Reactive/Charged (1–2)',
+    });
+    const pressureFindings = mineSeries(pressureSeries, {
+      dimension: 'pressure', appLabel: 'Pressure',
+      positivePhrase: 'composed', negativePhrase: 'under load',
+      longPositiveLabel: 'Composed/Light (1–2)', longNegativeLabel: 'Under load/Heavy (4–5)',
+    });
+    const regulationFindings = mineSeries(regulationSeries, {
+      dimension: 'regulation', appLabel: 'Regulation',
+      positivePhrase: 'composed', negativePhrase: 'depleted',
+      longPositiveLabel: 'Regulated/Resourced (4–5)', longNegativeLabel: 'Depleted/Frayed (1–2)',
     });
 
     // ── Performance Patterns prioritization ──
@@ -933,14 +954,17 @@ serve(async (req) => {
       'consecutive-neg': 0.70, // recurring drop (active risk)
       'consecutive-pos': 0.30, // celebratory, non-actionable
     };
-    // Decision-quality signals first, then slow-mover.
+    // Decision-quality signals first, then slow-movers. Cognitive (clarity) and
+    // self-regulation lead; emotion and pressure follow as context modifiers.
     const DIMENSION_BONUS: Record<RhythmDimension, number> = {
       clarity: 0.15,
-      confidence: 0.05,
+      regulation: 0.12,
+      emotion: 0.10,
+      pressure: 0.08,
     };
 
     const allFindings: RhythmFinding[] = [
-      ...clarityFindings, ...confidenceFindings,
+      ...clarityFindings, ...emotionFindings, ...pressureFindings, ...regulationFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],

@@ -95,7 +95,7 @@ interface PerformanceRhythmData {
 
 interface RhythmFinding {
   kind: 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-  dimension: 'energy' | 'clarity' | 'sharpness' | 'confidence';
+  dimension: 'clarity' | 'emotion' | 'pressure' | 'regulation';
   /** Crisp app-facing copy (≤ ~110 chars). */
   text: string;
   /** Verbose long-form with stats — reserved for the weekly insights email. */
