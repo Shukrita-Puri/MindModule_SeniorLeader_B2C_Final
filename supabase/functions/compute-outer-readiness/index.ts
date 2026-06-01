@@ -1708,7 +1708,7 @@ serve(async (req) => {
     try {
       const { data: wearableRow } = await db
         .from('wearable_data')
-        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, source, summary_date')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes, raw_data, source, summary_date')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
@@ -1729,6 +1729,25 @@ serve(async (req) => {
         const sleepDuration = (rawSleepDuration !== null && isAppleSleepSource(source))
           ? Math.round(rawSleepDuration * 0.85)
           : rawSleepDuration;
+
+        // Sleep efficiency (0–100) — used by Signal Pills v3 as the
+        // wearable anchor for the Resilience pill (capacity to absorb
+        // today). Prefer provider-reported efficiency (Oura raw_data),
+        // else derive from time-in-bed when available, else leave null
+        // so the pill renders NEUTRAL from this source per spec.
+        const rawAny = (wearableRow as any).raw_data ?? {};
+        let sleepEfficiency: number | null = null;
+        if (typeof rawAny?.efficiency === 'number') {
+          sleepEfficiency = Math.round(rawAny.efficiency);
+        } else if (typeof rawAny?.sleep?.efficiency === 'number') {
+          sleepEfficiency = Math.round(rawAny.sleep.efficiency);
+        } else if (typeof rawAny?.time_in_bed === 'number' && rawSleepDuration != null) {
+          const tib = rawAny.time_in_bed; // seconds in Oura; we don't know unit reliably — guard
+          const tibMin = tib > 1000 ? Math.round(tib / 60) : tib;
+          if (tibMin > 0) sleepEfficiency = Math.round((rawSleepDuration / tibMin) * 100);
+        }
+        if (sleepEfficiency != null) sleepEfficiency = Math.max(0, Math.min(100, sleepEfficiency));
+        (wearableRow as any)._sleepEfficiency = sleepEfficiency;
 
         // HRV stress: below 30ms absolute (low) – a simple heuristic (will be refined by deviation below)
         const hrvElevated = hrv !== null && hrv < 30;
