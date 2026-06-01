@@ -4631,6 +4631,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               };
             }
           }
+
+          // Hoist for response echo (additive, optional fields).
+          echoedSignalPills = signalPillsPayload;
+          echoedPillQualifiers = pillQualifiersPayload;
+          echoedCoherenceWarning = coherenceWarning;
         } catch (qErr) {
           console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
         }
