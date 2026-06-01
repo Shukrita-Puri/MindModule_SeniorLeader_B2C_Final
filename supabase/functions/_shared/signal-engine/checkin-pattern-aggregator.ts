@@ -55,8 +55,30 @@ export interface MindQualifier {
 }
 
 export interface WearableQualifier {
-  hrv: { delta3d: number | null; vsBaselinePct: number | null };
-  sleep: { durationDelta7d: number | null; scoreVsBaseline: number | null };
+  hrv: {
+    delta3d: number | null;
+    vsBaselinePct: number | null;
+    /** Consecutive recent days in the negative band (HRV ≤ baseline×0.9). null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW values fell in the negative band. */
+    dowLow: boolean;
+  };
+  sleep: {
+    durationDelta7d: number | null;
+    scoreVsBaseline: number | null;
+    /** Consecutive recent days where sleep_score ≤ 60. null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW sleep_scores fell ≤ 60. */
+    dowLow: boolean;
+  };
+  sleep_efficiency: {
+    /** today − avg(prior 7d) sleep_efficiency, in efficiency points. */
+    delta7d: number | null;
+    /** Consecutive recent days where sleep_efficiency ≤ 75. null if <3. */
+    streakLowDays: number | null;
+    /** True if ≥2 of last 3 same-DoW efficiency values fell ≤ 75. */
+    dowLow: boolean;
+  };
   rhr: { vsBaselinePct: number | null };
 }
 
@@ -67,6 +89,7 @@ export interface PillQualifiers {
   regulation: MindQualifier;
   hrv: WearableQualifier['hrv'];
   sleep: WearableQualifier['sleep'];
+  sleep_efficiency: WearableQualifier['sleep_efficiency'];
   rhr: WearableQualifier['rhr'];
 }
 
