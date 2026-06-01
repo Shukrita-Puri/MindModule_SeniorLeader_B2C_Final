@@ -385,6 +385,17 @@ const Profile = () => {
 
         {/* LinkedIn import */}
         <LinkedInImportCard />
+
+        {/* Connections — shared panel reused by post-onboarding Connect step */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[15px] font-medium">Connections</CardTitle>
+            <CardDescription>Connect or reconnect your calendar and wearable</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConnectionsPanel redirectPath="/profile" />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Edit Name Dialog */}
