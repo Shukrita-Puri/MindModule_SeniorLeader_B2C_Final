@@ -809,10 +809,28 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // MRS v3 — soft-guard tier cap. `tier` (raw) is what the score number
-    // resolves to; `tierDisplayed` is what the UI should render.
+    // ─── MRS v3 §3.3 — Refined-score path ──────────────────────────────
+    // Blend baseline with the 4 Mind Check-in dimensions, hard-capped at
+    // baseline ±15. When all four dims are null, refined === baseline.
+    const refined = computeRefinedScore({
+      baseline: score,
+      clarity: body.clarityLevel ?? null,
+      emotion: body.emotionLevel ?? null,
+      pressure: body.pressureLevel ?? null,
+      regulation: body.regulationLevel ?? null,
+      hasImminentHighStakes: body.hasImminentHighStakes === true,
+    });
+
+    // The "displayed" score & tier are refined when a check-in exists, else
+    // baseline. The number the UI shows tracks this, not the raw baseline.
+    const displayedScore = refined.scoreRefined;
+    const displayedTier = getEnergyTier(displayedScore);
+    const displayedSubTier = getEnergySubTier(displayedScore);
+
+    // MRS v3 — soft-guard tier cap. Runs on the displayed tier so a refined
+    // score that crossed a boundary still gets capped consistently.
     const { tierDisplayed, tierCapReason } = deriveTierCap(
-      tier,
+      displayedTier,
       hasWearable ? physComposite : null,
       body.patternSignals ?? null,
       bConf,
