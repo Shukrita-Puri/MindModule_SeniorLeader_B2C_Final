@@ -24,6 +24,95 @@ function getIRScore(clarity: number, confidence: number): number {
   return (clarity + confidence) * 8;
 }
 
+// ==================== MRS v3 §3.2-3.3 — REFINED-SCORE HELPERS ====================
+// Mind Check-in dimensions: clarity / emotion / pressure / regulation, each
+// stored as nullable int 1–5 on `daily_checkins`. Pressure inversion is baked
+// into the slider semantics (1=Overloaded, 5=Spacious), so all four dims use
+// the same numeric mapping below. Null → neutral (contributes 0 vs baseline).
+const MIND_SLIDER_MAP: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 10, 2: 30, 3: 55, 4: 80, 5: 100,
+};
+
+function sliderToScore(level: number | null | undefined, baseline: number): number {
+  if (level == null) return baseline;
+  const v = Math.round(level) as 1 | 2 | 3 | 4 | 5;
+  return MIND_SLIDER_MAP[v] ?? baseline;
+}
+
+/**
+ * Spec §3.2 — base 11/9/5/5 (sum 30). When `has_imminent_high_stakes` is true
+ * (JIT cat A/B event within next 6h), donate 3% from Clarity to Regulation.
+ * Sum is always 0.30 (expressed as fractions of the blended total).
+ */
+function getMindWeights(hasImminentHighStakes: boolean): {
+  clarity: number; emotion: number; pressure: number; regulation: number;
+} {
+  return hasImminentHighStakes
+    ? { clarity: 0.08, emotion: 0.09, pressure: 0.05, regulation: 0.08 }
+    : { clarity: 0.11, emotion: 0.09, pressure: 0.05, regulation: 0.05 };
+}
+
+export interface RefinedScoreResult {
+  scoreBaseline: number;       // unchanged input baseline (0–100)
+  scoreRefined: number;        // post-blend, post ±15 clamp
+  readinessState: 'baseline' | 'refined';
+  refinedContribution: number; // signed −15..+15
+  mindWeights: ReturnType<typeof getMindWeights>;
+}
+
+/**
+ * Spec §3.3 formula:
+ *   weightedCheckIn = Σ ( sub_score_i × weight_i ) / 0.30
+ *   blended         = baseline × 0.70 + weightedCheckIn × 0.30
+ *   refined         = clamp( round(blended), baseline − 15, baseline + 15 )
+ * Null dims short-circuit to the baseline (so they contribute zero net).
+ * When all four dims are null → state='baseline', refined=baseline.
+ */
+export function computeRefinedScore(args: {
+  baseline: number;
+  clarity: number | null;
+  emotion: number | null;
+  pressure: number | null;
+  regulation: number | null;
+  hasImminentHighStakes: boolean;
+}): RefinedScoreResult {
+  const { baseline, clarity, emotion, pressure, regulation, hasImminentHighStakes } = args;
+  const weights = getMindWeights(hasImminentHighStakes);
+
+  const allNull = clarity == null && emotion == null && pressure == null && regulation == null;
+  if (allNull) {
+    return {
+      scoreBaseline: baseline,
+      scoreRefined: baseline,
+      readinessState: 'baseline',
+      refinedContribution: 0,
+      mindWeights: weights,
+    };
+  }
+
+  const c = sliderToScore(clarity, baseline);
+  const e = sliderToScore(emotion, baseline);
+  const p = sliderToScore(pressure, baseline);
+  const r = sliderToScore(regulation, baseline);
+
+  const weightedSum =
+    c * weights.clarity + e * weights.emotion + p * weights.pressure + r * weights.regulation;
+  const weightedCheckIn = weightedSum / 0.30; // normalise back to 0–100
+  const blended = baseline * 0.70 + weightedCheckIn * 0.30;
+
+  const floor = baseline - 15;
+  const ceil  = baseline + 15;
+  const refined = Math.max(0, Math.min(100, Math.max(floor, Math.min(ceil, Math.round(blended)))));
+
+  return {
+    scoreBaseline: baseline,
+    scoreRefined: refined,
+    readinessState: 'refined',
+    refinedContribution: refined - baseline,
+    mindWeights: weights,
+  };
+}
+
 // ==================== CIRCADIAN SCORE ====================
 function getCircadianScore(hour: number, dayOfWeek: number): number {
   const timeAdj = hour >= 6 && hour < 12 ? 5 : hour >= 12 && hour < 18 ? 0 : -5;
