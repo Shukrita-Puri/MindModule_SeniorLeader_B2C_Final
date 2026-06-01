@@ -537,6 +537,10 @@ export interface ExecutivePill {
   bottomLines: PillLine[];   // self-declared rows (bottom of glass box)
   topEmptyText?: string;
   bottomEmptyText?: string;
+  // Signal Pills v3 — per-pill State 1 / State 2 marker. 'baseline' when
+  // pill is computed from wearable + calendar only; 'refined' once any
+  // Mind Check-in dimension is present for the current period.
+  readinessState?: 'baseline' | 'refined';
 }
 
 const worstOf = (states: PillState[]): PillState => {
