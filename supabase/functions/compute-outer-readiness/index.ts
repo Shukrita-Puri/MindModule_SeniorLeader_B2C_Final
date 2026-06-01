@@ -4815,6 +4815,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       clarityLevel: clarityLevel,
       confidenceLevel: confidenceLevel,
       mentalSharpnessLevel: mentalSharpnessLevel,
+      // Signal Pills v3 — Mind Check-in dimensions echoed verbatim so the
+      // Resilience + Cognitive pills can compute their refined-state tier
+      // client-side without re-querying daily_checkins.
+      emotionLevel: awaitingSignals ? null : emotionLevel,
+      pressureLevel: awaitingSignals ? null : pressureLevel,
+      regulationLevel: awaitingSignals ? null : regulationLevel,
+      // Wearable anchor for the Resilience pill — overnight restoration
+      // quality (0–100). Null when provider does not expose it.
+      sleepEfficiency: wearableContext?.sleepEfficiency ?? null,
+      // Signal Pills v3 — divergence flags surfaced for pill cap/floor
+      // application. supplyDemandGap caps Cognitive GREEN → AMBER;
+      // regulationRisk floors Resilience at AMBER. Booleans only.
+      supplyDemandGap: supplyDemandGapFlag === 'SUPPLY_DEMAND_GAP',
+      regulationRisk: regulationLevel != null && regulationLevel <= 2,
       // New enrichment fields
       yesterdayScore,
       scoreTrend,
