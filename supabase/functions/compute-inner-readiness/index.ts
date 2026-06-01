@@ -673,68 +673,52 @@ serve(async (req) => {
     else if (divergenceFlag === 'RECOVERY_UNDERWAY') weightingMode = 'recovery_window';
     else weightingMode = 'aligned';
 
-    // Per MRS v2 §3.2 weight table (wearable, sleep+rhr already baked into
-    // wearableScore upstream; this layer composes wearable / demand / pattern
-    // / circadian).
+    // ─── MRS v3 §3 — Baseline scoring (patterns removed from score) ─────
+    // Two pillars only: Physiological composite + Calendar demand.
+    // Patterns no longer contribute to the number — they live in
+    // divergence flags + the tier-cap soft guard (see §4 of spec).
+    //
+    // Cold-start splits (physio / demand):
+    //   • no_wearable   →   0 / 100 (demand only)
+    //   • wearable_early → 30 /  70
+    //   • everything else → 65 / 35
+    //
+    // `wearableConfidenceScale` still attenuates physio weight slightly when
+    // the personal baseline is shallow; the freed weight flows to demand so
+    // the formula always sums to 1.
     let score: number;
     if (weightingMode === 'no_wearable') {
-      // 0% wearable, 50% demand, 50% pattern (per §3.6 cold-start, compressed)
-      score = Math.round(demandStateScore * 0.50 + patternScore * 0.50);
+      // Demand-only when wearable isn't connected.
+      score = Math.round(demandStateScore);
     } else if (weightingMode === 'wearable_early') {
-      // 25% wearable, 35% demand, 20% pattern, 20% circadian
-      const wW = 0.25 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.20; // circadian fixed 0.20
-      const dW = remainder * (0.35 / (0.35 + 0.20));
-      const pW = remainder * (0.20 / (0.35 + 0.20));
-      score = Math.round(
-        wearableScore * wW +
-          demandStateScore * dW +
-          patternScore * pW +
-          circadianScore * 0.20,
-      );
-    } else if (weightingMode === 'supply_demand_gap') {
-      // 35% wearable, 20% demand, 10% pattern, 10% circadian, 25% physComposite floor
-      const wW = 0.35 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.10;
-      const dW = remainder * (0.20 / (0.20 + 0.10));
-      const pW = remainder * (0.10 / (0.20 + 0.10));
-      score = Math.round(
-        wearableScore * wW +
-          demandStateScore * dW +
-          patternScore * pW +
-          circadianScore * 0.10,
-      );
-    } else if (weightingMode === 'recovery_window') {
-      // State exceeds demand: 25% wearable, 25% demand, 15% pattern, 15% circadian, 20% balance
-      const wW = 0.25 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.15;
-      const dW = remainder * (0.25 / (0.25 + 0.15));
-      const pW = remainder * (0.15 / (0.25 + 0.15));
-      score = Math.round(
-        wearableScore * wW +
-          demandStateScore * dW +
-          patternScore * pW +
-          circadianScore * 0.15,
-      );
-    } else {
-      // aligned — 30% wearable, 25% demand, 15% pattern, 10% circadian, 20% slack
       const wW = 0.30 * wearableConfidenceScale;
-      const remainder = 1 - wW - 0.10;
-      const dW = remainder * (0.25 / (0.25 + 0.15));
-      const pW = remainder * (0.15 / (0.25 + 0.15));
-      score = Math.round(
-        wearableScore * wW +
-          demandStateScore * dW +
-          patternScore * pW +
-          circadianScore * 0.10,
-      );
+      const dW = 1 - wW;
+      score = Math.round(physComposite * wW + demandStateScore * dW);
+    } else {
+      // aligned / supply_demand_gap / recovery_window all share the same
+      // 65/35 baseline split — divergence is expressed via flags + cap,
+      // not by re-weighting the score.
+      const wW = 0.65 * wearableConfidenceScale;
+      const dW = 1 - wW;
+      score = Math.round(physComposite * wW + demandStateScore * dW);
     }
+    // Circadian + patternScore are intentionally NOT folded into the score.
+    // They remain available downstream for framing only (see §4 spec).
 
     // Clamp score
     score = Math.max(0, Math.min(100, score));
 
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
+
+    // MRS v3 — soft-guard tier cap. `tier` (raw) is what the score number
+    // resolves to; `tierDisplayed` is what the UI should render.
+    const { tierDisplayed, tierCapReason } = deriveTierCap(
+      tier,
+      hasWearable ? physComposite : null,
+      body.patternSignals ?? null,
+      bConf,
+    );
 
     // Calendar-aware signal selection (new approach)
     const calLoad = body.calendarLoad || null;
@@ -796,6 +780,12 @@ serve(async (req) => {
       demandStateScore,
       patternScore,
       physComposite,
+      // MRS v3 — soft-guard tier cap. Callers should mirror these into
+      // daily_context_snapshot and the UI should render `tierDisplayed`
+      // (label `tierDisplayedLabel`) rather than re-deriving from `score`.
+      tierDisplayed,
+      tierDisplayedLabel: getTierLabel(tierDisplayed),
+      tierCapReason,
     };
 
     return new Response(JSON.stringify(result), {
