@@ -4278,6 +4278,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       linkedDailyCheckinId = null;
     }
 
+    // Signal Pills v3 — hoisted echoes so the response builder (below) can
+    // surface server-built pills + qualifier qualifiers to the client.
+    let echoedSignalPills: any[] | null = null;
+    let echoedPillQualifiers: any = null;
+    let echoedCoherenceWarning: string | null = null;
+
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
         // ── MRS v2 Phase B: hydrate pattern signals + resilience inputs ─────
