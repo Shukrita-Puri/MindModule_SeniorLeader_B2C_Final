@@ -4166,9 +4166,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     }
     const hasTodayCheckIn = hasTodayCheckInDB;
     const hasFreshWearable = !!wearableContext && hasTodayWearableData === true;
-    const briefSignalContractMet = hasTodayCheckIn || hasFreshWearable;
+    // MRS v3 — State 1 (baseline brief) is built from wearable + calendar only.
+    // Check-in is the State 2 *refiner*, not a gate. The brief therefore renders
+    // whenever any State 1 input exists; `awaitingSignals` is only true for the
+    // residual cold-start case (no wearable AND no calendar).
+    const hasCalendarSignal = calendarResult?.state === 'active';
+    const hasState1Input = hasFreshWearable || hasCalendarSignal;
+    const briefSignalContractMet = hasState1Input;
     const awaitingSignals = !briefSignalContractMet;
-    const awaitingReason: string | null = awaitingSignals ? 'no-checkin-no-wearable' : null;
+    const awaitingReason: string | null = awaitingSignals ? 'cold-start-no-context' : null;
     console.log('[compute-outer-readiness] signal-gate', {
       userId,
       userLocalDate,
@@ -4177,6 +4183,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       latestCheckinId,
       latestCheckinWindow,
       hasFreshWearable,
+      hasCalendarSignal,
+      hasState1Input,
       awaitingSignals,
     });
     // Truncate LLM signals to max 4 words server-side as safety net

@@ -1,130 +1,87 @@
-## Phase 1b — MRS v3 Refined-Score Path
+## Validation: is MRS truly check-in-independent?
 
-Replace the legacy "inner score" surface with the two-state MRS (Baseline + Refined ±15), wire the 4 Mind Check-in dimensions into the score, and show the refined number + tier on Executive Home.
+**Partially. Two gates still treat check-in as a precondition.**
 
----
+### What IS already correct
+- `compute-inner-readiness` produces a **State 1 baseline score** from physiological composite + calendar demand. No check-in required.
+- `computeRefinedScore` correctly degrades to baseline when all four Mind dims are null (`readinessState = 'baseline'`, no shift).
+- `TodayStateCard` (Decision Readiness tile) renders `overallBalance` and `tierDisplayed` regardless of check-in.
+- `energyStateEngine` computes a score whether or not a check-in row exists.
 
-### 1. What the user sees
+### What is STILL gated on check-in (the bug)
 
-- The Executive Home hero number and tier label become the **Refined MRS** whenever a Mind Check-in exists for the current window; otherwise they stay on the Baseline MRS (today's behaviour).
-- Refined never moves more than ±15 from baseline (hard cap per spec §3.3).
-- Tier cap (`SUSTAINED_DEFICIT` / `CONSECUTIVE_LOAD`) keeps working — now applied to whichever score is being displayed.
-- No visual redesign in this phase. Only the **number, tier label and pill state** can change after a check-in. Signal Pill v3 contributors are Phase 2.
-
----
-
-### 2. Server: `compute-inner-readiness`
-
-Add the refined-score branch alongside the existing baseline composer.
-
-**New inputs (all optional, null = neutral):**
-- `clarityLevel` *(reuse `clarity_level` 1–5)*
-- `emotionLevel` *(`emotion_level` 1–5)*
-- `pressureLevel` *(`pressure_level` 1–5, semantics already inverted at the slider)*
-- `regulationLevel` *(`regulation_level` 1–5)*
-- `hasImminentHighStakes` *(boolean — JIT cat A/B within next 6h)*
-
-**Helpers:**
-- `sliderToScore(v)` → `{1:10, 2:30, 3:55, 4:80, 5:100}`; `null` → returns the current baseline so the weighted contribution is zero.
-- `getMindWeights(hasImminentHighStakes)` → `{ clarity, emotion, pressure, regulation }`. Base = `{11, 9, 5, 5}`. When imminent high stakes: shift 3% from Clarity to Regulation → `{8, 9, 5, 8}`. Sum is always 30.
-
-**Formula (spec §3.3):**
+**1. Brief score row hides behind `hasCheckIn`**
+`src/components/home/DecisionReadinessBrief.tsx` lines 1766-1781:
 ```
-weightedCheckIn = Σ ( sub_score_i × weight_i ) / 0.30
-blended         = baseline × 0.70 + weightedCheckIn × 0.30
-refined         = clamp( round(blended), baseline − 15, baseline + 15 )
-contribution    = refined − baseline                              // −15..+15
-state           = (all 4 dims null) ? 'baseline' : 'refined'
+{hasCheckIn && score != null ? (<score>) : (<-- Not yet assessed>)}
 ```
-When state = `baseline`, `refined === baseline` and contribution = 0.
+Even when wearable + calendar are present and a real baseline MRS exists, the brief shows `--`. Contradicts MRS v3.
 
-**Tier cap order:**
-1. Compute `tierBaseline` from raw baseline score.
-2. Compute `tierRefined` from raw refined score.
-3. `deriveTierCap` runs on the **displayed** tier (= `tierRefined` when state is refined, else `tierBaseline`). Cap rules unchanged; physio-low guard still uses the same `physComposite` input.
-
-**New response fields:**
-```ts
-{
-  // Existing
-  score,            // now = refined when present, else baseline (back-compat)
-  tier, tierLabel, tierDisplayed, tierDisplayedLabel, tierCapReason,
-  // New
-  scoreBaseline,    // always present
-  scoreRefined,     // null when state='baseline'
-  readinessState,   // 'baseline' | 'refined'
-  refinedContribution, // signed integer −15..+15, 0 when baseline
-  mindWeights,      // echoed weights actually used
-}
+**2. Brief signal contract counts check-in as a State 1 input (wrong)**
+`supabase/functions/compute-outer-readiness/index.ts` ~4167-4181:
 ```
-The `score` field keeps its current contract (displayed number) so no downstream consumer breaks; new fields are additive.
+briefSignalContractMet = hasTodayCheckIn || hasFreshWearable
+```
+This treats check-in as sufficient to "have a brief" — but conceptually State 1 = wearable + calendar; check-in is the State 2 refiner. Also, calendar-only users get suppressed today.
+
+**3. Awaiting-signal copy frames check-in as the trigger to "generate" the brief**
+- `DecisionReadinessBrief.tsx` line 1802: *"Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief."*
+- `DailyRitual.tsx` line 596: same copy on Plan card.
+- `DecisionReadinessBrief.tsx` line 1663 fallback phrase: *"Begin with your check-in."*
+- Line 1668 fallback body: *"Check in to activate your personalised intelligence — takes two minutes."*
+
+### Out of scope
+- `smart-nudges` push CTAs ("check in to set your intention" etc.) — still valid; they invite users into the *enhancer*, which is fine.
 
 ---
 
-### 3. Server: `compute-outer-readiness`
+## Plan: separate State 1 (wearable + calendar) from State 2 (check-in)
 
-- After the existing wearable / calendar fetches, read the **latest `daily_checkins` row for today** for this user (any time-window, latest `timestamp` wins) and pull `clarity_level / emotion_level / pressure_level / regulation_level`.
-- Derive `hasImminentHighStakes` from the already-loaded calendar metrics: any classified event with category A or B starting within the next 6h in user-local time. Fall back to `todayHighStakes` proximity if classification isn't on the row.
-- Pass the dims + flag through to `compute-inner-readiness` via the request body.
-- Persist the new fields on `daily_context_snapshot` (see §4) inside the existing snapshot write.
-- Continue echoing `tierDisplayed` / `tierCapReason` to the client; additionally echo `readinessState`, `scoreBaseline`, `scoreRefined`, `refinedContribution` so the client can render delta UI without re-deriving.
+### 1. Backend — `compute-outer-readiness` signal contract
+- Define **State 1 inputs** = `hasFreshWearable || hasCalendarSignal` (today's calendar events or recent wearable). Check-in does NOT count toward State 1.
+- New contract:
+  ```
+  hasState1Input    = hasFreshWearable || hasCalendarSignal
+  briefSignalContractMet = hasState1Input   // brief renders off State 1
+  awaitingSignals   = !hasState1Input       // only true for truly empty users
+                                            // (no wearable, no calendar)
+  awaitingReason    = awaitingSignals ? 'cold-start-no-context' : null
+  ```
+- Add a derived `hasCalendarSignal` check from the existing calendar fetch (use `calendarState === 'active'` or non-empty events list — whichever the function already computes).
+- `readinessState` echoed back to client stays `'refined'` when check-in present, `'baseline'` otherwise. No new field needed.
+- All downstream `awaitingSignals ? null : ...` short-circuits stay correct — they now only fire for the residual cold-start case.
 
----
+### 2. Frontend — `DecisionReadinessBrief.tsx`
+- **Score row (1766-1781)**: render the score whenever `score != null`, regardless of `hasCheckIn`. Drop the `--`/"Not yet assessed" branch (it now only appears in the residual cold-start state, handled by the awaiting block).
+- **State badge**: append a small muted caption beside the tier label — `"Baseline"` when `readinessState === 'baseline'`, `"Refined"` when `'refined'`. No new visual weight; uses existing muted token.
+- **Fallback phrase (1663)**: drop *"Begin with your check-in."* — use a neutral State 1 phrase such as *"Today's read."*
+- **Fallback body (1668)**: drop *"Check in to activate..."* — render nothing when no body, never a check-in prompt.
+- **Awaiting block (1796-1805)**: keep, but only render when truly cold-start (no wearable, no calendar). Rewrite copy:  
+  *"Connect your calendar or a wearable to start your readiness brief. A 2-min check-in then refines it to your felt state."*
 
-### 4. Database
+### 3. Frontend — `DailyRitual.tsx`
+- Same copy swap on line 596:  
+  *"Connect your calendar or wearable to start your plan. A 2-min check-in then refines it."*
 
-Add three nullable columns to `daily_context_snapshot`:
+### 4. Tier-cap / refined surfacing
+- No change. `tierDisplayed`, `tierCapReason`, `scoreBaseline`, `scoreRefined`, `readinessState`, `refinedContribution` are already plumbed end-to-end (Phase 1a + 1b). The brief card just needs to read them.
 
-| Column | Type | Purpose |
-|---|---|---|
-| `readiness_score_baseline` | `integer` | Raw State 1 score, always written. |
-| `readiness_score_refined` | `integer` | State 2 score after ±15 cap. Null until first check-in of the window. |
-| `readiness_state` | `text` | `'baseline'` or `'refined'`. |
-| `refined_contribution` | `integer` | Signed −15..+15. |
+### 5. Verification
+- Unit test: existing `computeRefinedScore` tests still pass.
+- Manual:
+  - (a) wearable only, no check-in → score + tier + "Baseline" caption render.
+  - (b) calendar only, no wearable, no check-in → score + "Baseline" caption render.
+  - (c) wearable + check-in → score + "Refined" caption.
+  - (d) no wearable, no calendar, no check-in → new awaiting block (residual cold-start).
 
-`inner_score` and `inner_tier` are kept and now mirror the **displayed** score/tier (refined when present, else baseline) so legacy readers keep working. `tier_displayed` / `tier_cap_reason` columns from Phase 1a are unchanged.
+### Files to touch
+- `supabase/functions/compute-outer-readiness/index.ts` (signal contract block ~4167-4181 + add `hasCalendarSignal` derivation if not already present)
+- `src/components/home/DecisionReadinessBrief.tsx` (score row + State badge + fallback strings + awaiting copy)
+- `src/components/home/DailyRitual.tsx` (awaiting copy line 596)
 
-No backfill — values populate on the next signal-assembly tick.
-
----
-
-### 5. Client
-
-- `useOuterReadiness` (`src/hooks/useOuterReadiness.ts`): forward the four `daily_checkins` dims to `compute-outer-readiness` (`clarityLevel`, `emotionLevel`, `pressureLevel`, `regulationLevel`). Expose the new echoed fields (`readinessState`, `scoreBaseline`, `scoreRefined`, `refinedContribution`) on the hook return.
-- `energyStateEngine.ts`: pull the four dims from the latest `daily_checkins` row (it already reads `clarity_level`; extend the projection + interface). Surface the new score/state fields on the result.
-- `ExecutiveHome` hero + `TodayStateCard`: `displayedScore = scoreRefined ?? scoreBaseline ?? overallBalance`; `displayedTier = tierDisplayed ?? tier`. No new visual elements — same hero, same pills, just driven by refined when available. The "+N / −N vs baseline" badge is **out of scope** for this phase (Signal Pills phase will own delta UI).
-
----
-
-### 6. Tests
-
-- New Deno tests in `compute-inner-readiness`:
-  - All-null dims → `state='baseline'`, refined = baseline, contribution = 0.
-  - All-5 dims → refined hits baseline + 15 cap.
-  - All-1 dims → refined hits baseline − 15 cap.
-  - `hasImminentHighStakes=true` → Regulation weight = 8%, Clarity = 8%, sum = 30%.
-  - Pressure-only low (others null) → contribution within bounds and signed correctly.
-- Update `compute-outer-readiness/redundancy.test.ts` cases that pass `clarityLevel/confidenceLevel` to additionally cover refined-score echoing without breaking.
-
----
-
-### 7. Out of scope (later phases)
-
-- Signal Pill v3 mind-dim contributors and `REGULATION_RISK`/`EMOTION_RESIDUE` divergence flags (Phase 2).
-- Context split into Morning/Afternoon/Evening (Phase 3).
-- Brief LLM phrase/body rebuild (Phase 4).
-- New CEO-behaviour rule triggers from mind dims (Phase 2 alongside pills).
-- Personal-baseline normalisation of the composite (rejected in revised spec).
-
----
-
-### 8. Migration order
-
-1. DB migration (3 new columns on `daily_context_snapshot`; types.ts will refresh automatically).
-2. `compute-inner-readiness` — refined-score branch + new response fields.
-3. `compute-outer-readiness` — fetch dims, derive imminent flag, pass through, persist, echo.
-4. Client hook + engine — forward dims, consume echoes.
-5. Hero / TodayStateCard — prefer refined score & tier.
-6. Tests — Deno + verify build.
-
-Each step is independently shippable; the older `score` contract is preserved throughout.
+### Explicitly NOT touched
+- `smart-nudges` push CTAs
+- `compute-inner-readiness` (already correct)
+- `energyStateEngine`, `TodayStateCard` (already correct)
+- `useOuterReadiness` plumbing (already correct)
+- Database schema (already correct)
