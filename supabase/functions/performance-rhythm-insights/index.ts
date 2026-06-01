@@ -82,7 +82,7 @@ serve(async (req) => {
     // Fetch all data in parallel
     const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes, causalityRes] =
       await Promise.all([
-        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level")
+        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window, clarity_level, mental_sharpness_level, confidence_level, emotion_level, pressure_level, regulation_level")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
         sb.from("calendar_connections").select("is_active")
           .eq("user_id", userId).eq("is_active", true).limit(1).maybeSingle(),
