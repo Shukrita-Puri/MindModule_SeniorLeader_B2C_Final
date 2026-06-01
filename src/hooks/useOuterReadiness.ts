@@ -139,6 +139,21 @@ export interface OuterReadinessData {
   clarityLevel?: number | null;
   confidenceLevel?: number | null;
   mentalSharpnessLevel?: number | null;
+  // Signal Pills v3 — Mind Check-in dimensions echoed by the server.
+  // Used by buildExecutivePills to compute the refined-state tier of
+  // the Cognitive (clarity) and Resilience (emotion+regulation+pressure)
+  // pills without re-querying daily_checkins.
+  emotionLevel?: number | null;
+  pressureLevel?: number | null;
+  regulationLevel?: number | null;
+  // Wearable anchor for the Resilience pill (0–100). Null when the
+  // provider does not expose overnight efficiency.
+  sleepEfficiency?: number | null;
+  // Signal Pills v3 — divergence flags. supplyDemandGap caps the
+  // Cognitive pill GREEN → AMBER; regulationRisk floors the Resilience
+  // pill at AMBER.
+  supplyDemandGap?: boolean;
+  regulationRisk?: boolean;
   // Enrichment fields
   consecutiveLowClarity?: number;
   typicalDOWOutcome?: string | null;
