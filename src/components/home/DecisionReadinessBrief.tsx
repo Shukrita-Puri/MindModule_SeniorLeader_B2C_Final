@@ -1305,7 +1305,17 @@ function ExecutivePillCapsule({
   onToggle: () => void;
   serverPill?: PillTooltipPill | null;
 }) {
-  const c = PILL_COLORS[pill.state];
+  // Signal Pills v3 SSOT: the visible tier + label come from the server-built
+  // `signalPills` payload when present. The local `buildExecutivePills` engine
+  // continues to produce the expanded glass-box body lines + qualifiers, but
+  // the headline word and pill colour MUST match the MRS v3 deterministic
+  // engine — otherwise users see legacy taxonomy ("HIDDEN DRAG",
+  // "PULLING WEIGHT") that no longer maps to the score.
+  const effectiveState: PillState = (serverPill?.tier as PillState | undefined) ?? pill.state;
+  const effectiveSignalWord = serverPill?.tierLabel
+    ? serverPill.tierLabel.toUpperCase()
+    : pill.signalWord;
+  const c = PILL_COLORS[effectiveState];
   const Icon = pill.Icon;
   // Plain-language glossary per pillar — what each pillar tracks, no calculations
   // or proprietary thresholds. Users see a single short definition.
@@ -1350,7 +1360,12 @@ function ExecutivePillCapsule({
             {pill.headline}
           </span>
           <span className={cn('text-sm font-semibold tracking-wide uppercase', PILL_SIGNAL)}>
-            {pill.signalWord}
+            {effectiveSignalWord}
+            {pill.readinessState && (
+              <span className="ml-1.5 text-[9px] uppercase tracking-[0.08em] text-muted-foreground/50 font-body font-normal">
+                ({pill.readinessState === 'refined' ? 'Refined' : 'Baseline'})
+              </span>
+            )}
           </span>
         </div>
         <ChevronDown
