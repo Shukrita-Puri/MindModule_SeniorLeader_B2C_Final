@@ -203,23 +203,29 @@ Deno.serve(async (req) => {
         (fc.body && (fc.body.error || fc.body.message)) ||
         `Firecrawl request failed (status ${fc.status})`;
       console.error("[linkedin-profile-scrape] Firecrawl error:", fc.status, errMsg);
-      // Persist failed attempt
-      await db.from("user_external_profiles").upsert(
+      // Persist the URL even when scraping fails — the URL itself is valuable
+      // leadership-context signal and the user explicitly chose to save it.
+      const { error: dbErr } = await db.from("user_external_profiles").upsert(
         {
           user_id: userId,
           source: SOURCE,
           profile_url: profileUrl,
-          extracted_data: {},
-          scrape_status: "failed",
+          extracted_data: { profile_url: profileUrl, source: SOURCE },
+          scrape_status: "url_only",
           scrape_error: String(errMsg).slice(0, 1000),
           scraped_at: new Date().toISOString(),
         },
         { onConflict: "user_id,source,profile_url" },
       );
-      return json(502, {
-        error: "scrape_failed",
+      if (dbErr) {
+        console.error("[linkedin-profile-scrape] DB upsert error (url_only):", dbErr);
+        return json(500, { error: "persist_failed", message: "Failed to save profile URL" });
+      }
+      return json(200, {
+        ok: true,
+        status: "url_only",
         message:
-          "We couldn't read enough public information from this LinkedIn page. You can try again or continue manually.",
+          "Saved your LinkedIn URL. We couldn't auto-import details from the page, but we'll use the URL for your leadership context.",
       });
     }
 

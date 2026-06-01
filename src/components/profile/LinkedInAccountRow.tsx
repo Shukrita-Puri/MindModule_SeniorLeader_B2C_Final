@@ -112,6 +112,8 @@ export default function LinkedInAccountRow() {
           data?.message ||
             "We couldn't read enough public information from this LinkedIn page.",
         );
+      } else if (data?.status === 'url_only') {
+        toast.success(data?.message || 'LinkedIn URL saved.');
       } else {
         toast.success('LinkedIn profile saved.');
       }
