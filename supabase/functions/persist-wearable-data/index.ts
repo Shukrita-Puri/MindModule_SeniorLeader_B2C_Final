@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { deriveSleepEfficiency } from "../_shared/wearable/derive-sleep-efficiency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -198,6 +199,16 @@ Deno.serve(async (req) => {
           row.raw_data = body.raw_data;
         }
 
+        // Derive & persist sleep_efficiency (0–100) using the shared
+        // helper. Tries: sample.sleep_efficiency → raw_data.efficiency →
+        // raw_data.sleep.efficiency → time_in_bed + total_sleep_minutes.
+        if (typeof sample.sleep_efficiency === 'number') {
+          row.sleep_efficiency = Math.max(0, Math.min(100, Math.round(sample.sleep_efficiency)));
+        } else {
+          const eff = deriveSleepEfficiency(body.raw_data ?? sample.raw_data ?? null, sample.total_sleep_minutes ?? null);
+          if (eff != null) row.sleep_efficiency = eff;
+        }
+
         // Use upsert instead of select-then-update/insert to eliminate race conditions
         const { error } = await db
           .from("wearable_data")
@@ -249,6 +260,7 @@ Deno.serve(async (req) => {
       deep_sleep_minutes = null,
       rem_sleep_minutes = null,
       raw_data = null,
+      sleep_efficiency: bodySleepEfficiency = null,
     } = body;
 
     if (!summary_date) {
@@ -274,6 +286,14 @@ Deno.serve(async (req) => {
       raw_data,
       updated_at: new Date().toISOString(),
     };
+
+    // Persist sleep_efficiency (explicit body value preferred, else derive).
+    if (typeof bodySleepEfficiency === 'number') {
+      row.sleep_efficiency = Math.max(0, Math.min(100, Math.round(bodySleepEfficiency)));
+    } else {
+      const eff = deriveSleepEfficiency(raw_data, total_sleep_minutes);
+      if (eff != null) row.sleep_efficiency = eff;
+    }
 
     // Use upsert instead of select-then-update/insert to eliminate race conditions
     const { error } = await db

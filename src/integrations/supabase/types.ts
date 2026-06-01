@@ -4906,6 +4906,7 @@ export type Database = {
           recovery_status: string | null
           rem_sleep_minutes: number | null
           resting_heart_rate: number | null
+          sleep_efficiency: number | null
           sleep_quality: string | null
           sleep_score: number | null
           source: string
@@ -4932,6 +4933,7 @@ export type Database = {
           recovery_status?: string | null
           rem_sleep_minutes?: number | null
           resting_heart_rate?: number | null
+          sleep_efficiency?: number | null
           sleep_quality?: string | null
           sleep_score?: number | null
           source?: string
@@ -4958,6 +4960,7 @@ export type Database = {
           recovery_status?: string | null
           rem_sleep_minutes?: number | null
           resting_heart_rate?: number | null
+          sleep_efficiency?: number | null
           sleep_quality?: string | null
           sleep_score?: number | null
           source?: string

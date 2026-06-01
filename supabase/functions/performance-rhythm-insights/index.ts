@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { dedupeCalendarEvents } from "../_shared/executive-state-taxonomy.ts";
+import {
+  buildWearableDailySeries,
+  computeWearableBaselines,
+  type WearableDim,
+  type WearableRow,
+} from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,8 +104,9 @@ serve(async (req) => {
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
         sb.from("jit_preferences").select("event_title, action, event_start_time")
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
-        sb.from("wearable_data").select("summary_date, hrv, resting_heart_rate")
-          .eq("user_id", userId).gte("summary_date", thirtyDaysAgoStr).not("hrv", "is", null),
+        sb.from("wearable_data")
+          .select("summary_date, hrv, resting_heart_rate, sleep_score, total_sleep_minutes, sleep_efficiency")
+          .eq("user_id", userId).gte("summary_date", thirtyDaysAgoStr),
         // v4 — read pre-projected positive correlations from the unified
         // pattern store. cause-effect-engine writes signal_summary nightly;
         // we surface its performance_lift key on the "When You Perform Best"
@@ -685,9 +692,12 @@ serve(async (req) => {
     // Gates: ≥7 obs per series for window/day insights, ≥3 for consecutive runs.
 
     type RhythmKind = 'peak-window' | 'low-window' | 'peak-day' | 'low-day' | 'consecutive-neg' | 'consecutive-pos' | 'cell-peak';
-    // v3: 4 Mind check-in dims. `confidence` retained for backwards-compat reads
-    // but no longer surfaced as its own pattern stream.
-    type RhythmDimension = 'clarity' | 'emotion' | 'pressure' | 'regulation';
+    // v3: 4 Mind check-in dims + 4 wearable dims (Body Rhythm). Wearable
+    // findings compete in the same ranked list and are gated by the diversity
+    // guard below (≤2 per dim, ≤2 per kind) so the top-3 stays balanced.
+    type RhythmDimension =
+      | 'clarity' | 'emotion' | 'pressure' | 'regulation'
+      | 'hrv' | 'sleep_score' | 'sleep_duration' | 'sleep_efficiency';
     interface RhythmFinding {
       kind: RhythmKind;
       dimension: RhythmDimension;
@@ -943,6 +953,39 @@ serve(async (req) => {
       longPositiveLabel: 'Regulated/Resourced (4–5)', longNegativeLabel: 'Depleted/Frayed (1–2)',
     });
 
+    // ── Wearable Body Rhythm series ──
+    // Same statistical engine; bands defined in the shared aggregator.
+    // tw is fixed at 0 (wearables emit one row/night), so the time-of-day
+    // patterns inside mineSeries naturally never trigger — only DOW and
+    // consecutive-same-DOW runs surface for these dims.
+    const wearableRowsTyped = wearableData as unknown as WearableRow[];
+    const baselines = computeWearableBaselines(wearableRowsTyped);
+    const mkWearableSeries = (dim: WearableDim): SeriesPoint[] =>
+      buildWearableDailySeries(wearableRowsTyped, dim, baselines).map(p => ({
+        dateStr: p.dateStr, di: p.di, tw: p.tw, positive: p.positive, negative: p.negative,
+      }));
+
+    const hrvFindings = mineSeries(mkWearableSeries('hrv'), {
+      dimension: 'hrv', appLabel: 'HRV',
+      positivePhrase: 'recovered', negativePhrase: 'depressed',
+      longPositiveLabel: 'at/above baseline', longNegativeLabel: '≥10% below baseline',
+    });
+    const sleepScoreFindings = mineSeries(mkWearableSeries('sleep_score'), {
+      dimension: 'sleep_score', appLabel: 'Sleep Score',
+      positivePhrase: 'strong', negativePhrase: 'poor',
+      longPositiveLabel: 'Sleep Score ≥75', longNegativeLabel: 'Sleep Score ≤60',
+    });
+    const sleepDurationFindings = mineSeries(mkWearableSeries('sleep_duration'), {
+      dimension: 'sleep_duration', appLabel: 'Sleep Duration',
+      positivePhrase: 'well-rested', negativePhrase: 'short on sleep',
+      longPositiveLabel: '≥7h asleep', longNegativeLabel: '≤6h asleep',
+    });
+    const sleepEfficiencyFindings = mineSeries(mkWearableSeries('sleep_efficiency'), {
+      dimension: 'sleep_efficiency', appLabel: 'Sleep Efficiency',
+      positivePhrase: 'efficient', negativePhrase: 'restless',
+      longPositiveLabel: 'efficiency ≥85%', longNegativeLabel: 'efficiency ≤75%',
+    });
+
     // ── Performance Patterns prioritization ──
     // Surface the strongest day-of-week, time-of-day, and their intersection
     // (the three asks of the "Performance Patterns" section). Recurring risks
@@ -963,10 +1006,17 @@ serve(async (req) => {
       regulation: 0.12,
       emotion: 0.10,
       pressure: 0.08,
+      // Wearable dims: HRV ranks alongside regulation as a recovery
+      // anchor; sleep dims sit just below emotion; efficiency last.
+      hrv: 0.13,
+      sleep_score: 0.11,
+      sleep_duration: 0.11,
+      sleep_efficiency: 0.09,
     };
 
     const allFindings: RhythmFinding[] = [
       ...clarityFindings, ...emotionFindings, ...pressureFindings, ...regulationFindings,
+      ...hrvFindings, ...sleepScoreFindings, ...sleepDurationFindings, ...sleepEfficiencyFindings,
     ].map(f => ({
       ...f,
       priorityScore: KIND_WEIGHT[f.kind] + (f.confidence * 0.3) + DIMENSION_BONUS[f.dimension],
@@ -1010,7 +1060,14 @@ serve(async (req) => {
     let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? "s" : ""}`;
     if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? "s" : ""}`;
     if (hasCalendar) dataSourceNote += ", calendar data";
-    if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? "s" : ""}`;
+    if (wearableData.length > 0) {
+      const hrvCount = wearableData.filter((w: any) => typeof w.hrv === 'number').length;
+      const sleepCount = wearableData.filter((w: any) => typeof w.sleep_score === 'number' || typeof w.total_sleep_minutes === 'number').length;
+      const parts: string[] = [];
+      if (hrvCount > 0) parts.push(`${hrvCount} HRV reading${hrvCount !== 1 ? 's' : ''}`);
+      if (sleepCount > 0) parts.push(`${sleepCount} sleep night${sleepCount !== 1 ? 's' : ''}`);
+      if (parts.length > 0) dataSourceNote += `, ${parts.join(' & ')}`;
+    }
     dataSourceNote += ` over ${daySpan} days`;
 
     // ── BUILD FULL MONTH CALENDAR ──
