@@ -168,13 +168,15 @@ Brief copy phrasing is gated on tier, never on raw score. Phrase Validation Stan
 
 ## 8. Signal Pills v3 (composePillar inputs)
 
-Pill shape, algorithm, and visual structure unchanged. Only new nullable contributions are added — when all check-in dims null, pills compose identically to MRS v2.
+Three pills compose tier deterministically with **any-worst-wins** across the contributing bands. Tier labels (e.g. `Mind Sharp / Mind Mixed / Mind Foggy / Mind Unread`) are written server-side on `signalPills[].tierLabel`; the client renders that label verbatim. When all check-in dims are null, the pill still renders off its wearable / pattern anchors.
 
-| Pill | Existing inputs (retained) | New inputs |
+| Pill | Inputs (all currently consumed in `compute-outer-readiness/index.ts`) | Divergence-flag effect |
 |---|---|---|
-| **Cognitive** | `hrv_deviation`, `fragmentation` | `clarityContrib`: 1→strong-RED, 2→mild-RED, 3→AMBER, 4–5→GREEN, null→NEUTRAL. Cap at AMBER if composed GREEN and `SUPPLY_DEMAND_GAP` active. |
-| **Physiology** | Wearable-only (HRV, sleep, RHR) | **None** — by design. |
-| **Resilience** | `consecutive_load_days`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`, `protection_goals_under_pressure` (retained) | `emotionContrib` + `regulationContrib` (same mapping as clarity). Force min AMBER when `REGULATION_RISK` active. Drop legacy `confidence/outcome` contributions. |
+| **Decision Readiness (Cognitive)** | HRV (`hrv_deviation` if available, else absolute `hrv` bands 20 / 40) + **Sleep** (`total_sleep_minutes` with 360 / 420 min bands AND `sleep_score` with 60 / 70 bands) + `clarityContrib` (1→strong-RED, 2→mild-RED, 3→AMBER, 4–5→GREEN, null→NEUTRAL). Sleep lives on the Cognitive pill — for wearable-equipped CEOs, sleep impacts the mind more than the body. | Cap GREEN → AMBER when `SUPPLY_DEMAND_GAP` is active. |
+| **Physical Reserves (Physiology)** | `resting_heart_rate` (`rhr_deviation` if available, else absolute bands 80 / 90) + `heart_rate` elevated proxy (`hr_deviation` 10 / 20 thresholds, with RHR-deviation fallback 15 / 25) + `rhr_trend_3d` (rising → AMBER, declining → GREEN) + `sustained_deficit_flag` (RED). Sleep is **explicitly excluded** — it is owned by Cognitive. | None directly. |
+| **Resilience Capacity** | `sleep_efficiency` anchor (≥85 GREEN / ≥70 AMBER / else RED) + `emotionContrib` (≤2 AMBER, else GREEN) + `regulationContrib` (≤2 AMBER, else GREEN) + `pressureContrib` (≥4 AMBER, else GREEN — inverted) + `sustained_deficit_flag` (RED) + `hrv_low_high_demand_cooccurrence_7d` (≥3 RED, =2 AMBER) + `protection_goals` × calendar pressure framing (AMBER, never RED). Legacy `confidence` / `outcome` / `coach_pattern_observations` / `active_pattern_count` / `recovery_debt` contributions are removed. | Force min AMBER when `REGULATION_RISK` active. |
+
+Implementation reference: `supabase/functions/compute-outer-readiness/index.ts` §`Signal Pills v3: Cognitive / Physiology / Resilience` (around L4406–L4499). Any change to band thresholds MUST be reflected in this section to keep the spec authoritative.
 
 ### 8.1 Bracketed qualifier contract (v3)
 
@@ -203,6 +205,38 @@ The wearable streak/DoW fields are produced by `buildWearableDailySeries` (in th
 ### 8.2 Coherence guard (dev-only)
 
 `assertPillCoherence(mrsTier, pills)` runs after the deterministic pill build. If `MRS = Depleted` but no pill is RED, the weakest AMBER is escalated to RED. If `MRS = Optimal` and any pill is RED, those are downgraded to AMBER. Auto-correction applies in all envs; the `coherenceWarning` string is logged + echoed to the client only when `APP_ENV !== 'production'`.
+
+### 8.3 Awaiting-signal copy matrix
+
+The brief is gated by a single boolean `awaitingSignals = !hasState1Input`, where
+
+```text
+hasState1Input = hasFreshWearable
+              || hasCalendarSignal          // calendar.state === 'active' (events today)
+              || hasCalendarConnected       // calendar connected, zero events today
+              || hasTodayCheckIn            // any Mind check-in row dated today
+```
+
+When `awaitingSignals = true`, `phrase / bodyText / leanOn / watchFor / relationshipPattern` are nulled by the edge function and the client renders the awaiting block (`DecisionReadinessBrief.tsx` §4b). When `awaitingSignals = false`, the awaiting block never renders, even if some inputs are still missing — the brief explains what it has and asks for nothing.
+
+Permutation matrix (W = wearable today, Ca = calendar active, Cc = calendar connected/zero events, K = check-in today):
+
+| # | W | Ca | Cc | K | `awaitingSignals` | Score row | Headline (`phrase`) | Body / awaiting copy |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0 | 0 | 0 | 0 | **true** | `-- NOT YET ASSESSED` | _null_ | "Awaiting today's signal" + "Connect your calendar or a wearable to start your readiness brief. A 2-min check-in then refines it to your felt state." |
+| 2 | 0 | 0 | 0 | 1 | false | Refined off neutral baseline 50, badge `(Refined)` | LLM brief from Mind dims only | Brief body; no awaiting block. |
+| 3 | 0 | 0 | 1 | 0 | false | Baseline, badge `(Baseline)` | LLM brief framed as "light day" | Brief body; mentions calendar is connected but empty. |
+| 4 | 0 | 0 | 1 | 1 | false | Refined, badge `(Refined)` | LLM brief, light-day + felt-state blend | Brief body. |
+| 5 | 0 | 1 | – | 0 | false | Baseline, badge `(Baseline)` | LLM brief on calendar demand + patterns | Brief body. |
+| 6 | 0 | 1 | – | 1 | false | Refined, badge `(Refined)` | LLM brief, calendar + felt-state | Brief body. |
+| 7 | 1 | 0 | 0 | 0 | false | Baseline, badge `(Baseline)` | LLM brief on physiology only | Brief body; chips show wearable, no calendar pill. |
+| 8 | 1 | 0 | 0 | 1 | false | Refined, badge `(Refined)` | LLM brief, physio + felt-state | Brief body. |
+| 9 | 1 | 0 | 1 | 0 | false | Baseline | LLM brief, physio + light-day | Brief body. |
+| 10 | 1 | 0 | 1 | 1 | false | Refined | LLM brief, physio + light-day + felt-state | Brief body. |
+| 11 | 1 | 1 | – | 0 | false | Baseline | Full LLM brief (all State-1 inputs) | Brief body. |
+| 12 | 1 | 1 | – | 1 | false | **Refined** | Full LLM brief, MRS v3 v6.3 prompt | Brief body. The canonical "complete" state. |
+
+Forbidden copy (per `mem://constraints/forbidden-loading-copy`): never render "Your plan is being prepared", "Pull down to refresh", or any system-uncertainty string on the brief — only the awaiting copy in row 1 is permitted.
 
 ---
 
@@ -262,4 +296,6 @@ mind check-in submit ─► daily-checkins/SAVE_CHECKIN
 - MRS v2 §3.3 four divergence flags → replaced by the §5 six-value table.
 - MRS v2 "check-in inputs" (`outcome`, `sharpness`, `confidence`) → fully removed. Brief `input_signature` drops these and adds `clarity, emotion, pressure, regulation`. `prompt_version → v6.3` invalidates old cached briefs.
 - Single-state score concept → replaced by two-state (baseline / refined).
-- C×C modifier triggers in brief — rewired to (clarity, regulation, emotion); the eight C×C copy strings themselves are unchanged.
+- Legacy C×C copy strings — **removed**. Brief tone modifiers are now driven by (clarity, regulation, emotion) directly via the v6.3 prompt; the v2 fixed eight-string lookup is gone.
+- Resilience pill legacy inputs (`confidence`, `outcome`, `coach_pattern_observations`, `active_pattern_count`, `recovery_debt`) — removed. Replaced by `sleep_efficiency` anchor + Mind overlay + retained pattern signals (`sustained_deficit_flag`, `hrv_low_high_demand_cooccurrence_7d`, `protection_goals × calendarPressure`).
+- Physiology pill sleep contribution — removed. Sleep moved to Cognitive; Physiology is now RHR + HR-elevated proxy + RHR trend + sustained-deficit only.
