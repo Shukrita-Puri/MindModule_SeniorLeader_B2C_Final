@@ -4788,6 +4788,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // "live" when it should read awaiting.
       innerReadinessScore: awaitingSignals ? null : innerReadinessScore,
       innerReadinessTier: awaitingSignals ? null : safeTier,
+      // MRS v3 — echo the soft-guard displayed tier + reason so the UI
+      // renders the cap without a second round trip. Suppressed in the
+      // awaiting-signals window for the same reason as innerReadinessTier.
+      innerReadinessTierDisplayed: awaitingSignals ? null : safeTierDisplayed,
+      innerReadinessTierCapReason: awaitingSignals ? null : safeTierCapReason,
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this
