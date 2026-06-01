@@ -4563,8 +4563,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
         // are already final — qualifiers never re-tier.
         // Coherence guard is dev-only: if MRS tier disagrees with pill mix
         // we auto-correct and log a warning when APP_ENV !== 'production'.
-        (globalThis as any).__pillQualifiersPayload = null;
-        (globalThis as any).__coherenceWarning = null;
         let pillQualifiersPayload: ReturnType<typeof getPillQualifiers> | null = null;
         let coherenceWarning: string | null = null;
         try {
@@ -4627,8 +4625,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               };
             }
           }
-          (globalThis as any).__pillQualifiersPayload = pillQualifiersPayload;
-          (globalThis as any).__coherenceWarning = coherenceWarning;
         } catch (qErr) {
           console.warn('[signal-pills-v3] qualifier/coherence step failed:', qErr instanceof Error ? qErr.message : qErr);
         }
