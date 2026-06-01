@@ -106,7 +106,7 @@ const TodayStateCard = () => {
       
       <p className={cn(
         "text-[15px] font-medium mb-3 font-body",
-        getTierColor(energyState.energyTier)
+        getTierColor(displayedTier)
       )}>
         {tierLabel}
       </p>
