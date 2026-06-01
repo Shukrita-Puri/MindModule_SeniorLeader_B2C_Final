@@ -17,7 +17,7 @@ import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStor
 import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
-import LinkedInImportCard from '@/components/profile/LinkedInImportCard';
+import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
 import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
 
 const tierLabels: Record<string, string> = {
@@ -201,6 +201,7 @@ const Profile = () => {
               </div>
               <span className="text-sm">{user?.email}</span>
             </div>
+            <LinkedInAccountRow />
             <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-3">
                 <Shield className="h-4 w-4 text-muted-foreground" />
@@ -382,9 +383,6 @@ const Profile = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* LinkedIn import */}
-        <LinkedInImportCard />
 
         {/* Connections — shared panel reused by post-onboarding Connect step */}
         <Card>
