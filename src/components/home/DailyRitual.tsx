@@ -593,7 +593,7 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
               Awaiting today's signal
             </span>
             <span className="flex items-start gap-1 text-xs text-muted-foreground/70 font-body leading-relaxed">
-              <span>Update your performance readiness assessment/check in or connect your wearable to generate your performance plan.</span>
+              <span>Connect your calendar or wearable to start your plan. A 2-min check-in then refines it.</span>
               <ChevronRight size={12} className="text-muted-foreground/40 shrink-0 mt-0.5" />
             </span>
           </button>
