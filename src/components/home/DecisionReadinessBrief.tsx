@@ -1767,9 +1767,12 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </span>
       </div>
 
-      {/* 2. SCORE ROW */}
+      {/* 2. SCORE ROW — renders off State 1 (wearable + calendar). Check-in
+          toggles the badge from "Baseline" to "Refined" but never gates the
+          number. The `--` placeholder only appears in the residual cold-start
+          case (no wearable AND no calendar). */}
       <div className="flex items-baseline gap-2 mt-3">
-        {hasCheckIn && score != null ? (
+        {score != null ? (
           <>
             <span className="text-[40px] font-medium leading-none text-foreground">
               {score}
@@ -1777,6 +1780,9 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
             <span className="text-[16px] text-muted-foreground/40">/100</span>
             <span className={cn("text-xs uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
               {getTierLabel(tier)}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/50 ml-1.5 font-body">
+              {readinessState === 'refined' ? 'Refined' : 'Baseline'}
             </span>
           </>
         ) : (
@@ -1796,16 +1802,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
         </p>
       )}
 
-      {/* 4b. AWAITING-SIGNAL PROMPT — sits where the phrase would have been so
-          the card height stays consistent. Shown only when no immediate signal
-          (check-in or today's wearable) is present. */}
+      {/* 4b. AWAITING-SIGNAL PROMPT — MRS v3 residual cold-start only.
+          Brief renders off State 1 (wearable + calendar); this block only
+          appears when neither is present. Check-in is positioned as the
+          State 2 refiner, never as the gate. */}
       {awaitingSignals && (
         <>
           <p className="mt-4 text-quote text-foreground">
             Awaiting today's signal
           </p>
           <p className="mt-2 text-body text-[hsl(var(--muted-foreground-v2))]">
-            Update your performance readiness assessment/check in or connect your wearable to generate your performance readiness brief.
+            Connect your calendar or a wearable to start your readiness brief. A 2-min check-in then refines it to your felt state.
           </p>
         </>
       )}
