@@ -4815,6 +4815,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       // awaiting-signals window for the same reason as innerReadinessTier.
       innerReadinessTierDisplayed: awaitingSignals ? null : safeTierDisplayed,
       innerReadinessTierCapReason: awaitingSignals ? null : safeTierCapReason,
+      // MRS v3 §3.3 — refined-score split echo. Suppressed when awaiting
+      // signals for the same reason as the tier/score fields above.
+      innerReadinessScoreBaseline: awaitingSignals ? null : clientScoreBaseline,
+      innerReadinessScoreRefined: awaitingSignals ? null : clientScoreRefined,
+      innerReadinessState: awaitingSignals ? null : (clientReadinessState ?? 'baseline'),
+      innerReadinessRefinedContribution: awaitingSignals ? null : (clientRefinedContribution ?? 0),
       checkInOutcome: awaitingSignals ? null : (checkInOutcome || null),
       briefId: resolvedBriefId,
       // Explicit flag: true only when a brief_snapshots row exists for this
