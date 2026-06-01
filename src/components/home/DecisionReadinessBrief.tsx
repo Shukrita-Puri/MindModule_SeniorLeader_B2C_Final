@@ -1220,6 +1220,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomLines: cogBottom,
       topEmptyText: cogTop.length === 0 ? emptyWearable : undefined,
       bottomEmptyText: cogBottom.length === 0 ? 'No cognitive self-report yet' : undefined,
+      readinessState: cogRefined,
     },
     {
       id: 'physiological',
@@ -1233,6 +1234,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomEmptyText: physTop.length === 0
         ? undefined
         : (physEmpty ?? 'Body signals only'),
+      readinessState: 'baseline',
     },
     {
       id: 'emotional',
@@ -1244,6 +1246,7 @@ export function buildExecutivePills(outerBrief: any): ExecutivePill[] | null {
       bottomLines: emoBottom,
       topEmptyText: emoTop.length === 0 ? emptyWearable : undefined,
       bottomEmptyText: emoBottom.length === 0 ? 'No confidence reading yet' : undefined,
+      readinessState: resRefined,
     },
   ];
 }
