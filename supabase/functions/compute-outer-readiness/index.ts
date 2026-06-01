@@ -1645,10 +1645,17 @@ serve(async (req) => {
       timezoneOffset = 0,
       currentTimezone: clientCurrentTz = null,
       homeTimezone: clientHomeTz = null,
+      tierDisplayed: clientTierDisplayed = null,
+      tierCapReason: clientTierCapReason = null,
     } = body;
 
     // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
     const safeTier: EnergyTier = innerReadinessTier || 'managing';
+    // MRS v3 — fall back to the raw tier when the client did not forward
+    // the displayed value. Never raises a low tier; only mirrors the cap.
+    const safeTierDisplayed: EnergyTier = (clientTierDisplayed as EnergyTier | null) ?? safeTier;
+    const safeTierCapReason: 'SUSTAINED_DEFICIT' | 'CONSECUTIVE_LOAD' | null =
+      clientTierCapReason ?? null;
 
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
