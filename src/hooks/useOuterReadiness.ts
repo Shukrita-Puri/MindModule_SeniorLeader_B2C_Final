@@ -201,6 +201,32 @@ export interface OuterReadinessData {
   awaitingSignals?: boolean;
   awaitingReason?: 'no-checkin-no-wearable' | null;
   /**
+   * MRS v3 baseline-of-truth — canonical client-facing signal source contract.
+   *   • 'cold-start' — no baseline AND no check-in → render skeleton
+   *   • 'baseline'   — wearable/calendar/patterns present, no check-in
+   *   • 'refined'    — check-in present (with or without baseline)
+   * Components MUST gate skeletons on `briefMode === 'cold-start'`. In
+   * baseline mode pills, score, and brief copy must render.
+   */
+  briefMode?: 'cold-start' | 'baseline' | 'refined';
+  /** Per-surface source provenance for audit chips. */
+  sourceProvenance?: {
+    mrs: { sources: string[]; primary: string | null; refinedBy: 'checkin' | null };
+    brief: { sources: string[]; briefSource: 'llm' | 'deterministic' };
+    pills: {
+      decision_readiness: string[];
+      physical_reserves: string[];
+      resilience_capacity: string[];
+    };
+  } | null;
+  /** Pill↔MRS coherence audit. `inSync: false` means the engine corrected drift. */
+  pillCoherence?: {
+    inSync: boolean;
+    adjustments: Array<{ pill: string; from: string; to: string; reason: string }>;
+  } | null;
+  /** Baseline-only score (wearable + calendar + patterns), independent of check-in. */
+  baselineReadinessScore?: number | null;
+  /**
    * Period-scoped flags (mirrors compute-outer-readiness contract). The UI
    * MUST drive period-sensitive decisions (e.g. "is the score live?") off
    * these instead of inferring from `checkInOutcome`, which can leak day-
