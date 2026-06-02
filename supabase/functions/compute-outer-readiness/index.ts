@@ -5,6 +5,12 @@ import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/ant
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import {
+  buildBehaviourSnapshot,
+  type BehaviourSnapshotResult,
+} from "../_shared/behaviour-snapshot.ts";
+import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
@@ -2447,6 +2453,14 @@ serve(async (req) => {
     } | null = null;
     let inputSignature = 'no-sig';
 
+    // ═══ Shared-module snapshot (Brief ⇄ Plan parity) ═══
+    // Computed inside the LLM branch using the shared CEO behaviour,
+    // event taxonomy, and M/A/E window-context modules. Stamped onto
+    // brief_snapshots.payload_json.behaviour_snapshot so generate-mastery-plan
+    // can read the SAME named events / stakes / slot boosts the Brief used.
+    let briefBehaviourSnapshot: BehaviourSnapshotResult | null = null;
+    let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
+
     if (dataCompleteness !== 'day1') {
       // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
       {
@@ -3741,35 +3755,60 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             userPrompt += `\nLead with: ${dominantHorizon}`;
           }
 
-          // === CEO BEHAVIOUR FLAGS (Phase 2 wiring, behind SHARED_MODULES_ENABLED) ===
-          // Adapter is a no-op when the flag is off. When on, appends a deterministic
-          // advisory block to userPrompt so the LLM stops re-evaluating §2.11–§2.17
-          // booleans under generation pressure.
+          // ═══════════════════════════════════════════════════════════════
+          // SHARED-MODULE CONTEXT: CEO Behaviours + Event Taxonomy + M/A/E
+          // ─────────────────────────────────────────────────────────────
+          // Authoritative source for the Brief. Builds ONE SignalCoverageInput
+          // from today's full event list (not just the next high-stakes one),
+          // tomorrow's events, the wearable readings, and the check-in, then:
+          //   1. buildBehaviourSnapshot → evaluates CEO behaviour rules for
+          //      BOTH 'brief' and 'plan' scopes against an identical context.
+          //      Returns flags + slotBoosts + a pre-formatted taxonomy block.
+          //      Stored on brief_snapshots so generate-mastery-plan reads the
+          //      SAME named events / stakes / boosts the Brief used.
+          //   2. buildWindowContext → returns the Morning / Afternoon / Evening
+          //      slice that matches the user's local clock (§3.1 evening JIT
+          //      gear-shift included). Summarised into the prompt so body copy
+          //      keys off the same window the Plan and Nudges will use.
+          //
+          // The LLM never re-states pillar copy or rule bodies — it consumes
+          // the pre-formatted blocks from the shared modules. Any change to
+          // CEO rules, event taxonomy, or window logic lands in
+          // _shared/* and propagates here automatically.
           try {
             const wearableForCtx = hasWearable
               ? {
                   hrvDeviationPct: hrvDeviation ?? null,
                   hrvUnusual: !!hrvUnusual,
-                  sleepHours:
-                    sleepDuration != null ? sleepDuration / 60 : null,
+                  sleepHours: sleepDuration != null ? sleepDuration / 60 : null,
                   sleepDeviationPct: sleepDeviation ?? null,
                   rhrDeviationPct: rhrDeviation ?? null,
                   hrElevatedProxy: (wearableContext as any)?.hrElevated === true,
                 }
               : null;
-            const eventsForCtx = nextHighStakesEvent
-              ? [
-                  {
-                    title: nextHighStakesEvent.title as string,
-                    startTime: new Date(
-                      Date.now() + (nextHighStakesEvent.minutesUntil ?? 0) * 60_000,
-                    ),
-                    stakesLevel: "external" as string,
-                  },
-                ]
-              : [];
-            const briefWiring = evaluateForScope(
-              {
+
+            // Full event slice from the SHARED calendar fetcher. Falls back to
+            // a synthesised single entry only when the calendar fetcher
+            // returned no rows (e.g. disconnected) but we still have a known
+            // next high-stakes event from upstream selection.
+            let eventsForCtx = (calendarResult as any)?.briefEvents ?? [];
+            if ((!eventsForCtx || eventsForCtx.length === 0) && nextHighStakesEvent) {
+              eventsForCtx = [{
+                title: nextHighStakesEvent.title as string,
+                startTime: new Date(
+                  Date.now() + (nextHighStakesEvent.minutesUntil ?? 0) * 60_000,
+                ).toISOString(),
+                endTime: new Date(
+                  Date.now() + ((nextHighStakesEvent.minutesUntil ?? 0) + 60) * 60_000,
+                ).toISOString(),
+                isAllDay: false,
+                stakesLevel: 'external' as const,
+              }];
+            }
+            const tomorrowEventsForCtx = (tomorrowResult as any)?.briefEvents ?? [];
+
+            briefBehaviourSnapshot = buildBehaviourSnapshot({
+              coverage: {
                 wearable: wearableForCtx,
                 checkIn: {
                   emotionalSelfDeclared: checkInOutcome ?? null,
@@ -3784,17 +3823,111 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   offsetMinutes: -timezoneOffset,
                   shift48hHours: null,
                   travelDay:
-                    !!(effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz),
+                    !!(effectiveCurrentTz && effectiveHomeTz &&
+                       effectiveCurrentTz !== effectiveHomeTz),
                 },
                 events: eventsForCtx,
+                tomorrowEvents: tomorrowEventsForCtx,
                 now: new Date(),
               },
-              "brief",
-              { dayOfWeek },
-            );
-            if (briefWiring?.promptBlock) userPrompt += briefWiring.promptBlock;
+              extras: { dayOfWeek },
+            });
+
+            // Append the taxonomy block FIRST (pure event labelling, advisory),
+            // then the behaviour block (rule outputs, deterministic). Order
+            // matters: behaviour rules reference event names; the taxonomy
+            // block grounds those names in pillar focus.
+            if (briefBehaviourSnapshot.taxonomyBlock) {
+              userPrompt += briefBehaviourSnapshot.taxonomyBlock;
+            }
+            if (briefBehaviourSnapshot.promptBlockBrief) {
+              userPrompt += briefBehaviourSnapshot.promptBlockBrief;
+            }
+
+            // ── Window context (Morning / Afternoon / Evening) ──
+            // Pure derivation from the same event list. Summarised, not
+            // re-stated as raw signals (the LLM doesn't need every field).
+            try {
+              const toClassified = (
+                arr: Array<{ title: string; startTime: string; endTime: string; isAllDay: boolean }>,
+              ): ClassifiedEventLite[] => arr.map((e) => ({
+                start_time: e.startTime,
+                end_time: e.endTime,
+                is_organizer: false,
+                attendees_count: 0,
+                is_recurring: false,
+                title: e.title,
+                event_metadata: null,
+              }));
+              briefWindowContext = buildWindowContext({
+                now: new Date(Date.now() - timezoneOffset * 60000),
+                todayEvents: toClassified(eventsForCtx),
+                tomorrowEvents: toClassified(tomorrowEventsForCtx),
+                wearable: {
+                  hrvToday: typeof hrvValue === 'number' ? hrvValue : null,
+                  hrvBaseline30d: typeof hrvBaseline === 'number' ? hrvBaseline : null,
+                  rhrToday: typeof rhrValue === 'number' ? rhrValue : null,
+                  rhrBaseline30d: typeof rhrBaseline === 'number' ? rhrBaseline : null,
+                  sleepHours: sleepDuration != null ? sleepDuration / 60 : null,
+                  sleepScore: typeof sleepScoreVal === 'number' ? sleepScoreVal : null,
+                  sleepScoreBaseline30d: typeof sleepBaseline === 'number' ? sleepBaseline : null,
+                },
+                conferenceDayNumber: null,
+              });
+              if (briefWindowContext) {
+                const w = briefWindowContext as any;
+                userPrompt += `\n\n=== WINDOW CONTEXT (${w.window}) ===`;
+                if (w.window === 'morning') {
+                  userPrompt += `\nyesterday_load: ${w.yesterdayLoad} (score ${w.yesterdayLoadScore})`;
+                  userPrompt += `\nyesterday_had_high_stakes: ${w.yesterdayHadHighStakes ? 'yes' : 'no'}`;
+                  userPrompt += `\nsleep_quality: ${w.sleepQuality ?? 'unknown'}`;
+                  userPrompt += `\ntoday_meeting_count: ${w.todayMeetingCount}`;
+                  if (w.todayFirstHighStakes) {
+                    userPrompt += `\ntoday_first_high_stakes: ${w.todayFirstHighStakes.title}`;
+                  }
+                  if (w.vetoRisk) userPrompt += `\nveto_risk: yes`;
+                } else if (w.window === 'afternoon') {
+                  userPrompt += `\nmeetings_completed: ${w.meetingsCompleted}`;
+                  userPrompt += `\nmeetings_remaining: ${w.meetingsRemaining}`;
+                  if (w.highestRemainingStakes) {
+                    userPrompt += `\nhighest_remaining_stakes: ${w.highestRemainingStakes.title}`;
+                  }
+                  if (w.backToBackRemainingHours > 0) {
+                    userPrompt += `\nback_to_back_remaining_hours: ${w.backToBackRemainingHours}`;
+                  }
+                  if (w.decisionLeakageRisk) userPrompt += `\ndecision_leakage_risk: yes`;
+                  if (w.jitEventsRemaining > 0) userPrompt += `\njit_events_remaining: ${w.jitEventsRemaining}`;
+                } else if (w.window === 'evening') {
+                  userPrompt += `\nmode: ${w.mode}`;
+                  userPrompt += `\ntoday_completed_count: ${w.todayCompletedCount}`;
+                  userPrompt += `\ntoday_had_high_stakes: ${w.todayHadHighStakes ? 'yes' : 'no'}`;
+                  if (w.bodyLoadElevated) userPrompt += `\nbody_load_elevated: yes`;
+                  userPrompt += `\nrecovery_note: ${w.recoveryNote}`;
+                  if (w.tomorrowFirstHighStakes) {
+                    userPrompt += `\ntomorrow_first_high_stakes: ${w.tomorrowFirstHighStakes.title}`;
+                  }
+                  if (w.tomorrowIsHeavy) userPrompt += `\ntomorrow_is_heavy: yes`;
+                  if (w.jitRemainingEvening) {
+                    userPrompt += `\njit_remaining_evening: yes (Close framing suppressed; finish JIT prep before close)`;
+                  }
+                }
+              }
+            } catch (we) {
+              console.warn('[compute-outer-readiness] window-context skipped:', we);
+            }
+
+            console.log('[compute-outer-readiness] shared-module snapshot', {
+              window: (briefWindowContext as any)?.window ?? null,
+              flagsBrief: briefBehaviourSnapshot.flagsBrief.length,
+              flagsPlan: briefBehaviourSnapshot.flagsPlan.length,
+              slotBoosts: briefBehaviourSnapshot.slotBoosts.length,
+              taxonomyBlock: briefBehaviourSnapshot.taxonomyBlock ? 'yes' : 'no',
+              signatureHash: briefBehaviourSnapshot.signatureHash,
+              todayEvents: eventsForCtx.length,
+              tomorrowEvents: tomorrowEventsForCtx.length,
+            });
           } catch (e) {
-            console.warn("[compute-outer-readiness] behaviour-wiring skipped:", e);
+            console.warn('[compute-outer-readiness] shared-module snapshot skipped:', e);
           }
 
           const sysPromptLen = systemPrompt.length;
@@ -4785,6 +4918,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 scoreTrajectory7d, wearableTrend7d, typicalDOWOutcome,
                 tomorrowLoad, isPublicHoliday,
               },
+              // Shared-module snapshot — single source of truth used by the
+              // Brief at generation time, exposed here so generate-mastery-plan
+              // (and Insights / Nudges) read the SAME named events, stakes
+              // and slot boosts the Brief reasoned over. Schema lives in
+              // _shared/behaviour-snapshot.ts.
+              behaviour_snapshot: briefBehaviourSnapshot ? {
+                signatureHash: briefBehaviourSnapshot.signatureHash,
+                flagsBrief: briefBehaviourSnapshot.flagsBrief,
+                flagsPlan: briefBehaviourSnapshot.flagsPlan,
+                slotBoosts: briefBehaviourSnapshot.slotBoosts,
+                taxonomyBlock: briefBehaviourSnapshot.taxonomyBlock,
+              } : null,
+              window_context: briefWindowContext ?? null,
             },
             // Structured wearable snapshot — full set of readings + baselines + deviations
             // captured at brief generation time. Past briefs and Insights read this directly

@@ -17,6 +17,7 @@ import {
 import { computeCalendarDemand } from './demand-scorer.ts';
 import { computeCognitiveFragmentation } from './cognitive-fragmentation.ts';
 import type { CalendarLevel } from './context-builder.ts';
+import { coarseEventType } from '../events/event-classifier.ts';
 
 export interface CalendarMetricsResult {
   load: CalendarLevel;
@@ -35,6 +36,62 @@ export interface CalendarMetricsResult {
   shortGapCount: number;
   /** Total wall-clock hours inside back-to-back meeting chains today. */
   backToBackHours: number;
+  /**
+   * Raw event slice for the day, normalised for shared-module consumers
+   * (CEO behaviour snapshot, event taxonomy formatter, window context).
+   * Empty when calendar is disconnected or has no events.
+   */
+  briefEvents: BriefEventLite[];
+  /**
+   * Pass-through of the raw rows (same columns the demand scorer / classifier
+   * accept). Useful when callers want to reuse classification helpers
+   * without re-fetching the table.
+   */
+  rawEvents: any[];
+}
+
+export interface BriefEventLite {
+  title: string;
+  startTime: string;
+  endTime: string;
+  isAllDay: boolean;
+  /** 'board' | 'investor' | 'external' | null — drives high-stakes CEO rules. */
+  stakesLevel: 'board' | 'investor' | 'external' | null;
+}
+
+/**
+ * Project raw `primary_calendar_events` rows into the lite shape consumed
+ * by SignalCoverageInput / window-context builders / format-taxonomy.
+ * Stakes level is derived from the shared `coarseEventType` classifier.
+ */
+export function toBriefEvents(events: any[]): BriefEventLite[] {
+  const out: BriefEventLite[] = [];
+  for (const e of events ?? []) {
+    const title = (e?.title ?? '').toString();
+    if (!title) continue;
+    const startRaw = e.start_time;
+    const endRaw = e.end_time ?? e.start_time;
+    const startMs = new Date(startRaw).getTime();
+    const endMs = new Date(endRaw).getTime();
+    if (!Number.isFinite(startMs)) continue;
+    const durMin = Number.isFinite(endMs) ? Math.max(0, (endMs - startMs) / 60000) : 0;
+    const coarse = coarseEventType(title);
+    let stakesLevel: BriefEventLite['stakesLevel'] = null;
+    if (coarse === 'board') stakesLevel = 'board';
+    else if (coarse === 'investor') stakesLevel = 'investor';
+    else if (
+      coarse === 'ma' || coarse === 'fundraising' || coarse === 'client' ||
+      coarse === 'media-interview' || coarse === 'speaking' || coarse === 'crisis'
+    ) stakesLevel = 'external';
+    out.push({
+      title,
+      startTime: new Date(startMs).toISOString(),
+      endTime: new Date(Number.isFinite(endMs) ? endMs : startMs).toISOString(),
+      isAllDay: durMin >= 23 * 60,
+      stakesLevel,
+    });
+  }
+  return out;
 }
 
 // Loose DB shape so this module doesn't pull the supabase-js client type.
@@ -48,6 +105,7 @@ const EMPTY_DISCONNECTED: CalendarMetricsResult = {
   state: 'not_connected',
   highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [],
   fragmentationScore: 0, shortGapCount: 0, backToBackHours: 0,
+  briefEvents: [], rawEvents: [],
 };
 
 const EMPTY_NO_EVENTS: CalendarMetricsResult = {
@@ -170,5 +228,7 @@ export async function getServerCalendarMetrics(
     fragmentationScore: frag.fragmentation_score,
     shortGapCount: frag.short_gap_count,
     backToBackHours: frag.back_to_back_hours,
+    briefEvents: toBriefEvents(eventList),
+    rawEvents: eventList,
   };
 }
