@@ -23,6 +23,9 @@ import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
+import AssessmentPill from "@/components/home/swipe/AssessmentPill";
+import MrsPage from "@/components/home/mrs/MrsPage";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
 import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebase
 import CheckInBanner from "@/components/home/CheckInBanner";
@@ -262,13 +265,39 @@ const ExecutiveHome = () => {
 
             <TodayStepper current={2} nextHint={briefCtaReady ? 3 : undefined} />
 
-            {/* DECISION READINESS BRIEF (replaces State + Compass) */}
-            <div className="max-w-lg mx-auto md:px-6 pt-0">
-              <h1 className="sr-only">{getGreeting()}</h1>
-              <section data-tour="today-state" className="animate-in fade-in duration-500">
-                <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
-              </section>
-            </div>
+            {/* Swipeable 3-page home: MRS · Brief · Plan */}
+            <h1 className="sr-only">{getGreeting()}</h1>
+            <HomeSwipeShell
+              pages={[
+                {
+                  id: 'mrs',
+                  label: 'Mental Readiness Score',
+                  node: <MrsPage />,
+                },
+                {
+                  id: 'brief',
+                  label: 'Performance Brief',
+                  node: (
+                    <div className="max-w-lg mx-auto md:px-6 pt-0 px-2">
+                      <section data-tour="today-state" className="animate-in fade-in duration-500">
+                        <PerformanceReadinessBrief onCtaReadyChange={setBriefCtaReady} />
+                      </section>
+                    </div>
+                  ),
+                },
+                {
+                  id: 'plan',
+                  label: 'Daily Plan',
+                  node: (
+                    <div className="max-w-lg mx-auto md:px-6 pt-0 px-2">
+                      <TodayThreePriorities />
+                    </div>
+                  ),
+                },
+              ]}
+              initialIndex={0}
+            />
+            <AssessmentPill />
 
 
             <div className="mt-8 hidden sm:block">
