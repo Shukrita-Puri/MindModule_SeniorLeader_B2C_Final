@@ -1739,6 +1739,7 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const { shouldRenderMock: tourMockBriefActive } = useTourMock();
   const realBriefEmpty =
     !outerBriefReal ||
+    (outerBriefReal as any)?.briefMode === 'cold-start' ||
     (outerBriefReal as any)?.awaitingSignals === true ||
     !outerBriefReal.phrase;
   const outerBrief =
@@ -1759,7 +1760,11 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
       // what stops a stale cache from skipping the loader and painting an
       // out-of-period brief while the live request is still in flight.
       const isRenderable = (v: any) =>
-        !!v && !v.awaitingSignals && !!v.phrase && !!v.bodyText;
+        !!v
+        && v.briefMode !== 'cold-start'
+        && !v.awaitingSignals
+        && !!v.phrase
+        && !!v.bodyText;
       // 1) In-memory React Query cache (same tab session)
       const cached: any = queryClient.getQueryData(['outer-readiness', effectiveUserId, period]);
       if (isRenderable(cached)) return true;
@@ -1789,7 +1794,13 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   // shows `--` (not the leftover score from an earlier period). The server
   // now nulls these fields whenever `awaitingSignals` is true, but we
   // double-gate on the explicit `hasCurrentPeriodSignal` flag to be safe.
-  const awaitingSignalsRaw = !!(outerBrief as any)?.awaitingSignals;
+  // briefMode is the canonical gate. Legacy `awaitingSignals` is kept as a
+  // fallback for caches written by older server builds.
+  const briefMode = ((outerBrief as any)?.briefMode ?? null) as
+    | 'cold-start' | 'baseline' | 'refined' | null;
+  const awaitingSignalsRaw = briefMode
+    ? briefMode === 'cold-start'
+    : !!(outerBrief as any)?.awaitingSignals;
   const hasCurrentPeriodSignal =
     (outerBrief as any)?.hasCurrentPeriodSignal ?? !awaitingSignalsRaw;
   // MRS v3 — the score and tier render off State 1 (wearable + calendar). They
