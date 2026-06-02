@@ -13,6 +13,7 @@ import {
   getTravelPermissionStatus,
   ensureTravelMonitoringIfAuthorized,
   getTravelPlatform,
+  persistPermissionStatus,
   type TravelPermissionStatus,
 } from '@/services/travelStateService';
 import { useToast } from '@/hooks/use-toast';
@@ -41,10 +42,30 @@ export default function TravelSettings() {
   const { snapshot, loading, refresh } = useTravelState();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState<boolean>(
+    (user as any)?.travel_notifications_enabled ?? true,
+  );
   const [permission, setPermission] = useState<TravelPermissionStatus>('unknown');
   const [showDebug, setShowDebug] = useState(false);
   const platform = getTravelPlatform();
+
+  // Load the persisted travel-notifications preference from the DB so the
+  // toggle reflects the real state on mount (not always-on).
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('travel_notifications_enabled')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!cancelled && data && typeof (data as any).travel_notifications_enabled === 'boolean') {
+        setEnabled((data as any).travel_notifications_enabled);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // Auto-start native monitoring + read permission on mount and on app resume.
   useEffect(() => {
@@ -53,6 +74,9 @@ export default function TravelSettings() {
       await ensureTravelMonitoringIfAuthorized();
       const p = await getTravelPermissionStatus();
       if (!cancelled) setPermission(p);
+      // Mirror current permission to the DB so server-side state is fresh
+      // even when no location ping has fired (e.g. user just revoked).
+      void persistPermissionStatus();
     };
     void sync();
     const onVis = () => { if (document.visibilityState === 'visible') void sync(); };
@@ -65,6 +89,7 @@ export default function TravelSettings() {
     const result = await requestTravelLocationPermission();
     const p = await getTravelPermissionStatus();
     setPermission(p);
+    void persistPermissionStatus();
     setBusy(false);
     if (result === 'granted') {
       toast({ title: 'Travel detection on', description: "We'll quietly retune nudges to your local time." });
