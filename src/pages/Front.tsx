@@ -24,11 +24,11 @@ const CANONICAL_HOME = '/daily-check-in';
 const LEGAL_KEY = 'mm_legal_accepted_v1';
 
 const GOOGLE_CONNECTION = 'google-oauth2';
-const MICROSOFT_CONNECTION =
-  (import.meta.env.VITE_AUTH0_MICROSOFT_CONNECTION as string | undefined) || 'windowslive';
+const LINKEDIN_CONNECTION =
+  (import.meta.env.VITE_AUTH0_LINKEDIN_CONNECTION as string | undefined) || 'linkedin';
 const EMAIL_CONNECTION = import.meta.env.VITE_AUTH0_EMAIL_CONNECTION as string | undefined;
 
-type Provider = 'google' | 'microsoft' | 'email';
+type Provider = 'google' | 'linkedin' | 'email';
 
 function GoogleIcon() {
   return (
@@ -41,13 +41,14 @@ function GoogleIcon() {
   );
 }
 
-function MicrosoftIcon() {
+function LinkedInIcon() {
   return (
     <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
-      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
-      <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
-      <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
-      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
+      <rect width="24" height="24" rx="3" fill="#0A66C2" />
+      <path
+        fill="#fff"
+        d="M7.06 9.5H4.5V19h2.56V9.5zM5.78 8.39a1.49 1.49 0 110-2.98 1.49 1.49 0 010 2.98zM19.5 19h-2.56v-4.62c0-1.1-.02-2.52-1.54-2.52-1.54 0-1.78 1.2-1.78 2.44V19h-2.56V9.5h2.46v1.3h.04c.34-.64 1.18-1.32 2.42-1.32 2.6 0 3.08 1.71 3.08 3.93V19z"
+      />
     </svg>
   );
 }
@@ -190,7 +191,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
     setBusy(provider);
     const connection =
       provider === 'google' ? GOOGLE_CONNECTION :
-      provider === 'microsoft' ? MICROSOFT_CONNECTION :
+      provider === 'linkedin' ? LINKEDIN_CONNECTION :
       EMAIL_CONNECTION;
     try {
       await onProvider(connection);
@@ -279,11 +280,11 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
             onClick={() => handleProvider('google')}
           />
           <ProviderPill
-            label="Continue with Microsoft"
-            icon={<MicrosoftIcon />}
-            busy={busy === 'microsoft'}
+            label="Continue with LinkedIn"
+            icon={<LinkedInIcon />}
+            busy={busy === 'linkedin'}
             disabled={disabled}
-            onClick={() => handleProvider('microsoft')}
+            onClick={() => handleProvider('linkedin')}
           />
           <ProviderPill
             label="Continue with Email"
