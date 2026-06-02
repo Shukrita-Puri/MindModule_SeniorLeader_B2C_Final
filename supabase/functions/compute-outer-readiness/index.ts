@@ -52,6 +52,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Local helpers for source-provenance + baseline-score derivation.
+function clamp01to100(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+function pillSourceList(
+  pill: 'decision_readiness' | 'physical_reserves' | 'resilience_capacity',
+  physComposite: number | null,
+  demandScore: number | null,
+  hasCheckin: boolean,
+): MrsSource[] {
+  const out: MrsSource[] = [];
+  if (physComposite != null) out.push('wearable');
+  if (demandScore != null && pill !== 'physical_reserves') out.push('calendar');
+  if (hasCheckin && pill !== 'physical_reserves') out.push('checkin');
+  return out;
+}
+
 // ==================== BRIEF SNAPSHOT CACHE ====================
 // `BRIEF_PROMPT_VERSION` is now imported from the shared module so Plan and
 // Nudges can disambiguate the persisted Brief snapshot using the same value.
