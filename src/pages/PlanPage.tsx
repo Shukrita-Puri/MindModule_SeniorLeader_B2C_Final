@@ -7,7 +7,7 @@ import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import TourMockPlan from "@/components/onboarding/TourMockPlan";
 import { useTourMock } from "@/components/onboarding/useTourMock";
-import TodayStepper from "@/components/today/TodayStepper";
+
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import DailyRitual from "@/components/home/DailyRitual";
@@ -51,7 +51,7 @@ const PlanPage = () => {
                 <SidebarDiscoveryPulse />
               </header>
             </div>
-            <TodayStepper current={3} />
+            
 
             <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-2xl mx-auto md:px-4">
