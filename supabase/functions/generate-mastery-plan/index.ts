@@ -2607,6 +2607,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       })),
       nowMsForJit,
     );
+    // Brief↔Plan parity: re-rank so any candidate whose title matches an
+    // event the Brief named as high-stakes (HighStakesPrep / boardLevelOutcome /
+    // etc.) is guaranteed to surface — even if its raw §B score was below
+    // a higher-scoring noise event. Stable sort: tied items keep §B order.
+    try {
+      const anchors = new Set(
+        briefAnchorEventTitles(shared.briefBehaviour).map((t) => t.toLowerCase().trim()),
+      );
+      if (anchors.size > 0 && jitRankedCandidates.length > 0) {
+        const before = jitRankedCandidates.map((c) => c.title);
+        jitRankedCandidates = [...jitRankedCandidates]
+          .map((c, i) => ({ c, i, anchored: anchors.has(String(c.title || '').toLowerCase().trim()) }))
+          .sort((a, b) => (a.anchored === b.anchored ? a.i - b.i : (a.anchored ? -1 : 1)))
+          .map(({ c }) => c);
+        const after = jitRankedCandidates.map((c) => c.title);
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+          console.log(
+            `[generate-mastery-plan] JIT reordered for brief anchors=${Array.from(anchors).join('|')}: ${before.join(' > ')} → ${after.join(' > ')}`,
+          );
+        }
+      }
+    } catch (anchorErr: any) {
+      console.warn('[generate-mastery-plan] brief-anchor JIT reorder skipped:', anchorErr?.message);
+    }
     const top3 = jitRankedCandidates.slice(0, 3).map(c => `${c.title}/${c.phase}=${c.score}`).join(' | ');
     console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
   } catch (rankErr: any) {
