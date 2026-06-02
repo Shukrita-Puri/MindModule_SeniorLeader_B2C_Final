@@ -18,6 +18,11 @@ import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { CheckInVisibilityGuard } from "./components/CheckInVisibilityGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
+import {
+  ensureTravelMonitoringIfAuthorized,
+  startTimezoneWatcher,
+  persistPermissionStatus,
+} from "./services/travelStateService";
 import DelayedFallback from "./components/ui/delayed-fallback";
 import RouteSkeleton from "./components/ui/route-skeleton";
 import { PAYMENT_PAGE_SUPPRESSED } from "./config/payments";
@@ -104,6 +109,34 @@ const ScrollToTop = () => {
   return null;
 };
 
+// App-wide travel watcher: starts the JS timezone watcher once, ensures
+// native iOS monitoring is armed if already authorized, and re-syncs on
+// Capacitor app resume so a Settings round-trip is reflected immediately.
+const TravelWatcher = () => {
+  useEffect(() => {
+    const sync = () => {
+      void ensureTravelMonitoringIfAuthorized();
+      void persistPermissionStatus();
+    };
+    sync();
+    const stopTz = startTimezoneWatcher();
+
+    let removeAppListener: (() => void) | undefined;
+    void (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) sync();
+        });
+        removeAppListener = () => { void handle.remove(); };
+      } catch { /* web: no-op */ }
+    })();
+
+    return () => { stopTz(); removeAppListener?.(); };
+  }, []);
+  return null;
+};
+
 import FloatingPillNav from "./components/navigation/FloatingPillNav";
 
 // Bottom pill nav is only shown on core app destinations after the executive home entry point.
@@ -144,6 +177,7 @@ const Layout = () => {
   return (
     <AuthProvider>
       <ScrollToTop />
+      <TravelWatcher />
       <PushNotificationProvider />
       <PushNotificationActionHandler />
       {showPillNav && !tourActive && <FloatingPillNav />}
