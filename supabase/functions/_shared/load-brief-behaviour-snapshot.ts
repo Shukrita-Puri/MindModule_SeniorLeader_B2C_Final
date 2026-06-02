@@ -48,27 +48,58 @@ export interface LoadedBriefBehaviourSnapshot extends PersistedBriefBehaviourSna
   briefSnapshotId: string;
   localDate: string;
   timeWindow: TimeWindow;
+  /** prompt_version of the row this snapshot was read from, if persisted. */
+  promptVersion?: string;
+  /** input_signature of the row this snapshot was read from, if persisted. */
+  inputSignature?: string;
+}
+
+/**
+ * Optional disambiguation passed by callers (Plan / Nudges) that know which
+ * Brief identity they want. Without these the loader falls back to "latest
+ * row in window" which can silently load a stale snapshot when prompt-version
+ * bumps or signature changes produce multiple rows in the same bucket.
+ */
+export interface LoadBriefBehaviourSnapshotOpts {
+  /** Filter on brief_snapshots.prompt_version. */
+  promptVersion?: string;
+  /** Filter on brief_snapshots.input_signature. */
+  inputSignature?: string;
+  /**
+   * Optional expected `behaviour_snapshot.signatureHash`. If supplied and the
+   * loaded row's hash does not match, the load is rejected (returns null) and
+   * a warning is logged. Use when the caller already knows the canonical
+   * Brief signature (e.g. from `outerReadinessCache.behaviourSnapshot`).
+   */
+  expectedSignatureHash?: string;
 }
 
 /**
  * Load the most recent persisted Brief behaviour snapshot for the given
- * (user, local_date, time_window). Returns null when no row exists or the
- * row has no behaviour_snapshot (e.g. legacy briefs written before the
- * shared-module rollout). Never throws.
+ * (user, local_date, time_window). When `opts.promptVersion` or
+ * `opts.inputSignature` is provided the query is narrowed to that exact
+ * Brief identity so a stale prior-version row cannot win the "latest"
+ * ordering. Returns null when no row matches or the row has no
+ * behaviour_snapshot (e.g. legacy briefs written before the shared-module
+ * rollout). Never throws.
  */
 export async function loadBriefBehaviourSnapshot(
   supabase: any,
   userId: string,
   localDate: string,
   timeWindow: TimeWindow,
+  opts: LoadBriefBehaviourSnapshotOpts = {},
 ): Promise<LoadedBriefBehaviourSnapshot | null> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("brief_snapshots")
-      .select("id, payload_json, input_signature")
+      .select("id, payload_json, input_signature, prompt_version")
       .eq("user_id", userId)
       .eq("local_date", localDate)
-      .eq("time_window", timeWindow)
+      .eq("time_window", timeWindow);
+    if (opts.promptVersion) query = query.eq("prompt_version", opts.promptVersion);
+    if (opts.inputSignature) query = query.eq("input_signature", opts.inputSignature);
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -82,6 +113,13 @@ export async function loadBriefBehaviourSnapshot(
     if (!data) return null;
     const snap = (data as any)?.payload_json?.behaviour_snapshot;
     if (!snap || typeof snap !== "object") return null;
+    if (opts.expectedSignatureHash &&
+        String(snap.signatureHash ?? "") !== opts.expectedSignatureHash) {
+      console.warn(
+        `[load-brief-behaviour-snapshot] signatureHash mismatch — expected=${opts.expectedSignatureHash} got=${snap.signatureHash} user=${userId} date=${localDate} window=${timeWindow}. Rejecting stale snapshot.`,
+      );
+      return null;
+    }
     const flagsBrief: BehaviourFlag[] = Array.isArray(snap.flagsBrief) ? snap.flagsBrief : [];
     const flagsPlan: BehaviourFlag[] = Array.isArray(snap.flagsPlan) ? snap.flagsPlan : [];
     const slotBoosts: SlotBoost[] = Array.isArray(snap.slotBoosts) ? snap.slotBoosts : [];
@@ -90,6 +128,12 @@ export async function loadBriefBehaviourSnapshot(
       briefSnapshotId: (data as any).id,
       localDate,
       timeWindow,
+      promptVersion: typeof (data as any).prompt_version === "string"
+        ? (data as any).prompt_version
+        : undefined,
+      inputSignature: typeof (data as any).input_signature === "string"
+        ? (data as any).input_signature
+        : undefined,
       signatureHash: String(snap.signatureHash ?? ""),
       flagsBrief,
       flagsPlan,
