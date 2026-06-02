@@ -2059,6 +2059,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     causeEffect: { practiceImpact: [], stateCarryover: [] },
     pendingCommitments: [],
     combinedAlreadyUsed: [],
+    briefBehaviour: null,
+    briefBehaviourSource: 'absent',
   };
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
