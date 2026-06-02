@@ -388,6 +388,17 @@ interface NudgeContext {
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
   badgeCount?: number;
+  // Brief↔Nudge parity — the persisted snapshot the Brief reasoned over for
+  // the current (user, local_date, time_window). Loaded once in
+  // buildNudgeContext; null when no Brief row exists yet (in which case
+  // generateNudgeCopy falls back to evaluateForScope so we still ship the
+  // canonical rule output).
+  briefBehaviour?: {
+    signatureHash: string;
+    promptBlockBrief: string;
+    taxonomyBlock: string;
+    source: 'brief_snapshot';
+  } | null;
 }
 
 interface NudgeCopy {
