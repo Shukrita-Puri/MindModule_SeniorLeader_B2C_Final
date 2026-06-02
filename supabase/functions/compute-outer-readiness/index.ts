@@ -5,6 +5,12 @@ import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/ant
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import {
+  buildBehaviourSnapshot,
+  type BehaviourSnapshotResult,
+} from "../_shared/behaviour-snapshot.ts";
+import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
 import { resolveStrategicContext } from "../_shared/signal-engine/strategic-context.ts";
