@@ -1515,56 +1515,76 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
 
   // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
   // Both providers are validated through the identical V8 gate.
-  // ── CEO behaviour wiring (Phase 2, behind SHARED_MODULES_ENABLED) ──
-  // No-op when the flag is off. When on, appends an advisory block so the
-  // nudge LLM gets the deterministic §2 / §5.2 reads (including
-  // notificationIsProduct, the nudge-only rule).
+  // ── CEO behaviour wiring (Brief↔Nudge parity, canonical) ──
+  // Preferred path: read the Brief's persisted snapshot (loaded once in
+  // buildNudgeContext as `ctx.briefBehaviour`) so the Nudge LLM sees the
+  // EXACT advisory block + event taxonomy the Brief used. Fallback path:
+  // `evaluateForScope("nudge", …)` — only when no Brief row exists yet for
+  // this window, AND we still need `notificationIsProduct` (the nudge-only
+  // rule) which the Brief's snapshot does not carry.
   try {
-    const backToBackHoursToday = computeBackToBackHours(ctx);
-    const eventsForCtx = ctx.nonNoiseEvents
-      .filter((e) => !!e.title)
-      .map((e) => ({
-        title: e.title as string,
-        startTime: e.start_time,
-        stakesLevel: isHighStakes(e.title) ? "external" : null,
-      }));
-    const wiring = evaluateForScope(
-      {
-        wearable: ctx.hasWearableData
-          ? {
-              hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
-              sleepHours:
-                ctx.wearable.totalSleepMinutes != null
-                  ? ctx.wearable.totalSleepMinutes / 60
-                  : null,
-              sleepDeviationPct: null,
-              rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
-              hrElevatedProxy: ctx.wearable.rhrElevated,
-            }
-          : null,
-        checkIn: {
-          emotionalSelfDeclared:
-            ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
-          mentalSharpness: null,
-          confidence: null,
-          clarity: null,
+    if (ctx.briefBehaviour?.taxonomyBlock) {
+      userPrompt += ctx.briefBehaviour.taxonomyBlock;
+    }
+    if (ctx.briefBehaviour?.promptBlockBrief) {
+      userPrompt += ctx.briefBehaviour.promptBlockBrief;
+      console.log(
+        `[smart-nudges] applied brief snapshot sig=${ctx.briefBehaviour.signatureHash}`,
+      );
+    } else {
+      // Fallback: no Brief written yet for this window. Evaluate the rules
+      // directly so the nudge still gets the canonical §2 / §5.2 reads
+      // (incl. notificationIsProduct). This is the ONLY path that still
+      // calls evaluateForScope from inside this function.
+      const backToBackHoursToday = computeBackToBackHours(ctx);
+      const eventsForCtx = ctx.nonNoiseEvents
+        .filter((e) => !!e.title)
+        .map((e) => ({
+          title: e.title as string,
+          startTime: e.start_time,
+          stakesLevel: isHighStakes(e.title) ? "external" : null,
+        }));
+      const wiring = evaluateForScope(
+        {
+          wearable: ctx.hasWearableData
+            ? {
+                hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
+                sleepHours:
+                  ctx.wearable.totalSleepMinutes != null
+                    ? ctx.wearable.totalSleepMinutes / 60
+                    : null,
+                sleepDeviationPct: null,
+                rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
+                hrElevatedProxy: ctx.wearable.rhrElevated,
+              }
+            : null,
+          checkIn: {
+            emotionalSelfDeclared:
+              ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
+            mentalSharpness: null,
+            confidence: null,
+            clarity: null,
+          },
+          scoreToday: null,
+          scoreYesterday: null,
+          timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          events: eventsForCtx,
+          now: new Date(),
         },
-        scoreToday: null,
-        scoreYesterday: null,
-        timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
-        events: eventsForCtx,
-        now: new Date(),
-      },
-      "nudge",
-      {
-        dayOfWeek: ctx.dayOfWeek,
-        backToBackHoursToday,
-        historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
-      },
-    );
-    if (wiring?.promptBlock) userPrompt += wiring.promptBlock;
+        "nudge",
+        {
+          dayOfWeek: ctx.dayOfWeek,
+          backToBackHoursToday,
+          historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+        },
+      );
+      if (wiring?.promptBlock) {
+        userPrompt += wiring.promptBlock;
+        console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
+      }
+    }
   } catch (e) {
-    console.warn("[smart-nudges] behaviour-wiring skipped:", e);
+    console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
 
   const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
