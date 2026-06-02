@@ -1018,6 +1018,7 @@ async function buildNudgeContext(
       const total = open + checkinDue;
       return total > 0 ? Math.min(total, 9) : 1;
     })(),
+    briefBehaviour,
   };
 }
 
