@@ -28,7 +28,7 @@ const FloatingCoachButton = () => {
         className="fixed z-[40] sm:hidden flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20"
         style={{
           right: 16,
-          bottom: 84,
+          bottom: 72,
           width: 48,
           height: 48,
           animation: 'coach-sonar 2.5s infinite',

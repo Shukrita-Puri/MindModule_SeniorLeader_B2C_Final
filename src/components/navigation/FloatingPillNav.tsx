@@ -48,8 +48,8 @@ const FloatingPillNav = () => {
         className="flex items-center border border-white/10 bg-black/70 backdrop-blur-2xl shadow-2xl"
         style={{
           borderRadius: 999,
-          padding: '10px 14px',
-          gap: 6,
+          padding: '6px 8px',
+          gap: 2,
         }}
       >
         {TABS.map((tab) => {
@@ -61,31 +61,31 @@ const FloatingPillNav = () => {
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className={`relative flex min-w-[86px] flex-col items-center gap-1 rounded-full px-4 py-2.5 transition-all duration-200 ${
+              className={`relative flex min-w-[64px] flex-col items-center gap-0.5 rounded-full px-3 py-1.5 transition-all duration-200 ${
                 isActive
                   ? 'bg-white/15'
                   : 'bg-transparent'
               }`}
               style={{
                 WebkitTapHighlightColor: 'transparent',
-                minHeight: 56,
+                minHeight: 44,
               }}
             >
               {/* Icon */}
               {tab.phosphor ? (
                 <tab.icon
-                  size={24}
+                  size={20}
                   weight="duotone"
                   className="text-white"
                 />
               ) : (
                 <tab.icon
-                  size={24}
+                  size={20}
                   className="text-white"
                 />
               )}
               <span
-                className={`font-body text-[11px] tracking-[0.02em] text-white ${
+                className={`font-body text-[10px] tracking-[0.02em] text-white ${
                   isActive ? 'opacity-100' : 'opacity-70'
                 }`}
               >
