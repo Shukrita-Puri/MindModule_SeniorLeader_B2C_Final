@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Plane } from 'lucide-react';
+import { User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2, Compass, Plane, Link2 } from 'lucide-react';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
@@ -18,7 +18,6 @@ import { isValidBeta } from '@/utils/subscriptionHelpers';
 import { startFirstSessionTour } from '@/utils/firstSessionTour';
 import { PAYMENT_PAGE_SUPPRESSED } from '@/config/payments';
 import LinkedInAccountRow from '@/components/profile/LinkedInAccountRow';
-import ConnectionsPanel from '@/components/connections/ConnectionsPanel';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -309,15 +308,15 @@ const Profile = () => {
               </Button>
             )}
 
-            {/* Connected Data */}
+            {/* Manage Connections — full UI lives on the dedicated page */}
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
               onClick={() => navigate('/connected-data')}
               data-tour="connected-data-btn"
             >
-              <Database className="h-4 w-4" />
-              Connected Data (details)
+              <Link2 className="h-4 w-4" />
+              Manage Connections
             </Button>
 
             {/* Travel detection */}
@@ -381,17 +380,6 @@ const Profile = () => {
                 Sign Out
               </Button>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Connections — shared panel reused by post-onboarding Connect step */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-[15px] font-medium">Connections</CardTitle>
-            <CardDescription>Connect or reconnect your calendar and wearable</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ConnectionsPanel redirectPath="/profile" />
           </CardContent>
         </Card>
       </div>
