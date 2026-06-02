@@ -18,6 +18,65 @@ export type TravelState =
   | 'returning'
   | 'location_unknown';
 
+export type TravelPermissionStatus =
+  | 'authorized_always'
+  | 'authorized_when_in_use'
+  | 'denied'
+  | 'restricted'
+  | 'not_determined'
+  | 'web_granted'
+  | 'web_unavailable'
+  | 'unsupported'
+  | 'unknown';
+
+export type TravelPlatform = 'ios' | 'web';
+
+export function getTravelPlatform(): TravelPlatform {
+  return LocationBridgeNative ? 'ios' : 'web';
+}
+
+/**
+ * Reads the current OS-level location permission without prompting.
+ * On iOS this goes to the native bridge; on web we infer from the
+ * Permissions API when available.
+ */
+export async function getTravelPermissionStatus(): Promise<TravelPermissionStatus> {
+  try {
+    if (LocationBridgeNative) {
+      const { value } = await LocationBridgeNative.currentAuthorizationString();
+      return (value as TravelPermissionStatus) ?? 'unknown';
+    }
+    if (typeof navigator !== 'undefined' && 'permissions' in navigator && navigator.geolocation) {
+      try {
+        const res = await (navigator as any).permissions.query({ name: 'geolocation' });
+        if (res.state === 'granted') return 'web_granted';
+        if (res.state === 'denied') return 'denied';
+        return 'not_determined';
+      } catch {
+        return 'not_determined';
+      }
+    }
+    return 'web_unavailable';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Idempotent: if iOS authorization is already granted, ensure the
+ * native significant-change + visits monitoring is running. Safe to
+ * call on every mount/app-resume. No-op on web.
+ */
+export async function ensureTravelMonitoringIfAuthorized(): Promise<void> {
+  try {
+    if (!LocationBridgeNative) return;
+    const status = await getTravelPermissionStatus();
+    if (status === 'authorized_always' || status === 'authorized_when_in_use') {
+      await LocationBridgeNative.startIfAuthorized();
+    }
+  } catch { /* never throw */ }
+}
+
 export interface TravelStateSnapshot {
   state: TravelState;
   lastKnownTimezone: string | null;
