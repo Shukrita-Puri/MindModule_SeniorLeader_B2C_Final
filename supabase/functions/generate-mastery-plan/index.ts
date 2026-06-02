@@ -4012,6 +4012,15 @@ async function applyV51Enrichment(
           bodyState: typeof req.confidenceLevel === 'number' && req.confidenceLevel > 0 ? req.confidenceLevel : null,
           patternSummary,
           growthIntention: (req as any).growthIntention || null,
+          // Brief↔Plan parity advisories — append the SAME blocks the Brief's
+          // LLM saw, so the "Why this matters" line stays anchored to the
+          // identical CEO behaviours and pillar focus the Brief already named
+          // to the user. Both blocks come straight off the shared snapshot
+          // (`shared.briefBehaviour`) — no re-evaluation, no fallback copy.
+          ceoBehaviourBlock: shared.briefBehaviour?.promptBlockPlan
+            ?? shared.briefBehaviour?.promptBlockBrief
+            ?? null,
+          eventTaxonomyBlock: shared.briefBehaviour?.taxonomyBlock ?? null,
         };
         jitJobs.push({ idx, input });
       }
