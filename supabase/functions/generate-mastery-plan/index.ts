@@ -3691,71 +3691,22 @@ const CEO_RULE_TO_TAG: Record<string, CeoRealityTag> = {
 };
 
 function detectCeoRealities(req: PlanRequest, shared: SharedContext): CeoRealityTag[] {
-  // P1 — route through canonical behaviour evaluator. Local regex/keyword
-  // detection (travel / board / PTO / drain / fragmentation) has been removed
-  // — those signals now flow from `_shared/ceo-behaviour/*` via
-  // `evaluateForScope`. Compatibility is preserved by mapping canonical
-  // BehaviourFlag.rule names back to the legacy CeoRealityTag union.
+  // Brief↔Plan parity: read flags off the Brief's persisted snapshot rather
+  // than re-evaluating rules against a fresh (and inevitably divergent)
+  // SignalCoverageInput. The snapshot already contains BOTH `flagsBrief` and
+  // `flagsPlan`, so the brief-scope-only rules (e.g. personalFrictionInference)
+  // are still visible to the Plan. Fallback to local rebuild is handled in
+  // buildSharedContext — by the time we reach here, `shared.briefBehaviour`
+  // is the canonical record for this (user, local_date, time_window).
   const tags = new Set<CeoRealityTag>();
-  try {
-    const w = req.wearableContext;
-    const wearableForCtx = w?.hasData
-      ? {
-          hrvDeviationPct: w.hrvDeviation ?? null,
-          // sleepScore is 0-100, not hours; leave hours null so canonical
-          // sleep thresholds use deviation/proxy only.
-          sleepHours: null as number | null,
-          sleepDeviationPct: null as number | null,
-          rhrDeviationPct: null as number | null,
-        }
-      : null;
-    const planEvents = (req.calendarEvents || [])
-      .filter((e) => e.title && e.startTime)
-      .map((e) => ({
-        title: e.title,
-        startTime: e.startTime,
-        endTime: e.endTime ?? null,
-        stakesLevel: null as string | null,
-      }));
-    const now = new Date();
-    const input = {
-      wearable: wearableForCtx,
-      checkIn: {
-        emotionalSelfDeclared: req.checkInOutcome ?? null,
-        mentalSharpness: null,
-        confidence: req.confidenceLevel ?? null,
-        clarity: req.clarityLevel ?? null,
-      },
-      scoreToday: req.innerReadinessScore ?? null,
-      scoreYesterday: (() => {
-        const trend: any = (shared as any)?.innerReadinessPattern;
-        if (trend?.values && trend.values.length >= 2) {
-          const yest = trend.values[trend.values.length - 2];
-          return typeof yest === 'number' ? yest : null;
-        }
-        return null;
-      })(),
-      timezone: {
-        offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
-        shift48hHours: null,
-        travelDay: false,
-      },
-      events: planEvents,
-      now,
-    } as const;
-    // Run plan-scope rules + brief-scope rules. `personalFrictionInference`
-    // is brief-scoped only; without the brief pass the plan would silently
-    // drop the `personal_friction` tag.
-    for (const scope of ['plan', 'brief'] as const) {
-      const wiring = evaluateForScope(input as any, scope, { dayOfWeek: now.getDay() });
-      if (!wiring) continue;
-      for (const flag of wiring.flags) {
-        const mapped = CEO_RULE_TO_TAG[flag.rule];
-        if (mapped) tags.add(mapped);
-      }
-    }
-  } catch (e) {
-    console.warn('[generate-mastery-plan] detectCeoRealities canonical pass failed:', e);
+  const snap = shared.briefBehaviour;
+  if (!snap) {
+    console.warn('[generate-mastery-plan] detectCeoRealities: no briefBehaviour snapshot — Plan CEO tags will be empty.');
+    return [];
+  }
+  for (const flag of [...snap.flagsBrief, ...snap.flagsPlan]) {
+    const mapped = CEO_RULE_TO_TAG[(flag as any)?.rule];
+    if (mapped) tags.add(mapped);
   }
   return Array.from(tags);
 }
