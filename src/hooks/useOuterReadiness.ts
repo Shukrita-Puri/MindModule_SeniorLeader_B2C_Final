@@ -450,18 +450,24 @@ export function useOuterReadiness() {
     ? readPersistent<OuterReadinessData>(awaitingKey)
     : null;
   // Prefer a real brief if we have one; otherwise hydrate the awaiting
-  // payload so a no-signal user doesn't trigger a fresh edge call on
-  // every mount / iOS foreground.
+  // payload so a cold-start user doesn't trigger a fresh edge call on
+  // every mount / iOS foreground. The awaiting cache is only ever written
+  // for `briefMode === 'cold-start'` (see queryFn below), so a baseline-
+  // mode user can never accidentally rehydrate into a skeleton.
   const initialData = forceRefresh
     ? null
-    : (cached && !cached.awaitingSignals && cached.phrase && cached.bodyText)
+    : (cached
+        && cached.briefMode !== 'cold-start'
+        && !cached.awaitingSignals
+        && cached.phrase
+        && cached.bodyText)
       ? cached
-      : (cachedAwaiting && cachedAwaiting.awaitingSignals)
+      : (cachedAwaiting && cachedAwaiting.briefMode === 'cold-start')
         ? cachedAwaiting
         : null;
   if (initialData) {
-    dbg('initialData hydrated from', initialData.awaitingSignals ? 'awaiting-cache' : 'brief-cache', {
-      key: initialData.awaitingSignals ? awaitingKey : persistentKey,
+    dbg('initialData hydrated from', initialData.briefMode === 'cold-start' ? 'awaiting-cache' : 'brief-cache', {
+      key: initialData.briefMode === 'cold-start' ? awaitingKey : persistentKey,
     });
   }
 
@@ -482,6 +488,7 @@ export function useOuterReadiness() {
       if (
         data &&
         persistentKey &&
+        data.briefMode !== 'cold-start' &&
         !data.awaitingSignals &&
         data.phrase &&
         data.bodyText
@@ -489,7 +496,7 @@ export function useOuterReadiness() {
         writePersistent(persistentKey, data, msUntilWindowEnd());
         // A real brief supersedes any awaiting marker for this window.
         if (awaitingKey) clearPersistent(awaitingKey);
-      } else if (data?.awaitingSignals) {
+      } else if (data?.briefMode === 'cold-start' || data?.awaitingSignals) {
         // No-signal gating decision — persist it for this window so we
         // don't keep recomputing it. Always wipe any prior real-brief
         // entry so we don't accidentally replay it next mount.
