@@ -75,6 +75,27 @@ export default function PillDetailContent({
   }
   const contributors = flattenContributors(pill.contributors);
   const qualifiers = flattenQualifiers(pill.qualifiers);
+
+  // Merge: associate each qualifier with a matching contributor by key/substring.
+  const qualMap = new Map<string, string>(qualifiers.map(([d, s]) => [d.toLowerCase(), s]));
+  const usedQuals = new Set<string>();
+  const rows: Array<{ k: string; v?: string; pattern?: string }> = contributors.map(([k, v]) => {
+    const kl = k.toLowerCase();
+    let pattern: string | undefined;
+    if (qualMap.has(kl)) { pattern = qualMap.get(kl); usedQuals.add(kl); }
+    else {
+      for (const [dim] of qualMap) {
+        if (dim && (kl.includes(dim) || dim.includes(kl))) {
+          pattern = qualMap.get(dim); usedQuals.add(dim); break;
+        }
+      }
+    }
+    return { k, v: String(v), pattern };
+  });
+  // Append orphan qualifiers as their own rows so no pattern data is lost.
+  for (const [dim, summary] of qualifiers) {
+    if (!usedQuals.has(dim.toLowerCase())) rows.push({ k: dim, pattern: summary });
+  }
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2 pr-7">
@@ -90,30 +111,21 @@ export default function PillDetailContent({
       <p className="text-xs text-foreground/80 font-body leading-snug">
         {TIER_REASON[pill.tier]}
       </p>
-      {qualifiers.length > 0 && (
-        <div className="border-t border-border/40 pt-2">
-          <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70 mb-1">
-            Qualifiers
-          </div>
-          <ul className="space-y-0.5">
-            {qualifiers.map(([dim, summary]) => (
-              <li key={dim} className="text-[11px] text-foreground/75 font-body">
-                <span className="font-medium">{dim}</span>{' '}
-                <span className="text-muted-foreground/80">{summary}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {contributors.length > 0 && (
-        <div className="border-t border-border/40 pt-2">
-          <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70 mb-1">
+      {rows.length > 0 && (
+        <div className="border-t border-border/40 pt-3">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground/70 mb-1.5">
             Contributors
           </div>
-          <ul className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {contributors.map(([k, v]) => (
-              <li key={k} className="text-[11px] text-foreground/70 font-body truncate">
-                <span className="text-muted-foreground/70">{k}:</span> {v}
+          <ul className="space-y-1">
+            {rows.map((row) => (
+              <li key={row.k} className="text-[15px] leading-snug text-foreground/85 font-body">
+                <span className="text-muted-foreground">{row.k}</span>
+                {row.v != null && <>: <span>{row.v}</span></>}
+                {row.pattern && (
+                  <span className="ml-1.5 text-[13px] italic text-muted-foreground/70 font-body">
+                    ({row.pattern})
+                  </span>
+                )}
               </li>
             ))}
           </ul>
