@@ -4918,6 +4918,19 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 scoreTrajectory7d, wearableTrend7d, typicalDOWOutcome,
                 tomorrowLoad, isPublicHoliday,
               },
+              // Shared-module snapshot — single source of truth used by the
+              // Brief at generation time, exposed here so generate-mastery-plan
+              // (and Insights / Nudges) read the SAME named events, stakes
+              // and slot boosts the Brief reasoned over. Schema lives in
+              // _shared/behaviour-snapshot.ts.
+              behaviour_snapshot: briefBehaviourSnapshot ? {
+                signatureHash: briefBehaviourSnapshot.signatureHash,
+                flagsBrief: briefBehaviourSnapshot.flagsBrief,
+                flagsPlan: briefBehaviourSnapshot.flagsPlan,
+                slotBoosts: briefBehaviourSnapshot.slotBoosts,
+                taxonomyBlock: briefBehaviourSnapshot.taxonomyBlock,
+              } : null,
+              window_context: briefWindowContext ?? null,
             },
             // Structured wearable snapshot — full set of readings + baselines + deviations
             // captured at brief generation time. Past briefs and Insights read this directly
