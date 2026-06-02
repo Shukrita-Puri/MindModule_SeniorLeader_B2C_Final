@@ -38,29 +38,42 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="drop-shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+        className="drop-shadow-[0_18px_40px_rgba(0,0,0,0.28)]"
       >
         <defs>
-          <radialGradient id="mrs-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-            <stop offset="70%" stopColor={color} stopOpacity="0.04" />
+          <radialGradient id="mrs-glow" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+            <stop offset="65%" stopColor={color} stopOpacity="0.08" />
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </radialGradient>
           <linearGradient id="mrs-arc" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor={color} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.55" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.45" />
           </linearGradient>
+          {/* Orb body: subtle sphere with highlight */}
+          <radialGradient id="mrs-orb" cx="38%" cy="32%" r="75%">
+            <stop offset="0%" stopColor="hsl(0 0% 100%)" stopOpacity="0.55" />
+            <stop offset="35%" stopColor={color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.06" />
+          </radialGradient>
+          <radialGradient id="mrs-orb-shadow" cx="62%" cy="78%" r="55%">
+            <stop offset="0%" stopColor="hsl(0 0% 0%)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="hsl(0 0% 0%)" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        {/* soft halo */}
-        <circle cx={cx} cy={cy} r={radius + 8} fill="url(#mrs-glow)" />
+        {/* soft outer halo */}
+        <circle cx={cx} cy={cy} r={radius + 14} fill="url(#mrs-glow)" />
+        {/* orb sphere body */}
+        <circle cx={cx} cy={cy} r={radius - 4} fill="url(#mrs-orb)" />
+        <circle cx={cx} cy={cy} r={radius - 4} fill="url(#mrs-orb-shadow)" />
         {/* track */}
         <circle
           cx={cx}
           cy={cy}
           r={radius}
           fill="none"
-          stroke="hsl(var(--muted-foreground) / 0.18)"
-          strokeWidth={6}
+          stroke="hsl(var(--muted-foreground) / 0.14)"
+          strokeWidth={4}
         />
         {/* progress arc */}
         <circle
@@ -69,19 +82,26 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
           r={radius}
           fill="none"
           stroke="url(#mrs-arc)"
-          strokeWidth={8}
+          strokeWidth={6}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circumference - dash}`}
           transform={`rotate(-90 ${cx} ${cy})`}
           style={{ transition: 'stroke-dasharray 700ms cubic-bezier(0.22, 1, 0.36, 1)' }}
         />
-        {/* inner soft fill */}
-        <circle cx={cx} cy={cy} r={radius - 18} fill="hsl(var(--background) / 0.55)" />
+        {/* specular highlight */}
+        <ellipse
+          cx={cx - radius * 0.32}
+          cy={cy - radius * 0.42}
+          rx={radius * 0.34}
+          ry={radius * 0.18}
+          fill="hsl(0 0% 100%)"
+          opacity="0.28"
+        />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div
           className={cn(
-            'font-light tabular-nums tracking-tight text-foreground',
+            'font-extralight tabular-nums tracking-tight text-foreground',
             'leading-none'
           )}
           style={{ fontSize: size * 0.34 }}
