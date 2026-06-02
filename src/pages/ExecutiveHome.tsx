@@ -23,7 +23,6 @@ import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
 import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
-import AssessmentPill from "@/components/home/swipe/AssessmentPill";
 import MrsPage from "@/components/home/mrs/MrsPage";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
 import JitCarousel from "@/components/home/JitCarousel"; // preserved in codebase
@@ -294,8 +293,6 @@ const ExecutiveHome = () => {
               ]}
               initialIndex={0}
             />
-            <AssessmentPill />
-
 
             <div className="mt-8 hidden sm:block">
               <PrivacyFooter />
