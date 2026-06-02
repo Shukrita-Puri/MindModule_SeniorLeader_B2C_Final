@@ -13,6 +13,20 @@ import {
 import { isHighStakesTitle } from '../_shared/events/event-classifier.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
+// Canonical reader of the Brief's behaviour snapshot. Plan MUST consume the
+// same `flagsPlan` + `slotBoosts` + `taxonomyBlock` the Brief reasoned over
+// rather than rebuilding its own — otherwise Brief↔Plan drift is structural.
+// See _shared/load-brief-behaviour-snapshot.ts for the contract.
+import {
+  loadBriefBehaviourSnapshot,
+  snapshotToWiring,
+  briefAnchorEventTitles,
+  type LoadedBriefBehaviourSnapshot,
+  type PersistedBriefBehaviourSnapshot,
+} from '../_shared/load-brief-behaviour-snapshot.ts';
+// Fallback builder for the rare case where the Brief hasn't been written
+// yet for the current (user, local_date, time_window). Pure, no DB.
+import { buildBehaviourSnapshot } from '../_shared/behaviour-snapshot.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
