@@ -301,3 +301,63 @@ All of these are **inline qualifiers inside Why-text** — never new UI badges.
 - +10 if event has historical HRV impact >10%.
 
 **UI contract — explicitly unchanged**: no slot-name chips, no brief-reference top line, no new holiday/PTO/jet-lag badges. The visible deltas are confined to (a) the Why-this-matters body and (b) the step card context line.
+
+---
+
+## 15. v5.2 — Stateful Plan, Per-Priority Queues, JIT v2 (shipped)
+
+The v5.1 slot model is extended by four behaviors that are live in production but were not yet documented above. None of them change the visible chrome.
+
+### 15.1 Stateful plan evolution (ledger)
+
+The day's plan is a persistent ledger keyed by `(user_id, ritual_date)`, stored in `daily_ritual_completions.plan_ledger` (JSONB, service-role write only via trigger guard). Every `generate-mastery-plan` call:
+
+1. Reads the earliest same-day ledger row.
+2. Unions `completed_practice_ids` across **all** of today's `session_period` rows.
+3. Merges fresh-derived horizon slots with the ledger:
+   - **Sticky completion** — a slot whose primary practice is in the union stays verbatim with ✓ in its `slotIndex`.
+   - **JIT anchor (adaptive)** — a slot bound to a calendar event that is still on today's calendar keeps `slotIndex`, `jitEventTitle`, `horizon`, `isJit`; practices, `whyLine`, and `timeLabel` refresh from the matching fresh slot (same WHAT, different HOW).
+   - **Otherwise** — recompute from fresh.
+4. **Unfinished-business rule** — as long as any ledger slot is incomplete, the new plan evolves the ledger; it never replaces it wholesale.
+5. **Bonus Round** — when all 3 ledger slots are complete and a later brief regenerates, hand off to a brand-new plan and emit `ledger.victoryLine` ("3/3 complete. Bonus priorities to keep momentum."). Header label becomes "Today's 3 · Bonus Round".
+
+Observability: response includes `ledger: { source, carriedSlots, anchoredSlots, completedSlots, victoryLine? }`.
+
+Client (`TodayThreePriorities`): `checkCompletion` and cache-hydration use `getTodayCompletedUnion()` so morning ✓ persists into the afternoon view.
+
+### 15.2 Per-priority queue contract
+
+Each of the 3 priorities owns its own queue. The micro-practice player tracker is scoped to a single slot — completing practice 2 of slot 1 does not advance slot 2. Feedback (relevance/effectiveness) is recorded against the originating slot only, so scoring boosts (+2 "previously effective") accumulate per priority rather than globally.
+
+### 15.3 JIT Selection v2 (triangulated tiers)
+
+JIT candidate selection is now a triangulated selector across three tiers, applied within the 24h MVP horizon:
+
+| Tier | Source signal | Weight behavior |
+|---|---|---|
+| Immediate | Real-time wearable + check-in deltas | Dominant in cold-start / sparse-pattern users |
+| Tactical | `causality_findings` patterns (≥3 observations, personal noise excluded) | Weight grows as the pattern store matures |
+| Strategic | Coach `growth_area`, `practicePriorityTag`, executive scenario keywords | Constant additive boost (+10 to +15) |
+
+Tier weights **shift Immediate → Tactical** as the user accumulates validated patterns. Patterns are read from `causality_findings.signal_summary` (the unified pattern store) — they are never recomputed inline. Personal-noise findings (single-event, low confidence) are excluded from the selector even if present.
+
+### 15.4 Window context split + behavior snapshot
+
+`build-daily-context-orchestrator` produces `daily_context_snapshot` as the single source of truth. The plan no longer builds its own window context: it consumes the morning / afternoon / evening pure builders from the shared **behaviour-snapshot** layer that also feeds the Brief and Smart Nudges. This guarantees the Plan's `slotKind` reasoning and the Brief's tier label never diverge for the same window.
+
+### 15.5 Unified pattern store
+
+All proactive-pattern reads (Tactical JIT tier, post-peak hangover detection, HRV-correlation reasoning, coach insight surfacing) go through `causality_findings.signal_summary`. Edge functions must not query `coach_pattern_observations` directly for pattern matching — that table is for raw observations only.
+
+### 15.6 Inline mindset reflection capture
+
+Mindset-protocol step cards in the player render an optional auto-saved textarea. Drafts are stored in `useReflectionDraft` and flushed to `daily_ritual_completions.reflection_notes` on practice completion. The reflection text is then available to the next day's plan as a strategic-anchor input when the user references it.
+
+---
+
+## 16. Documentation status
+
+- Sections 1–13 reflect the original v3.0–v4.0 system.
+- Section 14 covers v5.1 (slot model, CEO-Reality, anti-duplication).
+- Section 15 covers v5.2 (ledger, per-priority queues, JIT v2, window split, unified pattern store).
+- The companion file `.lovable/proactive-mastery-plan-documentation.md` (v3.0) is retained for its edge-function inventory, DB-table reference, and historical audit; it is **not** updated for v5.x feature work — this file is canonical for current behavior.
