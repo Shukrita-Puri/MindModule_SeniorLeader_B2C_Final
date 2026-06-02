@@ -27,6 +27,7 @@ import {
 // Fallback builder for the rare case where the Brief hasn't been written
 // yet for the current (user, local_date, time_window). Pure, no DB.
 import { buildBehaviourSnapshot } from '../_shared/behaviour-snapshot.ts';
+import { BRIEF_PROMPT_VERSION } from '../_shared/brief-prompt-version.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
@@ -2330,16 +2331,32 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
       ctx.briefBehaviourSource = 'outer_readiness_cache';
     } else {
       const localDateForLookup = req.localDate || today;
+      // Disambiguate the load with the same prompt-version the Brief writes
+      // under so a stale prior-version row in the same window cannot win the
+      // "latest" ordering. If the same-request `outerReadinessCache` exposed a
+      // signatureHash (it does even when the inline snapshot was unusable),
+      // require the loaded row to match it — otherwise the snapshot is stale
+      // and we fall through to the local rebuild rather than silently using
+      // wrong CEO behaviour flags.
+      const expectedSig =
+        typeof (outerReadinessCache as any)?.behaviourSnapshot?.signatureHash === 'string'
+          ? (outerReadinessCache as any).behaviourSnapshot.signatureHash
+          : undefined;
       const loaded = await loadBriefBehaviourSnapshot(
         supabaseClient,
         req.userId,
         localDateForLookup,
         timeOfDay,
+        { promptVersion: BRIEF_PROMPT_VERSION, expectedSignatureHash: expectedSig },
       );
       if (loaded) {
         ctx.briefBehaviour = loaded;
         ctx.briefBehaviourSource = 'brief_snapshot';
       } else {
+        // Logged for visibility — every fallback here is a drift risk.
+        console.warn(
+          `[buildSharedContext] briefBehaviour fallback to local rebuild user=${req.userId} date=${localDateForLookup} window=${timeOfDay} promptVersion=${BRIEF_PROMPT_VERSION} expectedSig=${expectedSig ?? 'none'}`,
+        );
         // Last-resort local rebuild. Same shared module the Brief uses, so
         // the rules / taxonomy / slot boosts stay canonical even when no
         // Brief row exists yet for this window.
