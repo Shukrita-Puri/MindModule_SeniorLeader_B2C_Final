@@ -4863,6 +4863,54 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             demandScore: calendarDemandScore,
             hrvRecovering: patternSignals.hrv_3day_trend === 'improving',
           });
+          // MRS source provenance + baseline-only score. Baseline blends
+          // wearable composite (heavier when present) with calendar demand
+          // pressure (inverted: higher demand pulls score down). Pattern
+          // signals tilt the baseline by ±5 when sustained deficit fires.
+          // Always in [0, 100]. Used for client provenance audit and to
+          // expose the "pre-refiner" number when a check-in lands.
+          const baselineParts: Array<[number, number]> = [];
+          if (physComposite != null) baselineParts.push([physComposite, 0.65]);
+          if (calendarDemandScore != null) {
+            baselineParts.push([100 - clamp01to100(calendarDemandScore), 0.35]);
+          }
+          if (baselineParts.length > 0) {
+            const totalW = baselineParts.reduce((a, [, w]) => a + w, 0);
+            const weighted = baselineParts.reduce((a, [v, w]) => a + v * w, 0);
+            let base = Math.round(weighted / totalW);
+            if (patternSignals?.sustained_deficit_flag) base = Math.max(0, base - 5);
+            echoedBaselineScore = clamp01to100(base);
+          }
+          echoedProvenance = {
+            mrs: divergenceProvenance({
+              physComposite,
+              demandScore: calendarDemandScore,
+              hrvRecovering: patternSignals.hrv_3day_trend === 'improving',
+              hasPatternSignal: !!(patternSignals && (
+                patternSignals.sustained_deficit_flag ||
+                patternSignals.consecutive_high_load_days > 0 ||
+                patternSignals.hrv_3day_trend !== 'unknown'
+              )),
+              hasCeoBehaviour: !!briefBehaviourSnapshot,
+              hasCheckin: hasTodayCheckIn,
+            }),
+            brief: {
+              sources: (() => {
+                const s: MrsSource[] = [];
+                if (hasFreshWearable) s.push('wearable');
+                if (hasCalendarSignal || hasCalendarConnected) s.push('calendar');
+                if (briefBehaviourSnapshot) s.push('ceo-behaviour');
+                if (hasTodayCheckIn) s.push('checkin');
+                return s;
+              })(),
+              briefSource,
+            },
+            pills: {
+              decision_readiness: pillSourceList('decision_readiness', physComposite, calendarDemandScore, hasTodayCheckIn),
+              physical_reserves:  pillSourceList('physical_reserves',  physComposite, calendarDemandScore, hasTodayCheckIn),
+              resilience_capacity: pillSourceList('resilience_capacity', physComposite, calendarDemandScore, hasTodayCheckIn),
+            },
+          };
           const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
             !hasWearable
               ? 'no_wearable'
