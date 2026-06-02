@@ -175,12 +175,37 @@ async function postPing(body: Record<string, unknown>): Promise<void> {
 }
 
 async function sendForegroundPing(lat: number, lng: number, accuracy?: number): Promise<void> {
+  const permission_status = await getTravelPermissionStatus().catch(() => 'unknown');
   await postPing({
     lat, lng, accuracy_m: accuracy ?? null,
     source: 'ios-foreground',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     captured_at: new Date().toISOString(),
+    permission_status,
   });
+}
+
+/**
+ * Persists the current OS-level location permission to travel_state
+ * without requiring a location fix. Safe to call on permission change
+ * or app resume; no-op on auth failure.
+ */
+export async function persistPermissionStatus(): Promise<void> {
+  try {
+    const permission_status = await getTravelPermissionStatus();
+    await postPing({
+      permission_status,
+      source: 'permission-sync',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      captured_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    emitIntegrationEvent({
+      provider: 'system',
+      event: 'sync_failed',
+      meta: { area: 'travel_permission_sync', message: (e as Error).message },
+    });
+  }
 }
 
 export async function requestTravelLocationPermission(): Promise<'granted' | 'denied' | 'cooldown' | 'unsupported'> {
@@ -248,7 +273,13 @@ export function startTimezoneWatcher(): () => void {
         });
         lastTz = tz;
         safeSet(TZ_LAST_SEEN_KEY, tz);
-        await postPing({ timezone: tz, source: 'js-tz-change', captured_at: new Date().toISOString() });
+        const permission_status = await getTravelPermissionStatus().catch(() => 'unknown');
+        await postPing({
+          timezone: tz,
+          source: 'js-tz-change',
+          captured_at: new Date().toISOString(),
+          permission_status,
+        });
       }
     } catch { /* never throw */ }
   };
