@@ -10,7 +10,7 @@ import { mapCheckInToTags } from "@/utils/checkInToTags";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse";
-import TodayStepper from "@/components/today/TodayStepper";
+
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import { Slider } from "@/components/ui/slider";
@@ -389,7 +389,7 @@ const DailyCheckIn = () => {
           <SidebarDiscoveryPulse />
         </header>
       </div>
-      <TodayStepper current={1} />
+      
 
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
