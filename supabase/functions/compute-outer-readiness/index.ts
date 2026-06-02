@@ -4767,11 +4767,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           );
 
-          const { pills: coherentPills, warning } = assertPillCoherence(safeTier, [
+          const coherenceResult = assertPillCoherence(safeTier, [
             { key: 'decision_readiness', tier: cognitiveTier as PqPillTier },
             { key: 'physical_reserves',  tier: physicalTier  as PqPillTier },
             { key: 'resilience_capacity', tier: resilienceTier as PqPillTier },
           ]);
+          const { pills: coherentPills, warning } = coherenceResult;
+          echoedPillCoherence = {
+            inSync: coherenceResult.inSync,
+            adjustments: coherenceResult.adjustments,
+          };
           if (warning) {
             coherenceWarning = warning;
             // Apply silent auto-correction in all envs; surface the warning
