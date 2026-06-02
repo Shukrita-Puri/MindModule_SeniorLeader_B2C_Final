@@ -42,6 +42,7 @@ import {
   type CheckinRow as PqCheckinRow,
   type WearableRow as PqWearableRow,
   type PillTier as PqPillTier,
+  type CoherenceAdjustment,
 } from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
 const corsHeaders = {
