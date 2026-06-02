@@ -18,6 +18,8 @@ import { resolveStrategicContext } from "../_shared/signal-engine/strategic-cont
 import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
+  divergenceProvenance,
+  type MrsSource,
 } from "../_shared/signal-engine/divergence-flag.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 import {
@@ -42,12 +44,31 @@ import {
   type CheckinRow as PqCheckinRow,
   type WearableRow as PqWearableRow,
   type PillTier as PqPillTier,
+  type CoherenceAdjustment,
 } from "../_shared/signal-engine/checkin-pattern-aggregator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+// Local helpers for source-provenance + baseline-score derivation.
+function clamp01to100(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+function pillSourceList(
+  pill: 'decision_readiness' | 'physical_reserves' | 'resilience_capacity',
+  physComposite: number | null,
+  demandScore: number | null,
+  hasCheckin: boolean,
+): MrsSource[] {
+  const out: MrsSource[] = [];
+  if (physComposite != null) out.push('wearable');
+  if (demandScore != null && pill !== 'physical_reserves') out.push('calendar');
+  if (hasCheckin && pill !== 'physical_reserves') out.push('checkin');
+  return out;
+}
 
 // ==================== BRIEF SNAPSHOT CACHE ====================
 // `BRIEF_PROMPT_VERSION` is now imported from the shared module so Plan and
@@ -4433,6 +4454,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     let echoedSignalPills: any[] | null = null;
     let echoedPillQualifiers: any = null;
     let echoedCoherenceWarning: string | null = null;
+    // MRS v3 §baseline-of-truth — structured pill↔MRS coherence + source
+    // provenance + baseline-only score (computed inside the pill engine
+    // block when wearable/calendar inputs are in-hand).
+    let echoedPillCoherence: {
+      inSync: boolean;
+      adjustments: CoherenceAdjustment[];
+    } = { inSync: true, adjustments: [] };
+    let echoedBaselineScore: number | null = null;
+    let echoedProvenance: {
+      mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
+      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' };
+      pills: {
+        decision_readiness: MrsSource[];
+        physical_reserves: MrsSource[];
+        resilience_capacity: MrsSource[];
+      };
+    } | null = null;
 
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
@@ -4747,11 +4785,16 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           );
 
-          const { pills: coherentPills, warning } = assertPillCoherence(safeTier, [
+          const coherenceResult = assertPillCoherence(safeTier, [
             { key: 'decision_readiness', tier: cognitiveTier as PqPillTier },
             { key: 'physical_reserves',  tier: physicalTier  as PqPillTier },
             { key: 'resilience_capacity', tier: resilienceTier as PqPillTier },
           ]);
+          const { pills: coherentPills, warning } = coherenceResult;
+          echoedPillCoherence = {
+            inSync: coherenceResult.inSync,
+            adjustments: coherenceResult.adjustments,
+          };
           if (warning) {
             coherenceWarning = warning;
             // Apply silent auto-correction in all envs; surface the warning
@@ -4838,6 +4881,54 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             demandScore: calendarDemandScore,
             hrvRecovering: patternSignals.hrv_3day_trend === 'improving',
           });
+          // MRS source provenance + baseline-only score. Baseline blends
+          // wearable composite (heavier when present) with calendar demand
+          // pressure (inverted: higher demand pulls score down). Pattern
+          // signals tilt the baseline by ±5 when sustained deficit fires.
+          // Always in [0, 100]. Used for client provenance audit and to
+          // expose the "pre-refiner" number when a check-in lands.
+          const baselineParts: Array<[number, number]> = [];
+          if (physComposite != null) baselineParts.push([physComposite, 0.65]);
+          if (calendarDemandScore != null) {
+            baselineParts.push([100 - clamp01to100(calendarDemandScore), 0.35]);
+          }
+          if (baselineParts.length > 0) {
+            const totalW = baselineParts.reduce((a, [, w]) => a + w, 0);
+            const weighted = baselineParts.reduce((a, [v, w]) => a + v * w, 0);
+            let base = Math.round(weighted / totalW);
+            if (patternSignals?.sustained_deficit_flag) base = Math.max(0, base - 5);
+            echoedBaselineScore = clamp01to100(base);
+          }
+          echoedProvenance = {
+            mrs: divergenceProvenance({
+              physComposite,
+              demandScore: calendarDemandScore,
+              hrvRecovering: patternSignals.hrv_3day_trend === 'improving',
+              hasPatternSignal: !!(patternSignals && (
+                patternSignals.sustained_deficit_flag ||
+                patternSignals.consecutive_high_load_days > 0 ||
+                patternSignals.hrv_3day_trend !== 'unknown'
+              )),
+              hasCeoBehaviour: !!briefBehaviourSnapshot,
+              hasCheckin: hasTodayCheckIn,
+            }),
+            brief: {
+              sources: (() => {
+                const s: MrsSource[] = [];
+                if (hasFreshWearable) s.push('wearable');
+                if (hasCalendarSignal || hasCalendarConnected) s.push('calendar');
+                if (briefBehaviourSnapshot) s.push('ceo-behaviour');
+                if (hasTodayCheckIn) s.push('checkin');
+                return s;
+              })(),
+              briefSource,
+            },
+            pills: {
+              decision_readiness: pillSourceList('decision_readiness', physComposite, calendarDemandScore, hasTodayCheckIn),
+              physical_reserves:  pillSourceList('physical_reserves',  physComposite, calendarDemandScore, hasTodayCheckIn),
+              resilience_capacity: pillSourceList('resilience_capacity', physComposite, calendarDemandScore, hasTodayCheckIn),
+            },
+          };
           const weightingMode: 'no_wearable' | 'aligned' | 'supply_demand_gap' | 'recovery_window' =
             !hasWearable
               ? 'no_wearable'
@@ -5009,6 +5100,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       relationshipPattern: awaitingSignals ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
+      // briefMode is the canonical client-facing signal source contract.
+      //   • 'cold-start' — no baseline AND no check-in (legacy awaitingSignals=true)
+      //   • 'baseline'   — wearable/calendar/patterns present, no check-in for today
+      //   • 'refined'    — check-in present (with or without wearable/calendar)
+      // Client rule: only render skeleton when briefMode === 'cold-start'.
+      // In baseline mode pills, score, brief and Plan must all render.
+      briefMode: (
+        awaitingSignals
+          ? 'cold-start'
+          : (hasTodayCheckIn ? 'refined' : 'baseline')
+      ) as 'cold-start' | 'baseline' | 'refined',
+      // Source provenance + pill↔MRS coherence + baseline-only score.
+      // Surfaced for client audit chips and so MRS + pills are not
+      // operating in isolation. `pillCoherence.inSync === false` means
+      // the deterministic pill engine had to be reconciled against the
+      // MRS tier — UI may choose to surface a subtle hint.
+      sourceProvenance: awaitingSignals ? null : echoedProvenance,
+      pillCoherence: awaitingSignals ? null : echoedPillCoherence,
+      baselineReadinessScore: awaitingSignals ? null : echoedBaselineScore,
       // Explicit period-scoped flags so the client never has to infer
       // "is this period live?" from leaked day-scoped fields like
       // `checkInOutcome` or `innerReadinessScore`.

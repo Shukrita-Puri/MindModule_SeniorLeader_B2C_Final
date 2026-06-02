@@ -1,88 +1,97 @@
+## Goal
 
-# Central Context Refactor — Daily + Morning / Afternoon / Evening
+Make wearable + calendar + patterns + CEO behaviours the canonical Brief / Plan / MRS inputs. Reduce check-in to a refiner. Add explicit source provenance and pill ↔ MRS coherence. Keep the shared snapshot / event-taxonomy / CEO-behaviour architecture intact, preserve Brief↔Plan parity already landed.
 
-## Answers to your questions
+## Current state (verified by reading the relevant files)
 
-**Q1. Which file builds the central context today?**
-Only `supabase/functions/_shared/signal-engine/build-daily-context.ts`. Its `composeDailyContext(userId, localDate)` is the single producer that fetches all raw signals and upserts the `daily_context_snapshot` row. The other three (`cognitive-fragmentation.ts`, its `_test.ts`, `context-builder.ts`) are pure helpers consumed *by* the producer.
+- `compute-outer-readiness` already gates on `hasState1Input = freshWearable || activeCalendar || calendarConnected || todayCheckIn`. So Brief technically *does not* require check-in — but only because `calendarConnected` keeps the gate permissive. If a user has no wearable, no calendar, and no check-in, the brief still goes to `awaitingSignals: true` (cold-start). That part is correct and must be kept.
+- `awaitingSignals` still nulls out 25+ surfaced fields (score, tier, pills, etc.) — fine for cold start, but the suppression is currently the only "source of truth" surfaced to the client.
+- `awaitingReason` only ever has one value (`cold-start-no-context`) so the client cannot tell why baseline failed.
+- `useOuterReadiness.ts` has a separate `prb-awaiting:` localStorage cache that can re-paint a stale "awaiting" state across mounts. If wearable/calendar landed after the awaiting payload was cached, the user keeps seeing skeleton until the next network resolve.
+- `innerReadinessScore` arrives from the client (`computeEnergyState`) which is overwhelmingly check-in driven. Server never recomputes a baseline-only score from wearable + calendar + patterns. There is no `sourceProvenance` on the response.
+- `assertPillCoherence` exists but only warns in dev and auto-corrects silently. No structured discrepancy is surfaced.
+- `generate-mastery-plan` correctly does **not** suppress on `awaitingSignals` (comment confirms it), and reads `briefBehaviour` from the snapshot — that parity work stays as is.
 
-**Q2. Can these replace the proposed new `_shared/behaviour-snapshot.ts`?**
-Reuse, don't replace. `composeDailyContext` produces signals but does not run `evaluateForScope` for `brief` vs `plan`, does not emit `flags_brief / flags_plan / slot_boosts / taxonomy_block / signature_hash`, and does not format the A–H taxonomy block. Behaviour snapshot becomes a **thin layer on top of** the central context, not a parallel producer.
+## Changes
 
-**Q3. Split into morning / afternoon / evening?**
-Yes. The attached spec maps cleanly to the existing `getTimeOfDay()` windows and the standardized-time-windows Core memory (05–12 / 12–18 / 18–05). Intraday HR only matters in the afternoon; JIT gear-shift only matters in the evening — they do not belong in a flat day-wide snapshot.
+### 1. Backend — `compute-outer-readiness/index.ts`
 
----
+1. Rename the cold-start gate to be explicit about "no baseline":
+   - Keep `awaitingSignals` API for backwards compat with cached clients.
+   - Add `briefMode: 'baseline' | 'refined' | 'cold-start'` to the response.
+     - `cold-start` — no wearable, no calendar connected, no check-in.
+     - `baseline` — wearable and/or calendar present, no check-in for today.
+     - `refined` — check-in present (regardless of wearable/calendar).
+   - Add `awaitingReason` enum: `'cold-start-no-context' | null`. Today is already only ever the first value; lock it.
+2. Add a structured `sourceProvenance` block on the response that lists, per surfaced field, which signals contributed:
+   ```ts
+   sourceProvenance: {
+     mrs: { sources: ('wearable'|'calendar'|'pattern'|'ceo-behaviour'|'checkin')[], primary, refinedBy: 'checkin'|null },
+     brief: { sources: [...], briefSource: 'llm'|'deterministic' },
+     pills: { decision_readiness: [...], physical_reserves: [...], resilience_capacity: [...] },
+   }
+   ```
+3. Replace `assertPillCoherence` dev-only warn with a structured `pillCoherence` block on the response: `{ inSync: boolean, adjustments: Array<{ pill, from, to, reason }> }`. Auto-correct still applies; the client decides whether to surface it.
+4. Stop nulling `signalPills`, `pillQualifiers`, `innerReadinessScore*`, etc. when `briefMode === 'baseline'`. Only suppress those fields in `cold-start` mode. The deterministic pill engine already runs from wearable + calendar + patterns; we should expose its output even when check-in is missing.
+5. Compute and surface a `baselineReadinessScore` derived from `physComposite` + `demandScore` (the inputs already exist in this function via `computePhysiologicalComposite` and `computeCalendarDemand`). When check-in is present, keep `innerReadinessScore` as the refined value and add `baselineReadinessScore` as the parallel "pre-refiner" number with `refinedContribution = score - baseline`.
 
-## Target architecture (one producer, two layers, three windows)
+### 2. Backend — `_shared/signal-engine`
 
-```text
-                     composeDailyContext(user, localDate)
-                                  │
-                  ┌───────────────┴───────────────┐
-                  ▼                               ▼
-        daily_context_snapshot         windowed context (in-memory)
-        (signals + patterns +                     │
-         demand + strategic)            ┌────────┼─────────┐
-                  │                     ▼        ▼         ▼
-                  │              morning-ctx  afternoon  evening
-                  │                     │        │         │
-                  └────────────┬────────┴────────┴─────────┘
-                               ▼
-                    buildBehaviourSnapshot()
-            (evaluateForScope × {brief, plan} + taxonomy block)
-                               │
-            ┌──────────────────┼──────────────────┐
-            ▼                  ▼                  ▼
-          Brief             Nudges              Plan
-```
+- `divergence-flag.ts`: no behaviour change; export a `divergenceProvenance(input)` helper that returns which dimensions actually contributed (used by `sourceProvenance.mrs`).
+- `checkin-pattern-aggregator.ts`: extend `assertPillCoherence` to return `{ corrected, adjustments }` instead of throwing/warning.
+- `build-daily-context.ts`: no change to logic; orchestrator already null-safe.
+- `window-context.ts`: no change — already the SSOT consumed by the Brief.
 
-Everything that touches the LLM (Brief, Nudges, Plan) reads from the same `(daily_context_snapshot, window_context, behaviour_snapshot)` triple. Future signal changes land in `_shared/signal-engine/*` only.
+### 3. Backend — `_shared/load-brief-behaviour-snapshot.ts`, `brief-prompt-version.ts`, `behaviour-snapshot.ts`, `behaviour-wiring.ts`, `brief-validators.ts`
 
----
+- No structural change. Bump `BRIEF_PROMPT_VERSION` because the response shape grows new fields (`briefMode`, `sourceProvenance`, `pillCoherence`, `baselineReadinessScore`). The signature-hash + loader already handle the version bump cleanly.
 
-## File plan
+### 4. Backend — `generate-mastery-plan/index.ts`
 
-### Keep / extend (no duplication)
-- `signal-engine/build-daily-context.ts` — stays as the **only** producer of `daily_context_snapshot`. Already covers HRV bundle, 3-day load, DOW history, demand, pattern signals, strategic context.
-- `signal-engine/context-builder.ts` — keep as predicates (`hasMeaningfulDemand`, `isAppleSleepSource`, `coldStartLabel`).
-- `signal-engine/cognitive-fragmentation.ts` — keep as pure scorer; consumed by afternoon + evening contexts.
-- `signal-engine/day-kind-detector.ts` — already provides `getTimeOfDay`, `getDayContext`, `isLateEvening`. Stays the time-window source of truth.
+- Read `briefMode` from the `outerReadinessCache` / snapshot and stop using `awaitingSignals` as a proxy for "no inputs". Plan should generate in `baseline` and `refined` modes — only skip in `cold-start`.
+- Tag each scored module with `provenance: ('wearable'|'calendar'|'pattern'|'ceo-behaviour'|'checkin')[]` so the Plan UI can render the same source chips as the Brief.
 
-### New (three window files)
-Each is a pure function over `{dailyContext, events, wearable, jit, checkins}`. None re-queries — `composeDailyContext` already fetched everything; window files just **slice and derive**.
+### 5. Client
 
-- `signal-engine/morning-context.ts` — exports `buildMorningContext()`. Fields per your spec: `yesterday_load_score`, `yesterday_had_high_stakes`, `yesterday_had_conflict`, `sleep_hours`, `sleep_quality`, `hrv_overnight`, `rhr_this_morning`, `today_meeting_count`, `today_classified_events`, `today_first_high_stakes`, `veto_risk`, `day_kind`, `conference_day_number`.
-- `signal-engine/afternoon-context.ts` — exports `buildAfternoonContext()`. Fields: `meetings_completed`, `highest_completed_category`, `meetings_remaining`, `highest_remaining_stakes`, `back_to_back_remaining`, `current_hr_vs_resting` (only place intraday HR is read), `decision_leakage_risk`, `jit_events_remaining`, `plan_priority_status`.
-- `signal-engine/evening-context.ts` — exports `buildEveningContext()`. Fields: `today_completed_load`, `body_load_elevated`, `hrv_evening_reading`, `priorities_completed`, `jit_remaining_evening`, `was_travel_day`, `was_conference_day`, `tomorrow_first_high_stakes`, `tomorrow_meeting_count`, `recovery_note`, `charge_residue_evening`. Implements the §3.1 evening JIT gear-shift rule (`mode = 'jit_remaining'` when `jit_remaining_evening = true`).
+- `src/hooks/useOuterReadiness.ts`:
+  - Add `briefMode`, `sourceProvenance`, `pillCoherence`, `baselineReadinessScore` to `OuterReadinessData`.
+  - Treat `briefMode === 'cold-start'` as the only "render skeleton" state. `briefMode === 'baseline'` must paint the brief + pills + score normally.
+  - Kill the `prb-awaiting:` cache path for `baseline` mode (only cache awaiting when cold-start), so a baseline brief never reverts to skeleton across mounts. Bump cache namespace from `prb-cache:` → `prb-cache-v2:` so old `awaitingSignals: true` rows from yesterday are dropped.
+  - `cacheKeyPrefixes` updated; on sign-in we sweep old `prb-cache:` / `prb-awaiting:` keys once.
+- `src/utils/persistentBriefCache.ts`: add v2 keys + the sweep helper.
+- `src/pages/ExecutiveHome.tsx`, `src/components/home/DecisionReadinessBrief.tsx`, `src/components/home/TodayThreePriorities.tsx`, `src/components/home/DailyRitual.tsx`:
+  - Switch the gating `awaitingSignals === true` checks to `briefMode === 'cold-start'`.
+  - Keep displaying `phrase / bodyText / pills / score` whenever `briefMode !== 'cold-start'`.
+- `src/components/CheckInVisibilityGuard.tsx`: no change (visibility-only).
 
-### New (behaviour layer, single file)
-- `_shared/behaviour-snapshot.ts` — `buildBehaviourSnapshot(dailyContext, windowContext)`. Calls `evaluateForScope` once for `scope="brief"` and once for `scope="plan"` against an identical `RuleContext` built from the central context. Returns `{flags_brief, flags_plan, slot_boosts, taxonomy_block, signature_hash}`. Does **not** refetch and does **not** duplicate signal logic.
+### 6. Tests
 
-### Types
-- `signal-engine/types.ts` — add `MorningContext`, `AfternoonContext`, `EveningContext`, `WindowContext = MorningContext | AfternoonContext | EveningContext`, and `BehaviourSnapshot`.
+Add under `supabase/functions/_shared/`:
 
-### Consumer wiring (3 small edits, no logic moved)
-- `compute-outer-readiness/index.ts` — call `composeDailyContext` → `build{Morning|Afternoon|Evening}Context` (based on `getTimeOfDay`) → `buildBehaviourSnapshot`. Pass the triple into the existing brief prompt builder.
-- `generate-mastery-plan/index.ts` — same triple; read `slot_boosts` from `behaviour_snapshot` instead of recomputing.
-- `smart-nudges/index.ts` — same triple.
+- `signal-engine/divergence-flag.test.ts` — provenance helper.
+- `signal-engine/checkin-pattern-aggregator.test.ts` — pillCoherence adjustment payload.
+- `compute-outer-readiness.contract.test.ts` (new lightweight contract test using fixture rows): asserts
+  - **baseline-only Brief**: wearable + calendar, no check-in → `briefMode: 'baseline'`, phrase + body + pills + score all populated, `sourceProvenance.mrs.refinedBy === null`.
+  - **check-in refiner**: baseline + check-in → `briefMode: 'refined'`, `baselineReadinessScore` still present, `refinedContribution !== 0`.
+  - **cold-start regression**: no signals → `briefMode: 'cold-start'`, pills/score null, prior gating preserved.
+  - **pill ↔ MRS coherence**: MRS Depleted + all-green pills → adjustment surfaced.
+- `_shared/load-brief-behaviour-snapshot.test.ts` — extend to cover the new `briefMode` field round-trip.
 
-### Out of scope (do not touch)
-LLM prompts, MRS v3 scoring, Signal Pill renderers, cold-start gate, wearable contracts, the 16 CEO rule bodies, A–H taxonomy data, RLS, migrations. This is a **structural refactor** of where context is built, not a semantic change.
+## Technical details
 
----
+- `sourceProvenance.mrs.primary` is the highest-weighted input that actually had a value (wearable > calendar > pattern > ceo-behaviour > checkin). `refinedBy` is `'checkin'` when a check-in row exists for today, else `null`.
+- `baselineReadinessScore` is computed only from wearable composite + calendar demand + pattern signals (no Mind dims), so it is stable even when the user has not checked in.
+- Cache namespace bump (`prb-cache-v2:`) is the single mechanism for invalidating any client that has a stale "awaiting" payload from the previous shape — no in-app migration code needed.
+- `BRIEF_PROMPT_VERSION` bump invalidates persisted `brief_snapshots` rows for the new contract — the loader already disambiguates by version.
 
-## Brief ↔ Plan coherence (now a free outcome)
+## Out of scope
 
-Because Brief and Plan now read the **same** `behaviour_snapshot` row built from the **same** `daily_context_snapshot` and **same** window context, the previous drift (Brief naming an event the Plan ignored) is eliminated structurally. The `validateBriefPlanCoherence` validator from the prior plan becomes a guard rail, not a fix.
+- No DB schema changes.
+- No changes to inner-readiness scoring math (Mind dims keep their weights — we just expose baseline alongside).
+- No changes to Smart Nudges shape beyond reading `briefMode` (already reads the snapshot).
 
----
+## Verification
 
-## Migration order
-1. Add three window-context files + types (pure functions, no DB writes).
-2. Add `behaviour-snapshot.ts` consuming them.
-3. Wire `compute-outer-readiness` (Brief) first; verify parity vs current output via `brief_snapshots.input_signature`.
-4. Wire `smart-nudges`, then `generate-mastery-plan`.
-5. Update docs: `PERFORMANCE_READINESS_BRIEF_LOGIC.md`, `PROACTIVE_MASTERY_PLAN_LOGIC.md`, `SMART_NUDGES_ARCHITECTURE.md`. Update memories `architecture/signal-engine/build-daily-context-orchestrator` and add new `architecture/signal-engine/window-context-split`.
-
-No new tables. No schema changes. No prompt edits.
+- `bunx vitest run supabase/functions/_shared` — new + existing tests pass.
+- Hand-test in preview with a user that has wearable but no check-in: Brief, pills, MRS, Plan all render.
+- Force `cold-start` by clearing wearable + calendar + check-in: skeletons render as before.

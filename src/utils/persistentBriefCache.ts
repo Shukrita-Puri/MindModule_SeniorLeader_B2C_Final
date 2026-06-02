@@ -111,15 +111,20 @@ export function msUntilMidnight(now: Date = new Date()): number {
 /** Cache-key builders — keep all key shapes in one place. */
 export const cacheKeys = {
   brief: (userId: string, period: string, dateISO: string) =>
-    `prb-cache:${userId}:${period}:${dateISO}`,
+    // v2 namespace bump — old `prb-cache:` rows may carry the pre-baseline
+    // contract that stored `awaitingSignals: true` instead of a real brief
+    // in baseline mode. Bumping namespace invalidates them safely without
+    // an in-app migration. `cacheKeyPrefixes` keeps the old prefix listed
+    // so sign-out still sweeps it.
+    `prb-cache-v2:${userId}:${period}:${dateISO}`,
   /**
    * Per-window cache for the *awaiting signals* gating decision (no
-   * check-in AND no fresh wearable). We persist this so a no-signal user
-   * doesn't re-hit `compute-outer-readiness` on every mount / focus /
-   * iOS foreground. TTL is bound to the end of the current time window.
+   * baseline AND no check-in — i.e. briefMode === 'cold-start'). Baseline
+   * mode must never be cached as "awaiting" — that was the regression that
+   * made the brief look check-in-gated.
    */
   briefAwaiting: (userId: string, period: string, dateISO: string) =>
-    `prb-awaiting:${userId}:${period}:${dateISO}`,
+    `prb-awaiting-v2:${userId}:${period}:${dateISO}`,
   planData: (dateISO: string, period: string) =>
     `plan-data-${dateISO}-${period}`,
   planLoaded: (dateISO: string, period: string) =>
@@ -175,6 +180,8 @@ export function currentPeriod(now: Date = new Date()): 'morning' | 'afternoon' |
 
 /** Prefixes used by `clearByPrefixes` on sign-out. */
 export const cacheKeyPrefixes = [
+  'prb-cache-v2:',
+  'prb-awaiting-v2:',
   'prb-cache:',
   'prb-awaiting:',
   'plan-data-',

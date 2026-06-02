@@ -406,15 +406,36 @@ export function computeWearableBaselines(rows: WearableRow[]): WearableBaselines
  *  • MRS = Optimal but a pill is RED → upgrade RED → AMBER.
  * Returns the (possibly mutated) pills array + a warning string when a
  * correction fired (caller logs only in non-prod).
+ *
+ * v2 — also returns a structured `adjustments` array so callers can
+ * surface the discrepancy on the wire (the previous warning string is
+ * kept for backwards compat with consumers that only logged it).
  */
+export interface CoherenceAdjustment {
+  pill: string;
+  from: 'green' | 'amber' | 'red' | 'neutral';
+  to:   'green' | 'amber' | 'red' | 'neutral';
+  reason:
+    | 'mrs_depleted_no_red'
+    | 'mrs_optimal_with_red';
+}
+
 export function assertPillCoherence(
   mrsTier: string | null | undefined,
   pills: CoherencePill[]
-): { pills: CoherencePill[]; warning: string | null } {
-  if (!mrsTier || pills.length === 0) return { pills, warning: null };
+): {
+  pills: CoherencePill[];
+  warning: string | null;
+  inSync: boolean;
+  adjustments: CoherenceAdjustment[];
+} {
+  if (!mrsTier || pills.length === 0) {
+    return { pills, warning: null, inSync: true, adjustments: [] };
+  }
   const tier = String(mrsTier).toLowerCase();
   const out = pills.map((p) => ({ ...p }));
   let warning: string | null = null;
+  const adjustments: CoherenceAdjustment[] = [];
 
   const reds = out.filter((p) => p.tier === 'red');
   const ambers = out.filter((p) => p.tier === 'amber');
@@ -423,12 +444,31 @@ export function assertPillCoherence(
     const target = ambers[0] ?? out.find((p) => p.tier !== 'neutral');
     if (target) {
       warning = `coherence_fix: MRS=depleted but no RED pill — escalated ${target.key} (${target.tier}→red)`;
+      adjustments.push({
+        pill: String(target.key),
+        from: target.tier as CoherenceAdjustment['from'],
+        to: 'red',
+        reason: 'mrs_depleted_no_red',
+      });
       target.tier = 'red';
     }
   } else if (tier === 'optimal' && reds.length > 0) {
     warning = `coherence_fix: MRS=optimal with RED pills — downgraded ${reds.map((r) => r.key).join(',')} (red→amber)`;
-    for (const r of reds) r.tier = 'amber';
+    for (const r of reds) {
+      adjustments.push({
+        pill: String(r.key),
+        from: 'red',
+        to: 'amber',
+        reason: 'mrs_optimal_with_red',
+      });
+      r.tier = 'amber';
+    }
   }
 
-  return { pills: out, warning };
+  return {
+    pills: out,
+    warning,
+    inSync: adjustments.length === 0,
+    adjustments,
+  };
 }

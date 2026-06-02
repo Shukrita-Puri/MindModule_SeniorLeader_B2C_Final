@@ -542,7 +542,13 @@ const TodayThreePriorities = ({
       // Plan card renders the same quiet "Begin with your check-in"
       // prompt as the Brief. Server-side gate in generate-mastery-plan
       // enforces the same contract for any direct/edge caller.
-      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      // briefMode is the canonical gate. Only true cold-start (no
+      // wearable, no calendar, no check-in) suppresses Plan generation.
+      const briefMode = (outerReadinessData as any)?.briefMode as
+        | 'cold-start' | 'baseline' | 'refined' | undefined;
+      const briefAwaiting = briefMode
+        ? briefMode === 'cold-start'
+        : outerReadinessData?.awaitingSignals === true;
       const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
       if (briefAwaiting && !todayCheckin && !wearableFresh) {
         setAwaitingSignals(true);

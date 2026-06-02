@@ -105,3 +105,44 @@ function rhrComponent(trend: RhrTrend | null): number | null {
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
+
+// ─── Source provenance ───────────────────────────────────────────────────
+
+/**
+ * Returns which MRS input dimensions actually contributed to the score.
+ * Used by compute-outer-readiness to surface `sourceProvenance.mrs` on
+ * the wire so the client can render audit chips beside the score.
+ *
+ * Wearable is recorded when the physiological composite is non-null.
+ * Calendar is recorded when a demand score is present (any value, even 0,
+ * is a real reading once calendar is connected — the caller decides
+ * whether to pass a null demandScore in cold-start).
+ */
+export type MrsSource = 'wearable' | 'calendar' | 'pattern' | 'ceo-behaviour' | 'checkin';
+
+export interface DivergenceProvenanceInput extends DivergenceInput {
+  hasPatternSignal?: boolean;
+  hasCeoBehaviour?: boolean;
+  hasCheckin?: boolean;
+}
+
+export function divergenceProvenance(input: DivergenceProvenanceInput): {
+  sources: MrsSource[];
+  primary: MrsSource | null;
+  refinedBy: 'checkin' | null;
+} {
+  const sources: MrsSource[] = [];
+  if (input.physComposite != null) sources.push('wearable');
+  if (input.demandScore != null) sources.push('calendar');
+  if (input.hasPatternSignal) sources.push('pattern');
+  if (input.hasCeoBehaviour) sources.push('ceo-behaviour');
+  if (input.hasCheckin) sources.push('checkin');
+  // Highest-weighted available input wins.
+  const order: MrsSource[] = ['wearable', 'calendar', 'pattern', 'ceo-behaviour', 'checkin'];
+  const primary = order.find((s) => sources.includes(s)) ?? null;
+  return {
+    sources,
+    primary,
+    refinedBy: input.hasCheckin ? 'checkin' : null,
+  };
+}
