@@ -1339,8 +1339,7 @@ function ExecutivePillCapsule({
   const glossaryEntry = glossary[pill.id];
   return (
     <div className="flex flex-col w-full">
-      <PillTooltip pill={serverPill}>
-        <button
+      <button
         type="button"
         onClick={onToggle}
         className={cn(
@@ -1378,8 +1377,7 @@ function ExecutivePillCapsule({
             expanded && 'rotate-180'
           )}
         />
-        </button>
-      </PillTooltip>
+      </button>
 
       {/* Glass Box (top = wearable, bottom = self-declared) */}
       <div
@@ -1398,44 +1396,8 @@ function ExecutivePillCapsule({
               className="absolute top-2 right-2"
             />
           )}
-          {/* Top: wearable */}
-          <div className="space-y-1 pr-7">
-            {pill.topLines.length > 0 ? (
-              pill.topLines.map((line, i) => (
-                <div key={`t-${i}`} className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
-                  {line.qualifier && (
-                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground/55 font-body italic">
-                {pill.topEmptyText || 'No wearable reading'}
-              </span>
-            )}
-          </div>
-
-          {/* Subtle gradient hairline divider */}
-          <div className="my-2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-          {/* Bottom: self-declared */}
-          <div className="space-y-1">
-            {pill.bottomLines.length > 0 ? (
-              pill.bottomLines.map((line, i) => (
-                <div key={`b-${i}`} className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground/85 font-body">{line.text}</span>
-                  {line.qualifier && (
-                    <span className="text-xs text-muted-foreground/65 font-body italic">{line.qualifier}</span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground/55 font-body italic">
-                {pill.bottomEmptyText || 'No self-declared reading'}
-              </span>
-            )}
-          </div>
+          {/* Inline tier reason + Qualifiers + Contributors (was HoverCard popover) */}
+          <PillDetailContent pill={serverPill} />
         </div>
       </div>
     </div>
