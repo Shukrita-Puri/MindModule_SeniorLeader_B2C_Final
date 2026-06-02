@@ -4436,6 +4436,23 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
     let echoedSignalPills: any[] | null = null;
     let echoedPillQualifiers: any = null;
     let echoedCoherenceWarning: string | null = null;
+    // MRS v3 §baseline-of-truth — structured pill↔MRS coherence + source
+    // provenance + baseline-only score (computed inside the pill engine
+    // block when wearable/calendar inputs are in-hand).
+    let echoedPillCoherence: {
+      inSync: boolean;
+      adjustments: CoherenceAdjustment[];
+    } = { inSync: true, adjustments: [] };
+    let echoedBaselineScore: number | null = null;
+    let echoedProvenance: {
+      mrs: { sources: MrsSource[]; primary: MrsSource | null; refinedBy: 'checkin' | null };
+      brief: { sources: MrsSource[]; briefSource: 'llm' | 'deterministic' };
+      pills: {
+        decision_readiness: MrsSource[];
+        physical_reserves: MrsSource[];
+        resilience_capacity: MrsSource[];
+      };
+    } | null = null;
 
     if (!cachedSnapshot && inputSignature !== 'no-sig' && !awaitingSignals) {
       try {
