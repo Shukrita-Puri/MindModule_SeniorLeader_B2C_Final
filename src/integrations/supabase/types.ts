@@ -4477,6 +4477,7 @@ export type Database = {
           last_location_at: string | null
           last_state_change_at: string
           last_timezone_change_at: string | null
+          location_permission_status: string | null
           meta: Json
           state: string
           updated_at: string
@@ -4492,6 +4493,7 @@ export type Database = {
           last_location_at?: string | null
           last_state_change_at?: string
           last_timezone_change_at?: string | null
+          location_permission_status?: string | null
           meta?: Json
           state?: string
           updated_at?: string
@@ -4507,6 +4509,7 @@ export type Database = {
           last_location_at?: string | null
           last_state_change_at?: string
           last_timezone_change_at?: string | null
+          location_permission_status?: string | null
           meta?: Json
           state?: string
           updated_at?: string

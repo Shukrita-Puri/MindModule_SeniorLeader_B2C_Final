@@ -115,6 +115,9 @@ Deno.serve(async (req) => {
     const accuracy_m = typeof body.accuracy_m === "number" ? body.accuracy_m : null;
     const tz = typeof body.timezone === "string" ? body.timezone : null;
     const source = typeof body.source === "string" ? body.source : "ios-significant";
+    const permission_status = typeof body.permission_status === "string"
+      ? body.permission_status
+      : null;
     const captured_at = typeof body.captured_at === "string"
       ? body.captured_at
       : new Date().toISOString();
@@ -187,6 +190,7 @@ Deno.serve(async (req) => {
       last_timezone_change_at: tzChanged ? now : undefined,
       last_state_change_at: stateChanged ? now : undefined,
       distance_from_home_km: distance ?? undefined,
+      location_permission_status: permission_status ?? undefined,
       updated_at: now,
     }, { onConflict: "user_id" });
 
