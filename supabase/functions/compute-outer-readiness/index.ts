@@ -18,6 +18,8 @@ import { resolveStrategicContext } from "../_shared/signal-engine/strategic-cont
 import {
   computeDivergenceFlag,
   computePhysiologicalComposite,
+  divergenceProvenance,
+  type MrsSource,
 } from "../_shared/signal-engine/divergence-flag.ts";
 import { computeRhr3DayTrend } from "../_shared/signal-engine/pattern-engine.ts";
 import {
