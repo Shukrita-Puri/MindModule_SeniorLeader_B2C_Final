@@ -2,6 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+// Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
+// reasoned over instead of re-evaluating rules against a fresh
+// SignalCoverageInput. Falls back to `evaluateForScope` only when no Brief
+// snapshot exists for the current (user, local_date, time_window).
+import {
+  loadBriefBehaviourSnapshot,
+  snapshotToWiring,
+  type TimeWindow as BriefTimeWindow,
+} from "../_shared/load-brief-behaviour-snapshot.ts";
 
 // ── APNs Helper Functions ──
 
