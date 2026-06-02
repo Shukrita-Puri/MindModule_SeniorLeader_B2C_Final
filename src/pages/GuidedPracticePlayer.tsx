@@ -29,6 +29,7 @@ import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
+import PlayerBackground from "@/components/recalibrate/PlayerBackground";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating, markPlanCompleteForFeedback, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
