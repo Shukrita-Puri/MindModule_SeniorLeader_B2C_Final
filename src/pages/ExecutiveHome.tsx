@@ -184,7 +184,11 @@ const ExecutiveHome = () => {
     const briefId = outerBrief?.briefId;
     const phrase = outerBrief?.phrase;
     const body = outerBrief?.bodyText || outerBrief?.context;
-    const isAwaiting = outerBrief?.awaitingSignals === true;
+    const mode = (outerBrief as any)?.briefMode as
+      | 'cold-start' | 'baseline' | 'refined' | undefined;
+    const isAwaiting = mode
+      ? mode === 'cold-start'
+      : outerBrief?.awaitingSignals === true;
     if (
       !isAwaiting &&
       briefId &&
