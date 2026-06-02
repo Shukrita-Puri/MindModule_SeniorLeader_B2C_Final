@@ -425,6 +425,8 @@ export function useOuterReadiness() {
         // current period. We scope by user prefix so we don't disturb other
         // users on a shared device.
         const userPrefixes = [
+          `prb-cache-v2:${effectiveUserId}:`,
+          `prb-awaiting-v2:${effectiveUserId}:`,
           `prb-cache:${effectiveUserId}:`,
           `prb-awaiting:${effectiveUserId}:`,
         ];
