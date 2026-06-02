@@ -319,7 +319,7 @@ const FrontContent = ({ onProvider, isAuthenticated, user }: {
           </div>
 
           <p className="pt-1 text-[11.5px] leading-relaxed text-white/65 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-            Privacy by design. Local-first where possible. End-to-end encrypted.{' '}
+            Privacy by design. Local-first for personal data. End-to-end encrypted.{' '}
             <button
               type="button"
               onClick={() => navigate('/powered-by-ai')}
