@@ -10,6 +10,7 @@ import {
   type BehaviourSnapshotResult,
 } from "../_shared/behaviour-snapshot.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
@@ -49,9 +50,10 @@ const corsHeaders = {
 };
 
 // ==================== BRIEF SNAPSHOT CACHE ====================
-// Bump this constant whenever the brief prompt contract or canonical-output
-// behaviour changes. A bump intentionally invalidates all prior cached briefs.
-const BRIEF_PROMPT_VERSION = 'v6.2-stable-brief-cache';
+// `BRIEF_PROMPT_VERSION` is now imported from the shared module so Plan and
+// Nudges can disambiguate the persisted Brief snapshot using the same value.
+// Bump it in `_shared/brief-prompt-version.ts` — a bump intentionally
+// invalidates all prior cached briefs.
 
 // Stable JSON.stringify with sorted keys so { a:1, b:2 } and { b:2, a:1 } hash identically.
 function stableStringify(value: unknown): string {
@@ -4929,6 +4931,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 flagsPlan: briefBehaviourSnapshot.flagsPlan,
                 slotBoosts: briefBehaviourSnapshot.slotBoosts,
                 taxonomyBlock: briefBehaviourSnapshot.taxonomyBlock,
+                // Pre-formatted CEO behaviour blocks. Persisted so Plan and
+                // Nudges that load the snapshot from the DB (rather than the
+                // same-request inline cache) see the EXACT prompt fragment the
+                // Brief reasoned over. Without this they would re-derive an
+                // empty block and the CEO behaviour context would silently
+                // vanish — the structural Brief↔Plan drift this layer exists
+                // to prevent.
+                promptBlockBrief: briefBehaviourSnapshot.promptBlockBrief,
+                promptBlockPlan: briefBehaviourSnapshot.promptBlockPlan,
               } : null,
               window_context: briefWindowContext ?? null,
             },
