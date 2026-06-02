@@ -192,7 +192,8 @@ import UIKit
             "accuracy_m": loc.horizontalAccuracy,
             "source": source,
             "timezone": TimeZone.current.identifier,
-            "captured_at": ISO8601DateFormatter().string(from: loc.timestamp)
+            "captured_at": ISO8601DateFormatter().string(from: loc.timestamp),
+            "permission_status": currentAuthorizationString()
         ]
         post(body: body, token: token)
     }
@@ -202,7 +203,8 @@ import UIKit
         let body: [String: Any] = [
             "timezone": tz,
             "source": "ios-tz-change",
-            "captured_at": ISO8601DateFormatter().string(from: Date())
+            "captured_at": ISO8601DateFormatter().string(from: Date()),
+            "permission_status": currentAuthorizationString()
         ]
         post(body: body, token: token)
     }
