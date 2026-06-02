@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
+import PlayerBackground from "@/components/recalibrate/PlayerBackground";
 import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
