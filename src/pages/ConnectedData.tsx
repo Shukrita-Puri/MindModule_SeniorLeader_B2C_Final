@@ -1,16 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, MoreVertical, RefreshCw, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import ProviderRowCard from '@/components/connections/ProviderRowCard';
+import parchmentArtBand from '@/assets/onboarding/usp-sunrise-engraved.jpg';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +33,6 @@ import {
 } from '@/utils/integrationQaHelpers';
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
-import { Switch } from '@/components/ui/switch';
 import { useCheckInMode } from '@/hooks/useCheckInMode';
 
 /* ─── Types ─── */
@@ -1239,149 +1231,173 @@ const ConnectedData = () => {
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-background" data-tour="connected-data-content">
-      <UnifiedTopBar hideCoach backPath="/profile" />
+  const calendarIds = new Set(['google-calendar', 'microsoft-calendar', 'apple-calendar']);
+  const calendarConnections = connections.filter((c) => calendarIds.has(c.id));
+  const wearableConnections = connections.filter((c) => !calendarIds.has(c.id));
 
-      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-4">
-        <h1 className="text-[28px] font-headline font-semibold">Connected Data Sources</h1>
+  const renderRow = (conn: (typeof connections)[number]) => (
+    <ProviderRowCard
+      key={conn.id}
+      id={conn.id}
+      name={conn.name}
+      description={conn.description}
+      logo={conn.logo}
+      connected={conn.connected}
+      linked={conn.linked}
+      lastSync={conn.lastSync}
+      statusLabel={conn.statusLabel}
+      statusNote={conn.statusNote}
+      showReconnect={conn.showReconnect}
+      isConnecting={connecting === conn.id}
+      isSyncing={syncing && (conn.connected || conn.linked)}
+      canSync={conn.canSync}
+      onConnect={conn.onConnect}
+      onSync={conn.onSync}
+      onDisconnect={conn.onDisconnect}
+    />
+  );
+
+  return (
+    <div
+      className="min-h-screen bg-[#f5f0e8] text-[#1a1712] pb-[env(safe-area-inset-bottom,0px)]"
+      data-tour="connected-data-content"
+    >
+      {/* Art band header — mirrors onboarding ParchScreen */}
+      <div className="relative h-[180px] overflow-hidden pt-[env(safe-area-inset-top,0px)]">
+        <img
+          src={parchmentArtBand}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-[#f5f0e8]/25" />
+        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-[#f5f0e8] via-[#f5f0e8]/85 to-transparent" />
+        <div className="absolute top-3 left-3 z-10">
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            className="h-9 px-3 rounded-full bg-[#f5f0e8]/80 border border-[#cfc7b8] text-[12px] font-medium text-[#1a1712] hover:bg-[#f5f0e8] transition-colors"
+            aria-label="Back to profile"
+          >
+            ← Back
+          </button>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
+          <div className="text-[9px] tracking-[2.5px] uppercase text-[#7a7060] mb-1">
+            Connections
+          </div>
+          <div className="font-headline text-[22px] leading-[1.2] text-[#1a1712]">
+            Manage your connected data
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-5 pt-2 pb-10 space-y-5">
         {loading ? (
           <EngravedLoader label="Loading connections…" />
         ) : (
-          connections.map((conn) => (
-            <Card key={conn.id}>
-              <CardContent className="py-4 px-5">
-                <div className="flex items-center gap-4">
-                  {/* Brand Logo */}
-                  <div className="shrink-0">{conn.logo}</div>
+          <>
+            <p className="text-xs text-[#7a7060] leading-[1.65]">
+              Connect, reconnect, or disconnect any source. Tap the menu on a connected row to
+              sync now or remove it.
+            </p>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-foreground">{conn.name}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug break-words">{conn.description}</p>
-                    {conn.statusLabel && (
-                      <p className="text-xs text-foreground/80 mt-0.5">{conn.statusLabel}</p>
-                    )}
-                    {conn.connected && conn.lastSync && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
-                    )}
-                    {conn.statusNote && (
-                      <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
-                    )}
-                    {syncing && (conn.id === 'google-calendar' || conn.id === 'microsoft-calendar' || conn.id === 'apple-calendar' || conn.id === 'apple-health' || conn.id === 'oura') && (
-                      <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
-                      </p>
-                    )}
+            {calendarConnections.length > 0 && (
+              <section>
+                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                  Calendar
+                </div>
+                {calendarConnections.map(renderRow)}
+              </section>
+            )}
+
+            {wearableConnections.length > 0 && (
+              <section>
+                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                  Wearable
+                </div>
+                {wearableConnections.map(renderRow)}
+              </section>
+            )}
+
+            {showSelfCheckInToggle && (
+              <section>
+                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                  Preferences
+                </div>
+                <div className="flex items-center justify-between gap-3 p-3.5 rounded-[14px] border border-[#cfc7b8] bg-white mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-[#1a1712]">
+                      Daily self check-ins
+                    </div>
+                    <div className="text-[11px] text-[#7a7060] mt-0.5 leading-[1.45]">
+                      Adds a short morning check-in for a more rounded assessment alongside your
+                      wearable.
+                    </div>
                   </div>
-
-                  {/* Action */}
-                  {conn.connected || conn.linked ? (
-                    (conn.canSync || conn.onDisconnect) ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {conn.canSync && (
-                          <DropdownMenuItem
-                            onClick={conn.onSync}
-                            disabled={syncing}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Sync Now
-                          </DropdownMenuItem>
-                        )}
-                        {conn.onDisconnect && (
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={conn.onDisconnect}
-                          >
-                            Remove
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    ) : null
-                  ) : conn.showReconnect ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={conn.onConnect}
-                      disabled={connecting === conn.id}
-                    >
-                      {connecting === conn.id ? 'Connecting…' : 'Reconnect'}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={conn.onConnect}
-                      disabled={connecting === conn.id}
-                    >
-                      {connecting === conn.id ? 'Connecting…' : 'Connect'}
-                    </Button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSelfCheckIns(!selfCheckInsEnabled)}
+                    disabled={updatingSelfCheckIns}
+                    aria-label="Toggle daily self check-ins"
+                    aria-pressed={selfCheckInsEnabled}
+                    className={`relative w-[46px] h-[26px] rounded-full shrink-0 transition-colors disabled:opacity-50 ${
+                      selfCheckInsEnabled ? 'bg-[#e8714a]' : 'bg-[#e0d9ce]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-[3px] w-5 h-5 rounded-full bg-white shadow transition-all ${
+                        selfCheckInsEnabled ? 'left-[23px]' : 'left-[3px]'
+                      }`}
+                    />
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+              </section>
+            )}
 
-        {/* Daily self check-ins toggle — visible to ALL wearable-connected users so they can toggle either direction. */}
-        {showSelfCheckInToggle && (
-          <Card>
-            <CardContent className="py-4 px-5">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-foreground">Daily self check-ins</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Adds a short morning check-in for a more rounded assessment alongside your wearable.
-                  </p>
+            <div className="flex items-center gap-3 pt-2 text-[11px] text-[#7a7060]">
+              <button
+                type="button"
+                onClick={() => navigate('/privacy')}
+                className="underline underline-offset-2 hover:text-[#1a1712]"
+              >
+                Privacy Policy
+              </button>
+              <span className="text-[#7a7060]/50">·</span>
+              <button
+                type="button"
+                onClick={() => navigate('/terms')}
+                className="underline underline-offset-2 hover:text-[#1a1712]"
+              >
+                Terms of Use
+              </button>
+            </div>
+
+            {isQaDebugEnabled() && (
+              <details className="mt-4 rounded-[14px] border border-[#cfc7b8] bg-white/60 p-3">
+                <summary className="text-[11px] tracking-[1.5px] uppercase text-[#7a7060] cursor-pointer">
+                  QA debug
+                </summary>
+                <div className="mt-3">
+                  <AppleIntegrationsDebugPanel
+                    derived={{
+                      appleHealthLabel: appleHealthState.statusLabel,
+                      appleHealthLastSync: status?.appleWatch?.lastSync ?? null,
+                      appleHealthSyncStatus: status?.appleWatch?.syncStatus ?? null,
+                      appleHealthConnectionStatus: status?.appleWatch?.connectionStatus ?? null,
+                      appleCalendarLabel: appleCalendarConnected
+                        ? 'Connected'
+                        : appleCalendarPermissionDenied
+                        ? 'Permission denied'
+                        : 'Disconnected',
+                      appleCalendarLastSync: appleCalendarLastSync,
+                      appleCalendarPermissionStatus: appleCalendarPermissionStatus,
+                    }}
+                  />
                 </div>
-                <Switch
-                  checked={selfCheckInsEnabled}
-                  disabled={updatingSelfCheckIns}
-                  onCheckedChange={handleToggleSelfCheckIns}
-                  aria-label="Enable daily self check-ins"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Legal Links */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="link"
-            className="text-sm text-muted-foreground px-0"
-            onClick={() => navigate('/privacy')}
-          >
-            Privacy Policy
-          </Button>
-          <span className="text-muted-foreground/40">·</span>
-          <Button
-            variant="link"
-            className="text-sm text-muted-foreground px-0"
-            onClick={() => navigate('/terms')}
-          >
-            Terms of Use
-          </Button>
-        </div>
-
-        {isQaDebugEnabled() && (
-          <AppleIntegrationsDebugPanel
-            derived={{
-              appleHealthLabel: appleHealthState.statusLabel,
-              appleHealthLastSync: status?.appleWatch?.lastSync ?? null,
-              appleHealthSyncStatus: status?.appleWatch?.syncStatus ?? null,
-              appleHealthConnectionStatus: status?.appleWatch?.connectionStatus ?? null,
-              appleCalendarLabel: appleCalendarConnected ? 'Connected' : (appleCalendarPermissionDenied ? 'Permission denied' : 'Disconnected'),
-              appleCalendarLastSync: appleCalendarLastSync,
-              appleCalendarPermissionStatus: appleCalendarPermissionStatus,
-            }}
-          />
+              </details>
+            )}
+          </>
         )}
       </div>
     </div>

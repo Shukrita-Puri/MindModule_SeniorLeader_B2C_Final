@@ -1,59 +1,67 @@
 ## Goal
 
-In the expanded glass-box card for **Decision Readiness**, **Physical Reserves**, and **Resilience Capacity** pills, stop showing **Qualifiers** as a separate section. Instead, render each qualifier (a.k.a. "pattern") inline next to its matching **Contributor**, styled grey, italic, in brackets. Also bump the Contributor font size to iOS-native body sizing.
+Make `/connected-data` look and feel like `/onboarding/permissions` (parchment shell, art band, serif title, rounded provider cards with logo + name + note), while preserving all current behaviour — including connect, reconnect, disconnect, manual sync, last-synced timestamps, status pills, and the self-check-ins toggle.
 
-Display-only change. No backend, no scoring, no server payload changes. MRS v3 contract is preserved.
+No backend, edge function, or service changes. UI/presentation only.
 
 ## Scope
 
-Single file: `src/components/home/PillTooltip.tsx` (the `PillDetailContent` component used by the three pillar pills in `DecisionReadinessBrief.tsx`).
+In:
+- `src/pages/ConnectedData.tsx` — replace the current `UnifiedTopBar` + dark-card layout with the parchment shell and provider-card style used by onboarding. Keep all existing state, handlers, OAuth callback logic, debug panel, and Auth0/Supabase calls untouched.
+- `src/components/connections/ProviderRowCard.tsx` (new) — shared parchment-styled provider row used by `/connected-data`. Includes logo + name + note (left), status pill + last-synced + action menu (right).
 
-Out of scope: server payload, signal pill order, tier logic, the front-of-pill qualifier already appended by `DecisionReadinessBrief.tsx` (Signal Pills v3 bracketed enrichment) — that stays untouched.
+Out:
+- `StagePermissions.tsx`, `ConnectionsPanel.tsx`, `CalendarProviderPicker`, `WearableProviderPicker`, `StageConnections.tsx` — untouched. Onboarding keeps its existing surfaces.
+- Edge functions, sync services, RLS, hooks, telemetry.
 
-## Changes
+## Visual spec (mirrors StagePermissions)
 
-1. **Merge Qualifiers into Contributors**
-   - Remove the dedicated "Qualifiers" block (lines 93–107).
-   - Keep one section labelled **Contributors**.
+- Outer shell: reuse `ParchScreen` from `src/pages/onboarding/stages/v8/ShellV8.tsx`. Because `ParchScreen` is `fixed inset-0`, on `/connected-data` we keep app chrome by NOT importing `ParchScreen` directly. Instead, replicate its visual tokens locally in `ConnectedData.tsx`:
+  - Page background `bg-[#f5f0e8]`, body text `text-[#1a1712]`.
+  - Top art band (`usp-sunrise-engraved.jpg`, h-[140px], parchment scrim) with step label `CONNECTIONS` and serif title `Manage your connected data`.
+  - Body content in `px-5 py-4` with `space-y-5`.
+  - Section headers: `text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium` (e.g. `Calendar`, `Wearable`, `Preferences`).
+- Provider row (`ProviderRowCard`):
+  - Container: `flex items-center justify-between gap-3 p-3.5 rounded-[14px] border mb-2 transition-colors`. Border/bg by state:
+    - connected → `border-[#1a1712]/35 bg-[#1a1712]/[0.04]`
+    - needs-reconnect → `border-[#e8714a]/50 bg-[#e8714a]/[0.04]`
+    - disconnected → `border-[#cfc7b8] bg-white`
+  - Left: 36×36 logo `rounded-[10px] bg-white p-1 border border-[#cfc7b8]`. Title `text-[13px] font-medium text-[#1a1712]`. Subtitle `text-[11px] text-[#7a7060]` showing either the provider note (when disconnected) or `Last synced {relative}` (when connected). Tiny `text-[10px] text-[#e8714a]` line below when reconnect is needed or there's an error.
+  - Right: primary action button + overflow menu.
+    - Disconnected: parchment outline button `Connect` (`px-3 h-8 rounded-full border border-[#1a1712]/35 text-[12px] font-medium text-[#1a1712] hover:bg-[#1a1712]/[0.06]`). Shows `Connecting…` spinner when busy.
+    - Connected: small icon `Sync` button (refresh icon, same outline pill style). Tap → existing manual-sync handler. While syncing, spin and disable.
+    - Connected/error: overflow `MoreVertical` opens the existing `DropdownMenu` with `Sync now`, `Reconnect`, `Disconnect`. Coral `Reconnect` highlight when `needsReconnect`.
+- Self-check-ins toggle: parchment card identical to onboarding rows, with the `Switch` replaced by the same coral pill toggle used in `StagePermissions` for visual consistency. Reuses the existing `handleToggleSelfCheckIns` handler.
+- Debug panel (`AppleIntegrationsDebugPanel`) and QA helpers: keep mounted, just place them inside a collapsible `details` block at the bottom of the body so they don't break the aesthetic.
 
-2. **Inline pattern per contributor**
-   - For each `[k, v]` in flattened contributors, look up a matching entry in `qualifiers` using:
-     - exact key match (`qualifiers[k]`), then
-     - case-insensitive substring match between contributor key and qualifier dim (e.g. contributor `sleep_hours` ↔ qualifier dim `sleep`).
-   - If matched, render `(<qualifier summary>)` immediately after the value, styled `text-muted-foreground/70 italic font-body`.
-   - Any qualifier dim that does not map to a contributor is appended as its own row at the bottom of the Contributors list, with the dim name as the label and the summary as the bracketed italic pattern — so no pattern data is lost.
+## Behaviour preserved
 
-3. **iOS-native font sizing**
-   - Contributor rows: `text-[15px]` (≈ iOS body 15pt, comfortable on a 320–390 dp screen, matches Apple HIG body minimum for dense lists).
-   - Contributor key label: same size, `text-muted-foreground`.
-   - Bracketed qualifier: `text-[13px]` (iOS footnote), grey italic, in `()`. Slightly smaller to keep visual hierarchy while still meeting HIG legibility.
-   - Section header "Contributors" bumped from `text-[10px]` to `text-[11px]` uppercase to stay proportionate.
-   - Switch the contributors list off `grid-cols-2` to a single-column stack (`space-y-1`) so the inline pattern can sit on the same line without truncation, and `truncate` is dropped.
+- All handlers stay: `triggerCalendarSync`, `syncHealthKitToBackend`, `startOuraOAuth`, `triggerOuraSync`, `requestHealthKitPermissions`, `verifyHealthKitAccess`, `disconnectAppleHealthFromBackend`, Apple Calendar permission flow, `forceNativeCalendarSync`, OAuth callback handling, online-retry of pending disconnects, app-resume refresh.
+- Status source unchanged (`check-connections-status`). Last-synced uses `formatDistanceToNowStrict(parseISO(lastSync), { addSuffix: true })` with a tooltip showing `format(..., 'PP p')`.
+- Toast notifications, error states, and the `self_check_ins_enabled` update logic are unchanged.
 
-4. **Spacing**
-   - Bump row gap (`gap-y-0.5` → `gap-y-1`) and section top padding (`pt-2` → `pt-3`) to keep the larger type breathing.
+## Files touched
 
-## Example rendered row
-
-```text
-Sleep: 6h 12m  (below your 7d median · unusual for you)
-HRV: 48ms     (1st day low · below baseline)
-RHR: 62bpm    (above 30d median)
+```
+src/components/connections/ProviderRowCard.tsx   (new, presentational only)
+src/pages/ConnectedData.tsx                       (refactor render layer; no logic changes)
 ```
 
-The text outside the parentheses is the Contributor (key + value, foreground colour, 15px). The text in parentheses is the pattern (grey, italic, 13px).
+## Out of scope / non-goals
 
-## Technical notes
+- No edge function or DB changes.
+- No change to onboarding flow.
+- No change to `ConnectionsPanel` (still used by onboarding StageConnections).
+- No change to provider picker components.
 
-- `flattenContributors` and `flattenQualifiers` keep their existing shapes; only the render and matching logic change.
-- The bracketed qualifier already shown on the front of the pill (set in `DecisionReadinessBrief.tsx` around lines 1142–1199) is unrelated to this card body and remains as-is.
-- No new dependencies. No design-token changes; colours come from existing semantic tokens (`muted-foreground`, `foreground`).
+## Validation
 
-## QA
-
-- Open Home → tap each of Decision Readiness, Physical Reserves, Resilience Capacity → confirm:
-  - No separate "Qualifiers" header.
-  - Each contributor that has a matching pattern shows it inline as grey italic in brackets.
-  - Orphan qualifier dims (if any) appear as their own rows at the bottom, still bracketed.
-  - Contributor text reads comfortably on iPhone SE / 14 / 15 Pro Max viewports.
-- Run TypeScript build — no signature changes, should pass.
+- TS compiles.
+- Manually verify on `/connected-data`:
+  - First load: parchment background, art band, serif title, section headers, provider rows.
+  - Connected row shows last-synced relative time + `Sync now` works (spinner state, toast).
+  - Disconnect → row flips to white/disconnected state with `Connect` CTA.
+  - Reconnect-needed state renders coral border + `Reconnect` action highlighted.
+  - Self-check-ins toggle persists across reload.
+  - OAuth callback (`?calendar_connected=true`) still runs post-connect sync.
+  - Debug panel still accessible behind `Details`.
