@@ -18,7 +18,6 @@ import SidebarDiscoveryPulse from "@/components/navigation/SidebarDiscoveryPulse
 
 import TodayStateCard from "@/components/home/TodayStateCard"; // kept in codebase
 import PerformanceReadinessBrief from "@/components/home/DecisionReadinessBrief";
-import TodayStepper from "@/components/today/TodayStepper";
 import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
@@ -262,8 +261,6 @@ const ExecutiveHome = () => {
 
           {/* All sections stacked on one page */}
           <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
-
-            <TodayStepper current={2} nextHint={briefCtaReady ? 3 : undefined} />
 
             {/* Swipeable 3-page home: MRS · Brief · Plan */}
             <h1 className="sr-only">{getGreeting()}</h1>
