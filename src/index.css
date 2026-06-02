@@ -729,3 +729,7 @@ body {
   animation: nudge-highlight-pulse 2.5s ease-in-out;
   border-radius: 12px;
 }
+
+/* Hide scrollbar utility for swipeable horizontal scrollers */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
