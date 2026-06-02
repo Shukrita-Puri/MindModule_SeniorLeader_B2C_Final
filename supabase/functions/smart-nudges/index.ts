@@ -11,6 +11,7 @@ import {
   snapshotToWiring,
   type TimeWindow as BriefTimeWindow,
 } from "../_shared/load-brief-behaviour-snapshot.ts";
+import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 
 // ── APNs Helper Functions ──
 
@@ -914,6 +915,9 @@ async function buildNudgeContext(
     userId,
     todayStr,
     briefWindow,
+    // Disambiguate by current Brief prompt-version so stale prior-version
+    // rows in the same window cannot win the "latest" ordering.
+    { promptVersion: BRIEF_PROMPT_VERSION },
   );
   const briefBehaviour = loadedSnap
     ? {
