@@ -2314,6 +2314,93 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   }
 
   console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
+
+  // ── Brief behaviour snapshot (Brief↔Plan parity, canonical) ──
+  // Priority order:
+  //   1. outerReadinessCache.behaviourSnapshot (inline from same-request brief)
+  //   2. brief_snapshots.payload_json.behaviour_snapshot (latest row for this
+  //      user/local_date/time_window)
+  //   3. local fallback via buildBehaviourSnapshot — only when the Brief has
+  //      not been written yet for the current window. Logged so drift is
+  //      visible in production.
+  try {
+    const inlineSnap = (outerReadinessCache as any)?.behaviourSnapshot ?? null;
+    if (inlineSnap && Array.isArray(inlineSnap.flagsPlan)) {
+      ctx.briefBehaviour = inlineSnap as PersistedBriefBehaviourSnapshot;
+      ctx.briefBehaviourSource = 'outer_readiness_cache';
+    } else {
+      const localDateForLookup = req.localDate || today;
+      const loaded = await loadBriefBehaviourSnapshot(
+        supabaseClient,
+        req.userId,
+        localDateForLookup,
+        timeOfDay,
+      );
+      if (loaded) {
+        ctx.briefBehaviour = loaded;
+        ctx.briefBehaviourSource = 'brief_snapshot';
+      } else {
+        // Last-resort local rebuild. Same shared module the Brief uses, so
+        // the rules / taxonomy / slot boosts stay canonical even when no
+        // Brief row exists yet for this window.
+        const w = req.wearableContext;
+        const wearableForCtx = w?.hasData
+          ? {
+              hrvDeviationPct: w.hrvDeviation ?? null,
+              sleepHours: null as number | null,
+              sleepDeviationPct: null as number | null,
+              rhrDeviationPct: null as number | null,
+            }
+          : null;
+        const planEvents = (req.calendarEvents || [])
+          .filter((e: any) => e?.title && e?.startTime)
+          .map((e: any) => ({
+            title: e.title as string,
+            startTime: e.startTime as string,
+            endTime: e.endTime ?? null,
+            stakesLevel: null as string | null,
+          }));
+        const fallback = buildBehaviourSnapshot({
+          coverage: {
+            wearable: wearableForCtx,
+            checkIn: {
+              emotionalSelfDeclared: req.checkInOutcome ?? null,
+              mentalSharpness: null,
+              confidence: req.confidenceLevel ?? null,
+              clarity: req.clarityLevel ?? null,
+            },
+            scoreToday: req.innerReadinessScore ?? null,
+            scoreYesterday: null,
+            trailingClarityAvg: null,
+            timezone: {
+              offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
+              shift48hHours: null,
+              travelDay: false,
+            },
+            events: planEvents,
+            now,
+          },
+          extras: { dayOfWeek: now.getDay() },
+        });
+        ctx.briefBehaviour = {
+          signatureHash: fallback.signatureHash,
+          flagsBrief: fallback.flagsBrief,
+          flagsPlan: fallback.flagsPlan,
+          slotBoosts: fallback.slotBoosts,
+          taxonomyBlock: fallback.taxonomyBlock,
+          promptBlockBrief: fallback.promptBlockBrief,
+          promptBlockPlan: fallback.promptBlockPlan,
+        };
+        ctx.briefBehaviourSource = 'local_fallback';
+      }
+    }
+    console.log(
+      `[buildSharedContext] briefBehaviour source=${ctx.briefBehaviourSource} sig=${ctx.briefBehaviour?.signatureHash ?? 'none'} flagsBrief=${ctx.briefBehaviour?.flagsBrief.length ?? 0} flagsPlan=${ctx.briefBehaviour?.flagsPlan.length ?? 0} boosts=${ctx.briefBehaviour?.slotBoosts.length ?? 0} anchors=${briefAnchorEventTitles(ctx.briefBehaviour).join('|') || 'none'}`,
+    );
+  } catch (e) {
+    console.warn('[buildSharedContext] briefBehaviour load failed:', (e as any)?.message || e);
+  }
+
   return ctx;
 }
 
