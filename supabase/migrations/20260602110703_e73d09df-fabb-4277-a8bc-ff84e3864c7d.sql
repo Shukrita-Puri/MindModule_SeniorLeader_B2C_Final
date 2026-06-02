@@ -1,0 +1,1 @@
+ALTER TABLE public.travel_state ADD COLUMN IF NOT EXISTS location_permission_status text;
