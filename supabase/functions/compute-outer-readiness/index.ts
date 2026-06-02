@@ -5140,6 +5140,20 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       signalPills: awaitingSignals ? null : echoedSignalPills,
       pillQualifiers: awaitingSignals ? null : echoedPillQualifiers,
       coherenceWarning: echoedCoherenceWarning,
+      // Surface the deterministic shared-module snapshot the Brief reasoned
+      // over so a same-request handoff to `generate-mastery-plan` (passed via
+      // `outerReadinessCache.behaviourSnapshot`) avoids a second DB read.
+      // Schema mirrors what we persist on brief_snapshots.payload_json.behaviour_snapshot
+      // — see _shared/load-brief-behaviour-snapshot.ts for the consumer contract.
+      behaviourSnapshot: briefBehaviourSnapshot ? {
+        signatureHash: briefBehaviourSnapshot.signatureHash,
+        flagsBrief: briefBehaviourSnapshot.flagsBrief,
+        flagsPlan: briefBehaviourSnapshot.flagsPlan,
+        slotBoosts: briefBehaviourSnapshot.slotBoosts,
+        taxonomyBlock: briefBehaviourSnapshot.taxonomyBlock,
+        promptBlockBrief: briefBehaviourSnapshot.promptBlockBrief,
+        promptBlockPlan: briefBehaviourSnapshot.promptBlockPlan,
+      } : null,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({

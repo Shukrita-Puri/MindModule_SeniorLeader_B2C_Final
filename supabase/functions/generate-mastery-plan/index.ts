@@ -13,6 +13,20 @@ import {
 import { isHighStakesTitle } from '../_shared/events/event-classifier.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
 import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
+// Canonical reader of the Brief's behaviour snapshot. Plan MUST consume the
+// same `flagsPlan` + `slotBoosts` + `taxonomyBlock` the Brief reasoned over
+// rather than rebuilding its own — otherwise Brief↔Plan drift is structural.
+// See _shared/load-brief-behaviour-snapshot.ts for the contract.
+import {
+  loadBriefBehaviourSnapshot,
+  snapshotToWiring,
+  briefAnchorEventTitles,
+  type LoadedBriefBehaviourSnapshot,
+  type PersistedBriefBehaviourSnapshot,
+} from '../_shared/load-brief-behaviour-snapshot.ts';
+// Fallback builder for the rare case where the Brief hasn't been written
+// yet for the current (user, local_date, time_window). Pure, no DB.
+import { buildBehaviourSnapshot } from '../_shared/behaviour-snapshot.ts';
 // §3/§4 CEO Self-Regulation Framework — shared event taxonomy + per-phase
 // (Pre / During / Post) contract. Slot labelling and JIT framing now consult
 // these modules instead of redefining the taxonomy locally.
@@ -2022,6 +2036,14 @@ interface SharedContext {
   };
   pendingCommitments: any[];
   combinedAlreadyUsed: string[];
+  // Brief↔Plan parity — canonical shared-module output the Brief reasoned
+  // over. Loaded from `brief_snapshots.payload_json.behaviour_snapshot` (or
+  // the inline `outerReadinessCache.behaviourSnapshot` when the same caller
+  // generated the Brief moments earlier). When null, the Plan re-derives a
+  // snapshot locally via buildBehaviourSnapshot so it still gets the shared
+  // rule output — this fallback is logged so drift is visible.
+  briefBehaviour: PersistedBriefBehaviourSnapshot | null;
+  briefBehaviourSource: 'brief_snapshot' | 'outer_readiness_cache' | 'local_fallback' | 'absent';
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
@@ -2037,6 +2059,8 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
     causeEffect: { practiceImpact: [], stateCarryover: [] },
     pendingCommitments: [],
     combinedAlreadyUsed: [],
+    briefBehaviour: null,
+    briefBehaviourSource: 'absent',
   };
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
@@ -2290,6 +2314,93 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   }
 
   console.log(`[buildSharedContext] Complete: tier=${req.innerReadinessTier} score=${req.innerReadinessScore} trend=${ctx.innerReadinessPattern.trend} calLoad=${req.calendarLoad} gaps=${ctx.calendarGaps.length} practiceImpact=${ctx.causeEffect.practiceImpact.length} stateCarryover=${ctx.causeEffect.stateCarryover.length}`);
+
+  // ── Brief behaviour snapshot (Brief↔Plan parity, canonical) ──
+  // Priority order:
+  //   1. outerReadinessCache.behaviourSnapshot (inline from same-request brief)
+  //   2. brief_snapshots.payload_json.behaviour_snapshot (latest row for this
+  //      user/local_date/time_window)
+  //   3. local fallback via buildBehaviourSnapshot — only when the Brief has
+  //      not been written yet for the current window. Logged so drift is
+  //      visible in production.
+  try {
+    const inlineSnap = (outerReadinessCache as any)?.behaviourSnapshot ?? null;
+    if (inlineSnap && Array.isArray(inlineSnap.flagsPlan)) {
+      ctx.briefBehaviour = inlineSnap as PersistedBriefBehaviourSnapshot;
+      ctx.briefBehaviourSource = 'outer_readiness_cache';
+    } else {
+      const localDateForLookup = req.localDate || today;
+      const loaded = await loadBriefBehaviourSnapshot(
+        supabaseClient,
+        req.userId,
+        localDateForLookup,
+        timeOfDay,
+      );
+      if (loaded) {
+        ctx.briefBehaviour = loaded;
+        ctx.briefBehaviourSource = 'brief_snapshot';
+      } else {
+        // Last-resort local rebuild. Same shared module the Brief uses, so
+        // the rules / taxonomy / slot boosts stay canonical even when no
+        // Brief row exists yet for this window.
+        const w = req.wearableContext;
+        const wearableForCtx = w?.hasData
+          ? {
+              hrvDeviationPct: w.hrvDeviation ?? null,
+              sleepHours: null as number | null,
+              sleepDeviationPct: null as number | null,
+              rhrDeviationPct: null as number | null,
+            }
+          : null;
+        const planEvents = (req.calendarEvents || [])
+          .filter((e: any) => e?.title && e?.startTime)
+          .map((e: any) => ({
+            title: e.title as string,
+            startTime: e.startTime as string,
+            endTime: e.endTime ?? null,
+            stakesLevel: null as string | null,
+          }));
+        const fallback = buildBehaviourSnapshot({
+          coverage: {
+            wearable: wearableForCtx,
+            checkIn: {
+              emotionalSelfDeclared: req.checkInOutcome ?? null,
+              mentalSharpness: null,
+              confidence: req.confidenceLevel ?? null,
+              clarity: req.clarityLevel ?? null,
+            },
+            scoreToday: req.innerReadinessScore ?? null,
+            scoreYesterday: null,
+            trailingClarityAvg: null,
+            timezone: {
+              offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
+              shift48hHours: null,
+              travelDay: false,
+            },
+            events: planEvents,
+            now,
+          },
+          extras: { dayOfWeek: now.getDay() },
+        });
+        ctx.briefBehaviour = {
+          signatureHash: fallback.signatureHash,
+          flagsBrief: fallback.flagsBrief,
+          flagsPlan: fallback.flagsPlan,
+          slotBoosts: fallback.slotBoosts,
+          taxonomyBlock: fallback.taxonomyBlock,
+          promptBlockBrief: fallback.promptBlockBrief,
+          promptBlockPlan: fallback.promptBlockPlan,
+        };
+        ctx.briefBehaviourSource = 'local_fallback';
+      }
+    }
+    console.log(
+      `[buildSharedContext] briefBehaviour source=${ctx.briefBehaviourSource} sig=${ctx.briefBehaviour?.signatureHash ?? 'none'} flagsBrief=${ctx.briefBehaviour?.flagsBrief.length ?? 0} flagsPlan=${ctx.briefBehaviour?.flagsPlan.length ?? 0} boosts=${ctx.briefBehaviour?.slotBoosts.length ?? 0} anchors=${briefAnchorEventTitles(ctx.briefBehaviour).join('|') || 'none'}`,
+    );
+  } catch (e) {
+    console.warn('[buildSharedContext] briefBehaviour load failed:', (e as any)?.message || e);
+  }
+
   return ctx;
 }
 
@@ -2496,6 +2607,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       })),
       nowMsForJit,
     );
+    // Brief↔Plan parity: re-rank so any candidate whose title matches an
+    // event the Brief named as high-stakes (HighStakesPrep / boardLevelOutcome /
+    // etc.) is guaranteed to surface — even if its raw §B score was below
+    // a higher-scoring noise event. Stable sort: tied items keep §B order.
+    try {
+      const anchors = new Set(
+        briefAnchorEventTitles(shared.briefBehaviour).map((t) => t.toLowerCase().trim()),
+      );
+      if (anchors.size > 0 && jitRankedCandidates.length > 0) {
+        const before = jitRankedCandidates.map((c) => c.title);
+        jitRankedCandidates = [...jitRankedCandidates]
+          .map((c, i) => ({ c, i, anchored: anchors.has(String(c.title || '').toLowerCase().trim()) }))
+          .sort((a, b) => (a.anchored === b.anchored ? a.i - b.i : (a.anchored ? -1 : 1)))
+          .map(({ c }) => c);
+        const after = jitRankedCandidates.map((c) => c.title);
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+          console.log(
+            `[generate-mastery-plan] JIT reordered for brief anchors=${Array.from(anchors).join('|')}: ${before.join(' > ')} → ${after.join(' > ')}`,
+          );
+        }
+      }
+    } catch (anchorErr: any) {
+      console.warn('[generate-mastery-plan] brief-anchor JIT reorder skipped:', anchorErr?.message);
+    }
     const top3 = jitRankedCandidates.slice(0, 3).map(c => `${c.title}/${c.phase}=${c.score}`).join(' | ');
     console.log(`[generate-mastery-plan] jitRankedCandidates: ${jitRankedCandidates.length} total. top3: ${top3 || 'none'}`);
   } catch (rankErr: any) {
@@ -2756,51 +2891,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     if (!hasNearEvent) delete moduleMapping.prepare;
   }
 
-  // ── CEO behaviour wiring (Phase 2, behind SHARED_MODULES_ENABLED) ──
-  // Adapter is a no-op when the flag is off. When on, deterministic §2 / §5.2
-  // rules bump module priorities for the current time-of-day. PRACTICE_TYPE_TO_COMBO
-  // (single source of truth) translates SlotBoost.practiceType → §2 protocol/mode.
+  // ── CEO behaviour wiring (Brief↔Plan parity, canonical) ──
+  // We no longer re-call `evaluateForScope` here — that path drifted from
+  // the Brief because the SignalCoverageInput differed (no tomorrowEvents,
+  // no trailingClarityAvg, etc.). Instead, consume the snapshot the Brief
+  // already wrote (`shared.briefBehaviour`) so the Plan applies the exact
+  // same slotBoosts the Brief's flagsPlan implied. Source is logged in
+  // buildSharedContext; rebuild fallback already happened there.
   try {
-    const wearableForCtx = req.wearableContext?.hasData
-      ? {
-          hrvDeviationPct: req.wearableContext.hrvDeviation ?? null,
-          sleepHours: req.wearableContext.sleepScore != null
-            ? null  // sleepScore is 0-100, not hours; leave hours null
-            : null,
-          sleepDeviationPct: null,
-          rhrDeviationPct: null,
-        }
-      : null;
-    const planEvents = (req.calendarEvents || [])
-      .filter((e) => e.title && e.startTime)
-      .map((e) => ({
-        title: e.title,
-        startTime: e.startTime,
-        stakesLevel: null as string | null,
-      }));
-    const now = new Date();
-    const wiring = evaluateForScope(
-      {
-        wearable: wearableForCtx,
-        checkIn: {
-          emotionalSelfDeclared: req.checkInOutcome ?? null,
-          mentalSharpness: null,
-          confidence: req.confidenceLevel ?? null,
-          clarity: req.clarityLevel ?? null,
-        },
-        scoreToday: req.innerReadinessScore ?? null,
-        scoreYesterday: null,
-        timezone: {
-          offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
-          shift48hHours: null,
-          travelDay: false,
-        },
-        events: planEvents,
-        now,
-      },
-      "plan",
-      { dayOfWeek: now.getDay() },
-    );
+    const wiring = snapshotToWiring(shared.briefBehaviour, 'plan');
     if (wiring && wiring.slotBoosts.length > 0) {
       const { applied } = applySlotBoostsToMapping(
         moduleMapping as any,
@@ -2809,13 +2908,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       );
       if (applied.length > 0) {
         console.log(
-          `[generate-mastery-plan] behaviour boosts applied (${timeOfDay}):`,
+          `[generate-mastery-plan] behaviour boosts applied (${timeOfDay}) source=${shared.briefBehaviourSource} sig=${shared.briefBehaviour?.signatureHash}:`,
           JSON.stringify(applied),
         );
       }
+    } else {
+      console.log(
+        `[generate-mastery-plan] no behaviour boosts for ${timeOfDay} source=${shared.briefBehaviourSource}`,
+      );
     }
   } catch (e) {
-    console.warn('[generate-mastery-plan] behaviour-wiring skipped:', e);
+    console.warn('[generate-mastery-plan] behaviour snapshot apply skipped:', e);
   }
 
   const todModules: any[] = [];
@@ -3612,71 +3715,22 @@ const CEO_RULE_TO_TAG: Record<string, CeoRealityTag> = {
 };
 
 function detectCeoRealities(req: PlanRequest, shared: SharedContext): CeoRealityTag[] {
-  // P1 — route through canonical behaviour evaluator. Local regex/keyword
-  // detection (travel / board / PTO / drain / fragmentation) has been removed
-  // — those signals now flow from `_shared/ceo-behaviour/*` via
-  // `evaluateForScope`. Compatibility is preserved by mapping canonical
-  // BehaviourFlag.rule names back to the legacy CeoRealityTag union.
+  // Brief↔Plan parity: read flags off the Brief's persisted snapshot rather
+  // than re-evaluating rules against a fresh (and inevitably divergent)
+  // SignalCoverageInput. The snapshot already contains BOTH `flagsBrief` and
+  // `flagsPlan`, so the brief-scope-only rules (e.g. personalFrictionInference)
+  // are still visible to the Plan. Fallback to local rebuild is handled in
+  // buildSharedContext — by the time we reach here, `shared.briefBehaviour`
+  // is the canonical record for this (user, local_date, time_window).
   const tags = new Set<CeoRealityTag>();
-  try {
-    const w = req.wearableContext;
-    const wearableForCtx = w?.hasData
-      ? {
-          hrvDeviationPct: w.hrvDeviation ?? null,
-          // sleepScore is 0-100, not hours; leave hours null so canonical
-          // sleep thresholds use deviation/proxy only.
-          sleepHours: null as number | null,
-          sleepDeviationPct: null as number | null,
-          rhrDeviationPct: null as number | null,
-        }
-      : null;
-    const planEvents = (req.calendarEvents || [])
-      .filter((e) => e.title && e.startTime)
-      .map((e) => ({
-        title: e.title,
-        startTime: e.startTime,
-        endTime: e.endTime ?? null,
-        stakesLevel: null as string | null,
-      }));
-    const now = new Date();
-    const input = {
-      wearable: wearableForCtx,
-      checkIn: {
-        emotionalSelfDeclared: req.checkInOutcome ?? null,
-        mentalSharpness: null,
-        confidence: req.confidenceLevel ?? null,
-        clarity: req.clarityLevel ?? null,
-      },
-      scoreToday: req.innerReadinessScore ?? null,
-      scoreYesterday: (() => {
-        const trend: any = (shared as any)?.innerReadinessPattern;
-        if (trend?.values && trend.values.length >= 2) {
-          const yest = trend.values[trend.values.length - 2];
-          return typeof yest === 'number' ? yest : null;
-        }
-        return null;
-      })(),
-      timezone: {
-        offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
-        shift48hHours: null,
-        travelDay: false,
-      },
-      events: planEvents,
-      now,
-    } as const;
-    // Run plan-scope rules + brief-scope rules. `personalFrictionInference`
-    // is brief-scoped only; without the brief pass the plan would silently
-    // drop the `personal_friction` tag.
-    for (const scope of ['plan', 'brief'] as const) {
-      const wiring = evaluateForScope(input as any, scope, { dayOfWeek: now.getDay() });
-      if (!wiring) continue;
-      for (const flag of wiring.flags) {
-        const mapped = CEO_RULE_TO_TAG[flag.rule];
-        if (mapped) tags.add(mapped);
-      }
-    }
-  } catch (e) {
-    console.warn('[generate-mastery-plan] detectCeoRealities canonical pass failed:', e);
+  const snap = shared.briefBehaviour;
+  if (!snap) {
+    console.warn('[generate-mastery-plan] detectCeoRealities: no briefBehaviour snapshot — Plan CEO tags will be empty.');
+    return [];
+  }
+  for (const flag of [...snap.flagsBrief, ...snap.flagsPlan]) {
+    const mapped = CEO_RULE_TO_TAG[(flag as any)?.rule];
+    if (mapped) tags.add(mapped);
   }
   return Array.from(tags);
 }
@@ -3982,6 +4036,15 @@ async function applyV51Enrichment(
           bodyState: typeof req.confidenceLevel === 'number' && req.confidenceLevel > 0 ? req.confidenceLevel : null,
           patternSummary,
           growthIntention: (req as any).growthIntention || null,
+          // Brief↔Plan parity advisories — append the SAME blocks the Brief's
+          // LLM saw, so the "Why this matters" line stays anchored to the
+          // identical CEO behaviours and pillar focus the Brief already named
+          // to the user. Both blocks come straight off the shared snapshot
+          // (`shared.briefBehaviour`) — no re-evaluation, no fallback copy.
+          ceoBehaviourBlock: shared.briefBehaviour?.promptBlockPlan
+            ?? shared.briefBehaviour?.promptBlockBrief
+            ?? null,
+          eventTaxonomyBlock: shared.briefBehaviour?.taxonomyBlock ?? null,
         };
         jitJobs.push({ idx, input });
       }

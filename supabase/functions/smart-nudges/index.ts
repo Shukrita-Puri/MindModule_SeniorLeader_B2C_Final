@@ -2,6 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+// Brief↔Nudge parity. Nudges MUST read the same shared snapshot the Brief
+// reasoned over instead of re-evaluating rules against a fresh
+// SignalCoverageInput. Falls back to `evaluateForScope` only when no Brief
+// snapshot exists for the current (user, local_date, time_window).
+import {
+  loadBriefBehaviourSnapshot,
+  snapshotToWiring,
+  type TimeWindow as BriefTimeWindow,
+} from "../_shared/load-brief-behaviour-snapshot.ts";
 
 // ── APNs Helper Functions ──
 
@@ -379,6 +388,17 @@ interface NudgeContext {
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
   badgeCount?: number;
+  // Brief↔Nudge parity — the persisted snapshot the Brief reasoned over for
+  // the current (user, local_date, time_window). Loaded once in
+  // buildNudgeContext; null when no Brief row exists yet (in which case
+  // generateNudgeCopy falls back to evaluateForScope so we still ship the
+  // canonical rule output).
+  briefBehaviour?: {
+    signatureHash: string;
+    promptBlockBrief: string;
+    taxonomyBlock: string;
+    source: 'brief_snapshot';
+  } | null;
 }
 
 interface NudgeCopy {
@@ -880,6 +900,36 @@ async function buildNudgeContext(
     confidenceBand: e.confidence_band || 'low',
   }));
 
+  // Determine the Brief's time window for the snapshot lookup. Mirrors
+  // _shared/signal-engine/day-kind-detector.ts:getTimeOfDay() so the
+  // Nudge reads the SAME row the Brief wrote for this window.
+  const briefWindow: BriefTimeWindow =
+    localHour >= 5 && localHour < 12
+      ? 'morning'
+      : localHour >= 12 && localHour < 18
+      ? 'afternoon'
+      : 'evening';
+  const loadedSnap = await loadBriefBehaviourSnapshot(
+    supabase,
+    userId,
+    todayStr,
+    briefWindow,
+  );
+  const briefBehaviour = loadedSnap
+    ? {
+        signatureHash: loadedSnap.signatureHash,
+        promptBlockBrief:
+          loadedSnap.promptBlockBrief ??
+          snapshotToWiring(loadedSnap, 'brief')?.promptBlock ??
+          '',
+        taxonomyBlock: loadedSnap.taxonomyBlock,
+        source: 'brief_snapshot' as const,
+      }
+    : null;
+  console.log(
+    `[smart-nudges] briefBehaviour ${briefBehaviour ? `loaded sig=${briefBehaviour.signatureHash}` : 'absent — will fall back to evaluateForScope'} user=${userId} date=${todayStr} window=${briefWindow}`,
+  );
+
   return {
     userId,
     todayStr,
@@ -968,6 +1018,7 @@ async function buildNudgeContext(
       const total = open + checkinDue;
       return total > 0 ? Math.min(total, 9) : 1;
     })(),
+    briefBehaviour,
   };
 }
 
@@ -1464,56 +1515,76 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
 
   // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
   // Both providers are validated through the identical V8 gate.
-  // ── CEO behaviour wiring (Phase 2, behind SHARED_MODULES_ENABLED) ──
-  // No-op when the flag is off. When on, appends an advisory block so the
-  // nudge LLM gets the deterministic §2 / §5.2 reads (including
-  // notificationIsProduct, the nudge-only rule).
+  // ── CEO behaviour wiring (Brief↔Nudge parity, canonical) ──
+  // Preferred path: read the Brief's persisted snapshot (loaded once in
+  // buildNudgeContext as `ctx.briefBehaviour`) so the Nudge LLM sees the
+  // EXACT advisory block + event taxonomy the Brief used. Fallback path:
+  // `evaluateForScope("nudge", …)` — only when no Brief row exists yet for
+  // this window, AND we still need `notificationIsProduct` (the nudge-only
+  // rule) which the Brief's snapshot does not carry.
   try {
-    const backToBackHoursToday = computeBackToBackHours(ctx);
-    const eventsForCtx = ctx.nonNoiseEvents
-      .filter((e) => !!e.title)
-      .map((e) => ({
-        title: e.title as string,
-        startTime: e.start_time,
-        stakesLevel: isHighStakes(e.title) ? "external" : null,
-      }));
-    const wiring = evaluateForScope(
-      {
-        wearable: ctx.hasWearableData
-          ? {
-              hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
-              sleepHours:
-                ctx.wearable.totalSleepMinutes != null
-                  ? ctx.wearable.totalSleepMinutes / 60
-                  : null,
-              sleepDeviationPct: null,
-              rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
-              hrElevatedProxy: ctx.wearable.rhrElevated,
-            }
-          : null,
-        checkIn: {
-          emotionalSelfDeclared:
-            ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
-          mentalSharpness: null,
-          confidence: null,
-          clarity: null,
+    if (ctx.briefBehaviour?.taxonomyBlock) {
+      userPrompt += ctx.briefBehaviour.taxonomyBlock;
+    }
+    if (ctx.briefBehaviour?.promptBlockBrief) {
+      userPrompt += ctx.briefBehaviour.promptBlockBrief;
+      console.log(
+        `[smart-nudges] applied brief snapshot sig=${ctx.briefBehaviour.signatureHash}`,
+      );
+    } else {
+      // Fallback: no Brief written yet for this window. Evaluate the rules
+      // directly so the nudge still gets the canonical §2 / §5.2 reads
+      // (incl. notificationIsProduct). This is the ONLY path that still
+      // calls evaluateForScope from inside this function.
+      const backToBackHoursToday = computeBackToBackHours(ctx);
+      const eventsForCtx = ctx.nonNoiseEvents
+        .filter((e) => !!e.title)
+        .map((e) => ({
+          title: e.title as string,
+          startTime: e.start_time,
+          stakesLevel: isHighStakes(e.title) ? "external" : null,
+        }));
+      const wiring = evaluateForScope(
+        {
+          wearable: ctx.hasWearableData
+            ? {
+                hrvDeviationPct: ctx.wearable.hrvDeltaPct ?? null,
+                sleepHours:
+                  ctx.wearable.totalSleepMinutes != null
+                    ? ctx.wearable.totalSleepMinutes / 60
+                    : null,
+                sleepDeviationPct: null,
+                rhrDeviationPct: ctx.wearable.rhrElevated ? 10 : null,
+                hrElevatedProxy: ctx.wearable.rhrElevated,
+              }
+            : null,
+          checkIn: {
+            emotionalSelfDeclared:
+              ctx.afternoonCheckinOutcome ?? ctx.morningCheckinOutcome ?? null,
+            mentalSharpness: null,
+            confidence: null,
+            clarity: null,
+          },
+          scoreToday: null,
+          scoreYesterday: null,
+          timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          events: eventsForCtx,
+          now: new Date(),
         },
-        scoreToday: null,
-        scoreYesterday: null,
-        timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
-        events: eventsForCtx,
-        now: new Date(),
-      },
-      "nudge",
-      {
-        dayOfWeek: ctx.dayOfWeek,
-        backToBackHoursToday,
-        historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
-      },
-    );
-    if (wiring?.promptBlock) userPrompt += wiring.promptBlock;
+        "nudge",
+        {
+          dayOfWeek: ctx.dayOfWeek,
+          backToBackHoursToday,
+          historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+        },
+      );
+      if (wiring?.promptBlock) {
+        userPrompt += wiring.promptBlock;
+        console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
+      }
+    }
   } catch (e) {
-    console.warn("[smart-nudges] behaviour-wiring skipped:", e);
+    console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
 
   const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);

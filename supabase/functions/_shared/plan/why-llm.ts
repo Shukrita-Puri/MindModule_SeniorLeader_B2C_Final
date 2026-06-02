@@ -31,6 +31,16 @@ export interface WhyLLMInput {
   patternSummary: string | null;
 
   growthIntention: string | null;
+
+  // ── Shared-module advisories (Brief↔Plan parity) ──
+  // Pre-formatted blocks lifted off the Brief's persisted behaviour snapshot
+  // so this LLM call reasons from the SAME active CEO behaviours and event
+  // pillar focus the Brief used. Both fields are optional — when null/empty
+  // the prompt simply omits the section (no fallback copy is invented).
+  /** "=== ACTIVE CEO BEHAVIOURS ===" block from the Brief's snapshot. */
+  ceoBehaviourBlock?: string | null;
+  /** "=== EVENT TAXONOMY ===" block from the Brief's snapshot. */
+  eventTaxonomyBlock?: string | null;
 }
 
 function buildPrompt(inp: WhyLLMInput): string {
@@ -52,6 +62,15 @@ function buildPrompt(inp: WhyLLMInput): string {
   if (inp.patternSummary) signals.push(`- Pattern data: ${inp.patternSummary}`);
 
   const strategic = inp.growthIntention ? `\nStrategic context (use only if directly relevant to this event):\n- Growth intention: ${inp.growthIntention}` : "";
+
+  // Append the Brief's deterministic advisories so this LLM call grounds its
+  // Why statement in the same pillar focus and active behaviours the Brief
+  // already named to the user. Order: taxonomy (pure labelling) first,
+  // behaviours (rule output) second — same order the Brief uses.
+  const sharedAdvisory = [
+    (inp.eventTaxonomyBlock || "").trim(),
+    (inp.ceoBehaviourBlock || "").trim(),
+  ].filter(Boolean).join("\n");
 
   return `You are the Chief of Staff for a CEO. Your role is to write a single "Why This Matters" statement for one action priority in the CEO's daily plan.
 
@@ -75,7 +94,7 @@ Event context:
 
 Available signals (use whichever are non-null and most relevant — do not mention null fields):
 ${signals.length ? signals.join("\n") : "- (none available — reference the event itself and the phase intent)"}
-${strategic}
+${strategic}${sharedAdvisory ? "\n\n" + sharedAdvisory + "\n\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo the copyHint verbatim." : ""}
 
 Write only the statement. No preamble, no explanation, no quotation marks.`;
 }
