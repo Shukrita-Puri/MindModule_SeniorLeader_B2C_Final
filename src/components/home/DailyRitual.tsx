@@ -199,11 +199,16 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
   // submitted a check-in or wearable arrived), reload the plan once so the
   // suppression empty state is replaced with the freshly generated plan.
   useEffect(() => {
-    if (awaitingSignals && outerReadinessData?.awaitingSignals === false) {
+    const mode = (outerReadinessData as any)?.briefMode as
+      | 'cold-start' | 'baseline' | 'refined' | undefined;
+    const stillCold = mode
+      ? mode === 'cold-start'
+      : outerReadinessData?.awaitingSignals === true;
+    if (awaitingSignals && !stillCold) {
       loadPlan();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outerReadinessData?.awaitingSignals]);
+  }, [outerReadinessData?.awaitingSignals, (outerReadinessData as any)?.briefMode]);
 
   // Detect newly completed practices
   useEffect(() => {
@@ -274,7 +279,11 @@ const DailyRitual = ({ onPreEventPlanReady, onJitPriorityChange, jitPriority = f
       // wearable today), suppress plan generation entirely. This is a
       // pure UI/network suppression — server-side gate in
       // generate-mastery-plan enforces the same contract for any caller.
-      const briefAwaiting = outerReadinessData?.awaitingSignals === true;
+      const mode = (outerReadinessData as any)?.briefMode as
+        | 'cold-start' | 'baseline' | 'refined' | undefined;
+      const briefAwaiting = mode
+        ? mode === 'cold-start'
+        : outerReadinessData?.awaitingSignals === true;
       const wearableFresh = !!outerReadinessData?.wearableStatus?.hasTodayData;
       if (briefAwaiting && !todayCheckin && !wearableFresh) {
         setAwaitingSignals(true);
