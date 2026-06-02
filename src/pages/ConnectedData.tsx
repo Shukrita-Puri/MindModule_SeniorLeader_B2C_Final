@@ -1,16 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, MoreVertical, RefreshCw, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
-import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import ProviderRowCard from '@/components/connections/ProviderRowCard';
+import parchmentArtBand from '@/assets/onboarding/usp-sunrise-engraved.jpg';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +34,6 @@ import {
 } from '@/utils/integrationQaHelpers';
 import AppleIntegrationsDebugPanel from '@/components/debug/AppleIntegrationsDebugPanel';
 import { describeFetchError, getSupabaseFunctionHeaders, getSupabaseFunctionUrl, readResponseBody } from '@/utils/supabaseFunctions';
-import { Switch } from '@/components/ui/switch';
 import { useCheckInMode } from '@/hooks/useCheckInMode';
 
 /* ─── Types ─── */
