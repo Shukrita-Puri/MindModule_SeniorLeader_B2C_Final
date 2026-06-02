@@ -2453,6 +2453,14 @@ serve(async (req) => {
     } | null = null;
     let inputSignature = 'no-sig';
 
+    // ═══ Shared-module snapshot (Brief ⇄ Plan parity) ═══
+    // Computed inside the LLM branch using the shared CEO behaviour,
+    // event taxonomy, and M/A/E window-context modules. Stamped onto
+    // brief_snapshots.payload_json.behaviour_snapshot so generate-mastery-plan
+    // can read the SAME named events / stakes / slot boosts the Brief used.
+    let briefBehaviourSnapshot: BehaviourSnapshotResult | null = null;
+    let briefWindowContext: ReturnType<typeof buildWindowContext> | null = null;
+
     if (dataCompleteness !== 'day1') {
       // ── Detect state shift from earlier code (lines 2094-2111 computed todayCheckins) ──
       {
