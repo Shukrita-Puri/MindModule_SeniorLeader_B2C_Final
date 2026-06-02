@@ -5100,6 +5100,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       relationshipPattern: awaitingSignals ? null : relationshipPattern,
       awaitingSignals,
       awaitingReason,
+      // briefMode is the canonical client-facing signal source contract.
+      //   • 'cold-start' — no baseline AND no check-in (legacy awaitingSignals=true)
+      //   • 'baseline'   — wearable/calendar/patterns present, no check-in for today
+      //   • 'refined'    — check-in present (with or without wearable/calendar)
+      // Client rule: only render skeleton when briefMode === 'cold-start'.
+      // In baseline mode pills, score, brief and Plan must all render.
+      briefMode: (
+        awaitingSignals
+          ? 'cold-start'
+          : (hasTodayCheckIn ? 'refined' : 'baseline')
+      ) as 'cold-start' | 'baseline' | 'refined',
+      // Source provenance + pill↔MRS coherence + baseline-only score.
+      // Surfaced for client audit chips and so MRS + pills are not
+      // operating in isolation. `pillCoherence.inSync === false` means
+      // the deterministic pill engine had to be reconciled against the
+      // MRS tier — UI may choose to surface a subtle hint.
+      sourceProvenance: awaitingSignals ? null : echoedProvenance,
+      pillCoherence: awaitingSignals ? null : echoedPillCoherence,
+      baselineReadinessScore: awaitingSignals ? null : echoedBaselineScore,
       // Explicit period-scoped flags so the client never has to infer
       // "is this period live?" from leaked day-scoped fields like
       // `checkInOutcome` or `innerReadinessScore`.
