@@ -2036,6 +2036,14 @@ interface SharedContext {
   };
   pendingCommitments: any[];
   combinedAlreadyUsed: string[];
+  // Brief↔Plan parity — canonical shared-module output the Brief reasoned
+  // over. Loaded from `brief_snapshots.payload_json.behaviour_snapshot` (or
+  // the inline `outerReadinessCache.behaviourSnapshot` when the same caller
+  // generated the Brief moments earlier). When null, the Plan re-derives a
+  // snapshot locally via buildBehaviourSnapshot so it still gets the shared
+  // rule output — this fallback is logged so drift is visible.
+  briefBehaviour: PersistedBriefBehaviourSnapshot | null;
+  briefBehaviourSource: 'brief_snapshot' | 'outer_readiness_cache' | 'local_fallback' | 'absent';
 }
 
 async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerReadinessCache?: any): Promise<SharedContext> {
