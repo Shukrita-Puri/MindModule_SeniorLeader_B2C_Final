@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { CalendarDays } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import ProviderRowCard from '@/components/connections/ProviderRowCard';
