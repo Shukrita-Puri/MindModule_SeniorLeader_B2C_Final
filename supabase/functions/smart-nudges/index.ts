@@ -900,6 +900,36 @@ async function buildNudgeContext(
     confidenceBand: e.confidence_band || 'low',
   }));
 
+  // Determine the Brief's time window for the snapshot lookup. Mirrors
+  // _shared/signal-engine/day-kind-detector.ts:getTimeOfDay() so the
+  // Nudge reads the SAME row the Brief wrote for this window.
+  const briefWindow: BriefTimeWindow =
+    localHour >= 5 && localHour < 12
+      ? 'morning'
+      : localHour >= 12 && localHour < 18
+      ? 'afternoon'
+      : 'evening';
+  const loadedSnap = await loadBriefBehaviourSnapshot(
+    supabase,
+    userId,
+    todayStr,
+    briefWindow,
+  );
+  const briefBehaviour = loadedSnap
+    ? {
+        signatureHash: loadedSnap.signatureHash,
+        promptBlockBrief:
+          loadedSnap.promptBlockBrief ??
+          snapshotToWiring(loadedSnap, 'brief')?.promptBlock ??
+          '',
+        taxonomyBlock: loadedSnap.taxonomyBlock,
+        source: 'brief_snapshot' as const,
+      }
+    : null;
+  console.log(
+    `[smart-nudges] briefBehaviour ${briefBehaviour ? `loaded sig=${briefBehaviour.signatureHash}` : 'absent — will fall back to evaluateForScope'} user=${userId} date=${todayStr} window=${briefWindow}`,
+  );
+
   return {
     userId,
     todayStr,
