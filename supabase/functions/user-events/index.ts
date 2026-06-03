@@ -85,7 +85,7 @@ serve(async (req) => {
             try {
               const { data: ownedRow } = await supabase
                 .from('brief_snapshots')
-                .select('id, phrase, local_date, time_window, user_id')
+                .select('id, refined_phrase, baseline_phrase, local_date, time_window, user_id')
                 .eq('id', providedBriefId)
                 .maybeSingle();
               if (!ownedRow || ownedRow.user_id !== userId) {
@@ -119,7 +119,7 @@ serve(async (req) => {
             try {
               const { data: latest } = await supabase
                 .from('brief_snapshots')
-                .select('id, phrase, local_date, time_window')
+                .select('id, refined_phrase, baseline_phrase, local_date, time_window')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
                 .limit(1)
