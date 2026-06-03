@@ -57,6 +57,11 @@ import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviou
 import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+import {
+  composeSlotStateLabel,
+  type SlotLabelResult,
+  type SlotAnchorMeta,
+} from '../_shared/events/slot-labels.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
