@@ -3307,6 +3307,8 @@ serve(async (req) => {
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
         architecture: 'cos-mind-v8-meaning-forward',
+        // F-17 — shared cross-feature trace key (Brief / Plan / Nudges all stamp this)
+        prompt_version: BRIEF_PROMPT_VERSION,
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
         // v5.3 — Per-intent TTL + collapse-id telemetry
