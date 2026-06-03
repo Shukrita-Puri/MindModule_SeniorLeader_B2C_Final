@@ -5206,11 +5206,17 @@ function buildHorizonModules(
         showNavyBorder: false,
         showPulse: false,
         showPriorityPill: false,
-        anchorEventId: fillerLabel?.eventId ?? null,
-        anchorCategoryId: fillerLabel?.categoryId ?? null,
-        anchorSubtypeId: fillerLabel?.subtypeId ?? null,
-        anchorScenarioId: fillerLabel?.scenarioId ?? null,
-        anchorLeadTimeMin: fillerLabel?.leadTimeMin ?? null,
+        // F-12: persist the richer enriched-event snapshot, not just ids.
+        ...(fillerLabel?.anchorMeta ?? {
+          anchorEventId: null,
+          anchorCategoryId: null,
+          anchorSubtypeId: null,
+          anchorScenarioId: null,
+          anchorLeadTimeMin: null,
+          anchorTitle: null,
+          anchorDemandProfile: null,
+          anchorPhases: null,
+        }),
       });
     }
   }
