@@ -21,7 +21,7 @@ const MrsPage = () => {
 
   const hasScore = typeof score === 'number';
   const readinessState =
-    (outerBrief as any)?.readinessState === 'refined' ||
+    (outerBrief as any)?.innerReadinessState === 'refined' ||
     weekly.data?.mode === 'refined'
       ? 'refined'
       : 'baseline';
