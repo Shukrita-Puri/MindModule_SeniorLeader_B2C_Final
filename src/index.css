@@ -733,3 +733,11 @@ body {
 /* Hide scrollbar utility for swipeable horizontal scrollers */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Saffron half-tab shimmer sweep */
+@keyframes tab-shimmer-sweep {
+  0% { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  20% { opacity: 0.7; }
+  60% { opacity: 0.7; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+}

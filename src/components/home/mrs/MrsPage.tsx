@@ -59,27 +59,26 @@ const MrsPage = () => {
           </div>
         )}
 
-        {/* Take Assessment pill — left aligned, saffron, pulsing, no icon */}
-        <div className="mt-6 flex justify-start">
+        {/* Take Assessment — left-edge saffron half tab */}
+        <div className="mt-6 -mx-5">
           <button
             type="button"
             onClick={() => navigate('/daily-check-in')}
             className={cn(
-              'relative inline-flex items-center justify-center rounded-full',
-              'bg-saffron text-saffron-foreground',
-              'px-5 py-2 text-xs font-semibold tracking-wide',
-              'shadow-[0_6px_18px_-6px_hsl(var(--saffron)/0.7)]',
-              'transition-transform hover:scale-[1.02] active:scale-[0.99]',
-              'motion-safe:animate-pulse'
+              'relative inline-flex items-center overflow-hidden',
+              'rounded-r-full rounded-l-none',
+              'pl-5 pr-6 py-2.5 text-xs font-semibold tracking-wide',
+              'text-saffron-foreground',
+              'bg-[linear-gradient(90deg,hsl(var(--saffron))_0%,hsl(var(--saffron)/0.88)_60%,hsl(var(--saffron)/0.72)_100%)]',
+              'shadow-[0_8px_24px_-8px_hsl(var(--saffron)/0.55)]',
+              'transition-transform active:scale-[0.99]',
+              'before:absolute before:inset-0 before:rounded-r-full before:pointer-events-none',
+              'before:bg-[linear-gradient(180deg,hsl(0_0%_100%/0.28)_0%,hsl(0_0%_100%/0)_55%)]'
             )}
           >
             <span
               aria-hidden
-              className={cn(
-                'absolute inset-0 rounded-full',
-                'ring-2 ring-[hsl(var(--saffron)/0.35)]',
-                'motion-safe:animate-ping pointer-events-none'
-              )}
+              className="absolute inset-y-0 left-0 w-1/3 pointer-events-none motion-safe:animate-[tab-shimmer-sweep_3.5s_ease-in-out_infinite] bg-[linear-gradient(90deg,transparent_0%,hsl(0_0%_100%/0.45)_50%,transparent_100%)]"
             />
             <span className="relative">
               {hasScore ? 'Take assessment' : 'Check in to generate your score'}
