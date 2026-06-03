@@ -5731,7 +5731,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify(plan), {
+    // F-17 — stamp shared cross-feature prompt version on every Plan response
+    // so Plan, Brief, and Nudges artefacts share a single trace key. Use a
+    // non-destructive merge so existing `plan` payloads keep their shape.
+    const stampedPlan = (plan && typeof plan === 'object' && !Array.isArray(plan))
+      ? { ...plan, prompt_version: BRIEF_PROMPT_VERSION }
+      : plan;
+
+    return new Response(JSON.stringify(stampedPlan), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
