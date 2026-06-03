@@ -6,14 +6,19 @@ interface MrsGaugeProps {
   size?: number;
 }
 
-function tierColorVar(tier: string | null | undefined): string {
-  switch (tier) {
+export function tierColorVar(tier: string | null | undefined): string {
+  const t = (tier || '').toLowerCase();
+  switch (t) {
+    case 'peak':
     case 'optimal':
     case 'strong':
       return 'hsl(var(--tier-strong))';
+    case 'mixed':
     case 'moderate':
     case 'manageable':
+    case 'managing':
       return 'hsl(var(--tier-moderate))';
+    case 'compromised':
     case 'low':
     case 'depleted':
       return 'hsl(var(--tier-low))';
