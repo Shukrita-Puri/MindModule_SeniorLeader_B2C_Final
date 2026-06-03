@@ -3161,7 +3161,7 @@ serve(async (req) => {
         try {
           const { data: snapshot } = await db
             .from('brief_snapshots')
-            .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
+            .select('refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, brief_source, driver')
             .eq('user_id', userId)
             .eq('local_date', userLocalDate)
             .eq('time_window', getTimeOfDay(hour))
@@ -3169,10 +3169,22 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            const s: any = snapshot;
+            // Project two-state row onto legacy shape used downstream:
+            // prefer refined_* (post check-in) over baseline_*.
+            cachedSnapshot = {
+              phrase: s.refined_phrase ?? s.baseline_phrase ?? null,
+              body_text: s.refined_body_text ?? s.baseline_body_text ?? null,
+              lean_on: s.refined_lean_on ?? s.baseline_lean_on ?? null,
+              lean_on_source: s.refined_lean_on_source ?? s.baseline_lean_on_source ?? null,
+              watch_for: s.refined_watch_for ?? s.baseline_watch_for ?? null,
+              watch_for_source: s.refined_watch_for_source ?? s.baseline_watch_for_source ?? null,
+              brief_source: s.brief_source,
+              driver: s.driver ?? null,
+            };
             console.log('[brief-cache] Result:', JSON.stringify({
               snapshotHit: true,
-              briefSource: snapshot.brief_source,
+              briefSource: s.brief_source,
               promptVersion: BRIEF_PROMPT_VERSION,
               inputSignature: inputSignature.slice(0, 8) + '...',
               generationPath: 'snapshot',
@@ -5088,16 +5100,38 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             input_signature: inputSignature,
             prompt_version: BRIEF_PROMPT_VERSION,
             daily_checkin_id: linkedDailyCheckinId,
-            phrase: responsePhrase,
-            body_text: responseBody,
-            lean_on: formattedLeanOn,
-            lean_on_source: finalLeanOnSource,
-            watch_for: formattedWatchFor,
-            watch_for_source: finalWatchForSource,
+            // Two-state split (mem://backend/database/brief-snapshots-two-state-schema).
+            // `isRefined` = brief sharpened by today's Mind check-in. Otherwise the
+            // row holds only the State-1 baseline view. Same row, mutually exclusive
+            // column sets — DB CHECK enforces refined_score ∈ baseline_score ± 15
+            // when both are present (current path writes one set per row).
+            ...(checkInOutcome
+              ? {
+                  refined_phrase: responsePhrase,
+                  refined_body_text: responseBody,
+                  refined_lean_on: formattedLeanOn,
+                  refined_lean_on_source: finalLeanOnSource,
+                  refined_watch_for: formattedWatchFor,
+                  refined_watch_for_source: finalWatchForSource,
+                  refined_score: innerReadinessScore ?? null,
+                  refined_tier: safeTier,
+                  refined_signal_pills: signalPillsPayload,
+                  refined_state: 'refined' as const,
+                }
+              : {
+                  baseline_phrase: responsePhrase,
+                  baseline_body_text: responseBody,
+                  baseline_lean_on: formattedLeanOn,
+                  baseline_lean_on_source: finalLeanOnSource,
+                  baseline_watch_for: formattedWatchFor,
+                  baseline_watch_for_source: finalWatchForSource,
+                  baseline_score: innerReadinessScore ?? null,
+                  baseline_tier: safeTier,
+                  baseline_signal_pills: signalPillsPayload,
+                  baseline_state: 'baseline' as const,
+                }),
             brief_source: briefSource,
             driver: theme.driver,
-            score: innerReadinessScore ?? null,
-            tier: safeTier,
             llm_fallback_reason: llmFallbackReason ?? null,
             // llm_attempts is fixed by build (gemini-2.5-flash → claude-sonnet); store
             // null here — `llmAttempts` is locally scoped to the LLM block above and
@@ -5106,7 +5140,6 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             llm_attempts: null,
             validator_rejections: null,
             pillar_mode: hasWearable && checkInOutcome ? 'full' : hasWearable ? 'wearable' : checkInOutcome ? 'checkin' : 'unknown',
-            signal_pills: signalPillsPayload,
             payload_json: {
               signals: {
                 checkInOutcome: checkInOutcome || null,

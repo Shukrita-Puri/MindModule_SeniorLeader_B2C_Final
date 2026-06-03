@@ -85,7 +85,7 @@ serve(async (req) => {
             try {
               const { data: ownedRow } = await supabase
                 .from('brief_snapshots')
-                .select('id, phrase, local_date, time_window, user_id')
+                .select('id, refined_phrase, baseline_phrase, local_date, time_window, user_id')
                 .eq('id', providedBriefId)
                 .maybeSingle();
               if (!ownedRow || ownedRow.user_id !== userId) {
@@ -100,7 +100,7 @@ serve(async (req) => {
                 ...enrichedMetadata,
                 local_date: enrichedMetadata.local_date ?? ownedRow.local_date,
                 time_window: enrichedMetadata.time_window ?? ownedRow.time_window,
-                phrase: enrichedMetadata.phrase ?? ownedRow.phrase,
+                phrase: enrichedMetadata.phrase ?? (ownedRow as any).refined_phrase ?? (ownedRow as any).baseline_phrase ?? null,
               };
             } catch (e) {
               console.warn('[user-events] brief_view ownership check failed:', (e as Error)?.message);
@@ -119,7 +119,7 @@ serve(async (req) => {
             try {
               const { data: latest } = await supabase
                 .from('brief_snapshots')
-                .select('id, phrase, local_date, time_window')
+                .select('id, refined_phrase, baseline_phrase, local_date, time_window')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -130,7 +130,7 @@ serve(async (req) => {
                   brief_id: latest.id,
                   local_date: latest.local_date,
                   time_window: latest.time_window,
-                  phrase: enrichedMetadata.phrase ?? latest.phrase,
+                  phrase: enrichedMetadata.phrase ?? (latest as any).refined_phrase ?? (latest as any).baseline_phrase ?? null,
                   legacy_enriched: true,
                 };
               }
