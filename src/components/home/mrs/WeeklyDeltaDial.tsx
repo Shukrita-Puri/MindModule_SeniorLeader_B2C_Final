@@ -122,14 +122,23 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
             filter="url(#weekly-inner)"
           />
 
-          {/* Center tick at CURRENT */}
-          <line
-            x1={CX}
-            y1={CY - R - STROKE / 2 - 2}
-            x2={CX}
-            y2={CY - R + STROKE / 2 + 2}
-            stroke="hsl(var(--foreground) / 0.25)"
-            strokeWidth={1}
+          {/* CURRENT marker at top of dial: label + dot */}
+          <text
+            x={CX}
+            y={CY - R - STROKE / 2 - 14}
+            textAnchor="middle"
+            fontSize="9"
+            letterSpacing="2"
+            fontWeight={600}
+            fill="hsl(var(--muted-foreground) / 0.9)"
+          >
+            CURRENT
+          </text>
+          <circle
+            cx={CX}
+            cy={CY - R - STROKE / 2 - 5}
+            r={2.5}
+            fill="hsl(var(--foreground) / 0.55)"
           />
 
           {/* Colored fill */}
@@ -152,14 +161,6 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
             fontWeight={600}
           >
             <textPath href="#weekly-label-arc" startOffset="6%">LOWER</textPath>
-          </text>
-          <text
-            fontSize="9"
-            letterSpacing="2"
-            fill="hsl(var(--muted-foreground) / 0.85)"
-            fontWeight={600}
-          >
-            <textPath href="#weekly-label-arc" startOffset="46%">CURRENT</textPath>
           </text>
           <text
             fontSize="9"
