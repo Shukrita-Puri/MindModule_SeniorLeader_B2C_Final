@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ArrowLeft } from 'lucide-react';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import ProviderRowCard from '@/components/connections/ProviderRowCard';
-import parchmentArtBand from '@/assets/onboarding/usp-sunrise-engraved.jpg';
+import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
