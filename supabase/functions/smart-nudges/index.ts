@@ -14,7 +14,7 @@ import {
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
-import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
+import { buildActionFrameForEvent, buildWhyNowLine } from "../_shared/plan/action-frame.ts";
 
 // ── APNs Helper Functions ──
 
@@ -626,6 +626,20 @@ function buildSharedEventFrameLine(
 ): string {
   const frame = buildActionFrameForEvent(eventTitle, 'pre');
   return frame ? `- Shared event frame: ${frame}` : '';
+}
+
+/**
+ * F-11 — deterministic "why now" line shared with the Plan surface so
+ * event-based nudges no longer hand-author this reason locally.
+ * Returns '' when no canonical frame applies (caller still emits the
+ * nudge but without the line — never invent fallback prose).
+ */
+function buildSharedWhyNowLine(
+  eventTitle: string | null | undefined,
+  minutesUntilStart: number | null = null,
+): string {
+  const line = buildWhyNowLine(eventTitle, 'pre', { minutesUntilStart });
+  return line ? `- Why now: ${line}` : '';
 }
 
 // ══════════════════════════════════════════════════════════════
