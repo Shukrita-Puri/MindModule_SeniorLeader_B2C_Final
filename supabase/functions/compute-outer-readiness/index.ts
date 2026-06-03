@@ -3972,44 +3972,9 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 },
                 conferenceDayNumber: null,
               });
-              if (briefWindowContext) {
-                const w = briefWindowContext as any;
-                userPrompt += `\n\n=== WINDOW CONTEXT (${w.window}) ===`;
-                if (w.window === 'morning') {
-                  userPrompt += `\nyesterday_load: ${w.yesterdayLoad} (score ${w.yesterdayLoadScore})`;
-                  userPrompt += `\nyesterday_had_high_stakes: ${w.yesterdayHadHighStakes ? 'yes' : 'no'}`;
-                  userPrompt += `\nsleep_quality: ${w.sleepQuality ?? 'unknown'}`;
-                  userPrompt += `\ntoday_meeting_count: ${w.todayMeetingCount}`;
-                  if (w.todayFirstHighStakes) {
-                    userPrompt += `\ntoday_first_high_stakes: ${w.todayFirstHighStakes.title}`;
-                  }
-                  if (w.vetoRisk) userPrompt += `\nveto_risk: yes`;
-                } else if (w.window === 'afternoon') {
-                  userPrompt += `\nmeetings_completed: ${w.meetingsCompleted}`;
-                  userPrompt += `\nmeetings_remaining: ${w.meetingsRemaining}`;
-                  if (w.highestRemainingStakes) {
-                    userPrompt += `\nhighest_remaining_stakes: ${w.highestRemainingStakes.title}`;
-                  }
-                  if (w.backToBackRemainingHours > 0) {
-                    userPrompt += `\nback_to_back_remaining_hours: ${w.backToBackRemainingHours}`;
-                  }
-                  if (w.decisionLeakageRisk) userPrompt += `\ndecision_leakage_risk: yes`;
-                  if (w.jitEventsRemaining > 0) userPrompt += `\njit_events_remaining: ${w.jitEventsRemaining}`;
-                } else if (w.window === 'evening') {
-                  userPrompt += `\nmode: ${w.mode}`;
-                  userPrompt += `\ntoday_completed_count: ${w.todayCompletedCount}`;
-                  userPrompt += `\ntoday_had_high_stakes: ${w.todayHadHighStakes ? 'yes' : 'no'}`;
-                  if (w.bodyLoadElevated) userPrompt += `\nbody_load_elevated: yes`;
-                  userPrompt += `\nrecovery_note: ${w.recoveryNote}`;
-                  if (w.tomorrowFirstHighStakes) {
-                    userPrompt += `\ntomorrow_first_high_stakes: ${w.tomorrowFirstHighStakes.title}`;
-                  }
-                  if (w.tomorrowIsHeavy) userPrompt += `\ntomorrow_is_heavy: yes`;
-                  if (w.jitRemainingEvening) {
-                    userPrompt += `\njit_remaining_evening: yes (Close framing suppressed; finish JIT prep before close)`;
-                  }
-                }
-              }
+              // Window context block formatting is owned by the shared
+              // builder so Brief / Plan / Nudges share one projection.
+              userPrompt += buildWindowContextBlock(briefWindowContext as any);
             } catch (we) {
               console.warn('[compute-outer-readiness] window-context skipped:', we);
             }
