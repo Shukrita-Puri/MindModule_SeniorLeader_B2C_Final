@@ -249,7 +249,19 @@ export function classifyPatternBucket(title: string | null | undefined): string 
   if (!title) return null;
   const t = title.toLowerCase();
   for (const ec of EVENT_TYPE_KEYWORDS) {
-    if (ec.words.some((w) => t.includes(w))) return ec.label;
+    if (ec.words.some((w) => t.includes(w))) {
+      // F-05 — deprecation telemetry. The keyword table is the
+      // compatibility fallback that will be retired once every persisted
+      // `causality_findings.signal_summary` row resolves through a canonical
+      // subtype. Log so we can monitor residual reliance before removal.
+      try {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[classifyPatternBucket] F-05 legacy keyword fallback used title="${title}" bucket="${ec.label}"`,
+        );
+      } catch { /* logging must never throw */ }
+      return ec.label;
+    }
   }
   return null;
 }
