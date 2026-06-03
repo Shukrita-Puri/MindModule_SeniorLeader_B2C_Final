@@ -181,14 +181,28 @@ const InnerReadinessDial = () => {
       )}
       aria-label="Your performance trajectory this week"
     >
-      <div className="mb-2">
-        <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
-          Your Performance Trajectory
-        </span>
-        <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
-          Inner Readiness Streak · This Week
-        </span>
-      </div>
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        aria-expanded={expanded}
+        aria-controls="trajectory-trend-panel"
+        className="w-full text-left mb-2 flex items-start justify-between gap-3"
+      >
+        <div>
+          <span className="block text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground">
+            Your Performance Trajectory
+          </span>
+          <span className="block text-[11px] tracking-[0.12em] uppercase text-muted-foreground/80 mt-0.5">
+            Inner Readiness Streak · This Week
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 mt-1 text-muted-foreground transition-transform',
+            expanded && 'rotate-180'
+          )}
+        />
+      </button>
       <div className="flex items-center gap-4">
         <div className="flex-shrink-0">
           <svg viewBox={`0 0 ${W} ${H}`} width="160" height="92" aria-hidden>
@@ -224,6 +238,41 @@ const InnerReadinessDial = () => {
           </p>
         </div>
       </div>
+      {expanded && (
+        <div
+          id="trajectory-trend-panel"
+          className="mt-4 pt-4 border-t border-border/40"
+        >
+          <div className="flex items-baseline justify-between mb-3">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Trend
+            </span>
+            <div className="flex items-center gap-1 rounded-full bg-muted/40 p-0.5">
+              {([7, 30, 180] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    'px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] rounded-full transition-colors',
+                    r === range
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground/80'
+                  )}
+                >
+                  {r === 7 ? '1W' : r === 30 ? '1M' : '6M'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <MrsSparkline history={trend.data?.history ?? []} height={84} />
+          <p className="mt-3 text-[11px] text-muted-foreground/80 text-left">
+            {range === 180
+              ? trend.data?.trajectoryCaption ?? 'Building your 6-month trajectory'
+              : trend.data?.caption ?? 'Building your trend history'}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
