@@ -697,6 +697,14 @@ const TodayThreePriorities = ({
             leanOn: outerReadinessData.leanOn,
             watchFor: outerReadinessData.watchFor,
             driver: outerReadinessData.driver,
+            // Forward the canonical behaviour snapshot inline so the Plan
+            // function reuses the exact snapshot the Brief reasoned over
+            // (signatureHash, flagsPlan, slotBoosts, taxonomy, prompt block)
+            // instead of re-loading a potentially-stale row from
+            // brief_snapshots. The server still falls back to the DB row
+            // (filtered by promptVersion + expectedSignatureHash) when this
+            // field is absent.
+            behaviourSnapshot: (outerReadinessData as any)?.behaviourSnapshot ?? null,
           };
         }
 
@@ -780,7 +788,15 @@ const TodayThreePriorities = ({
         try { sessionStorage.removeItem(forceKey); } catch { /* ignore */ }
         {
           const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
-          sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}`);
+          const briefSigForHash =
+            (outerReadinessData as any)?.behaviourSnapshot?.signatureHash ?? 'no-sig';
+          const wearableSrcForHash =
+            (outerReadinessData as any)?.wearableStatus?.sourceRowDate ?? 'no-w';
+          const slotReplacementsHash = Object.entries(slotReplacements)
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([k, v]) => `${k}=${v.eventId}`)
+            .join(',');
+          sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:sig=${briefSigForHash}:w=${wearableSrcForHash}:slotrepl=${slotReplacementsHash}`);
         }
         setCompletedPracticeIds(prunedCompleted);
       }
