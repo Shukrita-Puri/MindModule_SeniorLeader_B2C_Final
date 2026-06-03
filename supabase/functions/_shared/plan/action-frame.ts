@@ -89,3 +89,27 @@ function capWords(s: string, n: number): string {
   if (words.length <= n) return words.join(" ");
   return words.slice(0, n).join(" ");
 }
+
+/**
+ * F-11 — shared deterministic "why now" line for event-based nudges.
+ * Derived from the category + phase pair already used by buildActionFrame,
+ * so Plan, Nudges, and any future surface render the same reason. Returns
+ * null when no canonical frame applies (caller should omit the line rather
+ * than invent fallback copy).
+ */
+export function buildWhyNowLine(
+  eventTitle: string | null | undefined,
+  phase: Phase | null = "pre",
+  opts: { minutesUntilStart?: number | null } = {},
+): string | null {
+  const subtype = classifyEvent(eventTitle || "");
+  if (!subtype) return null;
+  const frame = buildActionFrame(subtype.categoryId, phase);
+  if (!frame) return null;
+  const m = opts.minutesUntilStart;
+  if (typeof m === "number" && isFinite(m)) {
+    if (m > 0 && m <= 60) return `Window closing in ${Math.max(1, Math.round(m))} min — ${frame.toLowerCase()}`;
+    if (m > 60 && m <= 240) return `Inside prep horizon — ${frame.toLowerCase()}`;
+  }
+  return frame;
+}
