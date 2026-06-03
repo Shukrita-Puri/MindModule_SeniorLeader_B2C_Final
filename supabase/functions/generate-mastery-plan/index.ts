@@ -60,7 +60,6 @@ import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/ji
 import {
   composeSlotStateLabel,
   type SlotLabelResult,
-  type SlotAnchorMeta,
 } from '../_shared/events/slot-labels.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
