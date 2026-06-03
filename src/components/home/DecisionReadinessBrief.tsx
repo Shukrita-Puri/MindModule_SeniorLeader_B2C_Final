@@ -28,6 +28,7 @@ import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, Ca
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import PillarGlossaryModal from '@/components/home/PillarGlossaryModal';
+import { getTimeLabel, getDateLabel } from '@/components/home/timeLabel';
 import PillDetailContent, { type PillTooltipPill } from '@/components/home/PillTooltip';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
@@ -68,20 +69,6 @@ const getTierLabel = (tier: string): string => {
     case 'peak': return 'PEAK';
     default: return 'NOT ASSESSED';
   }
-};
-
-const getTimeLabel = (): string => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Morning';
-  if (hour >= 12 && hour < 18) return 'Afternoon';
-  return 'Evening';
-};
-
-const getDateLabel = (): string => {
-  const d = new Date();
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 };
 
 const chipBgColor = (color: SignalChip['color']) => {

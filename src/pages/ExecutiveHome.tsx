@@ -22,6 +22,7 @@ import TodayHero from "@/components/today/TodayHero";
 import TodayGreeting from "@/components/today/TodayGreeting";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import TodayThreePriorities from "@/components/home/TodayThreePriorities";
+import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import HomeSwipeShell from "@/components/home/swipe/HomeSwipeShell";
 import MrsPage from "@/components/home/mrs/MrsPage";
 import DailyRitual from "@/components/home/DailyRitual"; // preserved as fallback
@@ -286,7 +287,17 @@ const ExecutiveHome = () => {
                   label: 'Daily Plan',
                   node: (
                     <div className="max-w-lg mx-auto md:px-6 pt-0 px-2">
-                      <TodayThreePriorities />
+                      <div className="rounded-xl card-hero p-4 animate-fade-in">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
+                            Today's Priorities
+                          </span>
+                          <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
+                            {getTimeLabel()} · {getDateLabel()}
+                          </span>
+                        </div>
+                        <TodayThreePriorities />
+                      </div>
                     </div>
                   ),
                 },

@@ -102,7 +102,7 @@ serve(async (req) => {
         }
         const { data, error } = await supabase
           .from('brief_snapshots')
-          .select('local_date, time_window, created_at, baseline_score, refined_score, baseline_state, refined_state')
+          .select('local_date, time_window, created_at, baseline_score, refined_score, baseline_state, refined_state, daily_checkin_id')
           .eq('user_id', userId)
           .gte('local_date', lastMonday)
           .lte('local_date', today)
@@ -126,6 +126,7 @@ serve(async (req) => {
           refined_score: number | null;
           baseline_state: string | null;
           refined_state: string | null;
+          daily_checkin_id: string | null;
         };
         const perDay = new Map<string, SnapRow>();
         for (const r of ((data || []) as SnapRow[])) {
@@ -133,16 +134,25 @@ serve(async (req) => {
           // Rows arrive ASC by created_at — last write wins for the day.
           if (!prev || r.created_at >= prev.created_at) perDay.set(r.local_date, r);
         }
-        // Map onto the daily_context_snapshot shape the rest of this handler
-        // already expects. Historical rows (335) have baseline_score=NULL but
-        // a populated refined_score — so when callers ask for the baseline
-        // series we fall through to refined to keep the dial populated.
-        const rows = Array.from(perDay.values()).map((r) => ({
-          local_date: r.local_date,
-          readiness_score_baseline: r.baseline_score ?? r.refined_score,
-          readiness_score_refined: r.refined_score,
-          readiness_state: r.refined_state ?? r.baseline_state ?? 'baseline',
-        }));
+        // Two parallel series per spec:
+        //   baseline series — always populated (back-compat: historical rows
+        //     have refined_score only, so coalesce to keep the series dense).
+        //   refined series  — only days the user actually checked in. We
+        //     detect that via refined_state='refined' OR a daily_checkin_id
+        //     attached to that day's last snapshot.
+        const rows = Array.from(perDay.values()).map((r) => {
+          const hasCheckIn =
+            r.refined_state === 'refined' || !!r.daily_checkin_id;
+          return {
+            local_date: r.local_date,
+            readiness_score_baseline: r.baseline_score ?? r.refined_score,
+            readiness_score_refined: hasCheckIn ? r.refined_score : null,
+            readiness_state:
+              r.refined_state === 'refined' || (hasCheckIn && r.refined_score != null)
+                ? 'refined'
+                : (r.baseline_state ?? 'baseline'),
+          };
+        });
 
         const inRange = (d: string, lo: string, hi: string) => d >= lo && d <= hi;
         const avg = (xs: number[]) =>
@@ -180,7 +190,11 @@ serve(async (req) => {
             : null;
 
         const todayRow = rows.find(r => r.local_date === today) || null;
-        const todayState = todayRow?.readiness_state || 'baseline';
+        const todayState =
+          todayRow?.readiness_score_refined != null
+            ? 'refined'
+            : (todayRow?.readiness_state || 'baseline');
+        const refinedDays = refinedThis.length + refinedLast.length;
 
         return new Response(JSON.stringify({
           data: {
@@ -191,6 +205,7 @@ serve(async (req) => {
             refinedThisAvg,
             refinedLastAvg,
             todayState,
+            refinedDays,
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

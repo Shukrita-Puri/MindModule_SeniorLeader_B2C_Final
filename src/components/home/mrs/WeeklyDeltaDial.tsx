@@ -177,8 +177,9 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
               cy={by}
               r={26}
               fill="hsl(0 0% 100% / 0.85)"
-              stroke="hsl(0 0% 100% / 0.7)"
-              strokeWidth={1}
+              stroke={delta !== null && Math.abs(delta) > 1 ? colorVar : 'hsl(0 0% 100% / 0.7)'}
+              strokeOpacity={delta !== null && Math.abs(delta) > 1 ? 0.55 : 1}
+              strokeWidth={delta !== null && Math.abs(delta) > 1 ? 1.5 : 1}
               style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.12))' }}
             />
             <circle

@@ -42,7 +42,8 @@ export function useWeeklyMrsDelta() {
 
   return useQuery<WeeklyMrsDelta>({
     queryKey: ['mrs-weekly-delta', userId],
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
     enabled: !!userId,
     retry: 1,
     queryFn: async () => {
@@ -70,12 +71,14 @@ export function useWeeklyMrsDelta() {
         const todayState = (payload.todayState as string) === 'refined' ? 'refined' : 'baseline';
         const refinedDelta = typeof payload.refinedDelta === 'number' ? payload.refinedDelta : null;
         const baselineDelta = typeof payload.baselineDelta === 'number' ? payload.baselineDelta : null;
-        // Mode mirrors today's state. Delta prefers the matching series with a
-        // single fallback so a partially-populated week never drops to "—".
-        const mode: 'baseline' | 'refined' = todayState === 'refined' ? 'refined' : 'baseline';
-        const primary = mode === 'refined' ? refinedDelta : baselineDelta;
-        const fallback = mode === 'refined' ? baselineDelta : refinedDelta;
-        const delta = primary ?? fallback;
+        const refinedDays = typeof payload.refinedDays === 'number' ? payload.refinedDays : 0;
+        // Spec: disk shows the series that matches today's readiness_state.
+        // Refined requires ≥3 check-in days across this+last week; otherwise
+        // fall back to baseline delta but keep the label honest.
+        const refinedUsable = refinedDelta !== null && refinedDays >= 3;
+        const mode: 'baseline' | 'refined' =
+          todayState === 'refined' && refinedUsable ? 'refined' : 'baseline';
+        const delta = mode === 'refined' ? refinedDelta : baselineDelta;
         const label =
           delta === null
             ? null
