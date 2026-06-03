@@ -59,7 +59,7 @@ import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
-import { buildActionFrame } from '../_shared/plan/action-frame.ts';
+import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
 import { generateWhyStatement, jaccard, type WhyLLMInput } from '../_shared/plan/why-llm.ts';
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
 // scorer when JIT_V2 env is "shadow"; writes shadow columns to
@@ -4318,6 +4318,18 @@ async function applyV51Enrichment(
     const newWhy = composeWhyLine(hm, req, shared, hrvCorrelations, ceo, briefClaim, fusion);
     if (newWhy && newWhy.length >= 12) hm.whyLine = newWhy;
 
+    // Shared sub-line contract for any anchored slot, not just explicit JIT.
+    // If we persisted anchor metadata on the slot, use the shared event-phase
+    // frame first and only fall back to the older local phrasing when there is
+    // no canonical anchor context available.
+    if (hm.anchorCategoryId) {
+      const anchoredFrame = buildActionFrame(
+        hm.anchorCategoryId,
+        (hm.jitPhase as Phase) || null,
+      );
+      if (anchoredFrame) hm.recommendedAction = anchoredFrame;
+    }
+
     // ── Today's-3 v2: per-JIT-priority title, sub-line, LLM Why ──
     if (hm.isJit && hm.jitEventTitle) {
       const evtMatch = eventByTitle.get(String(hm.jitEventTitle).toLowerCase().trim());
@@ -4427,33 +4439,12 @@ function buildRecommendedAction(
   primaryType: 'regulate' | 'align' | 'prepare' | 'integrate' | string,
   ctx: SlotContextInput
 ): string {
-  const event = ctx.eventTitle?.trim() || null;
-  const tod = ctx.timeOfDay || 'morning';
-  const todWord = tod === 'morning' ? 'morning' : tod === 'afternoon' ? 'afternoon' : 'evening';
-
-  if (event) {
-    switch (primaryType) {
-      case 'regulate': return `Settle your nervous system before ${event}`;
-      case 'align':    return `Sharpen your thinking before ${event}`;
-      case 'prepare':  return `Enter optimal flow state ahead of ${event}`;
-      case 'integrate':return `Land cleanly after ${event}`;
-    }
-  }
-
-  if (ctx.tier === 'depleted') {
-    if (primaryType === 'regulate') return `Restore reserves before the ${todWord} compounds`;
-    if (primaryType === 'align')    return `Recover focus while reserves are low`;
-    if (primaryType === 'integrate')return `Close the day and protect tomorrow's capacity`;
-    return `Rebuild capacity for what's ahead`;
-  }
-
-  switch (primaryType) {
-    case 'regulate': return `Regulate your state for the ${todWord} ahead`;
-    case 'align':    return `Set your focus for the ${todWord}`;
-    case 'prepare':  return `Build resilience for high-demand days`;
-    case 'integrate':return tod === 'evening' ? `Close the day with intention` : `Consolidate what's working`;
-    default:         return `Strengthen your state for what's ahead`;
-  }
+  return buildRecommendedActionCopy({
+    primaryType,
+    eventTitle: ctx.eventTitle,
+    timeOfDay: ctx.timeOfDay,
+    tier: ctx.tier,
+  });
 }
 
 function buildHorizonModules(

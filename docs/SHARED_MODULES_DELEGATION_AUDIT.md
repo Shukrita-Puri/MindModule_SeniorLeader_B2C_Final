@@ -37,9 +37,9 @@ The remainder of the findings (F-05, F-09–F-11, F-14, F-16) remain open. The s
 | F-06 | S1 | Plan | Resolved June 3: Nudges now short-circuit JIT candidates when `EVENT_CATEGORIES[cat].protocol.duringNotificationOnly === true`, matching Plan's conference/long-meeting suppression contract. | Shipped. Preserve the shared category guard for any future JIT entry point. |
 | F-07 | S2 | Brief | Resolved June 3: persona, voice banks, hard constraints, worked examples, and JSON schema now live in `_shared/brief/copy-vocabulary.ts` and are consumed via `buildBriefSystemPrompt()` (`compute-outer-readiness/index.ts:3317`). | Shipped. Remove the parked legacy prompt literal after production release confirms prompt parity. |
 | F-08 | S2 | Nudges | Resolved June 3: Nudges now source their forbidden-notification vocabulary from `_shared/brief/copy-vocabulary.ts` instead of maintaining a separate local blacklist block. | Shipped. Keep any new banned phrases in the shared vocabulary module. |
-| F-09 | S2 | Plan | `phaseForEvent` / `EVENT_PHASE_MAP` is imported (`:46`) but `composeStateLabel` still re-derives phase from raw start-time arithmetic instead of `EVENT_PHASE_MAP[cat][phase].timing`. | Delegate timing labels to `EVENT_PHASE_MAP` and only re-compute when phase-map returns `null`. |
-| F-10 | S2 | Plan | `PRACTICE_TYPE_TO_COMBO` mirror exists implicitly in `buildRecommendedAction`; shared version lives at `protocols/protocol-combos.ts`. Two sources can drift. | Re-export from `_shared/protocols/protocol-combos.ts` and delete the local mapping. |
-| F-11 | S2 | Nudges | Per-nudge `userPrompt` framing strings (`:1373 / :1394 / :1411 / :1426 / :1441 / :1460 / :1489`) are hand-authored and do not consume the new `actionFrame` / `whyLLM` shared helpers that Plan already uses. | Build framing from `_shared/plan/action-frame.ts` + `_shared/plan/why-llm.ts`, parameterised by `nudgeType`. |
+| F-09 | S2 | Plan | Partial June 3: `composeStateLabel()` no longer does raw start-time phase math, but its state-anchor label logic still lives locally instead of going through a shared slot-label helper. | Keep the shared JIT/event-phase labels as-is, then extract the remaining state-anchor label contract into a shared slot-label helper. |
+| F-10 | S2 | Plan | Partial June 3: anchored slots now use the shared `buildActionFrame()` sub-line contract before falling back to local phrasing, but non-anchored generic slots still rely on `buildRecommendedAction()` strings. The remaining gap is consolidating those generic fallbacks behind shared copy helpers. | Keep anchored slots on `buildActionFrame()`, then migrate the remaining generic `buildRecommendedAction()` wording behind a shared plan copy helper. |
+| F-11 | S2 | Nudges | Partial June 3: event-based nudges now receive shared event-frame cues via `_shared/plan/action-frame.ts`, but the per-nudge prompt scaffolding is still largely hand-authored and does not yet use `why-llm`. | Keep event-based nudges on shared `action-frame` cues, then migrate the remaining scaffolding and "why now" generation behind shared helpers. |
 | F-12 | S2 | Brief | Partial June 3: the canonical `=== CONTEXT: [MORNING|AFTERNOON|EVENING] ===` header and `PRE_COMPUTED_USER_NOTICE` landed, but the large inline `userPrompt += …` accumulator is still in place instead of delegating to `buildSignalCoverage` (`compute-outer-readiness/index.ts:3539–3888`). | Follow up by replacing the remaining accumulator with `_shared/brief-signal-coverage.ts` so block ordering and omission rules live in one helper. |
 | F-13 | S3 | Plan | Resolved June 3: slot boosts are now validated against shared protocol combos before application, and invalid boost mappings are dropped with a warning instead of silently no-oping. | Shipped. Keep slot-boost validation tied to `PRACTICE_TYPE_TO_COMBO` + `PROTOCOL_COMBOS`. |
 | F-14 | S3 | Brief | `selectLeadEvent` is the only event-taxonomy import (`:5`); JIT lead-time logic (`event-subtypes.jitLeadTime`) is never consulted when picking which event to mention. | Pass `jitLeadTime` from subtype into the lead-event scoring weights. |
@@ -50,13 +50,13 @@ The remainder of the findings (F-05, F-09–F-11, F-14, F-16) remain open. The s
 **Top five open risks (read first):**
 1. Brief now has event-coaching blocks, but the broader signal-coverage prompt assembly is still inline and order-sensitive until it moves to the shared builder (F-01 / F-12).
 2. Pattern-store compatibility still depends on historical bucket labels even though classification now resolves from canonical subtypes first (F-05).
-3. Plan still carries local timing/mapping helpers and a legacy bridge, and its filler path is only partially shared-enriched, so the shared-module architecture is not yet fully consolidated there (F-09 / F-10 / F-16).
+3. Plan still carries local state-label/copy helpers and a legacy bridge, and its filler path is only partially shared-enriched, so the shared-module architecture is not yet fully consolidated there (F-09 / F-10 / F-16).
 4. Brief prompt assembly is still large and order-sensitive, so truncation / omission risk remains until signal coverage is delegated to the shared helper (F-12).
-5. Nudges still uses hand-authored framing instead of the shared action-frame / why-llm helpers, so copy logic can still drift from Plan (F-11).
+5. Nudges now gets shared event-frame cues, but its broader prompt scaffolding and "why now" logic are still hand-authored, so copy logic can still drift from Plan (F-11).
 
 **Remediation waves** (dependency-ordered, no implementation here):
 - **Wave 1 — Brief event enrichment + signal coverage:** F-01, F-12, F-14. Adds the shared event-coaching and block-assembly helpers still missing from Brief.
-- **Wave 2 — Nudges classifier + framing consolidation:** F-05, F-11. Finish the compatibility-layer cleanup and route per-nudge framing through the shared helpers.
+- **Wave 2 — Nudges classifier + framing consolidation:** F-05, F-11. Finish the compatibility-layer cleanup and migrate the remaining prompt scaffolding onto shared framing/why helpers.
 - **Wave 3 — Plan bridge cleanup + observability:** F-09, F-10, F-16, F-17. Finishes the remaining shared-plan consolidation and traceability work.
 
 ---
@@ -86,14 +86,14 @@ Cells: ✅ imported and drives output · ⚠️ imported but shadowed by legacy 
 | `_shared/load-brief-behaviour-snapshot.ts` | ❌ not imported | ✅ `:26` | ✅ `:13` |
 | `_shared/events/event-categories.ts` (`EVENT_CATEGORIES`, `CATEGORY_MAX_SLOTS`) | ❌ | ✅ `:38–44` | ✅ `:16`, `:618–620` |
 | `_shared/events/event-classifier.ts` (`classifyEvent`) | ❌ (uses `selectLeadEvent` only) | ✅ `:39` | ⚠️ uses `classifyPatternBucket` compatibility layer for persisted `signal_summary` buckets |
-| `_shared/events/event-phase-map.ts` (`EVENT_PHASE_MAP`, `phaseForEvent`) | ❌ | ⚠️ `:46` imported; `composeStateLabel` re-derives | ✅ `:237` |
+| `_shared/events/event-phase-map.ts` (`EVENT_PHASE_MAP`, `phaseForEvent`) | ❌ | ⚠️ shared JIT/event-phase labels are wired, but state-anchor labels remain local | ✅ `:237` |
 | `_shared/events/event-subtypes.ts` | ❌ | ✅ `:50` | ❌ |
 | `_shared/events/enrich-event.ts` | ❌ | ✅ `:54` | ❌ |
 | `_shared/events/jit-candidates.ts` (`rankJitCandidates`) | ❌ | ✅ `:55` | ❌ (re-implements ranking) |
 | `_shared/protocols/protocol-combos.ts` (`PROTOCOL_COMBOS`, `PRACTICE_TYPE_TO_COMBO`) | ❌ | ✅ `:51` | ✅ `:238` |
 | `_shared/jit/select-jit.ts` (`selectJitCandidates`) | ❌ | ✅ `:64` | ❌ |
 | `_shared/jit/relationship-weights.ts` | ❌ | ✅ `:65` | ❌ |
-| `_shared/plan/action-frame.ts` | ❌ | ✅ `:58` | ❌ |
+| `_shared/plan/action-frame.ts` | ❌ | ✅ `:58` | ⚠️ event-based framing cues now imported; broader prompt scaffolding still local |
 | `_shared/plan/why-llm.ts` (`generateWhyStatement`) | ❌ | ✅ `:59` | ❌ |
 | `_shared/plan/title-prefixes.ts` | ❌ | ✅ `:57` | ❌ |
 | `_shared/brief-signal-coverage.ts` | ❌ (inline accumulator) | ❌ | ❌ |
@@ -128,18 +128,18 @@ Cells: ✅ imported and drives output · ⚠️ imported but shadowed by legacy 
 **Shared-led now:** `rankJitCandidates` now drives `topEvent` selection first, and the previous `filteredEvents` winner loop is retained only as a defensive fallback while the rest of the bridge is cleaned up.
 
 **Shadow paths (bad):**
-- **`composeStateLabel`** still re-derives phase windows from raw start times rather than reading `EVENT_PHASE_MAP[cat][phase].timing`. → F-09.
+- **`composeStateLabel`** is now anchor-state logic rather than raw phase timing math, but it still lives locally instead of behind a shared slot-label helper. → F-09.
 - **`duringNotificationOnly`** is honoured at `:4260` but not re-asserted when slot 2/3 backfill kicks in (the check happens earlier in candidate generation only).
 
 **Findings touched:** F-09, F-10, F-16. F-03 / F-04 / F-06 / F-13 are resolved.
 
 ### 3.3 Nudges — `supabase/functions/smart-nudges/index.ts`
 
-**Wired well:** `briefBehaviour.taxonomyBlock` and `briefBehaviour.promptBlockBrief` are appended to the user prompt at `:1531–1534`, and `wiring.promptBlock` for the active nudge scope is appended at `:1586`. `EVENT_PHASE_MAP` and `PROTOCOL_COMBOS` are imported and consulted.
+**Wired well:** `briefBehaviour.taxonomyBlock` and `briefBehaviour.promptBlockBrief` are appended to the user prompt at `:1531–1534`, `wiring.promptBlock` for the active nudge scope is appended at `:1586`, and event-based nudges now import shared event-frame cues from `_shared/plan/action-frame.ts`.
 
 **Shadowed:**
 - `classifyPatternBucket` now resolves from canonical subtype first, but still preserves the historical `signal_summary` bucket labels for compatibility.
-- Per-nudge `userPrompt` framing (`:1373 / :1394 / :1411 / :1426 / :1441 / :1460 / :1489`) is hand-authored. The shared `buildActionFrame` + `generateWhyStatement` Plan uses are never called.
+- Per-nudge `userPrompt` framing is still largely hand-authored. Shared `buildActionFrame` cues now feed the event-based prompts, but `generateWhyStatement` is still not used here.
 - `FORBIDDEN_WORDS_V6` now resolves from the shared `FORBIDDEN_NOTIFICATION_WORDS` import, but the validator layer is still local to Nudges.
 - Shared behaviour/taxonomy wiring is now prepended before the per-nudge framing block, so truncation no longer drops the rule layer first.
 - `duringNotificationOnly` is now consulted before JIT emission, so notification-only conference/long-meeting categories are suppressed in Nudges too.
@@ -168,7 +168,7 @@ Plan is deterministic — no LLM prompt to cross-walk. The "prompt" here is the 
 
 | Doc-prescribed block (SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md) | Actual code | Shared module | Finding |
 |---|---|---|---|
-| Per-nudge framing derived from action-frame + why-llm | Hand-authored per `nudgeType` (`:1373+`) | `_shared/plan/action-frame.ts` + `_shared/plan/why-llm.ts` | F-11 |
+| Per-nudge framing derived from action-frame + why-llm | Partial: event-based prompts now include shared action-frame cues, but broader scaffolding remains hand-authored | `_shared/plan/action-frame.ts` + `_shared/plan/why-llm.ts` | F-11 partial |
 | Taxonomy block at top of user prompt | Prepended ahead of nudge framing via shared behaviour block | `briefBehaviour.taxonomyBlock` | F-15 resolved |
 | Canonical event classifier | `classifyPatternBucket` compatibility layer (canonical subtype first, legacy bucket fallback) | `classifyEvent` | F-05 partial |
 | Forbidden-word vocabulary | Shared `FORBIDDEN_NOTIFICATION_WORDS` import | `brief/copy-vocabulary.ts` | F-08 resolved |
@@ -258,9 +258,9 @@ See §0 for the full numbered list (F-01 … F-17) with severity, file:line, roo
 | F-06 | S1 | Nudges/Plan | Resolved June 3, `smart-nudges/index.ts:2170–2176`, `smart-nudges/index.ts:2349–2355` |
 | F-07 | S2 | Brief | Resolved June 3, `compute-outer-readiness/index.ts:3317` |
 | F-08 | S2 | Nudges | Resolved June 3, `smart-nudges/index.ts:15`, `smart-nudges/index.ts:1120` |
-| F-09 | S2 | Plan | `composeStateLabel` re-derives phase |
-| F-10 | S2 | Plan | local `PRACTICE_TYPE_TO_COMBO` mirror in `buildRecommendedAction` |
-| F-11 | S2 | Nudges | `:1373+` hand-authored framing |
+| F-09 | S2 | Plan | Partial, local state-anchor label helper still not shared |
+| F-10 | S2 | Plan | Partial, generic fallback wording still local after shared action-frame adoption |
+| F-11 | S2 | Nudges | Partial, event-based prompts now include shared action-frame cues |
 | F-12 | S2 | Brief | Partial, `compute-outer-readiness/index.ts:3539–3888` |
 | F-13 | S3 | Plan | Resolved June 3, `generate-mastery-plan/index.ts:3039–3057` |
 | F-14 | S3 | Brief | `selectLeadEvent` ignores `jitLeadTime` |
@@ -273,7 +273,7 @@ See §0 for the full numbered list (F-01 … F-17) with severity, file:line, roo
 ## 11. Recommended Remediation Roadmap
 
 - **Wave 1 — Brief event enrichment + signal coverage** (F-01, F-12, F-14). Coordinate with `BRIEF_PROMPT_VERSION` bump and snapshot in `mem/features/performance-readiness/prompt-snapshot-brief.md`.
-- **Wave 2 — Nudges classifier + copy delegation** (F-05, F-11). Retire the compatibility-layer dependency over time and route per-nudge framing through `action-frame` + `why-llm`.
+- **Wave 2 — Nudges classifier + copy delegation** (F-05, F-11). Retire the compatibility-layer dependency over time and migrate the remaining prompt scaffolding through `action-frame` + `why-llm`.
 - **Wave 3 — Plan bridge cleanup + observability** (F-10, F-16, F-17). Finish shared plan consolidation; stamp `BRIEF_PROMPT_VERSION` cross-feature.
 
 ---

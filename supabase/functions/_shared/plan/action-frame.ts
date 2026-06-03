@@ -5,6 +5,7 @@
 
 import type { EventCategoryId } from "../events/event-categories.ts";
 import type { Phase } from "../events/event-phase-map.ts";
+import { classifyEvent } from "../events/event-classifier.ts";
 
 const FRAMES: Record<EventCategoryId, Partial<Record<Phase, string>>> = {
   A: { pre: "Lock coherent boardroom presence", post: "Detach and capture the lesson" },
@@ -29,6 +30,58 @@ export function buildActionFrame(category: EventCategoryId | null, phase: Phase 
     if (first) return capWords(first, 6);
   }
   return null;
+}
+
+export function buildActionFrameForEvent(
+  eventTitle: string | null | undefined,
+  phase: Phase | null = "pre",
+): string | null {
+  const subtype = classifyEvent(eventTitle || "");
+  return buildActionFrame(subtype?.categoryId ?? null, phase);
+}
+
+export interface PlanRecommendedActionInput {
+  primaryType: "regulate" | "align" | "prepare" | "integrate" | string;
+  eventTitle?: string | null;
+  timeOfDay?: "morning" | "afternoon" | "evening" | string;
+  tier?: string | null;
+  category?: EventCategoryId | null;
+  phase?: Phase | null;
+}
+
+export function buildRecommendedActionCopy(input: PlanRecommendedActionInput): string {
+  const event = input.eventTitle?.trim() || null;
+  const category = input.category ?? (event ? classifyEvent(event)?.categoryId ?? null : null);
+  const phase = input.phase ?? (event ? "pre" : null);
+  const sharedFrame = buildActionFrame(category, phase);
+  if (sharedFrame) return sharedFrame;
+
+  const tod = input.timeOfDay || "morning";
+  const todWord = tod === "morning" ? "morning" : tod === "afternoon" ? "afternoon" : "evening";
+
+  if (event) {
+    switch (input.primaryType) {
+      case "regulate": return `Settle your nervous system before ${event}`;
+      case "align": return `Sharpen your thinking before ${event}`;
+      case "prepare": return `Enter optimal flow state ahead of ${event}`;
+      case "integrate": return `Land cleanly after ${event}`;
+    }
+  }
+
+  if (input.tier === "depleted") {
+    if (input.primaryType === "regulate") return `Restore reserves before the ${todWord} compounds`;
+    if (input.primaryType === "align") return `Recover focus while reserves are low`;
+    if (input.primaryType === "integrate") return `Close the day and protect tomorrow's capacity`;
+    return `Rebuild capacity for what's ahead`;
+  }
+
+  switch (input.primaryType) {
+    case "regulate": return `Regulate your state for the ${todWord} ahead`;
+    case "align": return `Set your focus for the ${todWord}`;
+    case "prepare": return `Build resilience for high-demand days`;
+    case "integrate": return tod === "evening" ? `Close the day with intention` : `Consolidate what's working`;
+    default: return `Strengthen your state for what's ahead`;
+  }
 }
 
 function capWords(s: string, n: number): string {

@@ -14,6 +14,7 @@ import {
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
 import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
+import { buildActionFrameForEvent } from "../_shared/plan/action-frame.ts";
 
 // ── APNs Helper Functions ──
 
@@ -618,6 +619,13 @@ function suppressJitForNotificationOnlyCategory(
   if (!subtype) return false;
   const category = EVENT_CATEGORIES[subtype.categoryId];
   return category?.protocol.duringNotificationOnly === true;
+}
+
+function buildSharedEventFrameLine(
+  eventTitle: string | null | undefined,
+): string {
+  const frame = buildActionFrameForEvent(eventTitle, 'pre');
+  return frame ? `- Shared event frame: ${frame}` : '';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1368,6 +1376,7 @@ Hard rules:
       const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
       const stakes = ctx.highStakesEvents.map(e => truncateEventTitle(e.title)).filter(Boolean);
       const dayShapeLine = buildDayShapeLine(ctx);
+      const sharedEventFrameLine = buildSharedEventFrameLine(firstEventRaw || null);
       userPrompt = `Morning nudge (06:30–09:00 local). Prepare the leader for today.
 
 Available signals (use ONLY these):
@@ -1377,6 +1386,7 @@ ${stakes.length > 0 ? `- High-stakes today: ${stakes.join(', ')}` : '- High-stak
 ${wearableLines ? wearableLines : '- Wearable: not available, DO NOT mention HRV, RHR, sleep, baselines'}
 - Day: ${ctx.dayName}
 ${dayShapeLine}
+${sharedEventFrameLine}
 ${wearablePriorityLines ? wearablePriorityLines : ''}
 
 Required CTA verb at end of body: "check in to set your intention" (default) or "log in to prep your state" (if HRV<-15% or sleep<60 with a heavy day) or "log in to prep your mind" (if naming a high-stakes event). The first sentence MUST be a meaning sentence — never a bare metric.`;
@@ -1389,6 +1399,7 @@ Required CTA verb at end of body: "check in to set your intention" (default) or 
       const hrvLine = ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null
         ? `\n- HRV: ${ctx.wearable.hrvDeltaPct}% vs baseline` : '';
       const dayShapeLine = buildDayShapeLine(ctx);
+      const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
       userPrompt = `JIT first-touch. This event is from the user's MORNING PLAN — the prep plan is already queued.
 The proactive job is to pull them back into the app to use that prep before the event starts.
 
@@ -1397,6 +1408,7 @@ Available signals:
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
 ${dayShapeLine}
+${sharedEventFrameLine}
 
 Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence ("Walk in with the edge, not the anxiety", "Lead it instead of surviving it") — not a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if morning state was depleted/managing).`;
@@ -1406,6 +1418,7 @@ Required CTA verb at end of body: "log in to prep your mind" (default) or "log i
     case 'nudge_two_jit': {
       const evt = specificSignals as { eventTitle: string; minutesUntil: number };
       const evtTitle = truncateEventTitle(evt.eventTitle);
+      const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
       userPrompt = `Mid-day JIT. This event is from the user's MORNING PLAN — the prep plan is already queued.
 Pull them back into the app. Their context may have shifted since morning, but the event hasn't.
 
@@ -1413,6 +1426,7 @@ Available signals:
 - Event: "${evtTitle}" in ${evt.minutesUntil} minutes
 ${ctx.morningCheckinOutcome ? `- Morning state: ${ctx.morningCheckinOutcome}` : ''}
 - Meetings today: ${ctx.eventCount}
+${sharedEventFrameLine}
 
 Required: name "${evtTitle}" + minutes-until. The first sentence is a meaning sentence (e.g. "Stay sharp instead of running on fumes") — never a bare metric.
 Required CTA verb at end of body: "log in to prep your mind" (default) or "log in to prep your state" (if depleted).`;
@@ -1436,11 +1450,13 @@ Say "practices" not "priorities". Never reference "Priority 1".`;
 
     case 'nudge_two_recalibrate': {
       const eventTitle = truncateEventTitle(specificSignals.eventTitle as string);
+      const sharedEventFrameLine = buildSharedEventFrameLine(specificSignals.eventTitle as string);
       userPrompt = `State-aware recalibration. User started low; heavy afternoon ahead.
 
 Available signals:
 - Morning check-in: ${ctx.morningCheckinOutcome}
 - Next event: "${eventTitle}"
+${sharedEventFrameLine}
 
 Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next — this is the recovery window").
 Required CTA verb at end of body: "check in to recalibrate".`;
@@ -1455,12 +1471,14 @@ Required CTA verb at end of body: "check in to recalibrate".`;
         : (ctx.wearable.hrvDeltaPct !== null ? `HRV ${ctx.wearable.hrvDeltaPct}% vs baseline` : null);
       // If we cannot cite a real number, hand off to fallback
       if (!signalLine) return null;
+      const sharedEventFrameLine = buildSharedEventFrameLine(evt.eventTitle);
       userPrompt = `Reserves-down lure. Physiology is depleted with a high-stakes event ahead.
 
 Available signals:
 - Wearable: ${signalLine}
 - Next high-stakes: "${evtTitle}"
 ${ctx.morningCheckinOutcome ? `- Morning check-in: ${ctx.morningCheckinOutcome}` : ''}
+${sharedEventFrameLine}
 
 Required: cite the wearable signal INSIDE a meaning sentence (e.g. "You're running low (${signalLine}) and ${evtTitle} is next") — never lead with the bare metric.
 Required CTA verb at end of body: "log in to prep your state" or "check in to recalibrate".`;
@@ -1472,6 +1490,7 @@ Required CTA verb at end of body: "log in to prep your state" or "check in to re
       const isSundayEvening = ctx.dayOfWeek === 0;
       const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title)).map(e => ({ ...e, title: truncateEventTitle(e.title) }));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
+      const sharedTomorrowFrameLine = buildSharedEventFrameLine(tomorrowHighStakes[0]?.title || null);
 
       const eveningWearableLines: string[] = [];
       if (ctx.hasWearableData) {
@@ -1492,6 +1511,7 @@ ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''
 - Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
 ${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
+${sharedTomorrowFrameLine}
 
 ${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
 ${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
