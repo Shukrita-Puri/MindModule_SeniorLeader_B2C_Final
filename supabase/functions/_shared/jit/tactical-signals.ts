@@ -2,15 +2,15 @@
 //
 // patternHit READS `causality_findings.signal_summary` (canonical store
 // per mem://architecture/unified-pattern-store) and never recomputes.
-// Bucket vocabulary is the SINGLE canonical legacy table in
-// `../events/event-classifier.ts` (EVENT_TYPE_KEYWORDS /
-// classifyByLegacyTable). We re-export it under the historical name so
-// JIT writers/readers and the persisted causality store stay in sync
+// Bucket vocabulary is resolved by the shared pattern-bucket helper in
+// `../events/event-classifier.ts`. It preserves the historical
+// `signal_summary` label set while resolving from canonical subtypes first,
+// so JIT writers/readers and the persisted causality store stay in sync
 // without a parallel taxonomy.
-import { classifyByLegacyTable } from '../events/event-classifier.ts';
+import { classifyPatternBucket } from '../events/event-classifier.ts';
 
 export function classifyEventBucket(title: string | null | undefined): string | null {
-  return classifyByLegacyTable(title);
+  return classifyPatternBucket(title);
 }
 
 export interface PatternSignal {

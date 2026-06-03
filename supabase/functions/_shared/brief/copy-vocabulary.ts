@@ -46,6 +46,30 @@ export const FORBIDDEN_SCORE_TIER_WORDS = [
   'moderate', 'high', 'low', 'strong', 'readiness',
 ];
 
+/**
+ * Shared notification-copy blacklist used by Nudges. Kept here so the app's
+ * "Chief of Staff for the Mind" language contract does not drift across
+ * surfaces, even when the notification surface carries extra CTA-specific bans.
+ */
+export const FORBIDDEN_NOTIFICATION_WORDS = [
+  'wellness', 'mindful', 'mindfulness', 'relax', 'breathe', 'calm',
+  'recharge', 'self-care', 'self care', 'streak', 'keep it up',
+  'well done', 'great job', 'productive', 'productivity', 'intent',
+  'strategy', 'strategic', 'set the tone', 'your day your terms',
+  'loaded day', '5 days behind you', 'plan the week', 'come back',
+  'check in when', 'decision posture', 'decision readiness',
+  'mental sharpness', 'anchor sharpness', 'anchor mental',
+  'lock in decision', 'set decision', 'set posture', 'decision-ready',
+  'optimal performance', 'peak performance', 'performance state',
+  'cognitive load', 'capacity', 'reserves', 'baseline',
+  'trajectory reset', 'reset trajectory', 'your prep is ready',
+  'prep is ready', 'your plan is ready', 'your brief is ready',
+  'see your prep', 'see your plan', 'see your readiness', 'tap to prep',
+  'open the app to prep', 'check into the app to prep',
+  'go to the app to prep', 'prep now', 'open the app to prep tonight',
+  'open the app to prep with a cool-down',
+] as const;
+
 export const HARD_CONSTRAINTS = `HARD CONSTRAINTS (no exceptions)
 - Never use wellness words: ${FORBIDDEN_WELLNESS_WORDS.join(', ')}.
 - Never use clinical jargon: ${FORBIDDEN_CLINICAL_WORDS.join(', ')}

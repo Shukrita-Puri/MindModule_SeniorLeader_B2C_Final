@@ -12,6 +12,8 @@ import {
   type TimeWindow as BriefTimeWindow,
 } from "../_shared/load-brief-behaviour-snapshot.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
+import { FORBIDDEN_NOTIFICATION_WORDS } from "../_shared/brief/copy-vocabulary.ts";
+import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 
 // ── APNs Helper Functions ──
 
@@ -560,10 +562,14 @@ interface QualifiedNudge {
 // ── v7 helpers: pattern store reader + event classifier ────────────────
 
 // Event→bucket lookup against the persisted pattern store is delegated to
-// the canonical legacy table in `_shared/events/event-classifier.ts`. The
-// same function powers cause-effect-engine and JIT tactical-signals so the
-// writer and reader of `causality_findings.signal_summary` never drift.
-import { classifyByLegacyTable as classifyEventForPattern } from '../_shared/events/event-classifier.ts';
+// the shared pattern-bucket resolver in `_shared/events/event-classifier.ts`.
+// It preserves the historical `signal_summary` label set while resolving
+// from canonical subtypes first, so writers/readers no longer drift on
+// parallel keyword tables.
+import {
+  classifyEvent,
+  classifyPatternBucket as classifyEventForPattern,
+} from '../_shared/events/event-classifier.ts';
 
 async function loadPatternSummary(
   supabase: ReturnType<typeof createClient>,
@@ -603,6 +609,15 @@ function findEventPattern(
   if (hit.confidence !== 'strong' && hit.confidence !== 'emerging') return null;
   if (hit.hrvDeltaPct >= 0 && !hit.rhrElevated) return null;
   return hit;
+}
+
+function suppressJitForNotificationOnlyCategory(
+  eventTitle: string | null | undefined,
+): boolean {
+  const subtype = classifyEvent(eventTitle);
+  if (!subtype) return false;
+  const category = EVENT_CATEGORIES[subtype.categoryId];
+  return category?.protocol.duringNotificationOnly === true;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1116,24 +1131,7 @@ function truncateEventTitle(title: string | null | undefined): string {
 
 // v6 — copy-contract lint shared by AI output and any future fallback editor.
 // Returns null if body passes; returns a string reason if it must be rejected.
-const FORBIDDEN_WORDS_V6 = [
-  'wellness','mindful','mindfulness','relax','breathe','calm','recharge','self-care','self care',
-  'streak','keep it up','well done','great job',
-  'productive','productivity','intent','strategy','strategic',
-  'set the tone','your day your terms','loaded day','5 days behind you','plan the week',
-  'come back','check in when',
-  // v6.1 — ban mechanical / robotic phrasing flagged by CEO review
-  'decision posture','decision readiness','mental sharpness','anchor sharpness',
-  'anchor mental','lock in decision','set decision','set posture','decision-ready',
-  'optimal performance','peak performance','performance state','cognitive load',
-  'capacity','reserves','baseline','trajectory reset','reset trajectory',
-  // v8 — passive-consumption verbs (defeat the "open the app and do it" principle)
-  'your prep is ready','prep is ready','your plan is ready','your brief is ready',
-  'see your prep','see your plan','see your readiness','tap to prep',
-  // v8 — unqualified V7 prep verbs (CEO reads "prep" as strategic prep, not mental)
-  'open the app to prep','check into the app to prep','go to the app to prep',
-  'prep now','open the app to prep tonight','open the app to prep with a cool-down',
-];
+const FORBIDDEN_WORDS_V6 = [...FORBIDDEN_NOTIFICATION_WORDS];
 const ALLOWED_CTA_VERBS_V6 = [
   'open your brief','open your plan','open your prep plan','open your readiness',
   'build your prep plan','build your plan',
@@ -1517,8 +1515,6 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
       return null;
   }
 
-  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
-  // Both providers are validated through the identical V8 gate.
   // ── CEO behaviour wiring (Brief↔Nudge parity, canonical) ──
   // Preferred path: read the Brief's persisted snapshot (loaded once in
   // buildNudgeContext as `ctx.briefBehaviour`) so the Nudge LLM sees the
@@ -1526,12 +1522,13 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
   // `evaluateForScope("nudge", …)` — only when no Brief row exists yet for
   // this window, AND we still need `notificationIsProduct` (the nudge-only
   // rule) which the Brief's snapshot does not carry.
+  let behaviourPromptBlock = '';
   try {
     if (ctx.briefBehaviour?.taxonomyBlock) {
-      userPrompt += ctx.briefBehaviour.taxonomyBlock;
+      behaviourPromptBlock += ctx.briefBehaviour.taxonomyBlock;
     }
     if (ctx.briefBehaviour?.promptBlockBrief) {
-      userPrompt += ctx.briefBehaviour.promptBlockBrief;
+      behaviourPromptBlock += ctx.briefBehaviour.promptBlockBrief;
       console.log(
         `[smart-nudges] applied brief snapshot sig=${ctx.briefBehaviour.signatureHash}`,
       );
@@ -1583,13 +1580,20 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
         },
       );
       if (wiring?.promptBlock) {
-        userPrompt += wiring.promptBlock;
+        behaviourPromptBlock += wiring.promptBlock;
         console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
       }
     }
   } catch (e) {
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
+
+  if (behaviourPromptBlock) {
+    userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
+  }
+
+  // Try providers in order: Claude Haiku → Lovable AI Gemini Flash → null.
+  // Both providers are validated through the identical V8 gate.
 
   const claudeCopy = await tryAIProvider('claude', ctx, nudgeType, systemPrompt, userPrompt);
   if (claudeCopy) return claudeCopy;
@@ -2171,6 +2175,12 @@ async function evaluateNudgeOne(
     for (const evt of ctx.jitEvents) {
       if (evt.confidenceBand === 'none') continue;
       if (sentEventRefs.has(evt.externalId)) continue;
+      if (suppressJitForNotificationOnlyCategory(evt.eventTitle)) {
+        console.log(
+          `[smart-nudges] suppressing JIT for notification-only category event="${evt.eventTitle || 'unknown'}"`,
+        );
+        continue;
+      }
 
       const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
       if (minutesUntil < 30 || minutesUntil > 180) continue; // 30 min – 3 h window
@@ -2346,6 +2356,12 @@ async function evaluateNudgeTwo(
   for (const evt of ctx.jitEvents) {
     if (evt.confidenceBand === 'none') continue;
     if (sentEventRefs.has(evt.externalId)) continue;
+    if (suppressJitForNotificationOnlyCategory(evt.eventTitle)) {
+      console.log(
+        `[smart-nudges] suppressing JIT for notification-only category event="${evt.eventTitle || 'unknown'}"`,
+      );
+      continue;
+    }
 
     const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
     // v5 — focus on the 30 min – 3 h pre-event window

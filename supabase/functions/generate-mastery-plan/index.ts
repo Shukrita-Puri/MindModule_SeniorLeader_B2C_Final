@@ -12,7 +12,7 @@ import {
 } from '../_shared/executive-state-taxonomy.ts';
 import { isHighStakesTitle } from '../_shared/events/event-classifier.ts';
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from '../_shared/calendar-provider.ts';
-import { applySlotBoostsToMapping, evaluateForScope } from '../_shared/behaviour-wiring.ts';
+import { applySlotBoostsToMapping } from '../_shared/behaviour-wiring.ts';
 // Canonical reader of the Brief's behaviour snapshot. Plan MUST consume the
 // same `flagsPlan` + `slotBoosts` + `taxonomyBlock` the Brief reasoned over
 // rather than rebuilding its own — otherwise Brief↔Plan drift is structural.
@@ -48,7 +48,11 @@ import {
   EVENT_TYPES,
   EVENT_TYPE_TO_SCENARIO_ID,
 } from '../_shared/events/event-subtypes.ts';
-import { PROTOCOL_COMBOS, type ComboKey } from '../_shared/protocols/protocol-combos.ts';
+import {
+  PROTOCOL_COMBOS,
+  PRACTICE_TYPE_TO_COMBO,
+  type ComboKey,
+} from '../_shared/protocols/protocol-combos.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
 import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
@@ -1333,9 +1337,163 @@ interface ScoredEvent {
   jitDimensionScores?: any | null;
 }
 
+function formatTimePill(minutesUntil: number): string {
+  if (minutesUntil < 60) return `In ${minutesUntil} min`;
+  if (minutesUntil < 1440) {
+    const hours = Math.floor(minutesUntil / 60);
+    return `In ${hours} hr${hours > 1 ? 's' : ''}`;
+  }
+  const days = Math.ceil(minutesUntil / 1440);
+  return `In ${days} day${days > 1 ? 's' : ''}`;
+}
+
+function getCalendarEventStartIso(
+  event: Partial<CalendarEvent> & { start_time?: string | null },
+): string | null {
+  return event.startTime ?? event.start_time ?? null;
+}
+
+function getCalendarEventEndIso(
+  event: Partial<CalendarEvent> & { end_time?: string | null },
+): string | null {
+  return event.endTime ?? event.end_time ?? null;
+}
+
+function findScoredEventForCandidate(
+  events: ScoredEvent[],
+  candidate: RankedJitCandidate,
+): ScoredEvent | null {
+  const byId = candidate.eventId
+    ? events.find((evt) => evt.event.id === candidate.eventId)
+    : null;
+  if (byId) return byId;
+
+  const title = String(candidate.title || '').trim().toLowerCase();
+  if (!title) return null;
+  return events.find((evt) => String(evt.event.title || '').trim().toLowerCase() === title) ?? null;
+}
+
+function buildSharedContextDescription(
+  event: CalendarEvent,
+  candidate: RankedJitCandidate,
+  minutesUntil: number,
+  hrvCorrelations: HRVCorrelationMap | null,
+): { contextDescription: string; hrvCorrelation?: ScoredEvent['hrvCorrelation'] } {
+  const parts: string[] = [];
+  const scenarioLabel = canonicalEventTag(event.title || '');
+  const phaseVerb =
+    candidate.phase === 'pre'
+      ? 'Prepare ahead of'
+      : candidate.phase === 'during'
+      ? 'Stay regulated through'
+      : 'Recover cleanly after';
+  parts.push(`${phaseVerb} ${scenarioLabel.toLowerCase()}`);
+
+  const enriched = enrichEvent({ title: event.title || '' });
+  if (candidate.phase === 'pre' && candidate.leadTimeMin != null) {
+    parts.push(`shared timing window is active (${candidate.leadTimeMin} min lead)`);
+  }
+  if (candidate.phase === 'post' && enriched.categoryId) {
+    parts.push(`protect the ${EVENT_CATEGORIES[enriched.categoryId].name.toLowerCase()} recovery window`);
+  }
+  if (minutesUntil <= 30) parts.push('starting very soon');
+  else if (minutesUntil <= 120) parts.push(`in ${minutesUntil} minutes`);
+  else if (minutesUntil < 1440) parts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+
+  let hrvCorrelation: ScoredEvent['hrvCorrelation'] = undefined;
+  if (hrvCorrelations) {
+    const evtType = coarseEventType(event.title || '');
+    const corr = hrvCorrelations[evtType];
+    if (corr && corr.count >= 2) {
+      hrvCorrelation = {
+        eventType: evtType,
+        avgDeviation: corr.avgHRVDeviation,
+        historicalCount: corr.count,
+      };
+      if (Math.abs(corr.avgHRVDeviation) > 10) {
+        const canonicalLabel = canonicalTagForCoarse(evtType);
+        parts.push(`your body shows a familiar pre-${canonicalLabel.toLowerCase().replace(/^pre /, '')} response`);
+      }
+    }
+  }
+
+  return {
+    contextDescription: `${parts.join(' – ')}. Prepare with targeted practice.`,
+    hrvCorrelation,
+  };
+}
+
+function scoreCalendarEventsShared(
+  events: CalendarEvent[],
+  hrvCorrelations?: HRVCorrelationMap | null,
+): ScoredEvent[] {
+  const nowMs = Date.now();
+  const eligibleEvents = events
+    .filter((event) => !!event?.title)
+    .filter((event) => !isNoiseEvent(event.title || ''))
+    .filter((event) => !(isEducationalTitle(event.title || '') && !event.isOrganizer));
+
+  const ranked = rankJitCandidates(
+    eligibleEvents.map((event) => ({
+      event: {
+        id: event.id,
+        title: event.title,
+        start_time: event.startTime,
+        end_time: event.endTime ?? null,
+      },
+      stakesLevel: null,
+    })),
+    nowMs,
+  );
+
+  const bestCandidateByEvent = new Map<string, RankedJitCandidate>();
+  for (const candidate of ranked) {
+    if (!candidate.eventId) continue;
+    const current = bestCandidateByEvent.get(candidate.eventId);
+    if (!current || candidate.score > current.score) {
+      bestCandidateByEvent.set(candidate.eventId, candidate);
+    }
+  }
+
+  const scored: ScoredEvent[] = [];
+  for (const event of eligibleEvents) {
+    const startMs = new Date(event.startTime).getTime();
+    if (!Number.isFinite(startMs)) continue;
+    const minutesUntil = Math.floor((startMs - nowMs) / (1000 * 60));
+    if (minutesUntil < 0) continue;
+    const actionWindow = getActionWindow(minutesUntil);
+    if (actionWindow === 'selection_only') continue;
+
+    const candidate = bestCandidateByEvent.get(event.id);
+    if (!candidate) continue;
+    const sid = scenarioIdFor(event.title);
+    const scenario = sid ? EXECUTIVE_SCENARIOS.find((s) => s.id === sid) || null : null;
+    const { contextDescription, hrvCorrelation } = buildSharedContextDescription(
+      event,
+      candidate,
+      minutesUntil,
+      hrvCorrelations ?? null,
+    );
+
+    scored.push({
+      event,
+      score: candidate.score,
+      minutesUntil,
+      scenario,
+      timePill: formatTimePill(minutesUntil),
+      contextDescription,
+      hrvCorrelation,
+      jitUrgencyHorizon: actionWindow === 'touch1' ? 'tactical' : 'immediate',
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.minutesUntil - b.minutesUntil);
+  return scored;
+}
+
 /**
  * Bridge: Try to use pre-scored events from jit_event_context (new pipeline).
- * Falls back to legacy scoring if no pre-scored events are available.
+ * Falls back to a shared ranked-candidate scorer if no pre-scored events are available.
  */
 async function getPreScoredEvents(
   userId: string,
@@ -1394,17 +1552,6 @@ async function getPreScoredEvents(
           continue;
         }
 
-        // Generate time pill
-        let timePill: string;
-        if (minutesUntil < 60) timePill = `In ${minutesUntil} min`;
-        else if (minutesUntil < 1440) {
-          const hours = Math.floor(minutesUntil / 60);
-          timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`;
-        } else {
-          const days = Math.ceil(minutesUntil / 1440);
-          timePill = `In ${days} day${days > 1 ? 's' : ''}`;
-        }
-
         // Build enriched context description from pipeline signals
         const contextDescription = buildEnrichedContextDescription(row, minutesUntil, matchingEvent, hrvCorrelations);
 
@@ -1441,7 +1588,7 @@ async function getPreScoredEvents(
           score: row.final_score || 0,
           minutesUntil,
           scenario: matchedScenario,
-          timePill,
+          timePill: formatTimePill(minutesUntil),
           contextDescription,
           hrvCorrelation,
           jitBucketPrimary: row.jit_bucket_primary,
@@ -1463,9 +1610,9 @@ async function getPreScoredEvents(
     console.error('[generate-mastery-plan] jit_event_context bridge error:', err);
   }
 
-  // Fallback: legacy scoring (with noise filter added)
-  console.log('[generate-mastery-plan] Bridge: no pre-scored events, falling back to legacy scoring');
-  return scoreCalendarEventsLegacy(calendarEvents, [], hrvCorrelations);
+  // Fallback: shared ranked-candidate scoring (no jit_event_context rows yet)
+  console.log('[generate-mastery-plan] Bridge: no pre-scored events, falling back to shared ranked-candidate scoring');
+  return scoreCalendarEventsShared(calendarEvents, hrvCorrelations);
 }
 
 /**
@@ -2609,16 +2756,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   // Selection-only (>48h): nothing surfaces. Per-event suppression via dismissed_horizons.
   let preEventPlan: any = null;
 
-  // Phase B: rank (event, phase) candidates against §3/§4. Shipped for
-  // observability + downstream wiring (jitRankedCandidates is persisted on
-  // the plan response). Top-1 slot selection still uses the legacy
-  // window/threshold filter below so user-visible behaviour is unchanged.
+  // Phase B: rank (event, phase) candidates against §3/§4. This now drives
+  // top-event selection for the visible pre-event plan, while the older
+  // filtered-event loop remains only as a defensive fallback until the rest
+  // of the bridge cleanup lands.
   const nowMsForJit = Date.now();
   let jitRankedCandidates: RankedJitCandidate[] = [];
   try {
     jitRankedCandidates = rankJitCandidates(
       filteredEvents.map(e => ({
-        event: { id: e.event.id, title: e.event.title, start_time: e.event.start_time, end_time: e.event.end_time },
+        event: {
+          id: e.event.id,
+          title: e.event.title,
+          start_time: getCalendarEventStartIso(e.event) ?? '',
+          end_time: getCalendarEventEndIso(e.event),
+        },
         stakesLevel: (e as any).stakesLevel ?? null,
         score: e.score,
       })),
@@ -2668,19 +2820,38 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     );
   }
 
-  // Find first event in a valid action window
   let topEvent: ScoredEvent | null = null;
-  for (const evt of filteredEvents) {
-    if (evt.score < JIT_THRESHOLD_UNIFIED) {
-      console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – score=${evt.score} < threshold=${JIT_THRESHOLD_UNIFIED}`);
-      continue;
+  const sharedTopCandidate = jitRankedCandidates.find((candidate) => candidate.phase === 'pre');
+  if (sharedTopCandidate && sharedTopCandidate.score >= JIT_THRESHOLD_UNIFIED) {
+    const mappedEvent = findScoredEventForCandidate(filteredEvents, sharedTopCandidate);
+    if (mappedEvent) {
+      const window = getActionWindow(mappedEvent.minutesUntil);
+      if (window === 'touch1' || window === 'touch2') {
+        topEvent = mappedEvent;
+        console.log(
+          `[generate-mastery-plan] topEvent selected from shared ranking: "${mappedEvent.event.title}" phase=${sharedTopCandidate.phase} score=${sharedTopCandidate.score} minutesUntil=${mappedEvent.minutesUntil}`,
+        );
+      }
     }
-    const window = getActionWindow(evt.minutesUntil);
-    if (window === 'touch1' || window === 'touch2') {
-      topEvent = evt;
-      break;
+  }
+
+  if (!topEvent) {
+    // Defensive fallback while the remaining legacy bridge is still present.
+    for (const evt of filteredEvents) {
+      if (evt.score < JIT_THRESHOLD_UNIFIED) {
+        console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – score=${evt.score} < threshold=${JIT_THRESHOLD_UNIFIED}`);
+        continue;
+      }
+      const window = getActionWindow(evt.minutesUntil);
+      if (window === 'touch1' || window === 'touch2') {
+        topEvent = evt;
+        console.log(
+          `[generate-mastery-plan] topEvent selected from legacy fallback: "${evt.event.title}" score=${evt.score} minutesUntil=${evt.minutesUntil}`,
+        );
+        break;
+      }
+      console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`);
     }
-    console.log(`[generate-mastery-plan] JIT candidate EXCLUDED: "${evt.event.title}" – window=${window} minutesUntil=${evt.minutesUntil} score=${evt.score}`);
   }
 
   if (topEvent) {
@@ -2918,9 +3089,22 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
   try {
     const wiring = snapshotToWiring(shared.briefBehaviour, 'plan');
     if (wiring && wiring.slotBoosts.length > 0) {
+      const safeSlotBoosts = wiring.slotBoosts.filter((boost) => {
+        const sharedPref = PRACTICE_TYPE_TO_COMBO[boost.practiceType];
+        const comboKey = sharedPref
+          ? `${sharedPref.protocol}.${sharedPref.mode}` as ComboKey
+          : null;
+        if (comboKey && !PROTOCOL_COMBOS[comboKey]) {
+          console.warn(
+            `[generate-mastery-plan] dropped slot boost with unknown combo ${comboKey} from reason=${boost.reason}`,
+          );
+          return false;
+        }
+        return true;
+      });
       const { applied } = applySlotBoostsToMapping(
         moduleMapping as any,
-        wiring.slotBoosts,
+        safeSlotBoosts,
         timeOfDay as 'morning' | 'afternoon' | 'evening',
       );
       if (applied.length > 0) {
@@ -4484,10 +4668,14 @@ function buildHorizonModules(
    *   somatic.reenergise → integrate (closest body-closing intent)
    */
   const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, string> = {
-    'somatic.pause': 'regulate',
-    'mindset.pause': 'align',
-    'mindset.flow': 'prepare',
-    'mindset.reenergise': 'integrate',
+    ...Object.fromEntries(
+      Object.entries(PRACTICE_TYPE_TO_COMBO).map(([practiceType, pref]) => [
+        `${pref.protocol}.${pref.mode}`,
+        practiceType,
+      ]),
+    ) as Record<ComboKey, string>,
+    // Shared protocol combos include two event-phase variants that do not map
+    // 1:1 to a unique practice type; bias them to the closest existing module.
     'somatic.flow': 'regulate',
     'somatic.reenergise': 'integrate',
   };
@@ -4627,8 +4815,10 @@ function buildHorizonModules(
   // Pre-compute JIT phase label once — used by whichever slot lands on the
   // JIT event. Pulled out so Slot 1 (touch1) / Slot 2 (touch2) / Slot 3
   // (post window) all share one phase-aware contract.
-  const topEventStartMs = topEvent ? new Date(topEvent.event.start_time).getTime() : null;
-  const topEventEndMs = topEvent && topEvent.event.end_time ? new Date(topEvent.event.end_time).getTime() : null;
+  const topEventStartIso = topEvent ? getCalendarEventStartIso(topEvent.event) : null;
+  const topEventEndIso = topEvent ? getCalendarEventEndIso(topEvent.event) : null;
+  const topEventStartMs = topEventStartIso ? new Date(topEventStartIso).getTime() : null;
+  const topEventEndMs = topEventEndIso ? new Date(topEventEndIso).getTime() : null;
   const jitPhase = resolveJitPhaseLabel(jitEventTitle, topEventStartMs, topEventEndMs, nowMs);
   const topEventCat: any = topEvent ? enrichEvent(topEvent.event).categoryId : null;
   const topEventId: string | null = topEvent?.event?.id ?? null;

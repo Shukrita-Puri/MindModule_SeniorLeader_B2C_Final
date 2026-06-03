@@ -4,7 +4,9 @@ import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
-import { evaluateForScope } from "../_shared/behaviour-wiring.ts";
+import { classifyEvent } from "../_shared/events/event-classifier.ts";
+import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
+import { phaseForEvent, type Phase } from "../_shared/events/event-phase-map.ts";
 import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
@@ -73,6 +75,60 @@ function pillSourceList(
   if (demandScore != null && pill !== 'physical_reserves') out.push('calendar');
   if (hasCheckin && pill !== 'physical_reserves') out.push('checkin');
   return out;
+}
+
+type BriefPromptEvent = {
+  title: string;
+  startTime: string;
+  endTime?: string | null;
+  isAllDay?: boolean;
+  stakesLevel?: string | null;
+};
+
+function resolvePromptEventPhase(
+  event: BriefPromptEvent,
+  now: Date,
+): Phase {
+  const startMs = new Date(event.startTime).getTime();
+  const endMs = new Date(event.endTime).getTime();
+  if (Number.isFinite(startMs) && now.getTime() < startMs) return 'pre';
+  if (Number.isFinite(startMs) && Number.isFinite(endMs) && now.getTime() >= startMs && now.getTime() < endMs) {
+    return 'during';
+  }
+  return 'post';
+}
+
+function buildEventCoachingBlock(
+  label: string,
+  events: BriefPromptEvent[],
+  now: Date,
+): string {
+  const lines = events
+    .slice(0, 6)
+    .map((event) => {
+      const subtype = classifyEvent(event.title);
+      if (!subtype) return null;
+      const phase = resolvePromptEventPhase(event, now);
+      const phaseMeta = phaseForEvent(event.title, phase, event.stakesLevel ?? null);
+      const category = EVENT_CATEGORIES[subtype.categoryId];
+      const combo = phaseMeta
+        ? `${phaseMeta.resolvedCombo.protocol}/${phaseMeta.resolvedCombo.mode}`
+        : null;
+      return [
+        `- ${event.title}`,
+        `${category.id} ${category.name}`,
+        `type ${subtype.label}`,
+        `phase ${phase}${phaseMeta?.timing ? ` (${phaseMeta.timing})` : ''}`,
+        combo ? `combo ${combo}` : null,
+        phaseMeta?.goal ? `goal ${phaseMeta.goal}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    })
+    .filter((line): line is string => !!line);
+
+  if (lines.length === 0) return '';
+  return `\n\n=== ${label} EVENT COACHING ===\n${lines.join('\n')}`;
 }
 
 // ==================== BRIEF SNAPSHOT CACHE ====================
@@ -3878,10 +3934,25 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               extras: { dayOfWeek },
             });
 
-            // Append the taxonomy block FIRST (pure event labelling, advisory),
-            // then the behaviour block (rule outputs, deterministic). Order
-            // matters: behaviour rules reference event names; the taxonomy
-            // block grounds those names in pillar focus.
+            const promptLocalNow = new Date(Date.now() - timezoneOffset * 60000);
+            const eventCoachingToday = buildEventCoachingBlock(
+              'TODAY',
+              eventsForCtx as BriefPromptEvent[],
+              promptLocalNow,
+            );
+            const eventCoachingTomorrow = buildEventCoachingBlock(
+              'TOMORROW',
+              tomorrowEventsForCtx as BriefPromptEvent[],
+              promptLocalNow,
+            );
+            if (eventCoachingToday) userPrompt += eventCoachingToday;
+            if (eventCoachingTomorrow) userPrompt += eventCoachingTomorrow;
+
+            // Append shared event-coaching context first, then the taxonomy
+            // block (pure event labelling), then the behaviour block
+            // (rule outputs, deterministic). Order matters: behaviour rules
+            // reference event names; the preceding blocks ground those names
+            // in phase, pillar focus, and protocol intent.
             if (briefBehaviourSnapshot.taxonomyBlock) {
               userPrompt += briefBehaviourSnapshot.taxonomyBlock;
             }
@@ -3905,7 +3976,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 event_metadata: null,
               }));
               briefWindowContext = buildWindowContext({
-                now: new Date(Date.now() - timezoneOffset * 60000),
+                now: promptLocalNow,
                 todayEvents: toClassified(eventsForCtx),
                 tomorrowEvents: toClassified(tomorrowEventsForCtx),
                 wearable: {

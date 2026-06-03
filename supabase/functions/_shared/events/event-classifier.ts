@@ -207,13 +207,55 @@ export const EVENT_TYPE_KEYWORDS: Array<{ label: string; words: string[] }> = [
   { label: 'Internal builds',         words: ['debug','dashboard','engineering','sprint','planning','db ',' db'] },
 ];
 
-export function classifyByLegacyTable(title: string | null | undefined): string | null {
+const SUBTYPE_TO_LEGACY_BUCKET: Partial<Record<string, string>> = {
+  'gov.board_meeting': 'Board / governance',
+  'gov.board_committee': 'Board / governance',
+  'gov.board_prep': 'Board / governance',
+  'gov.investor_meeting': 'Investor calls',
+  'gov.earnings_call': 'Investor calls',
+  'gov.qbr': 'Reviews',
+  'gov.budget_review': 'Reviews',
+  'inf.fundraising': 'Investor calls',
+  'inf.client_presentation': 'Client meetings',
+  'vis.all_hands': 'All-hands',
+  'lead.executive_1on1': '1:1s',
+  'lead.leadership_sync': 'Exec / leadership',
+  'lead.performance_review': 'Reviews',
+  'lead.hiring_committee': 'Interviews',
+  'str.deep_work': 'Deep work blocks',
+  'str.strategy_planning': 'Deep work blocks',
+  'str.product_launch': 'Internal builds',
+  'conf.keynote': 'Networking & community',
+  'conf.speaking': 'Networking & community',
+  'conf.offsite': 'Networking & community',
+  'conf.award': 'Networking & community',
+  'conf.customer_summit': 'Networking & community',
+  'conf.networking': 'Networking & community',
+  'rhy.catchup': 'Catch-ups & syncs',
+};
+
+/**
+ * Pattern-store / tactical-signals bucket. Preserves the historical
+ * `causality_findings.signal_summary` label set, but resolves from the
+ * canonical subtype first so readers/writers gradually stop depending on
+ * parallel keyword tables.
+ */
+export function classifyPatternBucket(title: string | null | undefined): string | null {
+  const subtype = classifyEvent(title);
+  if (subtype) {
+    const mapped = SUBTYPE_TO_LEGACY_BUCKET[subtype.id];
+    if (mapped) return mapped;
+  }
   if (!title) return null;
   const t = title.toLowerCase();
   for (const ec of EVENT_TYPE_KEYWORDS) {
     if (ec.words.some((w) => t.includes(w))) return ec.label;
   }
   return null;
+}
+
+export function classifyByLegacyTable(title: string | null | undefined): string | null {
+  return classifyPatternBucket(title);
 }
 
 // ── Stakes scoring ──────────────────────────────────────────────────

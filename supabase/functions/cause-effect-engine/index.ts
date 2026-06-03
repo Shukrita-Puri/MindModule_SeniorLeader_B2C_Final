@@ -26,7 +26,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import {
   EVENT_TYPE_KEYWORDS as SHARED_EVENT_TYPE_KEYWORDS,
-  classifyByLegacyTable,
+  classifyPatternBucket,
   classifyEvent as classifyEventCanonical,
   PILLAR_META,
   dedupeCalendarEvents,
@@ -324,7 +324,7 @@ function impactScore(f: Finding): number {
 const EVENT_TYPE_KEYWORDS = SHARED_EVENT_TYPE_KEYWORDS;
 
 function classifyEvent(title: string | null | undefined): string | null {
-  return classifyByLegacyTable(title);
+  return classifyPatternBucket(title);
 }
 
 // Pillar swim-lane projection (Section K) — exposed so the Insights
