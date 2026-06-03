@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -6,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getAuthToken } from '@/services/authTokenService';
+import { useMrsTrend } from '@/hooks/useMrsTrend';
+import MrsSparkline from '@/components/home/mrs/MrsSparkline';
 
 type Tier = 'green' | 'amber' | 'red' | null;
 
@@ -69,6 +72,24 @@ const InnerReadinessDial = () => {
   const { user } = useAuth();
   const { data: outer } = useOuterReadiness();
   const [snapshots, setSnapshots] = useState<Array<{ local_date: string; score: number | null; tier: string | null }>>([]);
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.sessionStorage.getItem('insights.trajectory.expanded') === '1';
+  });
+  const [range, setRange] = useState<7 | 30 | 180>(7);
+  const todayScoreForTrend =
+    typeof outer?.innerReadinessScore === 'number' ? Math.round(outer.innerReadinessScore) : null;
+  const trend = useMrsTrend(todayScoreForTrend, range);
+
+  const toggleExpanded = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.sessionStorage.setItem('insights.trajectory.expanded', next ? '1' : '0');
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const uid = DEV_MODE ? DEV_USER.id : user?.id;
 
