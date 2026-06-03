@@ -1,97 +1,90 @@
-# brief_snapshots — baseline + refined split
+## What's actually wrong
 
-Make `brief_snapshots` the canonical 2-state store for MRS v3. Rename today's columns (which are all refined-style outputs) to `refined_*`, add parallel `baseline_*` columns for State 1, and enforce the ±15 rule at the DB level. Historical 335 rows have no baseline and stay valid.
+I traced all three reported issues against the live code, DB and a sample row pull.
 
-## 1. Migration
+### Issue 1 — Dial "not visible"
 
-Single migration, in order:
+The half-dial component (`src/components/home/mrs/WeeklyDeltaDial.tsx`) renders, but its **track stroke is pure white over 0.05 alpha on a near-white background**:
 
-### 1a. Rename existing → `refined_*`
-- `score` → `refined_score`
-- `tier` → `refined_tier`
-- `phrase` → `refined_phrase`
-- `body_text` → `refined_body_text`
-- `lean_on` → `refined_lean_on`
-- `lean_on_source` → `refined_lean_on_source`
-- `watch_for` → `refined_watch_for`
-- `watch_for_source` → `refined_watch_for_source`
-- `signal_pills` → `refined_signal_pills`
-
-Untouched: `payload_json`, `pillar_mode`, `wearable_snapshot`, `checkin_snapshot`, `daily_checkin_id`, `brief_source`, `driver`, `input_signature`, `prompt_version`, `llm_*`, `user_rating`, `feedback_text`.
-
-### 1b. Add `baseline_*` + state columns
-```sql
-ALTER TABLE public.brief_snapshots
-  ADD COLUMN baseline_score            int  NULL,
-  ADD COLUMN baseline_tier             text NULL,
-  ADD COLUMN baseline_phrase           text NULL,
-  ADD COLUMN baseline_body_text        text NULL,
-  ADD COLUMN baseline_lean_on          text NULL,
-  ADD COLUMN baseline_lean_on_source   text NULL,
-  ADD COLUMN baseline_watch_for        text NULL,
-  ADD COLUMN baseline_watch_for_source text NULL,
-  ADD COLUMN baseline_signal_pills     jsonb NULL,
-  ADD COLUMN baseline_state            text NULL,   -- 'baseline' | 'cold-start' | NULL
-  ADD COLUMN refined_state             text NULL;   -- 'refined'  | NULL
 ```
-`pillar_mode` stays read-only legacy; new code reads/writes the two `*_state` columns.
-
-### 1c. ±15 constraint (DB-level guarantee)
-```sql
-ALTER TABLE public.brief_snapshots
-  ADD CONSTRAINT refined_score_within_baseline_range
-  CHECK (
-    baseline_score IS NULL
-    OR refined_score IS NULL
-    OR refined_score BETWEEN baseline_score - 15 AND baseline_score + 15
-  );
-```
-Historical 335 rows: `baseline_score IS NULL` → exempt. New rows with both → enforced.
-
-### 1d. Index
-```sql
-CREATE INDEX brief_snapshots_user_date_scores_idx
-  ON public.brief_snapshots (user_id, local_date DESC, time_window, refined_score, baseline_score);
+<linearGradient id="weekly-track">
+  <stop offset="0%"  stopColor="hsl(0 0% 100%)" stopOpacity="0.55"/>
+  <stop offset="100%" stopColor="hsl(0 0% 100%)" stopOpacity="0.05"/>
+</linearGradient>
 ```
 
-### 1e. Update `brief_snapshots_user_update_guard` trigger
-Rewrite the guard's column list to use the new names and include every new `baseline_*` + `*_state` column so users still cannot mutate them (only `user_rating`, `feedback_text` editable). Service role bypass unchanged.
+That's why the screenshot shows only the LOWER / CURRENT / HIGHER labels and the centre badge — the arc itself is invisible against the page surface. The "glass edge" border strokes are also `hsl(0 0% 100% / 0.55)` and `hsl(var(--foreground)/0.06)`, both effectively invisible.
 
-### 1f. No data back-fill
-Existing rows already hold refined_* values under the new names automatically. `baseline_*` left NULL by design.
+Fix: swap the track to a visible neutral token so the arc shape always reads:
+- Track stroke → `hsl(var(--foreground) / 0.10)` solid (drop the gradient, keep `strokeLinecap="round"`).
+- Outer edge → `hsl(var(--foreground) / 0.18)` at 1px.
+- Inner shadow filter → keep as a subtle depth cue at 0.10 alpha.
 
-## 2. Code updates (after migration approval)
+No layout, no resize, no behavior change — purely making the arc readable.
 
-Single sweep after types regen:
+### Issue 2 — Dial "not populating"
 
-**Edge functions** — rename every `.score` / `.tier` / `.phrase` / `.body_text` / `.lean_on*` / `.watch_for*` / `.signal_pills` reference to `refined_*` in:
-- `compute-outer-readiness/index.ts` — writes refined; add `refined_state='refined'` on check-in path; on baseline-only path write `baseline_*` columns + `baseline_state`
-- `compute-inner-readiness/index.ts`
-- `brief-by-id/index.ts`, `brief-history/index.ts`, `user-events/index.ts`, `cause-effect-engine/index.ts`, `generate-mastery-plan/index.ts`
-- `_shared/load-brief-behaviour-snapshot.ts`, `_shared/behaviour-snapshot.ts`, `_shared/signal-engine/types.ts`, `window-context-types.ts`
+The pipeline itself is correct (verified end‑to‑end against the DB):
 
-**Write contract** in `compute-outer-readiness`:
-- Baseline compute path → INSERT/UPSERT `(user_id, local_date, time_window)` with `baseline_*` populated, `refined_*` NULL.
-- Check-in path → UPDATE same row, set all `refined_*` + `refined_state='refined'`. Wrap in try/catch on `refined_score_within_baseline_range` (clamp to ±15 before write so it never throws; log if clamp fired).
+- Hook `src/hooks/useWeeklyMrsDelta.ts` posts `GET_WEEKLY_DELTA` with `thisMonday`, `lastMonday`, `lastSunday`, `today`.
+- Function reads `brief_snapshots`, latest row per `local_date`, maps `baseline ?? refined`, returns `{ baselineDelta, refinedDelta, todayState }`.
+- DB has 18 rows this week and 5 last week for the active user → `refinedDelta` resolves cleanly.
 
-**Client**
-- `src/hooks/useBriefSnapshot.ts` — interface adds `baseline_*` + `refined_*`; back-compat helpers `score`/`tier`/`phrase`/`bodyText` resolve to `refined_* ?? baseline_*` so existing call sites keep working.
-- `src/hooks/useWeeklyMrsDelta.ts` — switch source from `daily_context_snapshot` to `brief_snapshots`; daily value = `COALESCE(refined_score, baseline_score)`, latest row per `local_date`. Fixes the empty dial because all 335 historical rows become usable.
-- `src/components/insights/InnerReadinessDial.tsx`, `LeadershipPatternsCard.tsx`, `src/components/home/TodayThreePriorities.tsx`, `src/pages/ExecutiveHome.tsx` — read `refined_* ?? baseline_*`.
+Two real defects suppress the value on screen:
 
-## 3. Cleanup (separate, after the above lands)
-- `inner_readiness_scores` (0 rows, no readers) → DROP in a follow-up migration.
-- `mental_fitness_scores` untouched (legacy composite, distinct from MRS).
-- `daily_context_snapshot` keeps its per-day orchestration role; `readiness_score_baseline/refined` mirror what's in `brief_snapshots` but `brief_snapshots` becomes the canonical audit-grade history.
+a. `useWeeklyMrsDelta` swallows every failure (`catch { return { delta: null, mode: 'baseline', label: null } }`). A 401 from an expiring Auth0 token or a one‑off function error becomes a silent "Building your weekly trend". Fix:
+- Log the error to `console.warn` with the action name and status.
+- Surface the network state via React Query (`retry: 1`, `staleTime: 5min` already set) instead of trapping inside `queryFn`.
 
-## 4. Acceptance
-- Migration runs; 335 rows preserved; constraint active.
-- Inserting `(baseline=30, refined=50)` rejected; `(baseline=NULL, refined=75)` accepted; `(baseline=70, refined=80)` accepted.
-- Weekly MRS dial renders real values across the historical range.
-- `useBriefSnapshot` consumers still compile (back-compat getters).
-- User update-guard still blocks tampering on every new column.
-- New memory: `mem://backend/database/brief-snapshots-two-state-schema` documenting columns, constraint, write paths.
+b. `MrsPage` calls the hook with no `userId` gating. When `useAuth().user` is briefly `null` after a refresh, the hook fires anyway, the function returns 401, and the dial flips to the empty fallback. Fix: add `enabled: !!userId` to the query.
 
-## 5. Out of scope
-- No changes to scoring/MRS math, no LLM prompt changes, no UI redesign of brief/dial/gauge (the earlier MrsGauge / WeeklyDeltaDial visual polish stays as a separate item).
-- No edits to `daily_checkins`, `wearable_data`, or any auth/storage schema.
+### Issue 3 — Mode mirrors today's state (refined vs baseline)
+
+This is already implemented but needs a small correction. Function returns `todayState = refined_state ?? baseline_state ?? 'baseline'`. Hook then does:
+
+```
+mode = todayState === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
+delta = mode === 'refined' ? refinedDelta : baselineDelta;
+```
+
+Edge case: a checked‑in user whose last week is purely historical (`refined_score` only, `baseline_score` NULL) gets `refinedDelta` non‑null because the function maps `baseline ?? refined` for the baseline series, but the dial label still shows "baseline" once `refinedDelta` is null for any reason. Fix the hook so the displayed mode follows `todayState` itself, and the delta then prefers the matching series with a single fallback:
+
+```
+mode = todayState === 'refined' ? 'refined' : 'baseline';
+delta = (mode === 'refined' ? refinedDelta : baselineDelta) ?? baselineDelta ?? refinedDelta;
+```
+
+That keeps the rule "if the user has checked in today, the dial shows refined trend; otherwise baseline" without dropping to "—" when one side of the comparison is missing.
+
+### Issue 4 — Validate the baseline + refined split plan
+
+I checked it against the live schema and code. Everything in the original plan is in place:
+
+- Columns renamed to `refined_score / refined_tier / refined_phrase / refined_body_text / refined_lean_on(_source) / refined_watch_for(_source) / refined_signal_pills`.
+- `baseline_*` parallel columns + `baseline_state` + `refined_state` added.
+- CHECK constraint `refined_score_within_baseline_range` present and enforcing ±15.
+- Index `brief_snapshots_user_date_scores_idx` present.
+- Trigger `brief_snapshots_user_update_guard` rewritten with the new column list (verified in `db-functions` definition).
+- `compute-outer-readiness` writes `refined_*` on check-in path and `baseline_*` on the baseline path with the matching `*_state` literal.
+- Readers (`brief-by-id`, `brief-history`, `cause-effect-engine`, `user-events`, `mental-fitness-scores`) coalesce `refined_* ?? baseline_*`.
+- `useWeeklyMrsDelta` already sources from `brief_snapshots` via the function (not `daily_context_snapshot`).
+- Memory note `mem://backend/database/brief-snapshots-two-state-schema` exists.
+
+One residual gap worth closing in this turn:
+
+- `src/hooks/useBriefSnapshot.ts` still types only the legacy keys (`score`, `tier`, `phrase`, `body_text`, `lean_on*`, `watch_for*`, `signal_pills`) and does not expose `baseline_*` / `refined_*` / `*_state`. The server already returns the coalesced legacy keys, so call sites compile, but new readers cannot see which state the brief is in. Extend the interface with `refined_*` + `baseline_*` + `refined_state` + `baseline_state` fields (all nullable) so consumers like the dial label and Insights can branch on state without re-fetching.
+
+## Files to edit (UI/hook only — no schema or write-path changes)
+
+1. `src/components/home/mrs/WeeklyDeltaDial.tsx` — track + edge stroke colors so the arc is visible.
+2. `src/hooks/useWeeklyMrsDelta.ts` — log errors instead of swallowing; gate on `userId`; pick `mode` from `todayState` with a single fallback when one side is missing.
+3. `src/components/home/mrs/MrsPage.tsx` — minor: keep using `weekly.data?.mode` for the readiness state label (already correct; verify).
+4. `src/hooks/useBriefSnapshot.ts` — extend the `BriefSnapshotRecord` interface with the new `refined_*` / `baseline_*` / `*_state` fields.
+
+No edge function redeploys, no migrations, no scoring changes — strictly the dial visibility, the empty‑state regression, and the back‑compat interface gap from §2 of the original plan.
+
+## Out of scope
+
+- No changes to `compute-outer-readiness`, `mental-fitness-scores`, or any other edge function logic.
+- No DB migration; constraint, index, trigger, and column set are already correct.
+- No visual redesign of `MrsGauge` or the page layout.

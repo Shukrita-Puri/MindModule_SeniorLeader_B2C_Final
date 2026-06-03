@@ -43,6 +43,8 @@ export function useWeeklyMrsDelta() {
   return useQuery<WeeklyMrsDelta>({
     queryKey: ['mrs-weekly-delta', userId],
     staleTime: 5 * 60 * 1000,
+    enabled: !!userId,
+    retry: 1,
     queryFn: async () => {
       const today = new Date();
       const thisMon = mondayOf(today);
@@ -68,16 +70,19 @@ export function useWeeklyMrsDelta() {
         const todayState = (payload.todayState as string) === 'refined' ? 'refined' : 'baseline';
         const refinedDelta = typeof payload.refinedDelta === 'number' ? payload.refinedDelta : null;
         const baselineDelta = typeof payload.baselineDelta === 'number' ? payload.baselineDelta : null;
-        // Prefer the input matching today's state; fall back to baseline.
-        const mode: 'baseline' | 'refined' =
-          todayState === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
-        const delta = mode === 'refined' ? refinedDelta : baselineDelta;
+        // Mode mirrors today's state. Delta prefers the matching series with a
+        // single fallback so a partially-populated week never drops to "—".
+        const mode: 'baseline' | 'refined' = todayState === 'refined' ? 'refined' : 'baseline';
+        const primary = mode === 'refined' ? refinedDelta : baselineDelta;
+        const fallback = mode === 'refined' ? baselineDelta : refinedDelta;
+        const delta = primary ?? fallback;
         const label =
           delta === null
             ? null
             : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} pts`;
         return { delta, mode, label };
-      } catch {
+      } catch (err) {
+        console.warn('[useWeeklyMrsDelta] GET_WEEKLY_DELTA failed', err);
         return { delta: null, mode: 'baseline', label: null };
       }
     },

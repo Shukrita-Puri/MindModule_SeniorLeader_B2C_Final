@@ -81,11 +81,6 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
           aria-hidden
         >
           <defs>
-            {/* Glass track gradient */}
-            <linearGradient id="weekly-track" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="hsl(0 0% 100%)" stopOpacity="0.55" />
-              <stop offset="100%" stopColor="hsl(0 0% 100%)" stopOpacity="0.05" />
-            </linearGradient>
             {/* Color fill gradient */}
             <linearGradient id="weekly-fill" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={colorVar} stopOpacity="0.55" />
@@ -103,25 +98,25 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
             <path id="weekly-label-arc" d={labelPathD} fill="none" />
           </defs>
 
-          {/* Track */}
+          {/* Track — visible neutral so the arc always reads on light bg */}
           <path
             d={arcPath(A_LEFT, A_RIGHT)}
             fill="none"
-            stroke="url(#weekly-track)"
+            stroke="hsl(var(--foreground) / 0.10)"
             strokeWidth={STROKE}
             strokeLinecap="round"
           />
-          {/* Subtle border strokes for glass edges */}
+          {/* Subtle outer edge */}
           <path
             d={arcPath(A_LEFT, A_RIGHT)}
             fill="none"
-            stroke="hsl(0 0% 100% / 0.55)"
+            stroke="hsl(var(--foreground) / 0.18)"
             strokeWidth={1}
           />
           <path
             d={arcPath(A_LEFT, A_RIGHT)}
             fill="none"
-            stroke="hsl(var(--foreground) / 0.06)"
+            stroke="hsl(var(--foreground) / 0.10)"
             strokeWidth={STROKE}
             strokeLinecap="round"
             filter="url(#weekly-inner)"

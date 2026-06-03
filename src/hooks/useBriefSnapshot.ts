@@ -35,6 +35,29 @@ export interface BriefSnapshotRecord {
    */
   signal_pills: unknown | null;
   created_at: string;
+  // Two-state schema (MRS v3). Legacy fields above are server-coalesced
+  // as `refined_* ?? baseline_*` for back-compat; these raw columns let
+  // consumers branch on which state produced the brief.
+  refined_score: number | null;
+  refined_tier: string | null;
+  refined_phrase: string | null;
+  refined_body_text: string | null;
+  refined_lean_on: string | null;
+  refined_lean_on_source: string | null;
+  refined_watch_for: string | null;
+  refined_watch_for_source: string | null;
+  refined_signal_pills: unknown | null;
+  refined_state: 'refined' | null;
+  baseline_score: number | null;
+  baseline_tier: string | null;
+  baseline_phrase: string | null;
+  baseline_body_text: string | null;
+  baseline_lean_on: string | null;
+  baseline_lean_on_source: string | null;
+  baseline_watch_for: string | null;
+  baseline_watch_for_source: string | null;
+  baseline_signal_pills: unknown | null;
+  baseline_state: 'baseline' | 'cold-start' | null;
 }
 
 export interface WearableSnapshot {
