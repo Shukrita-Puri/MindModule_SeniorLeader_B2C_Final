@@ -1373,6 +1373,22 @@ function findScoredEventForCandidate(
   return events.find((evt) => String(evt.event.title || '').trim().toLowerCase() === title) ?? null;
 }
 
+function buildAnchorSnapshot(
+  eventId: string | null,
+  enriched: ReturnType<typeof enrichEvent> | null,
+): Pick<
+  HorizonModule,
+  'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId' | 'anchorScenarioId' | 'anchorLeadTimeMin'
+> {
+  return {
+    anchorEventId: eventId ?? null,
+    anchorCategoryId: enriched?.categoryId ?? null,
+    anchorSubtypeId: enriched?.subtype?.id ?? null,
+    anchorScenarioId: enriched?.scenarioId ?? null,
+    anchorLeadTimeMin: enriched?.leadTimeMin ?? null,
+  };
+}
+
 function buildSharedContextDescription(
   event: CalendarEvent,
   candidate: RankedJitCandidate,
@@ -3425,6 +3441,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
       } catch { /* enrich failure → cap defaults to 1 */ }
     }
     const slotEventId = (m: HorizonModule): string | null => {
+      if (m.anchorEventId) return String(m.anchorEventId);
       const r = m.replacementEventIds && m.replacementEventIds[0];
       if (r) return String(r);
       const t = (m.jitEventTitle || '').toLowerCase().trim();
@@ -3715,6 +3732,11 @@ interface HorizonModule {
   showNavyBorder: boolean;
   showPulse: boolean;
   showPriorityPill: boolean;
+  anchorEventId?: string | null;
+  anchorCategoryId?: EventCategoryId | null;
+  anchorSubtypeId?: string | null;
+  anchorScenarioId?: string | null;
+  anchorLeadTimeMin?: number | null;
   isCancelled?: boolean;
   cancelReason?: string | null;
   replacementEventIds?: string[];
@@ -4719,7 +4741,14 @@ function buildHorizonModules(
 
   const composeStateLabel = (
     slotIndex: 0 | 1 | 2,
-  ): { label: string; eventId: string | null } | null => {
+  ): {
+    label: string;
+    eventId: string | null;
+    categoryId: EventCategoryId | null;
+    subtypeId: string | null;
+    scenarioId: string | null;
+    leadTimeMin: number | null;
+  } | null => {
     const w = req.wearableContext;
     const tier = req.innerReadinessTier;
     const checkIn = req.checkInOutcome;
@@ -4807,7 +4836,14 @@ function buildHorizonModules(
       return null;
     }
 
-    return { label: `${stateAction} ahead of ${anchor}`, eventId: anchorEventId };
+    return {
+      label: `${stateAction} ahead of ${anchor}`,
+      eventId: anchorEventId,
+      categoryId: anchorCategory,
+      subtypeId: anchorEnriched?.subtype?.id ?? null,
+      scenarioId: anchorEnriched?.scenarioId ?? null,
+      leadTimeMin: anchorEnriched?.leadTimeMin ?? null,
+    };
   };
 
   const modules: HorizonModule[] = [];
@@ -4820,13 +4856,15 @@ function buildHorizonModules(
   const topEventStartMs = topEventStartIso ? new Date(topEventStartIso).getTime() : null;
   const topEventEndMs = topEventEndIso ? new Date(topEventEndIso).getTime() : null;
   const jitPhase = resolveJitPhaseLabel(jitEventTitle, topEventStartMs, topEventEndMs, nowMs);
-  const topEventCat: any = topEvent ? enrichEvent(topEvent.event).categoryId : null;
+  const topEventEnriched = topEvent ? enrichEvent(topEvent.event) : null;
+  const topEventCat: any = topEventEnriched?.categoryId ?? null;
   const topEventId: string | null = topEvent?.event?.id ?? null;
 
   // ─── SLOT 1 (Immediate) ───
   let slot1Practices: any[] = [];
   let slot1IsJit = false;
   let slot1TimeLabel = '';
+  let slot1AnchorSnapshot = buildAnchorSnapshot(null, null);
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
     // JIT takes slot 1 — include all pre-event modules (up to 3)
@@ -4839,6 +4877,7 @@ function buildHorizonModules(
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
+    slot1AnchorSnapshot = buildAnchorSnapshot(topEventId, topEventEnriched);
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -4850,6 +4889,15 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slot1AnchorSnapshot = sl
+      ? {
+          anchorEventId: sl.eventId,
+          anchorCategoryId: sl.categoryId,
+          anchorSubtypeId: sl.subtypeId,
+          anchorScenarioId: sl.scenarioId,
+          anchorLeadTimeMin: sl.leadTimeMin,
+        }
+      : buildAnchorSnapshot(null, null);
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -4864,6 +4912,15 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slot1AnchorSnapshot = sl
+      ? {
+          anchorEventId: sl.eventId,
+          anchorCategoryId: sl.categoryId,
+          anchorSubtypeId: sl.subtypeId,
+          anchorScenarioId: sl.scenarioId,
+          anchorLeadTimeMin: sl.leadTimeMin,
+        }
+      : buildAnchorSnapshot(null, null);
   }
   if (slot1IsJit && topEventId) {
     // Phase C.2 — anchor with phase so the ranked-candidate picker can
@@ -4893,6 +4950,7 @@ function buildHorizonModules(
       showNavyBorder: false,
       showPulse: slot1IsJit && jitMinutesUntil !== null && jitMinutesUntil < 120,
       showPriorityPill: slot1IsJit,
+      ...slot1AnchorSnapshot,
       jitPhase: slot1IsJit ? jitPhase.phase : null,
     });
   }
@@ -4902,6 +4960,7 @@ function buildHorizonModules(
   let slot2IsJit = false;
   let slot2TimeLabel = '';
   let slot2NavyBorder = false;
+  let slot2AnchorSnapshot = buildAnchorSnapshot(null, null);
 
   // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
   // Phase C.2 — walk the ranked (event, phase) candidate list. This handles
@@ -4916,6 +4975,7 @@ function buildHorizonModules(
   let slot2JitMinutesUntil: number | null = null;
   if (slot2Candidate) {
     const ev = (req.calendarEvents || []).find((e: any) => e.id === slot2Candidate.eventId);
+    const slot2Enriched = ev ? enrichEvent(ev) : enrichEvent({ title: slot2Candidate.title || '' });
     const evStart = ev ? new Date(ev.startTime).getTime() : null;
     const evEnd = ev?.endTime ? new Date(ev.endTime).getTime() : null;
     slot2JitPhaseInfo = resolveJitPhaseLabel(slot2Candidate.title, evStart, evEnd, nowMs);
@@ -4933,6 +4993,7 @@ function buildHorizonModules(
       : `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
     slot2TimeLabel = label;
     slot2IsJit = true;
+    slot2AnchorSnapshot = buildAnchorSnapshot(slot2Candidate.eventId, slot2Enriched);
     // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
     slot2NavyBorder = slot2JitMinutesUntil !== null && slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
     // Practice pool: prefer the dedicated pre-event modules when the
@@ -4959,6 +5020,13 @@ function buildHorizonModules(
     if (sl) {
       slot2TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
+      slot2AnchorSnapshot = {
+        anchorEventId: sl.eventId,
+        anchorCategoryId: sl.categoryId,
+        anchorSubtypeId: sl.subtypeId,
+        anchorScenarioId: sl.scenarioId,
+        anchorLeadTimeMin: sl.leadTimeMin,
+      };
     } else {
       slot2TimeLabel = '';
       slot2Practices = []; // signal "drop this slot"
@@ -4989,6 +5057,7 @@ function buildHorizonModules(
       showNavyBorder: slot2NavyBorder,
       showPulse: false,
       showPriorityPill: slot2IsJit,
+      ...slot2AnchorSnapshot,
       jitPhase: slot2IsJit ? (slot2Candidate?.phase ?? jitPhase.phase) : null,
     });
   }
@@ -5001,6 +5070,7 @@ function buildHorizonModules(
   let slot3JitEventTitle: string | null = null;
   let slot3JitMinutesUntil: number | null = null;
   let slot3JitPhase: 'pre' | 'during' | 'post' | null = null;
+  let slot3AnchorSnapshot = buildAnchorSnapshot(null, null);
 
   const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
@@ -5011,6 +5081,7 @@ function buildHorizonModules(
   const slot3Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
   if (slot3Candidate) {
     const ev = (req.calendarEvents || []).find((e: any) => e.id === slot3Candidate.eventId);
+    const slot3Enriched = ev ? enrichEvent(ev) : enrichEvent({ title: slot3Candidate.title || '' });
     const evStart = ev ? new Date(ev.startTime).getTime() : null;
     slot3JitMinutesUntil = evStart != null ? Math.round((evStart - nowMs) / 60_000) : null;
     const truncated = (slot3Candidate.title || 'this event').split(/\s+/).slice(0, 5).join(' ');
@@ -5022,6 +5093,7 @@ function buildHorizonModules(
     slot3JitEventTitle = slot3Candidate.title;
     slot3JitPhase = slot3Candidate.phase;
     slot3Horizon = 'tactical';
+    slot3AnchorSnapshot = buildAnchorSnapshot(slot3Candidate.eventId, slot3Enriched);
     const pool = (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
       ? preEventPlan.modules
       : todModules;
@@ -5033,7 +5105,17 @@ function buildHorizonModules(
     slot3Practices = nextMod ? [nextMod] : [];
     slot3Horizon = 'immediate';
     const sl = composeStateLabel(2);
-    if (sl) { slot3TimeLabel = sl.label; slotAnchors.push({ eventId: sl.eventId }); }
+    if (sl) {
+      slot3TimeLabel = sl.label;
+      slotAnchors.push({ eventId: sl.eventId });
+      slot3AnchorSnapshot = {
+        anchorEventId: sl.eventId,
+        anchorCategoryId: sl.categoryId,
+        anchorSubtypeId: sl.subtypeId,
+        anchorScenarioId: sl.scenarioId,
+        anchorLeadTimeMin: sl.leadTimeMin,
+      };
+    }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
     const strategicModule = todModules.find((m: any) => !usedIds.has(m.contentId) && (m.isCoachCard || m.type === 'integrate'));
@@ -5046,7 +5128,17 @@ function buildHorizonModules(
       if (secondMod) slot3Practices.push(secondMod);
     }
     const sl = composeStateLabel(2);
-    if (sl) { slot3TimeLabel = sl.label; slotAnchors.push({ eventId: sl.eventId }); }
+    if (sl) {
+      slot3TimeLabel = sl.label;
+      slotAnchors.push({ eventId: sl.eventId });
+      slot3AnchorSnapshot = {
+        anchorEventId: sl.eventId,
+        anchorCategoryId: sl.categoryId,
+        anchorSubtypeId: sl.subtypeId,
+        anchorScenarioId: sl.scenarioId,
+        anchorLeadTimeMin: sl.leadTimeMin,
+      };
+    }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   }
 
@@ -5071,6 +5163,7 @@ function buildHorizonModules(
       showNavyBorder: false,
       showPulse: false,
       showPriorityPill: slot3IsJit,
+      ...slot3AnchorSnapshot,
       jitPhase: slot3JitPhase,
     });
   }
@@ -5219,6 +5312,11 @@ function buildHorizonModules(
         showNavyBorder: false,
         showPulse: false,
         showPriorityPill: false,
+        anchorEventId: fillerLabel?.eventId ?? null,
+        anchorCategoryId: fillerLabel?.categoryId ?? null,
+        anchorSubtypeId: fillerLabel?.subtypeId ?? null,
+        anchorScenarioId: fillerLabel?.scenarioId ?? null,
+        anchorLeadTimeMin: fillerLabel?.leadTimeMin ?? null,
       });
     }
   }
@@ -5418,6 +5516,12 @@ function mergeWithLedger(
   const titleById = calendarEventTitleById || new Map<string, string>();
 
   const findFreshByEventId = (eventId: string): { slot: HorizonModule; idx: number } | null => {
+    const exactByAnchorIdx = freshModules.findIndex((m, i) =>
+      !usedFreshIndexes.has(i) && String(m.anchorEventId || '') === String(eventId),
+    );
+    if (exactByAnchorIdx >= 0) {
+      return { slot: freshModules[exactByAnchorIdx], idx: exactByAnchorIdx };
+    }
     const title = (titleById.get(eventId) || '').trim();
     if (!title) return null;
     const exact = freshByJitTitle.get(title);
