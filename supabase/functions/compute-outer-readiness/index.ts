@@ -4709,14 +4709,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.decision_readiness[cognitiveTier],
             coldStartLabel: pillColdStart,
             contributors: {
-              hrvValue, hrvDeviation,
-              sleepDuration, sleepScore: sleepScoreVal,
-              hrv_3day_trend: hrv3dTrend,
-              consecutive_high_load_days: consecutiveHighLoadDays,
-              calendarLoad, calendarPressure,
-              cognitive_fragmentation_score: fragmentationScore,
-              short_gap_count: calendarResult.shortGapCount ?? 0,
-              back_to_back_hours: calendarResult.backToBackHours ?? 0,
+              // MRS v3 — Decision Readiness owns HRV, sleep duration, sleep score, clarity.
+              // Calendar load, fragmentation, gap counts intentionally excluded
+              // (Resilience Capacity owns calendar/pressure framing).
+              hrvValue,
+              sleepDuration,
+              sleepScore: sleepScoreVal,
             },
           },
           {
@@ -4726,11 +4724,11 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.physical_reserves[physicalTier],
             coldStartLabel: pillColdStart,
             contributors: {
-              sleepDuration, sleepScore: sleepScoreVal, sleepDeviation,
-              rhrValue, rhrDeviation,
-              hrValue, hrDeviation,
-              sustained_deficit_flag: sustainedDeficitFlag,
-              rhr_3day_trend: rhr3dTrend,
+              // MRS v3 — Physical Reserves owns RHR, HR, and the RHR 3-day trend.
+              // Sleep belongs to Decision Readiness; sustained deficit belongs
+              // to Resilience Capacity (deferred consequence, not raw reserve).
+              rhrValue,
+              hrValue,
             },
           },
           {
@@ -4740,12 +4738,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             tierLabel: PILL_TIER_LABELS.resilience_capacity[resilienceTier],
             coldStartLabel: pillColdStart,
             contributors: {
-              consecutive_high_load_days: consecutiveHighLoadDays,
-              sustained_deficit_flag: sustainedDeficitFlag,
-              hrv_low_high_demand_cooccurrence_7d: cooccurrence7d,
-              typical_load_for_dow: typicalLoadForDow,
-              calendarPressure,
-              calendarLoad,
+              // MRS v3 — Resilience Capacity owns deferred-consequence signals,
+              // emotion/regulation/pressure (attached as qualifiers below),
+              // sleep efficiency, sustained deficit, HRV×high-demand co-occurrence,
+              // and the protection-goals framing. Raw calendarLoad/calendarPressure
+              // are intentionally NOT surfaced as contributors — they live in
+              // the Brief body, not as standalone pill rows.
+              sustainedDeficit: sustainedDeficitFlag,
+              hrvHighDemandCooccurrence7d: cooccurrence7d,
               protectionGoalsCount: protectionGoals.length,
             },
           },
@@ -4815,12 +4815,30 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           const q = pillQualifiersPayload;
           for (const p of signalPillsPayload) {
             if (p.key === 'decision_readiness') {
-              (p as any).qualifiers = { hrv: q.hrv, sleep: q.sleep, clarity: q.clarity };
-            } else if (p.key === 'physical_reserves') {
-              (p as any).qualifiers = { rhr: q.rhr };
-            } else if (p.key === 'resilience_capacity') {
+              // Fold the deterministic 3-day trend % into the HRV qualifier so
+              // the client can render it inline ("(Declining 3-day trend by -29%)")
+              // instead of exposing a raw hrv_3day_trend contributor row.
               (p as any).qualifiers = {
-                emotion: q.emotion, regulation: q.regulation, pressure: q.pressure,
+                hrv: { ...q.hrv, trend3d: hrv3dTrend ?? null },
+                sleep: q.sleep,
+                clarity: q.clarity,
+              };
+            } else if (p.key === 'physical_reserves') {
+              (p as any).qualifiers = {
+                rhr: { ...q.rhr, trend3d: rhr3dTrend ?? null },
+              };
+            } else if (p.key === 'resilience_capacity') {
+              // Surface sleep_efficiency both as a contributor (so the row is
+              // visible per spec) AND as a qualifier carrier for its delta7d
+              // pattern. Latest value comes from the most recent wearable row.
+              const latestSleepEff = (wHistRes.data?.[0] as any)?.sleep_efficiency;
+              if (typeof latestSleepEff === 'number') {
+                (p as any).contributors.sleepEfficiency = latestSleepEff;
+              }
+              (p as any).qualifiers = {
+                emotion: q.emotion,
+                regulation: q.regulation,
+                pressure: q.pressure,
                 sleep_efficiency: q.sleep_efficiency,
               };
             }
