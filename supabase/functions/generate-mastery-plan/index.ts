@@ -3216,6 +3216,119 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     console.warn('[generate-mastery-plan] slot replacement override failed:', overrideErr?.message);
   }
 
+  // ── Final cross-slot event dedupe ─────────────────────────────────────
+  // Idempotent guard: after mergeWithLedger, applyV51Enrichment, and the
+  // per-slot replacement override, no calendar event may anchor more slots
+  // than its CATEGORY_MAX_SLOTS cap (C/E/B/H = 1; A/D = 2; F/G = 3) and no
+  // event may be anchored to the same §4 phase twice. This is the last
+  // line of defence against "the same event becomes 2-3 visible plans"
+  // when the ledger evolves, a slot replacement merges with a fresh JIT
+  // pick, or two horizon picks happen to land on the same anchor.
+  // Preserves the FIRST valid slot for each event and replaces later
+  // duplicates with a fresh unused module (preferring one anchored to a
+  // different event) or strips JIT framing if no alternative exists.
+  try {
+    const eventIdByTitleLower = new Map<string, string>();
+    const categoryByEventId = new Map<string, any>();
+    for (const e of (req.calendarEvents || [])) {
+      const t = String((e as any).title || '').trim().toLowerCase();
+      const id = String((e as any).id || '');
+      if (!id) continue;
+      if (t) eventIdByTitleLower.set(t, id);
+      try {
+        const enr = enrichEvent(e as any);
+        categoryByEventId.set(id, enr?.categoryId ?? null);
+      } catch { /* enrich failure → cap defaults to 1 */ }
+    }
+    const slotEventId = (m: HorizonModule): string | null => {
+      const r = m.replacementEventIds && m.replacementEventIds[0];
+      if (r) return String(r);
+      const t = (m.jitEventTitle || '').toLowerCase().trim();
+      if (!t) return null;
+      if (eventIdByTitleLower.has(t)) return eventIdByTitleLower.get(t)!;
+      // Loose match for truncated/normalised titles.
+      for (const [k, v] of eventIdByTitleLower.entries()) {
+        if (k.includes(t) || t.includes(k)) return v;
+      }
+      return null;
+    };
+    const usedFreshIdxs = new Set<number>();
+    const useCount = new Map<string, number>();
+    const phasesByEvent = new Map<string, Set<string>>();
+    const pickFreshAlternative = (
+      excludeIds: Set<string>,
+    ): { mod: HorizonModule; eid: string | null } | null => {
+      for (let i = 0; i < horizonModules.length; i++) {
+        if (usedFreshIdxs.has(i)) continue;
+        const fm = horizonModules[i];
+        const fid = slotEventId(fm);
+        if (fid && excludeIds.has(fid)) continue;
+        usedFreshIdxs.add(i);
+        return { mod: fm, eid: fid };
+      }
+      return null;
+    };
+    for (let i = 0; i < finalHorizonModules.length; i++) {
+      const m = finalHorizonModules[i];
+      const eid = slotEventId(m);
+      if (!eid) continue;
+      const cat = categoryByEventId.get(eid);
+      const cap = (CATEGORY_MAX_SLOTS as any)[cat] ?? 1;
+      const used = useCount.get(eid) ?? 0;
+      const phaseSet = phasesByEvent.get(eid) ?? new Set<string>();
+      const phase = (m.jitPhase ?? null) as string | null;
+      const phaseDup = phase ? phaseSet.has(phase) : false;
+      const overCap = used >= cap;
+      if (overCap || phaseDup) {
+        const excludeIds = new Set<string>(Array.from(useCount.keys()));
+        excludeIds.add(eid);
+        const alt = pickFreshAlternative(excludeIds);
+        if (alt && alt.mod) {
+          finalHorizonModules[i] = {
+            ...alt.mod,
+            priorityTag: m.priorityTag ?? null,
+            relationshipTag: m.relationshipTag ?? null,
+            customTags: m.customTags ?? [],
+          };
+          if (alt.eid) {
+            useCount.set(alt.eid, (useCount.get(alt.eid) ?? 0) + 1);
+            const ps = phasesByEvent.get(alt.eid) ?? new Set<string>();
+            if (alt.mod.jitPhase) ps.add(alt.mod.jitPhase);
+            phasesByEvent.set(alt.eid, ps);
+          }
+          console.log('[generate-mastery-plan] dedupe: replaced duplicate event slot', {
+            slotIndex: i, droppedEventId: eid, newEventId: alt.eid,
+            reason: phaseDup ? 'phase-dup' : 'cap-exceeded', cap,
+          });
+        } else {
+          // No alternative — strip JIT framing so the slot survives without
+          // cloning the event. Practices/whyLine stay intact.
+          finalHorizonModules[i] = {
+            ...m,
+            isJit: false,
+            jitEventTitle: null,
+            jitMinutesUntil: null,
+            jitPhase: null,
+            replacementEventIds: [],
+            showPriorityPill: false,
+            showNavyBorder: false,
+            showPulse: false,
+          };
+          console.log('[generate-mastery-plan] dedupe: stripped duplicate event anchor', {
+            slotIndex: i, droppedEventId: eid,
+            reason: phaseDup ? 'phase-dup' : 'cap-exceeded', cap,
+          });
+        }
+      } else {
+        useCount.set(eid, used + 1);
+        if (phase) phaseSet.add(phase);
+        phasesByEvent.set(eid, phaseSet);
+      }
+    }
+  } catch (dedupeErr: any) {
+    console.warn('[generate-mastery-plan] final dedupe pass failed:', dedupeErr?.message);
+  }
+
   // Persist the (possibly evolved) ledger onto the current period row so the
   // very next regeneration sees it. Service role bypasses the ledger guard.
   try {
