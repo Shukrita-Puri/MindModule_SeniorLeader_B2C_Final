@@ -3571,8 +3571,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     jitPriority,
     horizonModules: finalHorizonModules,
     ledger: ledgerMeta,
+    promptVersion: BRIEF_PROMPT_VERSION,
     meta: {
       generatedAt: new Date().toISOString(),
+      promptVersion: BRIEF_PROMPT_VERSION,
       scenarioId: filteredEvents[0]?.scenario?.id || null,
       durationCeiling: maxDuration,
       maxModules,

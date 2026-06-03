@@ -3285,6 +3285,7 @@ serve(async (req) => {
             notification_type: notif.type,
             variant_id: notif.copy.variantId,
             architecture: 'cos-mind-v8-meaning-forward',
+            prompt_version: BRIEF_PROMPT_VERSION,
             suppression_reason: finalViolation,
             suppression_stage: 'post_cta',
             ai_provider_used: notif.copy.aiProvider ?? 'static',
@@ -3307,6 +3308,7 @@ serve(async (req) => {
         deep_link_route: effectiveRoute,
         dry_run: isDryRun,
         architecture: 'cos-mind-v8-meaning-forward',
+        prompt_version: BRIEF_PROMPT_VERSION,
         cta_variant: ctaVariant,
         cta_experiment: 'cta-action-verb-v2',
         // v5.3 — Per-intent TTL + collapse-id telemetry
@@ -3319,6 +3321,7 @@ serve(async (req) => {
         // payload.metadata.architecture see the V8 tags.
         metadata: {
           architecture: 'cos-mind-v8-meaning-forward',
+          prompt_version: BRIEF_PROMPT_VERSION,
           cta_experiment: 'cta-action-verb-v2',
           cta_variant: ctaVariant,
           ai_fallback_chain: 'claude-haiku → gemini-flash → static',
@@ -3478,6 +3481,7 @@ serve(async (req) => {
       apns_success: sendSuccess,
       apns_failed: sendFailed,
       architecture: 'cos-mind-v8-meaning-forward',
+      promptVersion: BRIEF_PROMPT_VERSION,
       details: shippedNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,

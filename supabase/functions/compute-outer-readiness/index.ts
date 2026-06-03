@@ -5,6 +5,7 @@ import { callClaudeText, callLovableAIText, CLAUDE_MODELS } from "../_shared/ant
 import { selectLeadEvent } from "../_shared/executive-state-taxonomy.ts";
 import { detectClientPlatform, wrapDbWithCalendarPrimacy } from "../_shared/calendar-provider.ts";
 import { classifyEvent } from "../_shared/events/event-classifier.ts";
+import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { phaseForEvent, type Phase } from "../_shared/events/event-phase-map.ts";
 import {
@@ -2438,26 +2439,39 @@ serve(async (req) => {
       }
     } catch (e) { console.error('[compute-outer-readiness] consec clarity error:', e); }
 
-    // Next high-stakes event within 90 mins
+    // Next high-stakes event inside its shared JIT lead-time window.
     let nextHighStakesEvent: { title: string; minutesUntil: number; startTimeUTC: string; localHHmm?: string } | null = null;
     try {
       const now = new Date();
-      const ninetyMinsLater = new Date(now.getTime() + 90 * 60000);
+      const twentyFourHoursLater = new Date(now.getTime() + 24 * 60 * 60000);
       if (todayHighStakes.length > 0) {
-        // Re-check calendar events for timing
+        // Re-check calendar events for timing, then keep only events whose
+        // remaining minutes fall inside the subtype's declared JIT lead-time
+        // window. This lets Board / investor / strategy events surface
+        // earlier than the old hard-coded 90 minute cap.
         const { data: upcoming } = await db
           .from('primary_calendar_events')
           .select('title, start_time, end_time, attendees_count, is_organizer, is_recurring')
           .eq('user_id', userId)
           .gte('start_time', now.toISOString())
-          .lte('start_time', ninetyMinsLater.toISOString())
+          .lte('start_time', twentyFourHoursLater.toISOString())
           .order('start_time', { ascending: true })
-          .limit(5);
+          .limit(20);
         if (upcoming && upcoming.length > 0) {
           // Restrict to the day's high-stakes set, then let selectLeadEvent rank
           // by canonical stakesScore (Board > Leadership 1:1) — chronological
-          // tie-break only when stakes are equal.
-          const candidates = upcoming.filter((ev: any) => todayHighStakes.includes(ev.title));
+          // tie-break only when stakes are equal. Shared event subtype lead-time
+          // governs whether a given event is "live" for the brief yet.
+          const candidates = upcoming.filter((ev: any) => {
+            if (!todayHighStakes.includes(ev.title)) return false;
+            const minsUntil = Math.round((new Date(ev.start_time).getTime() - now.getTime()) / 60000);
+            const leadTimeMin = enrichEvent({
+              title: ev.title,
+              startTime: ev.start_time,
+              endTime: ev.end_time,
+            }).leadTimeMin ?? 90;
+            return minsUntil >= 0 && minsUntil <= leadTimeMin;
+          });
           const lead = selectLeadEvent(candidates as any);
           if (lead) {
             const mins = Math.round((new Date(lead.event.start_time).getTime() - now.getTime()) / 60000);

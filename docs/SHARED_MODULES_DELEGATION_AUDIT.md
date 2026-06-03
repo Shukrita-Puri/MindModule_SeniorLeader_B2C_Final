@@ -16,8 +16,11 @@
 | F-13 | ✅ Resolved | Plan now validates slot-boost practice mappings against the shared protocol combos before applying boosts, dropping invalid combinations with a warning instead of silently no-oping. |
 | F-12 | 🟡 Partial | `=== TIME ===` block renamed to canonical `=== CONTEXT: [MORNING\|AFTERNOON\|EVENING] ===` per §8. Full `buildSignalCoverage` replacement of the 200-line accumulator is deferred to a follow-up to keep this change set low-risk. |
 | F-15 | ✅ Resolved | Nudges now prepend the shared behaviour/taxonomy block before nudge-specific framing, so truncation no longer drops the rule layer first. |
+| F-10 | ✅ Resolved | Plan generic recommended-action wording now routes through `_shared/plan/action-frame.ts` via `buildRecommendedActionCopy()`, and anchored slots still prefer shared `buildActionFrame()` first. |
+| F-17 | ✅ Resolved | Brief, Plan, and Nudges now all stamp `BRIEF_PROMPT_VERSION` on their outward payloads / artefacts for cross-feature traceability. |
+| F-14 | 🟡 Partial | Brief now uses shared subtype `leadTimeMin` when deciding whether a high-stakes event is live enough to surface as the next high-stakes moment. The broader inline prompt coverage still does not route through one shared event-selection helper. |
 
-The remainder of the findings (F-05, F-09–F-11, F-14, F-16) remain open. The shared prompt + event-coaching boundary now exists; the main Brief follow-up is swapping the remaining inline accumulator for the shared signal-coverage builder.
+The remainder of the findings (F-05, F-09, F-11, F-12, F-14, F-16) remain open/partial. The shared prompt + event-coaching boundary now exists; the main Brief follow-up is swapping the remaining inline accumulator for the shared signal-coverage builder.
 
 **Reference docs cross-walked:** `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`, `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md`, `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md`, `Decision_Readiness_Brief_LLM_Prompt_v2.docx`, `CEO_Self_Regulation_Framework_v1.0` (§2 protocols / §3 categories / §4 phases / §5 behaviour).
 
@@ -38,26 +41,26 @@ The remainder of the findings (F-05, F-09–F-11, F-14, F-16) remain open. The s
 | F-07 | S2 | Brief | Resolved June 3: persona, voice banks, hard constraints, worked examples, and JSON schema now live in `_shared/brief/copy-vocabulary.ts` and are consumed via `buildBriefSystemPrompt()` (`compute-outer-readiness/index.ts:3317`). | Shipped. Remove the parked legacy prompt literal after production release confirms prompt parity. |
 | F-08 | S2 | Nudges | Resolved June 3: Nudges now source their forbidden-notification vocabulary from `_shared/brief/copy-vocabulary.ts` instead of maintaining a separate local blacklist block. | Shipped. Keep any new banned phrases in the shared vocabulary module. |
 | F-09 | S2 | Plan | Partial June 3: `composeStateLabel()` no longer does raw start-time phase math, but its state-anchor label logic still lives locally instead of going through a shared slot-label helper. | Keep the shared JIT/event-phase labels as-is, then extract the remaining state-anchor label contract into a shared slot-label helper. |
-| F-10 | S2 | Plan | Partial June 3: anchored slots now use the shared `buildActionFrame()` sub-line contract before falling back to local phrasing, but non-anchored generic slots still rely on `buildRecommendedAction()` strings. The remaining gap is consolidating those generic fallbacks behind shared copy helpers. | Keep anchored slots on `buildActionFrame()`, then migrate the remaining generic `buildRecommendedAction()` wording behind a shared plan copy helper. |
+| F-10 | S2 | Plan | Resolved June 3: `buildRecommendedAction()` now delegates to shared `_shared/plan/action-frame.ts` copy via `buildRecommendedActionCopy()`, while anchored slots still prefer shared `buildActionFrame()` first. | Shipped. Keep future recommended-action copy changes inside the shared helper, not in the edge function. |
 | F-11 | S2 | Nudges | Partial June 3: event-based nudges now receive shared event-frame cues via `_shared/plan/action-frame.ts`, but the per-nudge prompt scaffolding is still largely hand-authored and does not yet use `why-llm`. | Keep event-based nudges on shared `action-frame` cues, then migrate the remaining scaffolding and "why now" generation behind shared helpers. |
 | F-12 | S2 | Brief | Partial June 3: the canonical `=== CONTEXT: [MORNING|AFTERNOON|EVENING] ===` header and `PRE_COMPUTED_USER_NOTICE` landed, but the large inline `userPrompt += …` accumulator is still in place instead of delegating to `buildSignalCoverage` (`compute-outer-readiness/index.ts:3539–3888`). | Follow up by replacing the remaining accumulator with `_shared/brief-signal-coverage.ts` so block ordering and omission rules live in one helper. |
 | F-13 | S3 | Plan | Resolved June 3: slot boosts are now validated against shared protocol combos before application, and invalid boost mappings are dropped with a warning instead of silently no-oping. | Shipped. Keep slot-boost validation tied to `PRACTICE_TYPE_TO_COMBO` + `PROTOCOL_COMBOS`. |
-| F-14 | S3 | Brief | `selectLeadEvent` is the only event-taxonomy import (`:5`); JIT lead-time logic (`event-subtypes.jitLeadTime`) is never consulted when picking which event to mention. | Pass `jitLeadTime` from subtype into the lead-event scoring weights. |
+| F-14 | S3 | Brief | Partial June 3: Brief now gates the "next high-stakes" event through shared subtype `leadTimeMin` instead of a hard-coded 90-minute window, but broader event selection still lives inline. | Keep the shared lead-time gate, then move the remaining event-selection / prompt coverage logic behind one shared helper. |
 | F-15 | S3 | Nudges | Resolved June 3: shared behaviour/taxonomy wiring is now prepended before the nudge-specific framing block, so truncation no longer strips the rule layer first. | Shipped. Preserve this ordering for any future nudge prompt variants. |
 | F-16 | S3 | Plan | Partial June 3: static `MIN_SLOTS_FALLBACK` filler still does not persist the full shared event object, but anchored slots now persist a shared anchor snapshot (`anchorEventId`, `anchorCategoryId`, `anchorSubtypeId`, `anchorScenarioId`, `anchorLeadTimeMin`) and register that anchor in the same slot-anchor ledger as the main slots. The remaining gap is persisting fuller `enrichEvent` metadata beyond this anchor snapshot. | Keep slot-level anchor snapshots persisted, then run the fallback path through fuller `enrichEvent` metadata before persisting snapshot/context data. |
-| F-17 | S3 | All three | `BRIEF_PROMPT_VERSION` is imported by all three consumers but only Brief stamps it on output (`:13` / `:30` / `:14`). Nudges + Plan stamp their own `architecture` field instead → cross-feature version skew. | Stamp `BRIEF_PROMPT_VERSION` on every LLM-produced artefact for cross-feature trace. |
+| F-17 | S3 | All three | Resolved June 3: Brief, Plan, and Nudges now all stamp `BRIEF_PROMPT_VERSION` on their outward payloads / artefacts, removing cross-feature version skew. | Shipped. Keep cross-feature tracing on the shared prompt-version constant. |
 
 **Top five open risks (read first):**
 1. Brief now has event-coaching blocks, but the broader signal-coverage prompt assembly is still inline and order-sensitive until it moves to the shared builder (F-01 / F-12).
 2. Pattern-store compatibility still depends on historical bucket labels even though classification now resolves from canonical subtypes first (F-05).
-3. Plan still carries local state-label/copy helpers and a legacy bridge, and its filler path is only partially shared-enriched, so the shared-module architecture is not yet fully consolidated there (F-09 / F-10 / F-16).
+3. Plan still carries a local state-label helper and a legacy bridge, and its filler path is only partially shared-enriched, so the shared-module architecture is not yet fully consolidated there (F-09 / F-16).
 4. Brief prompt assembly is still large and order-sensitive, so truncation / omission risk remains until signal coverage is delegated to the shared helper (F-12).
 5. Nudges now gets shared event-frame cues, but its broader prompt scaffolding and "why now" logic are still hand-authored, so copy logic can still drift from Plan (F-11).
 
 **Remediation waves** (dependency-ordered, no implementation here):
-- **Wave 1 — Brief event enrichment + signal coverage:** F-01, F-12, F-14. Adds the shared event-coaching and block-assembly helpers still missing from Brief.
+- **Wave 1 — Brief event enrichment + signal coverage:** F-01, F-12, F-14. Finish the shared event-selection / block-assembly helper work still missing from Brief.
 - **Wave 2 — Nudges classifier + framing consolidation:** F-05, F-11. Finish the compatibility-layer cleanup and migrate the remaining prompt scaffolding onto shared framing/why helpers.
-- **Wave 3 — Plan bridge cleanup + observability:** F-09, F-10, F-16, F-17. Finishes the remaining shared-plan consolidation and traceability work.
+- **Wave 3 — Plan bridge cleanup + observability:** F-09, F-16. Finishes the remaining shared-plan consolidation work.
 
 ---
 
@@ -239,7 +242,7 @@ No categories are missing from `event-phase-map.ts`. The taxonomy itself is soun
 |---|---|---|
 | `_shared/auth.ts` | ⚠️ no | Brief + Plan use it; Nudges has inline service-role client. |
 | `_shared/anthropic.ts` | ⚠️ no | Brief + Nudges use `callClaudeText`; Plan also has direct `fetch` paths. |
-| `_shared/brief-prompt-version.ts` | ✅ imported by all three | But only Brief stamps it on the output payload (F-17). |
+| `_shared/brief-prompt-version.ts` | ✅ imported by all three | Shared prompt version is now stamped across Brief, Plan, and Nudges outputs / artefacts (F-17 resolved). |
 | `_shared/brief-validators.ts` | ❌ | No consumer imports it currently — validation logic is inline in `compute-outer-readiness`. |
 
 ---
@@ -259,22 +262,22 @@ See §0 for the full numbered list (F-01 … F-17) with severity, file:line, roo
 | F-07 | S2 | Brief | Resolved June 3, `compute-outer-readiness/index.ts:3317` |
 | F-08 | S2 | Nudges | Resolved June 3, `smart-nudges/index.ts:15`, `smart-nudges/index.ts:1120` |
 | F-09 | S2 | Plan | Partial, local state-anchor label helper still not shared |
-| F-10 | S2 | Plan | Partial, generic fallback wording still local after shared action-frame adoption |
+| F-10 | S2 | Plan | Resolved June 3, generic fallback wording now delegates to shared `buildRecommendedActionCopy()` |
 | F-11 | S2 | Nudges | Partial, event-based prompts now include shared action-frame cues |
 | F-12 | S2 | Brief | Partial, `compute-outer-readiness/index.ts:3539–3888` |
 | F-13 | S3 | Plan | Resolved June 3, `generate-mastery-plan/index.ts:3039–3057` |
-| F-14 | S3 | Brief | `selectLeadEvent` ignores `jitLeadTime` |
+| F-14 | S3 | Brief | Partial, next high-stakes surfacing now respects shared `leadTimeMin`, but broader event selection remains inline |
 | F-15 | S3 | Nudges | Resolved June 3, `smart-nudges/index.ts:1511–1578` |
 | F-16 | S3 | Plan | `:4825+` filler skips `enrichEvent` |
-| F-17 | S3 | All | only Brief stamps `BRIEF_PROMPT_VERSION` |
+| F-17 | S3 | All | Resolved June 3, all three stamp `BRIEF_PROMPT_VERSION` |
 
 ---
 
 ## 11. Recommended Remediation Roadmap
 
-- **Wave 1 — Brief event enrichment + signal coverage** (F-01, F-12, F-14). Coordinate with `BRIEF_PROMPT_VERSION` bump and snapshot in `mem/features/performance-readiness/prompt-snapshot-brief.md`.
+- **Wave 1 — Brief event enrichment + signal coverage** (F-01, F-12, F-14). Coordinate the remaining shared event-selection / prompt-coverage move with the next brief prompt snapshot.
 - **Wave 2 — Nudges classifier + copy delegation** (F-05, F-11). Retire the compatibility-layer dependency over time and migrate the remaining prompt scaffolding through `action-frame` + `why-llm`.
-- **Wave 3 — Plan bridge cleanup + observability** (F-10, F-16, F-17). Finish shared plan consolidation; stamp `BRIEF_PROMPT_VERSION` cross-feature.
+- **Wave 3 — Plan bridge cleanup + observability** (F-09, F-16). Finish the remaining shared plan consolidation.
 
 ---
 
