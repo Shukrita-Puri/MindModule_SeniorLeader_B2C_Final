@@ -3315,10 +3315,11 @@ serve(async (req) => {
           // `buildWindowContext`, `evaluateForScope`, event taxonomy,
           // causality store) own the logic; the LLM only synthesises voice.
           const systemPrompt = buildBriefSystemPrompt();
-          // Retain the legacy inline prompt only as a fallback escape hatch
-          // gated by env flag — never used in production. Drift-protection:
-          // any new persona/voice/constraint change must land in
-          // copy-vocabulary.ts so Brief, Plan, and Nudges read one source.
+          // Retain the legacy inline prompt only as a parked diff-bisection
+          // literal during rollout. It is not part of the active prompt path.
+          // Drift-protection: any new persona/voice/constraint change must
+          // land in copy-vocabulary.ts so Brief, Plan, and Nudges read one
+          // source.
           const _legacyInlineSystemPrompt = `You are the Chief of Staff for a senior leader's mind, a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting, every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
 
 REASONING PROTOCOL (silent, not in output):

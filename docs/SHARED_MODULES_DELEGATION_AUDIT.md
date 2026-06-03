@@ -17,7 +17,7 @@ The remainder of the findings (F-01, F-05, F-06, F-08–F-11, F-13, F-14, F-16) 
 
 **Reference docs cross-walked:** `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`, `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md`, `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md`, `Decision_Readiness_Brief_LLM_Prompt_v2.docx`, `CEO_Self_Regulation_Framework_v1.0` (§2 protocols / §3 categories / §4 phases / §5 behaviour).
 
-**Method:** primary-evidence grep on `supabase/functions/{compute-outer-readiness,generate-mastery-plan,smart-nudges}/index.ts` plus the `_shared/` modules. Every finding carries a `file:line` citation. No code, prompts, or shared modules were modified — this is a documentation-only deliverable.
+**Method:** primary-evidence grep on `supabase/functions/{compute-outer-readiness,generate-mastery-plan,smart-nudges}/index.ts` plus the `_shared/` modules. Every finding carries a `file:line` citation. This audit update is documentation-only; the code changes referenced in the June 3 status block landed before this document refresh.
 
 ---
 
@@ -26,35 +26,34 @@ The remainder of the findings (F-01, F-05, F-06, F-08–F-11, F-13, F-14, F-16) 
 | # | Severity | Feature | Root cause (one line) | Fix at contract level |
 |---|----------|---------|------------------------|------------------------|
 | F-01 | S1 | Brief | Prompt embeds raw event titles; never imports `EVENT_CATEGORIES` / `EVENT_PHASE_MAP` / `PROTOCOL_COMBOS` (`compute-outer-readiness/index.ts:1–60`). LLM sees titles without §3 category or §4 phase context. | Inject a `=== EVENT COACHING ===` block built from `classifyEvent` + `phaseForEvent` for every event already listed in `CALENDAR TODAY` / `TOMORROW`. |
-| F-02 | S1 | Brief | No `taxonomyBlock` / `promptBlockBrief` from `behaviour-wiring` is appended to the brief `userPrompt` (`compute-outer-readiness/index.ts:3519–3700`). Nudges already do this (`smart-nudges/index.ts:1531–1534`). | Reuse the same `briefBehaviour.taxonomyBlock` + `promptBlockBrief` pair Nudges already produces. |
-| F-03 | S1 | Plan | Slot dedupe is keyed on `primaryPractice.contentId` only (`generate-mastery-plan/index.ts:4775–4795`), even though `slotAnchors` already carries `(eventId, phase)`. → "same event appears twice" bug when an event lacks a distinct `post` row. | Dedupe key = `${m.eventId}::${m.jitPhase}`; fall back to `contentId` only when no anchor exists. |
-| F-04 | S1 | Plan | `phaseAlreadyAnchored` (`:4343`) is consulted **only** in the JIT candidate selection loop (`:4356`); it is **not** rechecked when slot 2 / slot 3 fillers push anchors at `:4665` / `:4727`. So two fillers can both push `(event=X, phase=pre)`. | Enforce `phaseAlreadyAnchored` inside slot 2/3 backfill before pushing to `slotAnchors`. |
+| F-02 | S1 | Brief | Resolved June 3: `briefBehaviourSnapshot.taxonomyBlock` + `promptBlockBrief` are now appended to the brief `userPrompt` (`compute-outer-readiness/index.ts:3884–3888`). | Shipped. Keep future behaviour-rule changes in the shared snapshot contract, not inline prompt prose. |
+| F-03 | S1 | Plan | Resolved June 3: final cross-slot dedupe now preserves the first valid anchor, keys event reuse by resolved `eventId`, respects `CATEGORY_MAX_SLOTS`, and prevents duplicate `jitPhase` reuse (`generate-mastery-plan/index.ts:3219–3330`). | Shipped. Regression risk remains only if future slot assembly bypasses the final dedupe pass. |
+| F-04 | S1 | Plan | Resolved June 3: the same dedupe guard now runs after slot fillers, ledger merge, and per-slot replacements, replacing duplicates with a fresh alternative or stripping JIT framing when needed (`generate-mastery-plan/index.ts:3219–3330`). | Shipped. Keep any new slot-override logic behind the same final dedupe contract. |
 | F-05 | S1 | Nudges | Uses `classifyByLegacyTable` (`smart-nudges/index.ts:566`) instead of canonical `classifyEvent`. Subtype + categoryId enrichment is lost → all pattern matching falls back to keyword heuristics. | Replace with `classifyEvent` from `_shared/events/event-classifier.ts`. Legacy table is shim-only. |
 | F-06 | S1 | Plan | When `EVENT_CATEGORIES[cat].protocol.duringNotificationOnly === true` (F: long meetings), Plan correctly skips `during` slot at `:4260` — but Nudges still schedules a JIT for the same event because it never reads `duringNotificationOnly`. | Nudges must short-circuit on `category.protocol.duringNotificationOnly === true`. |
-| F-07 | S2 | Brief | Persona, DO/DON'T register, and forbidden-word list are inlined in the system prompt (`:3306`) and a local `FORBIDDEN_WORDS` list, duplicating `_shared/copy-vocabulary.ts`. | Import `forbiddenWords` + persona constants from `copy-vocabulary.ts`. |
+| F-07 | S2 | Brief | Resolved June 3: persona, voice banks, hard constraints, worked examples, and JSON schema now live in `_shared/brief/copy-vocabulary.ts` and are consumed via `buildBriefSystemPrompt()` (`compute-outer-readiness/index.ts:3317`). | Shipped. Remove the parked legacy prompt literal after production release confirms prompt parity. |
 | F-08 | S2 | Nudges | `FORBIDDEN_WORDS_V6` is a local constant (`smart-nudges/index.ts:1119`); two separate validators at `:1147` and `:1233` duplicate the check. | Single `import { forbiddenWords } from '../_shared/copy-vocabulary.ts'`; one validator. |
 | F-09 | S2 | Plan | `phaseForEvent` / `EVENT_PHASE_MAP` is imported (`:46`) but `composeStateLabel` still re-derives phase from raw start-time arithmetic instead of `EVENT_PHASE_MAP[cat][phase].timing`. | Delegate timing labels to `EVENT_PHASE_MAP` and only re-compute when phase-map returns `null`. |
 | F-10 | S2 | Plan | `PRACTICE_TYPE_TO_COMBO` mirror exists implicitly in `buildRecommendedAction`; shared version lives at `protocols/protocol-combos.ts`. Two sources can drift. | Re-export from `_shared/protocols/protocol-combos.ts` and delete the local mapping. |
 | F-11 | S2 | Nudges | Per-nudge `userPrompt` framing strings (`:1373 / :1394 / :1411 / :1426 / :1441 / :1460 / :1489`) are hand-authored and do not consume the new `actionFrame` / `whyLLM` shared helpers that Plan already uses. | Build framing from `_shared/plan/action-frame.ts` + `_shared/plan/why-llm.ts`, parameterised by `nudgeType`. |
-| F-12 | S2 | Brief | No call to `buildSignalCoverage` from `_shared/brief-signal-coverage.ts`; the §3 Signal Coverage Matrix is assembled by 200 lines of `userPrompt += …` (`:3519–3700`). | Replace inline accumulator with a single call returning the matrix block. |
+| F-12 | S2 | Brief | Partial June 3: the canonical `=== CONTEXT: [MORNING|AFTERNOON|EVENING] ===` header and `PRE_COMPUTED_USER_NOTICE` landed, but the large inline `userPrompt += …` accumulator is still in place instead of delegating to `buildSignalCoverage` (`compute-outer-readiness/index.ts:3539–3888`). | Follow up by replacing the remaining accumulator with `_shared/brief-signal-coverage.ts` so block ordering and omission rules live in one helper. |
 | F-13 | S3 | Plan | `applySlotBoostsToMapping` is imported (`:15`) but its return value is not asserted against `PROTOCOL_COMBOS` keys at runtime — a typo in a boost row silently no-ops. | Add a startup assertion that every boost target ∈ `Object.keys(PROTOCOL_COMBOS)`. |
 | F-14 | S3 | Brief | `selectLeadEvent` is the only event-taxonomy import (`:5`); JIT lead-time logic (`event-subtypes.jitLeadTime`) is never consulted when picking which event to mention. | Pass `jitLeadTime` from subtype into the lead-event scoring weights. |
 | F-15 | S3 | Nudges | `briefBehaviour.promptBlockBrief` is appended AFTER framing block (`:1534`) — when LLM truncates, the behaviour rules are dropped first. | Move behaviour block ABOVE framing in the user prompt. |
 | F-16 | S3 | Plan | Static `MIN_SLOTS_FALLBACK` filler (`:4825`) does not run through `classifyEvent`, so filler practices skip A–H tagging and never appear in the daily-context snapshot Nudges depend on. | Run filler practices through `enrichEvent` before persisting. |
 | F-17 | S3 | All three | `BRIEF_PROMPT_VERSION` is imported by all three consumers but only Brief stamps it on output (`:13` / `:30` / `:14`). Nudges + Plan stamp their own `architecture` field instead → cross-feature version skew. | Stamp `BRIEF_PROMPT_VERSION` on every LLM-produced artefact for cross-feature trace. |
 
-**Top five risks (read first):**
-1. Brief LLM has no §3/§4 context → generic coaching copy (F-01 / F-02).
-2. Plan duplicates events across slots → "same event twice" UI bug (F-03 / F-04).
-3. Nudges classifier is the legacy shim → pattern matching is keyword-only (F-05).
-4. `duringNotificationOnly` is honoured by Plan but not Nudges → push storms during long meetings (F-06).
-5. Forbidden-word lists triplicated → wellness phrases leak through whichever copy uses the stale list (F-07 / F-08).
+**Top five open risks (read first):**
+1. Brief still lacks the per-event §3/§4 enrichment block, so the LLM sees titles without category/phase/combo grounding (F-01).
+2. Nudges classifier is still the legacy shim, so pattern matching remains keyword-heavy instead of using canonical event enrichment (F-05).
+3. `duringNotificationOnly` is honoured by Plan but not Nudges, so long meetings can still generate mistimed pushes (F-06).
+4. Forbidden-word / voice validation is still split across surfaces because Nudges has not yet adopted the shared copy-vocabulary path (F-08).
+5. Brief prompt assembly is still large and order-sensitive, so truncation / omission risk remains until signal coverage is delegated to the shared helper (F-12 / F-15).
 
 **Remediation waves** (dependency-ordered, no implementation here):
-- **Wave 1 — Plan dedupe + §4 enforcement:** F-03, F-04, F-06, F-09. Pure code-local fixes; no prompt changes.
-- **Wave 2 — Brief receives §3/§4 + taxonomy block:** F-01, F-02, F-12, F-14. Adds shared helpers to Brief.
-- **Wave 3 — Nudges copy delegation:** F-05, F-11, F-15. Replaces hand-authored framing.
-- **Wave 4 — Copy-vocabulary consolidation:** F-07, F-08, F-13, F-16, F-17. Cleanup pass.
+- **Wave 1 — Brief event enrichment + signal coverage:** F-01, F-12, F-14. Adds the shared event-coaching and block-assembly helpers still missing from Brief.
+- **Wave 2 — Nudges classifier + delivery guardrails:** F-05, F-06, F-11, F-15. Replaces legacy classification and aligns notification timing with the shared event contract.
+- **Wave 3 — Cross-surface copy consolidation + observability:** F-08, F-13, F-16, F-17. Finishes the remaining shared-vocabulary and traceability work.
 
 ---
 
@@ -62,11 +61,11 @@ The remainder of the findings (F-01, F-05, F-06, F-08–F-11, F-13, F-14, F-16) 
 
 | Feature | Verdict | One-sentence rationale |
 |---------|---------|------------------------|
-| Brief (`compute-outer-readiness`) | **Legacy-dominant** | Imports `evaluateForScope` and `selectLeadEvent` but never consumes the §3/§4 event-coaching block; 200-line inline `userPrompt` builder bypasses `brief-signal-coverage`. |
-| Plan (`generate-mastery-plan`) | **Wired but shadowed** | Imports every shared module (EVENT_CATEGORIES, EVENT_PHASE_MAP, PROTOCOL_COMBOS, classifyEvent, selectJitCandidates, action-frame, why-llm) yet keeps a parallel legacy path for phase resolution and dedupes by `contentId` only. |
+| Brief (`compute-outer-readiness`) | **Hybrid, moving toward shared-led** | Shared prompt vocabulary, behaviour blocks, and canonical context header are now wired in, but the brief still lacks the per-event §3/§4 enrichment block and still assembles signal coverage inline. |
+| Plan (`generate-mastery-plan`) | **Shared-led with targeted legacy edges** | Shared snapshot loading and final event dedupe are now wired correctly, but some timing / mapping helpers are still local and should move behind shared contracts. |
 | Nudges (`smart-nudges`) | **Partial** | Consumes `briefBehaviour.taxonomyBlock` + `promptBlockBrief`, but still uses `classifyByLegacyTable`, a local forbidden-word list, and hand-authored per-nudge framing. |
 
-The "same event appears twice in Plan" bug is reproduced by: an event of category C where `EVENT_PHASE_MAP[C].post` is absent. The JIT loop picks `(event=X, phase=pre)` into slot 2. Slot-3 filler then picks the same `(event=X, phase=pre)` (re-checking `phaseAlreadyAnchored` is skipped at `:4727`), and final dedupe at `:4775` collapses on `contentId` only — different practice contentIds for the same event survive.
+The "same event appears twice in Plan" bug was the primary reproduction behind F-03 / F-04. As of the June 3 landing, the final cross-slot dedupe pass now resolves duplicates by `eventId` + `jitPhase`, respects `CATEGORY_MAX_SLOTS`, and replaces or strips duplicate anchors after ledger merge / slot replacement.
 
 ---
 
@@ -109,26 +108,24 @@ Cells: ✅ imported and drives output · ⚠️ imported but shadowed by legacy 
 
 **What the doc prescribes** (`Decision_Readiness_Brief_LLM_Prompt_v2.docx` §2 + `PERFORMANCE_READINESS_BRIEF_LOGIC.md`): a 6-step advisory body whose §3 Signal Coverage Matrix names every event by `(title, category, phase, recommended combo)` so the LLM can ground its phrasing in the §4 pre/during/post contract.
 
-**What the code does** (`:3306` system prompt, `:3519–3700` `userPrompt` accumulator):
-- The system prompt persona is inline prose — not imported from `copy-vocabulary.ts`.
+**What the code does** (`:3317` system prompt builder, `:3539–3888` `userPrompt` accumulator):
+- The system prompt persona now comes from `buildBriefSystemPrompt()`, so persona / voice / schema changes are centralized in `_shared/brief/copy-vocabulary.ts`.
 - The `CALENDAR TODAY` block (`:3553`) lists events as `"HH:mm Title"` only. No category letter, no phase, no combo, no `preventsBuilds`.
-- `evaluateForScope("brief")` is imported (`:7`) but its `promptBlock` is **not** appended.
+- `briefBehaviourSnapshot.taxonomyBlock` and `promptBlockBrief` are now appended (`:3884–3888`), so the shared behaviour wiring does reach the brief prompt.
 - `brief-signal-coverage.ts` is not imported at all.
 - `selectLeadEvent` (`:5`) is the only taxonomy touchpoint; it returns a single lead event without phase metadata.
 
-**Findings touched:** F-01, F-02, F-07, F-12, F-14.
+**Findings touched:** F-01, F-07, F-12, F-14. F-02 is resolved.
 
 ### 3.2 Plan — `supabase/functions/generate-mastery-plan/index.ts`
 
 **Imports (good):** every canonical shared module is imported (`:12–65`). `EVENT_CATEGORIES`, `EVENT_PHASE_MAP`, `PROTOCOL_COMBOS`, `classifyEvent`, `enrichEvent`, `rankJitCandidates`, `selectJitCandidates`, `applySlotBoostsToMapping`, `buildActionFrame`, `generateWhyStatement`, `buildPlanTitle` are all in scope.
 
 **Shadow paths (bad):**
-- **Dedupe (`:4775–4795`)** is `contentId`-only despite `slotAnchors` carrying `(eventId, phase)`. → F-03.
-- **`phaseAlreadyAnchored` (`:4343`)** is consulted in the JIT loop at `:4356` but skipped by slot 2 backfill (`:4665`) and slot 3 backfill (`:4727`). → F-04.
 - **`composeStateLabel`** still re-derives phase windows from raw start times rather than reading `EVENT_PHASE_MAP[cat][phase].timing`. → F-09.
 - **`duringNotificationOnly`** is honoured at `:4260` but not re-asserted when slot 2/3 backfill kicks in (the check happens earlier in candidate generation only).
 
-**Findings touched:** F-03, F-04, F-06, F-09, F-10, F-13, F-16.
+**Findings touched:** F-06, F-09, F-10, F-13, F-16. F-03 / F-04 are resolved.
 
 ### 3.3 Nudges — `supabase/functions/smart-nudges/index.ts`
 
@@ -151,11 +148,11 @@ Cells: ✅ imported and drives output · ⚠️ imported but shadowed by legacy 
 
 | Doc-prescribed block (Brief LLM Prompt v2) | Actual code | Shared module that should populate it | Finding |
 |---|---|---|---|
-| §2.1 Persona + Strategic Register | `:3306` inline prose | `copy-vocabulary.ts` (persona constants) | F-07 |
-| §2.18 Phrase Contract / forbidden words | Inline blacklist near `:3306` | `copy-vocabulary.ts` `forbiddenWords` | F-07 |
+| §2.1 Persona + Strategic Register | `buildBriefSystemPrompt()` (`:3317`) | `copy-vocabulary.ts` (persona constants) | F-07 resolved |
+| §2.18 Phrase Contract / forbidden words | Shared system prompt builder (`:3317`) | `copy-vocabulary.ts` `forbiddenWords` | F-07 resolved |
 | §3 Signal Coverage Matrix (per event row) | `:3553–3573` `"HH:mm Title"` only | `brief-signal-coverage.buildSignalCoverage` | F-12 |
 | §4 Pre/During/Post event-coaching block | **Missing entirely** | `EVENT_PHASE_MAP` + `classifyEvent` | F-01 |
-| §5 Behaviour rules (CEO state evaluator) | **Missing** (`evaluateForScope` result not appended) | `behaviour-wiring.evaluateForScope("brief").promptBlock` | F-02 |
+| §5 Behaviour rules (CEO state evaluator) | Appended via `briefBehaviourSnapshot.taxonomyBlock` + `promptBlockBrief` (`:3884–3888`) | `behaviour-wiring.evaluateForScope("brief").promptBlock` | F-02 resolved |
 
 ### 4.2 Plan
 
@@ -196,21 +193,16 @@ No categories are missing from `event-phase-map.ts`. The taxonomy itself is soun
 **Reproduction trace** (line numbers in `generate-mastery-plan/index.ts`):
 
 1. `slotAnchors` is declared as `{ eventId, phase }[]` (`:4337`) — phase tracked.
-2. JIT candidate loop respects `phaseAlreadyAnchored(eventId, phase)` (`:4356`).
-3. Slot 2 backfill pushes `{eventId, phase}` (`:4665`) **without** re-calling `phaseAlreadyAnchored` first.
-4. Slot 3 backfill does the same (`:4727`).
-5. Final dedupe loop (`:4775–4795`) keys on `m.practice.contentId`:
-   ```ts
-   if (!seenContentIds.has(m.practice.contentId)) { ... }
-   ```
-6. Because two distinct practices can be recommended for the same `(eventId, phase)` (e.g. `regulate` + `align`), their `contentId`s differ → both survive → user sees two cards for the same meeting with the same phase.
+2. JIT candidate loop respects `phaseAlreadyAnchored(eventId, phase)` (`:4456–4469`).
+3. Final cross-slot dedupe now inspects resolved event ids, category caps, and repeated `jitPhase` values after fillers / ledger merge / replacement overrides (`:3219–3330`).
+4. When a duplicate survives into final assembly, the slot is either replaced with a fresh alternative or has its JIT framing stripped instead of reusing the same event anchor.
 
 **Why §4 enforcement also matters:** when `EVENT_PHASE_MAP[cat].post` is missing, the slot 3 filler that *would* have produced a unique `(eventId, 'post')` card silently falls through and re-anchors on `(eventId, 'pre')` instead, compounding the duplicate.
 
-**Recommended contract fix (no code here):**
-- Dedupe key = `${m.eventId ?? m.practice.contentId}::${m.jitPhase ?? 'none'}`.
-- Slot 2/3 backfill MUST call `phaseAlreadyAnchored` before pushing.
-- When `phaseForEvent(event, 'post') === null`, slot 3 must fall back to a non-event filler (state-management), not to the same event's `pre`.
+**Current contract status:** resolved in the June 3 landing.
+- Final dedupe keys event reuse by resolved event identity plus `jitPhase`.
+- Over-cap or repeated-phase anchors are replaced with a fresh alternative or stripped of JIT framing.
+- Remaining follow-up is to keep any future slot-assembly helpers behind this same final dedupe contract.
 
 ---
 
@@ -253,17 +245,17 @@ See §0 for the full numbered list (F-01 … F-17) with severity, file:line, roo
 | ID | Severity | Feature | Cite |
 |----|----------|---------|------|
 | F-01 | S1 | Brief | `compute-outer-readiness/index.ts:3553` (no §4 block) |
-| F-02 | S1 | Brief | `:7` imported, never appended |
-| F-03 | S1 | Plan | `generate-mastery-plan/index.ts:4775` |
-| F-04 | S1 | Plan | `:4665`, `:4727` (skip `phaseAlreadyAnchored`) |
+| F-02 | S1 | Brief | Resolved June 3, `compute-outer-readiness/index.ts:3884–3888` |
+| F-03 | S1 | Plan | Resolved June 3, `generate-mastery-plan/index.ts:3219–3330` |
+| F-04 | S1 | Plan | Resolved June 3, `generate-mastery-plan/index.ts:3219–3330` |
 | F-05 | S1 | Nudges | `smart-nudges/index.ts:566` |
 | F-06 | S1 | Nudges/Plan | Nudges never reads `duringNotificationOnly` |
-| F-07 | S2 | Brief | `:3306` inline persona + blacklist |
+| F-07 | S2 | Brief | Resolved June 3, `compute-outer-readiness/index.ts:3317` |
 | F-08 | S2 | Nudges | `:1119` `FORBIDDEN_WORDS_V6` |
 | F-09 | S2 | Plan | `composeStateLabel` re-derives phase |
 | F-10 | S2 | Plan | local `PRACTICE_TYPE_TO_COMBO` mirror in `buildRecommendedAction` |
 | F-11 | S2 | Nudges | `:1373+` hand-authored framing |
-| F-12 | S2 | Brief | `:3519–3700` inline signal-coverage accumulator |
+| F-12 | S2 | Brief | Partial, `compute-outer-readiness/index.ts:3539–3888` |
 | F-13 | S3 | Plan | `applySlotBoostsToMapping` no startup assert |
 | F-14 | S3 | Brief | `selectLeadEvent` ignores `jitLeadTime` |
 | F-15 | S3 | Nudges | `:1534` behaviour block after framing |
@@ -274,10 +266,9 @@ See §0 for the full numbered list (F-01 … F-17) with severity, file:line, roo
 
 ## 11. Recommended Remediation Roadmap
 
-- **Wave 1 — Plan dedupe + §4 enforcement** (F-03, F-04, F-06, F-09). No prompts changed; pure code-local fixes. Unblocks the "same event twice" UI bug.
-- **Wave 2 — Brief receives §3/§4 + taxonomy block** (F-01, F-02, F-12, F-14). Requires touching the Brief prompt; coordinate with `BRIEF_PROMPT_VERSION` bump and snapshot in `mem/features/performance-readiness/prompt-snapshot-brief.md`.
-- **Wave 3 — Nudges copy delegation** (F-05, F-11, F-15). Replace `classifyByLegacyTable`; move behaviour block above framing; route per-nudge framing through `action-frame` + `why-llm`.
-- **Wave 4 — Copy-vocabulary consolidation + observability** (F-07, F-08, F-10, F-13, F-16, F-17). Single `forbiddenWords` source; stamp `BRIEF_PROMPT_VERSION` cross-feature.
+- **Wave 1 — Brief event enrichment + signal coverage** (F-01, F-12, F-14). Coordinate with `BRIEF_PROMPT_VERSION` bump and snapshot in `mem/features/performance-readiness/prompt-snapshot-brief.md`.
+- **Wave 2 — Nudges classifier + copy delegation** (F-05, F-06, F-11, F-15). Replace `classifyByLegacyTable`; move behaviour block above framing; route per-nudge framing through `action-frame` + `why-llm`.
+- **Wave 3 — Cross-surface copy consolidation + observability** (F-08, F-10, F-13, F-16, F-17). Single `forbiddenWords` source; stamp `BRIEF_PROMPT_VERSION` cross-feature.
 
 ---
 
@@ -368,4 +359,4 @@ smart-nudges/index.ts: (no match)
 
 ---
 
-*End of audit. No code, prompts, or shared modules were modified.*
+*End of audit. This document update is documentation-only; referenced code changes landed separately.*
