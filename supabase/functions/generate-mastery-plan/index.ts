@@ -4810,15 +4810,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
-    slot1AnchorSnapshot = sl
-      ? {
-          anchorEventId: sl.eventId,
-          anchorCategoryId: sl.categoryId,
-          anchorSubtypeId: sl.subtypeId,
-          anchorScenarioId: sl.scenarioId,
-          anchorLeadTimeMin: sl.leadTimeMin,
-        }
-      : buildAnchorSnapshot(null, null);
+    slot1AnchorSnapshot = sl ? sl.anchorMeta : buildAnchorSnapshot(null, null);
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -4833,15 +4825,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
-    slot1AnchorSnapshot = sl
-      ? {
-          anchorEventId: sl.eventId,
-          anchorCategoryId: sl.categoryId,
-          anchorSubtypeId: sl.subtypeId,
-          anchorScenarioId: sl.scenarioId,
-          anchorLeadTimeMin: sl.leadTimeMin,
-        }
-      : buildAnchorSnapshot(null, null);
+    slot1AnchorSnapshot = sl ? sl.anchorMeta : buildAnchorSnapshot(null, null);
   }
   if (slot1IsJit && topEventId) {
     // Phase C.2 — anchor with phase so the ranked-candidate picker can
