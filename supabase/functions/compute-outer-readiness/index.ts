@@ -18,6 +18,11 @@ import {
   contextHeaderForSlot,
   PRE_COMPUTED_USER_NOTICE,
 } from "../_shared/brief/copy-vocabulary.ts";
+import {
+  assembleDeterministicBriefBlocks,
+  buildWindowContextBlock,
+  type BriefDeterministicInputs,
+} from "../_shared/brief/prompt-blocks.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
