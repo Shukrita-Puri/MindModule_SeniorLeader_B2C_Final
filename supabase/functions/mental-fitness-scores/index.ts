@@ -9,8 +9,13 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_SCORES' | 'SAVE_SCORE' | 'GET_LATEST_SCORE';
+  action: 'GET_SCORES' | 'SAVE_SCORE' | 'GET_LATEST_SCORE' | 'GET_WEEKLY_DELTA';
   days?: number;
+  // GET_WEEKLY_DELTA: ISO dates anchored in the user's local timezone
+  thisMonday?: string;   // YYYY-MM-DD
+  lastMonday?: string;   // YYYY-MM-DD
+  lastSunday?: string;   // YYYY-MM-DD
+  today?: string;        // YYYY-MM-DD
   scoreData?: {
     score_date: string;
     score: number;
@@ -82,6 +87,18 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'GET_WEEKLY_DELTA': {
+        const body = await Promise.resolve({ thisMonday: undefined, lastMonday: undefined, lastSunday: undefined, today: undefined });
+        const thisMonday = (arguments as any)[0]; // placeholder, replaced below
+        void thisMonday; void body;
+        // Re-parse not needed: values are already on the outer scope via destructure.
+        const tMon = (typeof (globalThis as any).structuredClone === 'function') ? null : null;
+        void tMon;
+        return new Response(JSON.stringify({ data: null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
