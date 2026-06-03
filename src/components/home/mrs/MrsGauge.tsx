@@ -46,20 +46,13 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
         className="drop-shadow-[0_18px_40px_rgba(0,0,0,0.28)]"
       >
         <defs>
-          <radialGradient id="mrs-glow" cx="50%" cy="50%" r="55%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-            <stop offset="65%" stopColor={color} stopOpacity="0.08" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </radialGradient>
           <linearGradient id="mrs-arc" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor={color} stopOpacity="0.95" />
             <stop offset="100%" stopColor={color} stopOpacity="0.45" />
           </linearGradient>
         </defs>
-        {/* soft outer halo */}
-        <circle cx={cx} cy={cy} r={radius + 14} fill="url(#mrs-glow)" />
         {/* clean white disc — let the coloured arc do the colour coding */}
-        <circle cx={cx} cy={cy} r={radius - 4} fill="hsl(var(--background))" />
+        <circle cx={cx} cy={cy} r={radius + 6} fill="#ffffff" />
         {/* track */}
         <circle
           cx={cx}
