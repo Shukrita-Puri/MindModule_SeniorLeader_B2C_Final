@@ -28,6 +28,7 @@ import { ChevronDown, Brain, BatteryMedium, ShieldCheck, CalendarDays, Clock, Ca
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ThumbsUp, ThumbsDown, Equal, Check, ArrowRight } from 'lucide-react';
 import PillarGlossaryModal from '@/components/home/PillarGlossaryModal';
+import { getTimeLabel, getDateLabel } from '@/components/home/timeLabel';
 import PillDetailContent, { type PillTooltipPill } from '@/components/home/PillTooltip';
 import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/FeedbackCapture';
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
