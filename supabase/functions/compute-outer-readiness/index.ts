@@ -3307,8 +3307,19 @@ serve(async (req) => {
             : isMondayMorning ? 'Week is being set right now. Frame as intentional and forward.'
             : null;
 
-          // ── System Prompt (v6.1 — Chief of Staff for the Mind, Strategic Register) ──
-          const systemPrompt = `You are the Chief of Staff for a senior leader's mind, a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting, every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
+          // ── System Prompt — Chief of Staff for the Mind (June 3 spec) ──
+          // Persona, voice banks, hard constraints, priority order, silent
+          // reasoning, four-beat body contract, worked examples, and JSON
+          // output schema all live in `_shared/brief/copy-vocabulary.ts`.
+          // The shared TS modules (`buildBehaviourSnapshot`,
+          // `buildWindowContext`, `evaluateForScope`, event taxonomy,
+          // causality store) own the logic; the LLM only synthesises voice.
+          const systemPrompt = buildBriefSystemPrompt();
+          // Retain the legacy inline prompt only as a fallback escape hatch
+          // gated by env flag — never used in production. Drift-protection:
+          // any new persona/voice/constraint change must land in
+          // copy-vocabulary.ts so Brief, Plan, and Nudges read one source.
+          const _legacyInlineSystemPrompt = `You are the Chief of Staff for a senior leader's mind, a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting, every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
 
 REASONING PROTOCOL (silent, not in output):
 STEP 1, BODY READ (wearable-first): HRV, RHR, HR, Sleep, what is the body showing? Cite the number. Most anomalous signal? MASKED_HIGH (body loaded, not felt)? RECOVERY_UNDERWAY (body ahead of felt)?
