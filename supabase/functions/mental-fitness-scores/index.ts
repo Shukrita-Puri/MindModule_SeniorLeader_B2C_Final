@@ -101,23 +101,48 @@ serve(async (req) => {
           });
         }
         const { data, error } = await supabase
-          .from('daily_context_snapshot')
-          .select('local_date, readiness_score_baseline, readiness_score_refined, readiness_state')
+          .from('brief_snapshots')
+          .select('local_date, time_window, created_at, baseline_score, refined_score, baseline_state, refined_state')
           .eq('user_id', userId)
           .gte('local_date', lastMonday)
-          .lte('local_date', today);
+          .lte('local_date', today)
+          .order('local_date', { ascending: true })
+          .order('created_at', { ascending: true });
 
         if (error) {
           console.error('[mental-fitness-scores] GET_WEEKLY_DELTA error:', error);
           throw error;
         }
 
-        const rows = (data || []) as Array<{
+        // brief_snapshots can have multiple rows per local_date (one per
+        // time_window, plus regenerations). Collapse to one row per day —
+        // the latest by created_at — so daily averages aren't skewed by the
+        // number of intra-day regenerations.
+        type SnapRow = {
           local_date: string;
-          readiness_score_baseline: number | null;
-          readiness_score_refined: number | null;
-          readiness_state: string | null;
-        }>;
+          time_window: string;
+          created_at: string;
+          baseline_score: number | null;
+          refined_score: number | null;
+          baseline_state: string | null;
+          refined_state: string | null;
+        };
+        const perDay = new Map<string, SnapRow>();
+        for (const r of ((data || []) as SnapRow[])) {
+          const prev = perDay.get(r.local_date);
+          // Rows arrive ASC by created_at — last write wins for the day.
+          if (!prev || r.created_at >= prev.created_at) perDay.set(r.local_date, r);
+        }
+        // Map onto the daily_context_snapshot shape the rest of this handler
+        // already expects. Historical rows (335) have baseline_score=NULL but
+        // a populated refined_score — so when callers ask for the baseline
+        // series we fall through to refined to keep the dial populated.
+        const rows = Array.from(perDay.values()).map((r) => ({
+          local_date: r.local_date,
+          readiness_score_baseline: r.baseline_score ?? r.refined_score,
+          readiness_score_refined: r.refined_score,
+          readiness_state: r.refined_state ?? r.baseline_state ?? 'baseline',
+        }));
 
         const inRange = (d: string, lo: string, hi: string) => d >= lo && d <= hi;
         const avg = (xs: number[]) =>
