@@ -1258,53 +1258,24 @@ const ConnectedData = () => {
   );
 
   return (
-    <div
-      className="min-h-screen bg-[#f5f0e8] text-[#1a1712] pb-[env(safe-area-inset-bottom,0px)]"
-      data-tour="connected-data-content"
-    >
-      {/* Art band header — mirrors onboarding ParchScreen */}
-      <div className="relative h-[180px] overflow-hidden pt-[env(safe-area-inset-top,0px)]">
-        <img
-          src={parchmentArtBand}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-[#f5f0e8]/25" />
-        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-[#f5f0e8] via-[#f5f0e8]/85 to-transparent" />
-        <div className="absolute top-3 left-3 z-10">
-          <button
-            type="button"
-            onClick={() => navigate('/profile')}
-            className="h-9 px-3 rounded-full bg-[#f5f0e8]/80 border border-[#cfc7b8] text-[12px] font-medium text-[#1a1712] hover:bg-[#f5f0e8] transition-colors"
-            aria-label="Back to profile"
-          >
-            ← Back
-          </button>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
-          <div className="text-[9px] tracking-[2.5px] uppercase text-[#7a7060] mb-1">
-            Connections
-          </div>
-          <div className="font-headline text-[22px] leading-[1.2] text-[#1a1712]">
-            Manage your connected data
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom,0px)]">
+      <UnifiedTopBar backPath="/profile" />
 
-      <div className="max-w-2xl mx-auto px-5 pt-2 pb-10 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+        <h1 className="text-[28px] font-headline font-semibold">Manage your connected data</h1>
+
         {loading ? (
           <EngravedLoader label="Loading connections…" />
         ) : (
           <>
-            <p className="text-xs text-[#7a7060] leading-[1.65]">
+            <p className="text-xs text-muted-foreground leading-[1.65]">
               Connect, reconnect, or disconnect any source. Tap the menu on a connected row to
               sync now or remove it.
             </p>
 
             {calendarConnections.length > 0 && (
               <section>
-                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                <div className="text-[10px] tracking-[2px] uppercase text-muted-foreground font-medium mb-2">
                   Calendar
                 </div>
                 {calendarConnections.map(renderRow)}
@@ -1313,7 +1284,7 @@ const ConnectedData = () => {
 
             {wearableConnections.length > 0 && (
               <section>
-                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                <div className="text-[10px] tracking-[2px] uppercase text-muted-foreground font-medium mb-2">
                   Wearable
                 </div>
                 {wearableConnections.map(renderRow)}
@@ -1322,15 +1293,15 @@ const ConnectedData = () => {
 
             {showSelfCheckInToggle && (
               <section>
-                <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
+                <div className="text-[10px] tracking-[2px] uppercase text-muted-foreground font-medium mb-2">
                   Preferences
                 </div>
-                <div className="flex items-center justify-between gap-3 p-3.5 rounded-[14px] border border-[#cfc7b8] bg-white mb-2">
+                <div className="flex items-center justify-between gap-3 p-3.5 rounded-[14px] border bg-card mb-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium text-[#1a1712]">
+                    <div className="text-[13px] font-medium text-foreground">
                       Daily self check-ins
                     </div>
-                    <div className="text-[11px] text-[#7a7060] mt-0.5 leading-[1.45]">
+                    <div className="text-[11px] text-muted-foreground mt-0.5 leading-[1.45]">
                       Adds a short morning check-in for a more rounded assessment alongside your
                       wearable.
                     </div>
@@ -1342,7 +1313,7 @@ const ConnectedData = () => {
                     aria-label="Toggle daily self check-ins"
                     aria-pressed={selfCheckInsEnabled}
                     className={`relative w-[46px] h-[26px] rounded-full shrink-0 transition-colors disabled:opacity-50 ${
-                      selfCheckInsEnabled ? 'bg-[#e8714a]' : 'bg-[#e0d9ce]'
+                      selfCheckInsEnabled ? 'bg-saffron' : 'bg-muted'
                     }`}
                   >
                     <span
@@ -1355,27 +1326,27 @@ const ConnectedData = () => {
               </section>
             )}
 
-            <div className="flex items-center gap-3 pt-2 text-[11px] text-[#7a7060]">
+            <div className="flex items-center gap-3 pt-2 text-[11px] text-muted-foreground">
               <button
                 type="button"
                 onClick={() => navigate('/privacy')}
-                className="underline underline-offset-2 hover:text-[#1a1712]"
+                className="underline underline-offset-2 hover:text-foreground"
               >
                 Privacy Policy
               </button>
-              <span className="text-[#7a7060]/50">·</span>
+              <span className="text-muted-foreground/50">·</span>
               <button
                 type="button"
                 onClick={() => navigate('/terms')}
-                className="underline underline-offset-2 hover:text-[#1a1712]"
+                className="underline underline-offset-2 hover:text-foreground"
               >
                 Terms of Use
               </button>
             </div>
 
             {isQaDebugEnabled() && (
-              <details className="mt-4 rounded-[14px] border border-[#cfc7b8] bg-white/60 p-3">
-                <summary className="text-[11px] tracking-[1.5px] uppercase text-[#7a7060] cursor-pointer">
+              <details className="mt-4 rounded-[14px] border bg-card p-3">
+                <summary className="text-[11px] tracking-[1.5px] uppercase text-muted-foreground cursor-pointer">
                   QA debug
                 </summary>
                 <div className="mt-3">
