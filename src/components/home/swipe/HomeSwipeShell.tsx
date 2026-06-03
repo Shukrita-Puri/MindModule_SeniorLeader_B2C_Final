@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface HomeSwipeShellProps {
@@ -10,14 +11,20 @@ const HomeSwipeShell = ({ pages, initialIndex = 0 }: HomeSwipeShellProps) => {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [active, setActive] = useState(initialIndex);
+  const { pathname } = useLocation();
 
+  // Always snap to the initial page on mount AND on every /executive-home
+  // navigation. The scroller otherwise keeps the prior scrollLeft, which
+  // can leave the user on Brief or Plan instead of MRS after navigating away
+  // and back.
   useEffect(() => {
+    const scroller = scrollerRef.current;
     const el = pageRefs.current[initialIndex];
-    if (el && scrollerRef.current) {
-      scrollerRef.current.scrollTo({ left: el.offsetLeft, behavior: 'auto' });
-    }
+    if (!scroller || !el) return;
+    scroller.scrollTo({ left: el.offsetLeft, behavior: 'auto' });
+    setActive(initialIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname, initialIndex]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
