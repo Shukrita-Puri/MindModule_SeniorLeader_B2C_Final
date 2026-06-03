@@ -57,6 +57,10 @@ import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviou
 import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
+import {
+  composeSlotStateLabel,
+  type SlotLabelResult,
+} from '../_shared/events/slot-labels.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
 import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
@@ -1378,7 +1382,9 @@ function buildAnchorSnapshot(
   enriched: ReturnType<typeof enrichEvent> | null,
 ): Pick<
   HorizonModule,
-  'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId' | 'anchorScenarioId' | 'anchorLeadTimeMin'
+  | 'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId'
+  | 'anchorScenarioId' | 'anchorLeadTimeMin'
+  | 'anchorTitle' | 'anchorDemandProfile' | 'anchorPhases'
 > {
   return {
     anchorEventId: eventId ?? null,
@@ -1386,6 +1392,11 @@ function buildAnchorSnapshot(
     anchorSubtypeId: enriched?.subtype?.id ?? null,
     anchorScenarioId: enriched?.scenarioId ?? null,
     anchorLeadTimeMin: enriched?.leadTimeMin ?? null,
+    // F-12: persist enriched-event extras so downstream surfaces don't
+    // have to re-classify from anchor ids alone.
+    anchorTitle: enriched?.title ?? null,
+    anchorDemandProfile: enriched?.demandProfile ?? null,
+    anchorPhases: enriched?.phases ?? null,
   };
 }
 
@@ -3737,6 +3748,11 @@ interface HorizonModule {
   anchorSubtypeId?: string | null;
   anchorScenarioId?: string | null;
   anchorLeadTimeMin?: number | null;
+  // F-12: richer slot-anchor context persisted on filler/state slots so
+  // downstream surfaces don't have to re-classify from partial metadata.
+  anchorTitle?: string | null;
+  anchorDemandProfile?: import('../_shared/events/event-subtypes.ts').DemandProfile | null;
+  anchorPhases?: { pre?: unknown; during?: unknown; post?: unknown } | null;
   isCancelled?: boolean;
   cancelReason?: string | null;
   replacementEventIds?: string[];
@@ -4730,111 +4746,31 @@ function buildHorizonModules(
     return null;
   };
 
-  const composeStateLabel = (
-    slotIndex: 0 | 1 | 2,
-  ): {
-    label: string;
-    eventId: string | null;
-    categoryId: EventCategoryId | null;
-    subtypeId: string | null;
-    scenarioId: string | null;
-    leadTimeMin: number | null;
-  } | null => {
-    const w = req.wearableContext;
-    const tier = req.innerReadinessTier;
-    const checkIn = req.checkInOutcome;
-    const load = req.calendarLoad;
-    const pressure = req.calendarPressure;
-    const tzOffset = (req as any).timezoneOffset ?? 0;
-    const localNow = new Date(Date.now() - tzOffset * 60000);
-    const dow = localNow.getUTCDay(); // 0 Sun .. 6 Sat
-    const isWeekend = dow === 0 || dow === 6;
-
-    // Sort candidate event lists by stakes, then pick the first one that
-    // is not already saturating its category's slot cap. Slot 3 prefers
-    // tomorrow's events; slots 1–2 prefer today's.
-    const todaySorted = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
-    const tomorrowSorted = [...tomorrowEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a));
-    const candidateList = slotIndex === 2
-      ? [...tomorrowSorted, ...todaySorted]
-      : [...todaySorted, ...tomorrowSorted];
-    const anchorEvent = pickAnchorEvent(candidateList);
-    const anchorEnriched = anchorEvent ? enrichEvent(anchorEvent) : null;
-    const anchorCategory = anchorEnriched?.categoryId ?? null;
-    const anchorDemand = anchorEnriched?.demandProfile ?? null;
-    const anchorTitle = truncateTitle(anchorEvent?.title);
-    const anchorIsTravel = isTravelTitle(anchorEvent?.title);
-    const anchorIsTomorrow = !!(anchorEvent && tomorrowEvents.some((e: any) => e.id === anchorEvent.id));
-
-    // 1) State action — pick strongest signal
-    let stateAction = '';
-    if (anchorCategory === 'G' || (anchorDemand && anchorDemand.cir >= 2) || anchorIsTravel) {
-      stateAction = 'Re-anchor circadian rhythm';
-    } else if (w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10) {
-      stateAction = 'Restore HRV';
-    } else if (w?.hasData && w.sleepScore !== null && w.sleepScore < 65) {
-      stateAction = 'Recover sleep debt';
-    } else if (tier === 'depleted' || checkIn === 'drained' || checkIn === 'struggling') {
-      const highVisibility = (anchorCategory === 'C' || anchorCategory === 'F');
-      const highEmotional = !!(anchorDemand && anchorDemand.emo >= 3);
-      stateAction = (highVisibility && !highEmotional) ? 'Reset stage chemistry' : 'Settle the system';
-    } else if (load === 'high' || pressure === 'high') {
-      stateAction = 'Decompress';
-    } else if (tier === 'managing') {
-      const cogDominant = !!(anchorDemand && anchorDemand.cog >= 3 && anchorDemand.emo <= 1 && anchorDemand.ene <= 1);
-      stateAction = (anchorCategory === 'E' || cogDominant) ? 'Prime for focus' : 'Re-consolidate focus';
-    } else {
-      stateAction = slotIndex === 2 ? 'Build capacity' : 'Steady the system';
-    }
-
-    // 2) Anchor phrase — Contract priority: distinct event > calendar load >
-    //    wearable deficit > generic horizon. For slot 2/3 (index ≥ 1), if
-    //    none of {distinct event, high load, wearable deficit, tomorrow's
-    //    calendar (slot 3)} apply, return null so the resolver drops the
-    //    slot rather than padding with a duplicate anchor.
-    let anchor = '';
-    let anchorEventId: string | null = null;
-    const highLoad = load === 'high' || pressure === 'high';
-    const hrvDeficit = !!(w?.hasData && w.hrvDeviation !== null && w.hrvDeviation < -10);
-    const sleepDeficit = !!(w?.hasData && w.sleepScore !== null && w.sleepScore < 65);
-
-    if (anchorEvent) {
-      anchorEventId = anchorEvent.id;
-      if (anchorIsTravel) {
-        anchor = anchorIsTomorrow ? 'long-haul travel tomorrow' : 'long-haul travel today';
-      } else {
-        anchor = `${anchorIsTomorrow ? "tomorrow's" : "today's"} ${anchorTitle}`;
-      }
-    } else if (highLoad) {
-      anchor = slotIndex === 2 ? "today's dense calendar" : "today's back-to-back load";
-    } else if (hrvDeficit || sleepDeficit) {
-      anchor = "tomorrow's load";
-    } else if (slotIndex === 2) {
-      if (isWeekend && dow === 0) anchor = "Monday's load";
-      else if (isWeekend) anchor = "next week\u2019s load";
-      else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
-      else anchor = "tomorrow's load";
-    } else {
-      anchor = "today's load";
-    }
-
-    // Variable-slot rule: index ≥ 1 must have a *meaningful* secondary
-    // signal — distinct event, high load, wearable deficit, or
-    // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
-    if (slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit && !sleepDeficit
-        && !(slotIndex === 2 && tomorrowEvents.length > 0)
-        && !(slotIndex === 2 && isWeekend)) {
-      return null;
-    }
-
-    return {
-      label: `${stateAction} ahead of ${anchor}`,
-      eventId: anchorEventId,
-      categoryId: anchorCategory,
-      subtypeId: anchorEnriched?.subtype?.id ?? null,
-      scenarioId: anchorEnriched?.scenarioId ?? null,
-      leadTimeMin: anchorEnriched?.leadTimeMin ?? null,
-    };
+  // Thin wrapper — full logic now lives in
+  // `_shared/events/slot-labels.ts` (F-11). The wrapper binds the closure-
+  // local helpers/state so the shared module stays pure.
+  const composeStateLabel = (slotIndex: 0 | 1 | 2): SlotLabelResult | null => {
+    return composeSlotStateLabel({
+      slotIndex,
+      todayRemainingEvents,
+      tomorrowEvents,
+      wearable: req.wearableContext
+        ? {
+            hasData: (req.wearableContext as any).hasData,
+            hrvDeviation: (req.wearableContext as any).hrvDeviation ?? null,
+            sleepScore: (req.wearableContext as any).sleepScore ?? null,
+          }
+        : null,
+      tier: req.innerReadinessTier ?? null,
+      checkIn: req.checkInOutcome ?? null,
+      load: req.calendarLoad ?? null,
+      pressure: req.calendarPressure ?? null,
+      timezoneOffsetMinutes: ((req as any).timezoneOffset ?? 0) as number,
+      pickAnchorEvent,
+      scoreEventStakes,
+      truncateTitle,
+      isTravelTitle,
+    });
   };
 
   const modules: HorizonModule[] = [];
@@ -4880,15 +4816,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
-    slot1AnchorSnapshot = sl
-      ? {
-          anchorEventId: sl.eventId,
-          anchorCategoryId: sl.categoryId,
-          anchorSubtypeId: sl.subtypeId,
-          anchorScenarioId: sl.scenarioId,
-          anchorLeadTimeMin: sl.leadTimeMin,
-        }
-      : buildAnchorSnapshot(null, null);
+    slot1AnchorSnapshot = sl ? sl.anchorMeta : buildAnchorSnapshot(null, null);
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -4903,15 +4831,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
     slotAnchors.push({ eventId: sl?.eventId ?? null });
-    slot1AnchorSnapshot = sl
-      ? {
-          anchorEventId: sl.eventId,
-          anchorCategoryId: sl.categoryId,
-          anchorSubtypeId: sl.subtypeId,
-          anchorScenarioId: sl.scenarioId,
-          anchorLeadTimeMin: sl.leadTimeMin,
-        }
-      : buildAnchorSnapshot(null, null);
+    slot1AnchorSnapshot = sl ? sl.anchorMeta : buildAnchorSnapshot(null, null);
   }
   if (slot1IsJit && topEventId) {
     // Phase C.2 — anchor with phase so the ranked-candidate picker can
@@ -5011,13 +4931,7 @@ function buildHorizonModules(
     if (sl) {
       slot2TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot2AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot2AnchorSnapshot = sl.anchorMeta;
     } else {
       slot2TimeLabel = '';
       slot2Practices = []; // signal "drop this slot"
@@ -5099,13 +5013,7 @@ function buildHorizonModules(
     if (sl) {
       slot3TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot3AnchorSnapshot = sl.anchorMeta;
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
@@ -5122,13 +5030,7 @@ function buildHorizonModules(
     if (sl) {
       slot3TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot3AnchorSnapshot = sl.anchorMeta;
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   }
@@ -5303,11 +5205,17 @@ function buildHorizonModules(
         showNavyBorder: false,
         showPulse: false,
         showPriorityPill: false,
-        anchorEventId: fillerLabel?.eventId ?? null,
-        anchorCategoryId: fillerLabel?.categoryId ?? null,
-        anchorSubtypeId: fillerLabel?.subtypeId ?? null,
-        anchorScenarioId: fillerLabel?.scenarioId ?? null,
-        anchorLeadTimeMin: fillerLabel?.leadTimeMin ?? null,
+        // F-12: persist the richer enriched-event snapshot, not just ids.
+        ...(fillerLabel?.anchorMeta ?? {
+          anchorEventId: null,
+          anchorCategoryId: null,
+          anchorSubtypeId: null,
+          anchorScenarioId: null,
+          anchorLeadTimeMin: null,
+          anchorTitle: null,
+          anchorDemandProfile: null,
+          anchorPhases: null,
+        }),
       });
     }
   }
