@@ -325,10 +325,40 @@ export function scoreEvents<E extends CalendarEventLite>(events: E[], flags?: En
   });
 }
 
-export function selectLeadEvent<E extends CalendarEventLite>(events: E[], flags?: EngineFlags): ScoredEvent<E> | null {
+/**
+ * F-14 — JIT lead-time fit boost.
+ * When the event subtype declares `jitLeadTimeMinutes`, events whose
+ * start falls inside that prep horizon (relative to `nowMs`) get a
+ * stakes boost so the Brief mentions the event that is actually
+ * actionable *now* rather than just the most-distant high-stakes one.
+ *   - inside window (0..lead]              → +20
+ *   - within 2× window (lead..2*lead]      → +10
+ *   - past start but ≤ 60min after          → +5 (post-event prep)
+ *   - otherwise                              →  0
+ */
+function jitLeadTimeBoost(et: EventType | null, startMs: number, nowMs: number): number {
+  if (!et || !et.jitLeadTimeMinutes || !isFinite(startMs)) return 0;
+  const minutesUntil = (startMs - nowMs) / 60_000;
+  const lead = et.jitLeadTimeMinutes;
+  if (minutesUntil >= 0 && minutesUntil <= lead) return 20;
+  if (minutesUntil > lead && minutesUntil <= 2 * lead) return 10;
+  if (minutesUntil < 0 && minutesUntil >= -60) return 5;
+  return 0;
+}
+
+export function selectLeadEvent<E extends CalendarEventLite>(
+  events: E[],
+  flags?: EngineFlags,
+  opts?: { nowMs?: number },
+): ScoredEvent<E> | null {
   const candidates = events.filter((e) => !isNoiseTitle(e.title)).filter(survivesAttendeeOrDurationFloor);
   if (candidates.length === 0) return null;
-  const scored = scoreEvents(candidates, flags);
+  const nowMs = opts?.nowMs ?? Date.now();
+  const scored = scoreEvents(candidates, flags).map((s) => {
+    const startMs = new Date(s.event.start_time).getTime();
+    const boost = jitLeadTimeBoost(s.type, startMs, nowMs);
+    return boost > 0 ? { ...s, stakes: s.stakes + boost } : s;
+  });
   const maxStakes = Math.max(...scored.map((s) => s.stakes));
   if (maxStakes >= STAKES_THRESHOLD) {
     const top = scored.filter((s) => s.stakes === maxStakes);
