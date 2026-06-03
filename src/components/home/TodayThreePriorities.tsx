@@ -605,11 +605,20 @@ const TodayThreePriorities = ({
             // Glue plan cache to brief identity: when the brief regenerates legitimately
             // (new input_signature → new briefId), invalidate the plan with it.
             const briefIdForHash = (outerReadinessData as any)?.briefId ?? 'no-brief';
+            // Strict brief-identity binding: signatureHash changes whenever
+            // CEO-behaviour flags, slotBoosts, taxonomy, or any input the
+            // brief reasoned over changes. Pair it with the wearable source
+            // row date so wearable/calendar context refreshes also bust the
+            // plan cache even when briefId is unchanged.
+            const briefSigForHash =
+              (outerReadinessData as any)?.behaviourSnapshot?.signatureHash ?? 'no-sig';
+            const wearableSrcForHash =
+              (outerReadinessData as any)?.wearableStatus?.sourceRowDate ?? 'no-w';
             const slotReplacementsHash = Object.entries(slotReplacements)
               .sort(([a], [b]) => Number(a) - Number(b))
               .map(([k, v]) => `${k}=${v.eventId}`)
               .join(',');
-            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:slotrepl=${slotReplacementsHash}`;
+            const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}:brief=${briefIdForHash}:sig=${briefSigForHash}:w=${wearableSrcForHash}:slotrepl=${slotReplacementsHash}`;
             if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
               clearPersistent(loadedKey);
               clearPersistent(dataKey);
