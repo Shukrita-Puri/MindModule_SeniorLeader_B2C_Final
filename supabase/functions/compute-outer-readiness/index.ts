@@ -3169,10 +3169,22 @@ serve(async (req) => {
             .eq('prompt_version', BRIEF_PROMPT_VERSION)
             .maybeSingle();
           if (snapshot) {
-            cachedSnapshot = snapshot as typeof cachedSnapshot;
+            const s: any = snapshot;
+            // Project two-state row onto legacy shape used downstream:
+            // prefer refined_* (post check-in) over baseline_*.
+            cachedSnapshot = {
+              phrase: s.refined_phrase ?? s.baseline_phrase ?? null,
+              body_text: s.refined_body_text ?? s.baseline_body_text ?? null,
+              lean_on: s.refined_lean_on ?? s.baseline_lean_on ?? null,
+              lean_on_source: s.refined_lean_on_source ?? s.baseline_lean_on_source ?? null,
+              watch_for: s.refined_watch_for ?? s.baseline_watch_for ?? null,
+              watch_for_source: s.refined_watch_for_source ?? s.baseline_watch_for_source ?? null,
+              brief_source: s.brief_source,
+              driver: s.driver ?? null,
+            };
             console.log('[brief-cache] Result:', JSON.stringify({
               snapshotHit: true,
-              briefSource: snapshot.brief_source,
+              briefSource: s.brief_source,
               promptVersion: BRIEF_PROMPT_VERSION,
               inputSignature: inputSignature.slice(0, 8) + '...',
               generationPath: 'snapshot',
