@@ -3480,6 +3480,8 @@ serve(async (req) => {
       apns_success: sendSuccess,
       apns_failed: sendFailed,
       architecture: 'cos-mind-v8-meaning-forward',
+      // F-17 — shared cross-feature trace key
+      prompt_version: BRIEF_PROMPT_VERSION,
       details: shippedNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
