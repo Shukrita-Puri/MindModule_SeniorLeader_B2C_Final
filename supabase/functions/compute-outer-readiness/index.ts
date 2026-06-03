@@ -3161,7 +3161,7 @@ serve(async (req) => {
         try {
           const { data: snapshot } = await db
             .from('brief_snapshots')
-            .select('phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, brief_source, driver')
+            .select('refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, brief_source, driver')
             .eq('user_id', userId)
             .eq('local_date', userLocalDate)
             .eq('time_window', getTimeOfDay(hour))
