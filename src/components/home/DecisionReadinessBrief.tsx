@@ -71,8 +71,6 @@ const getTierLabel = (tier: string): string => {
   }
 };
 
-import { getTimeLabel, getDateLabel } from './timeLabel';
-
 const chipBgColor = (color: SignalChip['color']) => {
   switch (color) {
     case 'red': return 'bg-gradient-to-r from-red-200 to-red-100 text-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.10)] border-0';
