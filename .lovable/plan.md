@@ -1,75 +1,170 @@
-## Root cause
 
-Both `SoundscapePlayer.tsx` (line 518) and `GuidedPracticePlayer.tsx` (line 1095, audio view) wrap the full-screen hero in:
+# /executive-home MRS redesign
 
-```tsx
-<div className="fixed inset-0 -z-10">
-  <img src={contentData.thumbnail} ... />
-  <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
-</div>
+Scope: visual + layout refinement of `MrsPage`, a small data-only addition for the weekly delta (no change to MRS scoring), and relocation of the deep trend chart into the existing Insights trajectory card. Brief and Plan pages untouched. Brief/MRS scoring untouched.
+
+## 1. Always land on the MRS page
+
+`ExecutiveHome.tsx` already passes `initialIndex={0}` to `HomeSwipeShell`, but the horizontal scroller can retain a non-zero `scrollLeft` after navigation/back-forward, leaving the user on Brief or Plan.
+
+- In `HomeSwipeShell`, force `scrollerRef.current.scrollLeft = 0` on every mount (not just first) and on `pathname` change, so visiting `/executive-home` always snaps back to page 0 (MRS).
+- Keep snap/swipe behaviour unchanged.
+
+## 2. MRS page structural redesign
+
+File: `src/components/home/mrs/MrsPage.tsx`.
+
+New vertical order, single column, mobile-first:
+
+```text
+[ MENTAL READINESS SCORE ]   ← bold eyebrow, same style as the
+                               Performance Readiness Brief eyebrow
+        ◯ 50  out of 100      ← existing MrsGauge (kept)
+          Managing            ← tier label only (no "Current tier ·")
+           refined            ← small caption: "baseline" or "refined"
+                               based on outerBrief.readinessState
+                               (fallback "baseline" when no check-in)
+
+  [  Take assessment  ]       ← left-aligned saffron pulsing pill
+                               (no icon)
+
+  ╭──────────── Half-Dial Trend ───────────╮
+  │   glass half-dial, green fill          │
+  │           +4 pts                       │
+  │     vs last week · baseline            │
+  ╰────────────────────────────────────────╯
 ```
 
-The app's `body` has `@apply bg-background` (white in light mode). A `fixed` element with `-z-10` is painted **behind** any opaque ancestor that establishes a stacking context, including the root `<div id="root">` / body background. Result:
+Removed from this page:
+- The old "Vs your baseline" Lower/Current/Higher slider card.
+- The old line-chart `Trend` card with `1W / 1M / 6M` toggle (relocated — see §5).
+- "Building your trend history" italic caption beneath the gauge.
+- The `CURRENT TIER · MANAGING` footer line.
 
-- The per-practice thumbnail `<img>` is hidden behind the white app background → user only sees white.
-- The dark gradient overlay is hidden too → white text (`text-white drop-shadow-…`) sits on a white background and becomes effectively invisible (the faint ghosting in the screenshot is only the drop-shadow leaking through).
-- This affects **every** Soundscape (pause / flow / power-up) and **every** audio-view Guided Practice — exactly the symptom reported.
+Preserved:
+- `useOuterReadiness` as data source for score + tier + readinessState (no change to MRS computation pipeline).
+- Hero, greeting, swipe shell, brief, plan — untouched.
 
-It is **not** a missing-asset issue: `src/assets/recalibrate/pause/harmonic-calm.jpg` exists, is imported via Vite in `practicesAndSoundscapes.ts`, and is bundled correctly. The image simply never gets a chance to paint.
+### 2a. Title styling
+Replace the current eyebrow `text-[11px] uppercase tracking-[0.22em] text-muted-foreground` with the same treatment used by the brief eyebrow (`text-[13px] font-semibold tracking-[0.14em] uppercase text-foreground`), so "MENTAL READINESS SCORE" reads as a section title, not a faint label.
 
-## Guiding principle (per user)
+### 2b. Tier color fix
+`MrsGauge.tierColorVar` currently maps `moderate / manageable` to `--tier-moderate` (amber). The displayed tier from the brief is `"managing"`, which falls through to `--tier-neutral` (grey) — the bug shown in the screenshot. Per `docs/MRS_V3_SPECIFICATION.md` §6 (50–64 = Mixed → Amber family), add explicit cases for the MRS v3 tier labels and their displayed synonyms:
 
-Every Soundscape and Guided Practice **must keep using its own dedicated visual** as authored in `practicesAndSoundscapes.ts` (`thumbnail` field). No single visual is ever shared across practices. Per-category fallbacks only engage in the rare case the practice's own image fails to load (e.g., network error, broken URL), so the page still has dark contrast for text — never as the primary visual.
+| Tier value (any-case) | Token |
+|---|---|
+| `peak`, `optimal`, `strong` | `--tier-strong` |
+| `mixed`, `moderate`, `manageable`, `managing` | `--tier-moderate` |
+| `compromised`, `low`, `depleted` | `--tier-low` |
+| anything else / null | `--tier-neutral` |
 
-## Fix (UI-only, minimal)
+Normalize to lowercase before matching. The same map will be reused by the half-dial and the "Managing" text under the score.
 
-### 1. New shared component `src/components/recalibrate/PlayerBackground.tsx`
+### 2c. Tier + state caption
+Below the gauge:
+- Line 1: tier label only, e.g. `Managing` — title-case, tier color, medium weight, ~`text-base` so it reads as a status, not a footer.
+- Line 2: smaller muted caption, `baseline` when `readinessState !== 'refined'`, `refined` when the user has completed a check-in today.
 
-A single hardened background used by both players. The image source is **always** the practice's own `thumbnail`. Responsibilities:
+## 3. Take Assessment pill
 
-- Wrapper `<div className="absolute inset-0 z-0 bg-stone-900 overflow-hidden">` — no negative z-index; dark fallback color guarantees text contrast during load.
-- Primary `<img src={thumbnail}>` (the practice's own visual) with:
-  - `loading="eager"`, `fetchPriority="high"`, `decoding="async"` so the hero paints quickly.
-  - `alt=""` (decorative — the visible H1 is the real title).
-  - Existing per-category color filter (`saturate/sepia/hue-rotate/brightness/contrast`) preserved.
-  - `onLoad` flips `loaded=true`; image fades in over the dark backdrop.
-  - `onError` swaps **only this single `<img>`** to a per-category bundled fallback so the page still has a usable backdrop:
-    - `pause` → `soundscape-pause-visual.jpg`
-    - `presence` / `flow` → `soundscape-flow-visual.jpg`
-    - `power-up` → `soundscape-renewal-visual.jpg`
-  - Fallback is per-render only; it never overwrites the practice's authored `thumbnail` in data and never appears unless the practice's own asset errors.
-- Always-on dark gradient overlay (`from-black/20 via-taupe-rich/30 to-black/50`) so white text stays readable in all states (loading, loaded, errored-to-fallback).
+- Remove `ClipboardCheck` icon entirely.
+- Left-align inside the page max-width container (replace `flex-col items-center text-center` for this row only).
+- Saffron background using the existing brand saffron token (per `mem://brand/color-palette/button-roles-v3`): use the existing `bg-saffron` / `text-saffron-foreground` utilities if present, otherwise add a one-line token alias in `index.css` referring to the existing `--brand-saffron` / `--saffron` HSL var. No new colors.
+- Pulsing: subtle Tailwind `animate-pulse` on a soft saffron halo ring (`ring-2 ring-[hsl(var(--saffron)/0.35)]`) so the pill itself stays readable; respect `prefers-reduced-motion`.
+- Copy: `Take assessment` when score exists, `Check in to generate your score` when not.
+- Action unchanged: `navigate('/daily-check-in')`.
 
-Props: `{ thumbnail: string; category: 'pause' | 'power-up' | 'presence' | 'flow' }`.
+## 4. Half-dial weekly delta (replaces "Vs your baseline" card)
 
-### 2. Wire it into both players (no change to which image each practice uses)
+New component: `src/components/home/mrs/WeeklyDeltaDial.tsx`.
 
-- `src/pages/SoundscapePlayer.tsx` (~line 516–526): replace the `fixed inset-0 -z-10` block with `<PlayerBackground thumbnail={soundscape.thumbnail} category={soundscape.category} />`. Add `relative z-10` to the content blocks (`!hasStarted` initial state, playing-state header, bottom control bar) so they stack above the background.
-- `src/pages/GuidedPracticePlayer.tsx` (~line 1093–1103, audio view): same replacement, passing `contentData.thumbnail` (the practice's own visual) and `practice.category`. Same `relative z-10` adjustment on inner content.
+Visual: 180° glass half-dial, ~220×120, matching the reference aesthetic.
+- Outer frosted track (`bg-white/30 backdrop-blur` + soft inner shadow).
+- Filled green arc proportional to `|delta|` capped at 20 pts → full arc.
+- Center label: `+4 pts` (or `−3 pts`), large tabular numerals.
+- Sub-caption: `vs last week · baseline` or `vs last week · refined`.
+- Delta text color (per user spec):
+  - `> +1`  → green `hsl(var(--tier-strong))`
+  - `< −1`  → red `hsl(var(--tier-low))`
+  - `−1..+1` → neutral muted
+- Null/insufficient data → render placeholder dial with caption `Building your weekly trend` (no number).
 
-Each practice continues to render its own dedicated `thumbnail` from `practicesAndSoundscapes.ts` — the change is purely how that image is stacked and how a load failure is contained.
+### Data source — new hook `useWeeklyMrsDelta`
+File: `src/hooks/useWeeklyMrsDelta.ts`.
 
-### 3. Guard against future regressions
+Backed by a new lightweight action on the existing `mental-fitness-scores` edge function: `GET_WEEKLY_DELTA`. The function reads `daily_context_snapshot` for the calling user via service role (RLS-safe; user is authenticated via Auth0/Supabase JWT as today's actions are).
 
-- Centralising the background in `PlayerBackground` means any future Recalibrate player drops in the same component and inherits: correct stacking, dark fallback color, eager loading of the practice's own visual, always-on dark overlay.
-- JSDoc on `PlayerBackground` explicitly forbids negative `z-index` and documents that the per-category image is **only** an error fallback, never the default.
+SQL the edge function will run (two windows, Monday-anchored in user-local time passed from client):
 
-## Out of scope
+```sql
+SELECT local_date,
+       readiness_score_baseline,
+       readiness_score_refined
+FROM daily_context_snapshot
+WHERE user_id = :uid
+  AND local_date >= :last_week_monday
+  AND local_date <= :today;
+```
 
-- No backend, data, audio, navigation, queue, or scoring changes.
-- No edits to `practicesAndSoundscapes.ts` content, thumbnail mappings, or imports — each practice's authored visual stays exactly as today.
-- No design-system token changes.
+Client computes (per the user-provided formulas, unchanged):
 
-## Files touched
+```text
+baselineWeekAvg_this = AVG(baseline)  where local_date in [this_mon, today]
+baselineWeekAvg_last = AVG(baseline)  where local_date in [last_mon, last_sun]
+baselineWeekDelta    = ROUND(this − last)
 
-- **New**: `src/components/recalibrate/PlayerBackground.tsx`
-- **Edited**: `src/pages/SoundscapePlayer.tsx` (background block + `z-10` on content wrappers)
-- **Edited**: `src/pages/GuidedPracticePlayer.tsx` (audio-view background block + `z-10` on content wrappers)
+refinedWeekAvg_this  = AVG(refined NOT NULL) over same windows
+refinedWeekAvg_last  = AVG(refined NOT NULL) over same windows
+refinedWeekDelta     = ROUND(this − last)
 
-## QA checklist after implementation
+shownDelta = readiness_state(today) === 'refined' ? refinedWeekDelta : baselineWeekDelta
+shownMode  = same — drives the "baseline" / "refined" caption
+```
 
-1. Visit `/soundscapes/harmonic-calm` → the authored `harmonic-calm.jpg` is visible, title + subtitle clearly readable.
-2. Spot-check one practice per category (pause, presence/flow, power-up) for both Soundscapes and audio Guided Practices → each shows its **own** unique authored visual, not a shared one.
-3. Force-break one practice's thumbnail (DevTools → block the asset URL) → only that page falls back to the category image; all other practices still render their own visuals; text remains readable.
-4. Light and dark theme both render correctly.
-5. No regression to playback controls, queue progress, rating modal, or back navigation.
+Edge cases (per spec):
+- Last-week AVG missing → delta = null → dial shows "Building your weekly trend".
+- Refined never recorded → falls back to baseline delta automatically.
+- No data at all → null state.
+
+This hook is independent of `useMrsTrend`; the MRS scoring pipeline and `compute-inner-readiness` are not touched.
+
+## 5. Move deep trend chart into Insights
+
+Out of scope from the home page but required by the request.
+
+File: `src/components/insights/InnerReadinessDial.tsx` (the "Your Performance Trajectory · Inner Readiness Streak · This Week" card).
+
+- Wrap the existing card body in a button/disclosure. Default state: today's card as it is now.
+- On click, expand a panel below it that mounts the existing `MrsSparkline` + `1W / 1M / 6M` toggle (extracted from the old MrsPage block — same `useMrsTrend` hook, no new data path).
+- State: simple local `useState<boolean>`; remember last open via `sessionStorage` key `insights.trajectory.expanded` so navigating in/out of Insights feels stable.
+- A11y: `aria-expanded`, chevron icon, keyboard-toggleable.
+
+Nothing else on Insights changes.
+
+## Technical details
+
+- Files added:
+  - `src/components/home/mrs/WeeklyDeltaDial.tsx`
+  - `src/hooks/useWeeklyMrsDelta.ts`
+- Files modified:
+  - `src/components/home/mrs/MrsPage.tsx` — full restructure per §2.
+  - `src/components/home/mrs/MrsGauge.tsx` — tier color map per §2b only.
+  - `src/components/home/swipe/HomeSwipeShell.tsx` — force `scrollLeft = 0` on mount/pathname change.
+  - `src/components/insights/InnerReadinessDial.tsx` — wrap content in disclosure + mount sparkline panel.
+  - `supabase/functions/mental-fitness-scores/index.ts` — add `GET_WEEKLY_DELTA` action reading `daily_context_snapshot`.
+  - `src/index.css` — only if a `--saffron` token alias is needed (single line).
+- Files removed: none.
+- Hooks/components retained for fallback but no longer mounted on MrsPage: `BaselineBar`, the `useMrsTrend`-driven `Trend` block (now in Insights), `MrsSparkline` (mounted in Insights instead).
+- No MRS scoring change. No brief change. No plan change. No nav change.
+- Brand: HSL semantic tokens only; no raw hex.
+- Motion: `animate-pulse` on saffron ring; CSS transition on dial arc; respect `prefers-reduced-motion`.
+
+## QA checklist
+- Cold start (no score / no history): MRS = "—", tier hidden gracefully, dial shows "Building your weekly trend", CTA reads "Check in to generate your score".
+- Baseline only (wearable user, no check-in today): tier color correct, caption "baseline", dial shows baseline weekly delta.
+- Refined (check-in today): caption "refined", dial uses refined delta.
+- "Managing" tier renders amber, not grey.
+- Pill is left-aligned, saffron, no icon, pulses, navigates to `/daily-check-in`.
+- Reloading or navigating back to `/executive-home` always lands on the MRS page.
+- Insights trajectory card: click to reveal the sparkline + 1W/1M/6M toggle; data identical to the old MrsPage chart.
+- No regressions to Brief or Plan pages, swipe gestures, or sidebar.
