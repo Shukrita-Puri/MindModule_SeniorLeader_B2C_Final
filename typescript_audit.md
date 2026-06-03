@@ -322,4 +322,91 @@ generate-mastery-plan/index.ts:4254  phase = (nowMs - eventStartMs) > 60 * 60_00
 | `supabase/functions/_shared/anthropic.ts` | LLM provider resilience |
 | `supabase/functions/_shared/signal-engine/*` | Window-context + daily-context-snapshot orchestrator |
 
-— end of audit —
+
+## 12. QUICK-NAVIGATE FINDINGS SUMMARY (all findings in one place)
+
+Below is a plain-text summary of every numbered finding from Section 10, grouped by severity, so you can scroll to the bottom of this document and see the full audit picture at a glance. File:line citations point back to the exact locations in the edge functions.
+
+---
+
+### SEVERITY S1 (Critical — breaks user-facing contract or produces duplicate / generic output)
+
+F-01 — Brief: `compute-outer-readiness/index.ts:3553`
+The `=== CALENDAR TODAY ===` block emits raw event titles with zero §3 category or §4 phase annotation. The LLM must infer everything from free text. Fix: inject `EVENT_CATEGORIES[classifyEvent(t).categoryId].name` next to each title.
+
+F-03 — Brief: `compute-outer-readiness/index.ts:3306–3700`
+The `=== EVENT COACHING CONTEXT ===` block (per CEO framework `.pages` doc Part 1 / §4) is completely missing from the Brief prompt. The LLM never receives pre/during/post coaching context per anchor event. Fix: add `buildEventCoachingBlock(events)` using `phaseForEvent(...)`.
+
+F-08 — Plan: `generate-mastery-plan/index.ts:4775–4795`
+Root cause of "same event appears twice." Dedupe is keyed on `contentId` (the practice content), not on `(eventId, phase)`. When a category has no `post` phase defined, slot 2 and slot 3 both collapse to `phase='pre'` for the same event, and because they may pull different practices, both survive dedupe. Fix: add `(eventId, phase)` to dedupe key and enforce `CATEGORY_MAX_SLOTS[cat]`.
+
+---
+
+### SEVERITY S2 (Material — shared module exists but consumer runs parallel legacy path)
+
+F-02 — Brief: `compute-outer-readiness/index.ts:~3580`
+Same as F-01 but for `=== CALENDAR TOMORROW ===` — raw titles only.
+
+F-05 — Plan: `generate-mastery-plan/index.ts:4220–4340`
+Plan re-implements its own phase resolver (`nowMs` vs event start/end thresholds) instead of calling `phaseForEvent(title, phase, stakesLevel)` which is already exported from `event-phase-map.ts:110`.
+
+F-06 — Plan: `generate-mastery-plan/index.ts:4363`
+Plan keeps a local mirror of `PRACTICE_TYPE_TO_COMBO`. The single source of truth is `_shared/protocols/protocol-combos.ts:62`. Fix: delete mirror, import canonical.
+
+F-07 — Plan: `generate-mastery-plan/index.ts:4628, 4715`
+Slot-label strings like "Prepare ahead of Board Call" are built from the event title only, ignoring `EVENT_PHASE_MAP[id][phase].timing` and `.goal`. This is why two slots pointing at the same event lose their phase distinction in the UI. Fix: compose labels from the phase map.
+
+F-09 — Plan: `generate-mastery-plan/index.ts:4061`
+The Plan LLM call appends the shared behaviour block but does not inject a per-anchor `EVENT COACHING CONTEXT` block. Fix: inject §4 event-coaching context for each anchor event.
+
+F-12 — Nudges: `smart-nudges/index.ts:1362–1497`
+Nudges hand-authors framing for every nudge type (morning, JIT first-touch, mid-day JIT, mid-day plan, state-aware recalibration, reserves-down, evening). It should request the §4 phase prescription per anchor event and let the shared block drive the framing.
+
+F-14 — Nudges: `smart-nudges/index.ts:566`
+Nudges uses `classifyByLegacyTable`, not the canonical `classifyEvent` from `event-classifier.ts`. The legacy table is explicitly marked for retirement in its file header. Fix: switch to canonical classifier.
+
+F-16 — Nudges: `smart-nudges/index.ts:1394, 1411`
+Nudges runs its own JIT first-touch / mid-day JIT anchor-event scorer. Fix: reuse `selectJitCandidates` (already imported by Plan).
+
+F-17 — Plan: `generate-mastery-plan/index.ts:4220+`
+`EVENT_PHASE_MAP.F.during.duringNotificationOnly` is not respected. Plan can schedule a slot for a conference `during` phase that the framework says is nudge-only. Fix: drop slots carrying `duringNotificationOnly`; let Nudges own them.
+
+---
+
+### SEVERITY S3 (Drift / cleanup — duplicated copy, unlinted vocab, or comments out of sync with code)
+
+F-04 — Brief: `compute-outer-readiness/index.ts:3306`
+Copy bans ("calm down", "be present", etc.) are embedded verbatim in the system prompt. `_shared/copy-vocabulary.ts` exists but is not imported anywhere. Fix: import lints from `copy-vocabulary.ts`.
+
+F-10 — Plan: `generate-mastery-plan/index.ts:1170, 1270`
+Comments claim the keyword table is a "single source of truth in event-classifier.ts" but parallel keyword tables still live inside Plan. Fix: collapse remaining tables into the canonical classifier.
+
+F-11 — Nudges + Brief: `smart-nudges/index.ts:1273` + `compute-outer-readiness:3306`
+The "Chief of Staff for the Mind..." persona is authored inline in two places. Fix: extract to `_shared/personas/cos-mind.ts`.
+
+F-13 — Nudges: `smart-nudges/index.ts:1531`
+The snapshot block (`taxonomyBlock` / `promptBlockBrief`) is appended *after* the per-type framing, so the LLM treats shared context as garnish rather than structure. Fix: prepend or interleave.
+
+F-15 — Nudges: `smart-nudges/index.ts:1953–2200`
+Static fallback copy (travel arc, look-ahead, etc.) is not validated against `PROTOCOL_COMBOS[*].whenToUse` / `outcome`. Fix: add framework-conformance check at fallback registration.
+
+---
+
+### Top five risks (recap from Section 1)
+
+1. Brief LLM never sees §4 pre/during/post coaching — infers everything from raw titles.
+2. Plan `(eventId, phase)` dedupe gap → same meeting can occupy two priority slots with identical copy.
+3. Brief, Plan, and Nudges each derive "high-stakes" / "executive presence" / "decision leakage" through three different code paths instead of one shared rule set.
+4. Plan still owns ~150 lines of general-purpose phase/combo/category resolution that duplicates `event-phase-map.ts`.
+5. Nudges static-fallback copy library is not validated against `PROTOCOL_COMBOS`, so it can drift as the framework doc evolves.
+
+---
+
+### Remediation roadmap (recap from Section 11)
+
+Wave 1 — Plan dedupe + §4 phase enforcement (closes user bug): F-05, F-07, F-08, F-17.  
+Wave 2 — Brief gets §3/§4 in the prompt: F-01, F-02, F-03, F-09.  
+Wave 3 — Nudges copy delegation + classifier collapse: F-11, F-12, F-13, F-14, F-16.  
+Wave 4 — Copy-vocabulary lint (low-risk hardening): F-04, F-06, F-10, F-15.
+
+--- end of findings summary —
