@@ -11,6 +11,11 @@ import {
 } from "../_shared/behaviour-snapshot.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
+import {
+  buildBriefSystemPrompt,
+  contextHeaderForSlot,
+  PRE_COMPUTED_USER_NOTICE,
+} from "../_shared/brief/copy-vocabulary.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
