@@ -2,6 +2,19 @@
 
 **Scope:** Brief (`compute-outer-readiness`), Plan (`generate-mastery-plan`), Nudges (`smart-nudges`) vs. the `_shared/` source-of-truth modules (CEO behaviour, event taxonomy + classification, protocol combos, JIT v2, plan helpers, brief utilities).
 
+**Update (June 3, 2026) — Brief LLM Guidance v1 partial landing:**
+
+| # | Status | Resolution notes |
+|---|--------|------------------|
+| F-02 | ✅ Resolved | `briefBehaviour.promptBlockBrief` + `taxonomyBlock` already appended to `userPrompt` (`compute-outer-readiness/index.ts` § "SHARED-MODULE CONTEXT"). |
+| F-03 | ✅ Resolved | Cross-slot dedupe now keyed on `eventId` (loose title fallback) + `jitPhase`, respecting `CATEGORY_MAX_SLOTS` (`generate-mastery-plan/index.ts:3219–3330`). |
+| F-04 | ✅ Resolved | The same dedupe pass runs after slot 2/3 fillers, ledger merge, and the per-slot replacement override — phase-dup or cap-exceeded triggers a fresh-alternative pick or strips JIT framing. |
+| F-07 | ✅ Resolved | Persona, voice banks, hard constraints, priority order, silent reasoning, four-beat body contract, worked examples, and JSON output schema extracted to `supabase/functions/_shared/brief/copy-vocabulary.ts` and consumed via `buildBriefSystemPrompt()`. The legacy inline system prompt is parked as an unused `_legacyInlineSystemPrompt` for diff-bisection only — drift-protection: all future persona changes land in `copy-vocabulary.ts`. |
+| F-12 | 🟡 Partial | `=== TIME ===` block renamed to canonical `=== CONTEXT: [MORNING\|AFTERNOON\|EVENING] ===` per §8. Full `buildSignalCoverage` replacement of the 200-line accumulator is deferred to a follow-up to keep this change set low-risk. |
+| F-15 | 🟡 Partial | Brief block order remains incremental for now; behaviour block placement above truncation point is tracked for the follow-up that rewrites the user-prompt assembly. |
+
+The remainder of the findings (F-01, F-05, F-06, F-08–F-11, F-13, F-14, F-16) remain open. The new shared-module boundary (`copy-vocabulary.ts`) is the entry point for the persona/voice consolidation that F-08 needs and the prompt-restructure work that closes F-01 / F-12 / F-15.
+
 **Reference docs cross-walked:** `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`, `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md`, `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md`, `Decision_Readiness_Brief_LLM_Prompt_v2.docx`, `CEO_Self_Regulation_Framework_v1.0` (§2 protocols / §3 categories / §4 phases / §5 behaviour).
 
 **Method:** primary-evidence grep on `supabase/functions/{compute-outer-readiness,generate-mastery-plan,smart-nudges}/index.ts` plus the `_shared/` modules. Every finding carries a `file:line` citation. No code, prompts, or shared modules were modified — this is a documentation-only deliverable.
