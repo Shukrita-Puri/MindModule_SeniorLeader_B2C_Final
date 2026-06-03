@@ -471,7 +471,12 @@ serve(async (req) => {
     const events = dedupeCalendarEvents(eventsRes.data || []);
     const wearable = wearableRes.data || [];
     const checkins = checkinsRes.data || [];
-    const briefs = briefsRes.data || [];
+    // Two-state brief_snapshots: coalesce refined_score → baseline_score into a
+    // single `score` field so downstream calculators (PRS, deltas) stay simple.
+    const briefs = ((briefsRes.data || []) as any[]).map((b) => ({
+      ...b,
+      score: (b.refined_score ?? b.baseline_score) as number | null,
+    }));
     const hasCalendar = !!calConnRes.data?.is_active;
 
     const sleepRowsAvailable = wearable.filter(
