@@ -23,6 +23,20 @@ import {
   buildWindowContextBlock,
   type BriefDeterministicInputs,
 } from "../_shared/brief/prompt-blocks.ts";
+import {
+  buildContextBlock,
+  buildReadinessBlock,
+  buildWearableBlock,
+  buildCalendarTodayBlock,
+  buildTomorrowBlock,
+  buildWeekAheadBlock,
+  buildPatternsBlock,
+  buildOnboardingBlock,
+  buildKeySignalsBlock,
+  buildGlobalLoadBlock,
+  buildStrategicContextHead,
+  buildTriangulationBlock,
+} from "../_shared/brief/prompt-blocks.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
