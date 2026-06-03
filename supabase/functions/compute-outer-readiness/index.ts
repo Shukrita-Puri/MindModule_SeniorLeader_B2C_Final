@@ -3532,7 +3532,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             else break;
           }
 
-          let userPrompt = `=== TIME ===\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
+          // §8 canonical block header — replaces the legacy `=== TIME ===`
+          // block. `dayKind` (travel / PTO / holiday / weekend / conference)
+          // is carried inside this CONTEXT block via the shared
+          // `buildWindowContext()` output appended further below.
+          const _contextHeader = `=== CONTEXT: ${contextHeaderForSlot(timeOfDayStr)} ===`;
+          let userPrompt = `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
 
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
