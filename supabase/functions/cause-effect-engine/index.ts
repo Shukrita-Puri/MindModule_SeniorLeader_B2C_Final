@@ -454,7 +454,7 @@ serve(async (req) => {
         .eq("user_id", userId)
         .gte("checkin_date", startStr),
       supabase.from("brief_snapshots")
-        .select("local_date, time_window, score")
+        .select("local_date, time_window, refined_score, baseline_score")
         .eq("user_id", userId)
         .gte("local_date", startStr),
       supabase.from("calendar_connections")
