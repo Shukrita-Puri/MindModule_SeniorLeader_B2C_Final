@@ -4932,13 +4932,7 @@ function buildHorizonModules(
     if (sl) {
       slot2TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot2AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot2AnchorSnapshot = sl.anchorMeta;
     } else {
       slot2TimeLabel = '';
       slot2Practices = []; // signal "drop this slot"
@@ -5020,13 +5014,7 @@ function buildHorizonModules(
     if (sl) {
       slot3TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot3AnchorSnapshot = sl.anchorMeta;
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
@@ -5043,13 +5031,7 @@ function buildHorizonModules(
     if (sl) {
       slot3TimeLabel = sl.label;
       slotAnchors.push({ eventId: sl.eventId });
-      slot3AnchorSnapshot = {
-        anchorEventId: sl.eventId,
-        anchorCategoryId: sl.categoryId,
-        anchorSubtypeId: sl.subtypeId,
-        anchorScenarioId: sl.scenarioId,
-        anchorLeadTimeMin: sl.leadTimeMin,
-      };
+      slot3AnchorSnapshot = sl.anchorMeta;
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   }
