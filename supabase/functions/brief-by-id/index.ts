@@ -39,7 +39,7 @@ serve(async (req) => {
 
     const { data, error } = await supabase
       .from('brief_snapshots')
-      .select('id, user_id, local_date, time_window, daily_checkin_id, phrase, body_text, lean_on, lean_on_source, watch_for, watch_for_source, score, tier, brief_source, driver, signal_pills, wearable_snapshot, checkin_snapshot, created_at')
+      .select('id, user_id, local_date, time_window, daily_checkin_id, refined_phrase, refined_body_text, refined_lean_on, refined_lean_on_source, refined_watch_for, refined_watch_for_source, refined_score, refined_tier, refined_signal_pills, refined_state, baseline_phrase, baseline_body_text, baseline_lean_on, baseline_lean_on_source, baseline_watch_for, baseline_watch_for_source, baseline_score, baseline_tier, baseline_signal_pills, baseline_state, brief_source, driver, wearable_snapshot, checkin_snapshot, created_at')
       .eq('id', briefId)
       .maybeSingle();
 
@@ -65,7 +65,24 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    // Back-compat projection: legacy clients read `phrase / body_text / lean_on
+    // / watch_for / score / tier / signal_pills`. Two-state schema stores them
+    // as refined_* (post check-in) or baseline_* (State 1 only). Coalesce
+    // refined → baseline so existing readers don't have to branch.
+    const d: any = data;
+    const projected = {
+      ...d,
+      phrase: d.refined_phrase ?? d.baseline_phrase ?? null,
+      body_text: d.refined_body_text ?? d.baseline_body_text ?? null,
+      lean_on: d.refined_lean_on ?? d.baseline_lean_on ?? null,
+      lean_on_source: d.refined_lean_on_source ?? d.baseline_lean_on_source ?? null,
+      watch_for: d.refined_watch_for ?? d.baseline_watch_for ?? null,
+      watch_for_source: d.refined_watch_for_source ?? d.baseline_watch_for_source ?? null,
+      score: d.refined_score ?? d.baseline_score ?? null,
+      tier: d.refined_tier ?? d.baseline_tier ?? null,
+      signal_pills: d.refined_signal_pills ?? d.baseline_signal_pills ?? null,
+    };
+    return new Response(JSON.stringify({ success: true, data: projected }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
