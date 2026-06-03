@@ -1383,7 +1383,9 @@ function buildAnchorSnapshot(
   enriched: ReturnType<typeof enrichEvent> | null,
 ): Pick<
   HorizonModule,
-  'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId' | 'anchorScenarioId' | 'anchorLeadTimeMin'
+  | 'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId'
+  | 'anchorScenarioId' | 'anchorLeadTimeMin'
+  | 'anchorTitle' | 'anchorDemandProfile' | 'anchorPhases'
 > {
   return {
     anchorEventId: eventId ?? null,
@@ -1391,6 +1393,11 @@ function buildAnchorSnapshot(
     anchorSubtypeId: enriched?.subtype?.id ?? null,
     anchorScenarioId: enriched?.scenarioId ?? null,
     anchorLeadTimeMin: enriched?.leadTimeMin ?? null,
+    // F-12: persist enriched-event extras so downstream surfaces don't
+    // have to re-classify from anchor ids alone.
+    anchorTitle: enriched?.title ?? null,
+    anchorDemandProfile: enriched?.demandProfile ?? null,
+    anchorPhases: enriched?.phases ?? null,
   };
 }
 
