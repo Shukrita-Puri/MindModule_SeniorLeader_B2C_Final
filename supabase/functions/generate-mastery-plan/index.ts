@@ -3742,6 +3742,11 @@ interface HorizonModule {
   anchorSubtypeId?: string | null;
   anchorScenarioId?: string | null;
   anchorLeadTimeMin?: number | null;
+  // F-12: richer slot-anchor context persisted on filler/state slots so
+  // downstream surfaces don't have to re-classify from partial metadata.
+  anchorTitle?: string | null;
+  anchorDemandProfile?: import('../_shared/events/event-subtypes.ts').DemandProfile | null;
+  anchorPhases?: { pre?: unknown; during?: unknown; post?: unknown } | null;
   isCancelled?: boolean;
   cancelReason?: string | null;
   replacementEventIds?: string[];
