@@ -1,90 +1,89 @@
-## What's actually wrong
+# Three fixes — Executive Home polish + WoW dial (spec-aligned)
 
-I traced all three reported issues against the live code, DB and a sample row pull.
+## 1. Resurrect "Today's Priorities" card on Executive Home
 
-### Issue 1 — Dial "not visible"
+`TodayThreePriorities` already renders the 3 horizon-classified priority practices on `/executive-home`, but it renders bare today — no card shell, no eyebrow — which visually disconnects it from the Performance Readiness Brief sitting directly above it in a `card-hero` shell.
 
-The half-dial component (`src/components/home/mrs/WeeklyDeltaDial.tsx`) renders, but its **track stroke is pure white over 0.05 alpha on a near-white background**:
+Change in `src/pages/ExecutiveHome.tsx` (around L289):
+- Wrap the existing `<TodayThreePriorities />` in `<div className="rounded-xl card-hero p-4 animate-fade-in">` — identical to `DecisionReadinessBrief` (L1882).
+- Above the priorities, render the same eyebrow row as the brief (DecisionReadinessBrief L1884–1892), with `Today's Priorities` on the left and the same time · date label on the right (e.g. `Afternoon · Wed 3 June`).
+- Extract the existing `getTimeLabel()` / `getDateLabel()` helpers from `DecisionReadinessBrief` into a tiny shared util (`src/components/home/timeLabel.ts`) and import in both files so the eyebrow text matches exactly.
 
-```
-<linearGradient id="weekly-track">
-  <stop offset="0%"  stopColor="hsl(0 0% 100%)" stopOpacity="0.55"/>
-  <stop offset="100%" stopColor="hsl(0 0% 100%)" stopOpacity="0.05"/>
-</linearGradient>
-```
+No edits inside `TodayThreePriorities` itself.
 
-That's why the screenshot shows only the LOWER / CURRENT / HIGHER labels and the centre badge — the arc itself is invisible against the page surface. The "glass edge" border strokes are also `hsl(0 0% 100% / 0.55)` and `hsl(var(--foreground)/0.06)`, both effectively invisible.
+## 2. Remove the dark gradient behind the MRS score
 
-Fix: swap the track to a visible neutral token so the arc shape always reads:
-- Track stroke → `hsl(var(--foreground) / 0.10)` solid (drop the gradient, keep `strokeLinecap="round"`).
-- Outer edge → `hsl(var(--foreground) / 0.18)` at 1px.
-- Inner shadow filter → keep as a subtle depth cue at 0.10 alpha.
+`src/components/home/mrs/MrsGauge.tsx` fills the orb body with two tinted radial gradients (`mrs-orb`, `mrs-orb-shadow`) that wash the disc in the tier colour (the sandy/green ball behind the number).
+- Drop both orb-fill `<circle>` calls.
+- Keep the outer halo (`mrs-glow`), the track ring, the coloured arc, and the specular highlight.
+- Result: white disc, coloured arc only — the green ring does the colour coding.
 
-No layout, no resize, no behavior change — purely making the arc readable.
+## 3. WoW dial — spec-aligned calculation + state-matched rendering
 
-### Issue 2 — Dial "not populating"
+### Spec (from user, canonical)
 
-The pipeline itself is correct (verified end‑to‑end against the DB):
+Two parallel series, identical formula, different input column.
 
-- Hook `src/hooks/useWeeklyMrsDelta.ts` posts `GET_WEEKLY_DELTA` with `thisMonday`, `lastMonday`, `lastSunday`, `today`.
-- Function reads `brief_snapshots`, latest row per `local_date`, maps `baseline ?? refined`, returns `{ baselineDelta, refinedDelta, todayState }`.
-- DB has 18 rows this week and 5 last week for the active user → `refinedDelta` resolves cleanly.
+```text
+weekDelta = ROUND( AVG(score, this Mon→today)  −  AVG(score, last Mon→Sun) )
 
-Two real defects suppress the value on screen:
-
-a. `useWeeklyMrsDelta` swallows every failure (`catch { return { delta: null, mode: 'baseline', label: null } }`). A 401 from an expiring Auth0 token or a one‑off function error becomes a silent "Building your weekly trend". Fix:
-- Log the error to `console.warn` with the action name and status.
-- Surface the network state via React Query (`retry: 1`, `staleTime: 5min` already set) instead of trapping inside `queryFn`.
-
-b. `MrsPage` calls the hook with no `userId` gating. When `useAuth().user` is briefly `null` after a refresh, the hook fires anyway, the function returns 401, and the dial flips to the empty fallback. Fix: add `enabled: !!userId` to the query.
-
-### Issue 3 — Mode mirrors today's state (refined vs baseline)
-
-This is already implemented but needs a small correction. Function returns `todayState = refined_state ?? baseline_state ?? 'baseline'`. Hook then does:
-
-```
-mode = todayState === 'refined' && refinedDelta !== null ? 'refined' : 'baseline';
-delta = mode === 'refined' ? refinedDelta : baselineDelta;
+baseline series → readiness_score_baseline (always populated)
+refined  series → readiness_score_refined  (NULL days excluded from AVG)
 ```
 
-Edge case: a checked‑in user whose last week is purely historical (`refined_score` only, `baseline_score` NULL) gets `refinedDelta` non‑null because the function maps `baseline ?? refined` for the baseline series, but the dial label still shows "baseline" once `refinedDelta` is null for any reason. Fix the hook so the displayed mode follows `todayState` itself, and the delta then prefers the matching series with a single fallback:
+Disk shows whichever series matches today's `readiness_state` (Baseline or Refined). If the refined series has < 3 days this week + last week combined, fall back to baseline delta but keep state label honest. If `lastWeekAvg` for the chosen series is NULL, the row is hidden (delta = null → "Building your weekly trend").
 
+Arc colour by delta direction: `> +1 → green`, `< −1 → red`, otherwise neutral (already implemented in `WeeklyDeltaDial`).
+
+### Server changes — `supabase/functions/mental-fitness-scores/index.ts` (GET_WEEKLY_DELTA, L95–198)
+
+- Continue collapsing `brief_snapshots` to one row per `local_date` (last-write-wins by `created_at`).
+- Build two daily series from the same row set:
+  - `baselineDay = baseline_score ?? refined_score` (historical rows have only `refined_score` populated — treat them as the baseline series for back-compat, matching what the spec calls "always populated").
+  - `refinedDay = refined_score` only when the day has a check-in (i.e. `refined_state = 'refined'` OR a non-null `refined_score` paired with a `daily_checkin_id` for that day's snapshot). Days without a check-in are excluded from the refined average.
+- Compute `baselineThisAvg / baselineLastAvg / refinedThisAvg / refinedLastAvg` exactly as in the spec; `ROUND` deltas to integers.
+- Derive `todayState` robustly:
+  - If today's row has `refined_state = 'refined'` OR (`refined_score IS NOT NULL` AND a same-day `daily_checkin_id` exists) → `'refined'`.
+  - Else → `'baseline'`.
+- Add `refinedDays` (count of non-null refined days across this + last week) so the client can apply the "< 3 days → fall back" rule.
+
+Return:
+```ts
+{
+  baselineDelta, refinedDelta,
+  baselineThisAvg, baselineLastAvg, refinedThisAvg, refinedLastAvg,
+  todayState, refinedDays
+}
 ```
-mode = todayState === 'refined' ? 'refined' : 'baseline';
-delta = (mode === 'refined' ? refinedDelta : baselineDelta) ?? baselineDelta ?? refinedDelta;
-```
 
-That keeps the rule "if the user has checked in today, the dial shows refined trend; otherwise baseline" without dropping to "—" when one side of the comparison is missing.
+### Client changes — `src/hooks/useWeeklyMrsDelta.ts`
 
-### Issue 4 — Validate the baseline + refined split plan
+- Drop `staleTime` to `30_000` and add `refetchOnMount: 'always'` so a stale empty payload (cached from before the two-state migration) doesn't pin the dial.
+- New selection rule, lifted directly from the spec:
+  ```ts
+  const refinedUsable = refinedDelta !== null && (refinedDays ?? 0) >= 3;
+  const mode: 'baseline' | 'refined' =
+    (todayState === 'refined' && refinedUsable) ? 'refined' : 'baseline';
+  const delta = mode === 'refined' ? refinedDelta : baselineDelta;
+  ```
+- Keep `enabled: !!userId` and `console.warn` on failure.
 
-I checked it against the live schema and code. Everything in the original plan is in place:
+### Component — `src/components/home/mrs/WeeklyDeltaDial.tsx`
 
-- Columns renamed to `refined_score / refined_tier / refined_phrase / refined_body_text / refined_lean_on(_source) / refined_watch_for(_source) / refined_signal_pills`.
-- `baseline_*` parallel columns + `baseline_state` + `refined_state` added.
-- CHECK constraint `refined_score_within_baseline_range` present and enforcing ±15.
-- Index `brief_snapshots_user_date_scores_idx` present.
-- Trigger `brief_snapshots_user_update_guard` rewritten with the new column list (verified in `db-functions` definition).
-- `compute-outer-readiness` writes `refined_*` on check-in path and `baseline_*` on the baseline path with the matching `*_state` literal.
-- Readers (`brief-by-id`, `brief-history`, `cause-effect-engine`, `user-events`, `mental-fitness-scores`) coalesce `refined_* ?? baseline_*`.
-- `useWeeklyMrsDelta` already sources from `brief_snapshots` via the function (not `daily_context_snapshot`).
-- Memory note `mem://backend/database/brief-snapshots-two-state-schema` exists.
-
-One residual gap worth closing in this turn:
-
-- `src/hooks/useBriefSnapshot.ts` still types only the legacy keys (`score`, `tier`, `phrase`, `body_text`, `lean_on*`, `watch_for*`, `signal_pills`) and does not expose `baseline_*` / `refined_*` / `*_state`. The server already returns the coalesced legacy keys, so call sites compile, but new readers cannot see which state the brief is in. Extend the interface with `refined_*` + `baseline_*` + `refined_state` + `baseline_state` fields (all nullable) so consumers like the dial label and Insights can branch on state without re-fetching.
-
-## Files to edit (UI/hook only — no schema or write-path changes)
-
-1. `src/components/home/mrs/WeeklyDeltaDial.tsx` — track + edge stroke colors so the arc is visible.
-2. `src/hooks/useWeeklyMrsDelta.ts` — log errors instead of swallowing; gate on `userId`; pick `mode` from `todayState` with a single fallback when one side is missing.
-3. `src/components/home/mrs/MrsPage.tsx` — minor: keep using `weekly.data?.mode` for the readiness state label (already correct; verify).
-4. `src/hooks/useBriefSnapshot.ts` — extend the `BriefSnapshotRecord` interface with the new `refined_*` / `baseline_*` / `*_state` fields.
-
-No edge function redeploys, no migrations, no scoring changes — strictly the dial visibility, the empty‑state regression, and the back‑compat interface gap from §2 of the original plan.
+- Existing direction colour logic (`>+1 green`, `<−1 red`, else neutral) already drives both the arc fill and the centred number — no math change.
+- Tint the floating glass badge ring with the same `colorVar` at low opacity so the green/red signal reads at a glance.
+- Caption stays `vs last week · {mode}`. When `delta === null`, keep `"Building your weekly trend"`.
 
 ## Out of scope
+- No schema changes; no migrations.
+- No edits to `compute-outer-readiness`, brief copy, scoring math, or `TodayThreePriorities` internals.
+- No month-delta UI (spec mentions month windows but the dial only renders week today).
 
-- No changes to `compute-outer-readiness`, `mental-fitness-scores`, or any other edge function logic.
-- No DB migration; constraint, index, trigger, and column set are already correct.
-- No visual redesign of `MrsGauge` or the page layout.
+## Files touched
+- `src/pages/ExecutiveHome.tsx` — wrap priorities in card + eyebrow.
+- `src/components/home/timeLabel.ts` — new shared helper (extract `getTimeLabel`, `getDateLabel`).
+- `src/components/home/DecisionReadinessBrief.tsx` — import from the shared helper.
+- `src/components/home/mrs/MrsGauge.tsx` — remove tinted orb fills.
+- `supabase/functions/mental-fitness-scores/index.ts` — spec-aligned two-series math, robust `todayState`, expose `refinedDays`.
+- `src/hooks/useWeeklyMrsDelta.ts` — series selection per spec + tighter cache.
+- `src/components/home/mrs/WeeklyDeltaDial.tsx` — badge ring tint on positive/negative delta.
