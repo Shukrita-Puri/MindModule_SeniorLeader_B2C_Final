@@ -1,65 +1,148 @@
 
-# Audit deliverable plan
+# Brief + Plan refactor — shared modules own logic, LLM owns voice
 
-Goal: produce a single Markdown audit (`docs/SHARED_MODULES_DELEGATION_AUDIT.md`, ~600–900 lines) that answers: do the three user-facing features (Brief, Plan, Nudges) — including their edge functions, LLM prompts, and copy — actually delegate to the shared CEO modules? Where do they still use legacy in-file logic? What logic lives in `generate-mastery-plan` that should be Plan-only vs. shared?
+Scope is targeted: two edge functions (`compute-outer-readiness`, `generate-mastery-plan`), the shared signal-engine context modules, the brief behaviour snapshot loader, one new `copy-vocabulary.ts` shared module, and three audit/spec docs. Onboarding, MRS scoring, event taxonomy, protocol combos, ledger merging and tier logic are NOT touched.
 
-This is an audit document only — no code changes, no shared modules edited.
+The June 3 guidance is treated as the authoritative spec for the Brief prompt. Plan changes are limited to the shared-snapshot contract + duplicate-event dedupe; the Plan's deterministic core is left in place.
 
-## Scope of code under audit
+---
 
-Features (consumers):
-- Brief — `supabase/functions/compute-outer-readiness/index.ts` (and `compute-inner-readiness`)
-- Plan — `supabase/functions/generate-mastery-plan/index.ts`
-- Nudges — `supabase/functions/smart-nudges/index.ts`
+## 1. New shared module: `copy-vocabulary.ts`
 
-Shared modules (sources of truth) reviewed against the four reference docs:
-- CEO behaviour rules: `_shared/ceo-behaviour/*`, `_shared/ceo-behaviour-rules.ts`, `_shared/behaviour-evaluator.ts`, `_shared/behaviour-wiring.ts`, `_shared/behaviour-snapshot.ts`, `_shared/load-brief-behaviour-snapshot.ts`
-- Event taxonomy + classification: `_shared/events/event-categories.ts`, `event-classifier.ts`, `event-phase-map.ts`, `event-subtypes.ts`, `enrich-event.ts`, `format-taxonomy.ts`, `jit-candidates.ts`, `jit-phase-label.ts`
-- Protocol combos: `_shared/protocols/protocol-combos.ts` (the §2 / §3 / §4 source from the attached *CEO Self-Regulation Framework v1.0*)
-- JIT v2 selector: `_shared/jit/select-jit.ts`, `maturity-tier.ts`, `tactical-signals.ts`, `noise-filters.ts`, `goal-alignment.ts`, `relationship-weights.ts`
-- Plan helpers: `_shared/plan/action-frame.ts`, `_shared/plan/why-llm.ts`, `_shared/plan/title-prefixes.ts`
-- Shared edge utilities: `_shared/auth.ts`, `anthropic.ts`, `brief-context.ts`, `brief-prompt-version.ts`, `brief-validators.ts`, `brief-signal-coverage.ts`, `executive-state-taxonomy.ts`, `copy-vocabulary.ts`, `signal-engine/*`
+Create `supabase/functions/_shared/brief/copy-vocabulary.ts` and move all prompt persona / voice strings out of `compute-outer-readiness/index.ts`:
 
-Reference inputs cross-walked against the code:
-- `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md`
-- `docs/PROACTIVE_MASTERY_PLAN_LOGIC.md`
-- `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md`
-- `Decision_Readiness_Brief_LLM_Prompt_v2.docx`
-- Uploaded `CEO_Self_Regulation_Framework_1-3.pages` (§2 protocol combos, §3 event categories A–H, §4 pre/during/post, §5 behaviour logic)
+- `CHIEF_OF_STAFF_PERSONA` — verbatim §3 / §9 system block from the guidance.
+- `VOICE_SOUND_LIKE` and `VOICE_NEVER_SOUND_LIKE` examples banks.
+- `FORBIDDEN_WORDS` (wellness + clinical + score-tier lists, hard blacklist).
+- `PRIORITY_ORDER` resolution rule (CEO flag > lead-event phase > divergence > pattern).
+- `WORKED_EXAMPLES` (the four phrase/body pairs in §9).
+- `OUTPUT_CONTRACT_JSON` schema description.
 
-## Audit document structure
+This is the single source of truth for prompt voice. The Brief edge function imports it; nothing else duplicates it. Addresses audit finding F-07.
 
-1. **Executive summary** — one page. The single sentence verdict per feature (uses shared / partial / legacy), the top five risks, and the "duplicate event in Plan" root cause in one paragraph.
-2. **Delegation matrix** — a single table, one row per shared module × column per consumer (Brief / Plan / Nudges). Cells: `✅ imported & used`, `⚠️ imported but bypassed in path X`, `❌ not used (legacy duplicate)`, with file:line citations. Built from a fresh grep pass (we already have draft data; we'll re-verify per claim).
-3. **Per-feature audit**
-   - **3.1 Brief** — does the system prompt and the `userPrompt` builder in `compute-outer-readiness` actually consume `behaviour-wiring.evaluateForScope("brief").promptBlock` and the §3 event-coaching block? Compare against `Decision_Readiness_Brief_LLM_Prompt_v2.docx` (what the doc says the prompt should contain) and against `PERFORMANCE_READINESS_BRIEF_LOGIC.md`. Note where Brief still embeds its own state classification, its own event title heuristics, or its own copy vocabulary rather than calling `executive-state-taxonomy` / `copy-vocabulary` / `event-classifier`.
-   - **3.2 Plan** — confirm imports of `EVENT_CATEGORIES`, `EVENT_PHASE_MAP`, `PROTOCOL_COMBOS`, `classifyEvent`, `selectJitCandidates`, `applySlotBoostsToMapping`, `buildActionFrame`, `generateWhyStatement`. For each, classify as wired vs. shadowed-by-legacy by tracing the actual call path that produces a slot's `practices[]`, `whyText`, `title`, and `phase`. Document where Plan's own legacy code (slot 4220–4930 region) still computes phase/combo without going through `phaseForEvent` / `PRACTICE_TYPE_TO_COMBO`.
-   - **3.3 Nudges** — confirm `smart-nudges` consumes `briefBehaviour.promptBlockBrief`, `taxonomyBlock`, `EVENT_PHASE_MAP`, `PROTOCOL_COMBOS`, and which nudge types still hand-author copy (lines 1273–1597) instead of letting the shared behaviour block drive variety.
-4. **LLM prompt cross-walk** — three side-by-side mini-tables (Brief / Plan / Nudges) of "doc-prescribed block" → "actual prompt string in code (file:line)" → "shared module that should populate it" → finding. This is where the *Decision_Readiness_Brief_LLM_Prompt_v2.docx* gets line-mapped against the 200-line `userPrompt` builder in `compute-outer-readiness` (≈ lines 3306–3700).
-5. **Event taxonomy & §4 pre/during/post wiring** — verify every category A–H from the attached `.pages` doc has: (a) a triggers list in `event-categories.ts`, (b) a phase row in `event-phase-map.ts`, (c) a combo in `protocol-combos.ts`. Flag mismatches versus the document (e.g. categories that exist in the doc but render as `null` from `classifyEvent`).
-6. **"Same event appears twice in Plan" root-cause section** — the user's stated bug. Trace `slotAnchors`, `phaseAlreadyAnchored`, `CATEGORY_MAX_SLOTS`, `deduped` (index.ts ~4337 / ~4775 / ~4795). Show why the current dedupe collapses on `contentId` but not on `(eventId, phase)`, so an event can occupy slot 2 (pre) and slot 3 (pre again) when its post phase is missing for that category. Recommend the §4-driven fix without writing it.
-7. **Plan-only logic that should move** — list functions inside `generate-mastery-plan/index.ts` that are pure plan logic (slot ordering, max-slot caps, anchor selection) versus functions that are general taxonomy/protocol logic currently inlined in Plan but used implicitly by Nudges/Brief through the snapshot (good candidates to lift into `_shared/plan/` or `_shared/events/`). Each item gets: current line range, current consumers, proposed destination, why.
-8. **Plan-only logic that should stay** — explicitly carve out: slot-3-of-3 filler logic, JIT exclusion to prevent double-booking, foundational/maturity tier mix, "minimum slots" backfill, mastery completion ledger. Confirm these belong in Plan.
-9. **Shared edge utilities check** — `auth.ts`, `anthropic.ts` (LLM provider resilience), `brief-prompt-version.ts`, `brief-validators.ts` — verify each is the only path used by all three features for that concern. Flag any feature still using a private `callClaude` / `verifyJwt` clone.
-10. **Findings register (numbered, severity-rated)** — each finding: ID, severity (S1/S2/S3), feature(s), file:line, what's wrong, what the relevant doc/shared module says, recommended fix at the contract level (no code). Estimated 25–40 findings.
-11. **Recommended remediation roadmap** — three waves (Brief prompt wiring, Plan dedupe + §4 phase enforcement, Nudges copy delegation) with dependencies, not an implementation.
-12. **Appendix A** — grep-evidence appendix: the raw `rg -n` lines that back every cell in the delegation matrix, so reviewers can re-verify.
-13. **Appendix B** — index of every file touched, with a one-line role description.
+---
 
-## Method
+## 2. Brief refactor — `compute-outer-readiness/index.ts`
 
-- Re-run `rg` for each shared symbol against every consumer to populate the matrix from primary evidence, not memory. We already have a draft pass for `PROTOCOL_COMBOS`, `EVENT_CATEGORIES`, `EVENT_PHASE_MAP`, `evaluateForScope`, `selectJitCandidates`, `classifyEvent`, `buildActionFrame`, `generateWhyStatement` showing Plan imports them all, Brief imports only `evaluateForScope` + `selectLeadEvent`, Nudges imports `EVENT_PHASE_MAP` + `PROTOCOL_COMBOS` + `classifyByLegacyTable` + `evaluateForScope`.
-- For each "imported" symbol, follow the call site to confirm it actually drives the output the user sees — not just imported and shadowed.
-- Cross-walk every numbered claim in the four reference docs (CEO framework §2/§3/§4/§5, Brief logic doc, Plan logic doc, Nudges architecture doc, Brief LLM prompt v2) into the matrix.
-- No file edits, no shared module changes, no migrations. Document only.
+The current file is ~5,300 lines, most of which is one giant prompt builder that re-derives logic the shared modules already compute. The refactor strips that out without rewriting unrelated machinery (DB writes, signature hashing, validators, tier logic, signal-pill computation).
 
-## Out of scope
+### 2a. Delegate everything to shared modules before the prompt
 
-- Implementing the shared-module migrations the audit recommends.
-- Editing `executive-state-taxonomy.ts`, `event-categories.ts`, `event-phase-map.ts`, `protocol-combos.ts`, or any consumer.
-- Changing prompts or LLM providers.
-- Touching `typescript_audit.md` (the file the user is previewing is empty/missing; if they want the audit landed there instead of `docs/SHARED_MODULES_DELEGATION_AUDIT.md` I'll confirm before writing).
+Right before the prompt is built, assemble a single `briefContext` object by calling, in order:
+
+- `buildBehaviourSnapshot({ coverage, extras })` — already exists; reuse its `promptBlockBrief`, `taxonomyBlock`, `signatureHash`.
+- The correct `buildMorningContext` / `buildAfternoonContext` / `buildEveningContext` for the current window — currently only partially used. Promote their typed output (yesterday load, sleep, HRV/RHR deviation, vetoRisk, decisionLeakageRisk, dayKind, conferenceDayNumber, recoveryNote, tomorrow load on evenings) to the canonical `=== CONTEXT ===` block.
+- `classifyEvent` + `phaseForEvent` per calendar event — produce the enriched per-event row (category A–H, phase, combo, builds/prevents). Stop letting the LLM classify.
+- `causality_findings.signal_summary` query — filter to today's lead-event category + today's anomalous wearable (gated by check-in count ≥ 3). Mirror the JIT access path already in `tactical-signals.ts`.
+
+### 2b. Rewrite the user-prompt assembly to the §8 block order
+
+Replace the current ad-hoc block order with the exact §8 order, blocks omitted when empty so highest-priority survives truncation:
+
+```
+1. === ONBOARDING / LEADERSHIP PROFILE ===
+2. === CEO BEHAVIOUR ===
+3. === CONTEXT: [MORNING|AFTERNOON|EVENING] ===   (dayKind carries travel/PTO/holiday/conference)
+4. === READINESS ===                              (reasoning-only; never echoed)
+5. === WEARABLE ===
+6. === CALENDAR TODAY ===                         (per-event category/phase/combo/goal)
+7. === TOMORROW ===                               (evenings / Fri / Sun)
+8. === PATTERNS ===                               (causality store, gated)
+9. === WEEK AHEAD ===                             (Sun evening only)
+```
+
+The old `=== TIME ===` block and the C-Suite Calendar Load matrix are deleted.
+
+### 2c. Strip duplicated logic instructions from the prompt
+
+Delete from the LLM prompt:
+- Reasoning steps 1–4 (re-read body, compound signals, re-classify) → replaced by the single line *"The analysis below is pre-computed. Do not re-derive numbers, deviations, or classifications. Trust them and synthesise."*
+- The §5 A–H signal-pattern rulebook (MASKED_HIGH, Compounded Deficit, etc.) — these arrive as typed flags from the behaviour snapshot.
+- The C-Suite Calendar Load matrix — events arrive pre-classified.
+- Inline persona prose and local forbidden-word list — imported from `copy-vocabulary.ts`.
+
+### 2d. System prompt = drop-in from §9
+
+System block becomes: Persona → Voice banks → Hard constraints → Priority order → Silent reasoning (6 steps) → Body four-beat contract → Worked examples → JSON output contract. Imported verbatim from `copy-vocabulary.ts`.
+
+### 2e. Validator alignment (small, surgical)
+
+Per §7 of the guidance:
+- Relax the forbidden-opener validator to allow `you` / `you're` at phrase start.
+- Narrow the coaching-imperative ban to wellness-style softness only (`try to`, `consider`, `you should relax`); permit confident directives (`go`, `pace it`, `save it`).
+- Keep wellness / clinical / score-tier blacklists hard.
+
+Temperature stays at 0 (cache absorbs refresh variance; 0.35 reserved for future A/B).
+
+### 2f. Hold-firm constraints
+
+- Brief never prescribes a practice, duration, or "do X". One orientation posture only.
+- Phrase never restates Body and vice versa.
+- Score/tier never echoed (existing validator).
+- The `consecutiveLowDaysForPrompt` style variable-scoping rule from `mem://reliability/brief-prompt-variable-scoping` is preserved — any new variable referenced in `userPrompt` is declared in the outer prompt scope.
+
+---
+
+## 3. Plan alignment — `generate-mastery-plan/index.ts`
+
+The Plan stays deterministic. Only two changes:
+
+### 3a. Same canonical snapshot as Brief
+
+Plan must prefer the inline `behaviourSnapshot` forwarded by the client (already implemented) and fall back to `loadBriefBehaviourSnapshot` keyed by `expectedSignatureHash`. Any code path that re-evaluates `evaluateForScope('plan', …)` with a *different* coverage input than the Brief used is removed — Plan reads `flagsPlan` / `slotBoosts` / `promptBlockPlan` off the same snapshot the Brief produced for this `(user, local_date, window)`. Mismatch → refuse and request regeneration (no silent stale path).
+
+### 3b. Duplicate-event dedupe by event anchor identity
+
+The existing post-merge dedupe pass (`CATEGORY_MAX_SLOTS`) is hardened:
+
+- Anchor identity = `eventId` when present, else `normalize(jitEventTitle) + startTimeBucket` — not primary content id.
+- An event may occupy multiple visible plan slots only when the canonical `EVENT_PHASE_MAP` entry for its category lists more than one phase (pre/during/post) AND each slot's `jitPhase` matches a distinct allowed phase.
+- Any extra occurrence is either (a) replaced by an unused module from the fresh horizon pool for that slot, or (b) stripped of JIT metadata (`isJit:false`, `jitEventTitle:null`, `jitPhase:null`) so the practice stays but the duplicate event anchor disappears.
+- A short server log line records every dedupe action for observability.
+
+LLM usage in Plan is unchanged in scope — contextual "why this matters now" only, never core plan selection.
+
+### 3c. Legacy branch removal
+
+Delete or guard the legacy plan branch that re-derives day-kind / travel state from raw DB rows when `behaviourSnapshot.flagsPlan` already covers them. No silent fallback to the legacy path — if the snapshot is absent the request errors with a clear `SNAPSHOT_REQUIRED` code so the client refetches the Brief first.
+
+---
+
+## 4. Latest-context contract
+
+- Plan request must carry `expectedSignatureHash` (already wired) and the inline `behaviourSnapshot`.
+- Server compares `behaviourSnapshot.signatureHash` to the most-recent `brief_snapshots.input_signature` for `(user_id, local_date, time_window)`. If the DB has a newer signature than the inline snapshot, server returns `409 STALE_SNAPSHOT` and the client refetches the Brief and retries. No "best effort" merge.
+- Client already invalidates the plan cache when `behaviourSnapshot.signatureHash` or `wearableStatus.sourceRowDate` change — confirmed, no further client change needed.
+
+---
+
+## 5. Docs to update (no rewrites, append-only sections)
+
+- `docs/PERFORMANCE_READINESS_BRIEF_LOGIC.md` — replace the "LLM analyzes signals" section with the new shared-module ownership table and the §8 block order.
+- `docs/SHARED_MODULES_DELEGATION_AUDIT.md` — mark F-01, F-02, F-07, F-12, F-15 as resolved with PR-style notes; keep the other findings as-is.
+- `docs/CEO_BEHAVIOUR_RULE_MAP.md` — add one line confirming Brief now consumes `promptBlockBrief` (no behaviour change).
+- `.lovable/plan.md` — short "Brief refactor June 3" entry pointing at this plan.
+
+No code edits to onboarding, MRS scoring, ledger merging, JIT selection v2, event-categories.ts, event-phase-map.ts, protocol-combos.ts, or any client consumer of brief/plan beyond what's already in place.
+
+---
+
+## 6. Acceptance checks (run after implementation)
+
+- `bunx vitest run supabase/functions/compute-outer-readiness` (existing `body_copy.test.ts`, `index.test.ts`, `redundancy.test.ts`) all green; update only the assertions that intentionally pinned the old prompt blocks.
+- `bunx vitest run supabase/functions/_shared/signal-engine` green — no shared-module logic changed.
+- A manual call with two calendar events that share an `eventId` returns at most one plan slot for that event unless the category has multi-phase fanout.
+- A manual call with a forced signature mismatch returns `409 STALE_SNAPSHOT`.
+- A manual Brief call inspection shows: no `=== TIME ===` block, presence of `=== CONTEXT: MORNING ===` (or matching window), presence of `=== CEO BEHAVIOUR ===` populated from the snapshot, persona block sourced from `copy-vocabulary.ts`.
+
+## 7. Out of scope
+
+Onboarding flow, MRS v3 weights, Plan ledger schema, JIT selection v2, event taxonomy, protocol combos, signal-pill UI, Connected Data page, MrsPage, frontend caching layers, push notifications, Auth0, wearable sync, payments. None of these are touched.
 
 ## Deliverable
 
-One new file: `docs/SHARED_MODULES_DELEGATION_AUDIT.md`. Markdown only. ~600–900 lines. No code edits anywhere else.
+- New: `supabase/functions/_shared/brief/copy-vocabulary.ts`.
+- Edited: `supabase/functions/compute-outer-readiness/index.ts` (prompt + block assembly path only).
+- Edited: `supabase/functions/generate-mastery-plan/index.ts` (snapshot enforcement + dedupe hardening only).
+- Edited: 4 doc files listed in §5.
+- Approx. net code change: −1,500 to −2,500 LOC in `compute-outer-readiness` (logic moved out / prompt slimmed), +200 LOC in shared modules, +50 LOC in plan dedupe.

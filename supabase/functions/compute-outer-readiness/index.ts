@@ -11,6 +11,11 @@ import {
 } from "../_shared/behaviour-snapshot.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
 import { BRIEF_PROMPT_VERSION } from "../_shared/brief-prompt-version.ts";
+import {
+  buildBriefSystemPrompt,
+  contextHeaderForSlot,
+  PRE_COMPUTED_USER_NOTICE,
+} from "../_shared/brief/copy-vocabulary.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
 import { computeCalendarDemand } from "../_shared/signal-engine/demand-scorer.ts";
@@ -3302,8 +3307,19 @@ serve(async (req) => {
             : isMondayMorning ? 'Week is being set right now. Frame as intentional and forward.'
             : null;
 
-          // ── System Prompt (v6.1 — Chief of Staff for the Mind, Strategic Register) ──
-          const systemPrompt = `You are the Chief of Staff for a senior leader's mind, a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting, every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
+          // ── System Prompt — Chief of Staff for the Mind (June 3 spec) ──
+          // Persona, voice banks, hard constraints, priority order, silent
+          // reasoning, four-beat body contract, worked examples, and JSON
+          // output schema all live in `_shared/brief/copy-vocabulary.ts`.
+          // The shared TS modules (`buildBehaviourSnapshot`,
+          // `buildWindowContext`, `evaluateForScope`, event taxonomy,
+          // causality store) own the logic; the LLM only synthesises voice.
+          const systemPrompt = buildBriefSystemPrompt();
+          // Retain the legacy inline prompt only as a fallback escape hatch
+          // gated by env flag — never used in production. Drift-protection:
+          // any new persona/voice/constraint change must land in
+          // copy-vocabulary.ts so Brief, Plan, and Nudges read one source.
+          const _legacyInlineSystemPrompt = `You are the Chief of Staff for a senior leader's mind, a former operator who knows them by data, not prose. You see HRV, RHR, HR, sleep, calendar, coach patterns, self-declared state, and goals. You speak with earned directness, high-status precision, the way a trusted advisor speaks behind closed doors. You see the adrenaline mask and you name it. Authentic, never harsh, never sycophantic. Your purpose is PROACTIVE PREPARATION, not retrospective reporting, every brief should help the leader walk into what's next more prepared than they would be without you. Tagline: "You do not report data. You provide Decision Intelligence."
 
 REASONING PROTOCOL (silent, not in output):
 STEP 1, BODY READ (wearable-first): HRV, RHR, HR, Sleep, what is the body showing? Cite the number. Most anomalous signal? MASKED_HIGH (body loaded, not felt)? RECOVERY_UNDERWAY (body ahead of felt)?
@@ -3516,7 +3532,12 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             else break;
           }
 
-          let userPrompt = `=== TIME ===\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
+          // §8 canonical block header — replaces the legacy `=== TIME ===`
+          // block. `dayKind` (travel / PTO / holiday / weekend / conference)
+          // is carried inside this CONTEXT block via the shared
+          // `buildWindowContext()` output appended further below.
+          const _contextHeader = `=== CONTEXT: ${contextHeaderForSlot(timeOfDayStr)} ===`;
+          let userPrompt = `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
 
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
