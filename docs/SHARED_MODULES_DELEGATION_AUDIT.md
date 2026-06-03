@@ -44,13 +44,13 @@ The remainder of the findings (F-05, F-09–F-11, F-14, F-16) remain open. The s
 | F-13 | S3 | Plan | Resolved June 3: slot boosts are now validated against shared protocol combos before application, and invalid boost mappings are dropped with a warning instead of silently no-oping. | Shipped. Keep slot-boost validation tied to `PRACTICE_TYPE_TO_COMBO` + `PROTOCOL_COMBOS`. |
 | F-14 | S3 | Brief | `selectLeadEvent` is the only event-taxonomy import (`:5`); JIT lead-time logic (`event-subtypes.jitLeadTime`) is never consulted when picking which event to mention. | Pass `jitLeadTime` from subtype into the lead-event scoring weights. |
 | F-15 | S3 | Nudges | Resolved June 3: shared behaviour/taxonomy wiring is now prepended before the nudge-specific framing block, so truncation no longer strips the rule layer first. | Shipped. Preserve this ordering for any future nudge prompt variants. |
-| F-16 | S3 | Plan | Static `MIN_SLOTS_FALLBACK` filler (`:4825`) does not run through `classifyEvent`, so filler practices skip A–H tagging and never appear in the daily-context snapshot Nudges depend on. | Run filler practices through `enrichEvent` before persisting. |
+| F-16 | S3 | Plan | Partial June 3: static `MIN_SLOTS_FALLBACK` filler still does not become a fully enriched shared event object, but filler slots now register their chosen anchor `eventId` in the same slot-anchor ledger as the main slots. The remaining gap is persisting filler context through full `enrichEvent` metadata. | Keep filler slots on the shared anchor ledger, then run the fallback path through `enrichEvent` before persisting snapshot/context data. |
 | F-17 | S3 | All three | `BRIEF_PROMPT_VERSION` is imported by all three consumers but only Brief stamps it on output (`:13` / `:30` / `:14`). Nudges + Plan stamp their own `architecture` field instead → cross-feature version skew. | Stamp `BRIEF_PROMPT_VERSION` on every LLM-produced artefact for cross-feature trace. |
 
 **Top five open risks (read first):**
 1. Brief now has event-coaching blocks, but the broader signal-coverage prompt assembly is still inline and order-sensitive until it moves to the shared builder (F-01 / F-12).
 2. Pattern-store compatibility still depends on historical bucket labels even though classification now resolves from canonical subtypes first (F-05).
-3. Plan still carries local timing/mapping helpers and a legacy bridge, so the shared-module architecture is not yet fully consolidated there (F-09 / F-10 / F-16).
+3. Plan still carries local timing/mapping helpers and a legacy bridge, and its filler path is only partially shared-enriched, so the shared-module architecture is not yet fully consolidated there (F-09 / F-10 / F-16).
 4. Brief prompt assembly is still large and order-sensitive, so truncation / omission risk remains until signal coverage is delegated to the shared helper (F-12).
 5. Nudges still uses hand-authored framing instead of the shared action-frame / why-llm helpers, so copy logic can still drift from Plan (F-11).
 

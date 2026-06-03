@@ -5203,6 +5203,9 @@ function buildHorizonModules(
       };
       const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
       const fillerLabel = composeStateLabel(fillerSlotIdx);
+      if (fillerLabel) {
+        slotAnchors.push({ eventId: fillerLabel.eventId });
+      }
       deduped.push({
         horizon: targetHorizon,
         timeLabel: fillerLabel?.label ?? 'Steady the system ahead of today\u2019s load',
