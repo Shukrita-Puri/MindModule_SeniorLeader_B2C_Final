@@ -3625,194 +3625,146 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
           // is carried inside this CONTEXT block via the shared
           // `buildWindowContext()` output appended further below.
           const _contextHeader = `=== CONTEXT: ${contextHeaderForSlot(timeOfDayStr)} ===`;
-          let userPrompt = `${PRE_COMPUTED_USER_NOTICE}\n\n${_contextHeader}\nTime: ${localTimeStr} · Slot: ${timeOfDayStr} · Day: ${dayName}\nIs weekend: ${isWeekend ? 'yes' : 'no'} · Is Sunday evening: ${isSundayEvening2 ? 'yes' : 'no'} · Is Monday morning: ${isMondayMorning ? 'yes' : 'no'}\nIs Friday evening: ${isFridayEvening ? 'yes' : 'no'} · Is day before rest day: ${isDayBeforeRestDay ? 'yes' : 'no'}\nIs public holiday: ${isPublicHoliday ? 'yes' : 'no'}${holidayName ? ' · Holiday: ' + holidayName : ''}\nHours remaining in workday: ${hoursRemaining ?? 'null'}`;
+          // ─── Deterministic prompt blocks (Wave 1 shared-module migration) ───
+          // All block formatting, ordering, and omission rules live in
+          // `_shared/brief/prompt-blocks.ts`. This orchestrator only assembles
+          // typed inputs from local state and calls the builders in canonical
+          // order. Behaviour is byte-for-byte equivalent to the prior inline
+          // `userPrompt += ...` chain.
+          const _dayNamesForTomorrow = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          const _tomorrowDayName = _dayNamesForTomorrow[(dayOfWeek + 1) % 7];
+          const _hrElevatedFlag = (wearableContext as any)?.hrElevated === true;
 
-          // === READINESS ===
-          userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
-          if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
-          // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
-          userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
-          userPrompt += `\nMental Sharpness (slider, /check-in-detail): ${mentalSharpnessLevel ?? 'null'}/5 · Clarity: ${clarityLevel ?? 'null'}/5 · Confidence: ${confidenceLevel ?? 'null'}/5`;
-          userPrompt += `\nEmotional self-declared (Decision Leakage trigger source): ${checkInOutcome ?? 'null'}`;
-          userPrompt += `\nConsecutive low days: ${consecutiveLowDaysForPrompt}`;
-          if (stateShiftToday) userPrompt += ` · State shift today: yes · Direction: ${stateShiftDirection}`;
+          let userPrompt = buildContextBlock({
+            contextHeader: _contextHeader,
+            preNotice: PRE_COMPUTED_USER_NOTICE,
+            localTimeStr,
+            timeOfDayStr,
+            dayName,
+            isWeekend,
+            isSundayEvening: isSundayEvening2,
+            isMondayMorning,
+            isFridayEvening,
+            isDayBeforeRestDay,
+            isPublicHoliday,
+            holidayName,
+            hoursRemaining,
+          });
 
-          // === WEARABLE ===
-          if (hasWearable) {
-            userPrompt += `\n\n=== WEARABLE ===`;
-            if (hrvValue != null) userPrompt += `\nHRV: ${hrvValue}ms · Baseline: ${hrvBaseline ?? 'null'}ms · Deviation: ${hrvDeviation != null ? (hrvDeviation >= 0 ? '+' : '') + hrvDeviation : 'null'}% · Unusual: ${hrvUnusual ? 'yes' : 'no'}`;
-            if (sleepDuration != null) {
-              const sleepHrs = (sleepDuration / 60).toFixed(1);
-              const sleepBaseHrs = sleepBaseline ? (sleepBaseline / 60).toFixed(1) : 'null';
-              userPrompt += `\nSleep: ${sleepHrs}hrs · Baseline: ${sleepBaseHrs}hrs · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}% · Below 6hr floor: ${sleepHardFloor ? 'yes' : 'no'}`;
-            } else if (sleepScoreVal != null) {
-              userPrompt += `\nSleep score: ${sleepScoreVal} · Baseline: ${sleepBaseline ?? 'null'} · Deviation: ${sleepDeviation != null ? (sleepDeviation >= 0 ? '+' : '') + sleepDeviation : 'null'}%`;
-            }
-            if (rhrValue != null) userPrompt += `\nRHR: ${rhrValue}bpm · Baseline: ${rhrBaseline ?? 'null'}bpm · Deviation: ${rhrDeviation != null ? (rhrDeviation >= 0 ? '+' : '') + rhrDeviation : 'null'}%`;
-            // Heart Rate (proxy via HRV-derived hrElevated until raw HR column exists; see hr-elevated-proxy-logic memory)
-            const hrElevatedFlag = (wearableContext as any)?.hrElevated === true;
-            userPrompt += `\nHeart Rate (elevated proxy): ${hrElevatedFlag ? 'yes (sympathetic dominance)' : 'no'}`;
-            userPrompt += `\nDivergence: ${divergenceMode ?? 'null'}`;
-            if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
-            userPrompt += `\nWearable confidence: ${wearableConfidence ?? 'null'}`;
-          }
+          userPrompt += buildReadinessBlock({
+            innerReadinessScore: innerReadinessScore ?? null,
+            safeTier: safeTier ?? null,
+            yesterdayScore: yesterdayScore ?? null,
+            scoreTrend: scoreTrend ?? null,
+            typicalDOWScore: typicalDOWScore ?? null,
+            scoreVsTypicalDOW: scoreVsTypicalDOW ?? null,
+            dayName,
+            checkInOutcome: checkInOutcome ?? null,
+            mentalSharpnessLevel: mentalSharpnessLevel ?? null,
+            clarityLevel: clarityLevel ?? null,
+            confidenceLevel: confidenceLevel ?? null,
+            consecutiveLowDays: consecutiveLowDaysForPrompt,
+            stateShiftToday,
+            stateShiftDirection: stateShiftDirection ?? null,
+          });
 
-          // === CALENDAR TODAY ===
-          if (calendarLoad) {
-            userPrompt += `\n\n=== CALENDAR TODAY ===`;
-            userPrompt += `\nLoad: ${calendarLoad} · High-stakes meetings: ${todayHighStakes.length}`;
-            // Pair every high-stakes title with its own local HH:mm so the LLM
-            // never invents or rounds the clock. If a title's time is unknown
-            // (no exact match), omit time for that one event.
-            if (todayHighStakes.length > 0) {
-              const pairedToday = todayHighStakes.map((t, i) => {
-                const tm = todayHighStakesEventTimes[i];
-                return tm ? `${tm} ${t}` : t;
-              }).join('; ');
-              userPrompt += `\nHigh-stakes (local time, title): ${pairedToday}`;
-            }
-            userPrompt += `\nTotal meetings: ${calendarResult.meetingCount ?? 0}`;
-            if (hasBackToBack) userPrompt += `\nBack-to-back: yes · Longest block: ${longestBackToBackHrs}hrs`;
-            if (nextEventAny) {
-              const t = (nextEventAny as any).localHHmm;
-              userPrompt += `\nNext event: ${nextEventAny.title}${t ? ` at ${t}` : ''} (in ${nextEventAny.minutesUntil}mins)`;
-            }
-            if (nextHighStakesEvent) {
-              const t = (nextHighStakesEvent as any).localHHmm;
-              userPrompt += `\nNext high-stakes: ${nextHighStakesEvent.title}${t ? ` at ${t}` : ''} (in ${nextHighStakesEvent.minutesUntil}mins)`;
-            }
-            userPrompt += `\nCLOCK TIME RULE: When referencing any event time in the body, use ONLY the HH:mm strings provided above, character-for-character. Never invent, round, shift, or reformat clock times. If no time is provided for an event, omit the time entirely rather than guessing.`;
-          }
+          userPrompt += buildWearableBlock({
+            hasWearable,
+            hrvValue: hrvValue ?? null,
+            hrvBaseline: hrvBaseline ?? null,
+            hrvDeviation: hrvDeviation ?? null,
+            hrvUnusual: !!hrvUnusual,
+            sleepDuration: sleepDuration ?? null,
+            sleepBaseline: sleepBaseline ?? null,
+            sleepScoreVal: sleepScoreVal ?? null,
+            sleepDeviation: sleepDeviation ?? null,
+            sleepHardFloor: !!sleepHardFloor,
+            rhrValue: rhrValue ?? null,
+            rhrBaseline: rhrBaseline ?? null,
+            rhrDeviation: rhrDeviation ?? null,
+            hrElevatedFlag: _hrElevatedFlag,
+            divergenceMode: divergenceMode ?? null,
+            wearableTrend7d: wearableTrend7d ?? null,
+            wearableConfidence: wearableConfidence ?? null,
+          });
 
-          // === TOMORROW === (evenings, Friday, Sunday)
-          if ((isEveningForPrompt || isFridayEvening || isSundayEvening2) && tomorrowLoad) {
-            const dayNames3 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-            const tomorrowDayName = dayNames3[(dayOfWeek + 1) % 7];
-            userPrompt += `\n\n=== TOMORROW ===`;
-            userPrompt += `\nDay: ${tomorrowDayName} · Load: ${tomorrowLoad}`;
-            // Pair every high-stakes title with its own local time so the LLM
-            // cannot mis-glue a title to an unrelated line's time. If a title's
-            // time is unknown (no exact match), omit time for that one event.
-            if (tomorrowHighStakesTitles.length > 0) {
-              const paired = tomorrowHighStakesTitles.map((t, i) => {
-                const tm = tomorrowHighStakesEventTimes[i];
-                return tm ? `${tm}, ${t}` : t;
-              }).join(', ');
-              userPrompt += `\nHigh-stakes meetings (with local times): ${paired}`;
-            }
-            if (tomorrowFirstMeetingPair) {
-              userPrompt += `\nFirst scheduled meeting: ${tomorrowFirstMeetingPair}`;
-            }
-            if (tomorrowVsTodayLoad) userPrompt += `\nTomorrow vs today: ${tomorrowVsTodayLoad}`;
-          }
+          userPrompt += buildCalendarTodayBlock({
+            calendarLoad: calendarLoad ?? null,
+            todayHighStakes,
+            todayHighStakesEventTimes,
+            totalMeetings: calendarResult.meetingCount ?? 0,
+            hasBackToBack,
+            longestBackToBackHrs: longestBackToBackHrs ?? null,
+            nextEventAny: nextEventAny as any,
+            nextHighStakesEvent: nextHighStakesEvent as any,
+          });
 
-          // === WEEK AHEAD === (Sunday evening only)
-          if (isSundayEvening2 && weekAheadShape) {
-            const wa = weekAheadShape as any;
-            userPrompt += `\n\n=== WEEK AHEAD ===`;
-            userPrompt += `\nMonday: load ${wa.mondayLoad ?? 'null'} · High-stakes: ${wa.mondayHasHighStakes ? 'yes' : 'no'}`;
-            if (wa.mondayFirstEvent) userPrompt += `\nMonday first event: ${wa.mondayFirstEvent.title} · ${wa.mondayFirstEvent.time}`;
-            userPrompt += `\nHeaviest day: ${wa.heaviestDay ?? 'null'}`;
-            if (wa.firstHighStakesDay) userPrompt += `\nFirst high-stakes: ${wa.firstHighStakesDay}`;
-            userPrompt += `\nTotal high-stakes next week: ${wa.totalHighStakesNextWeek ?? 0}`;
-            if (wa.lightDaysNextWeek?.length > 0) userPrompt += ` · Light days: ${wa.lightDaysNextWeek.join(', ')}`;
-          }
+          userPrompt += buildTomorrowBlock({
+            show: (isEveningForPrompt || isFridayEvening || isSundayEvening2),
+            tomorrowDayName: _tomorrowDayName,
+            tomorrowLoad: tomorrowLoad ?? null,
+            tomorrowHighStakesTitles,
+            tomorrowHighStakesEventTimes,
+            tomorrowFirstMeetingPair: tomorrowFirstMeetingPair ?? null,
+            tomorrowVsTodayLoad: tomorrowVsTodayLoad ?? null,
+          });
 
-          // === PATTERNS === (conditional on check-in count)
-          if (checkInCountTotal >= 3) {
-            userPrompt += `\n\n=== PATTERNS ===`;
-            if (avgScore7d != null) userPrompt += `\n7d avg score: ${avgScore7d} · Trajectory: ${scoreTrajectory7d ?? 'stable'}`;
-            if (dominantOutcome7d) userPrompt += `\nDominant state this week: ${dominantOutcome7d}`;
-            if (wearableTrend7d) userPrompt += `\nWearable trend (7d): ${wearableTrend7d}`;
-            if (practiceCompletionRate > 0) userPrompt += `\nPractice completion: ${practiceCompletionRate}%`;
-            if (daysSinceCoachSession != null) userPrompt += `\nDays since last coach: ${daysSinceCoachSession}`;
-            if (coachSessionImpactDelta != null) userPrompt += ` · Coach impact delta: ${coachSessionImpactDelta > 0 ? '+' : ''}${coachSessionImpactDelta} pts`;
+          userPrompt += buildWeekAheadBlock({
+            show: isSundayEvening2,
+            weekAhead: (weekAheadShape as any) ?? null,
+          });
 
-            if (checkInCountTotal >= 7) {
-              if (typicalDOWOutcome) userPrompt += `\nTypical ${dayName} outcome: ${typicalDOWOutcome}${typicalDOWScore != null ? ' · Score: ' + typicalDOWScore : ''}`;
-              if (frictionTrend) userPrompt += `\nFriction trend (30d): ${frictionTrend}`;
-              if (hrvEventCorrelation) userPrompt += `\nHRV correlation: ${hrvEventCorrelation}`;
-              if (mostEffectivePractice) userPrompt += `\nMost effective practice: ${mostEffectivePractice}`;
-            }
+          userPrompt += buildPatternsBlock({
+            checkInCountTotal,
+            avgScore7d: avgScore7d ?? null,
+            scoreTrajectory7d: scoreTrajectory7d ?? null,
+            dominantOutcome7d: dominantOutcome7d ?? null,
+            wearableTrend7d: wearableTrend7d ?? null,
+            practiceCompletionRate,
+            daysSinceCoachSession: daysSinceCoachSession ?? null,
+            coachSessionImpactDelta: coachSessionImpactDelta ?? null,
+            dayName,
+            typicalDOWOutcome: typicalDOWOutcome ?? null,
+            typicalDOWScore: typicalDOWScore ?? null,
+            frictionTrend: frictionTrend ?? null,
+            hrvEventCorrelation: hrvEventCorrelation ?? null,
+            mostEffectivePractice: mostEffectivePractice ?? null,
+            serverArchetype: serverArchetype ?? null,
+            leanOn: leanOnResult.leanOn ?? null,
+            watchFor: leanOnResult.watchFor ?? null,
+            coachStrength: coachStrength ?? null,
+            coachGrowth: coachGrowth ?? null,
+            pendingCommitment: pendingCommitment ?? null,
+            recentPattern: recentPattern ?? null,
+          });
 
-            if (checkInCountTotal >= 30) {
-              if (serverArchetype) userPrompt += `\nArchetype: ${serverArchetype}`;
-              if (leanOnResult.leanOn) userPrompt += ` · Lean-on: ${leanOnResult.leanOn}`;
-              if (leanOnResult.watchFor) userPrompt += ` · Watch-for: ${leanOnResult.watchFor}`;
-              if (coachStrength) userPrompt += `\nCoach strength: ${coachStrength}`;
-              if (coachGrowth) userPrompt += `\nCoach growth area: ${coachGrowth}`;
-              if (pendingCommitment) userPrompt += `\nPending coach commitment: ${pendingCommitment}`;
-              if (recentPattern) userPrompt += `\nRecent coach pattern: ${recentPattern}`;
-            }
-          }
+          userPrompt += buildOnboardingBlock({
+            serverPracticePriorityTag: serverPracticePriorityTag ?? null,
+            serverArchetype: serverArchetype ?? null,
+            leanOn: leanOnResult.leanOn ?? null,
+            watchFor: leanOnResult.watchFor ?? null,
+            componentScores: (serverComponentScores as any) ?? null,
+          });
 
-          // === ONBOARDING === (always when available)
+          userPrompt += buildKeySignalsBlock(selectedSignals);
+
+          userPrompt += buildGlobalLoadBlock({
+            timezoneOffsetMinutes: timezoneOffset,
+            effectiveHomeTz: effectiveHomeTz ?? null,
+            effectiveCurrentTz: effectiveCurrentTz ?? null,
+          });
+
+          // === STRATEGIC CONTEXT === — header is deterministic; v2 hydration
+          // (pattern_signals / strategic_context / calendar_demand_score) is
+          // an async read against daily_context_snapshot with a
+          // composeDailyContext fallback. The head is built by the shared
+          // module; the v2 lines remain inline because they require DB access.
           {
-            const onboardingParts: string[] = [];
-            if (serverPracticePriorityTag) {
-              const goalLabels: Record<string, string> = {
-                regulation_composure: 'Composure under pressure',
-                regulation_early: 'Early signal detection',
-                recovery_resilience: 'Recovery and resilience',
-                energy_endurance: 'Energy endurance',
-                focus_clarity: 'Focus and clarity',
-                mindset_reframe: 'Mindset reframing',
-              };
-              onboardingParts.push(`Goals: ${goalLabels[serverPracticePriorityTag] || serverPracticePriorityTag}`);
-            }
-            if (serverArchetype) {
-              let archLine = `Archetype: ${serverArchetype}`;
-              if (leanOnResult.leanOn) archLine += ` · Lean-on: ${leanOnResult.leanOn}`;
-              if (leanOnResult.watchFor) archLine += ` · Watch-for: ${leanOnResult.watchFor}`;
-              onboardingParts.push(archLine);
-            }
-            if (serverComponentScores) {
-              const cs = serverComponentScores as any;
-              const dims = [
-                { name: 'Recalibration', score: cs.energyRegulation || 0 },
-                { name: 'Clarity', score: cs.focusRecovery || 0 },
-                { name: 'Renewal', score: cs.energyRenewal || 0 },
-              ].sort((a, b) => b.score - a.score);
-              onboardingParts.push(`Strength: ${dims[0].name} · Development area: ${dims[dims.length - 1].name}`);
-            }
-            if (onboardingParts.length > 0) {
-              userPrompt += `\n\n=== ONBOARDING ===\n${onboardingParts.join('\n')}`;
-            }
-          }
-
-          // === TRIAGE SIGNALS === (top 5 for emphasis)
-          if (selectedSignals.length > 0) {
-            userPrompt += `\n\n=== KEY SIGNALS ===\n${selectedSignals.join('\n')}`;
-          }
-
-          // === GLOBAL & ENVIRONMENTAL LOAD === (timezone-derived; rest null until instrumented)
-          {
-            const tzHours = Math.round(-timezoneOffset / 60); // user's UTC offset in hours
-            userPrompt += `\n\n=== GLOBAL & ENVIRONMENTAL LOAD ===`;
-            userPrompt += `\nUser timezone offset (UTC): ${tzHours >= 0 ? '+' : ''}${tzHours}h`;
-            // Traveling = current zone differs from home zone. Surface to the LLM
-            // so it can apply §2.13 CIRCADIAN PRIORITY when relevant.
-            if (effectiveCurrentTz && effectiveHomeTz && effectiveCurrentTz !== effectiveHomeTz) {
-              userPrompt += `\nTraveling: home ${effectiveHomeTz}, currently ${effectiveCurrentTz} (all event times above are in CURRENT zone)`;
-            } else {
-              userPrompt += `\nTravel/circadian drift: none`;
-            }
-            userPrompt += `\nExternal market/macro pressure: null (not instrumented)`;
-          }
-
-          // === STRATEGIC CONTEXT === (derivable today)
-          {
-            // postPeakWindow: within 3h after a high-stakes event ended
-            let postPeakWindow = false;
-            if (todayHighStakes.length > 0 && nextHighStakesEvent && nextHighStakesEvent.minutesUntil < 0 && Math.abs(nextHighStakesEvent.minutesUntil) <= 180) {
-              postPeakWindow = true;
-            }
-            // isHighVisibilityToday: any high-stakes event today (board, town hall, investor, all-hands keywords)
-            const visibilityRegex = /\b(board|town hall|townhall|investor|all-hands|allhands|earnings|press|keynote)\b/i;
-            const isHighVisibilityToday = todayHighStakes.some((t: string) => visibilityRegex.test(t));
-            userPrompt += `\n\n=== STRATEGIC CONTEXT ===`;
-            userPrompt += `\npostPeakWindow: ${postPeakWindow ? 'yes' : 'no'}`;
-            userPrompt += `\nisHighVisibilityToday: ${isHighVisibilityToday ? 'yes' : 'no'}`;
+            const strategicHead = buildStrategicContextHead({
+              todayHighStakes,
+              nextHighStakesEvent: nextHighStakesEvent as any,
+            });
+            userPrompt += strategicHead.block;
 
             // MRS v2 Phase D — snapshot-first hydration of patternSignals +
             // strategic_context + calendar_demand_score. Snapshot row is the
@@ -3877,15 +3829,14 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             }
           }
 
-          // === TRIANGULATION ===
-          if (crossHorizonConnection) {
-            userPrompt += `\n\n=== TRIANGULATION ===`;
-            if (immediateSignal) userPrompt += `\nNow: ${immediateSignal}`;
-            if (tacticalSignal) userPrompt += `\nPattern: ${tacticalSignal}`;
-            if (strategicSignal) userPrompt += `\nDevelopment: ${strategicSignal}`;
-            userPrompt += `\nConnection: ${crossHorizonConnection}, ${connectionFraming}`;
-            userPrompt += `\nLead with: ${dominantHorizon}`;
-          }
+          userPrompt += buildTriangulationBlock({
+            crossHorizonConnection: crossHorizonConnection ?? null,
+            immediateSignal: immediateSignal ?? null,
+            tacticalSignal: tacticalSignal ?? null,
+            strategicSignal: strategicSignal ?? null,
+            connectionFraming: connectionFraming ?? null,
+            dominantHorizon: dominantHorizon ?? null,
+          });
 
           // ═══════════════════════════════════════════════════════════════
           // SHARED-MODULE CONTEXT: CEO Behaviours + Event Taxonomy + M/A/E
