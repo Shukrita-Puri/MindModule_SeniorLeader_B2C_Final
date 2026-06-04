@@ -96,7 +96,7 @@ const RecalibrateMode = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[radial-gradient(ellipse_120%_80%_at_15%_-10%,hsl(0_0%_100%/0.55)_0%,hsl(0_0%_100%/0.16)_30%,transparent_58%),radial-gradient(ellipse_90%_60%_at_110%_110%,hsl(var(--taupe-rich)/0.42)_0%,transparent_60%),linear-gradient(165deg,hsl(var(--taupe-highlight)/0.55)_0%,hsl(var(--taupe)/0.22)_55%,hsl(var(--taupe-rich)/0.45)_100%)]">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-transparent">
         <LeftSidebar />
         <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto bg-transparent">
           <div className="relative">
