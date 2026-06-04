@@ -1603,8 +1603,19 @@ const TodayThreePriorities = ({
                   {/* Integrate slot owns its own actions inside ReflectionCorner
                       (Save win + Start companion). The redundant coach practice
                       card and bottom Start button below would just re-expand the
-                      same view, so we suppress them on this slot only. */}
-                  {!(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                      same view, so we suppress them on this slot only — but ONLY
+                      when the Reflection Corner is actually rendered. Outside
+                      its temporal window (18–22 local) we keep the regular
+                      practice card so the substitute "Sleep Prep & Tomorrow
+                      Framing" still has a Start affordance. */}
+                  {(() => {
+                    const isReflectionPractice = module.title === 'Tiny Win and Reflection'
+                      || module.type === 'integrate';
+                    if (!isReflectionPractice) return true;
+                    const hour = new Date().getHours();
+                    const reflectionShown = hour >= 18 && hour < 23;
+                    return !reflectionShown;
+                  })() && (
                   <>
                   {/* Practice cards — horizontal scroll when multiple */}
                   <div className={cn(
