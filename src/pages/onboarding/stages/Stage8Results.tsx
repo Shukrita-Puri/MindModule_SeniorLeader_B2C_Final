@@ -297,7 +297,7 @@ export default function Stage8Results() {
       </div>
 
       {/* Dimension Scores */}
-      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-4">
+      <div className="bg-white border border-[#cfc7b8] rounded-2xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] space-y-4">
         {dimensions.map((dim) => (
           <div key={dim.key} className="space-y-1.5">
             <div className="flex justify-between items-baseline">
@@ -337,7 +337,7 @@ export default function Stage8Results() {
 
       {/* AI Pattern Insight — Collapsible */}
       {insight && (
-        <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5">
+        <div className="bg-white border border-[#cfc7b8] rounded-2xl p-5">
           {needsTruncation ? (
             <Collapsible open={insightOpen} onOpenChange={setInsightOpen}>
               <p className="text-sm leading-relaxed text-foreground/90">
@@ -359,7 +359,7 @@ export default function Stage8Results() {
       )}
 
       {/* Strengths & Development Area */}
-      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5 space-y-4">
+      <div className="bg-white border border-[#cfc7b8] rounded-2xl p-5 space-y-4">
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Strengths</p>
           <div className="flex gap-2 flex-wrap">
@@ -384,7 +384,7 @@ export default function Stage8Results() {
       </div>
 
       {/* Development Path */}
-      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-5 space-y-4">
+      <div className="bg-white border border-[#cfc7b8] rounded-2xl p-5 space-y-4">
         <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-body">Development Path</p>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">

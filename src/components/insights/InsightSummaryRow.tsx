@@ -22,8 +22,8 @@ const InsightSummaryRow = ({ to, eyebrow, value, loading }: InsightSummaryRowPro
       type="button"
       onClick={() => navigate(to)}
       className={cn(
-        'w-full text-left rounded-2xl bg-white/65 backdrop-blur-[30px] backdrop-saturate-150',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]',
+        'w-full text-left rounded-2xl bg-white',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         'transition-transform duration-200 active:scale-[0.99]',
         'px-5 py-4 flex items-center gap-3'
       )}

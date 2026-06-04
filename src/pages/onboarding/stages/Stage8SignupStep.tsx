@@ -179,7 +179,7 @@ const Stage8SignupStep = () => {
   if (inIframe) {
     return (
       <div className={CENTERED_SHELL}>
-        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white border border-[#cfc7b8] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <p className="text-lg font-semibold text-foreground">Sign up requires a full browser window</p>
           <p className="text-sm text-muted-foreground">
             Auth0 cannot load inside an iframe. Please open the app in a new tab to create your account.
@@ -200,7 +200,7 @@ const Stage8SignupStep = () => {
   if (status === 'error') {
     return (
       <div className={CENTERED_SHELL}>
-        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white border border-[#cfc7b8] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
           <p className="text-base font-semibold text-foreground">{errorMessage}</p>
           <div className="flex flex-col gap-2 pt-2">
@@ -212,7 +212,7 @@ const Stage8SignupStep = () => {
             </button>
             <button
               onClick={handleBackToAssessment}
-              className="px-6 py-3 rounded-xl border border-black/[0.08] text-foreground hover:bg-black/[0.03] transition"
+              className="px-6 py-3 rounded-xl border border-[#cfc7b8] text-foreground hover:bg-black/[0.03] transition"
             >
               Back to assessment
             </button>

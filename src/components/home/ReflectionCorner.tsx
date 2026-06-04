@@ -124,7 +124,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
 
   if (hydrating) {
     return (
-      <div className="rounded-xl bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4">
+      <div className="rounded-xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4">
         <div className="h-3 w-32 bg-muted/30 rounded animate-pulse mb-3" />
         <div className="h-16 bg-muted/20 rounded animate-pulse" />
       </div>
@@ -142,7 +142,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
           this subtree and the blur is not re-rasterised by sibling updates.
       */}
       <div
-        className="rounded-xl bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4 space-y-3 isolate [transform:translateZ(0)] [contain:paint]"
+        className="rounded-xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4 space-y-3 isolate [transform:translateZ(0)] [contain:paint]"
       >
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium tracking-[0.18em] uppercase text-primary/70 font-body">
@@ -175,7 +175,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
                 onChange={(e) => setWinContent(e.target.value)}
                 placeholder="A small moment, a clean decision, a held boundary…"
                 className={cn(
-                  "min-h-[80px] resize-none text-sm bg-background border-black/[0.08]",
+                  "min-h-[80px] resize-none text-sm bg-background border-[#cfc7b8]",
                   "focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
                 )}
                 maxLength={500}
@@ -212,7 +212,7 @@ const ReflectionCorner = ({ postEventTitle, onSaved }: ReflectionCornerProps) =>
       {stoic && (
         <button
           onClick={openStoic}
-          className="w-full flex items-center gap-3 rounded-xl bg-white/50 backdrop-blur-[20px] border border-black/[0.06] hover:bg-white/70 hover:border-primary/20 transition-all p-3 text-left group isolate [transform:translateZ(0)] [contain:paint]"
+          className="w-full flex items-center gap-3 rounded-xl bg-white/50 backdrop-blur-[20px] border border-[#cfc7b8] hover:bg-white/70 hover:border-primary/20 transition-all p-3 text-left group isolate [transform:translateZ(0)] [contain:paint]"
         >
           <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0">
             <Clock size={16} className="text-primary/70" />

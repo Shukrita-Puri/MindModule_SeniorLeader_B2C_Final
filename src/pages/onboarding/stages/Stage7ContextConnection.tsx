@@ -272,7 +272,7 @@ export default function Stage7ContextConnection() {
       <div className="absolute inset-x-0 top-0 h-[40vh] bg-gradient-to-b from-transparent via-background/70 to-background pointer-events-none" />
 
       {/* Back button top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-[#cfc7b8] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between px-4 py-2">
           <Button variant="glass" size="sm" onClick={() => navigate("/onboarding/app-intro", { state: { resumeSlide: 2 } })}>
             <ArrowLeft size={20} />
@@ -304,7 +304,7 @@ export default function Stage7ContextConnection() {
             />
 
             {/* Apple Health */}
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="flex items-center gap-3">
                 <img src={appleHealthIcon} alt="Apple Health" className="w-8 h-8 rounded-lg object-contain" />
                 <div className="flex flex-col">
@@ -326,7 +326,7 @@ export default function Stage7ContextConnection() {
 
             {/* Self check-in preference — only when a wearable is connected */}
             {watchEnabled && (
-              <div className="p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)] space-y-3">
+              <div className="p-4 rounded-2xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)] space-y-3">
                 <div>
                   <p className="font-medium text-sm text-foreground leading-snug">
                     Would you also like to complete daily self check-ins for a more rounded assessment?
@@ -339,7 +339,7 @@ export default function Stage7ContextConnection() {
                     className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
                       selfCheckInsEnabled
                         ? "border-saffron bg-saffron/10 text-foreground"
-                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                        : "border-[#cfc7b8] bg-white/40 text-foreground/80 hover:bg-white/60"
                     }`}
                     aria-pressed={selfCheckInsEnabled}
                   >
@@ -351,7 +351,7 @@ export default function Stage7ContextConnection() {
                     className={`text-left text-sm rounded-xl px-3 py-2.5 border transition-colors ${
                       !selfCheckInsEnabled
                         ? "border-saffron bg-saffron/10 text-foreground"
-                        : "border-black/[0.08] bg-white/40 text-foreground/80 hover:bg-white/60"
+                        : "border-[#cfc7b8] bg-white/40 text-foreground/80 hover:bg-white/60"
                     }`}
                     aria-pressed={!selfCheckInsEnabled}
                   >

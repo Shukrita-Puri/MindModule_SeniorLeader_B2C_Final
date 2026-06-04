@@ -397,9 +397,9 @@ const DailyCheckIn = () => {
 
         {/* Glass card wrapper (matches Brief card) — edge-to-edge on mobile */}
         <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 flex flex-col
-          bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
-          border border-black/[0.08]
-          shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
+          bg-white
+          border border-[#cfc7b8]
+          shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
 
           {/* Eyebrow row inside card (matches Brief card) */}
           <div className="mb-3 flex items-center justify-between gap-2 whitespace-nowrap">

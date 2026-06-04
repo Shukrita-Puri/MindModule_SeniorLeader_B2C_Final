@@ -83,8 +83,8 @@ const TodayStateCard = () => {
   return (
     <div className={cn(
       "rounded-xl p-5 transition-all duration-300",
-      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
-      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+      "bg-white border border-[#cfc7b8]",
+      "shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
     )}>
       {/* Header with info button - aligned */}
       <div className="flex items-center justify-between mb-4">

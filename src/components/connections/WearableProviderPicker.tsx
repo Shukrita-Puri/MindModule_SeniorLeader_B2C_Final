@@ -137,7 +137,7 @@ function WearableRow({ provider, label, iconSrc, status, onChanged, disabled }: 
   ) : null;
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-center gap-3 min-w-0">
         <img src={iconSrc} alt={label} className="w-8 h-8 rounded-lg object-contain bg-white p-1" />
         <div className="flex flex-col min-w-0">
