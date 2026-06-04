@@ -118,10 +118,10 @@ const TodayGreeting = () => {
           className="pointer-events-auto inline-flex items-center gap-2 group"
           aria-label="Edit your name"
         >
-          <p className="font-headline font-semibold text-foreground tracking-tight leading-tight text-[26px] md:text-[42px]">
+          <p className="font-headline font-semibold text-white tracking-tight leading-tight text-[26px] md:text-[42px] drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]">
             {greeting}
           </p>
-          <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground opacity-0 group-hover:opacity-70 group-active:opacity-90 transition-opacity" />
+          <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-white/70 opacity-0 group-hover:opacity-90 group-active:opacity-100 transition-opacity" />
         </button>
       )}
     </div>
