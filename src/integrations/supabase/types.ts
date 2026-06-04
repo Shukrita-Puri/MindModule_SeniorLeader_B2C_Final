@@ -229,7 +229,16 @@ export type Database = {
       }
       brief_snapshots: {
         Row: {
-          body_text: string | null
+          baseline_body_text: string | null
+          baseline_lean_on: string | null
+          baseline_lean_on_source: string | null
+          baseline_phrase: string | null
+          baseline_score: number | null
+          baseline_signal_pills: Json | null
+          baseline_state: string | null
+          baseline_tier: string | null
+          baseline_watch_for: string | null
+          baseline_watch_for_source: string | null
           brief_source: string
           checkin_snapshot: Json | null
           created_at: string
@@ -238,29 +247,40 @@ export type Database = {
           feedback_text: string | null
           id: string
           input_signature: string
-          lean_on: string | null
-          lean_on_source: string | null
           llm_attempts: Json | null
           llm_fallback_reason: string | null
           local_date: string
           payload_json: Json | null
-          phrase: string | null
           pillar_mode: string | null
           prompt_version: string
-          score: number | null
-          signal_pills: Json | null
-          tier: string | null
+          refined_body_text: string | null
+          refined_lean_on: string | null
+          refined_lean_on_source: string | null
+          refined_phrase: string | null
+          refined_score: number | null
+          refined_signal_pills: Json | null
+          refined_state: string | null
+          refined_tier: string | null
+          refined_watch_for: string | null
+          refined_watch_for_source: string | null
           time_window: string
           updated_at: string
           user_id: string
           user_rating: string | null
           validator_rejections: Json | null
-          watch_for: string | null
-          watch_for_source: string | null
           wearable_snapshot: Json | null
         }
         Insert: {
-          body_text?: string | null
+          baseline_body_text?: string | null
+          baseline_lean_on?: string | null
+          baseline_lean_on_source?: string | null
+          baseline_phrase?: string | null
+          baseline_score?: number | null
+          baseline_signal_pills?: Json | null
+          baseline_state?: string | null
+          baseline_tier?: string | null
+          baseline_watch_for?: string | null
+          baseline_watch_for_source?: string | null
           brief_source: string
           checkin_snapshot?: Json | null
           created_at?: string
@@ -269,29 +289,40 @@ export type Database = {
           feedback_text?: string | null
           id?: string
           input_signature: string
-          lean_on?: string | null
-          lean_on_source?: string | null
           llm_attempts?: Json | null
           llm_fallback_reason?: string | null
           local_date: string
           payload_json?: Json | null
-          phrase?: string | null
           pillar_mode?: string | null
           prompt_version: string
-          score?: number | null
-          signal_pills?: Json | null
-          tier?: string | null
+          refined_body_text?: string | null
+          refined_lean_on?: string | null
+          refined_lean_on_source?: string | null
+          refined_phrase?: string | null
+          refined_score?: number | null
+          refined_signal_pills?: Json | null
+          refined_state?: string | null
+          refined_tier?: string | null
+          refined_watch_for?: string | null
+          refined_watch_for_source?: string | null
           time_window: string
           updated_at?: string
           user_id: string
           user_rating?: string | null
           validator_rejections?: Json | null
-          watch_for?: string | null
-          watch_for_source?: string | null
           wearable_snapshot?: Json | null
         }
         Update: {
-          body_text?: string | null
+          baseline_body_text?: string | null
+          baseline_lean_on?: string | null
+          baseline_lean_on_source?: string | null
+          baseline_phrase?: string | null
+          baseline_score?: number | null
+          baseline_signal_pills?: Json | null
+          baseline_state?: string | null
+          baseline_tier?: string | null
+          baseline_watch_for?: string | null
+          baseline_watch_for_source?: string | null
           brief_source?: string
           checkin_snapshot?: Json | null
           created_at?: string
@@ -300,25 +331,27 @@ export type Database = {
           feedback_text?: string | null
           id?: string
           input_signature?: string
-          lean_on?: string | null
-          lean_on_source?: string | null
           llm_attempts?: Json | null
           llm_fallback_reason?: string | null
           local_date?: string
           payload_json?: Json | null
-          phrase?: string | null
           pillar_mode?: string | null
           prompt_version?: string
-          score?: number | null
-          signal_pills?: Json | null
-          tier?: string | null
+          refined_body_text?: string | null
+          refined_lean_on?: string | null
+          refined_lean_on_source?: string | null
+          refined_phrase?: string | null
+          refined_score?: number | null
+          refined_signal_pills?: Json | null
+          refined_state?: string | null
+          refined_tier?: string | null
+          refined_watch_for?: string | null
+          refined_watch_for_source?: string | null
           time_window?: string
           updated_at?: string
           user_id?: string
           user_rating?: string | null
           validator_rejections?: Json | null
-          watch_for?: string | null
-          watch_for_source?: string | null
           wearable_snapshot?: Json | null
         }
         Relationships: [
