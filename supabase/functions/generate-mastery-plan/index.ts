@@ -4392,14 +4392,19 @@ async function applyV51Enrichment(
         }
       } catch { /* keep false */ }
 
-      // Title (replaces "Prepare ahead of …" label that truncates)
-      const newTitle = buildPlanTitle({
+      // Title — CEO-behaviour-first via buildPriorityTitle.
+      // Output shape: "<verb> <executive objective> <connector> <event>"
+      // (e.g. "Lead strategic clarity in tomorrow's Board Meeting").
+      const newTitle = buildPriorityTitle({
         eventTitle: hm.jitEventTitle,
         category,
         phase,
         isTomorrow,
+        practicePriorityTag: req.practicePriorityTag ?? null,
       });
       if (newTitle) hm.timeLabel = newTitle;
+      // Stash arc verb so the client can render the chip without re-deriving.
+      (hm as any).arcVerb = verbForCategoryPhase(category, phase);
 
       // Sub-line (≤6 words) → rendered as recommendedAction
       const frame = buildActionFrame(category, phase);
@@ -4468,7 +4473,47 @@ async function applyV51Enrichment(
       if (dup) continue;
       accepted.push({ idx: jitJobs[i].idx, text });
     }
-    for (const a of accepted) modules[a.idx].whyLine = a.text;
+    for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
+  }
+
+  // ── Temporal gate: Reflection Corner / "Tiny Win" practices ─────────
+  // The "Tiny Win and Reflection" integrate practice asks the user to
+  // capture "one thing you did right today". Only emit between 18:00 and
+  // 22:59 local. In the Early Hours tail of the Evening window (00–04:59)
+  // — when the day has effectively reset — swap to a forward-looking
+  // "Sleep prep & tomorrow framing" integrate so the prompt matches
+  // human perception of the moment.
+  const localHour = (() => {
+    const local = new Date(Date.now() - tzOffsetMin * 60_000);
+    return local.getUTCHours();
+  })();
+  const reflectionWindow = localHour >= 18 && localHour < 23;
+  if (!reflectionWindow) {
+    for (const hm of modules) {
+      const practices = (hm.practices && hm.practices.length > 0)
+        ? hm.practices
+        : (hm.practice ? [hm.practice] : []);
+      for (const p of practices) {
+        if (!p) continue;
+        if (p.title === 'Tiny Win and Reflection' || p.type === 'integrate') {
+          if (p.title === 'Tiny Win and Reflection') {
+            p.title = 'Sleep Prep & Tomorrow Framing';
+            (p as any).prompt = "Two lines, both forward-looking: what is the ONE thing tomorrow needs you ready for, and the cleanest way to land tonight so you arrive there sharp?";
+          }
+        }
+      }
+    }
+  }
+
+  // ── Final sanitiser pass ────────────────────────────────────────────
+  // Strip stray markdown emphasis from any user-visible string the LLM
+  // (or a downstream copy builder) may have touched. whyLine is already
+  // stripped on the determ. baseline path; this catches the LLM path and
+  // the recommendedAction copy builder.
+  for (const hm of modules) {
+    if (typeof hm.whyLine === 'string') hm.whyLine = stripBriefMarkdown(hm.whyLine);
+    if (typeof hm.recommendedAction === 'string') hm.recommendedAction = stripBriefMarkdown(hm.recommendedAction);
+    if (typeof hm.timeLabel === 'string') hm.timeLabel = stripBriefMarkdown(hm.timeLabel);
   }
 
   return modules;
