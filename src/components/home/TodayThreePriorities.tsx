@@ -29,6 +29,7 @@ import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/releva
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import PriorityTagAffordance, { type PriorityTagState } from '@/components/home/PriorityTagAffordance';
+import { stripBriefMarkdown } from '@/components/home/timeLabel';
 import {
   readEdits as readPlanEdits,
   patchSlotEdit as patchPlanSlotEdit,
