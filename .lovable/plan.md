@@ -1,55 +1,62 @@
-
 ## Goal
 
-The current Today hero (executive-home / check-in / plan) uses 3 images with a heavy dark wash that crushes detail — the morning/afternoon/evening visuals end up looking identical and the engraved style disappears. The Front page (`Mind Module Executive Edition` cover) keeps full mid-tone clarity even though it's dark — that's the bar.
+Two surgical UI changes on the Today flow (`/executive-home`, `/check-in`, `/plan`):
 
-Brief stays **Active Calm + peak mental performance**. Replace the 3 hero JPGs with new B&W woodcut-engraved landscapes in the Front-page style (radiating sun-burst lines, dense hatching, dramatic clouds, no humans), each visually distinct by time-of-day, and tune the TodayHero overlay so the engraving actually reads.
+1. **Lift the content cards up so they overlap the hero**, making the hero + taupe canvas read as one continuous background behind the card. Hero keeps its current height (`h-[280px] md:h-[340px]`); the card simply floats on top and ends up occupying ~70–75% of the viewport.
+2. **Make the greeting ("Standing by, Shuk") reliably visible** across morning (bright clouds/sun), afternoon (cliff/sky) and evening (dark moon-lake) hero visuals.
 
-## 1. Generate 3 new hero images (premium, 1920×1024, engraved B&W)
+No changes to data, routing, scoring, brief, or plan logic.
 
-Save into `public/all-visuals/images/` (overwrite existing filenames so no code path changes):
+## 1. Overlap cards on the hero
 
-- **`hero-morning.jpg` — "Sun over the peak"**
-  Big radiant sun rising directly behind a sharp mountain summit, classic 19th-century woodcut sun-rays fanning across the sky, layered ridge lines receding into hatched mist below. Energy: ascent, clarity, the start of the climb. Matches the Front-page cover sun/cloud language.
+The hero lives in a `relative` wrapper directly above the scrollable content section. Today the content section starts *below* the hero, so the card sits beneath it. We pull the content up with a negative margin equal to roughly 60% of the hero height and raise its z-index so it floats above the hero. The hero's existing bottom taupe-fade already dissolves into `--canvas-hi`, so the seam stays invisible.
 
-- **`hero-afternoon.jpg` — "Edge of the cliff"**
-  High-vantage cliff edge in the foreground (engraved rock striations), vast hatched valley + distant mountain range stretching to a bright midday horizon, scattered cumulus rendered as dense parallel-line clouds. Energy: standing in the arena, executing under pressure.
+### `src/pages/ExecutiveHome.tsx`
+- On the content wrapper (currently `<div className="flex-1 w-full pb-[...]">`), add `relative z-20 -mt-[170px] md:-mt-[210px]`.
+- Inside `HomeSwipeShell` pages (MRS card lives in `MrsPage`, Brief card, Plan card), the cards already have their own white/taupe surfaces — no per-card change needed.
 
-- **`hero-evening.jpg` — "Stillwater under moonlit ridge"**
-  Calm alpine lake reflecting a low moon, silhouette ridge line behind, fine cross-hatched water ripples, sparse stars as stippled dots. Energy: recovery, restoration, preparing for tomorrow.
+### `src/pages/PlanPage.tsx`
+- On the wrapper that holds the plan content directly below `<TodayHero />`, add the same `relative z-20 -mt-[170px] md:-mt-[210px]`.
 
-All three: pure black-and-white engraving, no color, no humans, no text, heavy linework so detail survives the page overlay. Generated with `imagegen--generate_image` model `premium` for fidelity, 1920×1024.
+### `src/pages/DailyCheckIn.tsx` and `src/pages/CheckInDetail.tsx`
+- Same treatment on the content wrapper immediately following `<TodayHero />`.
 
-Sanity-check the renders by viewing each file before wiring; regenerate any that drift into illustration/photo territory or include figures.
+### Hero itself (`src/components/today/TodayHero.tsx`)
+- No height change. Keep `h-[280px] md:h-[340px]`.
+- Keep the existing bottom canvas fade (already dissolves into taupe).
+- Ensure the hero wrapper stays `relative` with default z (cards above it).
 
-## 2. Lighten the TodayHero overlay (`src/components/today/TodayHero.tsx`)
+Net effect: top ~110/130px of hero visible (sky + greeting), card body covers the rest of the hero and continues down the page over the taupe canvas — ~70–75% of viewport on a phone.
 
-Current issue: `grayscale(1) contrast(1.15) brightness(0.85)` + a top-to-bottom dark gradient (up to 0.75 alpha) collapses the engraving into a flat dark wash.
+## 2. Greeting legibility across all three TODs
 
-Changes:
-- Image filter → `contrast(1.25) brightness(1.0)` (drop grayscale — the new assets are already B&W; keep the contrast bump to deepen the lines).
-- `opacity` → `1`.
-- Replace `TOD_OVERLAY` with much lighter, time-of-day **tints** (max ~0.22 alpha at the bottom, transparent at the top) so the visual stays legible like the Front-page cover:
-  - morning: warm amber tint `rgba(180,120,60, 0–0.18)`
-  - afternoon: neutral cool `rgba(60,80,100, 0–0.18)`
-  - evening: deep indigo `rgba(20,25,50, 0–0.22)`
-- Keep the existing bottom taupe fade into `--canvas-hi` for the seamless card blend (unchanged).
-- Keep height (`h-[280px] md:h-[340px]`).
+Currently the greeting is ink (`text-[#1a1712]`) with a white halo — invisible on the dark evening visual.
 
-## 3. Greeting legibility (`src/components/today/TodayGreeting.tsx`)
+Switch to a **light-on-dark scheme that survives bright skies too**:
 
-With the lighter overlay the top of the hero is brighter, so the white greeting can wash out. Switch to `text-[#1a1712]` (ink) with `drop-shadow-[0_1px_6px_rgba(255,255,255,0.55)]` for a soft halo — readable on all three new scenes. Pencil icon → `text-[#1a1712]/60`.
+### `src/components/today/TodayGreeting.tsx`
+- Text color → `text-white`.
+- Shadow → `drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]` (double drop-shadow = soft halo + crisp edge; reads on both bright clouds and dark moonlight).
+- Pencil icon → `text-white/80` with the same shadow.
+- Edit-mode input pill stays as-is (white surface, ink text) so it's still readable when typing.
+
+### `src/components/today/TodayHero.tsx` — small top-tint bump for greeting contrast
+Add a subtle **top** vignette per TOD so the greeting always sits on a slightly darker band, without dimming the engraving below:
+- Replace single `TOD_OVERLAY` gradient with two stacked gradients:
+  - Top band (0 → 25% of hero): `linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 100%)` — universal greeting backstop.
+  - Bottom band (existing TOD tint, unchanged).
+- This keeps mid-hero detail fully legible while guaranteeing the greeting has contrast on morning/afternoon's bright skies.
 
 ## Out of scope
 
-- No changes to routing, scoring, brief, plan, or any data hooks.
-- Front page (`/`) untouched.
-- Other cards / engraved art bands elsewhere untouched.
+- Hero image regeneration, hero height, hero filter, taupe fade direction.
+- Front page (`/`), navigation, brief/plan/score logic, card internals.
 
 ## Verification
 
-1. Open `/executive-home`, `/check-in`, `/plan` at mobile width.
-2. Each TOD shows a clearly different scene (sun-peak vs cliff vs moon-lake), engraved hatching visible, no muddy dark wash.
-3. Greeting "Standing by, Shuk" reads cleanly over all three.
-4. Bottom of hero still dissolves into the taupe canvas — cards float, no hard seam.
-5. No console errors.
+1. `/executive-home`, `/check-in`, `/plan` at mobile width (390×844):
+   - Card visually overlaps the hero; top ~30% of screen shows hero, bottom ~70% shows card on taupe.
+   - Hero → taupe transition has no hard seam (card covers the join).
+2. "Standing by, Shuk" is clearly readable on all three TOD visuals (cycle by changing system time or temporarily hardcoding `tod`).
+3. Sidebar trigger + any header controls still tappable (z-index check).
+4. No console errors; no layout shift on first paint.
