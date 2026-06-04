@@ -446,6 +446,7 @@ const CheckInDetail = () => {
           </div>
         </div>
       </div>
+      </div>
 
     </div>
     </SidebarInset>
