@@ -1443,6 +1443,23 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
+                {/* Arc badge — Prepare / During / Recover / Steady.
+                    Renders only when the slot is anchored to a known event
+                    (or carries an explicit arc), so multi-arc allocations
+                    of the same event are self-explanatory. Muted chip style
+                    — no new colour token. */}
+                {hm.arcLabel && (hm.isJit || !!hm.jitEventTitle) && (
+                  <span
+                    className={cn(
+                      "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
+                      slotCompleted && "opacity-60"
+                    )}
+                    aria-label={`Arc: ${hm.arcLabel}`}
+                  >
+                    {hm.arcLabel}
+                  </span>
+                )}
+
                 {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
                   <p className={cn(
