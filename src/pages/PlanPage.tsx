@@ -62,10 +62,10 @@ const PlanPage = () => {
                   shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <div className="mb-3 px-3 flex items-center justify-between">
                     <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
-                      Mental Performance Plan
+                      Today's Performance Priorities
                     </span>
                     <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
-                      Today's 3 Priorities
+                      Mental Performance Plan
                     </span>
                   </div>
                   <div>
