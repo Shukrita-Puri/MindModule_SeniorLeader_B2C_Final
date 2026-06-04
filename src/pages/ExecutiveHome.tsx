@@ -30,6 +30,7 @@ import CheckInBanner from "@/components/home/CheckInBanner";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import HistoricalBriefOverlay from "@/components/home/HistoricalBriefOverlay";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
+import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import FirstSessionGuide from "@/components/onboarding/FirstSessionGuide";
