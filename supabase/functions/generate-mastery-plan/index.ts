@@ -58,7 +58,8 @@ import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
-import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
+import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase } from '../_shared/plan/title-prefixes.ts';
+import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
 import { generateWhyStatement, jaccard, type WhyLLMInput } from '../_shared/plan/why-llm.ts';
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
