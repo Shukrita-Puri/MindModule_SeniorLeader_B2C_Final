@@ -4434,7 +4434,18 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       ? cachedSnapshot.brief_source
       : (llmBrief ? 'llm' : 'deterministic');
     const responsePhrase = cachedSnapshot?.phrase ?? llmBrief?.phrase ?? finalPhrase;
-    const responseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+    const rawResponseBody = cachedSnapshot?.body_text ?? llmBrief?.bodyText ?? finalContext;
+    // Strip stray markdown emphasis the LLM occasionally emits (e.g.
+    // "*Board Meeting *"). The client renderer still parses **bold** spans
+    // so we intentionally do NOT touch them — only lone-asterisk noise.
+    const responseBody = (() => {
+      if (typeof rawResponseBody !== 'string') return rawResponseBody;
+      let s = rawResponseBody;
+      s = s.replace(/(^|[\s(])\*(?!\*)\s?([^*\n]+?)\s?\*(?!\*)(?=[\s.,;:!?)]|$)/g, '$1$2');
+      s = s.replace(/(^|\s)\*(\s)/g, '$1$2');
+      s = s.replace(/[ \t]{2,}/g, ' ');
+      return s.trim();
+    })();
 
     // ═══ BRIEF SIGNAL CONTRACT (day-scoped) ═══
     // The brief reflects *today*. ANY non-skipped check-in for the user's

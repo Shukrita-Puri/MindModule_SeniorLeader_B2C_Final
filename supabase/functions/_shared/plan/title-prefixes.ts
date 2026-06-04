@@ -114,3 +114,135 @@ export function buildPlanTitle(input: BuildPlanTitleInput): string {
   if (words.length > 8) out = words.slice(0, 8).join(" ");
   return out;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// buildPriorityTitle — CEO-behaviour-first Today's Priorities title.
+//
+// Format: `{verb} {executive objective} {connector} {event name}`
+// where the verb is chosen from the event Category × Phase and the
+// objective is mapped from `practicePriorityTag` to executive language.
+//
+// Examples:
+//   pre  · A · regulation_composure  → "Lead composed presence in tomorrow's Board Meeting"
+//   post · A · -                     → "Reset after the Board Meeting"
+//   pre  · D · focus_clarity         → "Hold steady presence in the Shukrita/Tom feedback"
+//
+// Used by BOTH JIT and non-JIT slots so the eyebrow rule "<verb>
+// <objective> in <event>" is the single source for the Today's
+// Performance Priorities card.
+// ════════════════════════════════════════════════════════════════════════
+
+export type ArcVerb = 'Lead' | 'Decide' | 'Present' | 'Steady' | 'Recover' | 'Reset' | 'Reframe' | 'Land' | 'Hold';
+
+/** Pick a CEO-behaviour verb from category + phase. */
+export function verbForCategoryPhase(category: EventCategoryId | null, phase: Phase): ArcVerb {
+  if (phase === 'post') {
+    if (category === 'A' || category === 'D') return 'Reset';
+    if (category === 'F' || category === 'G') return 'Recover';
+    return 'Land';
+  }
+  if (phase === 'during') {
+    return 'Hold';
+  }
+  // pre
+  switch (category) {
+    case 'A': return 'Lead';            // Board / governance
+    case 'B': return 'Present';         // Client / external presentation
+    case 'C': return 'Decide';          // Strategic decisions
+    case 'D': return 'Steady';          // Difficult-people / feedback
+    case 'E': return 'Steady';          // Deep work / focus blocks
+    case 'F': return 'Present';         // Conferences / keynotes
+    case 'G': return 'Reframe';         // Travel / transitions
+    case 'H': return 'Steady';          // Daily rhythm
+    default:  return 'Steady';
+  }
+}
+
+/**
+ * Map a `practicePriorityTag` to a 2–3-word executive performance objective.
+ * Falls back to a phase-appropriate generic objective when the user has no
+ * onboarding tag.
+ */
+export function executiveObjectiveFor(
+  practicePriorityTag: string | null | undefined,
+  category: EventCategoryId | null,
+  phase: Phase,
+): string {
+  const tag = practicePriorityTag || '';
+  // Canonical mapping per CEO-behaviour framework.
+  const tagMap: Record<string, string> = {
+    regulation_composure: 'composed presence',
+    regulation_early:     'composed presence',
+    recovery_resilience:  'focused recovery',
+    energy_endurance:     'sustained energy',
+    focus_clarity:        'strategic clarity',
+    mindset_reframe:      'decisive alignment',
+  };
+  if (tag && tagMap[tag]) return tagMap[tag];
+
+  // Phase-aware defaults when no tag.
+  if (phase === 'post') {
+    return category === 'A' || category === 'D' ? 'clean recovery' : 'recovery';
+  }
+  if (phase === 'during') return 'steady presence';
+  // pre
+  switch (category) {
+    case 'A': return 'strategic clarity';
+    case 'B': return 'composed presence';
+    case 'C': return 'decisive alignment';
+    case 'D': return 'steady presence';
+    case 'E': return 'sustained focus';
+    case 'F': return 'composed presence';
+    case 'G': return 'circadian readiness';
+    case 'H': return 'daily rhythm';
+    default:  return 'composed presence';
+  }
+}
+
+function connectorFor(phase: Phase): string {
+  if (phase === 'post') return 'after';
+  if (phase === 'during') return 'through';
+  return 'in';
+}
+
+export interface BuildPriorityTitleInput {
+  eventTitle: string | null | undefined;
+  category: EventCategoryId | null;
+  phase: Phase | null;
+  isTomorrow?: boolean;
+  practicePriorityTag?: string | null;
+  /** When no calendar event anchors the slot (state-management). */
+  fallbackContext?: string;
+}
+
+/**
+ * The single source for Today's Performance Priorities titles (JIT + non-JIT).
+ * Output shape: `${verb} ${objective} ${connector} ${eventName}` capped at
+ * 10 words.
+ */
+export function buildPriorityTitle(input: BuildPriorityTitleInput): string {
+  const phase: Phase = input.phase || 'pre';
+  const cat = input.category;
+  const verb = verbForCategoryPhase(cat, phase);
+  const objective = executiveObjectiveFor(input.practicePriorityTag, cat, phase);
+  const connector = connectorFor(phase);
+
+  if (!input.eventTitle || !input.eventTitle.trim()) {
+    const ctx = input.fallbackContext?.trim();
+    if (ctx) return `${verb} ${objective} ${connector} ${ctx}`.replace(/\s+/g, ' ').trim();
+    // No anchor at all — state-management label.
+    return `${verb} ${objective} for the day ahead`;
+  }
+
+  // Trim event title to ≤4 identifying tokens, drop "Meeting"-style noise tail.
+  const evt = shrinkEventName(input.eventTitle, 4);
+  const tomorrow = input.isTomorrow ? "tomorrow's" : '';
+  // For post we say "after the Board Meeting" not "after tomorrow's Board Meeting".
+  const article = phase === 'post' && !tomorrow ? 'the' : tomorrow;
+
+  const parts = [verb, objective, connector, article, evt].filter(Boolean);
+  let out = parts.join(' ').replace(/\s+/g, ' ').trim();
+  const words = out.split(' ');
+  if (words.length > 10) out = words.slice(0, 10).join(' ');
+  return out;
+}

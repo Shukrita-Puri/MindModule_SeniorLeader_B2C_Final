@@ -70,12 +70,8 @@ const getTierLabel = (tier: string): string => {
   }
 };
 
-const getTimeLabel = (): string => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Morning';
-  if (hour >= 12 && hour < 18) return 'Afternoon';
-  return 'Evening';
-};
+import { getTimeLabel as sharedGetTimeLabel, stripBriefMarkdown } from './timeLabel';
+const getTimeLabel = sharedGetTimeLabel;
 
 const getDateLabel = (): string => {
   const d = new Date();
@@ -1793,9 +1789,21 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
   const phrase = awaitingSignals
     ? null
     : (outerBrief?.phrase || "Today's read.");
+  // Strip stray *single-asterisk emphasis* the LLM occasionally emits
+  // (e.g. "*Board Meeting *") without touching legitimate **bold** spans
+  // that the renderer below relies on. Mirrors the server's
+  // `stripBriefMarkdown` for defence in depth.
+  const stripStrayAsterisks = (s: string): string => {
+    // Wrapped emphasis: " *Word* " → " Word "
+    let out = s.replace(/(^|[\s(])\*(?!\*)\s?([^*\n]+?)\s?\*(?!\*)(?=[\s.,;:!?)]|$)/g, '$1$2');
+    // Stray single asterisks adjacent to whitespace.
+    out = out.replace(/(^|\s)\*(\s)/g, '$1$2');
+    out = out.replace(/[ \t]{2,}/g, ' ');
+    return out;
+  };
   const bodyText = awaitingSignals
     ? null
-    : (outerBrief?.bodyText || null);
+    : (outerBrief?.bodyText ? stripStrayAsterisks(String(outerBrief.bodyText)) : null);
 
   // Parse body for bold — supports both **text** markdown and <strong>text</strong> HTML
   const renderBody = (text: string) => {

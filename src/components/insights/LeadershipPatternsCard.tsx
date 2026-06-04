@@ -121,9 +121,8 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       if (DEV_MODE) {
         const { data, error } = await supabase
           .from('brief_snapshots')
-          .select('score, local_date, time_window, created_at')
+          .select('refined_score, baseline_score, local_date, time_window, created_at')
           .eq('user_id', effectiveUserId)
-          .not('score', 'is', null)
           .order('local_date', { ascending: false })
           .order('time_window', { ascending: false })
           .order('created_at', { ascending: false })
@@ -132,7 +131,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
           console.warn('[LeadershipPatternsCard] DEV briefScore error:', error.message);
           return;
         }
-        rows = (data ?? []) as typeof rows;
+        rows = (data ?? [])
+          .map((r: any) => ({
+            score: (r.refined_score ?? r.baseline_score) as number,
+            local_date: r.local_date,
+            time_window: r.time_window,
+            created_at: r.created_at,
+          }))
+          .filter((r) => r.score != null);
       } else {
         const accessToken = await getAuthToken();
         if (!accessToken) return;

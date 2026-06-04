@@ -58,7 +58,8 @@ import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
-import { buildPlanTitle } from '../_shared/plan/title-prefixes.ts';
+import { buildPlanTitle, buildPriorityTitle, verbForCategoryPhase } from '../_shared/plan/title-prefixes.ts';
+import { stripBriefMarkdown } from '../_shared/text/sanitise.ts';
 import { buildActionFrame, buildRecommendedActionCopy } from '../_shared/plan/action-frame.ts';
 import { generateWhyStatement, jaccard, type WhyLLMInput } from '../_shared/plan/why-llm.ts';
 // JIT v2 shadow-mode selector (PR 1). Runs in parallel with the legacy
@@ -4122,12 +4123,22 @@ function clauseOverlapsBrief(clause: string, brief: Set<string>): boolean {
   return false;
 }
 
-function strategicAnchorClause(req: PlanRequest, ceo: CeoRealityTag[]): string | null {
+function strategicAnchorClause(
+  req: PlanRequest,
+  ceo: CeoRealityTag[],
+  slotAnchorCategoryId: string | null,
+): string | null {
   if (ceo.includes('public_holiday') || ceo.includes('personal_pto')) {
     return 'Holiday today — light touch.';
   }
   if (ceo.includes('circadian_travel')) return 'Travel debt is active.';
-  if (ceo.includes('board_outcome')) return 'Today protects Executive Presence for a board-level call.';
+  // Anchor leakage guard: the `board_outcome` CEO flag is plan-scoped.
+  // Only emit the board-level anchor when THIS slot is itself anchored to
+  // a board-level event (Category A). Otherwise this clause bleeds onto
+  // unrelated slots ("Ground Shukrita feedback" reading "…board-level call").
+  if (ceo.includes('board_outcome') && slotAnchorCategoryId === 'A') {
+    return 'Today protects Executive Presence for a board-level call.';
+  }
   if (ceo.includes('veto_risk')) return 'You feel sharp; the body reads otherwise.';
   if (ceo.includes('personal_friction')) return 'Internal Buffer is compressed.';
   const growth = (req.coachInsights || []).find((i: any) => i.type === 'growth_area')?.content;
@@ -4163,8 +4174,17 @@ function tacticalClause(req: PlanRequest, shared: SharedContext, hrvCorrelations
   return null;
 }
 
-function immediateClause(req: PlanRequest, ceo: CeoRealityTag[]): string | null {
-  if (ceo.includes('decision_leakage')) return 'Drain event ahead — protect composure.';
+function immediateClause(
+  req: PlanRequest,
+  ceo: CeoRealityTag[],
+  slotAnchorCategoryId: string | null,
+): string | null {
+  // decision_leakage is anchored to a drain event in the next 24h. Only
+  // surface it on slots that are themselves anchored to a calendar event
+  // (i.e. JIT or fusion slots). Don't bleed it onto unrelated state slots.
+  if (ceo.includes('decision_leakage') && slotAnchorCategoryId) {
+    return 'Drain event ahead — protect composure.';
+  }
   const w = req.wearableContext;
   // Choose whichever live signal is available; brief-anti-dup will swap if it overlaps
   if (w?.hasData) {
@@ -4197,9 +4217,19 @@ function composeWhyLine(
   briefClaim: Set<string>,
   fusionEventTitle: string | null,
 ): string {
-  let strat = strategicAnchorClause(req, ceo);
+  // Slot-scoped anchor identity. composeWhyLine MUST only emit clauses
+  // that belong to the slot's own anchor — global plan-scope CEO flags
+  // are passed through `strategicAnchorClause` with the slot's category
+  // so cross-event leakage is impossible.
+  const slotAnchorTitle = (hm.isJit && hm.jitEventTitle)
+    ? hm.jitEventTitle
+    : (fusionEventTitle || null);
+  const slotAnchorCategoryId: string | null = (hm as any).anchorCategoryId
+    ?? ((hm as any).jitCategoryId ?? null);
+
+  let strat = strategicAnchorClause(req, ceo, slotAnchorCategoryId);
   let tac = tacticalClause(req, shared, hrvCorrelations, ceo);
-  let imm = immediateClause(req, ceo);
+  let imm = immediateClause(req, ceo, slotAnchorCategoryId);
 
   if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
   if (tac && clauseOverlapsBrief(tac, briefClaim)) tac = null;
@@ -4209,12 +4239,25 @@ function composeWhyLine(
   const allOverlap = !strat && !tac && !imm && briefClaim.size > 0;
   const verb = pickActionVerb(hm.practice?.type || 'regulate');
 
-  // forContext — JIT name, fusion event, or slot purpose
+  // Arc label — surfaced both in the Why string and on the client badge.
+  // pre → Prepare, during → During, post → Recover, end_of_day → Recover,
+  // start_of_day → Prepare, fallback → Steady.
+  const phase = (hm as any).jitPhase as ('pre' | 'during' | 'post' | undefined);
+  const arcLabel: 'Prepare' | 'During' | 'Recover' | 'Steady' =
+    phase === 'post' || hm.slotKind === 'end_of_day' ? 'Recover'
+    : phase === 'during' ? 'During'
+    : phase === 'pre' || hm.slotKind === 'jit' || hm.slotKind === 'start_of_day' ? 'Prepare'
+    : 'Steady';
+  (hm as any).arcLabel = arcLabel;
+
+  // forContext — slot-scoped anchor only. Never name a different event.
   let forContext = '';
-  if (hm.isJit && hm.jitEventTitle) {
-    forContext = `before ${hm.jitEventTitle}`;
-  } else if (fusionEventTitle) {
-    forContext = `to enter the day and prep for ${fusionEventTitle}`;
+  if (slotAnchorTitle) {
+    forContext = phase === 'post'
+      ? `after ${slotAnchorTitle}`
+      : phase === 'during'
+        ? `through ${slotAnchorTitle}`
+        : `before ${slotAnchorTitle}`;
   } else if (hm.slotKind === 'end_of_day') {
     forContext = 'to close the day with intention';
   } else if (hm.slotKind === 'start_of_day') {
@@ -4231,8 +4274,8 @@ function composeWhyLine(
     if (tac) parts.push(tac);
     if (imm) parts.push(imm);
   }
-  parts.push(`${verb} ${forContext}.`);
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  parts.push(`${arcLabel}: ${verb} ${forContext}.`);
+  return stripBriefMarkdown(parts.join(' ').replace(/\s+/g, ' ').trim());
 }
 
 const STEP_RATIONALE_MAP: Record<string, [string, string]> = {
@@ -4349,14 +4392,19 @@ async function applyV51Enrichment(
         }
       } catch { /* keep false */ }
 
-      // Title (replaces "Prepare ahead of …" label that truncates)
-      const newTitle = buildPlanTitle({
+      // Title — CEO-behaviour-first via buildPriorityTitle.
+      // Output shape: "<verb> <executive objective> <connector> <event>"
+      // (e.g. "Lead strategic clarity in tomorrow's Board Meeting").
+      const newTitle = buildPriorityTitle({
         eventTitle: hm.jitEventTitle,
         category,
         phase,
         isTomorrow,
+        practicePriorityTag: req.practicePriorityTag ?? null,
       });
       if (newTitle) hm.timeLabel = newTitle;
+      // Stash arc verb so the client can render the chip without re-deriving.
+      (hm as any).arcVerb = verbForCategoryPhase(category, phase);
 
       // Sub-line (≤6 words) → rendered as recommendedAction
       const frame = buildActionFrame(category, phase);
@@ -4425,7 +4473,47 @@ async function applyV51Enrichment(
       if (dup) continue;
       accepted.push({ idx: jitJobs[i].idx, text });
     }
-    for (const a of accepted) modules[a.idx].whyLine = a.text;
+    for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
+  }
+
+  // ── Temporal gate: Reflection Corner / "Tiny Win" practices ─────────
+  // The "Tiny Win and Reflection" integrate practice asks the user to
+  // capture "one thing you did right today". Only emit between 18:00 and
+  // 22:59 local. In the Early Hours tail of the Evening window (00–04:59)
+  // — when the day has effectively reset — swap to a forward-looking
+  // "Sleep prep & tomorrow framing" integrate so the prompt matches
+  // human perception of the moment.
+  const localHour = (() => {
+    const local = new Date(Date.now() - tzOffsetMin * 60_000);
+    return local.getUTCHours();
+  })();
+  const reflectionWindow = localHour >= 18 && localHour < 23;
+  if (!reflectionWindow) {
+    for (const hm of modules) {
+      const practices = (hm.practices && hm.practices.length > 0)
+        ? hm.practices
+        : (hm.practice ? [hm.practice] : []);
+      for (const p of practices) {
+        if (!p) continue;
+        if (p.title === 'Tiny Win and Reflection' || p.type === 'integrate') {
+          if (p.title === 'Tiny Win and Reflection') {
+            p.title = 'Sleep Prep & Tomorrow Framing';
+            (p as any).prompt = "Two lines, both forward-looking: what is the ONE thing tomorrow needs you ready for, and the cleanest way to land tonight so you arrive there sharp?";
+          }
+        }
+      }
+    }
+  }
+
+  // ── Final sanitiser pass ────────────────────────────────────────────
+  // Strip stray markdown emphasis from any user-visible string the LLM
+  // (or a downstream copy builder) may have touched. whyLine is already
+  // stripped on the determ. baseline path; this catches the LLM path and
+  // the recommendedAction copy builder.
+  for (const hm of modules) {
+    if (typeof hm.whyLine === 'string') hm.whyLine = stripBriefMarkdown(hm.whyLine);
+    if (typeof hm.recommendedAction === 'string') hm.recommendedAction = stripBriefMarkdown(hm.recommendedAction);
+    if (typeof hm.timeLabel === 'string') hm.timeLabel = stripBriefMarkdown(hm.timeLabel);
   }
 
   return modules;

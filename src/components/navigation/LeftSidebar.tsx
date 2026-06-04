@@ -45,7 +45,7 @@ const features = [
     title: 'Plan',
     icon: ListChecks,
     path: '/plan',
-    description: "Today's priorities",
+    description: "Today's Performance Priorities",
   },
   {
     title: 'Insight',

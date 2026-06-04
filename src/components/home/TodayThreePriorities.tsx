@@ -29,6 +29,7 @@ import { submitPlanFeedback, submitPlanSlotCancelFeedback } from '@/utils/releva
 import SlotCancelFeedbackModal, { type CancelReason } from '@/components/home/SlotCancelFeedbackModal';
 import EngravedLoader from '@/components/ui/engraved-loader';
 import PriorityTagAffordance, { type PriorityTagState } from '@/components/home/PriorityTagAffordance';
+import { stripBriefMarkdown } from '@/components/home/timeLabel';
 import {
   readEdits as readPlanEdits,
   patchSlotEdit as patchPlanSlotEdit,
@@ -120,6 +121,11 @@ interface HorizonModule {
   priorityTag?: 'high' | 'medium' | 'low' | null;
   relationshipTag?: string | null;
   customTags?: string[];
+  // Server-derived arc label for the slot. Surfaced as a small muted chip
+  // beside the priority number so multi-arc allocations of the same event
+  // (Prepare / Recover) are self-explanatory.
+  arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady';
+  arcVerb?: string;
 }
 
 interface CoachCardData {
@@ -1437,6 +1443,23 @@ const TodayThreePriorities = ({
                   {slotCompleted ? <Check size={14} className="stroke-[3]" /> : index + 1}
                 </div>
 
+                {/* Arc badge — Prepare / During / Recover / Steady.
+                    Renders only when the slot is anchored to a known event
+                    (or carries an explicit arc), so multi-arc allocations
+                    of the same event are self-explanatory. Muted chip style
+                    — no new colour token. */}
+                {hm.arcLabel && (hm.isJit || !!hm.jitEventTitle) && (
+                  <span
+                    className={cn(
+                      "text-[10px] tracking-[0.12em] uppercase font-body px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground/80 flex-shrink-0",
+                      slotCompleted && "opacity-60"
+                    )}
+                    aria-label={`Arc: ${hm.arcLabel}`}
+                  >
+                    {hm.arcLabel}
+                  </span>
+                )}
+
                 {/* Header — bold WHEN as Tier 1 anchor */}
                 <div className="flex-1 min-w-0">
                   <p className={cn(
@@ -1461,7 +1484,7 @@ const TodayThreePriorities = ({
                             Why this matters
                           </span>
                           <p className="text-[12px] text-foreground/75 font-body leading-relaxed">
-                            {hm.whyLine}
+                            {stripBriefMarkdown(hm.whyLine)}
                           </p>
                         </div>
                       )}
@@ -1525,13 +1548,13 @@ const TodayThreePriorities = ({
                         Why this matters
                       </span>
                       <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
-                        {hm.whyLine}
+                        {stripBriefMarkdown(hm.whyLine)}
                       </p>
                     </div>
                   )}
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
-                    {hm.recommendedAction || fallbackRecommendedAction(hm)}
+                    {stripBriefMarkdown(hm.recommendedAction || fallbackRecommendedAction(hm))}
                   </p>
 
                   {/* Sequence reasoning (multi-practice helper, if present) */}
@@ -1543,8 +1566,20 @@ const TodayThreePriorities = ({
 
                   {/* Reflection Corner — inline replacement for the suppressed /coach surface
                       on the evening "Tiny Win and Reflection" priority. Rendered AFTER the
-                      label/whyLine so context sets up the reflection, before the practice card. */}
-                  {(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                      label/whyLine so context sets up the reflection, before the practice card.
+
+                      Temporal gate: only render between 18:00 and 22:59 local. In the
+                      Early Hours tail (00:00–04:59) the prompt "what did you do right
+                      TODAY" is incoherent — the server already rewrites the practice
+                      to a forward-looking "Sleep Prep & Tomorrow Framing" companion,
+                      so we suppress the reflection capture here defensively. */}
+                  {(() => {
+                    const isReflectionPractice = module.title === 'Tiny Win and Reflection'
+                      || module.type === 'integrate';
+                    if (!isReflectionPractice) return false;
+                    const hour = new Date().getHours();
+                    return hour >= 18 && hour < 23;
+                  })() && (
                     <ReflectionCorner
                       postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
                       onSaved={async () => {
@@ -1568,8 +1603,19 @@ const TodayThreePriorities = ({
                   {/* Integrate slot owns its own actions inside ReflectionCorner
                       (Save win + Start companion). The redundant coach practice
                       card and bottom Start button below would just re-expand the
-                      same view, so we suppress them on this slot only. */}
-                  {!(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                      same view, so we suppress them on this slot only — but ONLY
+                      when the Reflection Corner is actually rendered. Outside
+                      its temporal window (18–22 local) we keep the regular
+                      practice card so the substitute "Sleep Prep & Tomorrow
+                      Framing" still has a Start affordance. */}
+                  {(() => {
+                    const isReflectionPractice = module.title === 'Tiny Win and Reflection'
+                      || module.type === 'integrate';
+                    if (!isReflectionPractice) return true;
+                    const hour = new Date().getHours();
+                    const reflectionShown = hour >= 18 && hour < 23;
+                    return !reflectionShown;
+                  })() && (
                   <>
                   {/* Practice cards — horizontal scroll when multiple */}
                   <div className={cn(
