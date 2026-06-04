@@ -286,7 +286,19 @@ const ExecutiveHome = () => {
                   label: 'Daily Plan',
                   node: (
                     <div className="max-w-lg mx-auto md:px-6 pt-0 px-2">
-                      <TodayThreePriorities />
+                      <div className="rounded-xl card-hero p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-eyebrow text-[hsl(var(--muted-foreground-v2))]">
+                            Today's Performance Priorities
+                          </span>
+                          <span className="text-caption text-[hsl(var(--muted-foreground-v2))]">
+                            {getTimeLabel()} · {getDateLabel()}
+                          </span>
+                        </div>
+                        <div className="mt-3">
+                          <TodayThreePriorities />
+                        </div>
+                      </div>
                     </div>
                   ),
                 },

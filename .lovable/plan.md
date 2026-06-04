@@ -1,64 +1,40 @@
-## Root cause audit
+## Goal
+Pure UI: visually mirror the Performance Readiness Brief card on two surfaces (Today's Priorities, MRS) and lighten the dark fill behind the MRS score circle. No logic, data, copy, or routing changes.
 
-Three independent problems block the gradient from showing across the app:
+## Changes
 
-**1. `background-attachment: fixed` is unreliable on iOS Safari / Capacitor WebView.**
-`body { .bg-app-surface }` uses `background-attachment: fixed`. On iOS the fixed attachment frequently fails to paint, so the body's `--background` (warm white `#FAFAF8`) shows through. That is why **Recalibrate now looks white** — we removed its strong inline gradient and left it relying on the body, which silently fails.
+### 1. Today's Performance Priorities — wrap in brief-style card with eyebrow
+File: `src/pages/ExecutiveHome.tsx` (around line 287–291, the `plan` tab node)
 
-**2. shadcn `SidebarInset` hardcodes `bg-background`.**
-`src/components/ui/sidebar.tsx` (line 325) bakes `bg-background` into `<SidebarInset>`. Any page that wraps content in `SidebarProvider` + `SidebarInset` without explicitly passing `bg-transparent` paints opaque warm-white over the body — completely hiding any global gradient. **`ExecutiveHome.tsx`** (line 243) does exactly this. Recalibrate happens to pass `bg-transparent`, but ExecutiveHome and any other sidebar-using page do not.
+Wrap `<TodayThreePriorities />` in the same `rounded-xl card-hero p-4` shell the brief uses, and prepend an eyebrow row identical in markup/typography to the brief's eyebrow (lines 1892–1900 in `DecisionReadinessBrief.tsx`):
 
-**3. Insights pages have their own hardcoded green inline gradient.**
-- `src/pages/Insights.tsx` line 923 — full green `bg-[radial-gradient(...hsl(122_22%_...))]` on the outer wrapper.
-- `src/pages/InsightDetail.tsx` line 54 — same green gradient.
-These were never swept in the previous pass, so Insights stays green regardless of body.
+- Left: `Today's Performance Priorities` (text-eyebrow, muted-foreground-v2)
+- Right: `{getTimeLabel()} · {getDateLabel()}` (text-caption, muted-foreground-v2), imported from `@/components/home/timeLabel`
 
-## Fix
+The existing `<TodayThreePriorities />` renders unchanged inside the new wrapper. No props, no logic touched.
 
-### A. Make the global surface bullet-proof (`src/index.css`)
-Stop relying on `background-attachment: fixed` on `body`. Apply the gradient to `html`, `body`, and `#root` together, drop `background-attachment: fixed`, and let the gradient repeat naturally with `min-height: 100%`. Keep the existing `--taupe-*` token recipe identical so the visual identity (the Recalibrate parchment/taupe blend) is preserved:
+### 2. MRS page — wrap in matching card
+File: `src/components/home/mrs/MrsPage.tsx`
 
-```text
-html, body, #root      → .bg-app-surface
-.bg-app-surface        → same radial+linear gradient, NO background-attachment:fixed
-                         add background-repeat:no-repeat, background-size: 100% 100%
-```
+Wrap the inner `<div className="max-w-md mx-auto">…</div>` block in a `rounded-xl card-hero p-4` container so the score sits on the same card surface as the brief. Outer `<section>` (scroll + padding) stays as-is. Score, gauge, tier label, take-assessment tab, and weekly dial all render unchanged. The existing top eyebrow `"Mental Readiness Score"` stays — we are only adding a card behind it, not duplicating headers.
 
-This guarantees the gradient renders on every route, on iOS Safari, in Capacitor, and behind any transparent wrapper.
+### 3. Remove dark gradient behind the MRS score circle
+File: `src/components/home/mrs/MrsGauge.tsx`
 
-### B. Stop `SidebarInset` from masking the body
-Two surgical edits, no API change:
+The "dark gradient" is the orb body + shadow + drop-shadow stack that paints a dark sphere behind the number. Soften to white/card surface:
 
-1. `src/components/ui/sidebar.tsx` line 325 — replace `bg-background` with `bg-transparent` in `SidebarInset`'s base classes. Any page that genuinely needs an opaque surface can pass its own `bg-*` via `className` (tailwind-merge already supports the override).
-2. `src/pages/ExecutiveHome.tsx` line 243-245 — explicitly add `bg-transparent` to the `<SidebarInset>` (belt-and-braces, matches Recalibrate's pattern).
+- Drop the `drop-shadow-[0_18px_40px_rgba(0,0,0,0.28)]` on the `<svg>`.
+- Remove the `<circle … fill="url(#mrs-orb-shadow)" />` (the dark inner shadow ellipse).
+- Replace the `mrs-orb` radial-gradient stops so the sphere body reads as white/card rather than tier-tinted: pure white at the centre fading to fully transparent (no tier-color tinting in the body fill). This keeps the tier color only on the outer halo + progress arc.
+- Keep the specular highlight, halo, track, and progress arc untouched so the gauge still reads as an orb, just light-filled.
 
-### C. Strip hardcoded green gradients from Insights
-1. `src/pages/Insights.tsx` line 923 — replace the long inline `bg-[radial-gradient(...)]` with `bg-transparent`.
-2. `src/pages/InsightDetail.tsx` line 54 — same swap to `bg-transparent`. Keep the sticky header's `bg-background/40` (translucent) as-is so blur still reads.
+## Out of scope
+- No changes to scoring, data fetching, hooks, routes, copy, tier logic, or weekly-delta dial.
+- No restyling of the brief itself, the swipe shell, or any other page.
+- Card token (`card-hero`), `--background`, Saffron, and time/date helpers reused verbatim.
 
-### D. Sweep any remaining opaque `bg-background` outer wrappers
-Quick repo scan after A–C to catch any other `min-h-screen … bg-background` outer containers that weren't in the previous sweep and convert them to `bg-transparent`. Targets to re-verify: `ExecutiveHome`, `PlanPage`, `CheckInDetail`, `Profile`, `NudgeSettings`, `NudgeSimulator`, `SelfMasteryCoach`, `Login`, `Refer`, any layout/route skeleton that wraps a sidebar.
-
-## Explicitly NOT touched
-- Card / modal / sticky-header backgrounds (`bg-card`, `bg-background/40`, `bg-muted/*`) — they intentionally sit on top of the gradient.
-- `--background` token value, Saffron token, `bg-app-surface` color recipe.
-- Any onboarding V8 file already converted.
-- Recalibrate outcome pages (Pause / Presence / Power-Up) — already on `bg-transparent`.
-- Full-bleed player pages (Soundscape, Guided Practice, Micro Practice) — keep their visuals.
-- Logic, routes, copy, components.
-
-## Validation (end-to-end, post-build)
-Walk these routes in preview at mobile viewport and confirm the **same taupe Recalibrate gradient** is visible behind cards (not warm-white, not green):
-
-1. `/` (ExecutiveHome) — gradient behind hero + brief + priorities.
-2. `/recalibrate` — gradient (no longer white).
-3. `/recalibrate/pause`, `/recalibrate/presence`, `/recalibrate/power-up` — gradient.
-4. `/insights` — gradient (no longer green).
-5. `/insights/:id` (InsightDetail) — gradient.
-6. `/plan`, `/daily-check-in`, `/check-in/:id`, `/profile`, `/refer`, `/connected-data`, `/powered-by-ai`, `/privacy`, `/terms`.
-7. `/nudge-settings`, `/nudge-simulator`, `/coach`.
-8. `/onboarding/app-intro` and every V8 onboarding stage — gradient still visible (already wired).
-9. Full-bleed players (`/soundscapes/:id`, `/guided-practices/:id`, `/micro-practice/:id`) — visuals untouched.
-10. Confirm cards, modals, sticky headers retain their existing fills and contrast.
-
-If any page still reads warm-white or green, grep for residual `bg-background` / `bg-[radial-gradient` on its outermost wrapper and convert to `bg-transparent` before declaring done.
+## Validation
+Open `/` in mobile preview and step through the three swipe tabs:
+1. MRS tab — score sits on a light card, no dark sphere behind the number, orb still readable.
+2. Brief tab — unchanged.
+3. Plan tab — Today's Priorities now sits on a brief-style card with `Today's Performance Priorities` on the left and `Afternoon · Wed 4 Jun` (or current bucket) on the right of the eyebrow row.
