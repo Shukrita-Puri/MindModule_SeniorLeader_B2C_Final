@@ -53,7 +53,7 @@ const PlanPage = () => {
             </div>
             
 
-            <div className="pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
+            <div className="relative z-20 -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
               <div className="max-w-2xl mx-auto md:px-4">
                 <h1 className="sr-only">Mental Performance Plan</h1>
                 <div data-tour="daily-plan" className="relative overflow-hidden rounded-t-2xl md:rounded-2xl px-1 py-5
