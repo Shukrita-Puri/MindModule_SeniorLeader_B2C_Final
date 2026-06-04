@@ -4,6 +4,7 @@ import { useWeeklyMrsDelta } from '@/hooks/useWeeklyMrsDelta';
 import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
 import { cn } from '@/lib/utils';
+import { getTimeLabel, getDateLabel } from '@/components/home/timeLabel';
 
 function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
