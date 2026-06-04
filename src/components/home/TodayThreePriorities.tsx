@@ -1484,7 +1484,7 @@ const TodayThreePriorities = ({
                             Why this matters
                           </span>
                           <p className="text-[12px] text-foreground/75 font-body leading-relaxed">
-                            {hm.whyLine}
+                            {stripBriefMarkdown(hm.whyLine)}
                           </p>
                         </div>
                       )}
@@ -1548,13 +1548,13 @@ const TodayThreePriorities = ({
                         Why this matters
                       </span>
                       <p className="text-[13px] text-foreground/85 font-body leading-relaxed">
-                        {hm.whyLine}
+                        {stripBriefMarkdown(hm.whyLine)}
                       </p>
                     </div>
                   )}
 
                   <p className="text-[13px] italic text-muted-foreground font-body leading-relaxed pt-0.5">
-                    {hm.recommendedAction || fallbackRecommendedAction(hm)}
+                    {stripBriefMarkdown(hm.recommendedAction || fallbackRecommendedAction(hm))}
                   </p>
 
                   {/* Sequence reasoning (multi-practice helper, if present) */}
