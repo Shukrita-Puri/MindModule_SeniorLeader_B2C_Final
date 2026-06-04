@@ -60,15 +60,14 @@ export default function StageUSPIntro() {
   }, [idx]);
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="fixed inset-0 z-40 flex flex-col bg-app-surface text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
       {/* Spacer for fixed top nav */}
       <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
       {/* Hero image (reuses existing engraved asset) */}
       <div className="relative shrink-0 h-[34vh] overflow-hidden">
         <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-[#f5f0e8]/20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#f5f0e8]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
       </div>
 
       {/* Title + body */}
@@ -88,7 +87,7 @@ export default function StageUSPIntro() {
           <span
             key={i}
             className={`h-[7px] rounded-full transition-all duration-300 ${
-              i === idx ? "w-[22px] bg-[#e8714a]" : "w-[7px] bg-[#cfc7b8]"
+              i === idx ? "w-[22px] bg-saffron" : "w-[7px] bg-[#cfc7b8]"
             }`}
           />
         ))}
@@ -98,7 +97,7 @@ export default function StageUSPIntro() {
       <div className="px-6 pb-7 shrink-0">
         <button
           onClick={next}
-          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] transition-colors text-white text-sm font-medium"
+          className="w-full py-4 rounded-2xl bg-saffron hover:bg-saffron/90 transition-colors text-white text-sm font-medium"
         >
           {isFinal ? "Get started →" : "Continue"}
         </button>

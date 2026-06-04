@@ -128,7 +128,7 @@ export default function StageLeadershipContext() {
         </span>
       </div>
       {saveError && (
-        <div className="text-[11px] text-[#e8714a] mb-2">{saveError}</div>
+        <div className="text-[11px] text-saffron mb-2">{saveError}</div>
       )}
 
       <div className="space-y-2.5">
@@ -180,10 +180,10 @@ export default function StageLeadershipContext() {
                 )
               )}
               {showLinkedInErr && (
-                <div className="mt-2 text-[11px] text-[#e8714a]">Add a valid LinkedIn URL (e.g. linkedin.com/in/yourname)</div>
+                <div className="mt-2 text-[11px] text-saffron">Add a valid LinkedIn URL (e.g. linkedin.com/in/yourname)</div>
               )}
               {showWritingErr && (
-                <div className="mt-2 text-[11px] text-[#e8714a]">
+                <div className="mt-2 text-[11px] text-saffron">
                   {writingOverLimit
                     ? `You can add up to ${MAX_WRITING_URLS} writing links`
                     : "Each writing link must be a valid URL"}

@@ -75,10 +75,10 @@ export default function StageProtectGoals() {
         Your selections also shape which capabilities we build for you next.
       </p>
       {showLimit && (
-        <div className="text-[11px] text-[#e8714a] mb-2">Maximum 3 selected — deselect one to change</div>
+        <div className="text-[11px] text-saffron mb-2">Maximum 3 selected — deselect one to change</div>
       )}
       {saveError && (
-        <div className="text-[11px] text-[#e8714a] mb-2">{saveError}</div>
+        <div className="text-[11px] text-saffron mb-2">{saveError}</div>
       )}
 
       <div className="space-y-2">

@@ -58,7 +58,7 @@ export function PrimaryCTA({
   tone?: "ink" | "coral";
 }) {
   const cls = tone === "coral"
-    ? "bg-[#e8714a] hover:bg-[#c55a35] text-white"
+    ? "bg-saffron hover:bg-saffron/90 text-white"
     : "bg-[#1a1712] hover:bg-[#2e2b24] text-[#f5f0e8]";
   return (
     <button

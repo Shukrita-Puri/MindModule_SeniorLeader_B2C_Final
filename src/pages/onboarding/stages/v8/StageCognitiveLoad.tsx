@@ -86,7 +86,7 @@ export default function StageCognitiveLoad() {
         Select all that apply — to help Mind Module understand your environment and prepare for those most relevant to you.
       </p>
       {saveError && (
-        <div className="text-[11px] text-[#e8714a] mb-3">{saveError}</div>
+        <div className="text-[11px] text-saffron mb-3">{saveError}</div>
       )}
 
       {GROUPS.map((g, gi) => (

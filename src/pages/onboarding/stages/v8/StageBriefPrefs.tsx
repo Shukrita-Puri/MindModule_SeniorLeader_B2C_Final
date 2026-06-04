@@ -81,7 +81,7 @@ export default function StageBriefPrefs() {
       footer={
         <div className="w-full">
           {saveError && (
-            <div className="text-[11px] text-[#e8714a] mb-2 px-3 py-2 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+            <div className="text-[11px] text-saffron mb-2 px-3 py-2 bg-saffron/10 border border-saffron/25 rounded-[10px] leading-[1.5]">
               {saveError}
             </div>
           )}

@@ -78,7 +78,7 @@ export default function StagePermissions() {
     items.map((it, i) => {
       const on = state.has(it.id);
       const cls = warn && !requiredOk
-        ? "border-[#e8714a]/50 bg-[#e8714a]/[0.04]"
+        ? "border-saffron/50 bg-saffron/5"
         : requiredOk
         ? "border-[#1a1712]/35 bg-[#1a1712]/[0.04]"
         : "border-[#cfc7b8] bg-white";
@@ -100,7 +100,7 @@ export default function StagePermissions() {
           </div>
           <button
             onClick={() => toggle(state, setter, it.id)}
-            className={`relative w-[46px] h-[26px] rounded-full shrink-0 transition-colors ${on ? "bg-[#e8714a]" : "bg-[#e0d9ce]"}`}
+            className={`relative w-[46px] h-[26px] rounded-full shrink-0 transition-colors ${on ? "bg-saffron" : "bg-[#e0d9ce]"}`}
             aria-label={`Toggle ${it.name}`}
           >
             <span
@@ -126,24 +126,24 @@ export default function StagePermissions() {
       </p>
 
       {warn && (
-        <div className="text-[11px] text-[#e8714a] my-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+        <div className="text-[11px] text-saffron my-2 p-2.5 bg-saffron/10 border border-saffron/25 rounded-[10px] leading-[1.5]">
           Connect at least one calendar and one wearable to continue.
         </div>
       )}
       {saveError && (
-        <div className="text-[11px] text-[#e8714a] my-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+        <div className="text-[11px] text-saffron my-2 p-2.5 bg-saffron/10 border border-saffron/25 rounded-[10px] leading-[1.5]">
           {saveError}
         </div>
       )}
 
       <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2 mt-3">
-        Calendar <span className="text-[#e8714a] font-semibold">· Required – select one</span>
+        Calendar <span className="text-saffron font-semibold">· Required – select one</span>
       </div>
       {renderCard(CAL, cal, setCal, cal.size > 0)}
 
       <div className="h-px bg-[#cfc7b8] my-3" />
       <div className="text-[10px] tracking-[2px] uppercase text-[#7a7060] font-medium mb-2">
-        Wearable <span className="text-[#e8714a] font-semibold">· Required – select one</span>
+        Wearable <span className="text-saffron font-semibold">· Required – select one</span>
       </div>
       {renderCard(WEAR, wear, setWear, wear.size > 0)}
     </ParchScreen>
