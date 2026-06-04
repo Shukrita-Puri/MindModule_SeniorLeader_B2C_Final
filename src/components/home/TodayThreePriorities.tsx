@@ -1566,8 +1566,20 @@ const TodayThreePriorities = ({
 
                   {/* Reflection Corner — inline replacement for the suppressed /coach surface
                       on the evening "Tiny Win and Reflection" priority. Rendered AFTER the
-                      label/whyLine so context sets up the reflection, before the practice card. */}
-                  {(module.title === 'Tiny Win and Reflection' || module.type === 'integrate') && (
+                      label/whyLine so context sets up the reflection, before the practice card.
+
+                      Temporal gate: only render between 18:00 and 22:59 local. In the
+                      Early Hours tail (00:00–04:59) the prompt "what did you do right
+                      TODAY" is incoherent — the server already rewrites the practice
+                      to a forward-looking "Sleep Prep & Tomorrow Framing" companion,
+                      so we suppress the reflection capture here defensively. */}
+                  {(() => {
+                    const isReflectionPractice = module.title === 'Tiny Win and Reflection'
+                      || module.type === 'integrate';
+                    if (!isReflectionPractice) return false;
+                    const hour = new Date().getHours();
+                    return hour >= 18 && hour < 23;
+                  })() && (
                     <ReflectionCorner
                       postEventTitle={reflectionContext === 'post-event' ? reflectionEvent : null}
                       onSaved={async () => {
