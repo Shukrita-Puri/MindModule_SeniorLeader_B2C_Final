@@ -149,7 +149,7 @@ const PostEventReflection = () => {
         </span>
       </div>
 
-      <div className="relative rounded-xl overflow-hidden bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4">
+      <div className="relative rounded-xl overflow-hidden bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4">
         {step === 'behavior' && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ const PostEventReflection = () => {
                   onClick={() => handleBehaviorSelect(opt.value)}
                   className={cn(
                     "flex-1 py-2.5 px-3 rounded-lg text-xs font-medium transition-all",
-                    "border border-black/[0.06] bg-white/50 hover:bg-primary/10 hover:border-primary/30",
+                    "border border-[#cfc7b8] bg-white/50 hover:bg-primary/10 hover:border-primary/30",
                     "text-foreground"
                   )}
                 >
@@ -201,7 +201,7 @@ const PostEventReflection = () => {
                   disabled={saving}
                   className={cn(
                     "flex-1 py-2.5 px-3 rounded-lg text-xs font-medium transition-all",
-                    "border border-black/[0.06] bg-white/50 hover:bg-primary/10 hover:border-primary/30",
+                    "border border-[#cfc7b8] bg-white/50 hover:bg-primary/10 hover:border-primary/30",
                     "text-foreground",
                     saving && "opacity-50 cursor-not-allowed"
                   )}

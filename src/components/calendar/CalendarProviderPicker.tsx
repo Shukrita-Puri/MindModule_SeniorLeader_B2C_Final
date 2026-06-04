@@ -172,7 +172,7 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
   ) : null;
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+    <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-center gap-3 min-w-0">
         {iconSrc ? (
           <img src={iconSrc} alt={label} className="w-8 h-8 rounded-lg object-contain" />

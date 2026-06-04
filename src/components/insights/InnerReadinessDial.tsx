@@ -175,8 +175,8 @@ const InnerReadinessDial = () => {
   return (
     <div
       className={cn(
-        'w-full text-left rounded-2xl bg-white/65 backdrop-blur-[30px] backdrop-saturate-150',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]',
+        'w-full text-left rounded-2xl bg-white',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         'px-5 pt-4 pb-5',
       )}
       aria-label="Your performance trajectory this week"

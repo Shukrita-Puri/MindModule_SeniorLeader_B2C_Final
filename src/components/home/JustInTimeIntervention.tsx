@@ -462,7 +462,7 @@ const JustInTimeIntervention = () => {
       </div>
       
       {/* Intervention Card */}
-      <div className="relative rounded-xl overflow-hidden bg-white/65 backdrop-blur-[20px] border border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)] p-4">
+      <div className="relative rounded-xl overflow-hidden bg-white border border-[#cfc7b8] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4">
         {/* Dismiss button */}
         <button
           onClick={handleDismiss}

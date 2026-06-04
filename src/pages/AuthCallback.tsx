@@ -208,7 +208,7 @@ const AuthCallback = () => {
   if (hasError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-transparent px-4">
-        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white border border-[#cfc7b8] rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
           <p className="text-base font-semibold text-foreground">
             We couldn't complete sign in. Please try again.
@@ -222,7 +222,7 @@ const AuthCallback = () => {
             </button>
             <button
               onClick={handleHome}
-              className="px-6 py-3 rounded-xl border border-black/[0.08] text-foreground hover:bg-black/[0.03] transition"
+              className="px-6 py-3 rounded-xl border border-[#cfc7b8] text-foreground hover:bg-black/[0.03] transition"
             >
               Back to home
             </button>

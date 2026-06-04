@@ -80,7 +80,7 @@ export const ProtocolCard = ({
         "transition-all duration-300",
         isOnDark
           ? "bg-white/90 backdrop-blur-sm border border-white/30 shadow-lg"
-          : "bg-white/65 dark:bg-black/20 backdrop-blur-[20px] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
+          : "bg-white border border-[#cfc7b8] dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
         className
       )}
     >

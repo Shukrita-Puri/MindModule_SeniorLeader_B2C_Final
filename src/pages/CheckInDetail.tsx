@@ -212,9 +212,9 @@ const CheckInDetail = () => {
       <div className="flex items-start justify-center pt-1 pb-4">
         <div className="w-full max-w-lg animate-fade-in">
           <div className="relative overflow-hidden rounded-t-2xl md:rounded-2xl p-5 space-y-6
-            bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
-            border border-black/[0.08]
-            shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
+            bg-white
+            border border-[#cfc7b8]
+            shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
 
             {/* Eyebrow row — matches Page 1 */}
             <div className="-mt-1 mb-1 flex items-center justify-between gap-2 whitespace-nowrap">
