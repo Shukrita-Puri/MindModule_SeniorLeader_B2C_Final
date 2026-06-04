@@ -48,7 +48,7 @@ const MicroPracticePlayer = () => {
 
   if (!practice) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <p className="text-muted-foreground">Practice not found</p>
       </div>
     );

@@ -188,7 +188,7 @@ const PowerUpOutcomePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-transparent pb-24">
       <TopNavigation backPath="/recalibrate" />
       
       {/* Minimal Header */}

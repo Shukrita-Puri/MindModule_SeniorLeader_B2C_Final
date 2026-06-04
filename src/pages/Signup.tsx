@@ -130,7 +130,7 @@ const Signup = () => {
 
   if (hasError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="min-h-screen flex items-center justify-center bg-transparent px-4">
         <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
           <AlertCircle className="w-10 h-10 mx-auto text-foreground/70" />
           <p className="text-base font-semibold text-foreground">
@@ -156,7 +156,7 @@ const Signup = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex items-center justify-center bg-transparent">
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
         <p className="text-muted-foreground">Redirecting to signup...</p>

@@ -97,7 +97,7 @@ const Refer = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-transparent">
       <UnifiedTopBar hideCoach />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">

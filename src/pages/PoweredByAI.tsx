@@ -4,7 +4,7 @@ import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 const PoweredByAI = () => {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-transparent">
       <UnifiedTopBar hideCoach />
       <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
         <h1 className="text-[22px] sm:text-3xl font-headline text-foreground mb-2">Powered by AI</h1>

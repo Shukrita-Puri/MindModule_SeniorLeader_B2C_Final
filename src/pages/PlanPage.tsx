@@ -40,7 +40,7 @@ const PlanPage = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-transparent overflow-hidden">
         <LeftSidebar />
         <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto">
           <div>

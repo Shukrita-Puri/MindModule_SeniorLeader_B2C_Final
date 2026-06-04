@@ -1258,7 +1258,7 @@ const ConnectedData = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="min-h-screen bg-transparent pb-[env(safe-area-inset-bottom,0px)]">
       <UnifiedTopBar backPath="/profile" />
 
       <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">

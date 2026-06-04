@@ -937,7 +937,7 @@ const GuidedPracticePlayer = () => {
 
   if (!practice) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Practice not found</p>
           <Button onClick={() => navigate("/recalibrate")}>
