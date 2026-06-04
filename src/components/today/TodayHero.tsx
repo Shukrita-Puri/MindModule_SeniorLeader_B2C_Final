@@ -15,15 +15,15 @@ const HERO_IMAGES = {
   evening: '/all-visuals/images/hero-evening.jpg',
 } as const;
 
-// Time-of-day mood overlays — make morning/afternoon/evening visibly distinct
-// while keeping the deep B&W engraved aesthetic of the Front page art band.
+// Subtle time-of-day tint — keeps the engraved B&W detail fully legible
+// (like the Front page cover) while making each window feel distinct.
 const TOD_OVERLAY: Record<TimeOfDay, string> = {
   morning:
-    'linear-gradient(180deg, rgba(70,55,40,0.25) 0%, rgba(20,15,10,0.55) 100%)',
+    'linear-gradient(180deg, rgba(180,120,60,0) 0%, rgba(180,120,60,0.18) 100%)',
   afternoon:
-    'linear-gradient(180deg, rgba(30,40,55,0.30) 0%, rgba(15,20,30,0.55) 100%)',
+    'linear-gradient(180deg, rgba(60,80,100,0) 0%, rgba(60,80,100,0.18) 100%)',
   evening:
-    'linear-gradient(180deg, rgba(15,12,20,0.45) 0%, rgba(8,6,12,0.75) 100%)',
+    'linear-gradient(180deg, rgba(20,25,50,0) 0%, rgba(20,25,50,0.22) 100%)',
 };
 
 interface TodayHeroProps {
@@ -49,8 +49,8 @@ const TodayHero = ({ heightClass = 'h-[280px] md:h-[340px]' }: TodayHeroProps) =
         alt=""
         className="w-full h-full object-cover"
         style={{
-          opacity: 0.95,
-          filter: 'grayscale(1) contrast(1.15) brightness(0.85)',
+          opacity: 1,
+          filter: 'contrast(1.25) brightness(1)',
         }}
       />
       {/* Time-of-day mood wash */}
