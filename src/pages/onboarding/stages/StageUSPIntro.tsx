@@ -66,7 +66,13 @@ export default function StageUSPIntro() {
 
       {/* Hero image (reuses existing engraved asset) */}
       <div className="relative shrink-0 h-[34vh] overflow-hidden">
-        <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+        <img
+          src={uspSunriseEngraved}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "grayscale(1) contrast(1.05)" }}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
       </div>
 
