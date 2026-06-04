@@ -17,7 +17,7 @@ export function ParchScreen({
   footer: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="fixed inset-0 z-40 flex flex-col bg-app-surface text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
       {/* Spacer for the fixed top nav (back + brand lockup) */}
       <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
@@ -41,7 +41,7 @@ export function ParchScreen({
 
       <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-      <div className="px-5 pt-3 pb-6 shrink-0 bg-[#f5f0e8]">{footer}</div>
+      <div className="px-5 pt-3 pb-6 shrink-0 bg-transparent">{footer}</div>
     </div>
   );
 }
