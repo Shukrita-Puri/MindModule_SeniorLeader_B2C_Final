@@ -70,12 +70,8 @@ const getTierLabel = (tier: string): string => {
   }
 };
 
-const getTimeLabel = (): string => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Morning';
-  if (hour >= 12 && hour < 18) return 'Afternoon';
-  return 'Evening';
-};
+import { getTimeLabel as sharedGetTimeLabel, stripBriefMarkdown } from './timeLabel';
+const getTimeLabel = sharedGetTimeLabel;
 
 const getDateLabel = (): string => {
   const d = new Date();
