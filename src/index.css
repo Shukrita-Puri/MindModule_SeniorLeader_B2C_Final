@@ -173,9 +173,10 @@ body {
     radial-gradient(ellipse 120% 80% at 15% -10%, hsl(0 0% 100% / 0.55) 0%, hsl(0 0% 100% / 0.16) 30%, transparent 58%),
     radial-gradient(ellipse 90% 60% at 110% 110%, hsl(var(--taupe-rich) / 0.42) 0%, transparent 60%),
     linear-gradient(165deg, hsl(var(--taupe-highlight) / 0.55) 0%, hsl(var(--taupe) / 0.22) 55%, hsl(var(--taupe-rich) / 0.45) 100%);
-  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
-body {
+html, body, #root {
   @apply bg-app-surface;
 }
 

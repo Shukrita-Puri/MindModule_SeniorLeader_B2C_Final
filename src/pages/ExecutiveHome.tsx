@@ -242,7 +242,7 @@ const ExecutiveHome = () => {
         
         <SidebarInset
           data-scroll-container
-          className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+          className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-transparent"
         >
           {/* Unified Today header bar + shared hero (header overlays hero) */}
           <div className="relative">

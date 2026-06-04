@@ -920,7 +920,7 @@ const Insights = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-[radial-gradient(ellipse_120%_80%_at_15%_-10%,hsl(0_0%_100%/0.55)_0%,hsl(0_0%_100%/0.16)_30%,transparent_58%),radial-gradient(ellipse_90%_60%_at_110%_110%,hsl(122_22%_35%/0.32)_0%,transparent_60%),linear-gradient(165deg,hsl(122_22%_41%/0.22)_0%,hsl(122_18%_50%/0.10)_55%,hsl(122_22%_41%/0.24)_100%)]">
+      <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full overflow-hidden bg-transparent">
         <LeftSidebar />
         <SidebarInset
           data-sidebar-inset
