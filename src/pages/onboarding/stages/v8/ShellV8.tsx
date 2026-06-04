@@ -30,10 +30,14 @@ export function ParchScreen({
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "grayscale(1) contrast(1.05)" }}
         />
-        {/* Parchment tint so artwork blends with body */}
-        <div className="absolute inset-0 bg-[#f5f0e8]/25" />
-        {/* Bottom scrim → seamless fade into parchment for readable charcoal type */}
-        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-[#f5f0e8] via-[#f5f0e8]/85 to-transparent" />
+        {/* Bottom scrim → seamless fade into the page canvas */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-full pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(to top, hsl(var(--canvas-hi)) 0%, hsl(var(--canvas-hi) / 0.85) 35%, hsl(var(--canvas-hi) / 0) 100%)",
+          }}
+        />
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
           <div className="text-[9px] tracking-[2.5px] uppercase text-[#7a7060] mb-1">{step}</div>
           <div className="font-headline text-[20px] leading-[1.2] text-[#1a1712]">{title}</div>
