@@ -120,6 +120,11 @@ interface HorizonModule {
   priorityTag?: 'high' | 'medium' | 'low' | null;
   relationshipTag?: string | null;
   customTags?: string[];
+  // Server-derived arc label for the slot. Surfaced as a small muted chip
+  // beside the priority number so multi-arc allocations of the same event
+  // (Prepare / Recover) are self-explanatory.
+  arcLabel?: 'Prepare' | 'During' | 'Recover' | 'Steady';
+  arcVerb?: string;
 }
 
 interface CoachCardData {
