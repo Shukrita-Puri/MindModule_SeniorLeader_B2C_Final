@@ -50,9 +50,7 @@ const InsightDetail = () => {
   const card = CARDS[cardId];
 
   return (
-    <div
-      className="min-h-[100dvh] w-full bg-[radial-gradient(ellipse_120%_80%_at_15%_-10%,hsl(0_0%_100%/0.55)_0%,hsl(0_0%_100%/0.16)_30%,transparent_58%),radial-gradient(ellipse_90%_60%_at_110%_110%,hsl(122_22%_35%/0.32)_0%,transparent_60%),linear-gradient(165deg,hsl(122_22%_41%/0.22)_0%,hsl(122_18%_50%/0.10)_55%,hsl(122_22%_41%/0.24)_100%)]"
-    >
+    <div className="min-h-[100dvh] w-full bg-transparent">
       {/* Header — back only; title moved out, share lives inside each card */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-3 backdrop-blur-md bg-background/40 border-b border-border/30"
