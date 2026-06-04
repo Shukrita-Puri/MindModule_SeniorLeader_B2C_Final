@@ -110,14 +110,14 @@ export default function StageDone() {
 
       <div className="px-5 pt-3 pb-7 shrink-0">
         {error && (
-          <div className="text-[11px] text-[#e8714a] mb-2 p-2.5 bg-[#e8714a]/[0.08] border border-[#e8714a]/25 rounded-[10px] leading-[1.5]">
+          <div className="text-[11px] text-saffron mb-2 p-2.5 bg-saffron/10 border border-saffron/25 rounded-[10px] leading-[1.5]">
             {error}
           </div>
         )}
         <button
           onClick={enter}
           disabled={busy}
-          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] text-white text-sm font-medium transition-colors disabled:opacity-60"
+          className="w-full py-4 rounded-2xl bg-saffron hover:bg-saffron/90 text-white text-sm font-medium transition-colors disabled:opacity-60"
         >
           {busy ? "Calibrating your profile…" : "Enter the brief →"}
         </button>

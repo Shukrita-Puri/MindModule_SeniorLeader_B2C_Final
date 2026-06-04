@@ -88,7 +88,7 @@ export default function StageUSPIntro() {
           <span
             key={i}
             className={`h-[7px] rounded-full transition-all duration-300 ${
-              i === idx ? "w-[22px] bg-[#e8714a]" : "w-[7px] bg-[#cfc7b8]"
+              i === idx ? "w-[22px] bg-saffron" : "w-[7px] bg-[#cfc7b8]"
             }`}
           />
         ))}
@@ -98,7 +98,7 @@ export default function StageUSPIntro() {
       <div className="px-6 pb-7 shrink-0">
         <button
           onClick={next}
-          className="w-full py-4 rounded-2xl bg-[#e8714a] hover:bg-[#c55a35] transition-colors text-white text-sm font-medium"
+          className="w-full py-4 rounded-2xl bg-saffron hover:bg-saffron/90 transition-colors text-white text-sm font-medium"
         >
           {isFinal ? "Get started →" : "Continue"}
         </button>
