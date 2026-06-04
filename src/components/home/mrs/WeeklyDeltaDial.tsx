@@ -29,6 +29,10 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
   const A_LEFT = Math.PI;
   const A_RIGHT = 2 * Math.PI;
   const A_MID = 1.5 * Math.PI;
+  // Small angular gap around the top so left/right halves are visually separate
+  const GAP = 0.09; // ~5°
+  const A_MID_L = A_MID - GAP;
+  const A_MID_R = A_MID + GAP;
 
   const toXY = (a: number) => [CX + R * Math.cos(a), CY + R * Math.sin(a)];
   const arcPath = (a1: number, a2: number) => {
@@ -99,43 +103,52 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
               <feColorMatrix in="inner" type="matrix"
                 values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
             </filter>
-            {/* Curved label path */}
-            <path id="weekly-label-arc" d={labelPathD} fill="none" />
+          {/* Curved label path (for LOWER / HIGHER) */}
+          <path id="weekly-label-arc" d={labelPathD} fill="none" />
           </defs>
 
-          {/* Track */}
-          <path
-            d={arcPath(A_LEFT, A_RIGHT)}
-            fill="none"
-            stroke="url(#weekly-track)"
-            strokeWidth={STROKE}
-            strokeLinecap="round"
-          />
-          {/* Subtle border strokes for glass edges */}
-          <path
-            d={arcPath(A_LEFT, A_RIGHT)}
-            fill="none"
-            stroke="hsl(0 0% 100% / 0.55)"
-            strokeWidth={1}
-          />
-          <path
-            d={arcPath(A_LEFT, A_RIGHT)}
-            fill="none"
-            stroke="hsl(var(--foreground) / 0.06)"
-            strokeWidth={STROKE}
-            strokeLinecap="round"
-            filter="url(#weekly-inner)"
-          />
+          {/* Track — split into two halves with a gap at the top center */}
+          {[
+            [A_LEFT, A_MID_L],
+            [A_MID_R, A_RIGHT],
+          ].map(([a1, a2], i) => (
+            <g key={i}>
+              <path
+                d={arcPath(a1, a2)}
+                fill="none"
+                stroke="url(#weekly-track)"
+                strokeWidth={STROKE}
+                strokeLinecap="round"
+              />
+              <path
+                d={arcPath(a1, a2)}
+                fill="none"
+                stroke="hsl(0 0% 100% / 0.55)"
+                strokeWidth={1}
+              />
+              <path
+                d={arcPath(a1, a2)}
+                fill="none"
+                stroke="hsl(var(--foreground) / 0.06)"
+                strokeWidth={STROKE}
+                strokeLinecap="round"
+                filter="url(#weekly-inner)"
+              />
+            </g>
+          ))}
 
-          {/* Center tick at CURRENT */}
-          <line
-            x1={CX}
-            y1={CY - R - STROKE / 2 - 2}
-            x2={CX}
-            y2={CY - R + STROKE / 2 + 2}
-            stroke="hsl(var(--foreground) / 0.25)"
-            strokeWidth={1}
-          />
+          {/* CURRENT label — top center, above the dial gap */}
+          <text
+            x={CX}
+            y={CY - R - 10}
+            textAnchor="middle"
+            fontSize="9"
+            letterSpacing="2"
+            fontWeight={600}
+            fill="hsl(var(--muted-foreground) / 0.9)"
+          >
+            CURRENT
+          </text>
 
           {/* Colored fill */}
           {showFill && (
@@ -149,7 +162,6 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
             />
           )}
 
-          {/* Curved labels */}
           <text
             fontSize="9"
             letterSpacing="2"
@@ -157,14 +169,6 @@ const WeeklyDeltaDial = ({ delta, mode }: WeeklyDeltaDialProps) => {
             fontWeight={600}
           >
             <textPath href="#weekly-label-arc" startOffset="6%">LOWER</textPath>
-          </text>
-          <text
-            fontSize="9"
-            letterSpacing="2"
-            fill="hsl(var(--muted-foreground) / 0.85)"
-            fontWeight={600}
-          >
-            <textPath href="#weekly-label-arc" startOffset="46%">CURRENT</textPath>
           </text>
           <text
             fontSize="9"
