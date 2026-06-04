@@ -60,15 +60,14 @@ export default function StageUSPIntro() {
   }, [idx]);
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="fixed inset-0 z-40 flex flex-col bg-app-surface text-[#1a1712] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]">
       {/* Spacer for fixed top nav */}
       <div className="shrink-0 h-[calc(53px+env(safe-area-inset-top,0px))]" />
 
       {/* Hero image (reuses existing engraved asset) */}
       <div className="relative shrink-0 h-[34vh] overflow-hidden">
         <img src={uspSunriseEngraved} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-[#f5f0e8]/20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#f5f0e8]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
       </div>
 
       {/* Title + body */}
