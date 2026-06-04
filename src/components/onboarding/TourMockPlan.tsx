@@ -24,7 +24,7 @@ const TourMockPlan = () => {
       {MOCK_PLAN_PRIORITIES.map((p, idx) => (
         <div
           key={idx}
-          className="rounded-xl border border-black/[0.08] bg-white/70 backdrop-blur-sm
+          className="rounded-xl border border-[#cfc7b8] bg-white
                      shadow-[0_2px_8px_rgba(0,0,0,0.04)] px-4 py-3.5"
         >
           <div className="flex items-start gap-3">

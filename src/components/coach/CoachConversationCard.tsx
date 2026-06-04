@@ -74,7 +74,7 @@ const CoachConversationCard = ({
     <div className="relative z-10 w-full max-w-xl mx-auto px-4">
       {/* Glass-morphic conversation card */}
       <div className={cn(
-        "rounded-3xl border border-black/[0.06]",
+        "rounded-3xl border border-[#cfc7b8]",
         "bg-white/70 backdrop-blur-xl backdrop-saturate-150",
         "shadow-[0_8px_40px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]",
         "overflow-hidden",

@@ -107,7 +107,7 @@ export default function Stage2Identity() {
                 className={`w-full text-left p-4 border rounded-xl transition-all ${
                   identityType === option.value
                     ? "border-saffron bg-saffron/5 shadow-sm"
-                    : "border-black/[0.08] hover:border-saffron/30 bg-white/40"
+                    : "border-[#cfc7b8] hover:border-saffron/30 bg-white"
                 }`}
               >
                 <span className="font-medium text-sm">{option.label}</span>
@@ -154,7 +154,7 @@ export default function Stage2Identity() {
                 className={`w-full text-left p-4 border rounded-xl transition-all ${
                   biggestPressure === option.value
                     ? "border-saffron bg-saffron/5 shadow-sm"
-                    : "border-black/[0.08] hover:border-saffron/30 bg-white/40"
+                    : "border-[#cfc7b8] hover:border-saffron/30 bg-white"
                 }`}
               >
                 <span className="text-sm">{option.label}</span>
