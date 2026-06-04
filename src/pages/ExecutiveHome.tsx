@@ -259,8 +259,8 @@ const ExecutiveHome = () => {
             </header>
           </div>
 
-          {/* All sections stacked on one page */}
-          <div className="flex-1 w-full pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
+          {/* All sections stacked on one page — overlap hero so card floats on shared canvas */}
+          <div className="relative z-20 flex-1 w-full -mt-[170px] md:-mt-[210px] pb-[calc(env(safe-area-inset-bottom,0px)+5.75rem)]">
 
             {/* Swipeable 3-page home: MRS · Brief · Plan */}
             <h1 className="sr-only">{getGreeting()}</h1>

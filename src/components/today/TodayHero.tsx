@@ -17,13 +17,21 @@ const HERO_IMAGES = {
 
 // Subtle time-of-day tint — keeps the engraved B&W detail fully legible
 // (like the Front page cover) while making each window feel distinct.
+// Stacked gradients: top vignette guarantees greeting contrast on
+// bright skies; bottom tint differentiates time-of-day mood.
 const TOD_OVERLAY: Record<TimeOfDay, string> = {
-  morning:
-    'linear-gradient(180deg, rgba(180,120,60,0) 0%, rgba(180,120,60,0.18) 100%)',
-  afternoon:
-    'linear-gradient(180deg, rgba(60,80,100,0) 0%, rgba(60,80,100,0.18) 100%)',
-  evening:
-    'linear-gradient(180deg, rgba(20,25,50,0) 0%, rgba(20,25,50,0.22) 100%)',
+  morning: [
+    'linear-gradient(180deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0) 28%)',
+    'linear-gradient(180deg, rgba(180,120,60,0) 60%, rgba(180,120,60,0.18) 100%)',
+  ].join(', '),
+  afternoon: [
+    'linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 28%)',
+    'linear-gradient(180deg, rgba(60,80,100,0) 60%, rgba(60,80,100,0.18) 100%)',
+  ].join(', '),
+  evening: [
+    'linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 28%)',
+    'linear-gradient(180deg, rgba(20,25,50,0) 60%, rgba(20,25,50,0.22) 100%)',
+  ].join(', '),
 };
 
 interface TodayHeroProps {

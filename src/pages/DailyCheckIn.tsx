@@ -389,8 +389,8 @@ const DailyCheckIn = () => {
           <SidebarDiscoveryPulse />
         </header>
       </div>
-      
 
+      <div className="relative z-20 -mt-[170px] md:-mt-[210px]">
       <h1 className="sr-only">Performance Readiness Assessment</h1>
 
       <div className="flex flex-col max-w-lg mx-auto w-full pt-2 pb-4">
@@ -540,6 +540,7 @@ const DailyCheckIn = () => {
           recordStep('first_session_walkthrough', { completed: true });
         }} />
       )}
+      </div>
     </div>
     </SidebarInset>
     </div>
