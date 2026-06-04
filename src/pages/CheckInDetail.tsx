@@ -205,6 +205,7 @@ const CheckInDetail = () => {
           <SidebarDiscoveryPulse />
         </header>
       </div>
+      <div className="relative z-20 -mt-[170px] md:-mt-[210px]">
       <TodayStepper current={1} />
 
       <h1 className="sr-only">Body Performance State Check</h1>
