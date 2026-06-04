@@ -29,7 +29,7 @@ function isInIframe(): boolean {
 
 type RedirectStatus = 'preparing' | 'redirecting' | 'error';
 const REDIRECT_TIMEOUT_MS = 8000;
-const CENTERED_SHELL = 'min-h-[100dvh] flex items-center justify-center bg-background px-4 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
+const CENTERED_SHELL = 'min-h-[100dvh] flex items-center justify-center bg-transparent px-4 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
 
 const Stage8SignupStep = () => {
   const { isLoading: auth0Loading, loginWithRedirect } = useAuth0();

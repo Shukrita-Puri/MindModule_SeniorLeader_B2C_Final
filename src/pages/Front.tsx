@@ -153,7 +153,7 @@ const Auth0Front = () => {
 };
 
 const FrontLoading = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
+  <div className="min-h-screen flex items-center justify-center bg-transparent">
     <Loader2 className="h-10 w-10 animate-spin text-primary" />
   </div>
 );

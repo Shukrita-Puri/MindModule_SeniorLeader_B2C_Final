@@ -2131,7 +2131,7 @@ const MicroPracticePlayerCards = () => {
 
   if (!practice || cards.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <p className="text-muted-foreground">Practice not found</p>
       </div>
     );

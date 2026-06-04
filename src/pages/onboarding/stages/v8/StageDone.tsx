@@ -56,7 +56,7 @@ export default function StageDone() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f0e8] text-[#1a1712] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-app-surface text-[#1a1712] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
       <div className="flex items-center justify-between px-6 pt-4 shrink-0">
         <div className="inline-flex items-center gap-2 rounded-full bg-[#1a1712]/5 border border-[#1a1712]/10 py-1.5 pl-1.5 pr-3.5">
           <span className="w-6 h-6 rounded-full bg-[#ba7517]" />

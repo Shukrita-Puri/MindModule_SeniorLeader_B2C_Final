@@ -176,7 +176,7 @@ export default function OnboardingFlow() {
   };
 
   return (
-    <div data-scroll-container className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto overscroll-contain scroll-pt-[calc(53px+env(safe-area-inset-top,0px))] scroll-pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+    <div data-scroll-container className="min-h-screen min-h-[100dvh] bg-transparent overflow-y-auto overscroll-contain scroll-pt-[calc(53px+env(safe-area-inset-top,0px))] scroll-pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
 
       
       {/* Fixed Top Bar with Back Arrow */}

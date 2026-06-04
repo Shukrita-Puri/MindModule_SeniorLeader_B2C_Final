@@ -194,10 +194,10 @@ const CheckInDetail = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-    <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-background overflow-hidden">
+    <div className="h-[100dvh] max-h-[100dvh] min-h-0 flex w-full bg-transparent overflow-hidden">
       <LeftSidebar />
       <SidebarInset className="w-full h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-    <div className="bg-background pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8rem)]">
+    <div className="bg-transparent pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+8rem)]">
       <div className="relative">
         <TodayHero />
         <TodayGreeting />

@@ -163,6 +163,22 @@ body {
    @apply bg-background text-foreground font-body;
 }
 
+/* Global app surface — Recalibrate taupe gradient, applied as the universal
+   background behind every route. Page wrappers use `bg-transparent` (or omit
+   `bg-background`) on their outermost container so this shows through. Cards,
+   modals, sticky headers, and overlay backgrounds that rely on `bg-background`
+   tokens remain untouched. */
+.bg-app-surface {
+  background:
+    radial-gradient(ellipse 120% 80% at 15% -10%, hsl(0 0% 100% / 0.55) 0%, hsl(0 0% 100% / 0.16) 30%, transparent 58%),
+    radial-gradient(ellipse 90% 60% at 110% 110%, hsl(var(--taupe-rich) / 0.42) 0%, transparent 60%),
+    linear-gradient(165deg, hsl(var(--taupe-highlight) / 0.55) 0%, hsl(var(--taupe) / 0.22) 55%, hsl(var(--taupe-rich) / 0.45) 100%);
+  background-attachment: fixed;
+}
+body {
+  @apply bg-app-surface;
+}
+
   /* v2: Mobile body floor — 16px minimum on root prevents accidental sub-16px text.
      Component-level overrides still allowed (e.g. .text-caption stays 12px). */
   body {

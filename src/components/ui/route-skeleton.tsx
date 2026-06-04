@@ -8,7 +8,7 @@
  */
 const RouteSkeleton = () => (
   <div
-    className="min-h-screen bg-background"
+    className="min-h-screen bg-transparent"
     aria-busy="true"
     aria-live="polite"
   />
