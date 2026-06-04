@@ -1,40 +1,82 @@
-## Goal
-Pure UI: visually mirror the Performance Readiness Brief card on two surfaces (Today's Priorities, MRS) and lighten the dark fill behind the MRS score circle. No logic, data, copy, or routing changes.
+## Goal — two narrow UI tweaks, no logic/backend touched
 
-## Changes
+1. Retune the page-background taupe to match the Robinhood pale-sand reference (~#D6CFC2 / hsl(36 12% 80%)), keeping the existing 3-layer gradient structure intact.
+2. Make the B&W onboarding visuals (StageUSPIntro hero, ShellV8 art band) blend seamlessly into the taupe canvas — no hard cut-off line.
 
-### 1. Today's Performance Priorities — wrap in brief-style card with eyebrow
-File: `src/pages/ExecutiveHome.tsx` (around line 287–291, the `plan` tab node)
+## 1. Taupe retune — surgical, scoped to the page canvas
 
-Wrap `<TodayThreePriorities />` in the same `rounded-xl card-hero p-4` shell the brief uses, and prepend an eyebrow row identical in markup/typography to the brief's eyebrow (lines 1892–1900 in `DecisionReadinessBrief.tsx`):
+Risk to avoid: `--taupe`, `--taupe-highlight`, `--taupe-rich` are also used by buttons, the assessment pill, primary tokens, etc. Globally repointing them would silently restyle CTAs. So we keep those tokens untouched and add three new canvas-only tokens, used only by `.bg-app-surface`.
 
-- Left: `Today's Performance Priorities` (text-eyebrow, muted-foreground-v2)
-- Right: `{getTimeLabel()} · {getDateLabel()}` (text-caption, muted-foreground-v2), imported from `@/components/home/timeLabel`
+Edit `src/index.css`:
 
-The existing `<TodayThreePriorities />` renders unchanged inside the new wrapper. No props, no logic touched.
+```css
+:root {
+  /* Page canvas — Robinhood-style pale sand. Only consumed by .bg-app-surface. */
+  --canvas-hi:   36 14% 86%;   /* light highlight stop */
+  --canvas-mid:  34 12% 80%;   /* dominant pale sand (Robinhood reference) */
+  --canvas-low:  28 10% 72%;   /* warmer shadow stop bottom-right */
+}
 
-### 2. MRS page — wrap in matching card
-File: `src/components/home/mrs/MrsPage.tsx`
+.bg-app-surface {
+  background:
+    radial-gradient(ellipse 120% 80% at 15% -10%, hsl(0 0% 100% / 0.55) 0%, hsl(0 0% 100% / 0.16) 30%, transparent 58%),
+    radial-gradient(ellipse 90% 60% at 110% 110%, hsl(var(--canvas-low) / 0.45) 0%, transparent 60%),
+    linear-gradient(165deg, hsl(var(--canvas-hi)) 0%, hsl(var(--canvas-mid)) 55%, hsl(var(--canvas-low)) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+```
 
-Wrap the inner `<div className="max-w-md mx-auto">…</div>` block in a `rounded-xl card-hero p-4` container so the score sits on the same card surface as the brief. Outer `<section>` (scroll + padding) stays as-is. Score, gauge, tier label, take-assessment tab, and weekly dial all render unchanged. The existing top eyebrow `"Mental Readiness Score"` stays — we are only adding a card behind it, not duplicating headers.
+That is the entire color change. No JSX. No other token reassignments. Buttons, taupe pills, CTA shadows are unaffected.
 
-### 3. Remove dark gradient behind the MRS score circle
-File: `src/components/home/mrs/MrsGauge.tsx`
+## 2. Seamless transition under the B&W onboarding art
 
-The "dark gradient" is the orb body + shadow + drop-shadow stack that paints a dark sphere behind the number. Soften to white/card surface:
+Both call sites need their bottom edge to fade into the same taupe canvas colour (`--canvas-hi`, since the gradient starts there at top). Today:
+- `ShellV8.tsx` fades into hard `#f5f0e8` (parchment) — wrong hue vs. the new canvas.
+- `StageUSPIntro.tsx` has an empty `to-transparent` scrim, so the image hits the canvas with a visible engraved edge.
 
-- Drop the `drop-shadow-[0_18px_40px_rgba(0,0,0,0.28)]` on the `<svg>`.
-- Remove the `<circle … fill="url(#mrs-orb-shadow)" />` (the dark inner shadow ellipse).
-- Replace the `mrs-orb` radial-gradient stops so the sphere body reads as white/card rather than tier-tinted: pure white at the centre fading to fully transparent (no tier-color tinting in the body fill). This keeps the tier color only on the outer halo + progress arc.
-- Keep the specular highlight, halo, track, and progress arc untouched so the gauge still reads as an orb, just light-filled.
+Fix in two files only — purely visual:
 
-## Out of scope
-- No changes to scoring, data fetching, hooks, routes, copy, tier logic, or weekly-delta dial.
-- No restyling of the brief itself, the swipe shell, or any other page.
-- Card token (`card-hero`), `--background`, Saffron, and time/date helpers reused verbatim.
+**`src/pages/onboarding/stages/v8/ShellV8.tsx`** — replace the parchment scrim with a taupe-canvas scrim using the new token, and lengthen the fade so the engraving dissolves rather than crops:
 
-## Validation
-Open `/` in mobile preview and step through the three swipe tabs:
-1. MRS tab — score sits on a light card, no dark sphere behind the number, orb still readable.
-2. Brief tab — unchanged.
-3. Plan tab — Today's Priorities now sits on a brief-style card with `Today's Performance Priorities` on the left and `Afternoon · Wed 4 Jun` (or current bucket) on the right of the eyebrow row.
+```tsx
+{/* Bottom scrim → fades engraving into the page canvas */}
+<div
+  className="absolute inset-x-0 bottom-0 h-[70%] pointer-events-none"
+  style={{
+    background:
+      'linear-gradient(to top, hsl(var(--canvas-hi)) 0%, hsl(var(--canvas-hi) / 0.85) 35%, hsl(var(--canvas-hi) / 0) 100%)',
+  }}
+/>
+```
+
+Also drop the `bg-[#f5f0e8]/25` tint overlay (it muddies the B&W) and remove any explicit `from-[#f5f0e8]` stop.
+
+**`src/pages/onboarding/stages/StageUSPIntro.tsx`** — same scrim, sized to its 34vh hero:
+
+```tsx
+<div
+  className="absolute inset-x-0 bottom-0 h-[55%] pointer-events-none"
+  style={{
+    background:
+      'linear-gradient(to top, hsl(var(--canvas-hi)) 0%, hsl(var(--canvas-hi) / 0.6) 50%, hsl(var(--canvas-hi) / 0) 100%)',
+  }}
+/>
+```
+
+Result: the engraved clouds/sun fade smoothly into the same warm-sand colour the rest of the page sits on, no hairline boundary.
+
+## Verification
+
+- Walk all routes (Onboarding → ExecutiveHome → Recalibrate → Insights → Profile/Privacy/Terms). Background reads as the pale Robinhood sand everywhere.
+- Onboarding StageUSPIntro and any v8 stage (e.g. `/onboarding/leadership-context`): no visible line between art band and body; B&W art dissolves into the canvas.
+- Buttons (Take Assessment saffron, taupe CTAs, Continue), Mastery pills, MRS dial colours — all unchanged.
+- No console errors; no edits to hooks/services/edge functions/supabase types.
+
+## Files touched
+
+- `src/index.css` — add 3 `--canvas-*` tokens, repoint `.bg-app-surface` gradient stops.
+- `src/pages/onboarding/stages/v8/ShellV8.tsx` — swap art-band scrim to canvas-tinted fade.
+- `src/pages/onboarding/stages/StageUSPIntro.tsx` — add canvas-tinted bottom scrim under hero image.
+
+Nothing else.
