@@ -59,9 +59,9 @@ const RecalibrateMode = () => {
               className="group cursor-pointer animate-fade-in h-[160px] md:h-full"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-500 flex flex-row md:flex-col">
+              <div className="h-full bg-white rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-500 flex flex-row md:flex-col">
                 {/* Image */}
-                <div className="relative w-2/5 md:w-auto md:flex-1 shrink-0 min-h-0 overflow-hidden bg-card">
+                <div className="relative w-2/5 md:w-auto md:flex-1 shrink-0 min-h-0 overflow-hidden bg-white">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
@@ -69,7 +69,7 @@ const RecalibrateMode = () => {
                   />
                 </div>
                 {/* Text on opaque background */}
-                <div className="flex-1 p-4 md:p-5 bg-card flex flex-col justify-center min-w-0">
+                <div className="flex-1 p-4 md:p-5 bg-white flex flex-col justify-center min-w-0">
                   <h3 className="text-[17px] md:text-[18px] font-headline font-semibold text-foreground group-hover:text-saffron group-active:text-saffron transition-colors duration-300">
                     {tool.title}
                   </h3>

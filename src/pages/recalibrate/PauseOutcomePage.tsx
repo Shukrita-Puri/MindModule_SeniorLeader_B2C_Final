@@ -209,7 +209,7 @@ const PauseOutcomePage = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {mindsetItems.map((item) => (
-              <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
+              <Card key={item.id} className="cursor-pointer group overflow-hidden border-0" onClick={() => handleItemClick(item)}>
                 <div className="relative h-36 overflow-hidden">
                   <img 
                     src={item.thumbnail}
@@ -269,7 +269,7 @@ const PauseOutcomePage = () => {
             {somaticItems.map((item) => (
               <Card
                 key={item.id}
-                className="cursor-pointer group overflow-hidden"
+                className="cursor-pointer group overflow-hidden border-0"
                 onClick={() => handleItemClick(item)}
               >
                 <div className="relative h-36 overflow-hidden">
@@ -335,10 +335,10 @@ const PauseOutcomePage = () => {
           <div className="h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-8" />
           <p className="text-muted-foreground mb-4">Looking for something else?</p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button variant="outline" onClick={() => navigate('/recalibrate/presence')}>
+            <Button variant="critical" onClick={() => navigate('/recalibrate/presence')}>
               Flow Mastery →
             </Button>
-            <Button variant="outline" onClick={() => navigate('/recalibrate/power-up')}>
+            <Button variant="critical" onClick={() => navigate('/recalibrate/power-up')}>
               Recharge Mastery →
             </Button>
           </div>
