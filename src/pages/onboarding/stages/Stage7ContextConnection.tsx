@@ -261,7 +261,7 @@ export default function Stage7ContextConnection() {
   };
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col">
+    <div className="fixed inset-0 bg-app-surface flex flex-col">
       {/* Subtle background accent image */}
       <img
         src={uspConstellation}
