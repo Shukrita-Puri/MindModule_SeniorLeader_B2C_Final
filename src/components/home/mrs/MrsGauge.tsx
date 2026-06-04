@@ -43,7 +43,6 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="drop-shadow-[0_18px_40px_rgba(0,0,0,0.28)]"
       >
         <defs>
           <radialGradient id="mrs-glow" cx="50%" cy="50%" r="55%">
@@ -57,20 +56,15 @@ const MrsGauge = ({ score, tier, size = 220 }: MrsGaugeProps) => {
           </linearGradient>
           {/* Orb body: subtle sphere with highlight */}
           <radialGradient id="mrs-orb" cx="38%" cy="32%" r="75%">
-            <stop offset="0%" stopColor="hsl(0 0% 100%)" stopOpacity="0.55" />
-            <stop offset="35%" stopColor={color} stopOpacity="0.18" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.06" />
-          </radialGradient>
-          <radialGradient id="mrs-orb-shadow" cx="62%" cy="78%" r="55%">
-            <stop offset="0%" stopColor="hsl(0 0% 0%)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="hsl(0 0% 0%)" stopOpacity="0" />
+            <stop offset="0%" stopColor="hsl(0 0% 100%)" stopOpacity="0.9" />
+            <stop offset="60%" stopColor="hsl(0 0% 100%)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="hsl(0 0% 100%)" stopOpacity="0" />
           </radialGradient>
         </defs>
         {/* soft outer halo */}
         <circle cx={cx} cy={cy} r={radius + 14} fill="url(#mrs-glow)" />
         {/* orb sphere body */}
         <circle cx={cx} cy={cy} r={radius - 4} fill="url(#mrs-orb)" />
-        <circle cx={cx} cy={cy} r={radius - 4} fill="url(#mrs-orb-shadow)" />
         {/* track */}
         <circle
           cx={cx}

@@ -33,7 +33,7 @@ const MrsPage = () => {
       aria-label="Mental Readiness Score"
       className="w-full h-full overflow-y-auto px-5 pt-2 pb-12"
     >
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto rounded-xl card-hero p-4">
         {/* Title — bold eyebrow, matches brief eyebrow */}
         <p className="text-eyebrow text-foreground text-center mt-2">
           Mental Readiness Score
