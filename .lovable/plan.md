@@ -1,39 +1,64 @@
-# Onboarding background + V8 saffron sweep
+## Root cause audit
 
-## Context check (no change needed here)
-The global gradient is already wired in `src/index.css` (`.bg-app-surface` applied to `body`) and every in-app page wrapper (`ExecutiveHome`, `PlanPage`, `Profile`, `DailyCheckIn`, `CheckInDetail`, `Insights`, `Refer`, `Privacy`, etc.) already uses `bg-transparent` on its outer container. RecalibrateMode also reads from `body` now. If the in-app pages still look unchanged, that's the published build (`app.mindmodule.me`) — re-publish picks them up. No further file changes needed for that part.
+Three independent problems block the gradient from showing across the app:
 
-## 1. `/onboarding/app-intro` background → Recalibrate gradient
-`src/pages/onboarding/stages/StageUSPIntro.tsx` is full-bleed parchment (`bg-[#f5f0e8]`) with hero-image fades that also land on `#f5f0e8`.
-- Outer wrapper: `bg-[#f5f0e8]` → `bg-app-surface`.
-- Hero image: keep the engraved image and its layout exactly. Replace the parchment scrim/fade overlays (`bg-[#f5f0e8]/20`, `to-[#f5f0e8]` gradient) with transparent so the image blends into the new app gradient instead of clashing with leftover parchment.
-- All copy, slide count, dot count, layout, CTA position, "Skip tour" unchanged.
+**1. `background-attachment: fixed` is unreliable on iOS Safari / Capacitor WebView.**
+`body { .bg-app-surface }` uses `background-attachment: fixed`. On iOS the fixed attachment frequently fails to paint, so the body's `--background` (warm white `#FAFAF8`) shows through. That is why **Recalibrate now looks white** — we removed its strong inline gradient and left it relying on the body, which silently fails.
 
-## 2. V8 onboarding orange → Saffron token
-Replace the legacy coral orange (`#e8714a` / hover `#c55a35`) with the project's Saffron token (`--saffron: 15 100% 68%` → `bg-saffron` / `text-saffron` / `hover:bg-saffron/90`). Pure color swap — no copy, no layout, no logic change.
+**2. shadcn `SidebarInset` hardcodes `bg-background`.**
+`src/components/ui/sidebar.tsx` (line 325) bakes `bg-background` into `<SidebarInset>`. Any page that wraps content in `SidebarProvider` + `SidebarInset` without explicitly passing `bg-transparent` paints opaque warm-white over the body — completely hiding any global gradient. **`ExecutiveHome.tsx`** (line 243) does exactly this. Recalibrate happens to pass `bg-transparent`, but ExecutiveHome and any other sidebar-using page do not.
 
-Files and roles:
-- `src/pages/onboarding/stages/v8/ShellV8.tsx` — `PrimaryCTA` `tone="coral"` branch.
-- `src/pages/onboarding/stages/StageUSPIntro.tsx` — primary CTA button + active pagination dot.
-- `src/pages/onboarding/stages/v8/StageDone.tsx` — CTA + error pill.
-- `src/pages/onboarding/stages/v8/StageBriefPrefs.tsx` — error pill.
-- `src/pages/onboarding/stages/v8/StageCognitiveLoad.tsx` — error text.
-- `src/pages/onboarding/stages/v8/StageLeadershipContext.tsx` — error text (2 spots).
-- `src/pages/onboarding/stages/v8/StagePermissions.tsx` — switch "on" fill, "Required" label highlights, error pills, selected-row border.
-- `src/pages/onboarding/stages/v8/StageProtectGoals.tsx` — limit-warning text, error text.
+**3. Insights pages have their own hardcoded green inline gradient.**
+- `src/pages/Insights.tsx` line 923 — full green `bg-[radial-gradient(...hsl(122_22%_...))]` on the outer wrapper.
+- `src/pages/InsightDetail.tsx` line 54 — same green gradient.
+These were never swept in the previous pass, so Insights stays green regardless of body.
 
-Mapping rules:
-- `bg-[#e8714a]` → `bg-saffron` (text stays white via existing `text-white` / Saffron's white foreground).
-- `hover:bg-[#c55a35]` → `hover:bg-saffron/90`.
-- `text-[#e8714a]` → `text-saffron`.
-- `bg-[#e8714a]/[0.08]` → `bg-saffron/10`.
-- `border-[#e8714a]/25` (and `/50`) → `border-saffron/25` (and `/50`).
+## Fix
+
+### A. Make the global surface bullet-proof (`src/index.css`)
+Stop relying on `background-attachment: fixed` on `body`. Apply the gradient to `html`, `body`, and `#root` together, drop `background-attachment: fixed`, and let the gradient repeat naturally with `min-height: 100%`. Keep the existing `--taupe-*` token recipe identical so the visual identity (the Recalibrate parchment/taupe blend) is preserved:
+
+```text
+html, body, #root      → .bg-app-surface
+.bg-app-surface        → same radial+linear gradient, NO background-attachment:fixed
+                         add background-repeat:no-repeat, background-size: 100% 100%
+```
+
+This guarantees the gradient renders on every route, on iOS Safari, in Capacitor, and behind any transparent wrapper.
+
+### B. Stop `SidebarInset` from masking the body
+Two surgical edits, no API change:
+
+1. `src/components/ui/sidebar.tsx` line 325 — replace `bg-background` with `bg-transparent` in `SidebarInset`'s base classes. Any page that genuinely needs an opaque surface can pass its own `bg-*` via `className` (tailwind-merge already supports the override).
+2. `src/pages/ExecutiveHome.tsx` line 243-245 — explicitly add `bg-transparent` to the `<SidebarInset>` (belt-and-braces, matches Recalibrate's pattern).
+
+### C. Strip hardcoded green gradients from Insights
+1. `src/pages/Insights.tsx` line 923 — replace the long inline `bg-[radial-gradient(...)]` with `bg-transparent`.
+2. `src/pages/InsightDetail.tsx` line 54 — same swap to `bg-transparent`. Keep the sticky header's `bg-background/40` (translucent) as-is so blur still reads.
+
+### D. Sweep any remaining opaque `bg-background` outer wrappers
+Quick repo scan after A–C to catch any other `min-h-screen … bg-background` outer containers that weren't in the previous sweep and convert them to `bg-transparent`. Targets to re-verify: `ExecutiveHome`, `PlanPage`, `CheckInDetail`, `Profile`, `NudgeSettings`, `NudgeSimulator`, `SelfMasteryCoach`, `Login`, `Refer`, any layout/route skeleton that wraps a sidebar.
 
 ## Explicitly NOT touched
-- `bg-app-surface` definition and any in-app page wrappers.
-- Onboarding copy, slide order, layouts, hero artwork, dot count, skip behaviour.
-- `--saffron` token value or any other CTA elsewhere in the app.
-- All neutral parchment text colours (`#1a1712`, `#7a7060`, `#cfc7b8`) stay as-is.
+- Card / modal / sticky-header backgrounds (`bg-card`, `bg-background/40`, `bg-muted/*`) — they intentionally sit on top of the gradient.
+- `--background` token value, Saffron token, `bg-app-surface` color recipe.
+- Any onboarding V8 file already converted.
+- Recalibrate outcome pages (Pause / Presence / Power-Up) — already on `bg-transparent`.
+- Full-bleed player pages (Soundscape, Guided Practice, Micro Practice) — keep their visuals.
+- Logic, routes, copy, components.
 
-## Verification
-After build, in preview: navigate to `/onboarding/app-intro` (gradient behind hero + saffron CTA/active dot), then walk through `/onboarding/leadership-context`, `/cognitive-load`, `/brief-prefs`, `/protect-goals`, `/permissions`, `/done` and confirm every CTA + active toggle + warning text reads as Saffron, not coral orange. Re-publish so `app.mindmodule.me` shows the new in-app gradient.
+## Validation (end-to-end, post-build)
+Walk these routes in preview at mobile viewport and confirm the **same taupe Recalibrate gradient** is visible behind cards (not warm-white, not green):
+
+1. `/` (ExecutiveHome) — gradient behind hero + brief + priorities.
+2. `/recalibrate` — gradient (no longer white).
+3. `/recalibrate/pause`, `/recalibrate/presence`, `/recalibrate/power-up` — gradient.
+4. `/insights` — gradient (no longer green).
+5. `/insights/:id` (InsightDetail) — gradient.
+6. `/plan`, `/daily-check-in`, `/check-in/:id`, `/profile`, `/refer`, `/connected-data`, `/powered-by-ai`, `/privacy`, `/terms`.
+7. `/nudge-settings`, `/nudge-simulator`, `/coach`.
+8. `/onboarding/app-intro` and every V8 onboarding stage — gradient still visible (already wired).
+9. Full-bleed players (`/soundscapes/:id`, `/guided-practices/:id`, `/micro-practice/:id`) — visuals untouched.
+10. Confirm cards, modals, sticky headers retain their existing fills and contrast.
+
+If any page still reads warm-white or green, grep for residual `bg-background` / `bg-[radial-gradient` on its outermost wrapper and convert to `bg-transparent` before declaring done.
