@@ -28,6 +28,7 @@ export function ParchScreen({
           alt=""
           aria-hidden
           className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "grayscale(1) contrast(1.05)" }}
         />
         {/* Parchment tint so artwork blends with body */}
         <div className="absolute inset-0 bg-[#f5f0e8]/25" />
