@@ -540,6 +540,7 @@ const DailyCheckIn = () => {
           recordStep('first_session_walkthrough', { completed: true });
         }} />
       )}
+      </div>
     </div>
     </SidebarInset>
     </div>
