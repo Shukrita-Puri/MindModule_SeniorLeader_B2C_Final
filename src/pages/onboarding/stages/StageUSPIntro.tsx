@@ -73,7 +73,13 @@ export default function StageUSPIntro() {
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "grayscale(1) contrast(1.05)" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
+        <div
+          className="absolute inset-x-0 bottom-0 h-[55%] pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(to top, hsl(var(--canvas-hi)) 0%, hsl(var(--canvas-hi) / 0.6) 50%, hsl(var(--canvas-hi) / 0) 100%)",
+          }}
+        />
       </div>
 
       {/* Title + body */}
