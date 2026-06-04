@@ -38,7 +38,26 @@ Template: `{strategicAnchor}. {tacticalPattern}. {immediateSignal}. → {actionV
 
 ## UI contract — explicitly unchanged
 - No slot-name chips. No brief-reference top line. No new badges for holiday/PTO/jet-lag.
-- Visible deltas live entirely inside (1) the Why-this-matters body and (2) the step card context line.
+- Visible deltas live inside (1) the Why-this-matters body and (2) the step card context line.
+- One new chip: arc label (`Prepare` / `During` / `Recover` / `Steady`) next to the priority number, only on slots anchored to a known event. Reuses muted chip styling — no new colour token.
+
+## CEO-behaviour title rules (v5.2, June 2026)
+- Today's Performance Priorities titles are built by `buildPriorityTitle()` in `_shared/plan/title-prefixes.ts`. It is the single source for JIT and non-JIT slot titles.
+- Format: `{verb} {executive objective} {connector} {event}`.
+- Verb chosen from category × phase via `verbForCategoryPhase`: A.pre=Lead, B.pre=Present, C.pre=Decide, D.pre=Steady, E.pre=Steady, F.pre=Present, G.pre=Reframe, H.pre=Steady; A/D.post=Reset, F/G.post=Recover, else.post=Land; any.during=Hold.
+- Executive objective mapped from `practicePriorityTag` (`regulation_composure`→composed presence, `recovery_resilience`→focused recovery, `energy_endurance`→sustained energy, `focus_clarity`→strategic clarity, `mindset_reframe`→decisive alignment). Falls back to phase-aware defaults when tag absent.
+- Why-line composition is slot-scoped: `composeWhyLine` receives `slotAnchorCategoryId` and only emits `board_outcome` / `decision_leakage` clauses when this slot itself is anchored to a matching event. Arc label is prepended to the action sentence so the user sees `Prepare: Settle … before <event>.` / `Recover: Close … after <event>.`
+
+## Per-event arc cadence
+- Default cap per event in a single Today's surface remains `CATEGORY_MAX_SLOTS` (A/D=2, F/G=3, else=1).
+- For categories with cap ≥ 2, a second arc is only allowed when the two slots cover **different phases** AND the start-times are **≥ 12h apart**. Closer-spaced pairs collapse to a single arc.
+- The phase split for the slot's anchor MUST match a phase actually defined in `EVENT_PHASE_MAP` for that category.
+
+## Temporal gating
+- The integrate / "Tiny Win and Reflection" practice only renders inside the 18:00–22:59 local window. Outside that window the server swaps the title to `Sleep Prep & Tomorrow Framing` with a forward-looking prompt; the client also suppresses the Reflection Corner capture defensively. See `mem://features/mastery-plan/temporal-gating`.
+
+## Sanitisation
+- `stripBriefMarkdown` (`_shared/text/sanitise.ts`) is applied to every `whyLine`, `recommendedAction`, and `timeLabel` before the response is returned. Mirror helper on the client (`src/components/home/timeLabel.ts`) defends against stale cached payloads.
 
 ## Stateful evolution preserved
 - Plan does not rebuild on every brief; completed slots stay crossed out; incomplete slots keep their practice titles and refresh only the Why-text. Full rebuild only when all 3 are complete (Bonus Round) — handled by existing `mergeWithLedger`.
