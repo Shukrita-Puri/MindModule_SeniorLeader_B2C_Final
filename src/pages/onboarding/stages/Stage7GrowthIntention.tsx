@@ -52,7 +52,7 @@ export default function Stage7GrowthIntention() {
               className={`w-full text-left p-3.5 border rounded-xl transition-all ${
                 goal === option.value
                   ? "border-saffron bg-saffron/5 shadow-sm"
-                  : "border-black/[0.08] hover:border-saffron/30 bg-white/40"
+                  : "border-[#cfc7b8] hover:border-saffron/30 bg-white"
               }`}
             >
               <div className="font-medium text-sm">{option.label}</div>

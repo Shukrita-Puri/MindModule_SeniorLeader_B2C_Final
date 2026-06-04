@@ -226,7 +226,7 @@ const HistoricalBriefOverlay = ({ briefId, onClose }: Props) => {
 
       <div className="min-h-full flex items-start justify-center px-4 pb-12 pt-[calc(env(safe-area-inset-top,0px)+5rem)] md:pt-[calc(env(safe-area-inset-top,0px)+6rem)]">
         <div className="w-full max-w-lg">
-          <div className="rounded-xl bg-white/85 backdrop-blur-[20px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-4 border-l-2 border-l-taupe/40">
+          <div className="rounded-xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-4 border-l-2 border-l-taupe/40">
             {isLoading && (
               <div className="py-8 text-center text-sm text-muted-foreground/70">
                 Loading past brief…

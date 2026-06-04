@@ -26,7 +26,7 @@ const GreetingBanner = () => {
   const greeting = getGreeting();
 
   return (
-    <div className="bg-card border-b border-black/[0.08]">
+    <div className="bg-card border-b border-[#cfc7b8]">
       <div className="p-6 text-center">
         <h1 className="text-[28px] font-headline font-semibold text-foreground mb-1 tracking-tight">
           {greeting}, {firstName}

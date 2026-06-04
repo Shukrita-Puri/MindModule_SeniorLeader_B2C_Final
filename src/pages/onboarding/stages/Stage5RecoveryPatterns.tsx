@@ -52,7 +52,7 @@ export default function Stage5RecoveryPatterns() {
               className={`w-full text-left p-4 border rounded-xl transition-all ${
                 answer === option.value
                   ? "border-saffron bg-saffron/5 shadow-sm"
-                  : "border-black/[0.08] hover:border-saffron/30 bg-white/40"
+                  : "border-[#cfc7b8] hover:border-saffron/30 bg-white"
               }`}
             >
               <div className="flex-1">
