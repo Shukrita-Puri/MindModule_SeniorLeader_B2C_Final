@@ -3804,6 +3804,10 @@ interface SlotContextInput {
   briefWatchFor?: string | null;
   // Multi-practice sequence info
   practiceTypes?: string[];
+  // Pass 4 — resolved state/filler anchor (event-aware why-line)
+  anchorTitle?: string | null;
+  anchorCategoryId?: string | null;
+  anchorPhase?: 'pre' | 'during' | 'post' | null;
 }
 
 function getTimeAnchor(timeOfDay: string | null): string {
@@ -3812,11 +3816,29 @@ function getTimeAnchor(timeOfDay: string | null): string {
   return 'before you close the day';
 }
 
+/**
+ * Pass 4 — anchor-aware temporal phrase. When the state/filler slot resolved
+ * to a specific calendar event, prefer "before|during|after <Event>" so the
+ * why-line matches the slot title ("Steady the system ahead of <Event>"
+ * → "regulate before <Event>"). Falls back to the time-of-day anchor when
+ * there's no event anchor.
+ */
+function getAnchorPhrase(ctx: SlotContextInput): string {
+  const title = (ctx.anchorTitle || '').trim();
+  if (!title) return getTimeAnchor(ctx.timeOfDay);
+  const phase = ctx.anchorPhase || 'pre';
+  if (phase === 'during') return `during ${title}`;
+  if (phase === 'post') return `after ${title}`;
+  return `before ${title}`;
+}
+
 function buildSlotContext(ctx: SlotContextInput): SlotContext {
   const hasWeekData = ctx.checkInCountTotal >= 3;
   const hasWearablePattern = ctx.wearableDaysConnected >= 7;
   const hasCalendar = ctx.meetingCount > 0;
   const timeAnchor = getTimeAnchor(ctx.timeOfDay);
+  const anchorPhrase = getAnchorPhrase(ctx);
+  const hasEventAnchor = !!(ctx.anchorTitle && ctx.anchorTitle.trim());
   const isEvening = ctx.timeOfDay === 'evening';
   // In evening, today's meetingCount represents meetings already on today's calendar
   // (typically completed), not meetings still ahead. Surface "still left" only when
@@ -3865,15 +3887,15 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
         return { situation: 'Low reserves + day close', whyLine: `Reserves low, regulate before you close the day.` };
       }
       if (hasRemainingMeetings) {
-        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead, regulate ${timeAnchor}.` };
+        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead, regulate ${anchorPhrase}.` };
       }
-      return { situation: 'Low reserves', whyLine: `Reserves low, regulate ${timeAnchor}.` };
+      return { situation: 'Low reserves', whyLine: `Reserves low, regulate ${anchorPhrase}.` };
     }
     if (ctx.tier === 'managing' && hasCalendar && ctx.meetingCount > 3) {
       if (isEvening) {
         return { situation: 'Managing + heavy day close', whyLine: `Heavy day, settle your state before you close it.` };
       }
-      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead, settle your state ${timeAnchor}.` };
+      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead, settle your state ${anchorPhrase}.` };
     }
     if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
       return {
@@ -3882,10 +3904,14 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       };
     }
     if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel <= 2) {
-      return { situation: 'Clarity deficit', whyLine: `Clarity low, address it ${timeAnchor} so it doesn't compound.` };
+      return { situation: 'Clarity deficit', whyLine: `Clarity low, address it ${anchorPhrase} so it doesn't compound.` };
     }
     if (ctx.checkInOutcome && ctx.confidenceLevel !== null && ctx.confidenceLevel <= 2) {
-      return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment.` };
+      const groundTarget = hasEventAnchor ? anchorPhrase : `before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment`;
+      return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself ${groundTarget}.` };
+    }
+    if (hasEventAnchor) {
+      return { situation: `State anchored to ${ctx.anchorTitle}`, whyLine: `Set your state ${anchorPhrase}, everything downstream rides on it.` };
     }
     if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state, everything follows from this.' };
     if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset, your second half starts here.' };
@@ -3945,6 +3971,9 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       return isEvening
         ? { situation: 'Week close', whyLine: 'Week closing, recover what the week pulled from you.' }
         : { situation: 'Week close', whyLine: 'End of week, this sustains your quality through the close.' };
+    }
+    if (hasEventAnchor) {
+      return { situation: `Tactical anchor: ${ctx.anchorTitle}`, whyLine: `Carry your edge ${anchorPhrase}.` };
     }
     if (isEvening) {
       return { situation: 'Day close', whyLine: 'For your state, close the day with intention.' };
@@ -4578,8 +4607,17 @@ function buildHorizonModules(
   const briefLeanOn = outerReadinessCache?.leanOn || req.outerReadinessLeanOn || null;
   const briefWatchFor = outerReadinessCache?.watchFor || req.outerReadinessWatchFor || null;
 
-  // Common context input builder
-  const makeCtxInput = (horizon: 'immediate' | 'tactical' | 'strategic', isJit: boolean, practiceTypes?: string[]): SlotContextInput => ({
+  // Common context input builder.
+  // Pass 4 — accept optional `anchor` so state/filler slots can thread the
+  // resolved event anchor (title / categoryId / phase) into the why-line.
+  // For JIT slots, eventTitle still carries the JIT title; this anchor arg
+  // is intended for non-JIT state and filler branches.
+  const makeCtxInput = (
+    horizon: 'immediate' | 'tactical' | 'strategic',
+    isJit: boolean,
+    practiceTypes?: string[],
+    anchor?: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null,
+  ): SlotContextInput => ({
     horizon, isJit, eventTitle: jitEventTitle, jitMinutesUntil,
     tier: req.innerReadinessTier, divergenceMode, checkInOutcome: req.checkInOutcome,
     hrvEventCorrelation, patternInsight: req.patternInsight || null,
@@ -4590,6 +4628,9 @@ function buildHorizonModules(
     timeOfDay, dayOfWeek: dayOfWeekName,
     briefPhrase, briefBody, briefLeanOn, briefWatchFor,
     practiceTypes,
+    anchorTitle: anchor?.title ?? null,
+    anchorCategoryId: anchor?.categoryId ?? null,
+    anchorPhase: anchor?.phase ?? null,
   });
 
   // Divergence mode detection
@@ -4955,6 +4996,8 @@ function buildHorizonModules(
   let slot1IsJit = false;
   let slot1TimeLabel = '';
   let slot1AnchorSnapshot = buildAnchorSnapshot(null, null);
+  // Pass 4 — resolved anchor passed to buildSlotContext (title/phase aware why-line)
+  let slot1AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
     // JIT takes slot 1 — include all pre-event modules (up to 3)
@@ -4968,6 +5011,7 @@ function buildHorizonModules(
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
     slot1AnchorSnapshot = buildAnchorSnapshot(topEventId, topEventEnriched);
+    slot1AnchorForCtx = { title: truncateTitle(topEvent?.event?.title) ?? null, categoryId: topEventCat ?? null, phase: jitPhase.phase };
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -4988,6 +5032,10 @@ function buildHorizonModules(
           anchorLeadTimeMin: sl.leadTimeMin,
         }
       : buildAnchorSnapshot(null, null);
+    if (sl?.eventId) {
+      const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+      slot1AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+    }
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
@@ -5011,6 +5059,10 @@ function buildHorizonModules(
           anchorLeadTimeMin: sl.leadTimeMin,
         }
       : buildAnchorSnapshot(null, null);
+    if (sl?.eventId) {
+      const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+      slot1AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+    }
   }
   if (slot1IsJit && topEventId) {
     // Phase C.2 — anchor with phase so the ranked-candidate picker can
@@ -5022,7 +5074,7 @@ function buildHorizonModules(
   if (slot1Practices.length > 0) {
     const primaryPractice = slot1Practices[0];
     const practiceTypes = slot1Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput('immediate', slot1IsJit, practiceTypes);
+    const ctxInput = makeCtxInput('immediate', slot1IsJit, practiceTypes, slot1AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
@@ -5051,6 +5103,7 @@ function buildHorizonModules(
   let slot2TimeLabel = '';
   let slot2NavyBorder = false;
   let slot2AnchorSnapshot = buildAnchorSnapshot(null, null);
+  let slot2AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
   // Phase C.2 — walk the ranked (event, phase) candidate list. This handles
@@ -5084,6 +5137,7 @@ function buildHorizonModules(
     slot2TimeLabel = label;
     slot2IsJit = true;
     slot2AnchorSnapshot = buildAnchorSnapshot(slot2Candidate.eventId, slot2Enriched);
+    slot2AnchorForCtx = { title: truncateTitle(slot2Candidate.title) ?? null, categoryId: (slot2Candidate.categoryId as any) ?? null, phase: slot2Candidate.phase };
     // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
     slot2NavyBorder = slot2JitMinutesUntil !== null && slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
     // Practice pool: prefer the dedicated pre-event modules when the
@@ -5117,6 +5171,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot2AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     } else {
       slot2TimeLabel = '';
       slot2Practices = []; // signal "drop this slot"
@@ -5129,7 +5187,7 @@ function buildHorizonModules(
   if (slot2Practices.length > 0) {
     const primaryPractice = slot2Practices[0];
     const practiceTypes = slot2Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput('tactical', slot2IsJit, practiceTypes);
+    const ctxInput = makeCtxInput('tactical', slot2IsJit, practiceTypes, slot2AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
@@ -5161,6 +5219,7 @@ function buildHorizonModules(
   let slot3JitMinutesUntil: number | null = null;
   let slot3JitPhase: 'pre' | 'during' | 'post' | null = null;
   let slot3AnchorSnapshot = buildAnchorSnapshot(null, null);
+  let slot3AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
@@ -5190,6 +5249,7 @@ function buildHorizonModules(
     const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2);
     slot3Practices = matched.length > 0 ? matched : (todModules.find((m: any) => !usedIds.has(m.contentId)) ? [todModules.find((m: any) => !usedIds.has(m.contentId))] : []);
     slotAnchors.push({ eventId: slot3Candidate.eventId, phase: slot3Candidate.phase });
+    slot3AnchorForCtx = { title: truncateTitle(slot3Candidate.title) ?? null, categoryId: (slot3Candidate.categoryId as any) ?? null, phase: slot3Candidate.phase };
   } else if (pattern === '2immediate-1tactical') {
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
@@ -5205,6 +5265,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot3AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
@@ -5228,6 +5292,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot3AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   }
@@ -5235,7 +5303,7 @@ function buildHorizonModules(
   if (slot3Practices.length > 0) {
     const primaryPractice = slot3Practices[0];
     const practiceTypes = slot3Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes);
+    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes, slot3AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
@@ -5369,7 +5437,16 @@ function buildHorizonModules(
       seenContentIds.add(selected.id);
       const contentType = selected.content_type || 'micro-practice';
       const moduleType = contentType === 'soundbath' ? 'regulate' : contentType === 'guided-practice' ? 'regulate' : 'align';
-      const ctxInput = makeCtxInput(targetHorizon, false);
+      // Pass 4 — compose state-label first so the filler's why-line can be
+      // anchored to the resolved event (matches the timeLabel verb).
+      const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
+      const fillerLabel = composeStateLabel(fillerSlotIdx);
+      let fillerAnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
+      if (fillerLabel?.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === fillerLabel.eventId);
+        fillerAnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: fillerLabel.categoryId, phase: fillerLabel.phase };
+      }
+      const ctxInput = makeCtxInput(targetHorizon, false, undefined, fillerAnchorForCtx);
       const slotCtx = buildSlotContext(ctxInput);
       const fillerPractice = {
         type: moduleType,
@@ -5384,8 +5461,6 @@ function buildHorizonModules(
         reasoning: slotCtx.whyLine,
         thumbnailUrl: selected.thumbnail_url,
       };
-      const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
-      const fillerLabel = composeStateLabel(fillerSlotIdx);
       if (fillerLabel) {
         slotAnchors.push({ eventId: fillerLabel.eventId, phase: fillerLabel.phase });
       }
