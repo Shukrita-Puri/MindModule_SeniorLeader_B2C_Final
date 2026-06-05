@@ -481,6 +481,19 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
     const result = response.data;
 
+    // MRS source breakdown — annotate dataSources with wearable freshness and
+    // which physio signals contributed, so downstream UI/QA can verify the
+    // wearable bundle (not just HRV) was used.
+    const sourceBreakdown: string[] = Array.isArray(result.dataSources)
+      ? [...result.dataSources]
+      : [];
+    sourceBreakdown.push(`wearable_freshness:${wearableFreshness}`);
+    if (wearableSignalsUsed.length > 0) {
+      sourceBreakdown.push(`wearable_signals:${wearableSignalsUsed.join('+')}`);
+    }
+    if (hasCalendar) sourceBreakdown.push('calendar_signal_used');
+    if (hasCheckIn) sourceBreakdown.push('checkin_signal_used');
+
     // Persist composite score to DB with retry guardrail
     const todayISO = localISODate();
     if (hasCheckIn && storedEnergyBalance !== result.score) {
@@ -506,7 +519,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       energyTags: [],
       stateTags: [],
       recommendationPriority: primaryMastery,
-      dataSources: result.dataSources,
+      dataSources: sourceBreakdown,
       confidence: result.confidence,
       calendarDensity,
       calendarLoad,
