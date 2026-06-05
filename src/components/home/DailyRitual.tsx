@@ -12,7 +12,7 @@ import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getTodayRitual, getRitualForPeriod, upsertRitual } from '@/utils/dailyRituals';
-import { getTodayCheckin, getCheckinForWindow, getCurrentTimeWindow } from '@/utils/dailyCheckins';
+import { getCheckinForWindow, getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
