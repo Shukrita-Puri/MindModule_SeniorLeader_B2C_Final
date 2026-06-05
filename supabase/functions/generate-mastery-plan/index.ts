@@ -4996,6 +4996,8 @@ function buildHorizonModules(
   let slot1IsJit = false;
   let slot1TimeLabel = '';
   let slot1AnchorSnapshot = buildAnchorSnapshot(null, null);
+  // Pass 4 — resolved anchor passed to buildSlotContext (title/phase aware why-line)
+  let slot1AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   if (hasJitEvent && jitMinutesUntil !== null && jitMinutesUntil < 120) {
     // JIT takes slot 1 — include all pre-event modules (up to 3)
