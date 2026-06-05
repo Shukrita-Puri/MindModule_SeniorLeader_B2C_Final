@@ -5011,6 +5011,7 @@ function buildHorizonModules(
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
     slot1AnchorSnapshot = buildAnchorSnapshot(topEventId, topEventEnriched);
+    slot1AnchorForCtx = { title: truncateTitle(topEvent?.event?.title) ?? null, categoryId: topEventCat ?? null, phase: jitPhase.phase };
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
     slot1Practices = regMod ? [regMod] : [];
@@ -5031,6 +5032,10 @@ function buildHorizonModules(
           anchorLeadTimeMin: sl.leadTimeMin,
         }
       : buildAnchorSnapshot(null, null);
+    if (sl?.eventId) {
+      const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+      slot1AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+    }
   } else {
     slot1Practices = todModules[0] ? [todModules[0]] : [];
     // Add second practice if non-JIT and available
