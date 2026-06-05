@@ -5219,6 +5219,7 @@ function buildHorizonModules(
   let slot3JitMinutesUntil: number | null = null;
   let slot3JitPhase: 'pre' | 'during' | 'post' | null = null;
   let slot3AnchorSnapshot = buildAnchorSnapshot(null, null);
+  let slot3AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   const usedIds = new Set([...slot1Practices, ...slot2Practices].map((p: any) => p.contentId).filter(Boolean));
 
