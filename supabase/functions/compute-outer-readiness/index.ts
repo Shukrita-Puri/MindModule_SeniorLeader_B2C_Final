@@ -4242,6 +4242,36 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               if (!hasTodaySignal || !hasTodayContext) return { valid: false, reason: 'body_pattern_irrelevant' };
             }
 
+            // ── MRS Band-Gate (deterministic valence check) ──
+            // Hard-reject bodies whose tone contradicts the canonical band.
+            // Lists are intentionally short and high-confidence to avoid false
+            // positives. Source of truth: bandValenceDirective() in
+            // _shared/brief/copy-vocabulary.ts and resolveBand() in
+            // compute-inner-readiness/index.ts.
+            if (bandValence) {
+              const _b = strippedBody.toLowerCase();
+              const PUSH_TONE = [
+                'push hard', 'go after the day', 'lead the charge',
+                'spend the edge', 'open the room', 'own the room',
+                'go after them', 'front of the room',
+              ];
+              const PROTECT_TONE = [
+                'protect yourself', 'pull back', 'do less today',
+                'conserve your', 'guard your reserves', 'sit it out',
+                'hold back today',
+              ];
+              const IMPROVE_SCORE = /\b(raise|lift|boost|improve|fix)\s+(your\s+)?(score|readiness|number)\b/i;
+              if (IMPROVE_SCORE.test(strippedBody)) {
+                return { valid: false, reason: 'body_prescribes_score_improvement' };
+              }
+              if (bandValence === 'low' && PUSH_TONE.some((p) => _b.includes(p))) {
+                return { valid: false, reason: 'body_valence_mismatch_low_push' };
+              }
+              if (bandValence === 'high' && PROTECT_TONE.some((p) => _b.includes(p))) {
+                return { valid: false, reason: 'body_valence_mismatch_high_protect' };
+              }
+            }
+
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
 
             // LeanOn/WatchFor validation
