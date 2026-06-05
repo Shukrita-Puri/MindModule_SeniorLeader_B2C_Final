@@ -5059,6 +5059,10 @@ function buildHorizonModules(
           anchorLeadTimeMin: sl.leadTimeMin,
         }
       : buildAnchorSnapshot(null, null);
+    if (sl?.eventId) {
+      const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+      slot1AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+    }
   }
   if (slot1IsJit && topEventId) {
     // Phase C.2 — anchor with phase so the ranked-candidate picker can
@@ -5070,7 +5074,7 @@ function buildHorizonModules(
   if (slot1Practices.length > 0) {
     const primaryPractice = slot1Practices[0];
     const practiceTypes = slot1Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput('immediate', slot1IsJit, practiceTypes);
+    const ctxInput = makeCtxInput('immediate', slot1IsJit, practiceTypes, slot1AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
