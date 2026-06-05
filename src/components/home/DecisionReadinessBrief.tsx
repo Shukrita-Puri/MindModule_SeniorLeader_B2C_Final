@@ -33,6 +33,10 @@ import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/Feed
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import {
+  getReadinessOneLiner,
+  getReadinessStateLabel,
+} from '@/utils/readinessLabels';
 
 // ─── TYPES ───
 interface SignalChip {
