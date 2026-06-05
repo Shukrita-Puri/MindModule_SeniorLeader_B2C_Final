@@ -1028,14 +1028,35 @@ async function buildNudgeContext(
         preFlight = detectPreFlightTravelEvent(todayEvents, now);
         inFlight = detectInFlightTravelEvent(todayEvents, now);
       }
+      // Pass 8 (P) — post-flight + meeting awareness. Only meaningful when
+      // yesterday was travel OR today already landed (preFlight==null but a
+      // travel event has ended). Fires when the next high-stakes meeting is
+      // within the next 4 h. Pure read of existing arrays — no extra query.
+      const postTravelToday = yesterday.kind === 'travel-day';
+      let landingPlusHighStakes:
+        | { eventTitle: string; minutesUntil: number } | null = null;
+      if (postTravelToday) {
+        const nowMs = now.getTime();
+        const next = highStakesEvents
+          .map((e) => ({ e, minutesUntil: Math.round((new Date(e.start_time).getTime() - nowMs) / 60000) }))
+          .filter((x) => x.minutesUntil >= 0 && x.minutesUntil <= 240)
+          .sort((a, b) => a.minutesUntil - b.minutesUntil)[0];
+        if (next) {
+          landingPlusHighStakes = {
+            eventTitle: next.e.title || 'high-stakes meeting',
+            minutesUntil: next.minutesUntil,
+          };
+        }
+      }
       return {
         kind: today.kind,
         signalToken: today.signalToken,
-        postTravel: yesterday.kind === 'travel-day',
+        postTravel: postTravelToday,
         preFlight,
         inFlight,
         // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
         ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
+        landingPlusHighStakes,
       };
     })(),
     badgeCount: (() => {
