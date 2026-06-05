@@ -16,7 +16,7 @@
 import type { SignalMatrix, RuleContext } from "./brief-context.ts";
 import { classifyEvent } from "./executive-state-taxonomy.ts";
 import { isTravelTitle } from "./ceo-behaviour/travel.ts";
-import { isPtoOrHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
+import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
@@ -213,12 +213,12 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
 
   // personalHolidayInferred: PTO day whose marker leans personal (vacation /
   // annual leave / on leave / public|bank|national holiday). Excludes
-  // OOO/PTO/"out of office" which often still imply a work-arc.
-  const PERSONAL_HOLIDAY_RX =
-    /\b(vacation|annual\s+leave|on\s+leave|public\s+holiday|bank\s+holiday|national\s+holiday|holiday)\b/i;
+  // OOO/PTO/"out of office" which often still imply a work-arc. Regex SSOT
+  // lives in _shared/ceo-behaviour/pto-holiday.ts so the plan generator's
+  // post-holiday selector reads from the same definition.
   const personalHolidayInferredDerived =
     input.events.some(
-      (e) => e.isAllDay === true && PERSONAL_HOLIDAY_RX.test(e.title),
+      (e) => e.isAllDay === true && isPersonalHolidayTitle(e.title),
     ) || undefined;
 
   // workTravelInferred: travel event today AND a high-stakes meeting within
