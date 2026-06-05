@@ -236,7 +236,7 @@ async function fetchLatestTodayFresh(): Promise<CheckinData | null> {
     if (!accessToken) return null;
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_LATEST_TODAY' }
+      body: { action: 'GET_MOST_RECENT_CHECKIN_TODAY' }
     });
     if (error) throw error;
     // Fallback: if the function doesn't yet support GET_LATEST_TODAY, the
