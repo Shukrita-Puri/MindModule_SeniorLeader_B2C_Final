@@ -5249,6 +5249,7 @@ function buildHorizonModules(
     const matched = selectPracticesByCombo(pool, slot3Candidate.comboKey, usedIds, 2);
     slot3Practices = matched.length > 0 ? matched : (todModules.find((m: any) => !usedIds.has(m.contentId)) ? [todModules.find((m: any) => !usedIds.has(m.contentId))] : []);
     slotAnchors.push({ eventId: slot3Candidate.eventId, phase: slot3Candidate.phase });
+    slot3AnchorForCtx = { title: truncateTitle(slot3Candidate.title) ?? null, categoryId: (slot3Candidate.categoryId as any) ?? null, phase: slot3Candidate.phase };
   } else if (pattern === '2immediate-1tactical') {
     const nextMod = todModules.find((m: any) => !usedIds.has(m.contentId)) || todModules[todModules.length - 1];
     slot3Practices = nextMod ? [nextMod] : [];
@@ -5264,6 +5265,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot3AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   } else {
@@ -5287,6 +5292,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot3AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     }
     else { slot3TimeLabel = ''; slot3Practices = []; }
   }
@@ -5294,7 +5303,7 @@ function buildHorizonModules(
   if (slot3Practices.length > 0) {
     const primaryPractice = slot3Practices[0];
     const practiceTypes = slot3Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes);
+    const ctxInput = makeCtxInput(slot3Horizon, slot3IsJit, practiceTypes, slot3AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
