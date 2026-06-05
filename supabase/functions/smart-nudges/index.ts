@@ -1136,6 +1136,13 @@ function buildDayShapeLine(ctx: NudgeContext): string {
       `Recovery context: yesterday included travel — body may still be carrying load${postGoal ? ` (${postGoal})` : ''}. Lead the meaning sentence with this awareness.`,
     );
   }
+  if (dc.landingPlusHighStakes) {
+    // Pass 8 (P) — sequence matters: decompress first, then sharpen for the
+    // imminent meeting. Mirrors canonical travelLandingPlusHighStakes copyHint.
+    parts.push(
+      `Travel + meeting awareness: high-stakes "${dc.landingPlusHighStakes.eventTitle}" in ${dc.landingPlusHighStakes.minutesUntil}min after yesterday's travel — frame as decompress then sharpen, do not skip the body-down step.`,
+    );
+  }
   return parts.join('\n');
 }
 
