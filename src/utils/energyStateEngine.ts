@@ -406,6 +406,13 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         hrvPatternContext: hasWearable ? hrvPatternContext : null,
         baselineConfidence: hasWearable ? baselineConfidence : undefined,
         sampleDays: hasWearable ? sampleDays : undefined,
+        // MRS v3 §3.3 — physiological composite inputs. The edge function
+        // blends sleepScore (35%) and RHR trend (15%) on top of HRV (50%).
+        // Pass `null` when unavailable; the EF gracefully degrades.
+        sleepScore: hasWearable ? wearableSleepScore : null,
+        sleepHours: hasWearable ? wearableSleepHours : null,
+        rhrTrend: hasWearable ? wearableRhrTrend : null,
+        rhrElevated: hasWearable ? wearableRhrTrend === 'rising' : false,
         // MRS v2 — calendar demand + pattern signals from the canonical
         // daily_context_snapshot. Null means the snapshot hasn't been
         // populated yet today; the backend handles defaults.
