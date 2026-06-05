@@ -2418,6 +2418,19 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   // causeEffect.practiceImpact (practice_sessions × daily_checkins)
   try {
     const sessions = practiceSessionsRes.data || [];
+    // Phase L — recency map for selectPracticesByCombo / filler scoring.
+    // contentId → integer days-ago of most-recent completion (0 = today).
+    // Read from the same 14-day practice_sessions query; no extra DB call.
+    const todayUtcMs = Date.now();
+    const recentDays: Record<string, number> = {};
+    for (const s of sessions) {
+      const pid = s?.practice_id;
+      const ts = s?.completed_at ? new Date(s.completed_at).getTime() : NaN;
+      if (!pid || !Number.isFinite(ts)) continue;
+      const days = Math.max(0, Math.floor((todayUtcMs - ts) / 86_400_000));
+      if (!(pid in recentDays) || days < recentDays[pid]) recentDays[pid] = days;
+    }
+    (req as any).recentPracticeDays = recentDays;
     if (sessions.length > 0 && checkins.length > 0) {
       const impactMap: Record<string, { totalShift: number; count: number }> = {};
       for (const session of sessions) {
