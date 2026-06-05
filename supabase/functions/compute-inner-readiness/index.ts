@@ -705,6 +705,12 @@ interface ComputeRequest {
   rhrTrend?: RhrTrend | null;
   /** Optional last-night sleep duration (hours). Used by phys composite. */
   sleepHours?: number | null;
+  /**
+   * Wearable tri-state surfaced by the client so the response can echo
+   * fresh vs stale vs missing. `hasWearable` already gates the math; this
+   * preserves the distinction for downstream UI/QA (stale ≠ never connected).
+   */
+  wearableStatus?: 'fresh' | 'stale' | 'missing';
 }
 
 serve(async (req) => {
