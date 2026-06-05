@@ -4978,7 +4978,7 @@ function buildHorizonModules(
     }
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
-    slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slotAnchors.push({ eventId: sl?.eventId ?? null, phase: sl?.phase ?? null });
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
@@ -5001,7 +5001,7 @@ function buildHorizonModules(
     // Non-JIT slot 1 — state-anchored label.
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
-    slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slotAnchors.push({ eventId: sl?.eventId ?? null, phase: sl?.phase ?? null });
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
@@ -5109,7 +5109,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(1);
     if (sl) {
       slot2TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot2AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5197,7 +5197,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(2);
     if (sl) {
       slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5220,7 +5220,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(2);
     if (sl) {
       slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5387,7 +5387,7 @@ function buildHorizonModules(
       const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
       const fillerLabel = composeStateLabel(fillerSlotIdx);
       if (fillerLabel) {
-        slotAnchors.push({ eventId: fillerLabel.eventId });
+        slotAnchors.push({ eventId: fillerLabel.eventId, phase: fillerLabel.phase });
       }
       deduped.push({
         horizon: targetHorizon,
