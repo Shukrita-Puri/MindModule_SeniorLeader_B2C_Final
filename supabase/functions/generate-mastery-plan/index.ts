@@ -55,7 +55,7 @@ import {
   type ComboKey,
 } from '../_shared/protocols/protocol-combos.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
-import { isPtoOrHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
+import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from '../_shared/ceo-behaviour/pto-holiday.ts';
 import { enrichEvent } from '../_shared/events/enrich-event.ts';
 import { rankJitCandidates, type RankedJitCandidate } from '../_shared/events/jit-candidates.ts';
 // Today's-3 Priorities title + sub-line + Why generators (deterministic title/frame, LLM why).
