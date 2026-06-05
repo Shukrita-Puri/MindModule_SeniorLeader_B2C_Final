@@ -72,3 +72,25 @@ export function comboFor(practiceType: LegacyPracticeType): ProtocolCombo {
   const { protocol, mode } = PRACTICE_TYPE_TO_COMBO[practiceType];
   return PROTOCOL_COMBOS[`${protocol}.${mode}` as ComboKey];
 }
+
+/**
+ * Reverse map: ComboKey → legacy practice type. Single source of truth.
+ * Used by `generate-mastery-plan` to bias practice selection toward the
+ * §4 prescribed combo for the slot's phase.
+ *
+ * The four canonical practice types map 1:1 to four of the six combos.
+ * The two event-phase variants (`somatic.flow`, `somatic.reenergise`) do
+ * not have a unique legacy practice type — we bias them to the closest
+ * existing module: somatic.flow → regulate (somatic activation),
+ * somatic.reenergise → integrate (body-closing intent).
+ */
+export const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, LegacyPracticeType> = {
+  ...(Object.fromEntries(
+    Object.entries(PRACTICE_TYPE_TO_COMBO).map(([practiceType, pref]) => [
+      `${pref.protocol}.${pref.mode}`,
+      practiceType,
+    ]),
+  ) as Record<ComboKey, LegacyPracticeType>),
+  "somatic.flow": "regulate",
+  "somatic.reenergise": "integrate",
+};
