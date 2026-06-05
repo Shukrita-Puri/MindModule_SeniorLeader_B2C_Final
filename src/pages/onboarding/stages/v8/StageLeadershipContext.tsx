@@ -10,6 +10,16 @@ import {
   MAX_WRITING_URLS,
   MAX_FREETEXT_LEN,
 } from "@/utils/onboardingV8Validation";
+import { getAuthToken, getEdgeFunctionHeaders } from "@/services/authTokenService";
+import { getSupabaseFunctionUrl } from "@/utils/supabaseFunctions";
+
+type ScrapeState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ok"; name?: string | null; headline?: string | null }
+  | { status: "insufficient"; message: string }
+  | { status: "url_only"; message: string }
+  | { status: "error"; message: string };
 
 type Key = "linkedin" | "writing" | "notes";
 
@@ -48,6 +58,7 @@ export default function StageLeadershipContext() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<Key, boolean>>({ linkedin: false, writing: false, notes: false });
+  const [scrape, setScrape] = useState<ScrapeState>({ status: "idle" });
   const debouncedSave = useMemo(() => makeDebouncedSaver(700), []);
 
   // Compute validation each render (cheap).
@@ -75,6 +86,66 @@ export default function StageLeadershipContext() {
   }, [values, selected]);
 
   const canContinue = linkedinValid && !writingInvalid && !writingOverLimit;
+
+  const linkedinReady =
+    selected.linkedin && values.linkedin.trim() !== "" && isLinkedInUrl(values.linkedin);
+
+  const verifyLinkedin = async () => {
+    if (!linkedinReady) return;
+    setScrape({ status: "loading" });
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setScrape({ status: "error", message: "Please sign in again to verify." });
+        return;
+      }
+      const headers = await getEdgeFunctionHeaders();
+      const res = await fetch(getSupabaseFunctionUrl("linkedin-profile-scrape"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ linkedinUrl: normalizeUrl(values.linkedin) }),
+      });
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) {
+        const message =
+          (data as { message?: string })?.message ||
+          "We couldn't verify that LinkedIn URL. You can retry or continue manually.";
+        setScrape({ status: "error", message });
+        return;
+      }
+      const status = (data as { status?: string })?.status;
+      const profile = (data as { profile?: { full_name?: string; headline?: string } })?.profile;
+      if (status === "insufficient") {
+        setScrape({
+          status: "insufficient",
+          message:
+            (data as { message?: string })?.message ||
+            "We couldn't read enough from that page. You can retry or continue manually.",
+        });
+        return;
+      }
+      if (status === "url_only") {
+        setScrape({
+          status: "url_only",
+          message:
+            (data as { message?: string })?.message ||
+            "Saved your LinkedIn URL. We'll use it for context even without auto-import.",
+        });
+        return;
+      }
+      setScrape({
+        status: "ok",
+        name: profile?.full_name ?? null,
+        headline: profile?.headline ?? null,
+      });
+    } catch (err) {
+      console.warn("[StageLeadershipContext] verify error:", err);
+      setScrape({
+        status: "error",
+        message: "Couldn't reach the verification service. Please retry.",
+      });
+    }
+  };
 
   const next = async () => {
     if (saving) return;
@@ -181,6 +252,34 @@ export default function StageLeadershipContext() {
               )}
               {showLinkedInErr && (
                 <div className="mt-2 text-[11px] text-saffron">Add a valid LinkedIn URL (e.g. linkedin.com/in/yourname)</div>
+              )}
+              {c.key === "linkedin" && linkedinReady && (
+                <div className="mt-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={verifyLinkedin}
+                    disabled={scrape.status === "loading"}
+                    className="self-start text-[11px] px-2.5 py-1 rounded-full border border-[#1a6b4a]/40 text-[#1a6b4a] bg-white disabled:opacity-60"
+                  >
+                    {scrape.status === "loading"
+                      ? "Verifying…"
+                      : scrape.status === "ok" || scrape.status === "insufficient" || scrape.status === "url_only" || scrape.status === "error"
+                      ? "Retry verification"
+                      : "Verify with LinkedIn"}
+                  </button>
+                  {scrape.status === "ok" && (
+                    <div className="text-[11px] text-[#1a6b4a]">
+                      ✓ Imported{scrape.name ? ` — ${scrape.name}` : ""}
+                      {scrape.headline ? ` · ${scrape.headline}` : ""}
+                    </div>
+                  )}
+                  {(scrape.status === "insufficient" || scrape.status === "url_only") && (
+                    <div className="text-[11px] text-[#7a7060]">{scrape.message} You can continue manually.</div>
+                  )}
+                  {scrape.status === "error" && (
+                    <div className="text-[11px] text-saffron">{scrape.message} You can continue manually.</div>
+                  )}
+                </div>
               )}
               {showWritingErr && (
                 <div className="mt-2 text-[11px] text-saffron">
