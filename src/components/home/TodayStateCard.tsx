@@ -9,23 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { cn } from '@/lib/utils';
 import MetricInfoModal from './MetricInfoModal';
-
-
-// Outcome-aware tier labels - specific to what user selected
-const getStateLabel = (tier: string): string => {
-  switch (tier) {
-    case 'depleted':
-      return 'Low Reserve';
-    case 'managing':
-      return 'Moderate Capacity';
-    case 'strong':
-      return 'Strong Readiness';
-    case 'peak':
-      return 'Peak Readiness';
-    default:
-      return 'Moderate Capacity';
-  }
-};
+import { getReadinessOneLiner } from '@/utils/readinessLabels';
 
 // Traffic-light tier color (NOT saffron — saffron is reserved for CTAs)
 const getTierColor = (tier: string): string => {
@@ -74,7 +58,8 @@ const TodayStateCard = () => {
   // reflects chronic load (e.g. caps Strong/Peak to Mixed when a sustained
   // deficit is active). Score number remains the raw, uncapped value.
   const displayedTier = (energyState as any).tierDisplayed ?? energyState.energyTier;
-  const tierLabel = getStateLabel(displayedTier);
+  const tierLabel =
+    getReadinessOneLiner(energyState.overallBalance) ?? '';
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
