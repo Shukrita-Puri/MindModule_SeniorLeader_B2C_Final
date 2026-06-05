@@ -221,6 +221,26 @@ Deno.serve(async (req) => {
         console.error("[linkedin-profile-scrape] DB upsert error (url_only):", dbErr);
         return json(500, { error: "persist_failed", message: "Failed to save profile URL" });
       }
+      // Mirror URL into onboarding row so synthesize-cos-profile has the link
+      // even if no scrape content is available. Best-effort; ignore errors.
+      await db
+        .from("onboarding_v8_responses")
+        .upsert(
+          {
+            user_id: userId,
+            linkedin_url: profileUrl,
+            linkedin_scrape: {
+              url: profileUrl,
+              ok: false,
+              error: String(errMsg).slice(0, 500),
+              scraped_at: new Date().toISOString(),
+            },
+          },
+          { onConflict: "user_id" },
+        )
+        .then(({ error }) => {
+          if (error) console.warn("[linkedin-profile-scrape] v8 mirror (url_only) failed:", error.message);
+        });
       return json(200, {
         ok: true,
         status: "url_only",
@@ -260,6 +280,28 @@ Deno.serve(async (req) => {
     if (dbErr) {
       console.error("[linkedin-profile-scrape] DB upsert error:", dbErr);
       return json(500, { error: "persist_failed", message: "Failed to save profile" });
+    }
+    // Mirror raw scrape into onboarding_v8_responses so synthesize-cos-profile
+    // can reuse it without re-hitting Firecrawl. Best-effort; non-blocking.
+    {
+      const root = (fc.body as any)?.data ?? fc.body ?? {};
+      const linkedinScrape = {
+        url: profileUrl,
+        ok: true,
+        markdown: typeof root.markdown === "string" ? root.markdown : "",
+        summary: typeof root.summary === "string" ? root.summary : null,
+        metadata: root.metadata ?? null,
+        scraped_at: new Date().toISOString(),
+      };
+      const { error: mirrorErr } = await db
+        .from("onboarding_v8_responses")
+        .upsert(
+          { user_id: userId, linkedin_url: profileUrl, linkedin_scrape: linkedinScrape },
+          { onConflict: "user_id" },
+        );
+      if (mirrorErr) {
+        console.warn("[linkedin-profile-scrape] v8 mirror failed:", mirrorErr.message);
+      }
     }
     console.info(`[linkedin-profile-scrape] upsert ok user_id=${userId} status=${status}`);
 
