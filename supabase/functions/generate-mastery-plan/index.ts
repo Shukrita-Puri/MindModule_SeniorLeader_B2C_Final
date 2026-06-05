@@ -5103,6 +5103,7 @@ function buildHorizonModules(
   let slot2TimeLabel = '';
   let slot2NavyBorder = false;
   let slot2AnchorSnapshot = buildAnchorSnapshot(null, null);
+  let slot2AnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
 
   // JIT dedup: if slot 1 already consumed the JIT event, don't reuse it
   // Phase C.2 — walk the ranked (event, phase) candidate list. This handles
@@ -5136,6 +5137,7 @@ function buildHorizonModules(
     slot2TimeLabel = label;
     slot2IsJit = true;
     slot2AnchorSnapshot = buildAnchorSnapshot(slot2Candidate.eventId, slot2Enriched);
+    slot2AnchorForCtx = { title: truncateTitle(slot2Candidate.title) ?? null, categoryId: (slot2Candidate.categoryId as any) ?? null, phase: slot2Candidate.phase };
     // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
     slot2NavyBorder = slot2JitMinutesUntil !== null && slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
     // Practice pool: prefer the dedicated pre-event modules when the
