@@ -253,6 +253,34 @@ export default function StageLeadershipContext() {
               {showLinkedInErr && (
                 <div className="mt-2 text-[11px] text-saffron">Add a valid LinkedIn URL (e.g. linkedin.com/in/yourname)</div>
               )}
+              {c.key === "linkedin" && linkedinReady && (
+                <div className="mt-2 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={verifyLinkedin}
+                    disabled={scrape.status === "loading"}
+                    className="self-start text-[11px] px-2.5 py-1 rounded-full border border-[#1a6b4a]/40 text-[#1a6b4a] bg-white disabled:opacity-60"
+                  >
+                    {scrape.status === "loading"
+                      ? "Verifying…"
+                      : scrape.status === "ok" || scrape.status === "insufficient" || scrape.status === "url_only" || scrape.status === "error"
+                      ? "Retry verification"
+                      : "Verify with LinkedIn"}
+                  </button>
+                  {scrape.status === "ok" && (
+                    <div className="text-[11px] text-[#1a6b4a]">
+                      ✓ Imported{scrape.name ? ` — ${scrape.name}` : ""}
+                      {scrape.headline ? ` · ${scrape.headline}` : ""}
+                    </div>
+                  )}
+                  {(scrape.status === "insufficient" || scrape.status === "url_only") && (
+                    <div className="text-[11px] text-[#7a7060]">{scrape.message} You can continue manually.</div>
+                  )}
+                  {scrape.status === "error" && (
+                    <div className="text-[11px] text-saffron">{scrape.message} You can continue manually.</div>
+                  )}
+                </div>
+              )}
               {showWritingErr && (
                 <div className="mt-2 text-[11px] text-saffron">
                   {writingOverLimit
