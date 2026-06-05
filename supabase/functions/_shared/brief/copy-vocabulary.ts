@@ -215,7 +215,8 @@ export const OUTPUT_CONTRACT = `OUTPUT — valid JSON only. No markdown, no prea
  * Build the complete SYSTEM role for the Brief LLM call. Pure — same inputs,
  * same string, every time. Cached upstream by input-signature.
  */
-export function buildBriefSystemPrompt(): string {
+export function buildBriefSystemPrompt(opts?: { bandValence?: ReadinessValence | null }): string {
+  const valenceBlock = bandValenceDirective(opts?.bandValence ?? null);
   return [
     CHIEF_OF_STAFF_PERSONA,
     '',
@@ -226,6 +227,7 @@ export function buildBriefSystemPrompt(): string {
     VOICE_NEVER_SOUND_LIKE,
     '',
     HARD_CONSTRAINTS,
+    ...(valenceBlock ? ['', valenceBlock] : []),
     '',
     PRE_COMPUTED_NOTICE,
     '',
