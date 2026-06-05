@@ -3386,7 +3386,18 @@ serve(async (req) => {
           // The shared TS modules (`buildBehaviourSnapshot`,
           // `buildWindowContext`, `evaluateForScope`, event taxonomy,
           // causality store) own the logic; the LLM only synthesises voice.
-          const systemPrompt = buildBriefSystemPrompt();
+          // Derive the canonical MRS valence ONCE from the displayed score
+          // (same band cut-points as MRS_BANDS in compute-inner-readiness and
+          // READINESS_ONE_LINERS in src/utils/readinessLabels.ts — keep in sync).
+          const bandValence: ReadinessValence | null = (() => {
+            const s = typeof innerReadinessScore === 'number'
+              ? Math.max(0, Math.min(100, Math.round(innerReadinessScore))) : null;
+            if (s == null) return null;
+            if (s < 50) return 'low';
+            if (s < 65) return 'mid';
+            return 'high';
+          })();
+          const systemPrompt = buildBriefSystemPrompt({ bandValence });
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
