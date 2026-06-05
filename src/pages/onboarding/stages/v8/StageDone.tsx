@@ -14,17 +14,15 @@ export default function StageDone() {
     setBusy(true);
     setError(null);
 
-    // 1. Await COS synthesis. It's idempotent — returns cached profile if already ready.
-    const syn = await synthesizeCosProfile();
-    if (!syn.ok) {
-      setBusy(false);
-      if (syn.error === "rate_limited") setError("Mind Module is busy — please retry in a moment.");
-      else if (syn.error === "payment_required") setError("AI credits unavailable. Please contact support.");
-      else setError("Couldn't finish calibrating your profile. Please try again.");
-      return;
-    }
+    // 1. Best-effort COS synthesis with the complete saved row.
+    //    Idempotent — returns cached profile if already ready.
+    //    Synthesis failure does NOT block onboarding completion; it can be
+    //    retried later. The server marks cos_profile_status accordingly.
+    try {
+      await synthesizeCosProfile();
+    } catch { /* non-blocking */ }
 
-    // 2. Only mark complete after synthesis succeeded.
+    // 2. Mark onboarding complete (gated on data validation, not synthesis).
     const res = await markV8Complete();
     if (!res.ok) {
       setBusy(false);
@@ -38,10 +36,6 @@ export default function StageDone() {
         if (fields.includes("goals")) {
           setError("Select at least 1 goal to finish.");
           setTimeout(() => navigate("/onboarding/protect-goals"), 1200);
-          return;
-        }
-        if (fields.includes("cos_profile")) {
-          setError("Profile calibration didn't complete. Please try again.");
           return;
         }
         setError("Some onboarding info is missing — please complete the previous steps.");

@@ -93,6 +93,8 @@ function buildUserPrompt(args: {
   briefTiming: string | null;
   resetModality: string | null;
   weekendSignals: string | null;
+  calendarSelections: string[];
+  wearableSelections: string[];
 }) {
   return `Build a COS intelligence profile for this executive using the onboarding data below. Follow the output schema exactly.
 
@@ -118,6 +120,9 @@ If this contains DISC, Enneagram, archetype, or any existing self-assessment, tr
 **Brief timing preference:** ${args.briefTiming ?? "(not set)"}
 **Reset modality preference:** ${args.resetModality ?? "(not set)"}
 **Weekend signals preference:** ${args.weekendSignals ?? "(not set)"}
+
+**Calendar providers connected:** ${args.calendarSelections.join(", ") || "(none selected)"}
+**Wearable providers connected:** ${args.wearableSelections.join(", ") || "(none selected)"}
 
 user_id: ${args.userId}
 timestamp: ${new Date().toISOString()}
@@ -397,6 +402,8 @@ Deno.serve(async (req) => {
       briefTiming: row.brief_timing,
       resetModality: row.reset_modality,
       weekendSignals: row.weekend_signals,
+      calendarSelections: Array.isArray(row.calendar_selections) ? row.calendar_selections : [],
+      wearableSelections: Array.isArray(row.wearable_selections) ? row.wearable_selections : [],
     });
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
