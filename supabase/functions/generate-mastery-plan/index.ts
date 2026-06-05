@@ -5171,6 +5171,10 @@ function buildHorizonModules(
         anchorScenarioId: sl.scenarioId,
         anchorLeadTimeMin: sl.leadTimeMin,
       };
+      if (sl.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === sl.eventId);
+        slot2AnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: sl.categoryId, phase: sl.phase };
+      }
     } else {
       slot2TimeLabel = '';
       slot2Practices = []; // signal "drop this slot"
@@ -5183,7 +5187,7 @@ function buildHorizonModules(
   if (slot2Practices.length > 0) {
     const primaryPractice = slot2Practices[0];
     const practiceTypes = slot2Practices.map((p: any) => p.type);
-    const ctxInput = makeCtxInput('tactical', slot2IsJit, practiceTypes);
+    const ctxInput = makeCtxInput('tactical', slot2IsJit, practiceTypes, slot2AnchorForCtx);
     const slotCtx = buildSlotContext(ctxInput);
     const seqReasoning = buildSequenceReasoning(practiceTypes, ctxInput);
     modules.push({
