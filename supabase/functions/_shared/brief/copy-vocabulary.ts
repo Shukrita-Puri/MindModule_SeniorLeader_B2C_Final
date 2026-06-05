@@ -88,6 +88,58 @@ export const HARD_CONSTRAINTS = `HARD CONSTRAINTS (no exceptions)
 - If you cannot say something specific and true, return null for that field.
   Silence beats a generic line.`;
 
+/**
+ * Canonical band-gate valence directive. Compiled with the band emitted by
+ * compute-inner-readiness (band ∈ full|ready|holding|reserves|empty,
+ * valence ∈ low|mid|high) so the Brief never contradicts the MRS read.
+ *
+ * Low  → protect / build readiness (no push verbs)
+ * Mid  → steady / hold the line (no big push, no big retreat)
+ * High → stay sharp / push / spend the edge (no protective retreat)
+ *
+ * The directive is appended to the system prompt by `buildBriefSystemPrompt`
+ * when a valence is supplied. The validator enforces the same gate.
+ */
+export type ReadinessValence = 'low' | 'mid' | 'high';
+export function bandValenceDirective(valence: ReadinessValence | null | undefined): string {
+  if (!valence) return '';
+  if (valence === 'low') {
+    return `BAND-GATE — TODAY'S VALENCE IS LOW
+The system has read this person as running on reserves or empty. The voice
+PROTECTS and BUILDS readiness today. Frame the work directive as picking
+battles, narrowing scope, leaning on the prep. Frame the self-regulation
+directive as guarding what's left. Never tell the user to push hard, lead
+the charge, spend their edge, or own the room today. Never tell the user
+how to improve their score — that is the Plan's job, not the Brief's.`;
+  }
+  if (valence === 'mid') {
+    return `BAND-GATE — TODAY'S VALENCE IS MID
+The system has read this person as holding the line — solid, not their peak.
+The voice STEADIES. Frame the work directive as making the deliberate calls
+and skipping the ones that don't move the day. Frame the self-regulation
+directive as keeping the buffer intact. Never push hard, never retreat.
+Never tell the user how to improve their score — that is the Plan's job.`;
+  }
+  return `BAND-GATE — TODAY'S VALENCE IS HIGH
+The system has read this person as ready or at full strength. The voice
+PUSHES and tells them to stay sharp. Frame the work directive as leading
+from the front, opening the room, going after the day. Frame the
+self-regulation directive as protecting the edge so it lands where it
+matters. Never tell the user to pull back, conserve, do less, or protect
+themselves today. Never tell the user how to improve their score — that
+is the Plan's job, not the Brief's.`;
+}
+
+/** MRS consistency line — surfaced inside the user-message READINESS block. */
+export function mrsConsistencyLine(valence: ReadinessValence | null | undefined): string {
+  if (!valence) return '';
+  const tone =
+    valence === 'low' ? 'PROTECT / build readiness'
+    : valence === 'mid' ? 'STEADY / hold the line'
+    : 'PUSH / stay sharp';
+  return `MRS band valence: ${valence.toUpperCase()} → voice must ${tone}. Do not contradict.`;
+}
+
 export const PRE_COMPUTED_NOTICE = `THE INPUTS ARE PRE-COMPUTED
 Everything in the user message has already been worked out by the system —
 deviations, classifications, risk flags, day type, and patterns. Do NOT
