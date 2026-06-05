@@ -4833,6 +4833,7 @@ function buildHorizonModules(
     subtypeId: string | null;
     scenarioId: string | null;
     leadTimeMin: number | null;
+    phase: 'pre' | null;
   } | null => {
     const w = req.wearableContext;
     const tier = req.innerReadinessTier;
@@ -4928,6 +4929,10 @@ function buildHorizonModules(
       subtypeId: anchorEnriched?.subtype?.id ?? null,
       scenarioId: anchorEnriched?.scenarioId ?? null,
       leadTimeMin: anchorEnriched?.leadTimeMin ?? null,
+      // Phase H fix: state-label slots always anchor in the *pre* phase
+      // ("ahead of X"). Surface this so the dedupe ledger can detect
+      // collisions with JIT pre-phase anchors.
+      phase: anchorEventId ? 'pre' : null,
     };
   };
 
