@@ -246,6 +246,17 @@ export interface SignalMatrix {
   /** A meeting is scheduled inside the PTO day (override → ptoWithMeetingFallback). */
   ptoMeetingPresent?: boolean;
 
+  /** Inferred personal (non-work) holiday/vacation today. Derived in
+   *  brief-signal-coverage from the canonical PTO/holiday regex restricted
+   *  to personal-leaning markers (vacation / annual leave / on leave /
+   *  public|bank|national holiday). Edge may override with richer context. */
+  personalHolidayInferred?: boolean;
+
+  /** Inferred work-travel day today: a travel event is present AND a
+   *  high-stakes meeting is scheduled within the next 24h. Distinguishes
+   *  business trips from personal travel so travel-arc framing can pivot. */
+  workTravelInferred?: boolean;
+
   // --- Triangulation-populated (Edge writes; .ts only reads) ---
   /** "sun-pm" | "mon-am" | null. Edge sets when its triangulation
    *  (mood × wearable-absence × calendar) concludes personal-friction window. */

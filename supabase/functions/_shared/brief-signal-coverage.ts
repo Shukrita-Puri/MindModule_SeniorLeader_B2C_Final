@@ -202,6 +202,33 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       (e) => e.isAllDay === true && isPtoOrHolidayTitle(e.title),
     ) || undefined;
 
+  // ptoMeetingPresent: PTO day + any timed (non-all-day) event today. Powers
+  // ptoWithMeetingFallback so a single rogue meeting on a vacation day
+  // restores standard pre-meeting framing for that meeting only.
+  const ptoMeetingPresentDerived =
+    ptoTodayAllDayDerived === true &&
+    input.events.some((e) => e.isAllDay !== true)
+      ? true
+      : undefined;
+
+  // personalHolidayInferred: PTO day whose marker leans personal (vacation /
+  // annual leave / on leave / public|bank|national holiday). Excludes
+  // OOO/PTO/"out of office" which often still imply a work-arc.
+  const PERSONAL_HOLIDAY_RX =
+    /\b(vacation|annual\s+leave|on\s+leave|public\s+holiday|bank\s+holiday|national\s+holiday|holiday)\b/i;
+  const personalHolidayInferredDerived =
+    input.events.some(
+      (e) => e.isAllDay === true && PERSONAL_HOLIDAY_RX.test(e.title),
+    ) || undefined;
+
+  // workTravelInferred: travel event today AND a high-stakes meeting within
+  // 24h — pivots travel-arc framing toward business-trip prep rather than
+  // pure decompression.
+  const workTravelInferredDerived =
+    firstTravelToday != null && highStakesNext24h != null
+      ? true
+      : undefined;
+
   // ---------------------------------------------------------------------------
   // Conference / Summit cluster (v2) — mechanical signals.
   // All inputs are optional; missing inputs yield null/0 and the rule layer
@@ -378,6 +405,9 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
     travelDay: input.timezone.travelDay ?? false,
 
     ptoTodayAllDay: ptoTodayAllDayDerived,
+    ptoMeetingPresent: ptoMeetingPresentDerived,
+    personalHolidayInferred: personalHolidayInferredDerived,
+    workTravelInferred: workTravelInferredDerived,
 
     yesterdayScore: input.scoreYesterday,
     todayScore: input.scoreToday,
