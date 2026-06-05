@@ -388,6 +388,11 @@ interface NudgeContext {
     // v5.3 — PTO / public-holiday "light touch" mode. Collapses the day to
     // a single morning nudge and skips JIT pre-event prep.
     ptoMode?: boolean;
+    // Pass 8 (P — travel arc) — post-flight + meeting awareness. True when
+    // yesterday was a travel day AND today has a high-stakes meeting in the
+    // next 4 h. Mirrors the canonical `travelLandingPlusHighStakes` rule so
+    // the copy can pivot from pure decompression to "decompress then sharpen".
+    landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
   };
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
@@ -1023,14 +1028,35 @@ async function buildNudgeContext(
         preFlight = detectPreFlightTravelEvent(todayEvents, now);
         inFlight = detectInFlightTravelEvent(todayEvents, now);
       }
+      // Pass 8 (P) — post-flight + meeting awareness. Only meaningful when
+      // yesterday was travel OR today already landed (preFlight==null but a
+      // travel event has ended). Fires when the next high-stakes meeting is
+      // within the next 4 h. Pure read of existing arrays — no extra query.
+      const postTravelToday = yesterday.kind === 'travel-day';
+      let landingPlusHighStakes:
+        | { eventTitle: string; minutesUntil: number } | null = null;
+      if (postTravelToday) {
+        const nowMs = now.getTime();
+        const next = highStakesEvents
+          .map((e) => ({ e, minutesUntil: Math.round((new Date(e.start_time).getTime() - nowMs) / 60000) }))
+          .filter((x) => x.minutesUntil >= 0 && x.minutesUntil <= 240)
+          .sort((a, b) => a.minutesUntil - b.minutesUntil)[0];
+        if (next) {
+          landingPlusHighStakes = {
+            eventTitle: next.e.title || 'high-stakes meeting',
+            minutesUntil: next.minutesUntil,
+          };
+        }
+      }
       return {
         kind: today.kind,
         signalToken: today.signalToken,
-        postTravel: yesterday.kind === 'travel-day',
+        postTravel: postTravelToday,
         preFlight,
         inFlight,
         // v5.3 — PTO / public-holiday "light touch": away-day or ooo today.
         ptoMode: today.kind === 'away-day' || today.kind === 'ooo',
+        landingPlusHighStakes,
       };
     })(),
     badgeCount: (() => {
@@ -1108,6 +1134,13 @@ function buildDayShapeLine(ctx: NudgeContext): string {
     const postGoal = EVENT_PHASE_MAP.G.post?.goal ?? '';
     parts.push(
       `Recovery context: yesterday included travel — body may still be carrying load${postGoal ? ` (${postGoal})` : ''}. Lead the meaning sentence with this awareness.`,
+    );
+  }
+  if (dc.landingPlusHighStakes) {
+    // Pass 8 (P) — sequence matters: decompress first, then sharpen for the
+    // imminent meeting. Mirrors canonical travelLandingPlusHighStakes copyHint.
+    parts.push(
+      `Travel + meeting awareness: high-stakes "${dc.landingPlusHighStakes.eventTitle}" in ${dc.landingPlusHighStakes.minutesUntil}min after yesterday's travel — frame as decompress then sharpen, do not skip the body-down step.`,
     );
   }
   return parts.join('\n');
@@ -3082,6 +3115,23 @@ serve(async (req) => {
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
 
+      // Pass 8 (O — strict M/A/E policy) — derive the set of slots that
+      // already received a send today. Per the beta spec, each window
+      // (morning / afternoon / evening) gets at most ONE nudge. Travel
+      // pre-flight rides morning, in-flight rides afternoon — see the
+      // slot assignments in evaluateNudgeOne / Two / Three.
+      const slotForType = (t: string): 'morning' | 'afternoon' | 'evening' | null => {
+        if (t === 'nudge_one' || t.startsWith('nudge_one')) return 'morning';
+        if (t === 'nudge_two' || t.startsWith('nudge_two')) return 'afternoon';
+        if (t === 'nudge_three' || t === 'evening_close' || t.startsWith('nudge_three')) return 'evening';
+        return null;
+      };
+      const sentSlotsToday = new Set<'morning' | 'afternoon' | 'evening'>(
+        (todayLogs || [])
+          .map((l) => slotForType(String(l.notification_type)))
+          .filter((s): s is 'morning' | 'afternoon' | 'evening' => s !== null),
+      );
+
       // ══════════════════════════════════════════════════
       // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
       // ══════════════════════════════════════════════════
@@ -3160,11 +3210,52 @@ serve(async (req) => {
 
       // Deduplicate by type (in case JIT override added a duplicate)
       const seen = new Set<string>();
-      const deduped = qualified.filter(n => {
+      const dedupedByType = qualified.filter(n => {
         if (seen.has(n.type)) return false;
         seen.add(n.type);
         return true;
       });
+
+      // Pass 8 (O) — strict per-window cap: drop any candidate whose slot
+      // already shipped a notification today (durable across cron runs via
+      // notification_log). Logged so dashboards can see the suppression.
+      const slotCapped = dedupedByType.filter((n) => {
+        if (sentSlotsToday.has(n.slot)) {
+          console.log(
+            `[smart-nudges][pass8] user=${userId} drop_slot_cap type=${n.type} slot=${n.slot} sentSlots=${[...sentSlotsToday].join(',')}`,
+          );
+          return false;
+        }
+        return true;
+      });
+
+      // Pass 8 (O) — stale-JIT suppression: any JIT-anchored qualified nudge
+      // whose anchor event ended more than 60 min ago is no longer
+      // actionable. Suppress before send so we don't ship "prep for X" after
+      // X is finished.
+      const nowMsStale = Date.now();
+      const STALE_MS = 60 * 60 * 1000;
+      const eventById = new Map<string, { start: number; end: number }>();
+      for (const e of ctx.todayEvents || []) {
+        if (!e?.id) continue;
+        eventById.set(String(e.id), {
+          start: new Date(e.start_time).getTime(),
+          end: new Date(e.end_time).getTime(),
+        });
+      }
+      const freshOnly = slotCapped.filter((n) => {
+        if (n.anchorKind !== 'jit' || !n.eventReference) return true;
+        const ev = eventById.get(String(n.eventReference));
+        if (!ev) return true; // unknown — let downstream handle
+        if (ev.end < nowMsStale - STALE_MS) {
+          console.log(
+            `[smart-nudges][pass8] user=${userId} drop_stale_jit type=${n.type} event=${n.eventReference} endedMinAgo=${Math.round((nowMsStale - ev.end) / 60000)}`,
+          );
+          return false;
+        }
+        return true;
+      });
+      const deduped = freshOnly;
 
       if (deduped.length > 0) {
         const bestNudge = deduped[0];
