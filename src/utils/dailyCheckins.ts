@@ -36,6 +36,8 @@ export function clearTodayCheckinCache(): void {
   todayCheckinCacheVersion++;
   todayCheckinCache.clear();
   todayCheckinInFlight.clear();
+  latestTodayCache.clear();
+  latestTodayInFlight.clear();
 }
 
 // ─── Time window detection ─────────────────────────────────────────
