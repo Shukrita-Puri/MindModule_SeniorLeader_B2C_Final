@@ -12,7 +12,7 @@ import type {
   Severity,
   SlotBoost,
 } from "./brief-context.ts";
-import { ALL_RULES } from "./ceo-behaviour-rules.ts";
+import { ALL_RULES } from "./ceo-behaviour/index.ts";
 import { PRACTICE_TYPE_TO_COMBO } from "./protocols/protocol-combos.ts";
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
