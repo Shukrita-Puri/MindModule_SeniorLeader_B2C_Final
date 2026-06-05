@@ -4815,6 +4815,10 @@ function buildHorizonModules(
     for (const e of candidates) {
       if (!e) continue;
       const cat = enrichEvent(e).categoryId;
+      // Phase G fix: state/filler slots implicitly own the 'pre' phase
+      // ("ahead of X"). Skip events whose pre-phase is already claimed by a
+      // JIT slot — otherwise we duplicate the same anchor across slots.
+      if (phaseAlreadyAnchored(e.id, 'pre')) continue;
       if (cat ? canAnchorAgain(e.id, cat) : anchorsUsedFor(e.id) < 1) return e;
     }
     return null;
@@ -4829,6 +4833,7 @@ function buildHorizonModules(
     subtypeId: string | null;
     scenarioId: string | null;
     leadTimeMin: number | null;
+    phase: 'pre' | null;
   } | null => {
     const w = req.wearableContext;
     const tier = req.innerReadinessTier;
@@ -4924,6 +4929,10 @@ function buildHorizonModules(
       subtypeId: anchorEnriched?.subtype?.id ?? null,
       scenarioId: anchorEnriched?.scenarioId ?? null,
       leadTimeMin: anchorEnriched?.leadTimeMin ?? null,
+      // Phase H fix: state-label slots always anchor in the *pre* phase
+      // ("ahead of X"). Surface this so the dedupe ledger can detect
+      // collisions with JIT pre-phase anchors.
+      phase: anchorEventId ? 'pre' : null,
     };
   };
 
@@ -4969,7 +4978,7 @@ function buildHorizonModules(
     }
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
-    slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slotAnchors.push({ eventId: sl?.eventId ?? null, phase: sl?.phase ?? null });
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
@@ -4992,7 +5001,7 @@ function buildHorizonModules(
     // Non-JIT slot 1 — state-anchored label.
     const sl = composeStateLabel(0);
     slot1TimeLabel = sl?.label ?? '';
-    slotAnchors.push({ eventId: sl?.eventId ?? null });
+    slotAnchors.push({ eventId: sl?.eventId ?? null, phase: sl?.phase ?? null });
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
@@ -5100,7 +5109,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(1);
     if (sl) {
       slot2TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot2AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5188,7 +5197,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(2);
     if (sl) {
       slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5211,7 +5220,7 @@ function buildHorizonModules(
     const sl = composeStateLabel(2);
     if (sl) {
       slot3TimeLabel = sl.label;
-      slotAnchors.push({ eventId: sl.eventId });
+      slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
         anchorCategoryId: sl.categoryId,
@@ -5378,7 +5387,7 @@ function buildHorizonModules(
       const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
       const fillerLabel = composeStateLabel(fillerSlotIdx);
       if (fillerLabel) {
-        slotAnchors.push({ eventId: fillerLabel.eventId });
+        slotAnchors.push({ eventId: fillerLabel.eventId, phase: fillerLabel.phase });
       }
       deduped.push({
         horizon: targetHorizon,
