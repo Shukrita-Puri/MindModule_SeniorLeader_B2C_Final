@@ -14,6 +14,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { isNativeApp, requestHealthKitPermissions, verifyHealthKitAccess, getHealthKitAuthorization } from '@/utils/healthKitCapacitor';
 import { syncHealthKitToBackend, isHealthKitPermissionGranted, type WearableConnectionState } from '@/services/wearableSyncService';
 import { supabase } from '@/integrations/supabase/client';
+import { clearEnergyStateCache } from '@/utils/energyStateEngine';
+import { clearOuterReadinessCache } from '@/hooks/useOuterReadiness';
 
 interface WearableSyncState {
   connectionState: WearableConnectionState;
@@ -110,6 +112,17 @@ export function useWearableSync(): WearableSyncState {
 
       if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
+        // Stale-state recovery: when fresh wearable data lands, proactively
+        // invalidate MRS + outer readiness caches so the next read picks up
+        // the new bundle immediately (instead of waiting up to 30s).
+        if (result.hasData && result.dbPersisted) {
+          try {
+            clearEnergyStateCache();
+            clearOuterReadinessCache(user?.id);
+          } catch (cacheErr) {
+            console.warn('[useWearableSync] cache invalidation failed:', cacheErr);
+          }
+        }
         return true;
       } else if (
         result.connectionState === 'connected_but_waiting_for_data'
@@ -128,7 +141,7 @@ export function useWearableSync(): WearableSyncState {
       syncingRef.current = false;
       if (!silent) setIsSyncing(false);
     }
-  }, [fetchLatestFromDB]);
+  }, [fetchLatestFromDB, user?.id]);
 
   // ---- Public triggerSync (manual button) ----
   const triggerSync = useCallback(async (): Promise<boolean> => {
