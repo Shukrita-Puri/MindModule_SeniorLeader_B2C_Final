@@ -3887,15 +3887,15 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
         return { situation: 'Low reserves + day close', whyLine: `Reserves low, regulate before you close the day.` };
       }
       if (hasRemainingMeetings) {
-        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead, regulate ${timeAnchor}.` };
+        return { situation: 'Low reserves + calendar load', whyLine: `Reserves low with ${remainingMeetings} meeting${remainingMeetings > 1 ? 's' : ''} ahead, regulate ${anchorPhrase}.` };
       }
-      return { situation: 'Low reserves', whyLine: `Reserves low, regulate ${timeAnchor}.` };
+      return { situation: 'Low reserves', whyLine: `Reserves low, regulate ${anchorPhrase}.` };
     }
     if (ctx.tier === 'managing' && hasCalendar && ctx.meetingCount > 3) {
       if (isEvening) {
         return { situation: 'Managing + heavy day close', whyLine: `Heavy day, settle your state before you close it.` };
       }
-      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead, settle your state ${timeAnchor}.` };
+      return { situation: 'Managing + heavy calendar', whyLine: `Heavy day ahead, settle your state ${anchorPhrase}.` };
     }
     if (hasWeekData && ctx.patternInsight && ctx.patternInsight.count >= 3) {
       return {
@@ -3904,10 +3904,11 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       };
     }
     if (ctx.checkInOutcome && ctx.clarityLevel !== null && ctx.clarityLevel <= 2) {
-      return { situation: 'Clarity deficit', whyLine: `Clarity low, address it ${timeAnchor} so it doesn't compound.` };
+      return { situation: 'Clarity deficit', whyLine: `Clarity low, address it ${anchorPhrase} so it doesn't compound.` };
     }
     if (ctx.checkInOutcome && ctx.confidenceLevel !== null && ctx.confidenceLevel <= 2) {
-      return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment.` };
+      const groundTarget = hasEventAnchor ? anchorPhrase : `before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment`;
+      return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself ${groundTarget}.` };
     }
     if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state, everything follows from this.' };
     if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset, your second half starts here.' };
