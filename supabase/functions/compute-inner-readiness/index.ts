@@ -902,9 +902,18 @@ serve(async (req) => {
     if (hasCheckIn) dataSources.push('check-in');
     if (hasWearable) dataSources.push('wearable');
     dataSources.push('circadian');
+    // Tri-state wearable echo. Default to derived value when caller omits it
+    // so older callers keep behaving identically.
+    const wearableStatus: 'fresh' | 'stale' | 'missing' =
+      body.wearableStatus ?? (hasWearable ? 'fresh' : 'missing');
+    dataSources.push(`wearable_status:${wearableStatus}`);
 
     // Extract Layer 3 as dedicated field for separate rendering
     const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);
+
+    // Canonical band SSOT — derived once here from the DISPLAYED score and
+    // forwarded to Brief / validator / Plan so nobody re-derives.
+    const bandInfo = resolveBand(displayedScore);
 
     const result = {
       // `score` keeps its back-compat contract — it is now the DISPLAYED
@@ -913,12 +922,23 @@ serve(async (req) => {
       score: displayedScore,
       tier: displayedTier,
       subTier: displayedSubTier,
+      // Canonical band — id ('full'|'ready'|'holding'|'reserves'|'empty'),
+      // verbatim one-liner label (matches READINESS_ONE_LINERS), and the
+      // 3-bucket valence ('low'|'mid'|'high') used to gate Brief tone and
+      // Plan practice bias. Always read these instead of mapping `score`
+      // a second time downstream.
+      band: bandInfo.id,
+      bandLabel: bandInfo.label,
+      bandValence: bandInfo.valence,
       contextStatement,
       layer3Statement,
       layersActive,
       divergenceFlag,
       hrvDeviation,
       dataSources,
+      // Alias for callers that prefer the explicit name; same contents.
+      sourceBreakdown: dataSources,
+      wearableStatus,
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
