@@ -4999,7 +4999,17 @@ function buildHorizonModules(
     } else if (hrvDeficit || sleepDeficit) {
       anchor = "tomorrow's load";
     } else if (slotIndex === 2) {
-      if (isWeekend && dow === 0) anchor = "Monday's load";
+      // Pass 7: prefer the named upcoming-week priority over generic
+      // "Monday's / next week's load" when present. Applies on Sunday,
+      // personal-holiday today, and post-holiday weekday.
+      const promoteWeekLead =
+        upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
+      if (promoteWeekLead && upcomingWeekLeadEvent) {
+        anchorEventId = upcomingWeekLeadEvent.id;
+        anchor = upcomingWeekLeadEvent.title
+          ? truncateTitle(upcomingWeekLeadEvent.title)
+          : "this week's lead event";
+      } else if (isWeekend && dow === 0) anchor = "Monday's load";
       else if (isWeekend) anchor = "next week\u2019s load";
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
       else anchor = "tomorrow's load";
@@ -5012,7 +5022,8 @@ function buildHorizonModules(
     // (slot 3 only) tomorrow's calendar. Otherwise drop the slot.
     if (slotIndex >= 1 && !anchorEvent && !highLoad && !hrvDeficit && !sleepDeficit
         && !(slotIndex === 2 && tomorrowEvents.length > 0)
-        && !(slotIndex === 2 && isWeekend)) {
+        && !(slotIndex === 2 && isWeekend)
+        && !(slotIndex === 2 && (isPersonalHolidayToday || wasPersonalHolidayYesterday) && !!upcomingWeekLeadEvent)) {
       return null;
     }
 
