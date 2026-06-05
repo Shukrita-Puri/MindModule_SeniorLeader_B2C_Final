@@ -51,6 +51,7 @@ import {
 import {
   PROTOCOL_COMBOS,
   PRACTICE_TYPE_TO_COMBO,
+  COMBO_TO_PRACTICE_TYPE,
   type ComboKey,
 } from '../_shared/protocols/protocol-combos.ts';
 import { isTravelTitle as isTravelTitleCanonical } from '../_shared/ceo-behaviour/travel.ts';
@@ -2417,6 +2418,19 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
   // causeEffect.practiceImpact (practice_sessions × daily_checkins)
   try {
     const sessions = practiceSessionsRes.data || [];
+    // Phase L — recency map for selectPracticesByCombo / filler scoring.
+    // contentId → integer days-ago of most-recent completion (0 = today).
+    // Read from the same 14-day practice_sessions query; no extra DB call.
+    const todayUtcMs = Date.now();
+    const recentDays: Record<string, number> = {};
+    for (const s of sessions) {
+      const pid = s?.practice_id;
+      const ts = s?.completed_at ? new Date(s.completed_at).getTime() : NaN;
+      if (!pid || !Number.isFinite(ts)) continue;
+      const days = Math.max(0, Math.floor((todayUtcMs - ts) / 86_400_000));
+      if (!(pid in recentDays) || days < recentDays[pid]) recentDays[pid] = days;
+    }
+    (req as any).recentPracticeDays = recentDays;
     if (sessions.length > 0 && checkins.length > 0) {
       const impactMap: Record<string, { totalShift: number; count: number }> = {};
       for (const session of sessions) {
@@ -4799,34 +4813,19 @@ function buildHorizonModules(
     }
     return null;
   };
-  /**
-   * Phase C.2 — ComboKey → legacy practiceType reverse lookup.
-   * Mirror of PRACTICE_TYPE_TO_COMBO (single source of truth in
-   * `_shared/protocols/protocol-combos.ts`). Used to bias practice
-   * selection toward the §4 prescribed combo for the slot's phase.
-   *   somatic.pause      → regulate
-   *   mindset.pause      → align
-   *   mindset.flow       → prepare
-   *   mindset.reenergise → integrate
-   *   somatic.flow       → regulate (closest somatic activation)
-   *   somatic.reenergise → integrate (closest body-closing intent)
-   */
-  const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, string> = {
-    ...Object.fromEntries(
-      Object.entries(PRACTICE_TYPE_TO_COMBO).map(([practiceType, pref]) => [
-        `${pref.protocol}.${pref.mode}`,
-        practiceType,
-      ]),
-    ) as Record<ComboKey, string>,
-    // Shared protocol combos include two event-phase variants that do not map
-    // 1:1 to a unique practice type; bias them to the closest existing module.
-    'somatic.flow': 'regulate',
-    'somatic.reenergise': 'integrate',
-  };
+  // Phase K — `COMBO_TO_PRACTICE_TYPE` now lives in
+  // `_shared/protocols/protocol-combos.ts` (single source of truth).
+  // Local mirror deleted to prevent drift.
   /**
    * Phase C.2 — pick the best-matching practice(s) from a module pool for
    * the given ComboKey. Prefers exact type match; falls back to first
    * non-coach module so we never emit an empty slot.
+   *
+   * Phase L — adds a 7-day recency penalty: practices completed within the
+   * last 7 days are de-prioritised (sorted last within their type bucket)
+   * so the user sees rotation across the catalog rather than the same
+   * top-of-list module every day. Recency is read from `req.recentPracticeDays`
+   * (contentId → days-ago, populated from the 14-day practice_sessions query).
    */
   const selectPracticesByCombo = (
     pool: any[],
@@ -4834,7 +4833,21 @@ function buildHorizonModules(
     excludeIds: Set<string>,
     max = 2,
   ): any[] => {
-    const candidates = (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId));
+    const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
+    const recencyPenalty = (id: string): number => {
+      const d = recencyMap[id];
+      if (d === undefined) return 0;
+      if (d <= 1) return 3;   // done today / yesterday → strongest demotion
+      if (d <= 3) return 2;
+      if (d <= 7) return 1;
+      return 0;
+    };
+    const sortByRecency = (arr: any[]) => [...arr].sort(
+      (a: any, b: any) => recencyPenalty(a.contentId) - recencyPenalty(b.contentId),
+    );
+    const candidates = sortByRecency(
+      (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId)),
+    );
     if (candidates.length === 0) return [];
     const targetType = combo ? COMBO_TO_PRACTICE_TYPE[combo] : null;
     const primary = targetType
@@ -5427,6 +5440,22 @@ function buildHorizonModules(
         if (poorSleep && ssTags.includes('signal-poor-sleep')) score += 10;
         if (req.favorites.includes(c.id)) score += 30;
         if (!isNewUser && c.isFoundational) score -= 5;
+        // Phase L — 7-day recency penalty so the filler rotates across the
+        // catalog instead of re-suggesting the same module daily.
+        const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
+        const dAgo = recencyMap[c.id];
+        if (dAgo !== undefined) {
+          if (dAgo <= 1) score -= 25;
+          else if (dAgo <= 3) score -= 12;
+          else if (dAgo <= 7) score -= 5;
+        }
+        // Phase L — cross-slot type diversity: penalise content_type that
+        // already appears in an emitted slot in this plan, so the filler
+        // adds variety rather than stacking the same protocol family.
+        const emittedTypes = new Set(
+          deduped.map((m: any) => m.practice?.contentType).filter(Boolean),
+        );
+        if (emittedTypes.has(c.content_type)) score -= 8;
         return { content: c, score };
       });
       scored.sort((a: any, b: any) => b.score - a.score);
