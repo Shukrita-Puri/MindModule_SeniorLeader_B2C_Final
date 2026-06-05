@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
-import { saveV8, synthesizeCosProfile } from "@/utils/onboardingV8";
+import { saveV8 } from "@/utils/onboardingV8";
 import { BRIEF_TIMING, RESET_MODALITY, WEEKEND_SIGNALS } from "@/utils/onboardingV8Validation";
 
 type Row = { key: string; label: string; note: string; options: string[]; hint?: string };
@@ -69,8 +69,8 @@ export default function StageBriefPrefs() {
       setSaveError(msg);
       return;
     }
-    // Fire-and-forget synthesis after steps 1–3 are complete
-    synthesizeCosProfile().catch(() => { /* non-blocking */ });
+    // Synthesis is deferred until permissions/connections are saved.
+    // See StageDone.tsx — it runs synthesizeCosProfile() with the full row.
     navigate("/onboarding/permissions");
   };
 
