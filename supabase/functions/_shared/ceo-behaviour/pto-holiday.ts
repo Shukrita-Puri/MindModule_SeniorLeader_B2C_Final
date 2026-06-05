@@ -36,6 +36,20 @@ export function isPtoOrHolidayTitle(title: string | null | undefined): boolean {
   return !!title && PTO_TITLE_RX.test(title);
 }
 
+/**
+ * Personal-leaning subset of {@link PTO_TITLE_RX}: vacation / annual leave /
+ * on leave / public|bank|national holiday / plain "holiday". Excludes
+ * OOO|PTO|out of office which often still imply a work-arc. Single source of
+ * truth for `personalHolidayInferred` detection — imported by
+ * brief-signal-coverage AND the plan generator's post-holiday selector.
+ */
+export const PERSONAL_HOLIDAY_TITLE_RX =
+  /\b(vacation|annual\s+leave|on\s+leave|public\s+holiday|bank\s+holiday|national\s+holiday|holiday)\b/i;
+
+export function isPersonalHolidayTitle(title: string | null | undefined): boolean {
+  return !!title && PERSONAL_HOLIDAY_TITLE_RX.test(title);
+}
+
 function ptoActive(ctx: RuleContext): boolean {
   return (
     ctx.signals.ptoTodayAllDay === true ||
