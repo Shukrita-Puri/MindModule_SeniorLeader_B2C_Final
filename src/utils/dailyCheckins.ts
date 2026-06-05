@@ -113,6 +113,13 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
 
 async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
   const today = new Date().toLocaleDateString('en-CA');
+  // Freshness contract: the "today's check-in" used by Brief / MRS / signal
+  // pills must be scoped to the CURRENT time window, not the most recent
+  // check-in of the day. Otherwise an afternoon check-in leaks into the
+  // evening view, freezing MRS and pills against stale state. When no
+  // check-in exists for the current window, MRS reverts to baseline and
+  // signal pills rebuild from wearable/calendar.
+  const currentWindow = getCurrentTimeWindow();
 
   if (DEV_MODE) {
     try {
@@ -121,6 +128,7 @@ async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
         .select('*')
         .eq('user_id', DEV_USER.id)
         .eq('checkin_date', today)
+        .eq('time_window', currentWindow)
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -139,7 +147,11 @@ async function fetchTodayCheckinFresh(): Promise<CheckinData | null> {
 
     const { data, error } = await supabase.functions.invoke('daily-checkins', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_MOST_RECENT_CHECKIN_TODAY', checkinDate: today }
+      body: {
+        action: 'GET_CHECKIN_FOR_WINDOW',
+        checkinDate: today,
+        timeWindow: currentWindow,
+      }
     });
 
     if (error) throw error;
