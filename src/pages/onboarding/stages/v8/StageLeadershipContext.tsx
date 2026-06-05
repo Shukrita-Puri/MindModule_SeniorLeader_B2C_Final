@@ -176,6 +176,24 @@ export default function StageLeadershipContext() {
     navigate("/onboarding/cognitive-load");
   };
 
+  const skip = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    // Skip persists nulls/empties — never blocks on invalid input.
+    const res = await saveV8(
+      { linkedin_url: null, writing_urls: [], freetext_context: null },
+      "leadership_context",
+    );
+    setSaving(false);
+    if (!res.ok) {
+      // Skip is non-blocking — proceed even if save fails.
+      navigate("/onboarding/cognitive-load");
+      return;
+    }
+    navigate("/onboarding/cognitive-load");
+  };
+
   return (
     <ParchScreen
       step="Step 1 of 3"
@@ -185,7 +203,7 @@ export default function StageLeadershipContext() {
           <PrimaryCTA onClick={next} disabled={saving || !canContinue}>
             {saving ? "Saving…" : "Continue →"}
           </PrimaryCTA>
-          <SkipLink onClick={next}>Skip — Mind Module will learn from behaviour</SkipLink>
+          <SkipLink onClick={skip}>Skip — Mind Module will learn from behaviour</SkipLink>
         </>
       }
     >

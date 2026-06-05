@@ -108,6 +108,7 @@ export default function StageBriefPrefs() {
                   return (
                     <button
                       key={o}
+                      type="button"
                       onClick={() => setPrefs((p) => ({ ...p, [r.key]: o }))}
                       className={`px-2.5 py-1.5 rounded-full text-[11px] font-medium border whitespace-nowrap transition-colors ${
                         on ? "bg-[#1a1712] border-[#1a1712] text-[#f5f0e8]" : "bg-[#f5f0e8] border-[#cfc7b8] text-[#7a7060]"
