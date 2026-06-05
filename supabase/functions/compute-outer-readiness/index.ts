@@ -4123,7 +4123,66 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (DASH_BREAK.test(bodyTextStr)) return { valid: false, reason: 'body_em_dash' };
             const strippedBody = bodyTextStr.replace(/<[^>]+>/g, '');
             const wordCount = strippedBody.split(/\s+/).length;
-            if (wordCount > 50) return { valid: false, reason: `body_too_long_${wordCount}w` };
+            // v2.1 — body is visible analysis, hard cap 40 words.
+            if (wordCount > 40) return { valid: false, reason: `body_too_long_${wordCount}w` };
+
+            // v2.1 — body must not echo any of the 5 one-line score reads verbatim.
+            const ONE_LINE_READS: string[] = [
+              "full strength - go after it",
+              "full strength — go after it",
+              "ready and clear",
+              "holding the line - solid, not your peak",
+              "holding the line — solid, not your peak",
+              "running on reserves - pick your battles",
+              "running on reserves — pick your battles",
+              "running on empty - today's about protecting yourself",
+              "running on empty — today's about protecting yourself",
+            ];
+            const bodyLowerNorm = strippedBody.toLowerCase();
+            for (const r of ONE_LINE_READS) {
+              if (bodyLowerNorm.includes(r.toLowerCase())) {
+                return { valid: false, reason: 'body_restates_one_line_read' };
+              }
+            }
+
+            // v2.1 — abstract system phrases banned in body.
+            const ABSTRACT_SYSTEM_PHRASES = [
+              'come down clean',
+              'hold the base',
+              'mask the surge',
+              'optimise the window',
+              'optimize the window',
+              'leverage your physiological runway',
+            ];
+            for (const p of ABSTRACT_SYSTEM_PHRASES) {
+              if (bodyLowerNorm.includes(p)) {
+                return { valid: false, reason: 'body_abstract_system_phrase' };
+              }
+            }
+
+            // v2.1 — body must not restate the phrase verbatim.
+            if (phraseText) {
+              const phraseNorm = phraseText.trim().toLowerCase().replace(/[.!?,;:"']/g, '');
+              if (phraseNorm.length >= 6 && bodyLowerNorm.includes(phraseNorm)) {
+                return { valid: false, reason: 'body_restates_phrase' };
+              }
+            }
+
+            // v2.1 — light non-repetition check: reject any repeated 4-word run.
+            {
+              const tokens = bodyLowerNorm
+                .replace(/[.,;:!?"'()]/g, ' ')
+                .split(/\s+/)
+                .filter(Boolean);
+              const seen = new Set<string>();
+              for (let i = 0; i + 4 <= tokens.length; i++) {
+                const gram = tokens.slice(i, i + 4).join(' ');
+                if (seen.has(gram)) {
+                  return { valid: false, reason: 'body_repeated_4gram' };
+                }
+                seen.add(gram);
+              }
+            }
 
             // §2.19.5 RULE 1 — body must not restate the numeric score or tier label
             // Forbidden patterns: "31/100", "score of 31", "31 out of 100", "your score is", "low/high readiness score"
