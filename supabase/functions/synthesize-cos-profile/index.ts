@@ -402,6 +402,8 @@ Deno.serve(async (req) => {
       briefTiming: row.brief_timing,
       resetModality: row.reset_modality,
       weekendSignals: row.weekend_signals,
+      calendarSelections: Array.isArray(row.calendar_selections) ? row.calendar_selections : [],
+      wearableSelections: Array.isArray(row.wearable_selections) ? row.wearable_selections : [],
     });
 
     // ── 3. Call Lovable AI Gateway ────────────────────────────────
