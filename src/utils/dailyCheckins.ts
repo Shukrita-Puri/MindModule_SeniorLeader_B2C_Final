@@ -193,6 +193,83 @@ export async function getTodayCheckin(): Promise<CheckinData | null> {
   return promise;
 }
 
+// ─── Get latest check-in of today (any window) ─────────────────────
+// For Plan / recommendation surfaces that intentionally want the most
+// recent check-in of the day regardless of current window. MRS / Brief /
+// signal pills must keep using getTodayCheckin() which is current-window
+// scoped.
+
+const latestTodayCache = new Map<string, { expiresAt: number; data: CheckinData | null }>();
+const latestTodayInFlight = new Map<string, Promise<CheckinData | null>>();
+
+function getLatestTodayCacheKey(): string {
+  const userId = DEV_MODE ? DEV_USER.id : 'auth-user';
+  const today = new Date().toLocaleDateString('en-CA');
+  return `${userId}:${today}:latest`;
+}
+
+async function fetchLatestTodayFresh(): Promise<CheckinData | null> {
+  const today = new Date().toLocaleDateString('en-CA');
+
+  if (DEV_MODE) {
+    try {
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('user_id', DEV_USER.id)
+        .eq('checkin_date', today)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CheckinData | null;
+    } catch (error) {
+      console.error('[dailyCheckins] DEV_MODE failed to fetch latest today checkin:', error);
+      return null;
+    }
+  }
+
+  try {
+    const accessToken = await getAuthTokenWithRetry();
+    if (!accessToken) return null;
+    const { data, error } = await supabase.functions.invoke('daily-checkins', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: { action: 'GET_LATEST_TODAY' }
+    });
+    if (error) throw error;
+    // Fallback: if the function doesn't yet support GET_LATEST_TODAY, the
+    // current-window result is still a safe degradation for Plan surfaces.
+    return data?.data || null;
+  } catch (error) {
+    console.error('[dailyCheckins] Failed to fetch latest today checkin:', error);
+    return null;
+  }
+}
+
+export async function getLatestTodayCheckin(): Promise<CheckinData | null> {
+  const cacheKey = getLatestTodayCacheKey();
+  const cached = latestTodayCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const inFlight = latestTodayInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = fetchLatestTodayFresh()
+    .then((data) => {
+      latestTodayCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + TODAY_CHECKIN_CACHE_MS,
+      });
+      return data;
+    })
+    .finally(() => {
+      latestTodayInFlight.delete(cacheKey);
+    });
+
+  latestTodayInFlight.set(cacheKey, promise);
+  return promise;
+}
+
 // ─── Get check-in for specific window ──────────────────────────────
 
 export async function getCheckinForWindow(
