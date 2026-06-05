@@ -208,16 +208,32 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let wearableSleepScore: number | null = null;
   let wearableSleepHours: number | null = null;
   let wearableRhrTrend: 'falling' | 'stable' | 'rising' | null = null;
+  let wearableFreshness: 'fresh' | 'stale' | 'missing' = 'missing';
+  let wearableSignalsUsed: string[] = [];
+  let wearableLatestSummaryDate: string | null = null;
 
   let hrvPatternContext: any = null;
 
   // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
     try {
-      const [latestRow, baseline, patterns, rhrHistory] = await Promise.all([
+      const [latestRow, latestHrvRow, baseline, patterns, rhrHistory] = await Promise.all([
+        // Latest wearable row with ANY usable physio metric (HRV, RHR, or
+        // sleep). Used to gauge freshness + pull sleep/RHR even when today's
+        // row has no HRV (Apple Health/Oura often write fields piecewise).
         supabase
           .from('wearable_data')
-          .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date, updated_at')
+          .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date, source, source_provider, updated_at')
+          .eq('user_id', effectiveUserId)
+          .or('hrv.not.is.null,resting_heart_rate.not.is.null,sleep_score.not.is.null,total_sleep_minutes.not.is.null')
+          .order('summary_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        // Most recent HRV-bearing row (separate so HRV deviation can still
+        // resolve even if the latest row carries only sleep/RHR).
+        supabase
+          .from('wearable_data')
+          .select('hrv, summary_date')
           .eq('user_id', effectiveUserId)
           .not('hrv', 'is', null)
           .order('summary_date', { ascending: false })
@@ -236,20 +252,48 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           .order('summary_date', { ascending: false })
           .limit(14),
       ]);
-      if (latestRow.data?.hrv) {
-        wearableHRV = Number(latestRow.data.hrv);
+      // Freshness gate — daily summaries are usable if captured within 48h.
+      // Older than that and we treat wearable as stale (do not pass as current).
+      const FRESH_WINDOW_MS = 48 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      const isFresh = (summaryDate?: string | null): boolean => {
+        if (!summaryDate) return false;
+        const t = new Date(`${summaryDate}T00:00:00Z`).getTime();
+        if (!Number.isFinite(t)) return false;
+        return nowMs - t <= FRESH_WINDOW_MS + 24 * 60 * 60 * 1000; // allow today's date
+      };
+
+      if (latestRow.data) {
+        wearableLatestSummaryDate = (latestRow.data as any).summary_date ?? null;
+        wearableFreshness = isFresh(wearableLatestSummaryDate) ? 'fresh' : 'stale';
+      }
+
+      // HRV — accept from latest HRV-bearing row only if that row itself is fresh.
+      if (latestHrvRow.data?.hrv && isFresh((latestHrvRow.data as any).summary_date)) {
+        wearableHRV = Number(latestHrvRow.data.hrv);
         wearableBaseline = baseline;
         wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
+        wearableSignalsUsed.push('hrv');
+      }
+
+      // Sleep — independent of HRV; only when freshest row is fresh.
+      if (latestRow.data && wearableFreshness === 'fresh') {
         const ss = (latestRow.data as any).sleep_score;
-        if (ss != null && Number.isFinite(Number(ss))) wearableSleepScore = Number(ss);
+        if (ss != null && Number.isFinite(Number(ss))) {
+          wearableSleepScore = Number(ss);
+          wearableSignalsUsed.push('sleep_score');
+        }
         const tsm = (latestRow.data as any).total_sleep_minutes;
-        if (tsm != null && Number.isFinite(Number(tsm))) wearableSleepHours = Number(tsm) / 60;
+        if (tsm != null && Number.isFinite(Number(tsm))) {
+          wearableSleepHours = Number(tsm) / 60;
+          if (!wearableSignalsUsed.includes('sleep_score')) wearableSignalsUsed.push('sleep_hours');
+        }
       }
       // Derive a coarse 3-day RHR trend vs prior history mean.
       const rhrRows = (rhrHistory.data ?? [])
         .map((r: any) => Number(r.resting_heart_rate))
         .filter((n) => Number.isFinite(n) && n > 0);
-      if (rhrRows.length >= 5) {
+      if (rhrRows.length >= 5 && wearableFreshness === 'fresh') {
         const recent = rhrRows.slice(0, 3);
         const prior = rhrRows.slice(3);
         const recentMean = recent.reduce((a, b) => a + b, 0) / recent.length;
@@ -258,6 +302,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         if (delta >= 3) wearableRhrTrend = 'rising';
         else if (delta <= -3) wearableRhrTrend = 'falling';
         else wearableRhrTrend = 'stable';
+        wearableSignalsUsed.push('rhr_trend');
       }
       hrvPatternContext = patterns;
     } catch (err) {
@@ -273,9 +318,20 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
     '| RHR trend:', wearableRhrTrend,
     '| sleepScore:', wearableSleepScore,
     '| sleepHours:', wearableSleepHours,
+    '| freshness:', wearableFreshness,
+    '| latestSummaryDate:', wearableLatestSummaryDate,
+    '| signalsUsed:', wearableSignalsUsed,
   );
 
-  const hasWearable = wearableHRV !== null && wearableHRV > 0;
+  // `hasWearable` is true when ANY fresh physio signal is available.
+  // Previously we required HRV; that hid sleep/RHR-only days (common with
+  // Apple Health where fields are written piecewise across syncs).
+  const hasWearable =
+    wearableFreshness === 'fresh' &&
+    ((wearableHRV !== null && wearableHRV > 0) ||
+      wearableSleepScore !== null ||
+      wearableSleepHours !== null ||
+      wearableRhrTrend !== null);
 
   // Fetch calendar events from DB only if connection is active
   let calendarData: any[] = [];
@@ -425,6 +481,19 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
 
     const result = response.data;
 
+    // MRS source breakdown — annotate dataSources with wearable freshness and
+    // which physio signals contributed, so downstream UI/QA can verify the
+    // wearable bundle (not just HRV) was used.
+    const sourceBreakdown: string[] = Array.isArray(result.dataSources)
+      ? [...result.dataSources]
+      : [];
+    sourceBreakdown.push(`wearable_freshness:${wearableFreshness}`);
+    if (wearableSignalsUsed.length > 0) {
+      sourceBreakdown.push(`wearable_signals:${wearableSignalsUsed.join('+')}`);
+    }
+    if (hasCalendar) sourceBreakdown.push('calendar_signal_used');
+    if (hasCheckIn) sourceBreakdown.push('checkin_signal_used');
+
     // Persist composite score to DB with retry guardrail
     const todayISO = localISODate();
     if (hasCheckIn && storedEnergyBalance !== result.score) {
@@ -450,7 +519,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       energyTags: [],
       stateTags: [],
       recommendationPriority: primaryMastery,
-      dataSources: result.dataSources,
+      dataSources: sourceBreakdown,
       confidence: result.confidence,
       calendarDensity,
       calendarLoad,
