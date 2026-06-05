@@ -149,6 +149,15 @@ export interface CurrentEnergyState {
   scoreRefined?: number | null;
   readinessState?: 'baseline' | 'refined';
   refinedContribution?: number | null;
+  // Canonical band SSOT — derived once server-side in compute-inner-readiness.
+  // Consumers (Brief, validator, Plan bias, one-liner display) should read
+  // these instead of re-deriving from `overallBalance`.
+  band?: 'full' | 'ready' | 'holding' | 'reserves' | 'empty';
+  bandLabel?: string;
+  bandValence?: 'low' | 'mid' | 'high';
+  // Tri-state wearable status: 'fresh' (used by score), 'stale' (had a row
+  // but >48h old — excluded from score), 'missing' (never connected / no rows).
+  wearableStatus?: 'fresh' | 'stale' | 'missing';
 }
 
 const ENERGY_STATE_CACHE_MS = 30_000;
