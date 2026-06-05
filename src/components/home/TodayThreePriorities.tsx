@@ -16,7 +16,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { getTodayRitual, upsertRitual, getTodayCompletedUnion, persistPlanLedgerEdit } from '@/utils/dailyRituals';
-import { getCurrentTimeWindow, getTodayCheckin } from '@/utils/dailyCheckins';
+import { getCurrentTimeWindow, getLatestTodayCheckin } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -540,7 +540,8 @@ const TodayThreePriorities = ({
       const forceRefresh = opts?.forceRefresh === true || sessionStorage.getItem(forceKey) === '1' || hasSlotReplacements;
       const sessionLoaded = readPersistent<boolean>(loadedKey) === true;
       const todayRitual = await getTodayRitual(currentPeriod);
-      const todayCheckin = await getTodayCheckin();
+      // Plan surface: latest check-in of the day, not current-window only.
+      const todayCheckin = await getLatestTodayCheckin();
 
       // ── Awaiting-signals gate (mirrors compute-outer-readiness contract) ──
       // If the Brief is awaiting signals (no fresh check-in today AND no fresh
