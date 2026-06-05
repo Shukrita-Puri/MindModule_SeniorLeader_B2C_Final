@@ -600,6 +600,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       recommendation: { primary: 'pause' as MasteryType, contextStatement: 'Unable to compute readiness score. Check-in to get your personalized reading.' },
       checkInOutcome: undefined,
       divergenceFlag: 'ALIGNED',
+      wearableStatus: 'missing',
     };
   }
 }
