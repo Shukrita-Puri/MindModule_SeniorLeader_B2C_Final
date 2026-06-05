@@ -1122,8 +1122,8 @@ const ConnectedData = () => {
   const connections = [
     ...(showWebCalendars ? [{
       id: 'google-calendar',
-      name: 'Google Calendar',
-      description: 'Get a daily brief and nudges tuned to your real meeting load, decision density, and high stakes events - so practices land when they matter.',
+      name: CALENDAR_PROVIDER_META.google.name,
+      description: CALENDAR_PROVIDER_META.google.note,
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
       linked: googleConnected,
@@ -1138,9 +1138,9 @@ const ConnectedData = () => {
     },
     {
       id: 'microsoft-calendar',
-      name: 'Microsoft Calendar',
-      description: 'Tune your brief and nudges to your Outlook meeting load, decision density and high pressure events - so practices land before high-stakes moments.',
-      logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      name: CALENDAR_PROVIDER_META.microsoft.name,
+      description: CALENDAR_PROVIDER_META.microsoft.note,
+      logo: <img src={microsoftCalendarLogo} alt="Microsoft Outlook" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
       linked: microsoftConnected,
       lastSync: microsoftConnected ? formatLastSync(microsoftLastSync) : null,
@@ -1154,8 +1154,8 @@ const ConnectedData = () => {
     }] : []),
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
-      name: 'Apple Calendar',
-      description: 'Tune your brief and nudges to your real meeting load, decision density, and high pressure events - so practices land before high-stakes moments.',
+      name: CALENDAR_PROVIDER_META.apple.name,
+      description: CALENDAR_PROVIDER_META.apple.note,
       logo: (
         <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
           <CalendarDays className="h-4 w-4 text-foreground/70" />
@@ -1182,8 +1182,8 @@ const ConnectedData = () => {
     }] : []),
     {
       id: 'apple-health',
-      name: 'Apple Health',
-      description: 'Share HRV, resting HR, sleep, and HR so your readiness reflects your real physiology.',
+      name: WEARABLE_PROVIDER_META['apple-health'].name,
+      description: WEARABLE_PROVIDER_META['apple-health'].note,
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.isHealthyConnected,
       linked: appleHealthState.isLinked,
@@ -1198,12 +1198,12 @@ const ConnectedData = () => {
     },
     {
       id: 'oura',
-      name: 'Oura Ring',
+      name: WEARABLE_PROVIDER_META.oura.name,
       description: isNativeApp()
         ? (status?.appleWatch?.ouraDetectedViaAppleHealth
             ? 'Oura data is flowing in through Apple Health. No separate connection needed.'
             : 'On iPhone, Mind Module reads Oura data from Apple Health. Open the Oura app → Settings → Apple Health, and enable sharing for Heart Rate, HRV, Resting HR and Sleep. Then make sure Apple Health is connected above.')
-        : 'Share HRV, resting HR, sleep and recovery so your readiness reflects your real physiology — on every wearable surface, not just one.',
+        : WEARABLE_PROVIDER_META.oura.note,
       logo: (
         <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
           OURA
