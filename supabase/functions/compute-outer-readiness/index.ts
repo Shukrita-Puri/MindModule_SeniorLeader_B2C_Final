@@ -3625,6 +3625,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
+          {
+            const _mrsLine = mrsConsistencyLine(bandValence);
+            if (_mrsLine) userPrompt += `\n${_mrsLine}`;
+          }
           if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
           // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
           userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
