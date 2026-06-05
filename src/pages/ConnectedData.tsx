@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
+import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from '@/utils/providerMetadata';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
