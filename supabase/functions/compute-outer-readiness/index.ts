@@ -18,6 +18,8 @@ import {
   buildBriefSystemPrompt,
   contextHeaderForSlot,
   PRE_COMPUTED_USER_NOTICE,
+  mrsConsistencyLine,
+  type ReadinessValence,
 } from "../_shared/brief/copy-vocabulary.ts";
 import type { ClassifiedEventLite } from "../_shared/signal-engine/types.ts";
 import { upsertDailyContextSnapshot, composeDailyContext } from "../_shared/signal-engine/build-daily-context.ts";
@@ -3384,7 +3386,18 @@ serve(async (req) => {
           // The shared TS modules (`buildBehaviourSnapshot`,
           // `buildWindowContext`, `evaluateForScope`, event taxonomy,
           // causality store) own the logic; the LLM only synthesises voice.
-          const systemPrompt = buildBriefSystemPrompt();
+          // Derive the canonical MRS valence ONCE from the displayed score
+          // (same band cut-points as MRS_BANDS in compute-inner-readiness and
+          // READINESS_ONE_LINERS in src/utils/readinessLabels.ts — keep in sync).
+          const bandValence: ReadinessValence | null = (() => {
+            const s = typeof innerReadinessScore === 'number'
+              ? Math.max(0, Math.min(100, Math.round(innerReadinessScore))) : null;
+            if (s == null) return null;
+            if (s < 50) return 'low';
+            if (s < 65) return 'mid';
+            return 'high';
+          })();
+          const systemPrompt = buildBriefSystemPrompt({ bandValence });
           // Retain the legacy inline prompt only as a parked diff-bisection
           // literal during rollout. It is not part of the active prompt path.
           // Drift-protection: any new persona/voice/constraint change must
@@ -3612,6 +3625,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
 
           // === READINESS ===
           userPrompt += `\n\n=== READINESS ===\nScore: ${innerReadinessScore}/100 · Tier: ${safeTier} ← reasoning context only, never echo in output\nScore yesterday: ${yesterdayScore ?? 'null'} · Trend: ${scoreTrend ?? 'stable'}`;
+          {
+            const _mrsLine = mrsConsistencyLine(bandValence);
+            if (_mrsLine) userPrompt += `\n${_mrsLine}`;
+          }
           if (typicalDOWScore != null) userPrompt += `\nScore vs typical ${dayName}: ${scoreVsTypicalDOW ?? 'null'}`;
           // Mental Energy = /daily-check-in outcome (emotional self-declared); Mental Sharpness = /check-in-detail slider
           userPrompt += `\nMental Energy (self-declared, /daily-check-in): ${checkInOutcome ?? 'null'}`;
@@ -4223,6 +4240,36 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               const hasTodayContext = todayHighStakes.some((e: string) => strippedBody.toLowerCase().includes(e.trim().toLowerCase().slice(0, 8))) ||
                 /\b(today|tonight|this morning|this afternoon|this evening|now)\b/i.test(strippedBody);
               if (!hasTodaySignal || !hasTodayContext) return { valid: false, reason: 'body_pattern_irrelevant' };
+            }
+
+            // ── MRS Band-Gate (deterministic valence check) ──
+            // Hard-reject bodies whose tone contradicts the canonical band.
+            // Lists are intentionally short and high-confidence to avoid false
+            // positives. Source of truth: bandValenceDirective() in
+            // _shared/brief/copy-vocabulary.ts and resolveBand() in
+            // compute-inner-readiness/index.ts.
+            if (bandValence) {
+              const _b = strippedBody.toLowerCase();
+              const PUSH_TONE = [
+                'push hard', 'go after the day', 'lead the charge',
+                'spend the edge', 'open the room', 'own the room',
+                'go after them', 'front of the room',
+              ];
+              const PROTECT_TONE = [
+                'protect yourself', 'pull back', 'do less today',
+                'conserve your', 'guard your reserves', 'sit it out',
+                'hold back today',
+              ];
+              const IMPROVE_SCORE = /\b(raise|lift|boost|improve|fix)\s+(your\s+)?(score|readiness|number)\b/i;
+              if (IMPROVE_SCORE.test(strippedBody)) {
+                return { valid: false, reason: 'body_prescribes_score_improvement' };
+              }
+              if (bandValence === 'low' && PUSH_TONE.some((p) => _b.includes(p))) {
+                return { valid: false, reason: 'body_valence_mismatch_low_push' };
+              }
+              if (bandValence === 'high' && PROTECT_TONE.some((p) => _b.includes(p))) {
+                return { valid: false, reason: 'body_valence_mismatch_high_protect' };
+              }
             }
 
             if (bodyTextStr.includes('**') || bodyTextStr.includes('* ')) return { valid: false, reason: 'body_asterisks' };
