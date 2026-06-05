@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ParchScreen, PrimaryCTA } from "./ShellV8";
 import { saveV8 } from "@/utils/onboardingV8";
 import { CALENDAR_PROVIDERS, WEARABLE_PROVIDERS } from "@/utils/onboardingV8Validation";
+import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from "@/utils/providerMetadata";
 import googleCalLogo from "@/assets/shared/google-calendar-logo.avif";
 import outlookLogo from "@/assets/shared/microsoft-calendar-logo.png";
 import appleCalLogo from "@/assets/shared/apple-calendar-logo.png";
@@ -11,14 +12,14 @@ import ouraLogo from "@/assets/shared/oura-ring-logo.png";
 import whoopLogo from "@/assets/shared/whoop-logo.png";
 
 const CAL = [
-  { id: "google", name: "Google Calendar", note: "Reads event titles and times only", logo: googleCalLogo },
-  { id: "microsoft", name: "Microsoft Outlook", note: "Reads event titles and times only", logo: outlookLogo },
-  { id: "apple", name: "Apple Calendar", note: "Reads event titles and times only", logo: appleCalLogo },
+  { id: "google", ...CALENDAR_PROVIDER_META.google, logo: googleCalLogo },
+  { id: "microsoft", ...CALENDAR_PROVIDER_META.microsoft, logo: outlookLogo },
+  { id: "apple", ...CALENDAR_PROVIDER_META.apple, logo: appleCalLogo },
 ];
 const WEAR = [
-  { id: "apple-watch", name: "Apple Watch", note: "HRV, sleep, and recovery as background signal", logo: appleHealthLogo },
-  { id: "oura", name: "Oura Ring", note: "HRV, sleep, and recovery as background signal", logo: ouraLogo },
-  { id: "whoop", name: "Whoop", note: "HRV, strain, and recovery as background signal", logo: whoopLogo },
+  { id: "apple-watch", name: WEARABLE_PROVIDER_META["apple-health"].name, note: WEARABLE_PROVIDER_META["apple-health"].note, logo: appleHealthLogo },
+  { id: "oura", ...WEARABLE_PROVIDER_META.oura, logo: ouraLogo },
+  { id: "whoop", ...WEARABLE_PROVIDER_META.whoop, logo: whoopLogo },
 ];
 
 export default function StagePermissions() {
