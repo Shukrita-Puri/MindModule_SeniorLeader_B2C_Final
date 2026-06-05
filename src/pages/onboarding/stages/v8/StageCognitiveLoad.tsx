@@ -99,6 +99,7 @@ export default function StageCognitiveLoad() {
               return (
                 <button
                   key={c}
+                  type="button"
                   onClick={() => toggle(g.key, c)}
                   className={`px-3.5 py-2 rounded-full text-xs border transition-colors whitespace-nowrap ${
                     on

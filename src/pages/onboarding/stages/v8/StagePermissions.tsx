@@ -100,6 +100,7 @@ export default function StagePermissions() {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => toggle(state, setter, it.id)}
             className={`relative w-[46px] h-[26px] rounded-full shrink-0 transition-colors ${on ? "bg-saffron" : "bg-[#e0d9ce]"}`}
             aria-label={`Toggle ${it.name}`}
