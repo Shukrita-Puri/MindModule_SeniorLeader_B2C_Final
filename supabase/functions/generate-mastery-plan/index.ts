@@ -5437,7 +5437,16 @@ function buildHorizonModules(
       seenContentIds.add(selected.id);
       const contentType = selected.content_type || 'micro-practice';
       const moduleType = contentType === 'soundbath' ? 'regulate' : contentType === 'guided-practice' ? 'regulate' : 'align';
-      const ctxInput = makeCtxInput(targetHorizon, false);
+      // Pass 4 — compose state-label first so the filler's why-line can be
+      // anchored to the resolved event (matches the timeLabel verb).
+      const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
+      const fillerLabel = composeStateLabel(fillerSlotIdx);
+      let fillerAnchorForCtx: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null = null;
+      if (fillerLabel?.eventId) {
+        const ev = (req.calendarEvents || []).find((e: any) => e.id === fillerLabel.eventId);
+        fillerAnchorForCtx = { title: truncateTitle(ev?.title) ?? null, categoryId: fillerLabel.categoryId, phase: fillerLabel.phase };
+      }
+      const ctxInput = makeCtxInput(targetHorizon, false, undefined, fillerAnchorForCtx);
       const slotCtx = buildSlotContext(ctxInput);
       const fillerPractice = {
         type: moduleType,
@@ -5452,8 +5461,6 @@ function buildHorizonModules(
         reasoning: slotCtx.whyLine,
         thumbnailUrl: selected.thumbnail_url,
       };
-      const fillerSlotIdx = (Math.min(deduped.length, 2) as 0 | 1 | 2);
-      const fillerLabel = composeStateLabel(fillerSlotIdx);
       if (fillerLabel) {
         slotAnchors.push({ eventId: fillerLabel.eventId, phase: fillerLabel.phase });
       }
