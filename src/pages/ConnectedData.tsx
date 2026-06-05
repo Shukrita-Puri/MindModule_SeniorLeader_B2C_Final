@@ -1036,21 +1036,34 @@ const ConnectedData = () => {
     const o = status?.oura;
     if (!o) return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected' as string, statusNote: undefined as string | undefined, showReconnect: false };
     if (o.connectionStatus === 'connected') {
-      const sub = o.syncStatus;
       const lastSyncNote = o.lastSync ? `Last synced ${formatDistanceToNowStrict(new Date(o.lastSync), { addSuffix: true })}` : undefined;
-      if (sub === 'waiting_for_data') {
-        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Waiting for data', statusNote: 'Wear the ring overnight to resume', showReconnect: false };
-      }
-      if (sub === 'sync_delayed') {
-        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync delayed', statusNote: lastSyncNote, showReconnect: false };
+      const hoursSinceSample = o.lastSampleAt
+        ? (Date.now() - new Date(o.lastSampleAt).getTime()) / (1000 * 60 * 60)
+        : null;
+      const awaitingData =
+        o.syncStatus === 'waiting_for_data' ||
+        o.syncStatus === 'sync_delayed' ||
+        (hoursSinceSample !== null && hoursSinceSample > 24);
+      if (awaitingData) {
+        return {
+          isLinked: true,
+          // Token is valid — surface as healthily connected, just no fresh data.
+          isHealthyConnected: true,
+          statusLabel: 'Connected · waiting for new data',
+          statusNote: 'No new data yet — wear the ring overnight to refresh.',
+          showReconnect: false,
+        };
       }
       return { isLinked: true, isHealthyConnected: true, statusLabel: 'Connected', statusNote: lastSyncNote, showReconnect: false };
     }
     if (o.connectionStatus === 'permission_revoked') {
-      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission revoked', statusNote: 'Reconnect to resume syncing', showReconnect: true };
+      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission needed', statusNote: 'Reconnect to resume syncing', showReconnect: true };
     }
     if (o.connectionStatus === 'connecting') {
       return { isLinked: false, isHealthyConnected: false, statusLabel: 'Verifying…', statusNote: 'Completing Oura authorization', showReconnect: false };
+    }
+    if (o.connectionStatus === 'error') {
+      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync failed', statusNote: o.lastError ?? 'We will retry automatically.', showReconnect: false };
     }
     return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
   };
