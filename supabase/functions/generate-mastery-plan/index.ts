@@ -4607,8 +4607,17 @@ function buildHorizonModules(
   const briefLeanOn = outerReadinessCache?.leanOn || req.outerReadinessLeanOn || null;
   const briefWatchFor = outerReadinessCache?.watchFor || req.outerReadinessWatchFor || null;
 
-  // Common context input builder
-  const makeCtxInput = (horizon: 'immediate' | 'tactical' | 'strategic', isJit: boolean, practiceTypes?: string[]): SlotContextInput => ({
+  // Common context input builder.
+  // Pass 4 — accept optional `anchor` so state/filler slots can thread the
+  // resolved event anchor (title / categoryId / phase) into the why-line.
+  // For JIT slots, eventTitle still carries the JIT title; this anchor arg
+  // is intended for non-JIT state and filler branches.
+  const makeCtxInput = (
+    horizon: 'immediate' | 'tactical' | 'strategic',
+    isJit: boolean,
+    practiceTypes?: string[],
+    anchor?: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null,
+  ): SlotContextInput => ({
     horizon, isJit, eventTitle: jitEventTitle, jitMinutesUntil,
     tier: req.innerReadinessTier, divergenceMode, checkInOutcome: req.checkInOutcome,
     hrvEventCorrelation, patternInsight: req.patternInsight || null,
@@ -4619,6 +4628,9 @@ function buildHorizonModules(
     timeOfDay, dayOfWeek: dayOfWeekName,
     briefPhrase, briefBody, briefLeanOn, briefWatchFor,
     practiceTypes,
+    anchorTitle: anchor?.title ?? null,
+    anchorCategoryId: anchor?.categoryId ?? null,
+    anchorPhase: anchor?.phase ?? null,
   });
 
   // Divergence mode detection
