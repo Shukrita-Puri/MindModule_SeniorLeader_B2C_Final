@@ -5,10 +5,10 @@ import MrsGauge, { tierColorVar } from './MrsGauge';
 import WeeklyDeltaDial from './WeeklyDeltaDial';
 import { cn } from '@/lib/utils';
 import { getTimeLabel, getDateLabel } from '@/components/home/timeLabel';
-
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-}
+import {
+  getReadinessOneLiner,
+  getReadinessStateLabel,
+} from '@/utils/readinessLabels';
 
 const MrsPage = () => {
   const navigate = useNavigate();
@@ -28,6 +28,8 @@ const MrsPage = () => {
       : 'baseline';
 
   const tierColor = tierColorVar(tier);
+  const oneLiner = getReadinessOneLiner(score);
+  const stateLabel = getReadinessStateLabel(readinessState);
 
   return (
     <section
@@ -50,17 +52,20 @@ const MrsPage = () => {
           <MrsGauge score={score} tier={tier} size={232} />
         </div>
 
-        {/* Tier label only — no "Current tier ·" prefix */}
-        {tier && hasScore && (
-          <div className="mt-4 flex flex-col items-center">
+        {/* One-line read derived from score; state label replaces (Refined)/(Baseline). */}
+        {hasScore && oneLiner && (
+          <div className="mt-4 flex flex-col items-center text-center">
             <span
               className="text-base font-medium tracking-wide"
               style={{ color: tierColor }}
             >
-              {titleCase(tier)}
+              {oneLiner}
             </span>
-            <span className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
-              {readinessState}
+            <span className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+              {stateLabel.label}
+            </span>
+            <span className="mt-0.5 text-[11px] text-muted-foreground/60">
+              {stateLabel.subtitle}
             </span>
           </div>
         )}

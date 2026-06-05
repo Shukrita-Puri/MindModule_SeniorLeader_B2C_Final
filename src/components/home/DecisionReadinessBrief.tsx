@@ -33,6 +33,10 @@ import FeedbackCapture, { type FeedbackRating } from '@/components/feedback/Feed
 import { submitBriefFeedback } from '@/utils/relevanceFeedback';
 import { Button } from '@/components/ui/button';
 import EngravedLoader from '@/components/ui/engraved-loader';
+import {
+  getReadinessOneLiner,
+  getReadinessStateLabel,
+} from '@/utils/readinessLabels';
 
 // ─── TYPES ───
 interface SignalChip {
@@ -1910,12 +1914,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
               {score}
             </span>
             <span className="text-[16px] text-muted-foreground/40">/100</span>
-            <span className={cn("text-xs uppercase tracking-wider font-medium ml-1", getTierColor(tier))}>
-              {getTierLabel(tier)}
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/50 ml-1.5 font-body">
-              {readinessState === 'refined' ? '(Refined)' : '(Baseline)'}
-            </span>
+            {(() => {
+              const stateLabel = getReadinessStateLabel(readinessState);
+              return (
+                <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/60 ml-2 font-body">
+                  {stateLabel.label}
+                  <span className="ml-1 normal-case tracking-normal text-muted-foreground/50">
+                    · {stateLabel.subtitle}
+                  </span>
+                </span>
+              );
+            })()}
           </>
         ) : (
           <>
@@ -1924,6 +1933,17 @@ const PerformanceReadinessBrief = ({ onCtaReadyChange }: PerformanceReadinessBri
           </>
         )}
       </div>
+
+      {/* One-line read derived from score — replaces user-facing tier word. */}
+      {score != null && (() => {
+        const oneLiner = getReadinessOneLiner(score);
+        if (!oneLiner) return null;
+        return (
+          <p className={cn("mt-2 text-[15px] font-medium", getTierColor(tier))}>
+            {oneLiner}
+          </p>
+        );
+      })()}
 
       {/* 3. CALENDAR PILLS — moved into "Based on your signals" section */}
 
