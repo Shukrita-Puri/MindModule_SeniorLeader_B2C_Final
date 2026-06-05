@@ -205,16 +205,19 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   let wearableHRV: number | null = null;
   let wearableBaseline: number | null = null;
   let wearableReadiness: number = 0;
+  let wearableSleepScore: number | null = null;
+  let wearableSleepHours: number | null = null;
+  let wearableRhrTrend: 'falling' | 'stable' | 'rising' | null = null;
 
   let hrvPatternContext: any = null;
 
   // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
     try {
-      const [latestRow, baseline, patterns] = await Promise.all([
+      const [latestRow, baseline, patterns, rhrHistory] = await Promise.all([
         supabase
           .from('wearable_data')
-          .select('hrv, updated_at')
+          .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date, updated_at')
           .eq('user_id', effectiveUserId)
           .not('hrv', 'is', null)
           .order('summary_date', { ascending: false })
@@ -222,11 +225,39 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
           .maybeSingle(),
         getUserHRVBaseline(effectiveUserId),
         computeHRVPatternContext(effectiveUserId),
+        // Pull last 14 wearable_data rows with RHR to derive a simple 3-day trend
+        // vs ~prior 11-day mean. Used only to set `rhrElevated`/`rhrTrend` —
+        // never to alter the MRS formula directly.
+        supabase
+          .from('wearable_data')
+          .select('resting_heart_rate, summary_date')
+          .eq('user_id', effectiveUserId)
+          .not('resting_heart_rate', 'is', null)
+          .order('summary_date', { ascending: false })
+          .limit(14),
       ]);
       if (latestRow.data?.hrv) {
         wearableHRV = Number(latestRow.data.hrv);
         wearableBaseline = baseline;
         wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
+        const ss = (latestRow.data as any).sleep_score;
+        if (ss != null && Number.isFinite(Number(ss))) wearableSleepScore = Number(ss);
+        const tsm = (latestRow.data as any).total_sleep_minutes;
+        if (tsm != null && Number.isFinite(Number(tsm))) wearableSleepHours = Number(tsm) / 60;
+      }
+      // Derive a coarse 3-day RHR trend vs prior history mean.
+      const rhrRows = (rhrHistory.data ?? [])
+        .map((r: any) => Number(r.resting_heart_rate))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (rhrRows.length >= 5) {
+        const recent = rhrRows.slice(0, 3);
+        const prior = rhrRows.slice(3);
+        const recentMean = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const priorMean = prior.reduce((a, b) => a + b, 0) / prior.length;
+        const delta = recentMean - priorMean;
+        if (delta >= 3) wearableRhrTrend = 'rising';
+        else if (delta <= -3) wearableRhrTrend = 'falling';
+        else wearableRhrTrend = 'stable';
       }
       hrvPatternContext = patterns;
     } catch (err) {
@@ -235,7 +266,14 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
   }
 
   // Diagnostic: log wearable data source for cross-device debugging
-  console.log('[energyStateEngine] Wearable source:', wearableHRV !== null ? 'DB' : 'NONE (no fallback)', '| HRV:', wearableHRV);
+  console.log(
+    '[energyStateEngine] Wearable source:',
+    wearableHRV !== null ? 'DB' : 'NONE (no fallback)',
+    '| HRV:', wearableHRV,
+    '| RHR trend:', wearableRhrTrend,
+    '| sleepScore:', wearableSleepScore,
+    '| sleepHours:', wearableSleepHours,
+  );
 
   const hasWearable = wearableHRV !== null && wearableHRV > 0;
 
