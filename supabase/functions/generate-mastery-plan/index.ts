@@ -3910,6 +3910,9 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       const groundTarget = hasEventAnchor ? anchorPhrase : `before your ${ctx.timeOfDay === 'evening' ? 'next' : 'first'} commitment`;
       return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself ${groundTarget}.` };
     }
+    if (hasEventAnchor) {
+      return { situation: `State anchored to ${ctx.anchorTitle}`, whyLine: `Set your state ${anchorPhrase}, everything downstream rides on it.` };
+    }
     if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state, everything follows from this.' };
     if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset, your second half starts here.' };
     return { situation: 'Evening regulation', whyLine: 'Regulate now, settle before you close the day.' };
@@ -3968,6 +3971,9 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       return isEvening
         ? { situation: 'Week close', whyLine: 'Week closing, recover what the week pulled from you.' }
         : { situation: 'Week close', whyLine: 'End of week, this sustains your quality through the close.' };
+    }
+    if (hasEventAnchor) {
+      return { situation: `Tactical anchor: ${ctx.anchorTitle}`, whyLine: `Carry your edge ${anchorPhrase}.` };
     }
     if (isEvening) {
       return { situation: 'Day close', whyLine: 'For your state, close the day with intention.' };
