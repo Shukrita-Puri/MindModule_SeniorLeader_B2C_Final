@@ -64,16 +64,6 @@ const getTierColor = (tier: string): string => {
   }
 };
 
-const getTierLabel = (tier: string): string => {
-  switch (tier) {
-    case 'depleted': return 'LOW RESERVE';
-    case 'managing': return 'MODERATE';
-    case 'strong': return 'STRONG';
-    case 'peak': return 'PEAK';
-    default: return 'NOT ASSESSED';
-  }
-};
-
 import { getTimeLabel as sharedGetTimeLabel, stripBriefMarkdown } from './timeLabel';
 const getTimeLabel = sharedGetTimeLabel;
 
