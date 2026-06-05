@@ -256,6 +256,32 @@ function getTierLabel(tier: string): string {
   }
 }
 
+// ==================== MRS BAND SSOT ====================
+// Canonical 5-band map shared with `src/utils/readinessLabels.ts`.
+// Keep these in lock-step — drift breaks Brief/Plan band-gate alignment.
+type ReadinessBandId = 'full' | 'ready' | 'holding' | 'reserves' | 'empty';
+type ReadinessValence = 'low' | 'mid' | 'high';
+const MRS_BANDS: ReadonlyArray<{
+  id: ReadinessBandId;
+  valence: ReadinessValence;
+  min: number;
+  max: number;
+  text: string;
+}> = [
+  { id: 'full',     valence: 'high', min: 80, max: 100, text: "full strength — go after it" },
+  { id: 'ready',    valence: 'high', min: 65, max: 79,  text: "ready and clear" },
+  { id: 'holding',  valence: 'mid',  min: 50, max: 64,  text: "holding the line — solid, not your peak" },
+  { id: 'reserves', valence: 'low',  min: 35, max: 49,  text: "running on reserves — pick your battles" },
+  { id: 'empty',    valence: 'low',  min: 0,  max: 34,  text: "running on empty — today's about protecting yourself" },
+];
+function resolveBand(score: number): { id: ReadinessBandId; valence: ReadinessValence; label: string } {
+  const s = Math.max(0, Math.min(100, Math.round(score)));
+  for (const b of MRS_BANDS) {
+    if (s >= b.min && s <= b.max) return { id: b.id, valence: b.valence, label: b.text };
+  }
+  return { id: 'holding', valence: 'mid', label: MRS_BANDS[2].text };
+}
+
 // ==================== 3-LAYER CONTEXT STATEMENTS ====================
 
 // Layer 1: Base statements (outcome × timeOfDay) – 15 combinations
@@ -679,6 +705,12 @@ interface ComputeRequest {
   rhrTrend?: RhrTrend | null;
   /** Optional last-night sleep duration (hours). Used by phys composite. */
   sleepHours?: number | null;
+  /**
+   * Wearable tri-state surfaced by the client so the response can echo
+   * fresh vs stale vs missing. `hasWearable` already gates the math; this
+   * preserves the distinction for downstream UI/QA (stale ≠ never connected).
+   */
+  wearableStatus?: 'fresh' | 'stale' | 'missing';
 }
 
 serve(async (req) => {
@@ -870,9 +902,18 @@ serve(async (req) => {
     if (hasCheckIn) dataSources.push('check-in');
     if (hasWearable) dataSources.push('wearable');
     dataSources.push('circadian');
+    // Tri-state wearable echo. Default to derived value when caller omits it
+    // so older callers keep behaving identically.
+    const wearableStatus: 'fresh' | 'stale' | 'missing' =
+      body.wearableStatus ?? (hasWearable ? 'fresh' : 'missing');
+    dataSources.push(`wearable_status:${wearableStatus}`);
 
     // Extract Layer 3 as dedicated field for separate rendering
     const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);
+
+    // Canonical band SSOT — derived once here from the DISPLAYED score and
+    // forwarded to Brief / validator / Plan so nobody re-derives.
+    const bandInfo = resolveBand(displayedScore);
 
     const result = {
       // `score` keeps its back-compat contract — it is now the DISPLAYED
@@ -881,12 +922,23 @@ serve(async (req) => {
       score: displayedScore,
       tier: displayedTier,
       subTier: displayedSubTier,
+      // Canonical band — id ('full'|'ready'|'holding'|'reserves'|'empty'),
+      // verbatim one-liner label (matches READINESS_ONE_LINERS), and the
+      // 3-bucket valence ('low'|'mid'|'high') used to gate Brief tone and
+      // Plan practice bias. Always read these instead of mapping `score`
+      // a second time downstream.
+      band: bandInfo.id,
+      bandLabel: bandInfo.label,
+      bandValence: bandInfo.valence,
       contextStatement,
       layer3Statement,
       layersActive,
       divergenceFlag,
       hrvDeviation,
       dataSources,
+      // Alias for callers that prefer the explicit name; same contents.
+      sourceBreakdown: dataSources,
+      wearableStatus,
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,

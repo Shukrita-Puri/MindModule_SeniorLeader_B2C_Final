@@ -149,6 +149,15 @@ export interface CurrentEnergyState {
   scoreRefined?: number | null;
   readinessState?: 'baseline' | 'refined';
   refinedContribution?: number | null;
+  // Canonical band SSOT — derived once server-side in compute-inner-readiness.
+  // Consumers (Brief, validator, Plan bias, one-liner display) should read
+  // these instead of re-deriving from `overallBalance`.
+  band?: 'full' | 'ready' | 'holding' | 'reserves' | 'empty';
+  bandLabel?: string;
+  bandValence?: 'low' | 'mid' | 'high';
+  // Tri-state wearable status: 'fresh' (used by score), 'stale' (had a row
+  // but >48h old — excluded from score), 'missing' (never connected / no rows).
+  wearableStatus?: 'fresh' | 'stale' | 'missing';
 }
 
 const ENERGY_STATE_CACHE_MS = 30_000;
@@ -469,6 +478,9 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
         sleepHours: hasWearable ? wearableSleepHours : null,
         rhrTrend: hasWearable ? wearableRhrTrend : null,
         rhrElevated: hasWearable ? wearableRhrTrend === 'rising' : false,
+        // Tri-state passthrough so the EF response can echo it back into
+        // CurrentEnergyState (stale vs missing must not collapse).
+        wearableStatus: wearableFreshness,
         // MRS v2 — calendar demand + pattern signals from the canonical
         // daily_context_snapshot. Null means the snapshot hasn't been
         // populated yet today; the backend handles defaults.
@@ -553,6 +565,11 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       scoreRefined: result.scoreRefined ?? null,
       readinessState: result.readinessState ?? 'baseline',
       refinedContribution: result.refinedContribution ?? 0,
+      // Canonical band SSOT passthrough.
+      band: result.band,
+      bandLabel: result.bandLabel,
+      bandValence: result.bandValence,
+      wearableStatus: result.wearableStatus ?? wearableFreshness,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
@@ -583,6 +600,7 @@ async function computeEnergyStateFresh(userId?: string): Promise<CurrentEnergySt
       recommendation: { primary: 'pause' as MasteryType, contextStatement: 'Unable to compute readiness score. Check-in to get your personalized reading.' },
       checkInOutcome: undefined,
       divergenceFlag: 'ALIGNED',
+      wearableStatus: 'missing',
     };
   }
 }
