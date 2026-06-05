@@ -4815,6 +4815,10 @@ function buildHorizonModules(
     for (const e of candidates) {
       if (!e) continue;
       const cat = enrichEvent(e).categoryId;
+      // Phase G fix: state/filler slots implicitly own the 'pre' phase
+      // ("ahead of X"). Skip events whose pre-phase is already claimed by a
+      // JIT slot — otherwise we duplicate the same anchor across slots.
+      if (phaseAlreadyAnchored(e.id, 'pre')) continue;
       if (cat ? canAnchorAgain(e.id, cat) : anchorsUsedFor(e.id) < 1) return e;
     }
     return null;
