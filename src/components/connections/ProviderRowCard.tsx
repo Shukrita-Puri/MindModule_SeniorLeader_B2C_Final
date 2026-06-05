@@ -60,10 +60,12 @@ export default function ProviderRowCard({
   onSync,
   onDisconnect,
 }: ProviderRowCardProps) {
+  // Active surfaces stay white so connected rows feel trustworthy rather than
+  // greyed-out. Permission/auth problems surface as the coral reconnect tone.
   const tone = showReconnect
     ? 'border-[#e8714a]/50 bg-[#e8714a]/[0.04]'
     : connected || linked
-    ? 'border-[#1a1712]/35 bg-[#1a1712]/[0.04]'
+    ? 'border-[#cfc7b8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
     : 'border-[#cfc7b8] bg-white';
 
   const subtitle = connected && lastSync ? lastSync : description;
@@ -77,7 +79,15 @@ export default function ProviderRowCard({
           {logo}
         </div>
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-[#1a1712]">{name}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="text-[13px] font-medium text-[#1a1712]">{name}</div>
+            {(connected || linked) && !showReconnect && (
+              <span
+                aria-label="Connected"
+                className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"
+              />
+            )}
+          </div>
           <div className="text-[11px] text-[#7a7060] mt-0.5 leading-[1.45]">{subtitle}</div>
           {statusLabel && (
             <div className="text-[10px] tracking-[1.5px] uppercase text-[#7a7060] mt-1">

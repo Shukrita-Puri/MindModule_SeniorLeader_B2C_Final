@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
 import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 import microsoftCalendarLogo from '@/assets/shared/microsoft-calendar-logo.png';
+import { CALENDAR_PROVIDER_META, WEARABLE_PROVIDER_META } from '@/utils/providerMetadata';
 import { getAppleCalendarPermissionStatus, isAppleCalendarAuthorizedStatus, isAppleCalendarSupported, requestAppleCalendarPermission } from '@/utils/appleCalendar';
 import { syncAppleCalendarToBackend } from '@/services/appleCalendarSync';
 import { forceNativeCalendarSync } from '@/utils/nativeBackgroundSync';
@@ -902,62 +903,55 @@ const ConnectedData = () => {
       ? `Last sample ${formatDistanceToNowStrict(new Date(aw.lastSampleAt), { addSuffix: true })}`
       : undefined;
 
-    // Detect if DB state may be stale
-    const statusUpdatedAt = aw.statusUpdatedAt;
-    const hoursSinceStatusUpdate = statusUpdatedAt
-      ? (Date.now() - new Date(statusUpdatedAt).getTime()) / (1000 * 60 * 60)
-      : null;
-    // On web: stale after 2h. On native: stale after 24h (since native re-verifies on resume).
-    const staleThresholdHours = isNativeApp() ? 24 : 2;
-    const isDbStateStale = hoursSinceStatusUpdate !== null && hoursSinceStatusUpdate > staleThresholdHours;
-
     if (aw.connectionStatus === 'connected') {
-      // Check if sync is very old (> 24h)
-      const hoursSinceSync = aw.lastSync
-        ? (Date.now() - new Date(aw.lastSync).getTime()) / (1000 * 60 * 60)
+      // Permission is the authority for "connected". Stale samples are
+      // "awaiting data", not a disconnect. Only real persist failures or
+      // explicit error states surface as Sync failed.
+      const code = aw.lastError ?? '';
+      const hasPersistFailure =
+        code.startsWith('persist_failed') || code === 'healthkit_read_failed';
+
+      if (hasPersistFailure) {
+        return {
+          isLinked: true,
+          isHealthyConnected: false,
+          statusLabel: 'Sync failed',
+          statusNote: [
+            'We could not save the latest sync — we will retry automatically.',
+            lastSampleNote,
+          ].filter(Boolean).join(' · '),
+          showReconnect: false,
+        };
+      }
+
+      const hoursSinceSample = aw.lastSampleAt
+        ? (Date.now() - new Date(aw.lastSampleAt).getTime()) / (1000 * 60 * 60)
         : null;
-      const syncIsOld = hoursSinceSync !== null && hoursSinceSync > 24;
+      const awaitingData =
+        aw.syncStatus === 'waiting_for_data' ||
+        aw.syncStatus === 'watch_unavailable' ||
+        aw.syncStatus === 'sync_delayed' ||
+        (hoursSinceSample !== null && hoursSinceSample > 24);
 
-      if (aw.syncStatus === 'waiting_for_data') {
+      if (awaitingData) {
         return {
           isLinked: true,
-          isHealthyConnected: false,
-          statusLabel: 'Syncing',
-          statusNote: [ 'Waiting for new data', lastSyncNote ].filter(Boolean).join(' · '),
+          // Still healthy — permission is granted, just no fresh data.
+          isHealthyConnected: true,
+          statusLabel: 'Connected · waiting for new data',
+          statusNote: [
+            'No new data yet — wear your device overnight to refresh.',
+            lastSampleNote,
+          ].filter(Boolean).join(' · '),
           showReconnect: false,
         };
       }
-
-      if (aw.syncStatus === 'sync_delayed' || aw.syncStatus === 'watch_unavailable') {
-        // Distinguish "watch wasn't worn" (last sample > 24h old) from "actual sync failure"
-        const hoursSinceSample = aw.lastSampleAt
-          ? (Date.now() - new Date(aw.lastSampleAt).getTime()) / (1000 * 60 * 60)
-          : null;
-        const watchNotWorn = hoursSinceSample !== null && hoursSinceSample > 24;
-        const gapMessage = watchNotWorn
-          ? `No data captured ${formatDistanceToNowStrict(new Date(aw.lastSampleAt!), { addSuffix: true })} — wear your watch to resume`
-          : 'Health data is not syncing cleanly';
-        return {
-          isLinked: true,
-          isHealthyConnected: false,
-          statusLabel: watchNotWorn ? 'Needs attention' : 'Not syncing',
-          statusNote: [ gapMessage, lastSampleNote ].filter(Boolean).join(' · '),
-          showReconnect: false,
-        };
-      }
-
-      // Normal connected state
-      const staleHint = isDbStateStale
-        ? 'Status verified when you last opened the app'
-        : syncIsOld
-          ? 'Open the app on your phone to refresh'
-          : undefined;
 
       return {
         isLinked: true,
-        isHealthyConnected: !(isDbStateStale || syncIsOld),
-        statusLabel: isDbStateStale || syncIsOld ? 'Needs attention' : 'Connected',
-        statusNote: [ lastSyncNote, lastSampleNote, staleHint ].filter(Boolean).join(' · ') || undefined,
+        isHealthyConnected: true,
+        statusLabel: 'Connected',
+        statusNote: [lastSyncNote, lastSampleNote].filter(Boolean).join(' · ') || undefined,
         showReconnect: false,
       };
     }
@@ -976,7 +970,7 @@ const ConnectedData = () => {
       return {
         isLinked: false,
         isHealthyConnected: false,
-        statusLabel: 'Permission revoked',
+        statusLabel: 'Permission needed',
         statusNote: 'Go to iOS Settings → Privacy → Health to re-enable, then tap Reconnect',
         showReconnect: true,
       };
@@ -986,7 +980,7 @@ const ConnectedData = () => {
       return {
         isLinked: false,
         isHealthyConnected: false,
-        statusLabel: 'Connection issue',
+        statusLabel: 'Sync failed',
         statusNote: aw.lastError ? 'A HealthKit sync error needs attention' : 'Reconnect may be required to restore sync',
         showReconnect: true,
       };
@@ -1042,21 +1036,34 @@ const ConnectedData = () => {
     const o = status?.oura;
     if (!o) return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected' as string, statusNote: undefined as string | undefined, showReconnect: false };
     if (o.connectionStatus === 'connected') {
-      const sub = o.syncStatus;
       const lastSyncNote = o.lastSync ? `Last synced ${formatDistanceToNowStrict(new Date(o.lastSync), { addSuffix: true })}` : undefined;
-      if (sub === 'waiting_for_data') {
-        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Waiting for data', statusNote: 'Wear the ring overnight to resume', showReconnect: false };
-      }
-      if (sub === 'sync_delayed') {
-        return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync delayed', statusNote: lastSyncNote, showReconnect: false };
+      const hoursSinceSample = o.lastSampleAt
+        ? (Date.now() - new Date(o.lastSampleAt).getTime()) / (1000 * 60 * 60)
+        : null;
+      const awaitingData =
+        o.syncStatus === 'waiting_for_data' ||
+        o.syncStatus === 'sync_delayed' ||
+        (hoursSinceSample !== null && hoursSinceSample > 24);
+      if (awaitingData) {
+        return {
+          isLinked: true,
+          // Token is valid — surface as healthily connected, just no fresh data.
+          isHealthyConnected: true,
+          statusLabel: 'Connected · waiting for new data',
+          statusNote: 'No new data yet — wear the ring overnight to refresh.',
+          showReconnect: false,
+        };
       }
       return { isLinked: true, isHealthyConnected: true, statusLabel: 'Connected', statusNote: lastSyncNote, showReconnect: false };
     }
     if (o.connectionStatus === 'permission_revoked') {
-      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission revoked', statusNote: 'Reconnect to resume syncing', showReconnect: true };
+      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Permission needed', statusNote: 'Reconnect to resume syncing', showReconnect: true };
     }
     if (o.connectionStatus === 'connecting') {
       return { isLinked: false, isHealthyConnected: false, statusLabel: 'Verifying…', statusNote: 'Completing Oura authorization', showReconnect: false };
+    }
+    if (o.connectionStatus === 'error') {
+      return { isLinked: true, isHealthyConnected: false, statusLabel: 'Sync failed', statusNote: o.lastError ?? 'We will retry automatically.', showReconnect: false };
     }
     return { isLinked: false, isHealthyConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
   };
@@ -1115,8 +1122,8 @@ const ConnectedData = () => {
   const connections = [
     ...(showWebCalendars ? [{
       id: 'google-calendar',
-      name: 'Google Calendar',
-      description: 'Get a daily brief and nudges tuned to your real meeting load, decision density, and high stakes events - so practices land when they matter.',
+      name: CALENDAR_PROVIDER_META.google.name,
+      description: CALENDAR_PROVIDER_META.google.note,
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: googleConnected,
       linked: googleConnected,
@@ -1131,9 +1138,9 @@ const ConnectedData = () => {
     },
     {
       id: 'microsoft-calendar',
-      name: 'Microsoft Calendar',
-      description: 'Tune your brief and nudges to your Outlook meeting load, decision density and high pressure events - so practices land before high-stakes moments.',
-      logo: <img src={microsoftCalendarLogo} alt="Microsoft Calendar" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
+      name: CALENDAR_PROVIDER_META.microsoft.name,
+      description: CALENDAR_PROVIDER_META.microsoft.note,
+      logo: <img src={microsoftCalendarLogo} alt="Microsoft Outlook" className="h-8 w-8 rounded" loading="lazy" width={32} height={32} />,
       connected: microsoftConnected,
       linked: microsoftConnected,
       lastSync: microsoftConnected ? formatLastSync(microsoftLastSync) : null,
@@ -1147,8 +1154,8 @@ const ConnectedData = () => {
     }] : []),
     ...(showAppleCalendar ? [{
       id: 'apple-calendar',
-      name: 'Apple Calendar',
-      description: 'Tune your brief and nudges to your real meeting load, decision density, and high pressure events - so practices land before high-stakes moments.',
+      name: CALENDAR_PROVIDER_META.apple.name,
+      description: CALENDAR_PROVIDER_META.apple.note,
       logo: (
         <div className="h-8 w-8 rounded-[10px] bg-foreground/5 border border-border flex items-center justify-center">
           <CalendarDays className="h-4 w-4 text-foreground/70" />
@@ -1175,8 +1182,8 @@ const ConnectedData = () => {
     }] : []),
     {
       id: 'apple-health',
-      name: 'Apple Health',
-      description: 'Share HRV, resting HR, sleep, and HR so your readiness reflects your real physiology.',
+      name: WEARABLE_PROVIDER_META['apple-health'].name,
+      description: WEARABLE_PROVIDER_META['apple-health'].note,
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.isHealthyConnected,
       linked: appleHealthState.isLinked,
@@ -1191,12 +1198,12 @@ const ConnectedData = () => {
     },
     {
       id: 'oura',
-      name: 'Oura Ring',
+      name: WEARABLE_PROVIDER_META.oura.name,
       description: isNativeApp()
         ? (status?.appleWatch?.ouraDetectedViaAppleHealth
             ? 'Oura data is flowing in through Apple Health. No separate connection needed.'
             : 'On iPhone, Mind Module reads Oura data from Apple Health. Open the Oura app → Settings → Apple Health, and enable sharing for Heart Rate, HRV, Resting HR and Sleep. Then make sure Apple Health is connected above.')
-        : 'Share HRV, resting HR, sleep and recovery so your readiness reflects your real physiology — on every wearable surface, not just one.',
+        : WEARABLE_PROVIDER_META.oura.note,
       logo: (
         <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center text-[10px] font-semibold text-foreground/70 tracking-wider">
           OURA
