@@ -256,6 +256,32 @@ function getTierLabel(tier: string): string {
   }
 }
 
+// ==================== MRS BAND SSOT ====================
+// Canonical 5-band map shared with `src/utils/readinessLabels.ts`.
+// Keep these in lock-step — drift breaks Brief/Plan band-gate alignment.
+type ReadinessBandId = 'full' | 'ready' | 'holding' | 'reserves' | 'empty';
+type ReadinessValence = 'low' | 'mid' | 'high';
+const MRS_BANDS: ReadonlyArray<{
+  id: ReadinessBandId;
+  valence: ReadinessValence;
+  min: number;
+  max: number;
+  text: string;
+}> = [
+  { id: 'full',     valence: 'high', min: 80, max: 100, text: "full strength — go after it" },
+  { id: 'ready',    valence: 'high', min: 65, max: 79,  text: "ready and clear" },
+  { id: 'holding',  valence: 'mid',  min: 50, max: 64,  text: "holding the line — solid, not your peak" },
+  { id: 'reserves', valence: 'low',  min: 35, max: 49,  text: "running on reserves — pick your battles" },
+  { id: 'empty',    valence: 'low',  min: 0,  max: 34,  text: "running on empty — today's about protecting yourself" },
+];
+function resolveBand(score: number): { id: ReadinessBandId; valence: ReadinessValence; label: string } {
+  const s = Math.max(0, Math.min(100, Math.round(score)));
+  for (const b of MRS_BANDS) {
+    if (s >= b.min && s <= b.max) return { id: b.id, valence: b.valence, label: b.text };
+  }
+  return { id: 'holding', valence: 'mid', label: MRS_BANDS[2].text };
+}
+
 // ==================== 3-LAYER CONTEXT STATEMENTS ====================
 
 // Layer 1: Base statements (outcome × timeOfDay) – 15 combinations
