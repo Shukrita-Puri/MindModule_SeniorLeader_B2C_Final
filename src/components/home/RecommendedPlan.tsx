@@ -7,7 +7,7 @@ import { Clock, Sparkles } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getTodayRitual } from '@/utils/dailyRituals';
-import { getTodayCheckin } from '@/utils/dailyCheckins';
+import { getLatestTodayCheckin } from '@/utils/dailyCheckins';
 
 const RecommendedPlan = () => {
   const navigate = useNavigate();
@@ -29,7 +29,9 @@ const RecommendedPlan = () => {
       // Check if we have stored recommendations from DailyRitual
       // This ensures consistency between the two components
       const todayRitual = await getTodayRitual();
-      const todayCheckin = await getTodayCheckin();
+      // Plan surface: use latest check-in of the day rather than the
+      // current-window check-in used by MRS / Brief / pills.
+      const todayCheckin = await getLatestTodayCheckin();
       
       // If no check-in yet, show a message
       if (!todayCheckin) {
