@@ -3804,6 +3804,10 @@ interface SlotContextInput {
   briefWatchFor?: string | null;
   // Multi-practice sequence info
   practiceTypes?: string[];
+  // Pass 4 — resolved state/filler anchor (event-aware why-line)
+  anchorTitle?: string | null;
+  anchorCategoryId?: string | null;
+  anchorPhase?: 'pre' | 'during' | 'post' | null;
 }
 
 function getTimeAnchor(timeOfDay: string | null): string {
@@ -3812,11 +3816,29 @@ function getTimeAnchor(timeOfDay: string | null): string {
   return 'before you close the day';
 }
 
+/**
+ * Pass 4 — anchor-aware temporal phrase. When the state/filler slot resolved
+ * to a specific calendar event, prefer "before|during|after <Event>" so the
+ * why-line matches the slot title ("Steady the system ahead of <Event>"
+ * → "regulate before <Event>"). Falls back to the time-of-day anchor when
+ * there's no event anchor.
+ */
+function getAnchorPhrase(ctx: SlotContextInput): string {
+  const title = (ctx.anchorTitle || '').trim();
+  if (!title) return getTimeAnchor(ctx.timeOfDay);
+  const phase = ctx.anchorPhase || 'pre';
+  if (phase === 'during') return `during ${title}`;
+  if (phase === 'post') return `after ${title}`;
+  return `before ${title}`;
+}
+
 function buildSlotContext(ctx: SlotContextInput): SlotContext {
   const hasWeekData = ctx.checkInCountTotal >= 3;
   const hasWearablePattern = ctx.wearableDaysConnected >= 7;
   const hasCalendar = ctx.meetingCount > 0;
   const timeAnchor = getTimeAnchor(ctx.timeOfDay);
+  const anchorPhrase = getAnchorPhrase(ctx);
+  const hasEventAnchor = !!(ctx.anchorTitle && ctx.anchorTitle.trim());
   const isEvening = ctx.timeOfDay === 'evening';
   // In evening, today's meetingCount represents meetings already on today's calendar
   // (typically completed), not meetings still ahead. Surface "still left" only when
