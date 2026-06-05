@@ -5440,6 +5440,22 @@ function buildHorizonModules(
         if (poorSleep && ssTags.includes('signal-poor-sleep')) score += 10;
         if (req.favorites.includes(c.id)) score += 30;
         if (!isNewUser && c.isFoundational) score -= 5;
+        // Phase L — 7-day recency penalty so the filler rotates across the
+        // catalog instead of re-suggesting the same module daily.
+        const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
+        const dAgo = recencyMap[c.id];
+        if (dAgo !== undefined) {
+          if (dAgo <= 1) score -= 25;
+          else if (dAgo <= 3) score -= 12;
+          else if (dAgo <= 7) score -= 5;
+        }
+        // Phase L — cross-slot type diversity: penalise content_type that
+        // already appears in an emitted slot in this plan, so the filler
+        // adds variety rather than stacking the same protocol family.
+        const emittedTypes = new Set(
+          deduped.map((m: any) => m.practice?.contentType).filter(Boolean),
+        );
+        if (emittedTypes.has(c.content_type)) score -= 8;
         return { content: c, score };
       });
       scored.sort((a: any, b: any) => b.score - a.score);
