@@ -141,7 +141,7 @@ export function useWearableSync(): WearableSyncState {
       syncingRef.current = false;
       if (!silent) setIsSyncing(false);
     }
-  }, [fetchLatestFromDB]);
+  }, [fetchLatestFromDB, user?.id]);
 
   // ---- Public triggerSync (manual button) ----
   const triggerSync = useCallback(async (): Promise<boolean> => {
