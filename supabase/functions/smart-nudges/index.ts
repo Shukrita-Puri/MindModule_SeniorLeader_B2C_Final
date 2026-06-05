@@ -3115,6 +3115,23 @@ serve(async (req) => {
       const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
       const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
 
+      // Pass 8 (O — strict M/A/E policy) — derive the set of slots that
+      // already received a send today. Per the beta spec, each window
+      // (morning / afternoon / evening) gets at most ONE nudge. Travel
+      // pre-flight rides morning, in-flight rides afternoon — see the
+      // slot assignments in evaluateNudgeOne / Two / Three.
+      const slotForType = (t: string): 'morning' | 'afternoon' | 'evening' | null => {
+        if (t === 'nudge_one' || t.startsWith('nudge_one')) return 'morning';
+        if (t === 'nudge_two' || t.startsWith('nudge_two')) return 'afternoon';
+        if (t === 'nudge_three' || t === 'evening_close' || t.startsWith('nudge_three')) return 'evening';
+        return null;
+      };
+      const sentSlotsToday = new Set<'morning' | 'afternoon' | 'evening'>(
+        (todayLogs || [])
+          .map((l) => slotForType(String(l.notification_type)))
+          .filter((s): s is 'morning' | 'afternoon' | 'evening' => s !== null),
+      );
+
       // ══════════════════════════════════════════════════
       // ── MVP 3-Nudge Cascade: Nudge 1 → 2 → 3 ──
       // ══════════════════════════════════════════════════
@@ -3193,11 +3210,52 @@ serve(async (req) => {
 
       // Deduplicate by type (in case JIT override added a duplicate)
       const seen = new Set<string>();
-      const deduped = qualified.filter(n => {
+      const dedupedByType = qualified.filter(n => {
         if (seen.has(n.type)) return false;
         seen.add(n.type);
         return true;
       });
+
+      // Pass 8 (O) — strict per-window cap: drop any candidate whose slot
+      // already shipped a notification today (durable across cron runs via
+      // notification_log). Logged so dashboards can see the suppression.
+      const slotCapped = dedupedByType.filter((n) => {
+        if (sentSlotsToday.has(n.slot)) {
+          console.log(
+            `[smart-nudges][pass8] user=${userId} drop_slot_cap type=${n.type} slot=${n.slot} sentSlots=${[...sentSlotsToday].join(',')}`,
+          );
+          return false;
+        }
+        return true;
+      });
+
+      // Pass 8 (O) — stale-JIT suppression: any JIT-anchored qualified nudge
+      // whose anchor event ended more than 60 min ago is no longer
+      // actionable. Suppress before send so we don't ship "prep for X" after
+      // X is finished.
+      const nowMsStale = Date.now();
+      const STALE_MS = 60 * 60 * 1000;
+      const eventById = new Map<string, { start: number; end: number }>();
+      for (const e of ctx.todayEvents || []) {
+        if (!e?.id) continue;
+        eventById.set(String(e.id), {
+          start: new Date(e.start_time).getTime(),
+          end: new Date(e.end_time).getTime(),
+        });
+      }
+      const freshOnly = slotCapped.filter((n) => {
+        if (n.anchorKind !== 'jit' || !n.eventReference) return true;
+        const ev = eventById.get(String(n.eventReference));
+        if (!ev) return true; // unknown — let downstream handle
+        if (ev.end < nowMsStale - STALE_MS) {
+          console.log(
+            `[smart-nudges][pass8] user=${userId} drop_stale_jit type=${n.type} event=${n.eventReference} endedMinAgo=${Math.round((nowMsStale - ev.end) / 60000)}`,
+          );
+          return false;
+        }
+        return true;
+      });
+      const deduped = freshOnly;
 
       if (deduped.length > 0) {
         const bestNudge = deduped[0];
