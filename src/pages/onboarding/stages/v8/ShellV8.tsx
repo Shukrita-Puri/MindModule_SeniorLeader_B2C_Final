@@ -67,6 +67,7 @@ export function PrimaryCTA({
     : "bg-[#1a1712] hover:bg-[#2e2b24] text-[#f5f0e8]";
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className={`w-full py-4 rounded-2xl text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${cls}`}
@@ -78,7 +79,7 @@ export function PrimaryCTA({
 
 export function SkipLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <button onClick={onClick} className="block w-full text-center text-xs text-[#7a7060] mt-2 py-2">
+    <button type="button" onClick={onClick} className="block w-full text-center text-xs text-[#7a7060] mt-2 py-2">
       {children}
     </button>
   );
