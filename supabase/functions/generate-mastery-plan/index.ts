@@ -4800,34 +4800,19 @@ function buildHorizonModules(
     }
     return null;
   };
-  /**
-   * Phase C.2 — ComboKey → legacy practiceType reverse lookup.
-   * Mirror of PRACTICE_TYPE_TO_COMBO (single source of truth in
-   * `_shared/protocols/protocol-combos.ts`). Used to bias practice
-   * selection toward the §4 prescribed combo for the slot's phase.
-   *   somatic.pause      → regulate
-   *   mindset.pause      → align
-   *   mindset.flow       → prepare
-   *   mindset.reenergise → integrate
-   *   somatic.flow       → regulate (closest somatic activation)
-   *   somatic.reenergise → integrate (closest body-closing intent)
-   */
-  const COMBO_TO_PRACTICE_TYPE: Record<ComboKey, string> = {
-    ...Object.fromEntries(
-      Object.entries(PRACTICE_TYPE_TO_COMBO).map(([practiceType, pref]) => [
-        `${pref.protocol}.${pref.mode}`,
-        practiceType,
-      ]),
-    ) as Record<ComboKey, string>,
-    // Shared protocol combos include two event-phase variants that do not map
-    // 1:1 to a unique practice type; bias them to the closest existing module.
-    'somatic.flow': 'regulate',
-    'somatic.reenergise': 'integrate',
-  };
+  // Phase K — `COMBO_TO_PRACTICE_TYPE` now lives in
+  // `_shared/protocols/protocol-combos.ts` (single source of truth).
+  // Local mirror deleted to prevent drift.
   /**
    * Phase C.2 — pick the best-matching practice(s) from a module pool for
    * the given ComboKey. Prefers exact type match; falls back to first
    * non-coach module so we never emit an empty slot.
+   *
+   * Phase L — adds a 7-day recency penalty: practices completed within the
+   * last 7 days are de-prioritised (sorted last within their type bucket)
+   * so the user sees rotation across the catalog rather than the same
+   * top-of-list module every day. Recency is read from `req.recentPracticeDays`
+   * (contentId → days-ago, populated from the 14-day practice_sessions query).
    */
   const selectPracticesByCombo = (
     pool: any[],
@@ -4835,7 +4820,21 @@ function buildHorizonModules(
     excludeIds: Set<string>,
     max = 2,
   ): any[] => {
-    const candidates = (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId));
+    const recencyMap: Record<string, number> = (req as any).recentPracticeDays || {};
+    const recencyPenalty = (id: string): number => {
+      const d = recencyMap[id];
+      if (d === undefined) return 0;
+      if (d <= 1) return 3;   // done today / yesterday → strongest demotion
+      if (d <= 3) return 2;
+      if (d <= 7) return 1;
+      return 0;
+    };
+    const sortByRecency = (arr: any[]) => [...arr].sort(
+      (a: any, b: any) => recencyPenalty(a.contentId) - recencyPenalty(b.contentId),
+    );
+    const candidates = sortByRecency(
+      (pool || []).filter((m: any) => m && !excludeIds.has(m.contentId)),
+    );
     if (candidates.length === 0) return [];
     const targetType = combo ? COMBO_TO_PRACTICE_TYPE[combo] : null;
     const primary = targetType
