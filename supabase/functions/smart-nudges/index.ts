@@ -388,6 +388,11 @@ interface NudgeContext {
     // v5.3 — PTO / public-holiday "light touch" mode. Collapses the day to
     // a single morning nudge and skips JIT pre-event prep.
     ptoMode?: boolean;
+    // Pass 8 (P — travel arc) — post-flight + meeting awareness. True when
+    // yesterday was a travel day AND today has a high-stakes meeting in the
+    // next 4 h. Mirrors the canonical `travelLandingPlusHighStakes` rule so
+    // the copy can pivot from pure decompression to "decompress then sharpen".
+    landingPlusHighStakes?: { eventTitle: string; minutesUntil: number } | null;
   };
   // v5.3 — Server-computed badge: outstanding cognitive debt the user
   // can clear today. Falls back to 1 when we cannot compute it.
