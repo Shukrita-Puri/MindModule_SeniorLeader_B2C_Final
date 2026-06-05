@@ -5291,7 +5291,37 @@ function buildHorizonModules(
   // Only fires when a *third* distinct (event, phase) candidate still has
   // capacity AND we already shipped two JIT-aligned slots. Single-phase
   // categories (cap=1) and 2-cap (A/D) naturally fall through.
-  const slot3Candidate = hasJitEvent ? pickNextRankedCandidate() : null;
+  //
+  // Slot-3 post-phase guard (CEO doc — variable slot rule): a `post` phase
+  // candidate is only meaningful when the underlying event has actually
+  // ended (or is within the closing 15 minutes). When the event has no
+  // endTime, the endTime is malformed, or the event is still clearly in
+  // progress, the post-phase candidate is invalid — slot 3 must drop it
+  // and fall back to state-management (composeStateLabel) or be dropped
+  // entirely by the variable-slot dedup pass. We never pad a duplicate
+  // post-phase slot just to fill three cards.
+  const isPostPhaseValid = (cand: RankedJitCandidate): boolean => {
+    if (cand.phase !== 'post') return true;
+    const ev = (req.calendarEvents || []).find((e: any) => e.id === cand.eventId);
+    const endRaw = ev?.endTime ?? ev?.startTime;
+    if (!endRaw) return false;
+    const endMs = new Date(endRaw).getTime();
+    if (!Number.isFinite(endMs)) return false;
+    // Valid only when the event is over (or within the last 15 min of running).
+    return (endMs - nowMs) <= 15 * 60_000;
+  };
+  const pickSlot3Candidate = (): RankedJitCandidate | null => {
+    if (!hasJitEvent) return null;
+    for (const c of jitRankedCandidates) {
+      if (!c.eventId) continue;
+      if (!canAnchorAgain(c.eventId, c.categoryId)) continue;
+      if (phaseAlreadyAnchored(c.eventId, c.phase)) continue;
+      if (!isPostPhaseValid(c)) continue;
+      return c;
+    }
+    return null;
+  };
+  const slot3Candidate = pickSlot3Candidate();
   if (slot3Candidate) {
     const ev = (req.calendarEvents || []).find((e: any) => e.id === slot3Candidate.eventId);
     const slot3Enriched = ev ? enrichEvent(ev) : enrichEvent({ title: slot3Candidate.title || '' });
