@@ -4784,6 +4784,46 @@ function buildHorizonModules(
   const todayLeadEvent = [...todayRemainingEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
   const isTravelTitle = (t: string | null | undefined) => isTravelTitleCanonical(t);
 
+  // ── Pass 7 (N — Sunday / weekend / post-holiday) ──
+  // Upcoming-week priority selector: highest-stakes event in the next 7 days
+  // excluding today, used when the day itself has no useful anchor (Sunday,
+  // personal holiday today, or first weekday back from a personal holiday).
+  // Plain `tomorrowEvents` collapses to "tomorrow's load" with no name; this
+  // selector promotes the named event so the slot title and why-line can
+  // reference it directly.
+  const endOfWeekAhead = new Date(startOfTomorrow);
+  endOfWeekAhead.setDate(endOfWeekAhead.getDate() + 7);
+  const upcomingWeekEvents = (req.calendarEvents || []).filter((e: any) => {
+    const t = new Date(e.startTime).getTime();
+    return t >= startOfTomorrow.getTime() && t < endOfWeekAhead.getTime();
+  });
+  const upcomingWeekLeadEvent =
+    [...upcomingWeekEvents].sort((a, b) => scoreEventStakes(b) - scoreEventStakes(a))[0] || null;
+
+  // Personal-holiday today / yesterday — canonical regex from
+  // _shared/ceo-behaviour/pto-holiday.ts (same SSOT used by
+  // brief-signal-coverage's personalHolidayInferred).
+  const _isAllDayEvent = (e: any): boolean => {
+    const s = new Date(e.startTime).getTime();
+    const en = new Date(e.endTime || e.startTime).getTime();
+    return (en - s) >= 20 * 3600 * 1000;
+  };
+  const isPersonalHolidayToday = (req.calendarEvents || []).some(
+    (e: any) =>
+      _isAllDayEvent(e) &&
+      isPersonalHolidayTitle(String(e.title || '')) &&
+      new Date(e.startTime).getTime() < startOfTomorrow.getTime() &&
+      new Date(e.endTime || e.startTime).getTime() > (nowMs - 24 * 3600 * 1000),
+  );
+  const startOfYesterday = new Date(startOfTomorrow); startOfYesterday.setDate(startOfYesterday.getDate() - 2);
+  const startOfToday = new Date(startOfTomorrow); startOfToday.setDate(startOfToday.getDate() - 1);
+  const wasPersonalHolidayYesterday = (req.calendarEvents || []).some((e: any) => {
+    if (!_isAllDayEvent(e)) return false;
+    if (!isPersonalHolidayTitle(String(e.title || ''))) return false;
+    const t = new Date(e.startTime).getTime();
+    return t >= startOfYesterday.getTime() && t < startOfToday.getTime();
+  });
+
   // ── Slot-anchor bookkeeper (variable slot count + dedup) ──
   // Each emitted slot pushes its anchor event id (null for pure
   // state/load/wearable anchors). canAnchorAgain enforces
