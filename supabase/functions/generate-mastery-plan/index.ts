@@ -377,6 +377,7 @@ interface PlanRequest {
   pressureContextTag?: string;
   wearableContext: WearableContext;
   latestCheckinTimestamp?: string;
+  componentScores?: any;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
