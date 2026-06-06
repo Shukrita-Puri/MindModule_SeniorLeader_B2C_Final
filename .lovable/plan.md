@@ -1,129 +1,252 @@
-## Scope (isolated — Nudges only)
+## Scope (isolated — Plan only)
 
-Touches **only** `supabase/functions/smart-nudges/index.ts` plus its companion docs (`docs/SMART_NUDGES_SSOT.md`, `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md`) and one memory file (`mem://features/notifications/smart-nudges-mvp-framework`). No changes to Brief, Plan, MRS, Insights, DB, shared modules. Travel/PTO signal upgrades in `_shared/brief-signal-coverage.ts` from the earlier pass are reused as-is.
+Touches **only** the Plan's "Why this matters" LLM path and the deterministic title that pairs with it:
 
----
+- `supabase/functions/_shared/plan/why-llm.ts` — new system prompt, user block, validator, anchor-token helper, telemetry return shape.
+- `supabase/functions/_shared/plan/title-prefixes.ts` — rename `BuildPriorityTitleInput.eventTitle/category` to `slotAnchorEventTitle/slotAnchorCategoryId`; introduce a shared `SlotAnchor` value object.
+- `supabase/functions/generate-mastery-plan/index.ts` — pass the shared band off `shared.briefBehaviour`, derive `arcPosition` from `jitPhase`, build one `SlotAnchor` per slot and feed both the title builder and Why LLM input from it; tighten `composeWhyLine` to read the slot-scoped anchor.
+- Tests: extend `supabase/functions/_shared/plan/priority-title.test.ts` (cross-event leakage); add `supabase/functions/_shared/plan/why-llm-validator.test.ts`.
+- Docs/memory: append "Why-line ownership" block to `mem/features/mastery-plan/slot-model-v5.md`; new `mem/features/mastery-plan/why-line-prompt-contract.md`; update Why-line section in `docs/MASTERY_PLAN_CONTEXT_LOGIC.md`.
 
-## 1. Collapsed vs Expanded headline contract
-
-`generateNudgeCopy()` system prompt + every static fallback:
-
-- **Collapsed (APNs `aps.alert.title`):** literal `Mind Module` for every nudge.
-- **Expanded (APNs `aps.alert.subtitle`):** current 2–3-word moment headline ("Recovery in progress", "Pre-flight window"). Cap 3 words / 28 chars.
-- **Body:** unchanged — V8 meaning-forward contract still applies.
-
-Implementation:
-- Move current `title` → `subtitle`; set `title='Mind Module'`.
-- Extend length validator for `subtitle` (3 words / 28 chars).
-- APNs payload uses `aps.alert.{title,subtitle,body}`. iOS handler already reads `data.deep_link_route`, no client change.
-
-## 2. Weekday vs Weekend / post-holiday CTA — gated on Brief + Plan presence
-
-Two CTA buckets, picked in `applyCtaVariant`:
-
-- **Weekday default:** existing V8 CTAs unchanged.
-- **Weekend OR `dayContext.ptoMode` rolling off** (today/tomorrow first weekday after a PTO span): force CTA = `let's prioritise the week ahead`, deep link `/plan`.
-
-**Gating (per user note):** the weekend / post-holiday CTA only fires when **both** are true at evaluation time:
-
-1. A Brief snapshot exists for the user for today (`brief_snapshots` row for today's `local_date`, any window) — i.e. the Brief that frames the week-ahead.
-2. A Plan exists for today (`daily_ritual_completions` row with a non-empty `plan_ledger` of priorities for today/the week-ahead view).
-
-If either is missing → fall back to the weekday CTA bucket and standard `/daily-check-in` route. Never send `let's prioritise the week ahead` into an empty Plan.
-
-`ALLOWED_CTA_VERBS_V8` gains: `let's prioritise the week ahead`.
-`ACTION_ROUTES` gains: weekend/post-holiday → `/plan`.
-
-## 3. Mandate the 3-nudge cadence + windows
-
-Tighten existing evaluators:
-
-- **Morning (Nudge 1):** 60 min before first meeting (virtual) / 90 min (in-person), clamped `[06:30, 10:00]` when there's a meeting; else `[08:00, 09:00]`. Widen lower bound to 06:30 only when first meeting < 08:30 (commute / at-home prep).
-- **Afternoon (Nudge 2):** 60/90 min before next afternoon meeting; **no nudge** if no afternoon meeting. Gate `reserves` / `recalibrate` state-only fallbacks behind `hasAfternoonMeeting`.
-- **Evening (Nudge 3):** 60/90 min before any evening meeting; else `[19:00, 20:00]`; else new branch: `15–30 min after` a late meeting (anchor on `lastMeetingEndedMinAgo ∈ [15,30]`).
-
-## 4. Back-to-back guard + low-friction reminder variant
-
-New gate in `pickWinningNudge`:
-
-- No gap ≥ 30 min between now and anchored event → suppress, `suppression_reason='back_to_back'`.
-- Largest gap ∈ `[30, 60] min` → downgrade to **reminder variant**: in-context one-liner, CTA = `take 60 seconds`, `requires_app_open=false`, no deep link. Static fallback only — no LLM call.
-
-## 5. Delivery-context skips (DND / battery / airplane / offline)
-
-Add to pre-evaluator gate block:
-
-- **DND active** → skip (existing).
-- **Airplane mode** OR **device offline** (`notification_device_tokens.last_seen_at` > 60 min ago) → skip, `suppression_reason='offline'`. **Never queue** — stale nudges past 1 h have no value.
-- **Low battery** → ride APNs `410` feedback for now; `notification_preferences.low_power_mode` is a TODO marker (not wired this pass).
-- **TTL hardening:** explicit `nudge_one*` TTL cap of **60 min** post-anchor so delayed delivery cannot land post-hoc.
-
-## 6. Travel arc — post-landing meeting awareness
-
-Extend `dayContext.postTravel` in `buildNudgeContext`:
-
-- Use already-present `surroundingEvents` + today's events (no shared-module changes).
-- Compute `landingTimeLocal` from most recent flight `endTime` in last 24 h (handles late-night landings across midnight).
-- Find `firstMeetingAfterLanding` in next **15–60 min**.
-- If present, schedule **`nudge_one_post_landing`** (rides Nudge 1 slot, no 4th send):
-  - Anchor at `landingTime + 15 min`, valid until `landingTime + 60 min`.
-  - Tone written for immigration line / taxi — body must work without opening app.
-  - CTA: `take 60 seconds` (reminder-style, no-app-open).
-  - Route still set to `/executive-home` so a tap works.
-
-Reuses existing `landingPlusHighStakes` plumbing at `index.ts:1036`.
-
-## 7. Copy & validator updates
-
-- `FORBIDDEN_NOTIFICATION_WORDS` — unchanged.
-- `ALLOWED_CTA_VERBS_V8` — add `let's prioritise the week ahead`, `take 60 seconds`.
-- `CTA_REWRITE_PATTERNS` — add legacy-form recognisers ("plan the week", "60 seconds") so older fallbacks self-heal.
-- `validateStaticFallbackCopy` — extend to check new `subtitle` (3 words / 28 chars).
-- New validator `requiresHeadlineStructure(title, subtitle)` runs after V8 contract: `title === 'Mind Module'`, subtitle non-empty.
-- New gating helper `weekendCtaPrerequisitesMet(ctx)`: returns true only when Brief snapshot for today AND Plan ledger for today both exist.
-
-## 8. Telemetry additions
-
-`payload.metadata` gains:
-- `delivery_skip_reason` ∈ `{dnd|offline|airplane|battery|back_to_back|stale_ttl|null}`
-- `headline_variant` ∈ `{full|reminder|post_landing}`
-- `cta_bucket` ∈ `{weekday|weekend_post_holiday}`
-- `requires_app_open` boolean
-- `weekend_cta_gate` ∈ `{ok|missing_brief|missing_plan}` (only stamped when in weekend/post-PTO context)
-
-`notification_log.delivery_state='suppressed'` rows for new skips get `suppression_stage='pre_evaluator'`.
-
-## 9. Tests (Deno, in `smart-nudges/v5_validation_test.ts`)
-
-New cases:
-1. Title is always `Mind Module`; subtitle ≤ 3 words / 28 chars.
-2. Weekend + Brief + Plan present → CTA `let's prioritise the week ahead`, route `/plan`.
-3. Weekend + missing Brief OR missing Plan → falls back to weekday CTA + `/daily-check-in`; `weekend_cta_gate` telemetry stamped.
-4. Back-to-back day (no gap ≥ 30 min) → no send, suppression reason logged.
-5. 45-min gap day → reminder variant, no app-open CTA.
-6. Late evening meeting ending 20:45 → evening nudge anchored 21:00–21:15.
-7. Flight lands 18:00, meeting 18:45 → `nudge_one_post_landing` fires at 18:15 with reminder CTA.
-8. DND / offline / airplane gates each skip with explicit reason.
-
-## 10. Docs + memory
-
-- `docs/SMART_NUDGES_SSOT.md` — bump to v1.1; rewrite §2 (windows), §3 (variants — add `post_landing` + `reminder`), §7.2 (CTA list), §7.5 (length table — add Subtitle), §9 (APNs `alert.subtitle`), §10 (new telemetry), §12 (post-landing + weekend gating), §14 (delivery-context skip semantics).
-- `docs/SMART_NUDGES_COMPREHENSIVE_ARCHITECTURE.md` — mark superseded sections, point to SSOT v1.1.
-- `mem://features/notifications/smart-nudges-mvp-framework` — append: collapsed/expanded headline, weekend CTA bucket **gated on Brief + Plan presence**, 30-min gap rule, post-landing window, offline-skip-never-queue.
+**Out of scope (no change):** Brief prompt/copy, Plan slot ordering, JIT horizon, dedupe key, MRS scoring, signal pills, UI components, DB schema, RLS, edge function config, `_shared/text/sanitise.ts` (reused as-is).
 
 ---
 
-## Out of scope (explicit non-goals)
+## 1. Shared state band — single source, never re-banded
 
-- No Brief / MRS / Plan logic changes — only **read** Brief snapshot + Plan ledger presence for the weekend CTA gate.
-- No new shared modules; reuse existing travel signal upgrades.
-- No iOS native client changes.
-- No new DB tables; `low_power_mode` remains a TODO.
-- No change to daily cap of 3, comparator slot ordering, or AI cascade.
+Add to `WhyLLMInput`:
 
-## Risks
+```ts
+stateBand: 'firing' | 'sharp' | 'steady' | 'stretched' | 'depleted' | null;
+arcPosition: 'prepare' | 'during' | 'recover' | 'standalone';
+slotAnchor: SlotAnchor; // see §4
+```
 
-- iOS may render `subtitle` differently on older devices — verify in preview. Mitigation: if subtitle missing, lock screen still shows `Mind Module` + body.
-- Forcing `title='Mind Module'` reduces glanceability — counter-balanced by 3-word subtitle.
-- Dropping state-only afternoon nudges (§3) reduces afternoon send rate ~30%. Acceptable per spec.
-- Weekend CTA gating means users without a generated Brief/Plan on Saturday AM get the standard weekday CTA — intentional, prevents a "prioritise the week" lure that lands in an empty Plan.
+`stateBand` is read directly off `shared.briefBehaviour.band` — the same server-computed band powering the MRS dial and the Brief. **No independent re-banding.** If absent → `null`, the prompt drops the band-discipline block, the validator's valence gate is skipped (event-anchor grounding still required), and telemetry records `bandSource='missing'`.
+
+`arcPosition` mapping from `jitPhase`:
+
+```
+'pre'       → 'prepare'
+'during'    → 'during'
+'post'      → 'recover'
+undefined   → 'standalone'
+any other   → 'standalone'   (defensive — future jitPhase values never crash)
+```
+
+Same `jitPhase` field the dedupe key `${eventId}::${jitPhase}` uses, so justification and dedupe agree on what "different" means.
+
+---
+
+## 2. Why-line system prompt rewrite (`why-llm.ts`)
+
+Replace `buildPrompt`'s system text with:
+
+- **Role**: Chief of Staff handing over one move; "Brief orients; Plan justifies."
+- **Three-part connection** (STATE + EVENT + REASON) named as the target — guidance only, *not* a hard validator rule (avoid over-rejection; see §3).
+- **State-band discipline** (only when band ≠ null):
+  - firing / sharp → focus / edge / clarity framing; avoid recovery verbs.
+  - depleted / stretched → "this is how you get ready for X"; protection/recovery framing welcome.
+  - steady → either; let event + practice decide.
+- **Arc awareness** keyed off `arcPosition` — encouraged, not enforced via lexical check (see §3.4).
+- **Hard constraints**: one sentence; no wellness words (`recharge|self-care|mindful|breathe|nourish|restore|wellness|journey|calm|relax`); no clinical jargon (`parasympathetic|cortisol|sympathetic`); never name the score / band / state-band word; no system phrases ("optimise the window", "hold the base", "for your state").
+
+**User block** (assembled deterministically — band/event/anchor sections omitted entirely when their inputs are null):
+
+```
+=== STATE ===
+Band: <stateBand>  (match; do not name)
+Most relevant signal: <derived from existing wearable/check-in fields>
+
+=== THIS PRACTICE ===
+Practice: <hm.practice.title | practices[0].title>
+Protocol combo: <hm.timeLabel pre-override OR practice.type chain>
+Arc position: <arcPosition>
+
+=== THE EVENT ===            (only if slotAnchor.eventTitle)
+Event: <slotAnchor.eventTitle>
+Category: <slotAnchor.categoryId — EVENT_CATEGORIES[id].name>
+When: <relativeEventPhrase(minutesUntilStart) — "in 2h", "tomorrow morning", "just finished">
+Why it's a moment: <EVENT_PHASE_MAP[cat][phase].preventsBuilds joined>
+
+=== ELSE ===                 (no anchor)
+State-management — justify by day's state, not a calendar moment.
+```
+
+`relativeEventPhrase` lives in `_shared/text/sanitise.ts` — reused as-is.
+
+---
+
+## 3. Post-generation validator (`validateWhyLine` in `why-llm.ts`)
+
+Returns `{ ok: true } | { ok: false, reason: ValidatorReject }`. **Asymmetric and forgiving** — engineered to fail closed only on clear contradictions, not on stylistic variance.
+
+### 3.1 Anchor-token derivation (forgiving)
+
+Per-anchor token set built once and reused by validator + telemetry:
+
+```ts
+function anchorTokens(title: string): Set<string> {
+  const STOP = new Set(['the','a','an','and','or','with','for','of','to','in','on','at','your','my','this','that']);
+  return new Set(
+    title.toLowerCase()
+      .replace(/[^\p{L}\p{N}:\s]/gu, ' ')   // keep "1:1", drop other punct
+      .split(/\s+/)
+      .filter(t => t.length > 2 && !STOP.has(t))
+      .concat(EVENT_TYPE_ALIASES[catId] ?? []) // e.g. ['board','meeting','session','call','review'] for cat A
+  );
+}
+```
+
+A second word-set is harvested from `EVENT_CATEGORIES[cat].selfRegulationFocus` so "conversation" satisfies a "1:1 with Sarah" anchor.
+
+### 3.2 Anchor / state grounding (asymmetric)
+
+```
+if (textHasAnchorToken) → grounded ✓
+else if (textHasStateToken) → grounded ✓        // state-mgmt slots, or anchor-less LLM phrasing
+else → reject('generic')
+```
+
+State allowlist is *narrow* and band-keyed (only checked when band ≠ null):
+
+- depleted/stretched: `/\b(low|running low|reserves|stretched|tired|drained|behind)\b/i`
+- firing/sharp:       `/\b(sharp|firing|clear|edge|locked in|on form)\b/i`
+- steady:             `/\b(steady|holding|on track|even)\b/i`
+
+If band is null, any anchor token alone is sufficient — no state token required.
+
+### 3.3 Valence gate (narrowed — only obvious contradictions)
+
+Only checked when band ≠ null. Narrower than the original draft to avoid rejecting legitimate "protects the attention you'll need" copy on a sharp day.
+
+```
+firing/sharp + /\b(recover|recovery|recharge|wind down|come down|refill|rest up)\b/i
+  → reject('valence_firing_recovery')
+depleted/stretched + /\b(push|sprint|spend the edge|go harder|lean in|grind)\b/i
+  → reject('valence_depleted_push')
+```
+
+`protect`, `preserve`, `maintain`, `hold`, `clear` are deliberately **not** rejected — they read as performance language across all bands.
+
+### 3.4 No lexical arc check
+
+Arc awareness is prompt-guided only. We do not validate "contains 'before'" / "contains 'after'" — that drives template fatigue and rejects good copy.
+
+### 3.5 Duplication
+
+Keep existing `jaccard > 0.85` check, but **gated** to: same `slotAnchor.eventTitle` AND same `arcPosition`. Two slots for different events can read similarly without rejection; two slots for the same event/arc still get caught.
+
+### 3.6 Fallback path
+
+On any reject → drop the LLM output and fall through to the existing deterministic `buildModuleEventWhyLine` repair already at `index.ts` lines 4631–4651. No retry, no second LLM call.
+
+---
+
+## 4. Slot identity — single `SlotAnchor` value object
+
+New shared type (in `title-prefixes.ts`, re-exported):
+
+```ts
+export interface SlotAnchor {
+  eventTitle: string | null;
+  categoryId: EventCategoryId | null;
+  phase: Phase | null;
+}
+```
+
+`buildPriorityTitle` and `composeWhyLine` both accept a `SlotAnchor` (plus the existing surrounding inputs). Constructed once per slot in `index.ts`:
+
+```ts
+const slotAnchor: SlotAnchor = {
+  eventTitle: hm.jitEventTitle ?? hm.anchorEventTitle ?? null,
+  categoryId: hm.anchorCategoryId ?? hm.jitCategoryId ?? null,
+  phase:      hm.jitPhase ?? null,
+};
+```
+
+This kills the "Board Meeting" + "EXERCISE category" drift class structurally.
+
+`composeWhyLine` already takes `slotAnchorCategoryId` — extend to read `slotAnchor.eventTitle` from the same object, and gate every anchor clause on **both** `categoryId` and `eventTitle` being present. Never emit an anchor clause with only one of them.
+
+---
+
+## 5. Telemetry (additive, function-log only)
+
+Added to per-slot debug payload (existing `console.warn` paths):
+
+```
+whyLine.bandUsed         : stateBand | null
+whyLine.bandSource       : 'shared_brief_behaviour' | 'missing'
+whyLine.arcPosition      : prepare|during|recover|standalone
+whyLine.fallbackPath     : 'llm_accepted' | 'deterministic_repair'
+whyLine.validatorReject  : null | 'generic' | 'valence_firing_recovery' | 'valence_depleted_push' | 'jaccard_dup' | 'empty'
+whyLine.anchorTokensUsed : true | false
+```
+
+No DB columns, no client payload changes. Lets us watch fallback rate and tune the validator from real traffic before tightening anything further.
+
+---
+
+## 6. Tests
+
+**`priority-title.test.ts`** — add:
+- `slotAnchorEventTitle='Q2 Board Meeting'`, `slotAnchorCategoryId='E'` → title uses E's verb/objective ("Sharpen sustained focus in …"), never an A-only verb. Proves cross-event leakage is structural-impossible.
+- `SlotAnchor` with `eventTitle=null, categoryId='A'` → state-management fallback path, no "after the null".
+
+**`why-llm-validator.test.ts`** (new, Deno test) — covers:
+- band=null + anchor token present → accept (band gate skipped).
+- band=null + no anchor token, no state token → reject `generic`.
+- firing + "this clears your head and lets you recover" → reject `valence_firing_recovery`.
+- firing + "this protects the attention you'll need for the board" → **accept** (`protect` is not banned).
+- depleted + "push the afternoon block" → reject `valence_depleted_push`.
+- depleted + "you're running low and the board's at 2 — this clears your head" → accept.
+- title "1:1 with Sarah" + body "Before your conversation with Sarah…" → accept via alias token `conversation`.
+- two outputs, same event + same arc, jaccard 0.9 → second rejected `jaccard_dup`.
+- two outputs, different events, jaccard 0.9 → both accepted.
+
+Run via `supabase--test_edge_functions`.
+
+---
+
+## 7. Docs + memory
+
+- `docs/MASTERY_PLAN_CONTEXT_LOGIC.md` — rewrite Why-line section with: three-part connection (target, not validator), narrowed valence gate, `SlotAnchor` contract, arc-position dedupe partner, telemetry fields.
+- `mem/features/mastery-plan/slot-model-v5.md` — append `## Why-line ownership`: Plan owns "how do I improve my readiness", Brief never does; band shared not re-derived; asymmetric validator; fallback path; telemetry must be monitored before tightening.
+- New `mem/features/mastery-plan/why-line-prompt-contract.md` — captures the prompt snapshot + validator contract for future refactors (mirror of `prompt-snapshot-brief.md`).
+
+---
+
+## Technical notes
+
+```text
+generate-mastery-plan
+  └─ per module
+      ├─ slotAnchor = { eventTitle, categoryId, phase }   ← single source
+      ├─ buildPriorityTitle({ slotAnchor, isTomorrow, practicePriorityTag })  (deterministic)
+      └─ if (slotAnchor.categoryId) queue WhyLLMInput {
+             stateBand:    shared.briefBehaviour?.band ?? null,
+             arcPosition,                  ← from slotAnchor.phase
+             slotAnchor,                   ← same object as title
+             …existing wearable/checkin fields
+         }
+  └─ Promise.all(generateWhyStatement)
+  └─ validateWhyLine → accept | record reject reason → buildModuleEventWhyLine fallback
+  └─ stripBriefMarkdown → persist
+```
+
+### Risks addressed by this revision
+
+1. **Validator false positives** → asymmetric grounding rule (§3.2), narrowed valence regex (§3.3), no lexical arc check (§3.4).
+2. **Event-token brittleness** → alias set per category + content-word tokenizer that keeps `1:1` and drops short stopwords (§3.1).
+3. **Binary band discipline** → only `recover/recovery/recharge/wind down/come down/refill/rest up` blocked on firing/sharp; `protect/preserve/maintain/hold` allowed (§3.3).
+4. **Arc-position rigidity** → prompt-guided only, no validator string check (§3.4).
+5. **Fallback quality gap** → telemetry counts fallback rate (§5); validator deliberately permissive to keep LLM path dominant.
+6. **Anchor identity drift** → single `SlotAnchor` value object eliminates mismatched pair construction (§4).
+7. **Shared-band staleness** → `bandSource` telemetry surfaces missing-band rate (§5); prompt + validator degrade gracefully when band is null (§1, §3.2).
+8. **Jaccard over-firing** → dedupe only triggers on same event + same arc (§3.5).
+9. **Future jitPhase values** → mapping has explicit `default → 'standalone'` (§1).
+
+### Rollback
+
+Revert the three source files + the two test files. No DB migration, no schema change, no client contract change.
