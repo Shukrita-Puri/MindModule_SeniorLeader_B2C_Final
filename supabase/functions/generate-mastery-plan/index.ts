@@ -1378,12 +1378,14 @@ function findScoredEventForCandidate(
 function buildAnchorSnapshot(
   eventId: string | null,
   enriched: ReturnType<typeof enrichEvent> | null,
+  eventTitle?: string | null,
 ): Pick<
   HorizonModule,
-  'anchorEventId' | 'anchorCategoryId' | 'anchorSubtypeId' | 'anchorScenarioId' | 'anchorLeadTimeMin'
+  'anchorEventId' | 'anchorEventTitle' | 'anchorCategoryId' | 'anchorSubtypeId' | 'anchorScenarioId' | 'anchorLeadTimeMin'
 > {
   return {
     anchorEventId: eventId ?? null,
+    anchorEventTitle: eventTitle ?? null,
     anchorCategoryId: enriched?.categoryId ?? null,
     anchorSubtypeId: enriched?.subtype?.id ?? null,
     anchorScenarioId: enriched?.scenarioId ?? null,
@@ -3750,6 +3752,7 @@ interface HorizonModule {
   showPulse: boolean;
   showPriorityPill: boolean;
   anchorEventId?: string | null;
+  anchorEventTitle?: string | null;
   anchorCategoryId?: EventCategoryId | null;
   anchorSubtypeId?: string | null;
   anchorScenarioId?: string | null;
@@ -3846,6 +3849,70 @@ function getAnchorPhrase(ctx: SlotContextInput): string {
   return `before ${title}`;
 }
 
+function buildEventAwareWhyLine(ctx: SlotContextInput, fallback: string): string {
+  const title = (ctx.anchorTitle || ctx.eventTitle || '').trim();
+  if (!title) return fallback;
+
+  const anchorPhrase = getAnchorPhrase(ctx);
+  const isTravel =
+    ctx.anchorCategoryId === 'G' ||
+    /\b(flight|travel|airport|long[- ]haul|red[- ]?eye|boarding|departure|arrival|landing)\b/i.test(title);
+  const isHighCognitive =
+    /\b(pitch|deck|review|proposal|presentation|client|investor|board|strategy|steerco|exec)\b/i.test(title);
+  const isRelational =
+    ctx.anchorCategoryId === 'D' ||
+    /\b(1[: ]?1|one[- ]to[- ]one|feedback|check[- ]?in|sync|wendy)\b/i.test(title);
+
+  if (isTravel) {
+    return `Travel is the body/timing load; this protects your rhythm ${anchorPhrase}.`;
+  }
+  if (isHighCognitive) {
+    return `${title} needs clean judgment, this keeps attention narrow ${anchorPhrase}.`;
+  }
+  if (isRelational) {
+    return `${title} asks for presence and context switching, this steadies you ${anchorPhrase}.`;
+  }
+  return fallback;
+}
+
+function buildModuleEventWhyLine(
+  hm: HorizonModule,
+  eventTitle: string | null,
+  categoryId: string | null,
+  phase: 'pre' | 'during' | 'post' | undefined,
+  fallback = '',
+): string {
+  const anchorPhase = phase ?? (hm.slotKind === 'end_of_day' ? 'post' : 'pre');
+  return buildEventAwareWhyLine({
+    horizon: hm.horizon,
+    isJit: hm.isJit,
+    eventTitle,
+    jitMinutesUntil: hm.jitMinutesUntil,
+    tier: '',
+    divergenceMode: null,
+    checkInOutcome: null,
+    hrvEventCorrelation: null,
+    patternInsight: null,
+    frictionTrend: null,
+    scoreTrend: null,
+    pendingCommitment: null,
+    coachGrowthArea: null,
+    practicePriorityTag: null,
+    archetypeWatchFor: null,
+    checkInCountTotal: 0,
+    wearableDaysConnected: 0,
+    calendarLoad: null,
+    meetingCount: 0,
+    clarityLevel: null,
+    confidenceLevel: null,
+    timeOfDay: null,
+    dayOfWeek: null,
+    anchorTitle: eventTitle,
+    anchorCategoryId: categoryId,
+    anchorPhase,
+  }, fallback);
+}
+
 function buildSlotContext(ctx: SlotContextInput): SlotContext {
   const hasWeekData = ctx.checkInCountTotal >= 3;
   const hasWearablePattern = ctx.wearableDaysConnected >= 7;
@@ -3925,7 +3992,10 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
       return { situation: 'Confidence deficit', whyLine: `Low confidence, ground yourself ${groundTarget}.` };
     }
     if (hasEventAnchor) {
-      return { situation: `State anchored to ${ctx.anchorTitle}`, whyLine: `Set your state ${anchorPhrase}, everything downstream rides on it.` };
+      return {
+        situation: `State anchored to ${ctx.anchorTitle}`,
+        whyLine: buildEventAwareWhyLine(ctx, `Set your state ${anchorPhrase}, everything downstream rides on it.`),
+      };
     }
     if (ctx.timeOfDay === 'morning') return { situation: 'Morning start', whyLine: 'Start with your state, everything follows from this.' };
     if (ctx.timeOfDay === 'afternoon') return { situation: 'Mid-day reset', whyLine: 'Mid-day reset, your second half starts here.' };
@@ -3987,7 +4057,10 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
         : { situation: 'Week close', whyLine: 'End of week, this sustains your quality through the close.' };
     }
     if (hasEventAnchor) {
-      return { situation: `Tactical anchor: ${ctx.anchorTitle}`, whyLine: `Carry your edge ${anchorPhrase}.` };
+      return {
+        situation: `Tactical anchor: ${ctx.anchorTitle}`,
+        whyLine: buildEventAwareWhyLine(ctx, `Carry your edge ${anchorPhrase}.`),
+      };
     }
     if (isEvening) {
       return { situation: 'Day close', whyLine: 'For your state, close the day with intention.' };
@@ -3997,6 +4070,12 @@ function buildSlotContext(ctx: SlotContextInput): SlotContext {
 
   // ─── STRATEGIC ───
   if (ctx.horizon === 'strategic') {
+    if (hasEventAnchor) {
+      return {
+        situation: `Development anchor: ${ctx.anchorTitle}`,
+        whyLine: buildEventAwareWhyLine(ctx, `Build capacity around ${ctx.anchorTitle}, not just the current state.`),
+      };
+    }
     if (ctx.pendingCommitment) {
       return {
         situation: 'Coach commitment',
@@ -4264,9 +4343,13 @@ function composeWhyLine(
   // that belong to the slot's own anchor — global plan-scope CEO flags
   // are passed through `strategicAnchorClause` with the slot's category
   // so cross-event leakage is impossible.
+  const anchorEventFromId = (hm as any).anchorEventId
+    ? (req.calendarEvents || []).find((e: any) => String(e?.id || '') === String((hm as any).anchorEventId))
+    : null;
+  const persistedAnchorTitle = ((hm as any).anchorEventTitle || anchorEventFromId?.title || null) as string | null;
   const slotAnchorTitle = (hm.isJit && hm.jitEventTitle)
     ? hm.jitEventTitle
-    : (fusionEventTitle || null);
+    : (persistedAnchorTitle || fusionEventTitle || null);
   const slotAnchorCategoryId: string | null = (hm as any).anchorCategoryId
     ?? ((hm as any).jitCategoryId ?? null);
 
@@ -4292,6 +4375,13 @@ function composeWhyLine(
     : phase === 'pre' || hm.slotKind === 'jit' || hm.slotKind === 'start_of_day' ? 'Prepare'
     : 'Steady';
   (hm as any).arcLabel = arcLabel;
+  const eventSpecificWhy = buildModuleEventWhyLine(
+    hm,
+    slotAnchorTitle,
+    slotAnchorCategoryId,
+    phase,
+    '',
+  );
 
   // forContext — slot-scoped anchor only. Never name a different event.
   let forContext = '';
@@ -4310,7 +4400,9 @@ function composeWhyLine(
   }
 
   const parts: string[] = [];
-  if (allOverlap) {
+  if (eventSpecificWhy) {
+    parts.push(eventSpecificWhy);
+  } else if (allOverlap) {
     parts.push('Following your brief:');
   } else {
     if (strat) parts.push(strat);
@@ -4517,6 +4609,28 @@ async function applyV51Enrichment(
       accepted.push({ idx: jitJobs[i].idx, text });
     }
     for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
+  }
+
+  // Final event-awareness guard. The per-JIT LLM can overwrite the deterministic
+  // Why, so repair repeated/generic anchored-card copy after all enrichment.
+  const acceptedWhyLines: string[] = [];
+  for (const hm of modules) {
+    const anchorEventFromId = (hm as any).anchorEventId
+      ? (req.calendarEvents || []).find((e: any) => String(e?.id || '') === String((hm as any).anchorEventId))
+      : null;
+    const eventTitle = (hm.isJit && hm.jitEventTitle)
+      ? hm.jitEventTitle
+      : (((hm as any).anchorEventTitle || anchorEventFromId?.title || null) as string | null);
+    const categoryId = ((hm as any).anchorCategoryId ?? (hm as any).jitCategoryId ?? null) as string | null;
+    const phase = (hm as any).jitPhase as ('pre' | 'during' | 'post' | undefined);
+    const eventWhy = buildModuleEventWhyLine(hm, eventTitle, categoryId, phase, '');
+    const why = String(hm.whyLine || '');
+    const isRepeated = acceptedWhyLines.some((prior) => jaccard(prior, why) > 0.78);
+    const isGeneric = /\b(following your brief|for your state|demands today|carry your edge|set your state|what the day is asking)\b/i.test(why);
+    if (eventWhy && (isRepeated || isGeneric)) {
+      hm.whyLine = eventWhy;
+    }
+    if (hm.whyLine) acceptedWhyLines.push(String(hm.whyLine));
   }
 
   // ── Temporal gate: Reflection Corner / "Tiny Win" practices ─────────
@@ -5030,6 +5144,9 @@ function buildHorizonModules(
     return {
       label: `${stateAction} ahead of ${anchor}`,
       eventId: anchorEventId,
+      eventTitle: anchorEvent
+        ? anchorEvent.title
+        : (anchorEventId && upcomingWeekLeadEvent?.id === anchorEventId ? upcomingWeekLeadEvent.title : null),
       categoryId: anchorCategory,
       subtypeId: anchorEnriched?.subtype?.id ?? null,
       scenarioId: anchorEnriched?.scenarioId ?? null,
@@ -5074,7 +5191,7 @@ function buildHorizonModules(
     if (slot1Practices.length === 0 && todModules[0]) slot1Practices = [todModules[0]];
     slot1IsJit = true;
     slot1TimeLabel = jitPhase.label;
-    slot1AnchorSnapshot = buildAnchorSnapshot(topEventId, topEventEnriched);
+    slot1AnchorSnapshot = buildAnchorSnapshot(topEventId, topEventEnriched, topEvent?.event?.title ?? null);
     slot1AnchorForCtx = { title: truncateTitle(topEvent?.event?.title) ?? null, categoryId: topEventCat ?? null, phase: jitPhase.phase };
   } else if (req.innerReadinessTier === 'depleted') {
     const regMod = todModules.find((m: any) => m.type === 'regulate' && !m.isCoachCard) || todModules.find((m: any) => !m.isCoachCard) || todModules[0];
@@ -5090,6 +5207,7 @@ function buildHorizonModules(
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
+          anchorEventTitle: sl.eventTitle ?? null,
           anchorCategoryId: sl.categoryId,
           anchorSubtypeId: sl.subtypeId,
           anchorScenarioId: sl.scenarioId,
@@ -5117,6 +5235,7 @@ function buildHorizonModules(
     slot1AnchorSnapshot = sl
       ? {
           anchorEventId: sl.eventId,
+          anchorEventTitle: sl.eventTitle ?? null,
           anchorCategoryId: sl.categoryId,
           anchorSubtypeId: sl.subtypeId,
           anchorScenarioId: sl.scenarioId,
@@ -5200,7 +5319,7 @@ function buildHorizonModules(
       : `${isHighStakesPost ? 'Reset' : 'Recover'} after ${truncated}`;
     slot2TimeLabel = label;
     slot2IsJit = true;
-    slot2AnchorSnapshot = buildAnchorSnapshot(slot2Candidate.eventId, slot2Enriched);
+    slot2AnchorSnapshot = buildAnchorSnapshot(slot2Candidate.eventId, slot2Enriched, slot2Candidate.title);
     slot2AnchorForCtx = { title: truncateTitle(slot2Candidate.title) ?? null, categoryId: (slot2Candidate.categoryId as any) ?? null, phase: slot2Candidate.phase };
     // Imminent (≤6h) keeps navy emphasis; far-out fan-out stays standard.
     slot2NavyBorder = slot2JitMinutesUntil !== null && slot2JitMinutesUntil >= 0 && slot2JitMinutesUntil <= 360;
@@ -5230,6 +5349,7 @@ function buildHorizonModules(
       slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot2AnchorSnapshot = {
         anchorEventId: sl.eventId,
+        anchorEventTitle: sl.eventTitle ?? null,
         anchorCategoryId: sl.categoryId,
         anchorSubtypeId: sl.subtypeId,
         anchorScenarioId: sl.scenarioId,
@@ -5336,7 +5456,7 @@ function buildHorizonModules(
     slot3JitEventTitle = slot3Candidate.title;
     slot3JitPhase = slot3Candidate.phase;
     slot3Horizon = 'tactical';
-    slot3AnchorSnapshot = buildAnchorSnapshot(slot3Candidate.eventId, slot3Enriched);
+    slot3AnchorSnapshot = buildAnchorSnapshot(slot3Candidate.eventId, slot3Enriched, slot3Candidate.title);
     const pool = (slot3Candidate.eventId === topEventId && preEventPlan?.modules?.length)
       ? preEventPlan.modules
       : todModules;
@@ -5354,6 +5474,7 @@ function buildHorizonModules(
       slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
+        anchorEventTitle: sl.eventTitle ?? null,
         anchorCategoryId: sl.categoryId,
         anchorSubtypeId: sl.subtypeId,
         anchorScenarioId: sl.scenarioId,
@@ -5381,6 +5502,7 @@ function buildHorizonModules(
       slotAnchors.push({ eventId: sl.eventId, phase: sl.phase });
       slot3AnchorSnapshot = {
         anchorEventId: sl.eventId,
+        anchorEventTitle: sl.eventTitle ?? null,
         anchorCategoryId: sl.categoryId,
         anchorSubtypeId: sl.subtypeId,
         anchorScenarioId: sl.scenarioId,
@@ -5505,7 +5627,9 @@ function buildHorizonModules(
     const isHeavyDay = req.calendarLoad === 'high' || req.calendarLoad === 'extreme';
 
     const needsHorizons: ('immediate' | 'tactical' | 'strategic')[] =
-      _minSlots >= 2 ? ['immediate', 'tactical'] : ['immediate'];
+      _minSlots >= 3 ? ['immediate', 'tactical', 'strategic'] :
+      _minSlots >= 2 ? ['immediate', 'tactical'] :
+      ['immediate'];
 
     for (const targetHorizon of needsHorizons) {
       if (deduped.length >= _minSlots) break;

@@ -2491,6 +2491,9 @@ serve(async (req) => {
     // ═══ LLM SYNTHESIS ═══
     let llmBrief: LlmBriefPackage | null = null;
     let llmFallbackReason: string | null = null;
+    let materialTravelContextActive = false;
+    let materialWorkEventTitles: string[] = [];
+    const MATERIAL_TRAVEL_BODY_RX = /\b(travel|flight|long[- ]haul|circadian|airport|departure|arrival|landing|jet lag|body\/timing|timing load)\b/i;
     const dataCompleteness = checkInCountTotal === 0 ? 'day1' : checkInCountTotal <= 6 ? 'early' : checkInCountTotal <= 30 ? 'developing' : 'established';
 
     // ── Additional enrichment data for the upgraded LLM prompt ──
@@ -4010,6 +4013,8 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 .filter(Boolean)
                 .slice(0, 3);
               if ((hasTravelFlag || travelEvents.length > 0) && workEvents.length > 0) {
+                materialTravelContextActive = true;
+                materialWorkEventTitles = workEvents;
                 const travelLabel = travelEvents[0]
                   ? `travel (${travelEvents[0]})`
                   : "travel";
@@ -4021,7 +4026,10 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   "The Brief body must acknowledge both when Plan uses travel as an anchor.",
                 ].join("\n");
               }
-            } catch (_e) { /* material context is advisory only */ }
+            } catch (_e) {
+              materialTravelContextActive = false;
+              materialWorkEventTitles = [];
+            }
 
             // Append shared event-coaching context first, then the taxonomy
             // block (pure event labelling), then the behaviour block
@@ -4230,6 +4238,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             for (const r of ONE_LINE_READS) {
               if (bodyLowerNorm.includes(r.toLowerCase())) {
                 return { valid: false, reason: 'body_restates_one_line_read' };
+              }
+            }
+            if (materialTravelContextActive && !MATERIAL_TRAVEL_BODY_RX.test(strippedBody)) {
+              return { valid: false, reason: 'body_omits_material_travel_context' };
+            }
+            if (materialTravelContextActive && materialWorkEventTitles.length > 0) {
+              const significantWorkTokenMentioned = materialWorkEventTitles.some((title) => {
+                const tokens = String(title || '')
+                  .toLowerCase()
+                  .split(/[^a-z0-9]+/)
+                  .filter((token) => token.length >= 4 && !['with', 'from', 'today', 'review', 'meeting'].includes(token));
+                return tokens.some((token) => bodyLowerNorm.includes(token));
+              });
+              if (!significantWorkTokenMentioned) {
+                return { valid: false, reason: 'body_omits_material_work_context' };
               }
             }
 
@@ -4621,6 +4644,21 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
       s = s.replace(/(^|[\s(])\*(?!\*)\s?([^*\n]+?)\s?\*(?!\*)(?=[\s.,;:!?)]|$)/g, '$1$2');
       s = s.replace(/(^|\s)\*(\s)/g, '$1$2');
       s = s.replace(/[ \t]{2,}/g, ' ');
+      if (materialTravelContextActive && !MATERIAL_TRAVEL_BODY_RX.test(s)) {
+        const work = materialWorkEventTitles[0] ? ` ${materialWorkEventTitles[0]} is the work demand.` : '';
+        s = `Travel is the body/timing load;${work} ${s}`;
+      }
+      if (materialTravelContextActive && materialWorkEventTitles[0]) {
+        const workTitle = materialWorkEventTitles[0];
+        const workTokens = String(workTitle)
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((token) => token.length >= 4 && !['with', 'from', 'today', 'review', 'meeting'].includes(token));
+        const mentionsWork = workTokens.some((token) => s.toLowerCase().includes(token));
+        if (!mentionsWork) {
+          s = `${workTitle} is the work demand. ${s}`;
+        }
+      }
       return s.trim();
     })();
 
