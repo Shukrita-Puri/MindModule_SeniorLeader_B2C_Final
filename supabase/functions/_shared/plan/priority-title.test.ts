@@ -79,14 +79,16 @@ Deno.test("buildPriorityTitle — state-management fallback (no event)", () => {
 
 Deno.test("buildPriorityTitle — slotAnchor eliminates cross-event leakage (E category with Board title)", () => {
   // If a caller ever passes a Board-flavoured title but an E (deep-work)
-  // category, the title MUST read off the category — never invent A's
-  // 'Lead' verb just because the title says 'Board'.
+  // category, the title MUST read off the CATEGORY's verb/objective — never
+  // invent A's 'Lead'/'composed presence' just because the title says 'Board'.
   const anchor: SlotAnchor = { eventTitle: "Q2 Board Meeting", categoryId: "E", phase: "pre" };
   const out = buildPriorityTitle({ slotAnchor: anchor, isTomorrow: false });
-  assertStringIncludes(out, "Sharpen");          // E pre verb
+  assertStringIncludes(out, "Steady");           // E pre verb (per verbForCategoryPhase)
   assertStringIncludes(out, "sustained focus");  // E pre default objective
   // Must NOT use A's verb just because the literal title says 'Board'.
   assert(!out.startsWith("Lead "), `expected E-category verb, got "${out}"`);
+  // Must NOT use A's default objective either.
+  assert(!out.includes("composed presence"), `expected E-category objective, got "${out}"`);
 });
 
 Deno.test("buildPriorityTitle — slotAnchor with null eventTitle falls back cleanly (no 'after the null')", () => {
