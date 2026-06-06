@@ -3351,8 +3351,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     );
     const calendarEventTitleById = new Map<string, string>(
       (req.calendarEvents || [])
-        .map((e: any) => [String(e.id), String(e.title || '').trim()])
-        .filter(([id, title]: any[]) => id && title)
+        .map((e: any): [string, string] => [String(e.id), String(e.title || '').trim()])
+        .filter(([id, title]) => Boolean(id) && Boolean(title))
     );
 
     const merged = mergeWithLedger(
