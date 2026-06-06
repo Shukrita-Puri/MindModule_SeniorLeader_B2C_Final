@@ -2557,6 +2557,20 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
             endTime: e.endTime ?? null,
             stakesLevel: null as string | null,
           }));
+        // Split today / tomorrow so brief-signal-coverage can self-derive
+        // travelDay + pre-flight tomorrow detection (Brief↔Plan parity fix).
+        const _fbStartTomorrow = new Date(); _fbStartTomorrow.setHours(0, 0, 0, 0); _fbStartTomorrow.setDate(_fbStartTomorrow.getDate() + 1);
+        const _fbEndTomorrow = new Date(_fbStartTomorrow); _fbEndTomorrow.setDate(_fbEndTomorrow.getDate() + 1);
+        const _planEventsToday = planEvents.filter((e) => {
+          const t = new Date(e.startTime).getTime();
+          return t < _fbStartTomorrow.getTime();
+        });
+        const _planEventsTomorrow = planEvents.filter((e) => {
+          const t = new Date(e.startTime).getTime();
+          return t >= _fbStartTomorrow.getTime() && t < _fbEndTomorrow.getTime();
+        });
+        const _fbCurrentTz = (req as any).effectiveCurrentTimezone ?? (req as any).currentTimezone ?? null;
+        const _fbHomeTz = (req as any).effectiveHomeTimezone ?? (req as any).homeTimezone ?? null;
         const fallback = buildBehaviourSnapshot({
           coverage: {
             wearable: wearableForCtx,
@@ -2572,9 +2586,10 @@ async function buildSharedContext(req: PlanRequest, supabaseClient: any, outerRe
             timezone: {
               offsetMinutes: -((req.timezoneOffset ?? 0) | 0),
               shift48hHours: null,
-              travelDay: false,
+              travelDay: !!(_fbCurrentTz && _fbHomeTz && _fbCurrentTz !== _fbHomeTz),
             },
-            events: planEvents,
+            events: _planEventsToday,
+            tomorrowEvents: _planEventsTomorrow,
             now,
           },
           extras: { dayOfWeek: now.getDay() },
