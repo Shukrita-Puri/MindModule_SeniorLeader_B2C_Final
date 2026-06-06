@@ -3392,11 +3392,128 @@ serve(async (req) => {
             qualificationWarnings.push('repeated_expiry');
           }
           const isTravel = !!(ctx.dayContext.preFlight || ctx.dayContext.inFlight);
+
+          // ── v1.1 — Back-to-back gap guard ─────────────────────────────
+          // Find the largest gap between now and the next event(s) in the
+          // next 3 h. No gap ≥ 30 min → suppress; gap 30–60 min → downgrade
+          // to reminder variant (no-app-open CTA).
+          const nowMs = Date.now();
+          const horizonMs = nowMs + 3 * 60 * 60 * 1000;
+          const upcoming = (ctx.todayEvents || [])
+            .map((e: any) => ({ start: new Date(e.start_time).getTime(), end: new Date(e.end_time).getTime() }))
+            .filter((e) => e.end > nowMs && e.start < horizonMs)
+            .sort((a, b) => a.start - b.start);
+          let largestGapMin = Number.POSITIVE_INFINITY;
+          if (upcoming.length > 0) {
+            let cursor = nowMs;
+            for (const ev of upcoming) {
+              const gap = Math.max(0, Math.round((ev.start - cursor) / 60000));
+              if (gap < largestGapMin) largestGapMin = gap;
+              cursor = Math.max(cursor, ev.end);
+            }
+          }
+          const isBackToBack = upcoming.length > 0 && largestGapMin < BACK_TO_BACK_MIN_GAP_MIN;
+          const isReminderGap =
+            upcoming.length > 0 &&
+            largestGapMin >= BACK_TO_BACK_MIN_GAP_MIN &&
+            largestGapMin <= REMINDER_GAP_UPPER_MIN;
+
+          if (isBackToBack) {
+            console.log(`[smart-nudges][v1.1] User ${userId} back_to_back (largestGap=${largestGapMin}min). Suppressing ${bestNudge.type}.`);
+            try {
+              await supabase.from('notification_log').insert({
+                user_id: userId,
+                notification_type: bestNudge.type,
+                variant_id: bestNudge.copy.variantId,
+                event_reference: bestNudge.eventReference || null,
+                delivery_state: 'suppressed',
+                payload: {
+                  title: bestNudge.copy.title,
+                  body: bestNudge.copy.body,
+                  notification_type: bestNudge.type,
+                  architecture: 'cos-mind-v8-meaning-forward',
+                  suppression_reason: 'back_to_back',
+                  suppression_stage: 'pre_evaluator',
+                  metadata: { delivery_skip_reason: 'back_to_back', largest_gap_min: largestGapMin },
+                },
+              });
+            } catch (_) { /* best-effort */ }
+            // skip the push for this user
+            continue;
+          }
+
+          // ── v1.1 — Weekend / post-PTO CTA gate ───────────────────────
+          // Force CTA = "let's prioritise the week ahead" only when:
+          //   - today is Saturday/Sunday OR ctx.dayContext.ptoMode is true, AND
+          //   - a Brief snapshot exists for today, AND
+          //   - a Plan ledger exists for today (non-empty plan_ledger).
+          // Otherwise fall back to the standard weekday CTA + /daily-check-in.
+          const isWeekendOrPto = (dayOfWeek === 0 || dayOfWeek === 6) || ctx.dayContext.ptoMode === true;
+          let ctaBucket: 'weekday' | 'weekend_post_holiday' = 'weekday';
+          let weekendCtaGate: 'ok' | 'missing_brief' | 'missing_plan' | null = null;
+          let resolvedRoute = bestNudge.deepLinkRoute;
+          let resolvedBody = bestNudge.copy.body;
+          if (isWeekendOrPto) {
+            // Brief snapshot presence
+            const { data: briefRow } = await supabase
+              .from('brief_snapshots')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('local_date', todayStr)
+              .limit(1)
+              .maybeSingle();
+            // Plan ledger presence (non-empty)
+            const { data: planRow } = await supabase
+              .from('daily_ritual_completions')
+              .select('plan_ledger')
+              .eq('user_id', userId)
+              .eq('local_date', todayStr)
+              .limit(1)
+              .maybeSingle();
+            const hasPlan =
+              planRow && Array.isArray((planRow as any).plan_ledger) &&
+              (planRow as any).plan_ledger.length > 0;
+            if (!briefRow) weekendCtaGate = 'missing_brief';
+            else if (!hasPlan) weekendCtaGate = 'missing_plan';
+            else weekendCtaGate = 'ok';
+
+            if (weekendCtaGate === 'ok') {
+              ctaBucket = 'weekend_post_holiday';
+              resolvedRoute = WEEKEND_CTA_ROUTE;
+              resolvedBody = forceCtaVerb(bestNudge.copy.body, WEEKEND_CTA);
+            }
+          }
+
+          // ── v1.1 — Reminder downgrade for 30–60 min gap days ─────────
+          let headlineVariant: 'full' | 'reminder' | 'post_landing' = 'full';
+          let requiresAppOpen = true;
+          if (isReminderGap && ctaBucket === 'weekday') {
+            headlineVariant = 'reminder';
+            requiresAppOpen = false;
+            resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
+          }
+
+          // ── v1.1 — Post-landing window (Nudge 1 slot, no 4th send) ──
+          // When landingPlusHighStakes is present and the meeting lands in
+          // the 15–60 min window after landing, tag as post_landing and
+          // route to /executive-home with a reminder-style CTA.
+          const lph = ctx.dayContext.landingPlusHighStakes;
+          if (lph && lph.minutesUntil >= 15 && lph.minutesUntil <= 60) {
+            headlineVariant = 'post_landing';
+            requiresAppOpen = false;
+            resolvedRoute = '/executive-home';
+            resolvedBody = forceCtaVerb(bestNudge.copy.body, REMINDER_CTA);
+          }
+
+          // Subtitle: original moment headline (3 words / 28 chars cap).
+          const subtitle = clampSubtitle(bestNudge.copy.title);
+          const adjustedCopy: NudgeCopy = { ...bestNudge.copy, body: resolvedBody };
+
           allNotifications.push({
             userId,
             type: bestNudge.type,
-            copy: bestNudge.copy,
-            deepLinkRoute: bestNudge.deepLinkRoute,
+            copy: adjustedCopy,
+            deepLinkRoute: resolvedRoute,
             eventReference: bestNudge.eventReference,
             commitmentText: bestNudge.commitmentText,
             meetingTitle: bestNudge.meetingTitle,
@@ -3409,6 +3526,11 @@ serve(async (req) => {
             // recheck can satisfy requiresNamedContextToken() for AI bodies
             // anchored on event titles or the morning check-in word.
             v8Ctx: buildV8CtxForCheck(ctx),
+            subtitle,
+            headlineVariant,
+            ctaBucket,
+            requiresAppOpen,
+            weekendCtaGate,
           });
         }
       }
