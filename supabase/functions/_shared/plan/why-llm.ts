@@ -1,16 +1,27 @@
 // OWNERSHIP: engineering. Lovable AI Gateway call that writes the per-priority
 // "Why this matters" line for Today's 3 Priorities.
 //
-// Spec §4: ≤25 words, event-specific, references ≥1 non-null signal, picks one
-// of PREVENT | PREPARE. Caller fans out 3 calls in parallel via Promise.all.
+// Contract: the Plan owns the "how do I improve my readiness?" justification.
+// The Brief orients (state + how to carry it); the Plan justifies one move at
+// a time. State band is sourced off the SAME `shared.briefBehaviour` snapshot
+// that drives the MRS dial and the Brief — never re-banded here. The
+// `validateWhyLine` helper enforces asymmetric grounding + a narrow valence
+// gate; callers fall through to the deterministic repair path on rejection.
 
 import type { EventCategoryId } from "../events/event-categories.ts";
 import { EVENT_CATEGORIES } from "../events/event-categories.ts";
 import { EVENT_PHASE_MAP, type Phase } from "../events/event-phase-map.ts";
-import type { TitleRole } from "./title-prefixes.ts";
+import type { SlotAnchor, TitleRole } from "./title-prefixes.ts";
+import { relativeEventPhrase } from "../text/sanitise.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
+
+/** Canonical state-band union — same vocabulary the Brief uses. */
+export type StateBand = "firing" | "sharp" | "steady" | "stretched" | "depleted";
+
+/** Arc position derived from `jitPhase`. */
+export type ArcPosition = "prepare" | "during" | "recover" | "standalone";
 
 export interface WhyLLMInput {
   role: TitleRole;
@@ -32,15 +43,249 @@ export interface WhyLLMInput {
 
   growthIntention: string | null;
 
-  // ── Shared-module advisories (Brief↔Plan parity) ──
-  // Pre-formatted blocks lifted off the Brief's persisted behaviour snapshot
-  // so this LLM call reasons from the SAME active CEO behaviours and event
-  // pillar focus the Brief used. Both fields are optional — when null/empty
-  // the prompt simply omits the section (no fallback copy is invented).
-  /** "=== ACTIVE CEO BEHAVIOURS ===" block from the Brief's snapshot. */
+  // Shared-module advisories (Brief↔Plan parity).
   ceoBehaviourBlock?: string | null;
-  /** "=== EVENT TAXONOMY ===" block from the Brief's snapshot. */
   eventTaxonomyBlock?: string | null;
+
+  // Shared state band + slot identity (Plan-only Why-line contract).
+  /**
+   * Server-computed band off the same `shared.briefBehaviour` snapshot that
+   * drives the MRS dial and the Brief. NEVER re-banded. `null` when the
+   * snapshot is missing — prompt drops the band-discipline block and the
+   * validator skips the valence gate.
+   */
+  stateBand?: StateBand | null;
+  /** Mapped from `jitPhase` — pre→prepare, during→during, post→recover, otherwise→standalone. */
+  arcPosition?: ArcPosition;
+  /** Slot-scoped anchor identity (same object handed to the title builder). */
+  slotAnchor?: SlotAnchor;
+  /** Practice display title for the slot (used in the prompt's PRACTICE block). */
+  practiceTitle?: string | null;
+  /** Protocol combo label (e.g. "regulate → align"); optional. */
+  protocolCombo?: string | null;
+  /** Local-time offset in minutes (Date#getTimezoneOffset convention). */
+  timezoneOffsetMinutes?: number;
+  /** Event start in epoch ms — used to render the "When" phrase. */
+  eventStartMs?: number | null;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Helpers — band mapping, arc mapping, anchor tokens, regexes.
+// ════════════════════════════════════════════════════════════════════════
+
+/**
+ * Map the Plan's existing `innerReadinessTier` vocabulary
+ * (`peak | strong | managing | depleted`) to the canonical `StateBand`
+ * union. Returns null when the tier is missing or unrecognised so the
+ * prompt/validator can degrade gracefully (no fabricated band).
+ */
+export function tierToStateBand(tier: string | null | undefined): StateBand | null {
+  switch ((tier || "").toLowerCase()) {
+    case "peak": return "firing";
+    case "strong": return "sharp";
+    case "managing": return "steady";
+    case "depleted": return "depleted";
+    // Forward-compat: accept canonical band names directly.
+    case "firing": case "sharp": case "steady": case "stretched":
+      return (tier as StateBand);
+    default: return null;
+  }
+}
+
+/**
+ * Map a `jitPhase` (or missing/unknown) to the arc-position vocabulary.
+ * Defaults to `standalone` for any unknown value so future phase names
+ * never crash this layer.
+ */
+export function arcPositionFromPhase(
+  phase: Phase | "pre" | "during" | "post" | null | undefined,
+): ArcPosition {
+  if (phase === "pre") return "prepare";
+  if (phase === "during") return "during";
+  if (phase === "post") return "recover";
+  return "standalone";
+}
+
+/**
+ * Per-category alias tokens — what people naturally call these events when
+ * the literal title omits a generic noun (e.g. "1:1 with Sarah" → the LLM
+ * may say "conversation"; this lets the validator still ground it).
+ */
+const EVENT_TYPE_ALIASES: Record<EventCategoryId, string[]> = {
+  A: ["board", "meeting", "governance", "session"],
+  B: ["pitch", "client", "presentation", "talk", "call"],
+  C: ["call", "interview", "media", "talk"],
+  D: ["1:1", "feedback", "conversation", "review", "talk"],
+  E: ["deep", "focus", "block", "strategy", "work"],
+  F: ["conference", "keynote", "panel", "event"],
+  G: ["flight", "travel", "trip", "transit"],
+  H: ["routine", "day", "check-in"],
+};
+
+const ANCHOR_STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "with", "for", "of", "to",
+  "in", "on", "at", "your", "my", "this", "that", "into",
+  "from", "by", "as", "is",
+]);
+
+/**
+ * Forgiving tokenizer for the slot's anchor title. Keeps `1:1`-style
+ * compound tokens, drops short stopwords, and folds in the category aliases
+ * + self-regulation focus words so phrasing like "conversation" / "session"
+ * still grounds against a literal "1:1 with Sarah".
+ */
+export function anchorTokens(title: string, categoryId: EventCategoryId | null): Set<string> {
+  const out = new Set<string>();
+  const raw = String(title || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}:\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !ANCHOR_STOPWORDS.has(t));
+  for (const t of raw) out.add(t);
+  if (categoryId && EVENT_TYPE_ALIASES[categoryId]) {
+    for (const t of EVENT_TYPE_ALIASES[categoryId]) out.add(t);
+  }
+  if (categoryId) {
+    const focus = (EVENT_CATEGORIES[categoryId]?.selfRegulationFocus || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((t) => t.length > 3 && !ANCHOR_STOPWORDS.has(t));
+    for (const t of focus) out.add(t);
+  }
+  return out;
+}
+
+const STATE_TOKEN_REGEX: Record<StateBand, RegExp> = {
+  firing: /\b(sharp|firing|clear|edge|locked in|on form)\b/i,
+  sharp: /\b(sharp|firing|clear|edge|locked in|on form)\b/i,
+  steady: /\b(steady|holding|on track|even)\b/i,
+  stretched: /\b(low|running low|reserves|stretched|tired|drained|behind)\b/i,
+  depleted: /\b(low|running low|reserves|stretched|tired|drained|behind)\b/i,
+};
+
+const VALENCE_REJECT_FIRING = /\b(recover|recovery|recharge|wind down|come down|refill|rest up)\b/i;
+const VALENCE_REJECT_DEPLETED = /\b(push|sprint|spend the edge|go harder|lean in|grind)\b/i;
+
+export type ValidatorReject =
+  | "generic"
+  | "valence_firing_recovery"
+  | "valence_depleted_push"
+  | "jaccard_dup"
+  | "empty";
+
+export interface ValidateWhyLineInput {
+  text: string | null | undefined;
+  stateBand: StateBand | null;
+  slotAnchor: SlotAnchor | null;
+  /** Previously accepted lines in this generation pass, used for dedupe gating. */
+  priorAccepted?: { text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[];
+  /** Arc position of the candidate (used for dedupe gating). */
+  arcPosition?: ArcPosition | null;
+}
+
+export type ValidateWhyLineResult =
+  | { ok: true; anchorTokensUsed: boolean }
+  | { ok: false; reason: ValidatorReject };
+
+/**
+ * Asymmetric, deliberately forgiving validator. Rejects only on clear
+ * contradictions; stylistic variance is left to telemetry + downstream
+ * monitoring. Fail-closed cases hand off to the deterministic repair path
+ * already living in `generate-mastery-plan`.
+ */
+export function validateWhyLine(inp: ValidateWhyLineInput): ValidateWhyLineResult {
+  const raw = (inp.text || "").trim();
+  if (!raw) return { ok: false, reason: "empty" };
+  const lower = raw.toLowerCase();
+
+  // 1. Anchor / state grounding (asymmetric — either anchor OR state grounds).
+  const anchorSet = inp.slotAnchor?.eventTitle
+    ? anchorTokens(inp.slotAnchor.eventTitle, inp.slotAnchor.categoryId ?? null)
+    : new Set<string>();
+  const hasAnchor = anchorSet.size > 0 && [...anchorSet].some((tok) => lower.includes(tok));
+  let hasState = false;
+  if (inp.stateBand) {
+    const re = STATE_TOKEN_REGEX[inp.stateBand];
+    hasState = re ? re.test(raw) : false;
+  }
+  if (!hasAnchor && !hasState) {
+    return { ok: false, reason: "generic" };
+  }
+
+  // 2. Valence gate (only when band is known).
+  if (inp.stateBand === "firing" || inp.stateBand === "sharp") {
+    if (VALENCE_REJECT_FIRING.test(raw)) {
+      return { ok: false, reason: "valence_firing_recovery" };
+    }
+  }
+  if (inp.stateBand === "depleted" || inp.stateBand === "stretched") {
+    if (VALENCE_REJECT_DEPLETED.test(raw)) {
+      return { ok: false, reason: "valence_depleted_push" };
+    }
+  }
+
+  // 3. Dedupe — gated to same event + same arc only.
+  if (inp.priorAccepted && inp.priorAccepted.length > 0) {
+    const ownEvt = (inp.slotAnchor?.eventTitle || "").toLowerCase().trim();
+    const ownArc = inp.arcPosition ?? null;
+    if (ownEvt) {
+      for (const prior of inp.priorAccepted) {
+        const priorEvt = (prior.slotAnchor?.eventTitle || "").toLowerCase().trim();
+        const priorArc = prior.arcPosition ?? null;
+        if (priorEvt === ownEvt && priorArc === ownArc && jaccard(prior.text, raw) > 0.85) {
+          return { ok: false, reason: "jaccard_dup" };
+        }
+      }
+    }
+  }
+
+  return { ok: true, anchorTokensUsed: hasAnchor };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Prompt construction
+// ════════════════════════════════════════════════════════════════════════
+
+function buildBandDirective(band: StateBand): string {
+  if (band === "firing" || band === "sharp") {
+    return `Band is ${band} — frame the practice as staying sharp / holding the edge / sustaining focus. Do NOT use recovery verbs (recover, recovery, recharge, wind down, come down, refill, rest up).`;
+  }
+  if (band === "depleted" || band === "stretched") {
+    return `Band is ${band} — say plainly that this move is how the leader gets ready for what's ahead. Protection and recovery framing is correct. Do NOT use push verbs (push, sprint, spend the edge, go harder, lean in, grind).`;
+  }
+  return `Band is steady — either focus or protection framing is fine; let the event and the practice decide.`;
+}
+
+function arcDirectiveFor(arc: ArcPosition): string {
+  switch (arc) {
+    case "prepare": return `Arc: PREPARE — frame this as setting up for the event ahead.`;
+    case "during": return `Arc: DURING — frame this as holding steady through the event.`;
+    case "recover": return `Arc: RECOVER — frame this as closing cleanly after the event so the charge doesn't carry.`;
+    case "standalone": return `Arc: STANDALONE — no specific event arc; justify by the day's state and what this protects or builds.`;
+  }
+}
+
+function pickMostRelevantSignalPhrase(inp: WhyLLMInput): string {
+  if (inp.sleepScore !== null && inp.sleepScore < 65) return `sleep ran short (${inp.sleepScore}/100)`;
+  if (inp.hrvDeltaPct !== null && Math.abs(inp.hrvDeltaPct) >= 10) {
+    return inp.hrvDeltaPct < 0
+      ? `recovery is down ~${Math.abs(inp.hrvDeltaPct)}%`
+      : `recovery is running ~${inp.hrvDeltaPct}% above baseline`;
+  }
+  if (inp.rhrTrend === "elevated") return `resting HR is elevated`;
+  if (inp.mindState !== null && inp.mindState <= 2) return `clarity is reading low`;
+  if (inp.bodyState !== null && inp.bodyState <= 2) return `body energy is reading low`;
+  if (inp.travelDebtActive) return `travel debt is active`;
+  if (inp.patternSummary) return inp.patternSummary;
+  return `no single dominant signal — lean on the event and the practice`;
+}
+
+function formatMinutesUntil(min: number): string {
+  if (min < 0) return `${Math.round(-min / 60)}h ago`;
+  if (min < 60) return `in ${Math.max(1, Math.round(min))}m`;
+  if (min < 60 * 24) return `in ${Math.round(min / 60)}h`;
+  return `in ${Math.round(min / 60 / 24)}d`;
 }
 
 function buildPrompt(inp: WhyLLMInput): string {
@@ -61,42 +306,108 @@ function buildPrompt(inp: WhyLLMInput): string {
   if (inp.bodyState !== null) signals.push(`- Self-declared body state: ${inp.bodyState}/5`);
   if (inp.patternSummary) signals.push(`- Pattern data: ${inp.patternSummary}`);
 
-  const strategic = inp.growthIntention ? `\nStrategic context (use only if directly relevant to this event):\n- Growth intention: ${inp.growthIntention}` : "";
+  const strategic = inp.growthIntention
+    ? `\nStrategic context (use only if directly relevant to this event):\n- Growth intention: ${inp.growthIntention}`
+    : "";
 
-  // Append the Brief's deterministic advisories so this LLM call grounds its
-  // Why statement in the same pillar focus and active behaviours the Brief
-  // already named to the user. Order: taxonomy (pure labelling) first,
-  // behaviours (rule output) second — same order the Brief uses.
   const sharedAdvisory = [
     (inp.eventTaxonomyBlock || "").trim(),
     (inp.ceoBehaviourBlock || "").trim(),
   ].filter(Boolean).join("\n");
 
-  return `You are the Chief of Staff for a CEO. Your role is to write a single "Why This Matters" statement for one action priority in the CEO's daily plan.
+  const band = inp.stateBand ?? null;
+  const bandBlock = band
+    ? buildBandDirective(band)
+    : `(no shared band available — ground in the event + the practice; do not invent a band)`;
 
-This statement must:
-- Be ≤25 words
-- Be specific to THIS event, not generic
-- Reference at least one of the data signals provided
-- Name what this priority PREVENTS or PREPARES (never both — pick the dominant one)
-- Sound like a Chief of Staff briefing a CEO, not a wellness coach
-- Use no filler words: no "important", "remember to", "make sure", "today is a great day"
+  const arc = inp.arcPosition ?? "standalone";
+  const arcDirective = arcDirectiveFor(arc);
 
-The priority role is: ${inp.role}
+  const signalPhrase = pickMostRelevantSignalPhrase(inp);
+  const practice = (inp.practiceTitle || "").trim() || "this practice";
+  const protocol = (inp.protocolCombo || "").trim() || "(single-step)";
 
-Event context:
-- Event name: ${inp.eventName}
-- Category: ${categoryLabel}
-- Self-regulation focus for this category: ${selfReg}
-- Phase window: ${inp.phase}
-- What this phase prevents or builds: ${preventsBuilds}
-- Minutes until event: ${inp.minutesUntilStart ?? "unknown"}
+  const evtTitle = inp.slotAnchor?.eventTitle || inp.eventName || "";
+  const evtCatId = inp.slotAnchor?.categoryId || inp.category || null;
+  const evtCatLabel = evtCatId
+    ? `${evtCatId} — ${EVENT_CATEGORIES[evtCatId as EventCategoryId]?.name ?? ""}`
+    : categoryLabel;
+  const whenPhrase = (inp.eventStartMs && Number.isFinite(inp.eventStartMs))
+    ? relativeEventPhrase({
+        startMs: inp.eventStartMs!,
+        nowMs: Date.now(),
+        timezoneOffsetMinutes: inp.timezoneOffsetMinutes ?? 0,
+      })
+    : (inp.minutesUntilStart !== null ? formatMinutesUntil(inp.minutesUntilStart) : "unknown");
 
-Available signals (use whichever are non-null and most relevant — do not mention null fields):
-${signals.length ? signals.join("\n") : "- (none available — reference the event itself and the phase intent)"}
-${strategic}${sharedAdvisory ? "\n\n" + sharedAdvisory + "\n\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo the copyHint verbatim." : ""}
+  const hasAnchor = !!(evtTitle && evtTitle.trim());
+  const eventBlock = hasAnchor
+    ? [
+        `=== THE EVENT ===`,
+        `Event: ${evtTitle}`,
+        `Category: ${evtCatLabel}`,
+        `When: ${whenPhrase}`,
+        `Why it's a moment: ${preventsBuilds || selfReg || "high-leverage moment for this leader"}`,
+      ].join("\n")
+    : `=== ELSE (no event anchor) ===\nState-management practice — justify by the day's state, not a calendar moment.`;
 
-Write only the statement. No preamble, no explanation, no quotation marks.`;
+  const stateBlock = [
+    `=== STATE ===`,
+    band ? `Band: ${band}  (match; do not name)` : `Band: unknown  (do not invent a band)`,
+    `Most relevant signal: ${signalPhrase}`,
+  ].join("\n");
+
+  const practiceBlock = [
+    `=== THIS PRACTICE ===`,
+    `Practice: ${practice}`,
+    `Protocol combo: ${protocol}`,
+    `Arc position: ${arc}`,
+  ].join("\n");
+
+  const signalsAvailable = signals.length
+    ? `Available signals (reference whichever are most relevant — do not mention null fields):\n${signals.join("\n")}`
+    : `Available signals: none — reference the event itself and the day's state.`;
+
+  return [
+    `You are the leader's Chief of Staff for the Mind, writing the one-line reason a specific practice has been placed in their plan today.`,
+    ``,
+    `You are not the Brief. The Brief already gave the read on how today feels and how to carry themselves. Your job now is narrower and more concrete: explain, in one human sentence, why THIS practice, for THIS event, RIGHT NOW. You are the person who put the move on their schedule and is telling them why it earns its place.`,
+    ``,
+    `HOW YOU SPEAK`,
+    `- Like a sharp, warm, senior chief of staff who just handed the leader something and is saying "here's why" — plain, confident, specific.`,
+    `- You connect the dots out loud: their state + what's ahead + what this move does about it. That connection IS the value.`,
+    `- Plain executive English. The way a person explains a decision, not the way a system labels a task.`,
+    ``,
+    `THREE-PART CONNECTION (aim for all three — state + event + reason)`,
+    `1. STATE — where the leader is right now.`,
+    `2. EVENT — the specific upcoming or just-finished event this move is tied to (omit if no anchor).`,
+    `3. REASON — what this practice does about (1) in service of (2).`,
+    ``,
+    `STATE-BAND DISCIPLINE`,
+    bandBlock,
+    ``,
+    `ARC AWARENESS`,
+    arcDirective,
+    ``,
+    `HARD CONSTRAINTS`,
+    `- One sentence. The practice title carries the "what"; you carry the "why".`,
+    `- Never use wellness words (recharge, self-care, mindful, breathe, nourish, restore, wellness, journey, calm, relax) or clinical jargon (parasympathetic, cortisol, sympathetic).`,
+    `- Never name the score, the band, or the state-band word — imply the state in plain words.`,
+    `- Never use abstract system phrases ("optimise the window", "hold the base", "for your state"). If a real chief of staff wouldn't say it out loud handing over a task, rewrite it.`,
+    `- Never tell the user how to raise their score directly — you justify ONE move; naming the score-raising action set is the plan-as-a-whole's job.`,
+    ``,
+    stateBlock,
+    ``,
+    practiceBlock,
+    ``,
+    eventBlock,
+    ``,
+    signalsAvailable,
+    strategic,
+    sharedAdvisory ? `\n${sharedAdvisory}\nWhen the active behaviours above name this exact event, prefer aligning the statement to that anchor — do not echo any copyHint verbatim.` : ``,
+    ``,
+    `OUTPUT — plain text, one sentence. No markdown, no asterisks, no preamble. Return only the why-line string.`,
+  ].join("\n");
 }
 
 export function trimToWords(s: string, max = 25): string {
@@ -120,11 +431,11 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
       type: "function",
       function: {
         name: "write_why",
-        description: "Write the ≤25-word Why This Matters statement.",
+        description: "Write the one-sentence Why This Matters line.",
         parameters: {
           type: "object",
           properties: {
-            statement: { type: "string", description: "≤25 words. Chief-of-staff voice. References a signal." },
+            statement: { type: "string", description: "One sentence. Chief-of-staff voice. Grounds in event + state." },
             role: { type: "string", enum: ["PREVENT", "PREPARE"] },
           },
           required: ["statement", "role"],
@@ -158,12 +469,11 @@ export async function generateWhyStatement(inp: WhyLLMInput): Promise<string | n
       statement = (args as any).statement ?? null;
     }
     if (!statement) {
-      // Some providers stream content directly instead of tool_calls.
       const direct = data?.choices?.[0]?.message?.content;
       if (typeof direct === "string" && direct.trim()) statement = direct.trim();
     }
     if (!statement) return null;
-    const trimmed = trimToWords(statement, 25);
+    const trimmed = trimToWords(statement, 30);
     if (trimmed.split(/\s+/).length < 5) return null;
     return trimmed;
   } catch (e) {
