@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildPriorityTitle, verbForCategoryPhase, executiveObjectiveFor } from "./title-prefixes.ts";
+import { buildPriorityTitle, verbForCategoryPhase, executiveObjectiveFor, type SlotAnchor } from "./title-prefixes.ts";
 import type { EventCategoryId } from "../events/event-categories.ts";
 import type { Phase } from "../events/event-phase-map.ts";
 
@@ -8,9 +8,7 @@ const PHASES: Phase[] = ["pre", "during", "post"];
 
 Deno.test("buildPriorityTitle — example: pre A regulation_composure → 'Lead composed presence in tomorrow's Board Meeting'", () => {
   const out = buildPriorityTitle({
-    eventTitle: "Q2 Board Meeting",
-    category: "A",
-    phase: "pre",
+    slotAnchor: { eventTitle: "Q2 Board Meeting", categoryId: "A", phase: "pre" },
     isTomorrow: true,
     practicePriorityTag: "regulation_composure",
   });
@@ -19,9 +17,7 @@ Deno.test("buildPriorityTitle — example: pre A regulation_composure → 'Lead 
 
 Deno.test("buildPriorityTitle — example: post A → 'Reset … after the Board Meeting'", () => {
   const out = buildPriorityTitle({
-    eventTitle: "Board Meeting",
-    category: "A",
-    phase: "post",
+    slotAnchor: { eventTitle: "Board Meeting", categoryId: "A", phase: "post" },
     isTomorrow: false,
     practicePriorityTag: null,
   });
@@ -31,9 +27,7 @@ Deno.test("buildPriorityTitle — example: post A → 'Reset … after the Board
 
 Deno.test("buildPriorityTitle — example: pre D feedback → 'Steady steady presence in the Tom feedback'", () => {
   const out = buildPriorityTitle({
-    eventTitle: "Tom Mind Feedback",
-    category: "D",
-    phase: "pre",
+    slotAnchor: { eventTitle: "Tom Mind Feedback", categoryId: "D", phase: "pre" },
     isTomorrow: false,
   });
   // verb=Steady (D pre), objective=steady presence (default for D pre)
@@ -45,9 +39,7 @@ Deno.test("buildPriorityTitle — never exceeds 10 words for all 8×3 category/p
   for (const cat of CATEGORIES) {
     for (const phase of PHASES) {
       const out = buildPriorityTitle({
-        eventTitle: "Sample Strategy Review Session",
-        category: cat,
-        phase,
+        slotAnchor: { eventTitle: "Sample Strategy Review Session", categoryId: cat, phase },
         isTomorrow: true,
       });
       const words = out.split(/\s+/);
@@ -80,11 +72,29 @@ Deno.test("executiveObjectiveFor — practicePriorityTag overrides defaults", ()
 
 Deno.test("buildPriorityTitle — state-management fallback (no event)", () => {
   const out = buildPriorityTitle({
-    eventTitle: null,
-    category: null,
-    phase: "pre",
+    slotAnchor: { eventTitle: null, categoryId: null, phase: "pre" },
   });
   assertStringIncludes(out, "for the day ahead");
+});
+
+Deno.test("buildPriorityTitle — slotAnchor eliminates cross-event leakage (E category with Board title)", () => {
+  // If a caller ever passes a Board-flavoured title but an E (deep-work)
+  // category, the title MUST read off the category — never invent A's
+  // 'Lead' verb just because the title says 'Board'.
+  const anchor: SlotAnchor = { eventTitle: "Q2 Board Meeting", categoryId: "E", phase: "pre" };
+  const out = buildPriorityTitle({ slotAnchor: anchor, isTomorrow: false });
+  assertStringIncludes(out, "Sharpen");          // E pre verb
+  assertStringIncludes(out, "sustained focus");  // E pre default objective
+  // Must NOT use A's verb just because the literal title says 'Board'.
+  assert(!out.startsWith("Lead "), `expected E-category verb, got "${out}"`);
+});
+
+Deno.test("buildPriorityTitle — slotAnchor with null eventTitle falls back cleanly (no 'after the null')", () => {
+  const anchor: SlotAnchor = { eventTitle: null, categoryId: "A", phase: "post" };
+  const out = buildPriorityTitle({ slotAnchor: anchor });
+  // State-management fallback path engages when title is missing.
+  assertStringIncludes(out, "for the day ahead");
+  assert(!out.toLowerCase().includes("null"), `output must not contain 'null', got "${out}"`);
 });
 
 // Arc-fanout 12h rule — checks the rule we documented for callers that
