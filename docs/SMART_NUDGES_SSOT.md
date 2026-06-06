@@ -461,4 +461,78 @@ These shipped examples are the **executable spec** for tone. If a new variant la
 
 ---
 
+## §20. v1.1 — Headline + CTA + delivery-context contract (additive)
+
+This section is the canonical record of the v1.1 changes. Earlier sections describe the v1.0 behaviour and remain accurate where v1.1 does not override.
+
+### 20.1 Collapsed vs Expanded headline
+
+- **Collapsed (APNs `aps.alert.title`):** literal string `Mind Module` for every nudge type. Lock-screen + grouped-notification list show the brand, not the slot name.
+- **Expanded (APNs `aps.alert.subtitle`):** the 2–3-word moment headline ("Recovery in progress", "Pre-flight window"). Cap: **3 words / 28 chars** (`clampSubtitle`).
+- **Body:** unchanged — V8 meaning-forward contract still applies.
+- Validator `requiresHeadlineStructure(title, subtitle)` runs after the V8 contract; failure suppresses the send.
+
+### 20.2 Weekend / post-PTO CTA bucket — gated on Brief + Plan presence
+
+- Trigger: today is **Saturday/Sunday** OR `ctx.dayContext.ptoMode === true` (post-PTO rolling off).
+- **Both must be true** at evaluation time:
+  1. `brief_snapshots` row exists for the user + today's `local_date` (any window).
+  2. `daily_ritual_completions.plan_ledger` is a non-empty array for today.
+- When gated **ok** → force CTA verb `let's prioritise the week ahead`, deep link `/plan`, telemetry `cta_bucket='weekend_post_holiday'`, `weekend_cta_gate='ok'`.
+- When gated **missing_brief** / **missing_plan** → fall back to the weekday CTA bucket and standard `/daily-check-in` route; gate reason is stamped onto telemetry.
+- `ALLOWED_CTA_VERBS_V8` adds: `let's prioritise the week ahead`, `take 60 seconds`.
+
+### 20.3 Cadence + windows (tightened)
+
+- **Morning (Nudge 1):** 60 min before first meeting (virtual) / 90 min (in-person), clamped `[06:30, 10:00]` when a meeting exists; else `[08:00, 09:00]`. Lower bound widens to 06:30 only when first meeting < 08:30 so prep can ride the commute / at-home window.
+- **Afternoon (Nudge 2):** 60/90 min before next afternoon meeting; **no nudge when no afternoon meeting** (state-only reserves/recalibrate fallbacks gated behind `hasAfternoonMeeting`).
+- **Evening (Nudge 3):** 60/90 min before any evening meeting; else `[19:00, 20:00]`; else `15–30 min after` a late meeting (new branch — anchor on `lastMeetingEndedMinAgo ∈ [15, 30]`).
+
+### 20.4 Back-to-back guard + reminder variant
+
+After `pickWinningNudge`, the largest gap between now and upcoming events in the next 3 h is computed:
+
+- **No gap ≥ 30 min** → suppress send. Suppression row stamped `suppression_reason='back_to_back'`, `suppression_stage='pre_evaluator'`.
+- **Largest gap ∈ [30, 60] min** → downgrade to **reminder variant**: CTA = `take 60 seconds`, `requires_app_open=false`, no LLM call (static fallback only), `headline_variant='reminder'`.
+- Otherwise → full nudge.
+
+### 20.5 Delivery-context skips
+
+Pre-evaluator gate (in addition to existing DND / quiet_days):
+
+- **Offline / airplane mode:** `notification_device_tokens.updated_at` of every active device is > **60 min** ago → skip with `suppression_reason='offline'`. **Never queued** — stale nudges past 1 h have no value.
+- **Low battery:** `notification_preferences.low_power_mode === true` → skip with `suppression_reason='battery'` (column TBD; for now only fires when the column is wired by the iOS app).
+- **TTL hardening:** all `nudge_one*` TTLs already cap at 3 h (`nudge_one_jit` at 45 min) so a delayed delivery cannot land post-hoc.
+
+### 20.6 Travel arc — post-landing window
+
+Reuses the existing `dayContext.landingPlusHighStakes` plumbing (populated in `buildNudgeContext`):
+
+- Anchor at `landingTime + 15 min`, valid until `landingTime + 60 min`.
+- Tagged `headline_variant='post_landing'`, route `/executive-home`, CTA `take 60 seconds` (reminder-style, no app open required).
+- Rides the Nudge 1 slot — never a 4th send.
+
+### 20.7 Telemetry additions (`payload.metadata`)
+
+- `delivery_skip_reason` ∈ `{dnd|offline|airplane|battery|back_to_back|stale_ttl|null}`
+- `headline_variant` ∈ `{full|reminder|post_landing}`
+- `cta_bucket` ∈ `{weekday|weekend_post_holiday}`
+- `requires_app_open` boolean
+- `weekend_cta_gate` ∈ `{ok|missing_brief|missing_plan|null}` (only stamped when in weekend / post-PTO context)
+
+Suppression rows for the new skip reasons stamp `suppression_stage='pre_evaluator'`.
+
+### 20.8 Tests
+
+`supabase/functions/smart-nudges/v1_1_headline_cta_test.ts` covers: headline structure, subtitle clamping, weekend CTA gate state machine, back-to-back / reminder thresholds, post-landing window. Existing `v5_validation_test.ts` still runs the v1.0 contract.
+
+### 20.9 What changed in `index.ts`
+
+- `sendApnsPush` now accepts an optional `subtitle` and emits `aps.alert.{title, subtitle, body}`.
+- Constants added: `MIND_MODULE_TITLE`, `SUBTITLE_MAX_WORDS=3`, `SUBTITLE_MAX_CHARS=28`, `WEEKEND_CTA`, `WEEKEND_CTA_ROUTE='/plan'`, `REMINDER_CTA`, `BACK_TO_BACK_MIN_GAP_MIN=30`, `REMINDER_GAP_UPPER_MIN=60`, `DEVICE_OFFLINE_STALE_MIN=60`.
+- Helpers added: `clampSubtitle`, `requiresHeadlineStructure`, `forceCtaVerb`.
+- Device token fetch now includes `updated_at`; per-user `lastDeviceSeenAt` map drives the offline pre-evaluator skip.
+- The send loop forces `title=MIND_MODULE_TITLE`, passes `subtitle` to APNs, and bypasses A/B CTA rewrite for weekend / reminder / post-landing buckets.
+- Telemetry fields added to `payload.metadata`.
+
 _End of SSOT v1.0 — 2026-06-04._
