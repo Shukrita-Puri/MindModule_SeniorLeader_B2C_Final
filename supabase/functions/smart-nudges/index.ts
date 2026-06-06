@@ -3633,7 +3633,8 @@ serve(async (req) => {
       shippedNotifications.push(notif);
 
       const payload: Record<string, unknown> = {
-        title: notif.copy.title,
+        title: MIND_MODULE_TITLE,
+        subtitle: notif.subtitle,
         body: notif.copy.body,
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
@@ -3661,6 +3662,12 @@ serve(async (req) => {
           // copy that shipped. Defensive default 'static' — every NudgeCopy
           // returned to the send loop should carry this stamp.
           ai_provider_used: notif.copy.aiProvider ?? 'static',
+          // v1.1 — new telemetry fields.
+          delivery_skip_reason: null,
+          headline_variant: notif.headlineVariant,
+          cta_bucket: notif.ctaBucket,
+          requires_app_open: notif.requiresAppOpen,
+          weekend_cta_gate: notif.weekendCtaGate ?? null,
         },
         decision_trace: {
           variant: notif.copy.variantId,
