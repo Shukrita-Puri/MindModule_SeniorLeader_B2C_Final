@@ -1,62 +1,51 @@
-## Goal
+# Brief LLM Prompt — Band-Gate, MRS-Consistency, Four-Beat, Hard Constraints
 
-Two surgical UI changes on the Today flow (`/executive-home`, `/check-in`, `/plan`):
+## Scope
+Isolated to the Brief's system prompt SSOT: `supabase/functions/_shared/brief/copy-vocabulary.ts`.
 
-1. **Lift the content cards up so they overlap the hero**, making the hero + taupe canvas read as one continuous background behind the card. Hero keeps its current height (`h-[280px] md:h-[340px]`); the card simply floats on top and ends up occupying ~70–75% of the viewport.
-2. **Make the greeting ("Standing by, Shuk") reliably visible** across morning (bright clouds/sun), afternoon (cliff/sky) and evening (dark moon-lake) hero visuals.
+No changes to:
+- Scoring math, MRS computation, or band cut-points
+- DB schemas, edge function wiring, or call sites
+- Plan, Nudges, Insights, or any UI
+- The existing `bandValence` plumbing in `compute-outer-readiness` (low/mid/high already flows in at line 3396–3404 and gates the post-validator at 4339–4365)
 
-No changes to data, routing, scoring, brief, or plan logic.
+The user-message assembly, validators, and call sites all already consume `buildBriefSystemPrompt({ bandValence })` and `mrsConsistencyLine(bandValence)`. We only sharpen the strings those functions return.
 
-## 1. Overlap cards on the hero
+## What's already landed (confirmed)
+- `bandValenceDirective()` — present, mapped to low/mid/high
+- `mrsConsistencyLine()` — present but terse (one line)
+- `BODY_FOUR_BEAT_CONTRACT` — present with evidence → read → work → self-reg
+- `HARD_CONSTRAINTS` — bans wellness/clinical/score-tier words, abstract system phrases, and "never tell the user how to raise their score"
 
-The hero lives in a `relative` wrapper directly above the scrollable content section. Today the content section starts *below* the hero, so the card sits beneath it. We pull the content up with a negative margin equal to roughly 60% of the hero height and raise its z-index so it floats above the hero. The hero's existing bottom taupe-fade already dissolves into `--canvas-hi`, so the seam stays invisible.
+The four addendum pieces are partly there but use 3-tier valence vocabulary (low/mid/high) instead of the 5-band names the user specified (FIRING/SHARP/STEADY/STRETCHED/DEPLETED), and the MRS-consistency block + tension-resolution example are missing.
 
-### `src/pages/ExecutiveHome.tsx`
-- On the content wrapper (currently `<div className="flex-1 w-full pb-[...]">`), add `relative z-20 -mt-[170px] md:-mt-[210px]`.
-- Inside `HomeSwipeShell` pages (MRS card lives in `MrsPage`, Brief card, Plan card), the cards already have their own white/taupe surfaces — no per-card change needed.
+## Changes (one file)
 
-### `src/pages/PlanPage.tsx`
-- On the wrapper that holds the plan content directly below `<TodayHero />`, add the same `relative z-20 -mt-[170px] md:-mt-[210px]`.
+`supabase/functions/_shared/brief/copy-vocabulary.ts`
 
-### `src/pages/DailyCheckIn.tsx` and `src/pages/CheckInDetail.tsx`
-- Same treatment on the content wrapper immediately following `<TodayHero />`.
+1. **Band-gate rewrite (`bandValenceDirective`)** — keep the `'low' | 'mid' | 'high'` input signature (so no caller changes), but rewrite each branch to use the 5-band vocabulary and the user's verbatim guidance:
+   - `high` → covers FIRING / SHARP days. Directive must be permissive or focusing. Forbids protective/limiting language. Includes the "head took a minute to switch on" tension-resolution example.
+   - `mid` → STEADY. Either permissive or protective allowed; no big push, no big retreat.
+   - `low` → STRETCHED / DEPLETED. Protective or narrowing only ("reserve capacity", "execute, don't initiate"). Forbids push language.
+   - All three branches add: "If a single signal seems to contradict the band, name the tension honestly but resolve it toward the band — the score already weighed that signal."
 
-### Hero itself (`src/components/today/TodayHero.tsx`)
-- No height change. Keep `h-[280px] md:h-[340px]`.
-- Keep the existing bottom canvas fade (already dissolves into taupe).
-- Ensure the hero wrapper stays `relative` with default z (cards above it).
+2. **MRS-consistency block (new constant + appended into system prompt)** — add `MRS_CONSISTENCY_BLOCK` with the user's verbatim paragraph: the score is the Brief's own read as a number from the same data; patterns and behaviour flags add perspective, never contradict; when score and a single signal disagree, the score already weighed that signal. Wire `buildBriefSystemPrompt()` to append this block after the band-gate.
 
-Net effect: top ~110/130px of hero visible (sky + greeting), card body covers the rest of the hero and continues down the page over the taupe canvas — ~70–75% of viewport on a phone.
+3. **Four-beat body contract (`BODY_FOUR_BEAT_CONTRACT`)** — rewrite to the user's exact four-beat framing: EVIDENCE (2–3 inputs across different sources) → THE READ (judgment no single input states) → THE WORK DIRECTIVE (shape of engagement, never a practice or duration, never overlaps Plan) → THE SELF-REGULATION DIRECTIVE (one broader protective nudge that does not overlap Plan). Keep the existing ~40-word cap and lean-on/watch-for schema. Reinforce: "NON-REPETITION IS THE RULE: every beat must add something the others don't. If two beats say the same thing, cut one."
 
-## 2. Greeting legibility across all three TODs
+4. **Hard constraints (`HARD_CONSTRAINTS`)** — fold in the user's three reinforced bans (some already present, restated together for emphasis):
+   - Never use abstract system-phrases ("come down clean", "hold the base", "mask the surge"). If a chief of staff wouldn't say it out loud, rewrite it.
+   - Never tell the user how to raise their score or what actions to improve it — that is the Plan's job. The Brief names the state and the orientation; the Plan owns the how.
+   - Never name the score, the band, or the state read in the output.
 
-Currently the greeting is ink (`text-[#1a1712]`) with a white halo — invisible on the dark evening visual.
-
-Switch to a **light-on-dark scheme that survives bright skies too**:
-
-### `src/components/today/TodayGreeting.tsx`
-- Text color → `text-white`.
-- Shadow → `drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]` (double drop-shadow = soft halo + crisp edge; reads on both bright clouds and dark moonlight).
-- Pencil icon → `text-white/80` with the same shadow.
-- Edit-mode input pill stays as-is (white surface, ink text) so it's still readable when typing.
-
-### `src/components/today/TodayHero.tsx` — small top-tint bump for greeting contrast
-Add a subtle **top** vignette per TOD so the greeting always sits on a slightly darker band, without dimming the engraving below:
-- Replace single `TOD_OVERLAY` gradient with two stacked gradients:
-  - Top band (0 → 25% of hero): `linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 100%)` — universal greeting backstop.
-  - Bottom band (existing TOD tint, unchanged).
-- This keeps mid-hero detail fully legible while guaranteeing the greeting has contrast on morning/afternoon's bright skies.
-
-## Out of scope
-
-- Hero image regeneration, hero height, hero filter, taupe fade direction.
-- Front page (`/`), navigation, brief/plan/score logic, card internals.
+5. **`mrsConsistencyLine()`** — keep the short user-message line as-is (it's a per-call reminder inside the READINESS block, complementary to the new system-prompt block).
 
 ## Verification
+- Re-read the assembled `buildBriefSystemPrompt()` output mentally to confirm: persona → voice → hard constraints → band-gate → MRS-consistency → pre-computed notice → priority → silent reasoning → four-beat body → examples → JSON contract.
+- Confirm no caller imports broke: only `compute-outer-readiness/index.ts` consumes `buildBriefSystemPrompt`, `bandValenceDirective`, `mrsConsistencyLine` — signatures unchanged.
+- Existing post-validator `body_valence_mismatch_*` guards (index.ts:4339–4365) still align: PUSH_TONE rejected on low, PROTECT_TONE rejected on high — consistent with the rewritten directive.
 
-1. `/executive-home`, `/check-in`, `/plan` at mobile width (390×844):
-   - Card visually overlaps the hero; top ~30% of screen shows hero, bottom ~70% shows card on taupe.
-   - Hero → taupe transition has no hard seam (card covers the join).
-2. "Standing by, Shuk" is clearly readable on all three TOD visuals (cycle by changing system time or temporarily hardcoding `tod`).
-3. Sidebar trigger + any header controls still tappable (z-index check).
-4. No console errors; no layout shift on first paint.
+## Out of scope (explicit)
+- No change to the 3-tier `ReadinessValence` type or the score→valence cut-points (50 / 65). The 5-band copy is rendered inside the directive text; the input contract stays 3-tier so no upstream rewrites are needed.
+- No Plan, Nudges, or Insights changes.
+- No new validator rules; existing tone-mismatch guards already enforce the band-gate.
