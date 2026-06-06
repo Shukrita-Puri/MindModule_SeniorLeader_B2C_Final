@@ -3724,7 +3724,7 @@ serve(async (req) => {
               normalizedToken,
               apnsJwt,
               apnsBundleId,
-              notif.copy.title,
+              MIND_MODULE_TITLE,
               notif.copy.body,
               {
                 notification_type: notif.type,
@@ -3732,12 +3732,15 @@ serve(async (req) => {
                 notification_log_id: notificationLogId || '',
                 deep_link_route: effectiveRoute,
                 expiration_ts: String((payload as any).apns_expiration ?? ''),
+                requires_app_open: String(notif.requiresAppOpen),
+                headline_variant: notif.headlineVariant,
               },
               apnsHost,
               {
                 ttlSeconds: nudgeTtlSeconds(notif.copy.variantId, notif.type),
                 collapseId: nudgeCollapseId(nudgeFamily(notif.type), notif.todayStr, notif.isTravel),
                 badge: notif.badge,
+                subtitle: notif.subtitle,
               },
             );
             if (result.ok) sendSuccess++;
