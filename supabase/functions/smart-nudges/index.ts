@@ -3051,6 +3051,12 @@ serve(async (req) => {
       todayStr: string;
       qualificationWarnings: string[];
       v8Ctx: { eventTitles: string[]; checkinWord: string | null };
+      // v1.1 — collapsed/expanded headline + new telemetry buckets.
+      subtitle: string;
+      headlineVariant: 'full' | 'reminder' | 'post_landing';
+      ctaBucket: 'weekday' | 'weekend_post_holiday';
+      requiresAppOpen: boolean;
+      weekendCtaGate?: 'ok' | 'missing_brief' | 'missing_plan' | null;
     }> = [];
 
     // 3. Evaluate each user
