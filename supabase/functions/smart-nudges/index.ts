@@ -521,6 +521,57 @@ const CTA_REWRITE_PATTERNS: { rx: RegExp; kind: 'brief' | 'plan' }[] = [
   { rx: /open your insights/gi,                    kind: 'brief' },
 ];
 
+// v1.1 — Brand constants for the collapsed/expanded headline contract and
+// the new weekend / reminder CTA buckets.
+const MIND_MODULE_TITLE = 'Mind Module';
+const SUBTITLE_MAX_WORDS = 3;
+const SUBTITLE_MAX_CHARS = 28;
+const WEEKEND_CTA = "let's prioritise the week ahead";
+const WEEKEND_CTA_ROUTE = '/plan';
+const REMINDER_CTA = 'take 60 seconds';
+const BACK_TO_BACK_MIN_GAP_MIN = 30;
+const REMINDER_GAP_UPPER_MIN = 60;
+const DEVICE_OFFLINE_STALE_MIN = 60;
+
+// Legacy form recognisers so older fallbacks self-heal into the new CTAs.
+const WEEKEND_LEGACY_RX: RegExp[] = [
+  /plan the week/gi,
+  /prioritize the week/gi,
+  /prioritise the week/gi,
+];
+const REMINDER_LEGACY_RX: RegExp[] = [/60 seconds/gi, /sixty seconds/gi];
+
+function clampSubtitle(raw: string | null | undefined): string {
+  if (!raw) return '';
+  let s = String(raw).trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  const words = s.split(' ').slice(0, SUBTITLE_MAX_WORDS).join(' ');
+  s = words.slice(0, SUBTITLE_MAX_CHARS);
+  return s;
+}
+
+function requiresHeadlineStructure(title: string, subtitle: string): string | null {
+  if (title !== MIND_MODULE_TITLE) return `title must be "${MIND_MODULE_TITLE}"`;
+  if (!subtitle || !subtitle.trim()) return 'subtitle missing';
+  const w = subtitle.trim().split(/\s+/).length;
+  if (w > SUBTITLE_MAX_WORDS) return `subtitle > ${SUBTITLE_MAX_WORDS} words (${w})`;
+  if (subtitle.length > SUBTITLE_MAX_CHARS) {
+    return `subtitle > ${SUBTITLE_MAX_CHARS} chars (${subtitle.length})`;
+  }
+  return null;
+}
+
+/** Force the body's terminal CTA verb to a specific allowed verb. Used by
+ *  the weekend / reminder buckets where the variant comparator doesn't apply. */
+function forceCtaVerb(body: string, verb: string): string {
+  let stripped = body.trim().replace(/[.\s!?]+$/, '');
+  for (const p of CTA_REWRITE_PATTERNS) stripped = stripped.replace(p.rx, '').trim();
+  for (const rx of WEEKEND_LEGACY_RX) stripped = stripped.replace(rx, '').trim();
+  for (const rx of REMINDER_LEGACY_RX) stripped = stripped.replace(rx, '').trim();
+  stripped = stripped.replace(/[,;:\s]+$/, '');
+  return `${stripped}, ${verb}`.slice(0, 160);
+}
+
 function applyCtaVariant(
   copy: NudgeCopy,
   variant: CtaVariant,
