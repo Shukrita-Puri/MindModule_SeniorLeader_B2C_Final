@@ -376,6 +376,36 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
       : null;
   const nextTravelEventTitle = firstTravelToday ? firstTravelToday.title : null;
 
+  // --- Travel cluster self-derivation ----------------------------------------
+  // Brief↔Plan parity: travelDay and longHaulFlight must reflect calendar
+  // shape (any travel-titled event today) — NOT only timezone deltas.
+  // Before this block, callers that set `timezone.travelDay = false` on the
+  // morning of an outbound flight (user still in home TZ) caused every
+  // travel.ts rule to short-circuit, so Brief never named the flight while
+  // Plan still anchored on it via JIT/event-taxonomy. Self-deriving here
+  // closes the gap for every consumer of this module.
+  const travelDayDerived =
+    (input.timezone.travelDay ?? false) || !!firstTravelToday;
+
+  // longHaulFlight: prefer caller value, else derive from today's travel
+  // events' duration. Picks the longest travel event today (handles
+  // multi-leg itineraries where the long-haul leg matters most).
+  let longHaulFlightDerived: { durationHours: number } | null =
+    input.timezone.longHaulFlight ?? null;
+  if (!longHaulFlightDerived) {
+    let maxDurH = 0;
+    for (const e of input.events) {
+      if (!isTravelTitle(e.title)) continue;
+      const dm = eventDurationMin(e);
+      if (dm == null) continue;
+      const h = dm / 60;
+      if (h > maxDurH) maxDurH = h;
+    }
+    if (maxDurH >= 3) {
+      longHaulFlightDerived = { durationHours: Math.round(maxDurH * 10) / 10 };
+    }
+  }
+
   // --- Travel & Holiday detection v2 ---------------------------------------
   // See plan doc: gaps #1 mid-trip, #2 return leg, #3 long-haul window,
   // #4 weekend-straddling holiday, #5 conference guard, #6 workcation,
@@ -447,9 +477,8 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
 
   // --- workTravelInferred --------------------------------------------------
   // Multi-branch; true if any branch fires.
-  const longHaul = input.timezone.longHaulFlight?.durationHours
-    ? input.timezone.longHaulFlight.durationHours >= 3
-    : false;
+  const longHaul = !!longHaulFlightDerived &&
+    longHaulFlightDerived.durationHours >= 3;
   const flightEndMin = firstTravelToday
     ? (() => {
         const evt = input.events.find((e) => e.title === firstTravelToday.title && isTravelTitle(e.title));
@@ -681,7 +710,8 @@ export function buildSignalMatrix(input: SignalCoverageInput): SignalMatrix {
 
     timezoneOffsetMinutes: input.timezone.offsetMinutes,
     timezoneShift48hHours: input.timezone.shift48hHours,
-    travelDay: input.timezone.travelDay ?? false,
+    travelDay: travelDayDerived,
+    longHaulFlight: longHaulFlightDerived,
 
     ptoTodayAllDay: ptoTodayAllDayDerived,
     ptoMeetingPresent: ptoMeetingPresentDerived,
