@@ -18,6 +18,15 @@ import { classifyEvent } from "./executive-state-taxonomy.ts";
 import { isTravelTitle } from "./ceo-behaviour/travel.ts";
 import { isPtoOrHolidayTitle, isPersonalHolidayTitle } from "./ceo-behaviour/pto-holiday.ts";
 
+// --- Travel & Holiday detection v2 tuning constants (file-local SSOT). -----
+// Plan-approved values; bumping these is a deliberate behaviour change.
+const POST_FLIGHT_WINDOW_SHORT_HOURS = 6;
+const POST_FLIGHT_WINDOW_LONG_HOURS = 24;
+const HOLIDAY_WEEKDAY_RUN_MIN = 4;
+const MID_TRIP_LOOKBACK_DAYS = 2;
+const RETURN_LEG_LOOKBACK_DAYS = 7;
+const HALF_DAY_PTO_RX = /\b(half[- ]day|afternoon off|morning off)\b/i;
+
 /** Raw inputs the consumer already has. All fields optional / nullable. */
 export interface SignalCoverageInput {
   wearable: {
@@ -41,6 +50,10 @@ export interface SignalCoverageInput {
     offsetMinutes: number | null;
     shift48hHours: number | null;
     travelDay?: boolean;
+    /** Edge-owned: true when today's local TZ differs from user's home TZ. */
+    shiftedTimezoneToday?: boolean;
+    /** Edge-owned: details of a long-haul flight in today's calendar. */
+    longHaulFlight?: { durationHours: number } | null;
   };
   /** Calendar events in chronological order, all in user's local timezone. */
   events: Array<{
@@ -49,6 +62,8 @@ export interface SignalCoverageInput {
     endTime?: string | Date | null;
     isAllDay?: boolean;
     stakesLevel?: string | null;
+    status?: "confirmed" | "tentative" | "declined" | "cancelled";
+    isWeekend?: boolean;
   }>;
   /** Optional trailing 4 days of events (1..4 days ago) used by the
    *  conference cluster's trailing-fatigue computation. Omit and trailing
@@ -73,6 +88,21 @@ export interface SignalCoverageInput {
     title: string;
     startTime: string | Date;
     isAllDay?: boolean;
+  }>;
+  /** Optional wide context window for pattern-based holiday + multi-day trip
+   *  span detection. Up to 14 days back / 14 days forward, signed dayOffset
+   *  (excludes today). When omitted, ALL pattern-based detection (holiday-by-
+   *  pattern, mid-trip days, return-leg) silently no-ops — only title-based
+   *  PTO and same-day post-flight scan run. Consumer must pre-compute
+   *  `isWeekend` from the user's local TZ. */
+  surroundingEvents?: Array<{
+    title: string;
+    startTime: string | Date;
+    endTime?: string | Date | null;
+    isAllDay?: boolean;
+    dayOffset: number;
+    status?: "confirmed" | "tentative" | "declined" | "cancelled";
+    isWeekend?: boolean;
   }>;
   /** Now reference, used for minutesUntil. Pass user's local now. */
   now: Date;
