@@ -8,6 +8,7 @@ import { classifyEvent } from "../_shared/events/event-classifier.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import { EVENT_CATEGORIES } from "../_shared/events/event-categories.ts";
 import { phaseForEvent, type Phase } from "../_shared/events/event-phase-map.ts";
+import { isTravelTitle } from "../_shared/ceo-behaviour/travel.ts";
 import {
   buildBehaviourSnapshot,
   type BehaviourSnapshotResult,
@@ -3990,6 +3991,33 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (briefBehaviourSnapshot.promptBlockBrief) {
               userPrompt += briefBehaviourSnapshot.promptBlockBrief;
             }
+
+            // ── Brief↔Plan parity probe (logging only, no behaviour change) ──
+            // If today's events include a travel-titled event but no travel
+            // behaviour rule fired for the Brief, the Brief LLM will silently
+            // omit the travel arc while Plan still anchors on it via JIT/
+            // event-taxonomy. Surface that drift in logs so future regressions
+            // are caught early. travelDay/longHaulFlight self-derivation in
+            // brief-signal-coverage.ts should keep this from firing.
+            try {
+              const hasTravelEvent = (eventsForCtx as Array<{ title?: string }>).some(
+                (e) => isTravelTitle(e?.title),
+              );
+              if (hasTravelEvent) {
+                const travelRuleFired = briefBehaviourSnapshot.flagsBrief.some(
+                  (f) =>
+                    f.rule === "travelPreFlightMandatory" ||
+                    f.rule === "travelLandingOffload" ||
+                    f.rule === "travelLandingPlusHighStakes" ||
+                    f.rule === "longHaulRecovery",
+                );
+                if (!travelRuleFired) {
+                  console.warn(
+                    `[compute-outer-readiness] PARITY DRIFT: travel event on calendar but no travel rule fired for Brief. sig=${briefBehaviourSnapshot.signatureHash} flagsBrief=${briefBehaviourSnapshot.flagsBrief.map((f) => f.rule).join(',') || 'none'}`,
+                  );
+                }
+              }
+            } catch (_e) { /* probe must never throw */ }
 
             // ── Window context (Morning / Afternoon / Evening) ──
             // Pure derivation from the same event list. Summarised, not
