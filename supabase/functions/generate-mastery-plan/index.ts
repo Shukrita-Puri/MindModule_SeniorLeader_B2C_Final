@@ -5806,6 +5806,7 @@ function buildHorizonModules(
         timeLabel: fillerLabel?.label ?? 'Steady the system ahead of today\u2019s load',
         typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
         whyLine: slotCtx.whyLine,
+        recommendedAction: buildRecommendedAction(moduleType, ctxInput),
         practice: fillerPractice,
         practices: [fillerPractice],
         isJit: false,
