@@ -2984,7 +2984,7 @@ serve(async (req) => {
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
       .from('notification_device_tokens')
-      .select('user_id, device_token, platform')
+      .select('user_id, device_token, platform, updated_at')
       .eq('is_active', true);
 
     if (tokenErr) throw tokenErr;
@@ -2997,9 +2997,14 @@ serve(async (req) => {
 
     // Group tokens by user
     const userTokens = new Map<string, Array<{ token: string; platform: string }>>();
+    // v1.1 — per-user freshest device timestamp for the offline / airplane skip.
+    const lastDeviceSeenAt = new Map<string, number>();
     for (const row of tokenRows) {
       if (!userTokens.has(row.user_id)) userTokens.set(row.user_id, []);
       userTokens.get(row.user_id)!.push({ token: row.device_token, platform: row.platform });
+      const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+      const prev = lastDeviceSeenAt.get(row.user_id) ?? 0;
+      if (ts > prev) lastDeviceSeenAt.set(row.user_id, ts);
     }
 
     const userIds = Array.from(userTokens.keys());
