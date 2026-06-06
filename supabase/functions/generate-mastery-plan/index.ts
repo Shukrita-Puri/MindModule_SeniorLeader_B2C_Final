@@ -3341,8 +3341,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     victoryLine?: string;
   } = { source: 'fresh', carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
 
+  let ledger: PlanLedger | null = null;
   try {
-    const ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
+    ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
     const calendarEventIds = new Set<string>(
       (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean)
     );
