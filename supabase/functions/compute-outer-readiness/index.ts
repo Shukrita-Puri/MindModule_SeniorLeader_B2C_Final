@@ -3980,6 +3980,49 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             if (eventCoachingToday) userPrompt += eventCoachingToday;
             if (eventCoachingTomorrow) userPrompt += eventCoachingTomorrow;
 
+            // Brief/Plan parity: when travel is a material Plan anchor, make
+            // the combined day story explicit. The behaviour/taxonomy blocks
+            // below are detailed enough for rules, but the LLM can still
+            // over-focus on the first work event unless the body/timing load
+            // and work demands are summarized together in one short line.
+            try {
+              const travelFlags = new Set([
+                "travelPreFlightMandatory",
+                "travelLandingOffload",
+                "travelLandingPlusHighStakes",
+                "longHaulRecovery",
+                "postTripReentry",
+                "travelInFlightConnection",
+                "circadianPriority",
+              ]);
+              const allFlags = [
+                ...briefBehaviourSnapshot.flagsBrief,
+                ...briefBehaviourSnapshot.flagsPlan,
+              ];
+              const hasTravelFlag = allFlags.some((f) => travelFlags.has(String(f.rule)));
+              const travelEvents = (eventsForCtx as BriefPromptEvent[])
+                .filter((e) => isTravelTitle(e?.title))
+                .map((e) => e.title)
+                .filter(Boolean);
+              const workEvents = (eventsForCtx as BriefPromptEvent[])
+                .filter((e) => !isTravelTitle(e?.title) && !e.isAllDay)
+                .map((e) => e.title)
+                .filter(Boolean)
+                .slice(0, 3);
+              if ((hasTravelFlag || travelEvents.length > 0) && workEvents.length > 0) {
+                const travelLabel = travelEvents[0]
+                  ? `travel (${travelEvents[0]})`
+                  : "travel";
+                userPrompt += [
+                  "",
+                  "",
+                  "=== MATERIAL DAY CONTEXT ===",
+                  `${travelLabel} is the body/timing load; ${workEvents.join(" and ")} ${workEvents.length === 1 ? "is" : "are"} the work demand${workEvents.length === 1 ? "" : "s"}.`,
+                  "The Brief body must acknowledge both when Plan uses travel as an anchor.",
+                ].join("\n");
+              }
+            } catch (_e) { /* material context is advisory only */ }
+
             // Append shared event-coaching context first, then the taxonomy
             // block (pure event labelling), then the behaviour block
             // (rule outputs, deterministic). Order matters: behaviour rules

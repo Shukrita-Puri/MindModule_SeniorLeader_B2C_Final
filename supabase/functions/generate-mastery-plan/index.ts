@@ -4632,7 +4632,7 @@ function buildHorizonModules(
     practiceTypes?: string[],
     anchor?: { title: string | null; categoryId: string | null; phase: 'pre' | 'during' | 'post' | null } | null,
   ): SlotContextInput => ({
-    horizon, isJit, eventTitle: jitEventTitle, jitMinutesUntil,
+    horizon, isJit, eventTitle: anchor?.title ?? jitEventTitle, jitMinutesUntil,
     tier: req.innerReadinessTier, divergenceMode, checkInOutcome: req.checkInOutcome,
     hrvEventCorrelation, patternInsight: req.patternInsight || null,
     frictionTrend, scoreTrend, pendingCommitment, coachGrowthArea,
@@ -5469,6 +5469,30 @@ function buildHorizonModules(
   });
   let _minSlots = 1;
   if (!_hasAnyJit && _isWeekday && !_isPtoOrHoliday) _minSlots = 2;
+  if (_hasAnyJit && !_isPtoOrHoliday) {
+    const meaningfulAnchors = new Set<string>();
+    for (const e of todayRemainingEvents) {
+      const title = String(e?.title || '').trim();
+      const id = String(e?.id || title || '').trim();
+      if (!id || !title) continue;
+      if (isNoiseTitle(title)) continue;
+      meaningfulAnchors.add(id);
+    }
+    if (meaningfulAnchors.size > 1) {
+      _minSlots = Math.min(3, meaningfulAnchors.size);
+    }
+    if (deduped.length < _minSlots) {
+      console.log('[generate-mastery-plan] JIT day min-slots expanded for distinct anchors', {
+        minSlots: _minSlots,
+        anchors: Array.from(meaningfulAnchors).slice(0, 6),
+        currentSlots: deduped.map((m: any) => ({
+          title: m.timeLabel,
+          anchorEventId: m.anchorEventId ?? null,
+          phase: m.jitPhase ?? null,
+        })),
+      });
+    }
+  }
 
   if (deduped.length < _minSlots && enrichedContent.length > 0) {
     const remaining = enrichedContent.filter((c: any) => !seenContentIds.has(c.id) && !req.completedToday.includes(c.id));
