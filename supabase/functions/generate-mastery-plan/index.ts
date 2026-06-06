@@ -377,6 +377,7 @@ interface PlanRequest {
   pressureContextTag?: string;
   wearableContext: WearableContext;
   latestCheckinTimestamp?: string;
+  componentScores?: any;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -3340,8 +3341,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     victoryLine?: string;
   } = { source: 'fresh', carriedSlots: 0, anchoredSlots: 0, completedSlots: 0 };
 
+  let ledger: PlanLedger | null = null;
   try {
-    const ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
+    ledger = await loadTodayPlanLedger(req.userId, today, supabaseClient);
     const calendarEventIds = new Set<string>(
       (req.calendarEvents || []).map((e: any) => String(e.id)).filter(Boolean)
     );
@@ -3350,8 +3352,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any, outerR
     );
     const calendarEventTitleById = new Map<string, string>(
       (req.calendarEvents || [])
-        .map((e: any) => [String(e.id), String(e.title || '').trim()])
-        .filter(([id, title]: any[]) => id && title)
+        .map((e: any): [string, string] => [String(e.id), String(e.title || '').trim()])
+        .filter(([id, title]) => Boolean(id) && Boolean(title))
     );
 
     const merged = mergeWithLedger(
@@ -5197,9 +5199,9 @@ function buildHorizonModules(
         upcomingWeekLeadEvent && (isWeekend || isPersonalHolidayToday || wasPersonalHolidayYesterday);
       if (promoteWeekLead && upcomingWeekLeadEvent) {
         anchorEventId = upcomingWeekLeadEvent.id;
-        anchor = upcomingWeekLeadEvent.title
+        anchor = (upcomingWeekLeadEvent.title
           ? truncateTitle(upcomingWeekLeadEvent.title)
-          : "this week's lead event";
+          : null) || "this week's lead event";
       } else if (isWeekend && dow === 0) anchor = "Monday's load";
       else if (isWeekend) anchor = "next week\u2019s load";
       else if (tomorrowEvents.length > 0) anchor = "tomorrow's calendar";
@@ -5804,6 +5806,7 @@ function buildHorizonModules(
         timeLabel: fillerLabel?.label ?? 'Steady the system ahead of today\u2019s load',
         typeLabel: `${labels[moduleType] || 'REGULATE'} · ${protocols[moduleType] || 'Protocol'}`,
         whyLine: slotCtx.whyLine,
+        recommendedAction: buildRecommendedAction(moduleType, ctxInput),
         practice: fillerPractice,
         practices: [fillerPractice],
         isJit: false,
@@ -6181,9 +6184,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let userId: string | undefined;
   try {
     // Authentication – verify JWT and extract userId
-    let userId: string;
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) {
       // DEV_MODE bypass: allow fallback when not in production
