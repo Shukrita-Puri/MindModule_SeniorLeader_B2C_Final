@@ -44,7 +44,7 @@ if (DEV_MODE) {
       useRefreshTokensFallback={true}
       cacheLocation="localstorage"
       onRedirectCallback={(appState) => {
-        const returnTo = appState?.returnTo || '/daily-check-in';
+        const returnTo = appState?.returnTo || '/executive-home';
         sessionStorage.setItem('auth0_return_to', returnTo);
         window.history.replaceState({}, document.title, window.location.pathname);
       }}
