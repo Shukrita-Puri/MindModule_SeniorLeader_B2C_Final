@@ -4651,14 +4651,38 @@ async function applyV51Enrichment(
   // Phase 2 (parallel LLM): per-JIT-priority Why statements.
   if (jitJobs.length > 0) {
     const results = await Promise.all(jitJobs.map((j) => generateWhyStatement(j.input)));
-    const accepted: { idx: number; text: string }[] = [];
+    const accepted: { idx: number; text: string; slotAnchor: SlotAnchor | null; arcPosition: ArcPosition | null }[] = [];
     for (let i = 0; i < jitJobs.length; i++) {
+      const job = jitJobs[i];
       const text = results[i];
-      if (!text || text.split(/\s+/).length < 5) continue;
-      // Dedupe: reject if too-similar to an already-accepted Why.
-      const dup = accepted.find((a) => jaccard(a.text, text) > 0.85);
-      if (dup) continue;
-      accepted.push({ idx: jitJobs[i].idx, text });
+      const inp = job.input;
+      const slotAnchor = inp.slotAnchor ?? null;
+      const arcPosition = inp.arcPosition ?? null;
+      const bandUsed = inp.stateBand ?? null;
+      const bandSource = bandUsed ? 'shared_brief_behaviour' : 'missing';
+      if (!text || text.split(/\s+/).length < 5) {
+        console.log(
+          `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=deterministic_repair reject=empty`,
+        );
+        continue;
+      }
+      const verdict = validateWhyLine({
+        text,
+        stateBand: bandUsed,
+        slotAnchor,
+        priorAccepted: accepted.map((a) => ({ text: a.text, slotAnchor: a.slotAnchor, arcPosition: a.arcPosition })),
+        arcPosition,
+      });
+      if (!verdict.ok) {
+        console.log(
+          `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=deterministic_repair reject=${verdict.reason}`,
+        );
+        continue;
+      }
+      console.log(
+        `[why-llm.telemetry] idx=${job.idx} band=${bandUsed} bandSource=${bandSource} arc=${arcPosition} fallback=llm_accepted anchorTokens=${verdict.anchorTokensUsed}`,
+      );
+      accepted.push({ idx: job.idx, text, slotAnchor, arcPosition });
     }
     for (const a of accepted) modules[a.idx].whyLine = stripBriefMarkdown(a.text);
   }
