@@ -4556,10 +4556,15 @@ async function applyV51Enrichment(
       // Title — CEO-behaviour-first via buildPriorityTitle.
       // Output shape: "<verb> <executive objective> <connector> <event>"
       // (e.g. "Lead strategic clarity in tomorrow's Board Meeting").
-      const newTitle = buildPriorityTitle({
-        eventTitle: hm.jitEventTitle,
-        category,
+      // Build a single SlotAnchor object — same identity handed to the Why
+      // LLM below so title + why-line cannot drift to different events.
+      const slotAnchor: SlotAnchor = {
+        eventTitle: hm.jitEventTitle ?? null,
+        categoryId: category,
         phase,
+      };
+      const newTitle = buildPriorityTitle({
+        slotAnchor,
         isTomorrow,
         practicePriorityTag: req.practicePriorityTag ?? null,
       });
@@ -4579,6 +4584,19 @@ async function applyV51Enrichment(
         const patternSummary = corr && corr.eventType && typeof corr.avgHrvDelta === 'number' && corr.occurrences >= 3
           ? `HRV ${corr.avgHrvDelta > 0 ? 'rises' : 'drops'} ~${Math.abs(Math.round(corr.avgHrvDelta))}% around ${corr.eventType} (n=${corr.occurrences})`
           : null;
+        // Shared state band — read directly off the same brief snapshot that
+        // drives the MRS dial. NEVER re-banded; falls through to null when
+        // the snapshot is missing.
+        const stateBand: StateBand | null = tierToStateBand(req.innerReadinessTier);
+        const arcPosition: ArcPosition = arcPositionFromPhase(phase);
+        const evtStartIso = evtMatch?.startTime || evtMatch?.start_time || null;
+        const evtStartMs = evtStartIso ? new Date(evtStartIso).getTime() : null;
+        const practiceTitle = hm.practice?.title
+          ?? (Array.isArray(hm.practices) && hm.practices[0]?.title)
+          ?? null;
+        const protocolCombo = Array.isArray(hm.practices) && hm.practices.length > 1
+          ? hm.practices.map((p: any) => p?.type).filter(Boolean).join(' → ')
+          : (hm.practice?.type ?? null);
         const input: WhyLLMInput = {
           role,
           eventName: hm.jitEventTitle,
@@ -4604,6 +4622,14 @@ async function applyV51Enrichment(
             ?? shared.briefBehaviour?.promptBlockBrief
             ?? null,
           eventTaxonomyBlock: shared.briefBehaviour?.taxonomyBlock ?? null,
+          // Shared band + slot identity for the new Why-line contract.
+          stateBand,
+          arcPosition,
+          slotAnchor,
+          practiceTitle,
+          protocolCombo,
+          timezoneOffsetMinutes: typeof req.timezoneOffset === 'number' ? req.timezoneOffset : 0,
+          eventStartMs: evtStartMs,
         };
         jitJobs.push({ idx, input });
       }
