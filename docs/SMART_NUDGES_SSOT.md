@@ -1,7 +1,7 @@
 # Smart Nudges — Single Source of Truth
 
-**Document version:** v1.0
-**Last updated:** 2026-06-04
+**Document version:** v1.1
+**Last updated:** 2026-06-06
 **Owner:** Notifications / Signal Engine
 **Edge function:** `supabase/functions/smart-nudges/index.ts` (3,505 lines)
 **Architecture tag (telemetry):** `cos-mind-v8-meaning-forward`
